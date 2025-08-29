@@ -48,7 +48,6 @@ import {
   ContentCopy as CopyIcon,
   Check as CheckIcon,
   Info as InfoIcon,
-  Email as EmailIcon,
   Share as ShareIcon,
   Print as PrintIcon,
   Download as DownloadIcon,
@@ -128,7 +127,7 @@ const theme = createTheme({
     MuiButton: {
       styleOverrides: {
         root: {
-          borderRadius: "16px", // Softer radius
+          borderRadius: "4px", // Less rounded
           textTransform: "none",
           fontWeight: 500, // Softer weight
           transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)", // Smoother transition
@@ -144,12 +143,15 @@ const theme = createTheme({
       styleOverrides: {
         root: {
           "& .MuiOutlinedInput-root": {
-            borderRadius: "16px", // Softer
+            borderRadius: "4px", // Less rounded
             background: "rgba(255, 255, 255, 0.95)",
             backdropFilter: "blur(12px)", // Softer blur
             boxShadow: "0 2px 8px rgba(0, 0, 0, 0.04)", // Softer shadow
             "& fieldset": { border: "none" },
             "&:hover": { boxShadow: "0 4px 12px rgba(0, 0, 0, 0.08)" },
+          },
+          "& .MuiInputBase-input": {
+            fontSize: "0.85rem", // Smaller text
           },
         },
       },
@@ -157,11 +159,14 @@ const theme = createTheme({
     MuiSelect: {
       styleOverrides: {
         root: {
-          borderRadius: "16px",
+          borderRadius: "4px", // Less rounded
           background: "rgba(255, 255, 255, 0.95)",
           backdropFilter: "blur(12px)",
           boxShadow: "0 2px 8px rgba(0, 0, 0, 0.04)",
           "& fieldset": { border: "none" },
+        },
+        select: {
+          fontSize: "0.85rem", // Smaller text
         },
       },
     },
@@ -169,11 +174,26 @@ const theme = createTheme({
       styleOverrides: {
         root: {
           "& .MuiOutlinedInput-root": {
-            borderRadius: "16px",
+            borderRadius: "4px", // Less rounded
             background: "rgba(255, 255, 255, 0.95)",
             backdropFilter: "blur(12px)",
             boxShadow: "0 2px 8px rgba(0, 0, 0, 0.04)",
             "& fieldset": { border: "none" },
+            "& .MuiInputBase-input": {
+              fontSize: "0.85rem", // Smaller text
+            },
+          },
+        },
+      },
+    },
+    MuiMenuItem: {
+      styleOverrides: {
+        root: {
+          fontSize: "0.85rem", // Smaller and softer text for dropdown items
+          color: "#64748B", // Softer color
+          padding: "8px 16px",
+          "&.Mui-selected": {
+            backgroundColor: "rgba(10, 132, 255, 0.08)",
           },
         },
       },
@@ -181,7 +201,7 @@ const theme = createTheme({
     MuiAccordion: {
       styleOverrides: {
         root: {
-          borderRadius: "16px",
+          borderRadius: "8px", // Less rounded
           boxShadow: "0 1px 6px rgba(0, 0, 0, 0.04)", // Softer
           border: "none",
           "&:before": { display: "none" },
@@ -191,8 +211,15 @@ const theme = createTheme({
     MuiPaper: {
       styleOverrides: {
         root: {
-          borderRadius: "24px", // Softer
+          borderRadius: "8px", // Less rounded
           boxShadow: "0 4px 20px rgba(0, 0, 0, 0.06)", // Softer shadow
+        },
+      },
+    },
+    MuiMenu: {
+      styleOverrides: {
+        paper: {
+          borderRadius: "4px", // Less rounded for dropdown menu
         },
       },
     },
@@ -219,7 +246,7 @@ const queryClient = new QueryClient({
 const AppleCard = styled(Paper)(({ theme }) => ({
   background: theme.palette.background.paper,
   backdropFilter: "blur(16px)", // Softer blur
-  borderRadius: "28px", // Softer radius
+  borderRadius: "8px", // Less rounded
   boxShadow: "0 8px 32px rgba(0, 0, 0, 0.06)", // Softer shadow
   padding: theme.spacing(4),
   transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)", // Smoother
@@ -236,7 +263,7 @@ const AppleButton = styled(Button)(({ theme }) => ({
   padding: theme.spacing(1.75, 5), // Slightly larger for better touch
   fontSize: "0.95rem", // Smaller
   boxShadow: "0 2px 8px rgba(10, 132, 255, 0.20)", // Softer
-  borderRadius: "16px",
+  borderRadius: "4px", // Less rounded
   "&:hover": {
     background: "linear-gradient(90deg, #0066CC, #CC2444)",
     transform: "translateY(-2px)",
@@ -255,7 +282,7 @@ const AppleClearButton = styled(Button)(({ theme }) => ({
   padding: theme.spacing(1.75, 5),
   fontSize: "0.95rem", // Smaller
   boxShadow: "0 2px 8px rgba(0, 0, 0, 0.08)", // Softer
-  borderRadius: "16px",
+  borderRadius: "4px", // Less rounded
   "&:hover": {
     background: "linear-gradient(90deg, #0A84FF, #FF2D55)",
     color: "#FFFFFF",
@@ -267,7 +294,7 @@ const AppleClearButton = styled(Button)(({ theme }) => ({
 const AppleTextField = styled(TextField)(({ theme }) => ({
   "& .MuiInputBase-input": {
     padding: theme.spacing(2),
-    fontSize: "0.9rem", // Smaller
+    fontSize: "0.85rem", // Smaller
     transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)", // Smoother
     "&:focus": { background: "rgba(255, 255, 255, 0.98)" },
   },
@@ -276,12 +303,12 @@ const AppleTextField = styled(TextField)(({ theme }) => ({
 const AppleSelect = styled(Select)(({ theme }) => ({
   "& .MuiSelect-select": {
     padding: theme.spacing(2),
-    fontSize: "0.9rem", // Smaller
+    fontSize: "0.85rem", // Smaller
     transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
     "&:focus": { background: "rgba(255, 255, 255, 0.98)" },
   },
   "& .MuiMenu-paper": {
-    borderRadius: "20px", // Softer
+    borderRadius: "4px", // Less rounded
     boxShadow: "0 8px 32px rgba(0, 0, 0, 0.12)",
   },
 }));
@@ -322,7 +349,7 @@ const DisclaimerTypography = styled(Typography)(({ theme }) => ({
   background: "linear-gradient(145deg, #ffffff, #f8fafc)", // Softer
   backdropFilter: "blur(12px)",
   padding: theme.spacing(2.5),
-  borderRadius: "20px", // Softer
+  borderRadius: "4px", // Less rounded
   marginBottom: theme.spacing(3),
   fontSize: "0.85rem", // Smaller
   color: theme.palette.text.secondary,
@@ -376,7 +403,7 @@ const callGeminiAPI = async (prompt, sessionId, retries = 3) => {
         .replace(/<\/li>$/, "</li></ol>");
 
       // Ultra professional wrapping
-      return `<div style="line-height: 1.8; text-align: justify; padding: 1.5rem; border-radius: 16px; background: #f8fafc; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">${text}</div>`;
+      return `<div style="line-height: 1.8; text-align: justify; padding: 1.5rem; border-radius: 4px; background: #f8fafc; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">${text}</div>`;
     } catch (error) {
       attempt++;
       console.error(`Attempt ${attempt} failed:`, error);
@@ -468,19 +495,18 @@ const experienceOptions = [
   "Expert (10+ Years)",
 ];
 
-const gradeOptions = ["C1", "C2", "C3A", "C3B", "C4", "C4+", "C5"];
+const gradeOptions = ["C2", "C3A", "C3B", "C4"];
 
 const preparationCategories = [
   "Cover Letter for Internal Opportunities",
   "Project Interview Confirmation Email",
-  "Behavioral Interview Questions & STAR Responses",
   "Follow-Up Email After Interview",
   "Interview Feedback Email (Self-Reflection or Manager)",
   "Career Progression & Mentorship Request Email",
-  "Technical Interview Questions & Sample Answers",
-  "Salary Negotiation Email",
   "Reference Request Email",
   "Rejection Follow-Up & Feedback Request",
+  "Behavioral Interview Questions & STAR Responses",
+  "Technical Interview Questions & Sample Answers",
 ];
 
 const interviewTypes = [
@@ -717,7 +743,7 @@ const useInterviewAssistant = () => {
       employeeName: "",
       yearsOfExperience: "Fresher (0–1 Year)",
       companyName: "Tata Consultancy Services",
-      jobLocation: "",
+      jobLocation: "Varanasi",
       jobPosition: "",
       skills: [],
       skillSubtopics: [],
@@ -835,8 +861,6 @@ const useInterviewAssistant = () => {
   - A numbered list of 35 questions (1-35), with each question on a new line, including a brief sample answer or key points to cover.
   - No stray bullet points, only numbered list items.
   Ensure the content is engaging, clear, visually appealing, and world-class, tailored for internal TCS project applications only. Avoid repetition in questions. Stick to known facts; do not invent details.${linkedinMention}`;
-          case "Salary Negotiation Email":
-            return `Write a professional salary negotiation email from <strong>${employeeName}</strong>, an existing TCS employee, for the internal <strong>${jobPosition}</strong> at <strong>${companyName}</strong>. ${employeeFocus} Politely discuss compensation, referencing TCS's fair pay structure and my contributions. Use assertive yet professional tone. Bold key terms like <strong>${employeeName}</strong>, <strong>${companyName}</strong>, <strong>${jobPosition}</strong>. Ensure well-structured with greeting, body, closing. Make engaging, concise, impactful.${linkedinMention}`;
           case "Reference Request Email":
             return `Write a professional reference request email from <strong>${employeeName}</strong>, an existing TCS employee, seeking references for internal <strong>${jobPosition}</strong>. ${employeeFocus} Politely ask colleagues or managers. Bold key terms. Ensure structured format.${linkedinMention}`;
           case "Rejection Follow-Up & Feedback Request":
@@ -890,7 +914,6 @@ const PreparationTools = React.memo(
     const [downloaded, setDownloaded] = useState(false);
     const [regenerationCount, setRegenerationCount] = useState(0);
     const [shareTooltip, setShareTooltip] = useState("");
-    const [emailTooltip, setEmailTooltip] = useState("");
     const contentRef = useRef(null);
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
@@ -926,30 +949,6 @@ const PreparationTools = React.memo(
           setCopied(true);
           setTimeout(() => setCopied(false), 2000);
         });
-    }, [response, selectedCategory]);
-
-    const handleEmail = useCallback(() => {
-      const subject = `TCS Internal Opportunity: ${selectedCategory} - Generated by AI Assistant`;
-      let body = "";
-      if (response && contentRef.current) {
-        body = convertHtmlToText(response).substring(0, 2000); // Truncate to avoid mailto URL length issues
-        if (convertHtmlToText(response).length > 2000) {
-          body +=
-            "\n\n[Full content truncated for email; download the attached file for complete version.]";
-        }
-      }
-      const mailtoLink = `mailto:?subject=${encodeURIComponent(
-        subject
-      )}&body=${encodeURIComponent(body)}`;
-      // Fixed: Use window.open to handle better in some browsers
-      window.open(mailtoLink, "_blank");
-      setEmailTooltip("Email client opened with pre-filled content!");
-      setTimeout(() => setEmailTooltip(""), 3000);
-      ReactGA.event({
-        category: "Content",
-        action: "Share via Email",
-        label: selectedCategory,
-      });
     }, [response, selectedCategory]);
 
     const handleDownload = useCallback(() => {
@@ -1158,7 +1157,7 @@ const PreparationTools = React.memo(
             severity="error"
             sx={{
               mt: 3,
-              borderRadius: "20px",
+              borderRadius: "4px",
               boxShadow: "0 2px 8px rgba(239,68,68,0.15)",
             }}
             action={
@@ -1213,20 +1212,6 @@ const PreparationTools = React.memo(
                   </IconButton>
                 </Tooltip>
                 <Tooltip
-                  title={
-                    emailTooltip || "Open Email Client with Pre-filled Content"
-                  }
-                  arrow
-                >
-                  <IconButton
-                    onClick={handleEmail}
-                    aria-label="Open in email client"
-                    sx={{ color: theme.palette.primary.main }}
-                  >
-                    <EmailIcon />
-                  </IconButton>
-                </Tooltip>
-                <Tooltip
                   title={shareTooltip || "Share on Social Media (Twitter/X)"}
                   arrow
                 >
@@ -1278,7 +1263,7 @@ const PreparationTools = React.memo(
               sx={{
                 p: 3.5,
                 border: `1px solid ${theme.palette.divider}`,
-                borderRadius: "24px",
+                borderRadius: "8px",
               }}
             >
               <ResponseTypography
@@ -1415,6 +1400,8 @@ const TCSinterviewAssistantAI = () => {
     setError,
   } = useInterviewAssistant();
   const navigate = useNavigate();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
 
   useEffect(() => {
     // Initialize Google Analytics with a dummy ID for demo (replace with real in production)
@@ -1483,22 +1470,41 @@ const TCSinterviewAssistantAI = () => {
             />
           </Helmet>
 
-          {/* Updated layout: Logo in front (left) of title, centered row */}
+          {/* Updated layout: Logo before title on laptop (md+), stacked and centered on mobile */}
           <Box
             sx={{
               display: "flex",
               alignItems: "center",
-              justifyContent: "center",
+              justifyContent: isMobile ? "center" : "flex-start",
+              flexDirection: isMobile ? "column" : "row",
               mb: 4,
               gap: 2,
-              flexWrap: "wrap",
+              textAlign: isMobile ? "center" : "left",
             }}
           >
-            <Box
-              component="img"
+            <motion.img
               src={logo}
               alt="TCS Logo"
-              sx={{ width: { xs: "60px", md: "100px" }, height: "auto" }}
+              sx={{
+                width: { xs: "15px", md: "25px" },
+                height: { xs: "15px", md: "25px" },
+                borderRadius: "50%",
+                objectFit: "cover",
+                order: isMobile ? 2 : 1,
+              }}
+              animate={{
+                y: [0, -5, 0],
+                rotate: [0, 2, -2, 0],
+              }}
+              transition={{
+                y: { duration: 2, repeat: Infinity, ease: "easeInOut" },
+                rotate: { duration: 3, repeat: Infinity, ease: "easeInOut" },
+              }}
+              whileHover={{
+                scale: 1.1,
+                rotate: 360,
+                transition: { duration: 0.6, ease: "easeInOut" },
+              }}
             />
             <Typography
               variant="h1"
@@ -1508,9 +1514,15 @@ const TCSinterviewAssistantAI = () => {
                 WebkitBackgroundClip: "text",
                 WebkitTextFillColor: "transparent",
                 textShadow: "0 1px 3px rgba(0,0,0,0.08)", // Softer
+                order: isMobile ? 1 : 2,
+                flexGrow: 1,
               }}
             >
-              Ultimate TCS AI Career Assistant
+              Ultimate TCS AI Career Assistant:
+              <br />
+              <span style={{ fontSize: "35%", fontStyle: "italic" }}>
+                (TCS AI Hackathon 2025)
+              </span>
             </Typography>
           </Box>
 
@@ -1520,7 +1532,7 @@ const TCSinterviewAssistantAI = () => {
               fontSize: { xs: "0.95rem", md: "1.2rem" }, // Smaller
               maxWidth: "900px",
               mx: "auto",
-              mt: 2,
+              mt: 3, // Added line space
               lineHeight: 1.6, // Softer
               color: theme.palette.text.secondary,
               textAlign: "center",
@@ -1554,7 +1566,7 @@ const TCSinterviewAssistantAI = () => {
             {error && (
               <Alert
                 severity="error"
-                sx={{ mb: 3.5, borderRadius: "20px" }} // Softer
+                sx={{ mb: 3.5, borderRadius: "4px" }} // Less rounded
                 onClose={() => setError(null)}
               >
                 {error}
@@ -1645,7 +1657,7 @@ const TCSinterviewAssistantAI = () => {
               </Grid>
               <Grid item xs={12} md={6}>
                 <FormControl fullWidth error={!!formErrors.grade}>
-                  <InputLabel id="grade-label">Current Band/Grade</InputLabel>
+                  <InputLabel id="grade-label">Current Grade</InputLabel>
                   <Tooltip
                     title="Your current TCS grade for progression context"
                     arrow
@@ -1654,16 +1666,16 @@ const TCSinterviewAssistantAI = () => {
                       labelId="grade-label"
                       value={formData.grade}
                       onChange={handleInputChange("grade")}
-                      label="Current Band/Grade"
+                      label="Current Grade"
                       helperText={formErrors.grade}
                       startAdornment={
-                        <Tooltip title="Band/Grade" arrow>
+                        <Tooltip title="Grade" arrow>
                           <Work
                             sx={{ mr: 1, color: theme.palette.primary.main }}
                           />
                         </Tooltip>
                       }
-                      aria-label="Current Band/Grade"
+                      aria-label="Current Grade"
                       aria-invalid={!!formErrors.grade}
                     >
                       {gradeOptions.map((grade) => (
@@ -2144,7 +2156,7 @@ const TCSinterviewAssistantAI = () => {
                 width: { xs: 320, sm: 400 },
                 background: "rgba(255, 255, 255, 0.98)",
                 backdropFilter: "blur(16px)", // Softer
-                borderRadius: "24px", // Softer
+                borderRadius: "8px", // Less rounded
                 boxShadow: "0 8px 32px rgba(0, 0, 0, 0.12)", // Softer
                 p: 4.5, // Softer padding
                 textAlign: "center",
