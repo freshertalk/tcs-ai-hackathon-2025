@@ -17,22 +17,20 @@ import {
   InputLabel,
   Grid,
   Paper,
-  CircularProgress,
-  Alert,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
-  styled,
-  Modal,
-  Tooltip,
-  IconButton,
   LinearProgress,
-  ThemeProvider,
+  Alert,
+  Modal,
+  IconButton,
+  styled,
   createTheme,
+  ThemeProvider,
   Autocomplete,
   Chip,
   useMediaQuery,
   useTheme,
+  List,
+  ListItem,
+  ListItemText,
 } from "@mui/material";
 import {
   Person,
@@ -43,35 +41,25 @@ import {
   ArrowForward,
   Refresh,
   Category,
-  ExpandMore as ExpandMoreIcon,
   Autorenew as RegenerateIcon,
   ContentCopy as CopyIcon,
   Check as CheckIcon,
-  Info as InfoIcon,
-  Share as ShareIcon,
-  Print as PrintIcon,
   Download as DownloadIcon,
+  Print as PrintIcon,
 } from "@mui/icons-material";
-import { motion } from "framer-motion"; // Added framer-motion for stunning animations
-import logo from "../assets/tcs-logo.png"; // Logo import path fixed as specified
+import { motion } from "framer-motion";
+import logo from "../assets/tcs-logo.png";
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import axios from "axios";
-import { Helmet } from "react-helmet";
-import ReactGA from "react-ga";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { RateLimiterMemory } from "rate-limiter-flexible";
 import DOMPurify from "dompurify";
-import { useNavigate } from "react-router-dom";
-import { delay } from "lodash";
 
-// Animation Variants (enhanced for ultimate framer-motion effects: softer, smoother, stunning)
+// Animation Variants
 const containerVariants = {
   hidden: { opacity: 0, y: 30, scale: 0.95 },
   visible: {
     opacity: 1,
     y: 0,
     scale: 1,
-    transition: { duration: 0.8, ease: [0.25, 0.46, 0.45, 0.94] }, // Softer cubic-bezier for smoothness
+    transition: { duration: 0.8, ease: [0.25, 0.46, 0.45, 0.94] },
   },
 };
 
@@ -81,7 +69,7 @@ const itemVariants = {
     opacity: 1,
     y: 0,
     x: 0,
-    transition: { duration: 0.6, ease: [0.25, 0.46, 0.45, 0.94], delay: 0.1 }, // Staggered, smoother entry
+    transition: { duration: 0.6, ease: [0.25, 0.46, 0.45, 0.94], delay: 0.1 },
   },
 };
 
@@ -93,48 +81,63 @@ const listItemVariants = {
     transition: {
       duration: 0.5,
       ease: [0.25, 0.46, 0.45, 0.94],
-      delay: i * 0.1, // Stunning staggered animation for list items
+      delay: i * 0.1,
     },
   }),
 };
 
-// Enhanced Theme Definition with softer, smoother aesthetics and smaller fonts
+const cardVariants = {
+  hidden: { opacity: 0, scale: 0.98 },
+  visible: {
+    opacity: 1,
+    scale: 1,
+    transition: { duration: 0.7, ease: "easeOut" },
+  },
+  hover: {
+    scale: 1.02,
+    boxShadow: "0 12px 40px rgba(0, 0, 0, 0.15)",
+    transition: { duration: 0.4, ease: "easeOut" },
+  },
+};
+
+// Enhanced Theme for World-Class Design
 const theme = createTheme({
   palette: {
-    primary: { main: "#0A84FF", dark: "#0066CC" },
-    secondary: { main: "#FF2D55" },
+    primary: { main: "#0A84FF", dark: "#0066CC", light: "#3DA2FF" },
+    secondary: { main: "#FF2D55", dark: "#CC2444" },
     background: {
-      default: "linear-gradient(135deg, #F8FAFC 0%, #F1F5F9 100%)", // Softer gradient
-      paper: "rgba(255, 255, 255, 0.95)",
+      default: "linear-gradient(135deg, #F0F4F8 0%, #E0E7EF 100%)",
+      paper: "rgba(255, 255, 255, 0.97)",
     },
-    text: { primary: "#1E293B", secondary: "#64748B" }, // Softer text colors
+    text: { primary: "#1A202C", secondary: "#4A5568" },
     error: { main: "#EF4444" },
     warning: { main: "#F59E0B" },
+    success: { main: "#10B981" },
   },
   typography: {
     fontFamily:
-      "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif", // Explicit Inter with fallbacks
-    h1: { fontWeight: 700, letterSpacing: "-0.02em", fontSize: "2.5rem" }, // Smaller
-    h2: { fontWeight: 600, fontSize: "1.8rem" }, // Added for new sections
-    h3: { fontWeight: 600, fontSize: "1.4rem" }, // Smaller
-    h4: { fontWeight: 600, fontSize: "1.2rem" }, // Smaller
-    h5: { fontWeight: 500, fontSize: "1.1rem" }, // Smaller
-    h6: { fontWeight: 500, fontSize: "1rem" }, // Added for subtitles
-    body1: { lineHeight: 1.7, letterSpacing: "0.005em", fontSize: "0.95rem" }, // Smaller and softer line height
-    body2: { fontSize: "0.85rem" }, // Smaller
+      "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+    h1: { fontWeight: 700, letterSpacing: "-0.025em", fontSize: "3rem" },
+    h2: { fontWeight: 600, fontSize: "2.25rem" },
+    h3: { fontWeight: 600, fontSize: "1.75rem" },
+    h4: { fontWeight: 600, fontSize: "1.25rem" },
+    h5: { fontWeight: 500, fontSize: "1.15rem" },
+    h6: { fontWeight: 500, fontSize: "1.05rem" },
+    body1: { lineHeight: 1.75, letterSpacing: "0.01em", fontSize: "1rem" },
+    body2: { fontSize: "0.9rem" },
   },
   components: {
     MuiButton: {
       styleOverrides: {
         root: {
-          borderRadius: "4px", // Less rounded
+          borderRadius: "6px",
           textTransform: "none",
-          fontWeight: 500, // Softer weight
-          transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)", // Smoother transition
-          boxShadow: "0 2px 8px rgba(0, 0, 0, 0.08)", // Softer shadow
+          fontWeight: 600,
+          transition: "all 0.3s ease",
+          boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
           "&:hover": {
-            boxShadow: "0 4px 16px rgba(0, 0, 0, 0.12)",
-            transform: "translateY(-2px)", // Subtle lift
+            boxShadow: "0 6px 20px rgba(0, 0, 0, 0.15)",
+            transform: "translateY(-3px)",
           },
         },
       },
@@ -143,15 +146,15 @@ const theme = createTheme({
       styleOverrides: {
         root: {
           "& .MuiOutlinedInput-root": {
-            borderRadius: "4px", // Less rounded
-            background: "rgba(255, 255, 255, 0.95)",
-            backdropFilter: "blur(12px)", // Softer blur
-            boxShadow: "0 2px 8px rgba(0, 0, 0, 0.04)", // Softer shadow
+            borderRadius: "6px",
+            background: "rgba(255, 255, 255, 0.98)",
+            backdropFilter: "blur(16px)",
+            boxShadow: "0 4px 12px rgba(0, 0, 0, 0.05)",
             "& fieldset": { border: "none" },
-            "&:hover": { boxShadow: "0 4px 12px rgba(0, 0, 0, 0.08)" },
+            "&:hover": { boxShadow: "0 6px 20px rgba(0, 0, 0, 0.1)" },
           },
           "& .MuiInputBase-input": {
-            fontSize: "0.85rem", // Smaller text
+            fontSize: "0.9rem",
           },
         },
       },
@@ -159,14 +162,14 @@ const theme = createTheme({
     MuiSelect: {
       styleOverrides: {
         root: {
-          borderRadius: "4px", // Less rounded
-          background: "rgba(255, 255, 255, 0.95)",
-          backdropFilter: "blur(12px)",
-          boxShadow: "0 2px 8px rgba(0, 0, 0, 0.04)",
+          borderRadius: "6px",
+          background: "rgba(255, 255, 255, 0.98)",
+          backdropFilter: "blur(16px)",
+          boxShadow: "0 4px 12px rgba(0, 0, 0, 0.05)",
           "& fieldset": { border: "none" },
         },
         select: {
-          fontSize: "0.85rem", // Smaller text
+          fontSize: "0.9rem",
         },
       },
     },
@@ -174,13 +177,13 @@ const theme = createTheme({
       styleOverrides: {
         root: {
           "& .MuiOutlinedInput-root": {
-            borderRadius: "4px", // Less rounded
-            background: "rgba(255, 255, 255, 0.95)",
-            backdropFilter: "blur(12px)",
-            boxShadow: "0 2px 8px rgba(0, 0, 0, 0.04)",
+            borderRadius: "6px",
+            background: "rgba(255, 255, 255, 0.98)",
+            backdropFilter: "blur(16px)",
+            boxShadow: "0 4px 12px rgba(0, 0, 0, 0.05)",
             "& fieldset": { border: "none" },
             "& .MuiInputBase-input": {
-              fontSize: "0.85rem", // Smaller text
+              fontSize: "0.9rem",
             },
           },
         },
@@ -189,194 +192,169 @@ const theme = createTheme({
     MuiMenuItem: {
       styleOverrides: {
         root: {
-          fontSize: "0.85rem", // Smaller and softer text for dropdown items
-          color: "#64748B", // Softer color
-          padding: "8px 16px",
+          fontSize: "0.9rem",
+          color: "#4A5568",
+          padding: "10px 20px",
           "&.Mui-selected": {
-            backgroundColor: "rgba(10, 132, 255, 0.08)",
+            backgroundColor: "rgba(10, 132, 255, 0.1)",
           },
-        },
-      },
-    },
-    MuiAccordion: {
-      styleOverrides: {
-        root: {
-          borderRadius: "8px", // Less rounded
-          boxShadow: "0 1px 6px rgba(0, 0, 0, 0.04)", // Softer
-          border: "none",
-          "&:before": { display: "none" },
         },
       },
     },
     MuiPaper: {
       styleOverrides: {
         root: {
-          borderRadius: "8px", // Less rounded
-          boxShadow: "0 4px 20px rgba(0, 0, 0, 0.06)", // Softer shadow
+          borderRadius: "12px",
+          boxShadow: "0 6px 24px rgba(0, 0, 0, 0.08)",
         },
       },
     },
     MuiMenu: {
       styleOverrides: {
         paper: {
-          borderRadius: "4px", // Less rounded for dropdown menu
+          borderRadius: "6px",
+          boxShadow: "0 6px 24px rgba(0, 0, 0, 0.12)",
+        },
+      },
+    },
+    MuiList: {
+      styleOverrides: {
+        root: {
+          padding: "0px 0px",
         },
       },
     },
   },
 });
 
-// Google API Key (hardcoded for demo; use .env in production)
-const API_KEY = "AIzaSyDpRy7IFEjMlB7lP0uoTLtZyFuopfmDg0Q";
-
-// Google Generative AI Initialization
-const genAI = new GoogleGenerativeAI(API_KEY);
-
-// Rate Limiter Initialization
-const rateLimiter = new RateLimiterMemory({ points: 15, duration: 60 });
-
-// Query Client for Caching
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: { cacheTime: 5 * 60 * 1000, staleTime: 5 * 60 * 1000 },
-  },
-});
-
-// Styled Components updated with softer, smoother theme
+// Styled Components with Enhanced Design
 const AppleCard = styled(Paper)(({ theme }) => ({
-  background: theme.palette.background.paper,
-  backdropFilter: "blur(16px)", // Softer blur
-  borderRadius: "8px", // Less rounded
-  boxShadow: "0 8px 32px rgba(0, 0, 0, 0.06)", // Softer shadow
-  padding: theme.spacing(4),
-  transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)", // Smoother
+  background:
+    "linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.98))",
+  backdropFilter: "blur(20px)",
+  borderRadius: "12px",
+  boxShadow: "0 8px 32px rgba(0, 0, 0, 0.08)",
+  padding: theme.spacing(5),
+  transition: "all 0.4s ease",
   "&:hover": {
-    transform: "translateY(-4px)", // Softer lift
-    boxShadow: "0 12px 40px rgba(0, 0, 0, 0.10)",
+    boxShadow: "0 12px 48px rgba(0, 0, 0, 0.12)",
   },
-  [theme.breakpoints.down("sm")]: { padding: theme.spacing(3) },
+  [theme.breakpoints.down("sm")]: { padding: theme.spacing(3.5) },
 }));
 
 const AppleButton = styled(Button)(({ theme }) => ({
-  background: "linear-gradient(90deg, #0A84FF, #FF2D55)",
+  background: "linear-gradient(90deg, #0A84FF, #3DA2FF)",
   color: "#FFFFFF",
-  padding: theme.spacing(1.75, 5), // Slightly larger for better touch
-  fontSize: "0.95rem", // Smaller
-  boxShadow: "0 2px 8px rgba(10, 132, 255, 0.20)", // Softer
-  borderRadius: "4px", // Less rounded
+  padding: theme.spacing(2, 6),
+  fontSize: "1rem",
+  boxShadow: "0 4px 12px rgba(10, 132, 255, 0.25)",
+  borderRadius: "6px",
   "&:hover": {
-    background: "linear-gradient(90deg, #0066CC, #CC2444)",
-    transform: "translateY(-2px)",
-    boxShadow: "0 6px 20px rgba(0, 0, 0, 0.20)",
+    background: "linear-gradient(90deg, #0066CC, #0A84FF)",
+    transform: "translateY(-3px)",
+    boxShadow: "0 8px 24px rgba(0, 0, 0, 0.25)",
   },
   "&:disabled": {
-    background: "#F1F5F9",
-    color: "#94A3B8",
+    background: "#EDF2F7",
+    color: "#A0AEC0",
     boxShadow: "none",
   },
 }));
 
 const AppleClearButton = styled(Button)(({ theme }) => ({
-  background: "linear-gradient(145deg, #ffffff, #f8fafc)", // Softer gradient
+  background: "linear-gradient(145deg, #ffffff, #f8fafc)",
   color: theme.palette.text.secondary,
-  padding: theme.spacing(1.75, 5),
-  fontSize: "0.95rem", // Smaller
-  boxShadow: "0 2px 8px rgba(0, 0, 0, 0.08)", // Softer
-  borderRadius: "4px", // Less rounded
+  padding: theme.spacing(2, 6),
+  fontSize: "1rem",
+  boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
+  borderRadius: "6px",
   "&:hover": {
-    background: "linear-gradient(90deg, #0A84FF, #FF2D55)",
+    background: "linear-gradient(90deg, #0A84FF, #3DA2FF)",
     color: "#FFFFFF",
-    transform: "translateY(-2px)",
-    boxShadow: "0 6px 20px rgba(0, 0, 0, 0.20)",
+    transform: "translateY(-3px)",
+    boxShadow: "0 8px 24px rgba(0, 0, 0, 0.25)",
   },
 }));
 
 const AppleTextField = styled(TextField)(({ theme }) => ({
   "& .MuiInputBase-input": {
-    padding: theme.spacing(2),
-    fontSize: "0.85rem", // Smaller
-    transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)", // Smoother
-    "&:focus": { background: "rgba(255, 255, 255, 0.98)" },
+    padding: theme.spacing(2.5),
+    fontSize: "0.9rem",
+    transition: "all 0.3s ease",
+    "&:focus": { background: "rgba(255, 255, 255, 0.99)" },
   },
 }));
 
 const AppleSelect = styled(Select)(({ theme }) => ({
   "& .MuiSelect-select": {
-    padding: theme.spacing(2),
-    fontSize: "0.85rem", // Smaller
-    transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-    "&:focus": { background: "rgba(255, 255, 255, 0.98)" },
-  },
-  "& .MuiMenu-paper": {
-    borderRadius: "4px", // Less rounded
-    boxShadow: "0 8px 32px rgba(0, 0, 0, 0.12)",
+    padding: theme.spacing(2.5),
+    fontSize: "0.9rem",
+    transition: "all 0.3s ease",
+    "&:focus": { background: "rgba(255, 255, 255, 0.99)" },
   },
 }));
 
 const ResponseTypography = styled(Typography)(({ theme }) => ({
-  textAlign: "justify",
-  lineHeight: 1.8, // Softer spacing
-  fontSize: "0.95rem", // Smaller
+  textAlign: "left",
+  lineHeight: 1.85,
+  fontSize: "1rem",
   color: theme.palette.text.primary,
-  "& strong": { fontWeight: 600 }, // Softer bold
+  "& strong": { fontWeight: 600 },
   "& em": { fontStyle: "italic" },
-  "& p": { margin: "1rem 0" }, // Adjusted for professional spacing
+  "& p": { margin: "1.25rem 0" },
   "& ol": {
-    margin: "1rem 0",
-    paddingLeft: "1.5rem",
+    margin: "1.25rem 0",
+    paddingLeft: "2rem",
   },
-  "& li": { marginBottom: "0.5rem" },
+  "& li": { marginBottom: "0.75rem" },
   "& strong em": {
-    backgroundColor: "#FEF3C7", // Softer highlight
+    backgroundColor: "#FEF3C7",
     color: "#92400E",
-    padding: "0.2rem 0.4rem",
-    borderRadius: "6px",
+    padding: "0.3rem 0.6rem",
+    borderRadius: "8px",
     fontStyle: "italic",
   },
-  // Ultra professional formatting for lists and paragraphs
   "& ul, & ol": {
-    marginBottom: "1rem",
+    marginBottom: "1.25rem",
   },
   "& h2, & h3": {
     fontWeight: 600,
-    marginTop: "1.5rem",
-    marginBottom: "0.75rem",
+    marginTop: "2rem",
+    marginBottom: "1rem",
     color: theme.palette.primary.main,
   },
 }));
 
 const DisclaimerTypography = styled(Typography)(({ theme }) => ({
-  background: "linear-gradient(145deg, #ffffff, #f8fafc)", // Softer
-  backdropFilter: "blur(12px)",
-  padding: theme.spacing(2.5),
-  borderRadius: "4px", // Less rounded
-  marginBottom: theme.spacing(3),
-  fontSize: "0.85rem", // Smaller
+  background: "linear-gradient(145deg, #ffffff, #f8fafc)",
+  backdropFilter: "blur(16px)",
+  padding: theme.spacing(3),
+  borderRadius: "6px",
+  marginBottom: theme.spacing(4),
+  fontSize: "0.9rem",
   color: theme.palette.text.secondary,
-  boxShadow: "0 2px 8px rgba(0, 0, 0, 0.04)", // Softer
+  boxShadow: "0 4px 12px rgba(0, 0, 0, 0.05)",
   "& strong": { fontWeight: 600, color: theme.palette.error.main },
 }));
 
 const TipsCard = styled(AppleCard)(({ theme }) => ({
-  mt: 4,
+  mt: 5,
   background: "linear-gradient(135deg, #E0F2FE 0%, #F0F9FF 100%)",
-  border: `1px solid ${theme.palette.primary.main}`,
+  border: `1px solid ${theme.palette.primary.light}`,
 }));
 
-// Utility Functions (enhanced for better content handling)
+// Utility Functions
 const callGeminiAPI = async (prompt, sessionId, retries = 3) => {
-  // Check if API key is set
+  const API_KEY = "AIzaSyDpRy7IFEjMlB7lP0uoTLtZyFuopfmDg0Q";
   if (!API_KEY) {
-    throw new Error(
-      "API key is not set. Please ensure the API_KEY constant is defined with a valid key from Google AI Studio."
-    );
+    throw new Error("API key is not set.");
   }
 
   let attempt = 0;
   while (attempt < retries) {
     try {
-      await rateLimiter.consume(sessionId);
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" }); // Switched to stable model
+      const genAI = new GoogleGenerativeAI(API_KEY);
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
       const result = await model.generateContent(prompt);
       const response = await result.response;
       let text = response.text();
@@ -402,30 +380,13 @@ const callGeminiAPI = async (prompt, sessionId, retries = 3) => {
         )
         .replace(/<\/li>$/, "</li></ol>");
 
-      // Ultra professional wrapping
       return `<div style="line-height: 1.8; text-align: justify; padding: 1.5rem; border-radius: 4px; background: #f8fafc; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">${text}</div>`;
     } catch (error) {
       attempt++;
-      console.error(`Attempt ${attempt} failed:`, error);
-      if (
-        error.message.includes("rate limit") ||
-        (error.status && error.status === 429)
-      ) {
-        throw new Error("Rate limit exceeded. Please try again in a minute.");
-      } else if (
-        error.message.includes("API key") ||
-        (error.status && (error.status === 401 || error.status === 403))
-      ) {
-        throw new Error(
-          "Invalid API key. Please check your credentials and ensure the Generative Language API is enabled in Google Cloud Console."
-        );
-      }
       if (attempt < retries) {
-        await delay(1000 * attempt);
+        await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
       } else {
-        throw new Error(
-          "Failed to generate response after retries. Please try again later."
-        );
+        throw new Error("Failed to generate response after retries.");
       }
     }
   }
@@ -468,7 +429,7 @@ const convertHtmlToText = (html) => {
     .trim();
 };
 
-// Enhanced lists for dropdowns with more TCS-specific options
+// Dropdown lists
 const tcsCities = [
   "Varanasi",
   "Hyderabad",
@@ -495,7 +456,7 @@ const experienceOptions = [
   "Expert (10+ Years)",
 ];
 
-const gradeOptions = ["C2", "C3A", "C3B", "C4"];
+const gradeOptions = ["C1", "C2", "C3A", "C3B", "C4"];
 
 const preparationCategories = [
   "Cover Letter for Internal Opportunities",
@@ -565,7 +526,6 @@ const feedbackTypes = [
   "Performance Improvement Plan Discussion",
 ];
 
-// Enhanced Skill categories for dynamic suggestions with more TCS-relevant skills
 const skillCategories = {
   Java: [
     "Core",
@@ -599,11 +559,11 @@ const skillCategories = {
   "SAP ABAP": ["Reports", "Modules", "Workflows", "Enhancements"],
 };
 
-// Custom Hook: useInterviewAssistant (enhanced with better validation and state management)
+// Custom Hook
 const useInterviewAssistant = () => {
   const sessionId = useMemo(() => Math.random().toString(36).substring(2), []);
   const initialFormData = useMemo(() => {
-    const savedData = localStorage.getItem("tcsInterviewAssistantFormData"); // Renamed key for specificity
+    const savedData = localStorage.getItem("tcsInterviewAssistantFormData");
     let parsedData = savedData ? JSON.parse(savedData) : {};
     return {
       employeeName: parsedData.employeeName || "Vinay Tiwari",
@@ -634,7 +594,6 @@ const useInterviewAssistant = () => {
   const [showCategories, setShowCategories] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState("");
   const [response, setResponse] = useState("");
-  const [wikiData, setWikiData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [clearModalOpen, setClearModalOpen] = useState(false);
@@ -642,11 +601,6 @@ const useInterviewAssistant = () => {
   const [selectedSkills, setSelectedSkills] = useState(
     initialFormData.skills || []
   );
-
-  // Update derived fields if needed
-  useEffect(() => {
-    setFormData((prev) => ({ ...prev }));
-  }, []);
 
   const validateField = useCallback((name, value) => {
     const stringValue = Array.isArray(value)
@@ -667,7 +621,6 @@ const useInterviewAssistant = () => {
     (field) => (event) => {
       const value = event.target.value;
       setFormData((prev) => ({ ...prev, [field]: value }));
-      // Real-time validation on change
       setFormErrors((prev) => ({
         ...prev,
         [field]: validateField(field, value),
@@ -712,7 +665,6 @@ const useInterviewAssistant = () => {
     const errors = {};
     Object.entries(formData).forEach(([key, value]) => {
       if (key !== "companyName" && key !== "linkedinUrl") {
-        // Skip fixed and optional
         const error = validateField(key, value);
         if (error) errors[key] = error;
       }
@@ -723,10 +675,6 @@ const useInterviewAssistant = () => {
     if (Object.keys(errors).length === 0) {
       setError(null);
       setShowCategories(true);
-      ReactGA.event({
-        category: "Form",
-        action: "Proceed to AI Tools",
-      });
     } else {
       setError(
         "Please complete all required fields to unlock personalized AI assistance (marked below)."
@@ -762,29 +710,21 @@ const useInterviewAssistant = () => {
     setShowCategories(false);
     setSelectedCategory("");
     setResponse("");
-    setWikiData(null);
     setError(null);
     setClearModalOpen(false);
     localStorage.removeItem("tcsInterviewAssistantFormData");
-    ReactGA.event({ category: "Form", action: "Clear Form" });
   }, []);
 
   const handleGenerate = useCallback(async () => {
     setLoading(true);
     setError(null);
     setResponse("");
-    setWikiData(null);
     try {
       const prompt = generatePrompt(selectedCategory, formData);
       if (prompt) {
         const aiResponse = await callGeminiAPI(prompt, sessionId);
         setResponse(aiResponse);
       }
-      ReactGA.event({
-        category: "Content",
-        action: "Generate Content",
-        label: selectedCategory,
-      });
     } catch (err) {
       setError(
         err.message ||
@@ -891,14 +831,13 @@ const useInterviewAssistant = () => {
     selectedCategory,
     setSelectedCategory,
     response,
-    wikiData,
     loading,
     error,
     setError,
   };
 };
 
-// Enhanced Component: PreparationTools with fixed email, added download, and better UX
+// PreparationTools Component (enhanced with animations)
 const PreparationTools = React.memo(
   ({
     showCategories,
@@ -913,7 +852,6 @@ const PreparationTools = React.memo(
     const [copied, setCopied] = useState(false);
     const [downloaded, setDownloaded] = useState(false);
     const [regenerationCount, setRegenerationCount] = useState(0);
-    const [shareTooltip, setShareTooltip] = useState("");
     const contentRef = useRef(null);
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
@@ -932,14 +870,8 @@ const PreparationTools = React.memo(
         .then(() => {
           setCopied(true);
           setTimeout(() => setCopied(false), 2000);
-          ReactGA.event({
-            category: "Content",
-            action: "Copy Content",
-            label: selectedCategory,
-          });
         })
         .catch(() => {
-          // Fallback for older browsers
           const textArea = document.createElement("textarea");
           textArea.value = content;
           document.body.appendChild(textArea);
@@ -949,7 +881,7 @@ const PreparationTools = React.memo(
           setCopied(true);
           setTimeout(() => setCopied(false), 2000);
         });
-    }, [response, selectedCategory]);
+    }, [response]);
 
     const handleDownload = useCallback(() => {
       let content = "";
@@ -969,49 +901,6 @@ const PreparationTools = React.memo(
       URL.revokeObjectURL(url);
       setDownloaded(true);
       setTimeout(() => setDownloaded(false), 2000);
-      ReactGA.event({
-        category: "Content",
-        action: "Download Content",
-        label: selectedCategory,
-      });
-    }, [response, selectedCategory]);
-
-    const handleShare = useCallback(async () => {
-      if (navigator.share) {
-        const shareData = {
-          title: `TCS AI Interview Assistant - ${selectedCategory}`,
-          text: `${selectedCategory} generated for TCS internal opportunities. ${convertHtmlToText(
-            response
-          ).substring(0, 100)}...`,
-          url: window.location.href,
-        };
-        try {
-          await navigator.share(shareData);
-          ReactGA.event({
-            category: "Content",
-            action: "Share Native",
-            label: selectedCategory,
-          });
-        } catch (err) {
-          console.log("Share failed", err);
-        }
-      } else {
-        // Fallback: Open social media links
-        setShareTooltip("Opened Twitter share dialog");
-        const shareUrl = window.location.href;
-        const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(
-          `TCS AI Assistant generated ${selectedCategory}: ${convertHtmlToText(
-            response
-          ).substring(0, 100)}... Check it out!`
-        )}&url=${encodeURIComponent(shareUrl)}`;
-        window.open(twitterUrl, "_blank");
-        setTimeout(() => setShareTooltip(""), 2000);
-        ReactGA.event({
-          category: "Content",
-          action: "Share Social Fallback",
-          label: selectedCategory,
-        });
-      }
     }, [response, selectedCategory]);
 
     const handlePrint = useCallback(() => {
@@ -1045,20 +934,10 @@ const PreparationTools = React.memo(
       `);
       printWindow.document.close();
       printWindow.print();
-      ReactGA.event({
-        category: "Content",
-        action: "Print Content",
-        label: selectedCategory,
-      });
     }, [response, selectedCategory]);
-
-    const handleRetry = () => {
-      handleGenerate();
-    };
 
     const handleRegenerate = () => {
       if (regenerationCount < 2) {
-        // Increased limit for better UX
         handleGenerate();
         setRegenerationCount((prev) => prev + 1);
       }
@@ -1067,41 +946,42 @@ const PreparationTools = React.memo(
     if (!showCategories) return null;
 
     return (
-      <AppleCard>
-        <Typography
-          variant="h3"
-          sx={{ fontSize: "1.4rem", mb: 3, color: theme.palette.primary.main }}
-          role="heading"
-          aria-level="2"
-        >
-          AI-Powered Content Generation Tools
-        </Typography>
-        <Typography
-          variant="body2"
-          sx={{ mb: 2, color: theme.palette.text.secondary }}
-        >
-          Select a category below to generate tailored, TCS-specific content for
-          your internal career advancement.
-        </Typography>
-        <FormControl fullWidth>
-          <InputLabel id="prep-category-label">
-            Content Generation Category
-          </InputLabel>
-          <Tooltip
-            title="Choose a category to generate personalized, professional content aligned with TCS standards"
-            arrow
+      <motion.div
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+      >
+        <AppleCard as={motion.div} variants={cardVariants} whileHover="hover">
+          <Typography
+            variant="h3"
+            sx={{
+              fontSize: "1.75rem",
+              mb: 4,
+              color: theme.palette.primary.main,
+            }}
+            role="heading"
+            aria-level="2"
           >
+            AI-Powered Content Generation Tools
+          </Typography>
+          <Typography
+            variant="body2"
+            sx={{ mb: 3, color: theme.palette.text.secondary }}
+          >
+            Select a category below to generate tailored, TCS-specific content
+            for your internal career advancement.
+          </Typography>
+          <FormControl fullWidth>
+            <InputLabel id="prep-category-label">
+              Content Generation Category
+            </InputLabel>
             <AppleSelect
               labelId="prep-category-label"
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
               label="Content Generation Category"
               startAdornment={
-                <Tooltip title="Category Selection" arrow>
-                  <Category
-                    sx={{ mr: 1, color: theme.palette.secondary.main }}
-                  />
-                </Tooltip>
+                <Category sx={{ mr: 1, color: theme.palette.secondary.main }} />
               }
               aria-label="Select content generation category"
             >
@@ -1111,21 +991,12 @@ const PreparationTools = React.memo(
                 </MenuItem>
               ))}
             </AppleSelect>
-          </Tooltip>
-        </FormControl>
-        <Box sx={{ mt: 4, textAlign: "center" }}>
-          <Tooltip
-            title="Generate customized content based on your profile"
-            arrow
-          >
+          </FormControl>
+          <Box sx={{ mt: 5, textAlign: "center" }}>
             <AppleButton
               onClick={handleGenerate}
               disabled={!selectedCategory || loading}
-              endIcon={
-                <Tooltip title="Generate" arrow>
-                  <ArrowForward />
-                </Tooltip>
-              }
+              endIcon={<ArrowForward />}
               aria-label="Generate personalized content"
               size="large"
             >
@@ -1133,76 +1004,66 @@ const PreparationTools = React.memo(
                 ? "Generating TCS-Tailored Content..."
                 : "Generate Content"}
             </AppleButton>
-          </Tooltip>
-          {loading && (
-            <Box sx={{ mt: 3 }}>
-              <LinearProgress
-                color="secondary"
-                sx={{ height: 4, borderRadius: 2 }}
-              />
-              <Typography
-                sx={{
-                  fontSize: "0.9rem",
-                  mt: 1,
-                  color: theme.palette.text.secondary,
-                }}
-              >
-                Personalizing content with your TCS profile details...
-              </Typography>
-            </Box>
-          )}
-        </Box>
-        {error && (
-          <Alert
-            severity="error"
-            sx={{
-              mt: 3,
-              borderRadius: "4px",
-              boxShadow: "0 2px 8px rgba(239,68,68,0.15)",
-            }}
-            action={
-              <AppleButton size="small" onClick={handleRetry} color="error">
-                Retry Generation
-              </AppleButton>
-            }
-          >
-            {error}
-          </Alert>
-        )}
-        {response && !loading && (
-          <Box sx={{ mt: 5 }}>
-            <DisclaimerTypography>
-              This AI-generated content is for{" "}
-              <strong>internal TCS use and educational purposes</strong> only.
-              Always <strong>review, customize, and align</strong> it with your
-              personal experiences and TCS guidelines before use. Sections in
-              [brackets] are placeholders—replace with your specific details.
-              For confidentiality, do not share sensitive TCS information.
-            </DisclaimerTypography>
-            <Box
+            {loading && (
+              <Box sx={{ mt: 4 }}>
+                <LinearProgress
+                  color="secondary"
+                  sx={{ height: 5, borderRadius: 3 }}
+                />
+                <Typography
+                  sx={{
+                    fontSize: "1rem",
+                    mt: 2,
+                    color: theme.palette.text.secondary,
+                  }}
+                >
+                  Personalizing content with your TCS profile details...
+                </Typography>
+              </Box>
+            )}
+          </Box>
+          {error && (
+            <Alert
+              severity="error"
               sx={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                mb: 2.5,
-                flexWrap: isMobile ? "wrap" : "nowrap",
+                mt: 4,
+                borderRadius: "6px",
+                boxShadow: "0 4px 12px rgba(239,68,68,0.2)",
               }}
             >
-              <Typography
-                variant="h4"
-                sx={{ fontSize: "1.2rem", color: theme.palette.primary.dark }}
+              {error}
+            </Alert>
+          )}
+          {response && !loading && (
+            <Box sx={{ mt: 6 }}>
+              <DisclaimerTypography>
+                This AI-generated content is for{" "}
+                <strong>internal TCS use and educational purposes</strong> only.
+                Always <strong>review, customize, and align</strong> it with
+                your personal experiences and TCS guidelines before use.
+                Sections in [brackets] are placeholders—replace with your
+                specific details. For confidentiality, do not share sensitive
+                TCS information.
+              </DisclaimerTypography>
+              <Box
+                sx={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  mb: 3,
+                  flexWrap: isMobile ? "wrap" : "nowrap",
+                }}
               >
-                {selectedCategory}
-              </Typography>
-              <Box sx={{ display: "flex", gap: 1.5 }}>
-                <Tooltip
-                  title={
-                    copied
-                      ? "Copied to Clipboard!"
-                      : "Copy Content to Clipboard"
-                  }
-                  arrow
+                <Typography
+                  variant="h4"
+                  sx={{
+                    fontSize: "1.25rem",
+                    color: theme.palette.primary.dark,
+                  }}
                 >
+                  {selectedCategory}
+                </Typography>
+                <Box sx={{ display: "flex", gap: 2 }}>
                   <IconButton
                     onClick={handleCopy}
                     aria-label="Copy generated content"
@@ -1210,24 +1071,6 @@ const PreparationTools = React.memo(
                   >
                     {copied ? <CheckIcon /> : <CopyIcon />}
                   </IconButton>
-                </Tooltip>
-                <Tooltip
-                  title={shareTooltip || "Share on Social Media (Twitter/X)"}
-                  arrow
-                >
-                  <IconButton
-                    onClick={handleShare}
-                    onMouseEnter={() => setShareTooltip("")}
-                    aria-label="Share on social media"
-                    sx={{ color: theme.palette.warning.main }}
-                  >
-                    <ShareIcon />
-                  </IconButton>
-                </Tooltip>
-                <Tooltip
-                  title={downloaded ? "Downloaded!" : "Download as TXT File"}
-                  arrow
-                >
                   <IconButton
                     onClick={handleDownload}
                     aria-label="Download generated content"
@@ -1235,8 +1078,6 @@ const PreparationTools = React.memo(
                   >
                     {downloaded ? <CheckIcon /> : <DownloadIcon />}
                   </IconButton>
-                </Tooltip>
-                <Tooltip title="Print Content for Review" arrow>
                   <IconButton
                     onClick={handlePrint}
                     aria-label="Print generated content"
@@ -1244,70 +1085,44 @@ const PreparationTools = React.memo(
                   >
                     <PrintIcon />
                   </IconButton>
-                </Tooltip>
-                <Tooltip
-                  title="Placeholders like [brackets] need your personal TCS-specific details (highlighted for easy editing)"
-                  arrow
+                </Box>
+              </Box>
+              <AppleCard
+                elevation={0}
+                sx={{
+                  p: 4,
+                  border: `1px solid ${theme.palette.divider}`,
+                  borderRadius: "12px",
+                }}
+              >
+                <ResponseTypography
+                  variant="body1"
+                  ref={contentRef}
+                  dangerouslySetInnerHTML={{
+                    __html: DOMPurify.sanitize(response),
+                  }}
+                />
+              </AppleCard>
+              <Box sx={{ mt: 5, textAlign: "center" }}>
+                <AppleButton
+                  onClick={handleRegenerate}
+                  disabled={loading || regenerationCount >= 2}
+                  endIcon={<RegenerateIcon />}
+                  aria-label="Generate alternative response"
+                  color="secondary"
                 >
-                  <IconButton
-                    aria-label="Editing guidelines"
-                    sx={{ color: theme.palette.warning.main }}
-                  >
-                    <InfoIcon />
-                  </IconButton>
-                </Tooltip>
+                  Generate Alternative Version ({regenerationCount}/2)
+                </AppleButton>
               </Box>
             </Box>
-            <AppleCard
-              elevation={0}
-              sx={{
-                p: 3.5,
-                border: `1px solid ${theme.palette.divider}`,
-                borderRadius: "8px",
-              }}
-            >
-              <ResponseTypography
-                variant="body1"
-                ref={contentRef}
-                dangerouslySetInnerHTML={{
-                  __html: DOMPurify.sanitize(response),
-                }}
-              />
-            </AppleCard>
-            <Box sx={{ mt: 4, textAlign: "center" }}>
-              <Tooltip
-                title={
-                  regenerationCount >= 2
-                    ? "Daily regeneration limit reached—try again tomorrow for fresh insights"
-                    : "Generate a varied response for more options"
-                }
-                arrow
-              >
-                <span>
-                  <AppleButton
-                    onClick={handleRegenerate}
-                    disabled={loading || regenerationCount >= 2}
-                    endIcon={
-                      <Tooltip title="Regenerate" arrow>
-                        <RegenerateIcon />
-                      </Tooltip>
-                    }
-                    aria-label="Generate alternative response"
-                    color="secondary"
-                  >
-                    Generate Alternative Version ({regenerationCount}/2)
-                  </AppleButton>
-                </span>
-              </Tooltip>
-            </Box>
-          </Box>
-        )}
-      </AppleCard>
+          )}
+        </AppleCard>
+      </motion.div>
     );
   }
 );
 
-// Enhanced Tips Section Component with left alignment, smaller fonts, and framer-motion animations
+// TCSTipsSection Component (enhanced)
 const TCSTipsSection = () => {
   const theme = useTheme();
   const tips = [
@@ -1325,11 +1140,15 @@ const TCSTipsSection = () => {
       viewport={{ once: true, amount: 0.3 }}
       variants={containerVariants}
     >
-      <TipsCard sx={{ textAlign: "left" }}>
+      <TipsCard as={motion.div} variants={cardVariants} whileHover="hover">
         <motion.div variants={itemVariants}>
           <Typography
             variant="h5"
-            sx={{ mb: 2, color: theme.palette.primary.main, fontSize: "1rem" }} // Smaller font for title
+            sx={{
+              mb: 3,
+              color: theme.palette.primary.main,
+              fontSize: "1.15rem",
+            }}
           >
             Quick TCS Interview Tips
           </Typography>
@@ -1346,7 +1165,7 @@ const TCSTipsSection = () => {
               key={index}
               variants={listItemVariants}
               custom={index}
-              style={{ marginBottom: "0.5rem", fontSize: "0.8rem" }} // Smaller text fonts for tips
+              style={{ marginBottom: "0.75rem", fontSize: "0.9rem" }}
               initial="hidden"
               whileInView="visible"
               viewport={{ once: true }}
@@ -1359,11 +1178,11 @@ const TCSTipsSection = () => {
           <Typography
             variant="body2"
             sx={{
-              mt: 2,
+              mt: 3,
               fontStyle: "italic",
               color: theme.palette.text.secondary,
-              fontSize: "0.8rem",
-            }} // Smaller font
+              fontSize: "0.9rem",
+            }}
           >
             These tips are based on common TCS internal practices—adapt them to
             your experience.
@@ -1374,7 +1193,7 @@ const TCSTipsSection = () => {
   );
 };
 
-// Main Component: TCSinterviewAssistantAI enhanced as ultimate tool
+// Main Component with Portfolio-Style Layout
 const TCSinterviewAssistantAI = () => {
   const {
     formData,
@@ -1399,21 +1218,13 @@ const TCSinterviewAssistantAI = () => {
     error,
     setError,
   } = useInterviewAssistant();
-  const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
-
-  useEffect(() => {
-    // Initialize Google Analytics with a dummy ID for demo (replace with real in production)
-    ReactGA.initialize("UA-123456-1");
-    ReactGA.pageview(window.location.pathname + window.location.search);
-  }, []);
 
   const handleKeyPress = (event) => {
     if (event.key === "Enter" && !showCategories) handleNext();
   };
 
-  // Dynamic subtopics based on selected skills
   const availableSubtopics = useMemo(() => {
     const allSubtopics = [];
     selectedSkills.forEach((skill) => {
@@ -1421,64 +1232,39 @@ const TCSinterviewAssistantAI = () => {
         allSubtopics.push(...skillCategories[skill]);
       }
     });
-    return [...new Set(allSubtopics)]; // Unique
+    return [...new Set(allSubtopics)];
   }, [selectedSkills]);
 
   return (
     <ThemeProvider theme={theme}>
-      <QueryClientProvider client={queryClient}>
-        <Box
-          sx={{
-            minHeight: "100vh",
-            background: theme.palette.background.default,
-            p: { xs: 2.5, md: 4 }, // Softer padding
-            maxWidth: "1400px",
-            mx: "auto",
-            position: "relative",
-            overflow: "hidden",
-          }}
+      <Box
+        sx={{
+          minHeight: "100vh",
+          background: theme.palette.background.default,
+          p: { xs: 3, md: 5 },
+          maxWidth: "1600px",
+          mx: "auto",
+          position: "relative",
+          overflow: "hidden",
+        }}
+      >
+        <link
+          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+          rel="stylesheet"
+        />
+        <motion.div
+          initial={{ opacity: 0, y: -50 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, ease: "easeOut" }}
         >
-          <Helmet>
-            <title>
-              Ultimate TCS AI Interview & Career Assistant - Empowering Internal
-              Growth
-            </title>
-            <meta
-              name="description"
-              content="The ultimate AI-powered tool for TCS employees: Generate cover letters, emails, interview questions, and more for internal projects, promotions, and career progression."
-            />
-            <meta
-              name="keywords"
-              content="TCS internal interview preparation, AI career assistant TCS, TCS promotion emails, behavioral questions TCS, technical prep TCS, salary negotiation TCS"
-            />
-            <meta name="robots" content="index, follow" />
-            <link rel="canonical" href="https://freshertalk.in/tcs-ai-vinay" />
-            <meta
-              name="viewport"
-              content="width=device-width, initial-scale=1"
-            />
-            {/* Ensure Inter font is loaded */}
-            <link rel="preconnect" href="https://fonts.googleapis.com" />
-            <link
-              rel="preconnect"
-              href="https://fonts.gstatic.com"
-              crossorigin
-            />
-            <link
-              href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
-              rel="stylesheet"
-            />
-          </Helmet>
-
-          {/* Updated layout: Logo before title on laptop (md+), stacked and centered on mobile */}
           <Box
             sx={{
               display: "flex",
               alignItems: "center",
               justifyContent: isMobile ? "center" : "flex-start",
               flexDirection: isMobile ? "column" : "row",
-              mb: 4,
-              gap: 2,
+              mb: 5,
+              gap: 3,
               textAlign: isMobile ? "center" : "left",
             }}
           >
@@ -1486,54 +1272,51 @@ const TCSinterviewAssistantAI = () => {
               src={logo}
               alt="TCS Logo"
               sx={{
-                width: { xs: "15px", md: "25px" },
-                height: { xs: "15px", md: "25px" },
+                width: { xs: "20px", md: "30px" },
+                height: { xs: "20px", md: "30px" },
                 borderRadius: "50%",
                 objectFit: "cover",
                 order: isMobile ? 2 : 1,
               }}
-              animate={{
-                y: [0, -5, 0],
-                rotate: [0, 2, -2, 0],
-              }}
-              transition={{
-                y: { duration: 2, repeat: Infinity, ease: "easeInOut" },
-                rotate: { duration: 3, repeat: Infinity, ease: "easeInOut" },
-              }}
-              whileHover={{
-                scale: 1.1,
-                rotate: 360,
-                transition: { duration: 0.6, ease: "easeInOut" },
-              }}
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.6, ease: "easeOut" }}
+              whileHover={{ scale: 1.1, transition: { duration: 0.3 } }}
             />
             <Typography
               variant="h1"
               sx={{
-                fontSize: { xs: "2.2rem", md: "3.5rem" }, // Smaller
+                fontSize: { xs: "2.5rem", md: "4rem" },
                 background: "linear-gradient(90deg, #0A84FF, #FF2D55)",
                 WebkitBackgroundClip: "text",
                 WebkitTextFillColor: "transparent",
-                textShadow: "0 1px 3px rgba(0,0,0,0.08)", // Softer
+                textShadow: "0 2px 6px rgba(0,0,0,0.1)",
                 order: isMobile ? 1 : 2,
                 flexGrow: 1,
               }}
             >
               Ultimate TCS AI Career Assistant:
               <br />
-              <span style={{ fontSize: "35%", fontStyle: "italic" }}>
+              <span style={{ fontSize: "40%", fontStyle: "italic" }}>
                 (TCS AI Hackathon 2025)
               </span>
             </Typography>
           </Box>
+        </motion.div>
 
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.2, duration: 0.8 }}
+        >
           <Typography
             variant="body1"
             sx={{
-              fontSize: { xs: "0.95rem", md: "1.2rem" }, // Smaller
-              maxWidth: "900px",
+              fontSize: { xs: "1rem", md: "1.25rem" },
+              maxWidth: "1000px",
               mx: "auto",
-              mt: 3, // Added line space
-              lineHeight: 1.6, // Softer
+              mt: 4,
+              lineHeight: 1.7,
               color: theme.palette.text.secondary,
               textAlign: "center",
             }}
@@ -1542,13 +1325,77 @@ const TCSinterviewAssistantAI = () => {
             opportunities, interview preparation, career progression, and
             professional communications—tailored to TCS's dynamic environment.
           </Typography>
+        </motion.div>
 
-          <AppleCard>
+        {/* Employee Details as Portfolio Card - Removed Red Outline, Left Aligned, Well Indented */}
+        <motion.div
+          variants={cardVariants}
+          initial="hidden"
+          animate="visible"
+          whileHover="hover"
+        >
+          <AppleCard sx={{ mt: 5 }}>
+            <Typography
+              variant="h4"
+              sx={{ mb: 3, color: theme.palette.primary.dark }}
+            >
+              Professional Portfolio Overview
+            </Typography>
+            <Typography sx={{ fontWeight: "bold", mb: 1 }}>
+              Employee Name: Vinay Kumar Tiwari
+            </Typography>
+            <Typography sx={{ fontWeight: "bold", mb: 1 }}>
+              Employee ID: 2412328
+            </Typography>
+            <Typography sx={{ fontWeight: "bold", mb: 3 }}>
+              Email ID: vinay.tiwari3@tcs.com
+            </Typography>
+            <Typography sx={{ fontWeight: "bold", mb: 1 }}>
+              Primary Skills:
+            </Typography>
+            <List sx={{ pl: 4, mb: 3 }}>
+              <ListItem disablePadding>
+                <ListItemText primary="SAP CAPM" />
+              </ListItem>
+              <ListItem disablePadding>
+                <ListItemText primary="Node.js" />
+              </ListItem>
+              <ListItem disablePadding>
+                <ListItemText primary="JavaScript" />
+              </ListItem>
+              <ListItem disablePadding>
+                <ListItemText primary="FIORI" />
+              </ListItem>
+              <ListItem disablePadding>
+                <ListItemText primary="SAP UI5" />
+              </ListItem>
+            </List>
+            <Typography sx={{ fontWeight: "bold", mb: 1 }}>
+              Secondary Skills:
+            </Typography>
+            <List sx={{ pl: 4 }}>
+              <ListItem disablePadding>
+                <ListItemText primary="Generative AI (GenAI) – Skilled in leveraging licensed GenAI tools to design, develop, and deliver solutions across diverse technologies." />
+              </ListItem>
+              <ListItem disablePadding>
+                <ListItemText primary="Ability to adapt and build end-to-end applications in any technology stack using GenAI-driven development." />
+              </ListItem>
+            </List>
+          </AppleCard>
+        </motion.div>
+
+        <motion.div
+          variants={cardVariants}
+          initial="hidden"
+          animate="visible"
+          whileHover="hover"
+        >
+          <AppleCard sx={{ mt: 5 }}>
             <Typography
               variant="h3"
               sx={{
-                fontSize: "1.4rem", // Smaller
-                mb: 3.5, // Softer
+                fontSize: "1.75rem",
+                mb: 4,
                 color: theme.palette.primary.dark,
               }}
               role="heading"
@@ -1558,7 +1405,7 @@ const TCSinterviewAssistantAI = () => {
             </Typography>
             <Typography
               variant="body2"
-              sx={{ mb: 3, color: theme.palette.text.secondary }}
+              sx={{ mb: 4, color: theme.palette.text.secondary }}
             >
               Enter your details to personalize AI-generated content for TCS
               internal applications and interviews.
@@ -1566,224 +1413,218 @@ const TCSinterviewAssistantAI = () => {
             {error && (
               <Alert
                 severity="error"
-                sx={{ mb: 3.5, borderRadius: "4px" }} // Less rounded
+                sx={{ mb: 4, borderRadius: "6px" }}
                 onClose={() => setError(null)}
               >
                 {error}
               </Alert>
             )}
-            <Grid container spacing={3.5} onKeyPress={handleKeyPress}>
-              {/* Basic Info - Aligned in pairs */}
+            <Grid container spacing={4} onKeyPress={handleKeyPress}>
               <Grid item xs={12} md={6}>
-                <Tooltip title="Your full name for personalized content" arrow>
-                  <AppleTextField
-                    fullWidth
-                    label="Full Name"
-                    value={formData.employeeName}
-                    onChange={handleInputChange("employeeName")}
-                    error={!!formErrors.employeeName}
-                    helperText={formErrors.employeeName}
-                    InputProps={{
-                      startAdornment: (
-                        <Tooltip title="Full Name" arrow>
-                          <Person
-                            sx={{ mr: 1, color: theme.palette.primary.main }}
-                          />
-                        </Tooltip>
-                      ),
-                    }}
-                    required
-                    aria-label="Full Name"
-                    aria-invalid={!!formErrors.employeeName}
-                  />
-                </Tooltip>
+                <AppleTextField
+                  fullWidth
+                  label="Full Name"
+                  value={formData.employeeName}
+                  onChange={handleInputChange("employeeName")}
+                  error={!!formErrors.employeeName}
+                  helperText={formErrors.employeeName}
+                  InputProps={{
+                    startAdornment: (
+                      <Person
+                        sx={{ mr: 1, color: theme.palette.primary.main }}
+                      />
+                    ),
+                  }}
+                  required
+                  aria-label="Full Name"
+                  aria-invalid={!!formErrors.employeeName}
+                />
               </Grid>
               <Grid item xs={12} md={6}>
                 <FormControl fullWidth error={!!formErrors.yearsOfExperience}>
                   <InputLabel id="experience-label">
                     Experience Level
                   </InputLabel>
-                  <Tooltip
-                    title="Select your current experience level at TCS"
-                    arrow
+                  <AppleSelect
+                    labelId="experience-label"
+                    value={formData.yearsOfExperience}
+                    onChange={handleInputChange("yearsOfExperience")}
+                    label="Experience Level"
+                    helperText={formErrors.yearsOfExperience}
+                    startAdornment={
+                      <Work sx={{ mr: 1, color: theme.palette.primary.main }} />
+                    }
+                    aria-label="Experience Level"
+                    aria-invalid={!!formErrors.yearsOfExperience}
                   >
-                    <AppleSelect
-                      labelId="experience-label"
-                      value={formData.yearsOfExperience}
-                      onChange={handleInputChange("yearsOfExperience")}
-                      label="Experience Level"
-                      helperText={formErrors.yearsOfExperience}
-                      startAdornment={
-                        <Tooltip title="Experience Level" arrow>
-                          <Work
-                            sx={{ mr: 1, color: theme.palette.primary.main }}
-                          />
-                        </Tooltip>
-                      }
-                      aria-label="Experience Level"
-                      aria-invalid={!!formErrors.yearsOfExperience}
-                    >
-                      {experienceOptions.map((exp) => (
-                        <MenuItem key={exp} value={exp}>
-                          {exp}
-                        </MenuItem>
-                      ))}
-                    </AppleSelect>
-                  </Tooltip>
+                    {experienceOptions.map((exp) => (
+                      <MenuItem key={exp} value={exp}>
+                        {exp}
+                      </MenuItem>
+                    ))}
+                  </AppleSelect>
                 </FormControl>
               </Grid>
               <Grid item xs={12} md={6}>
-                <Tooltip
-                  title="Tata Consultancy Services (TCS) - Fixed for internal focus"
-                  arrow
-                >
-                  <AppleTextField
-                    fullWidth
-                    label="Organization"
-                    value={formData.companyName}
-                    InputProps={{
-                      readOnly: true,
-                      startAdornment: (
-                        <Tooltip title="Organization" arrow>
-                          <Business
-                            sx={{ mr: 1, color: theme.palette.primary.main }}
-                          />
-                        </Tooltip>
-                      ),
-                    }}
-                    aria-label="Organization"
-                  />
-                </Tooltip>
+                <AppleTextField
+                  fullWidth
+                  label="Organization"
+                  value={formData.companyName}
+                  InputProps={{
+                    readOnly: true,
+                    startAdornment: (
+                      <Business
+                        sx={{ mr: 1, color: theme.palette.primary.main }}
+                      />
+                    ),
+                  }}
+                  aria-label="Organization"
+                />
               </Grid>
               <Grid item xs={12} md={6}>
                 <FormControl fullWidth error={!!formErrors.grade}>
                   <InputLabel id="grade-label">Current Grade</InputLabel>
-                  <Tooltip
-                    title="Your current TCS grade for progression context"
-                    arrow
+                  <AppleSelect
+                    labelId="grade-label"
+                    value={formData.grade}
+                    onChange={handleInputChange("grade")}
+                    label="Current Grade"
+                    helperText={formErrors.grade}
+                    startAdornment={
+                      <Work sx={{ mr: 1, color: theme.palette.primary.main }} />
+                    }
+                    aria-label="Current Grade"
+                    aria-invalid={!!formErrors.grade}
                   >
-                    <AppleSelect
-                      labelId="grade-label"
-                      value={formData.grade}
-                      onChange={handleInputChange("grade")}
-                      label="Current Grade"
-                      helperText={formErrors.grade}
-                      startAdornment={
-                        <Tooltip title="Grade" arrow>
-                          <Work
-                            sx={{ mr: 1, color: theme.palette.primary.main }}
-                          />
-                        </Tooltip>
-                      }
-                      aria-label="Current Grade"
-                      aria-invalid={!!formErrors.grade}
-                    >
-                      {gradeOptions.map((grade) => (
-                        <MenuItem key={grade} value={grade}>
-                          {grade}
-                        </MenuItem>
-                      ))}
-                    </AppleSelect>
-                  </Tooltip>
+                    {gradeOptions.map((grade) => (
+                      <MenuItem key={grade} value={grade}>
+                        {grade}
+                      </MenuItem>
+                    ))}
+                  </AppleSelect>
                 </FormControl>
               </Grid>
 
-              {/* Job Details - Aligned in pairs */}
               <Grid item xs={12} md={6}>
-                <Tooltip
-                  title="Target internal position or project role at TCS"
-                  arrow
-                >
-                  <AppleTextField
-                    fullWidth
-                    label="Target Position"
-                    value={formData.jobPosition}
-                    onChange={handleInputChange("jobPosition")}
-                    error={!!formErrors.jobPosition}
-                    helperText={formErrors.jobPosition}
-                    InputProps={{
-                      startAdornment: (
-                        <Tooltip title="Target Position" arrow>
-                          <Work
-                            sx={{ mr: 1, color: theme.palette.primary.main }}
-                          />
-                        </Tooltip>
-                      ),
-                    }}
-                    required
-                    aria-label="Target Position"
-                    aria-invalid={!!formErrors.jobPosition}
-                  />
-                </Tooltip>
+                <AppleTextField
+                  fullWidth
+                  label="Target Position"
+                  value={formData.jobPosition}
+                  onChange={handleInputChange("jobPosition")}
+                  error={!!formErrors.jobPosition}
+                  helperText={formErrors.jobPosition}
+                  InputProps={{
+                    startAdornment: (
+                      <Work sx={{ mr: 1, color: theme.palette.primary.main }} />
+                    ),
+                  }}
+                  required
+                  aria-label="Target Position"
+                  aria-invalid={!!formErrors.jobPosition}
+                />
               </Grid>
               <Grid item xs={12} md={6}>
                 <FormControl fullWidth error={!!formErrors.jobLocation}>
                   <InputLabel id="location-label">
                     Preferred Location
                   </InputLabel>
-                  <Tooltip
-                    title="TCS delivery center or hub for the opportunity"
-                    arrow
+                  <AppleSelect
+                    labelId="location-label"
+                    value={formData.jobLocation}
+                    onChange={handleInputChange("jobLocation")}
+                    label="Preferred Location"
+                    helperText={formErrors.jobLocation}
+                    startAdornment={
+                      <LocationOn
+                        sx={{ mr: 1, color: theme.palette.primary.main }}
+                      />
+                    }
+                    aria-label="Preferred Location"
+                    aria-invalid={!!formErrors.jobLocation}
                   >
-                    <AppleSelect
-                      labelId="location-label"
-                      value={formData.jobLocation}
-                      onChange={handleInputChange("jobLocation")}
-                      label="Preferred Location"
-                      helperText={formErrors.jobLocation}
-                      startAdornment={
-                        <Tooltip title="Location" arrow>
-                          <LocationOn
-                            sx={{ mr: 1, color: theme.palette.primary.main }}
-                          />
-                        </Tooltip>
-                      }
-                      aria-label="Preferred Location"
-                      aria-invalid={!!formErrors.jobLocation}
-                    >
-                      {tcsCities.map((city) => (
-                        <MenuItem key={city} value={city}>
-                          {city}
-                        </MenuItem>
-                      ))}
-                    </AppleSelect>
-                  </Tooltip>
+                    {tcsCities.map((city) => (
+                      <MenuItem key={city} value={city}>
+                        {city}
+                      </MenuItem>
+                    ))}
+                  </AppleSelect>
                 </FormControl>
               </Grid>
 
-              {/* Skills Section - Aligned in pairs */}
-              <Grid item xs={12} md={6}>
-                <Tooltip
-                  title="Core skills relevant to your TCS role and target position"
-                  arrow
-                >
+              <Grid item xs={12}>
+                <Autocomplete
+                  multiple
+                  freeSolo
+                  options={Object.keys(skillCategories)}
+                  value={selectedSkills}
+                  onChange={handleSkillsChange}
+                  inputValue={skillsInputValue}
+                  onInputChange={(event, newInputValue) => {
+                    setSkillsInputValue(newInputValue);
+                  }}
+                  renderTags={(value, getTagProps) =>
+                    value.map((option, index) => (
+                      <Chip
+                        variant="outlined"
+                        label={option}
+                        {...getTagProps({ index })}
+                        size="small"
+                      />
+                    ))
+                  }
+                  renderInput={(params) => (
+                    <AppleTextField
+                      {...params}
+                      label="Key Skills"
+                      placeholder="e.g., Java, Microservices, SAP"
+                      error={!!formErrors.skills}
+                      helperText={formErrors.skills}
+                      InputProps={{
+                        ...params.InputProps,
+                        startAdornment: (
+                          <>
+                            <Work
+                              sx={{
+                                mr: 1,
+                                color: theme.palette.primary.main,
+                              }}
+                            />
+                            {params.InputProps.startAdornment}
+                          </>
+                        ),
+                      }}
+                      required
+                      aria-label="Key Skills"
+                      aria-invalid={!!formErrors.skills}
+                    />
+                  )}
+                  sx={{ width: "100%" }}
+                />
+              </Grid>
+              {selectedSkills.length > 0 && (
+                <Grid item xs={12}>
                   <Autocomplete
                     multiple
-                    freeSolo
-                    options={Object.keys(skillCategories)}
-                    value={selectedSkills}
-                    onChange={handleSkillsChange}
-                    inputValue={skillsInputValue}
-                    onInputChange={(event, newInputValue) => {
-                      setSkillsInputValue(newInputValue);
-                    }}
+                    options={availableSubtopics}
+                    value={formData.skillSubtopics}
+                    onChange={handleSkillSubtopicsChange}
                     renderTags={(value, getTagProps) =>
                       value.map((option, index) => (
                         <Chip
                           variant="outlined"
                           label={option}
                           {...getTagProps({ index })}
-                          size="small" // Smaller chips
+                          size="small"
                         />
                       ))
                     }
                     renderInput={(params) => (
                       <AppleTextField
                         {...params}
-                        label="Key Skills"
-                        placeholder="e.g., Java, Microservices, SAP"
-                        error={!!formErrors.skills}
-                        helperText={formErrors.skills}
+                        label="Skill Subtopics"
+                        placeholder="e.g., Spring Boot, AWS, JUnit"
+                        error={!!formErrors.skillSubtopics}
+                        helperText={formErrors.skillSubtopics}
                         InputProps={{
                           ...params.InputProps,
                           startAdornment: (
@@ -1799,98 +1640,39 @@ const TCSinterviewAssistantAI = () => {
                           ),
                         }}
                         required
-                        aria-label="Key Skills"
-                        aria-invalid={!!formErrors.skills}
+                        aria-label="Skill Subtopics"
+                        aria-invalid={!!formErrors.skillSubtopics}
                       />
                     )}
                   />
-                </Tooltip>
-              </Grid>
-              {selectedSkills.length > 0 && (
-                <Grid item xs={12} md={6}>
-                  <Tooltip
-                    title="Specific subtopics or technologies within your skills"
-                    arrow
-                  >
-                    <Autocomplete
-                      multiple
-                      options={availableSubtopics}
-                      value={formData.skillSubtopics}
-                      onChange={handleSkillSubtopicsChange}
-                      renderTags={(value, getTagProps) =>
-                        value.map((option, index) => (
-                          <Chip
-                            variant="outlined"
-                            label={option}
-                            {...getTagProps({ index })}
-                            size="small"
-                          />
-                        ))
-                      }
-                      renderInput={(params) => (
-                        <AppleTextField
-                          {...params}
-                          label="Skill Subtopics"
-                          placeholder="e.g., Spring Boot, AWS, JUnit"
-                          error={!!formErrors.skillSubtopics}
-                          helperText={formErrors.skillSubtopics}
-                          InputProps={{
-                            ...params.InputProps,
-                            startAdornment: (
-                              <>
-                                <Work
-                                  sx={{
-                                    mr: 1,
-                                    color: theme.palette.primary.main,
-                                  }}
-                                />
-                                {params.InputProps.startAdornment}
-                              </>
-                            ),
-                          }}
-                          required
-                          aria-label="Skill Subtopics"
-                          aria-invalid={!!formErrors.skillSubtopics}
-                        />
-                      )}
-                    />
-                  </Tooltip>
                 </Grid>
               )}
 
-              {/* Interview & Communication - Aligned in pairs */}
               <Grid item xs={12} md={6}>
                 <FormControl fullWidth error={!!formErrors.interviewType}>
                   <InputLabel id="interview-type-label">
                     Interview Stage
                   </InputLabel>
-                  <Tooltip
-                    title="Stage of the internal interview process"
-                    arrow
+                  <AppleSelect
+                    labelId="interview-type-label"
+                    value={formData.interviewType}
+                    onChange={handleInputChange("interviewType")}
+                    label="Interview Stage"
+                    helperText={formErrors.interviewType}
+                    startAdornment={
+                      <Category
+                        sx={{ mr: 1, color: theme.palette.primary.main }}
+                      />
+                    }
+                    aria-label="Interview Stage"
+                    aria-invalid={!!formErrors.interviewType}
                   >
-                    <AppleSelect
-                      labelId="interview-type-label"
-                      value={formData.interviewType}
-                      onChange={handleInputChange("interviewType")}
-                      label="Interview Stage"
-                      helperText={formErrors.interviewType}
-                      startAdornment={
-                        <Tooltip title="Interview Stage" arrow>
-                          <Category
-                            sx={{ mr: 1, color: theme.palette.primary.main }}
-                          />
-                        </Tooltip>
-                      }
-                      aria-label="Interview Stage"
-                      aria-invalid={!!formErrors.interviewType}
-                    >
-                      {interviewTypes.map((type) => (
-                        <MenuItem key={type} value={type}>
-                          {type}
-                        </MenuItem>
-                      ))}
-                    </AppleSelect>
-                  </Tooltip>
+                    {interviewTypes.map((type) => (
+                      <MenuItem key={type} value={type}>
+                        {type}
+                      </MenuItem>
+                    ))}
+                  </AppleSelect>
                 </FormControl>
               </Grid>
               <Grid item xs={12} md={6}>
@@ -1898,33 +1680,26 @@ const TCSinterviewAssistantAI = () => {
                   <InputLabel id="communication-type-label">
                     Communication Purpose
                   </InputLabel>
-                  <Tooltip
-                    title="Type of communication or document needed"
-                    arrow
+                  <AppleSelect
+                    labelId="communication-type-label"
+                    value={formData.communicationType}
+                    onChange={handleInputChange("communicationType")}
+                    label="Communication Purpose"
+                    helperText={formErrors.communicationType}
+                    startAdornment={
+                      <Category
+                        sx={{ mr: 1, color: theme.palette.primary.main }}
+                      />
+                    }
+                    aria-label="Communication Purpose"
+                    aria-invalid={!!formErrors.communicationType}
                   >
-                    <AppleSelect
-                      labelId="communication-type-label"
-                      value={formData.communicationType}
-                      onChange={handleInputChange("communicationType")}
-                      label="Communication Purpose"
-                      helperText={formErrors.communicationType}
-                      startAdornment={
-                        <Tooltip title="Communication Purpose" arrow>
-                          <Category
-                            sx={{ mr: 1, color: theme.palette.primary.main }}
-                          />
-                        </Tooltip>
-                      }
-                      aria-label="Communication Purpose"
-                      aria-invalid={!!formErrors.communicationType}
-                    >
-                      {communicationTypes.map((type) => (
-                        <MenuItem key={type} value={type}>
-                          {type}
-                        </MenuItem>
-                      ))}
-                    </AppleSelect>
-                  </Tooltip>
+                    {communicationTypes.map((type) => (
+                      <MenuItem key={type} value={type}>
+                        {type}
+                      </MenuItem>
+                    ))}
+                  </AppleSelect>
                 </FormControl>
               </Grid>
               <Grid item xs={12} md={6}>
@@ -1935,33 +1710,24 @@ const TCSinterviewAssistantAI = () => {
                   <InputLabel id="managerial-focus-label">
                     Career Focus Area
                   </InputLabel>
-                  <Tooltip
-                    title="Specific area of managerial or career expectation"
-                    arrow
+                  <AppleSelect
+                    labelId="managerial-focus-label"
+                    value={formData.managerialExpectationFocus}
+                    onChange={handleInputChange("managerialExpectationFocus")}
+                    label="Career Focus Area"
+                    helperText={formErrors.managerialExpectationFocus}
+                    startAdornment={
+                      <Work sx={{ mr: 1, color: theme.palette.primary.main }} />
+                    }
+                    aria-label="Career Focus Area"
+                    aria-invalid={!!formErrors.managerialExpectationFocus}
                   >
-                    <AppleSelect
-                      labelId="managerial-focus-label"
-                      value={formData.managerialExpectationFocus}
-                      onChange={handleInputChange("managerialExpectationFocus")}
-                      label="Career Focus Area"
-                      helperText={formErrors.managerialExpectationFocus}
-                      startAdornment={
-                        <Tooltip title="Career Focus" arrow>
-                          <Work
-                            sx={{ mr: 1, color: theme.palette.primary.main }}
-                          />
-                        </Tooltip>
-                      }
-                      aria-label="Career Focus Area"
-                      aria-invalid={!!formErrors.managerialExpectationFocus}
-                    >
-                      {managerialExpectationFocuses.map((focus) => (
-                        <MenuItem key={focus} value={focus}>
-                          {focus}
-                        </MenuItem>
-                      ))}
-                    </AppleSelect>
-                  </Tooltip>
+                    {managerialExpectationFocuses.map((focus) => (
+                      <MenuItem key={focus} value={focus}>
+                        {focus}
+                      </MenuItem>
+                    ))}
+                  </AppleSelect>
                 </FormControl>
               </Grid>
               <Grid item xs={12} md={6}>
@@ -1972,59 +1738,51 @@ const TCSinterviewAssistantAI = () => {
                   <InputLabel id="question-type-label">
                     Question Focus
                   </InputLabel>
-                  <Tooltip title="Type of questions or content focus" arrow>
-                    <AppleSelect
-                      labelId="question-type-label"
-                      value={formData.interviewQuestionType}
-                      onChange={handleInputChange("interviewQuestionType")}
-                      label="Question Focus"
-                      helperText={formErrors.interviewQuestionType}
-                      startAdornment={
-                        <Tooltip title="Question Focus" arrow>
-                          <Category
-                            sx={{ mr: 1, color: theme.palette.primary.main }}
-                          />
-                        </Tooltip>
-                      }
-                      aria-label="Question Focus"
-                      aria-invalid={!!formErrors.interviewQuestionType}
-                    >
-                      {interviewQuestionTypes.map((type) => (
-                        <MenuItem key={type} value={type}>
-                          {type}
-                        </MenuItem>
-                      ))}
-                    </AppleSelect>
-                  </Tooltip>
+                  <AppleSelect
+                    labelId="question-type-label"
+                    value={formData.interviewQuestionType}
+                    onChange={handleInputChange("interviewQuestionType")}
+                    label="Question Focus"
+                    helperText={formErrors.interviewQuestionType}
+                    startAdornment={
+                      <Category
+                        sx={{ mr: 1, color: theme.palette.primary.main }}
+                      />
+                    }
+                    aria-label="Question Focus"
+                    aria-invalid={!!formErrors.interviewQuestionType}
+                  >
+                    {interviewQuestionTypes.map((type) => (
+                      <MenuItem key={type} value={type}>
+                        {type}
+                      </MenuItem>
+                    ))}
+                  </AppleSelect>
                 </FormControl>
               </Grid>
               <Grid item xs={12} md={6}>
                 <FormControl fullWidth error={!!formErrors.tone}>
                   <InputLabel id="tone-label">Communication Tone</InputLabel>
-                  <Tooltip title="Desired tone for the generated content" arrow>
-                    <AppleSelect
-                      labelId="tone-label"
-                      value={formData.tone}
-                      onChange={handleInputChange("tone")}
-                      label="Communication Tone"
-                      helperText={formErrors.tone}
-                      startAdornment={
-                        <Tooltip title="Tone" arrow>
-                          <Category
-                            sx={{ mr: 1, color: theme.palette.primary.main }}
-                          />
-                        </Tooltip>
-                      }
-                      aria-label="Communication Tone"
-                      aria-invalid={!!formErrors.tone}
-                    >
-                      {tones.map((toneOption) => (
-                        <MenuItem key={toneOption} value={toneOption}>
-                          {toneOption}
-                        </MenuItem>
-                      ))}
-                    </AppleSelect>
-                  </Tooltip>
+                  <AppleSelect
+                    labelId="tone-label"
+                    value={formData.tone}
+                    onChange={handleInputChange("tone")}
+                    label="Communication Tone"
+                    helperText={formErrors.tone}
+                    startAdornment={
+                      <Category
+                        sx={{ mr: 1, color: theme.palette.primary.main }}
+                      />
+                    }
+                    aria-label="Communication Tone"
+                    aria-invalid={!!formErrors.tone}
+                  >
+                    {tones.map((toneOption) => (
+                      <MenuItem key={toneOption} value={toneOption}>
+                        {toneOption}
+                      </MenuItem>
+                    ))}
+                  </AppleSelect>
                 </FormControl>
               </Grid>
               <Grid item xs={12} md={6}>
@@ -2032,59 +1790,47 @@ const TCSinterviewAssistantAI = () => {
                   <InputLabel id="feedback-type-label">
                     Feedback Context
                   </InputLabel>
-                  <Tooltip title="Type of feedback or reflection needed" arrow>
-                    <AppleSelect
-                      labelId="feedback-type-label"
-                      value={formData.feedbackType}
-                      onChange={handleInputChange("feedbackType")}
-                      label="Feedback Context"
-                      helperText={formErrors.feedbackType}
-                      startAdornment={
-                        <Tooltip title="Feedback Context" arrow>
-                          <Category
-                            sx={{ mr: 1, color: theme.palette.primary.main }}
-                          />
-                        </Tooltip>
-                      }
-                      aria-label="Feedback Context"
-                      aria-invalid={!!formErrors.feedbackType}
-                    >
-                      {feedbackTypes.map((type) => (
-                        <MenuItem key={type} value={type}>
-                          {type}
-                        </MenuItem>
-                      ))}
-                    </AppleSelect>
-                  </Tooltip>
+                  <AppleSelect
+                    labelId="feedback-type-label"
+                    value={formData.feedbackType}
+                    onChange={handleInputChange("feedbackType")}
+                    label="Feedback Context"
+                    helperText={formErrors.feedbackType}
+                    startAdornment={
+                      <Category
+                        sx={{ mr: 1, color: theme.palette.primary.main }}
+                      />
+                    }
+                    aria-label="Feedback Context"
+                    aria-invalid={!!formErrors.feedbackType}
+                  >
+                    {feedbackTypes.map((type) => (
+                      <MenuItem key={type} value={type}>
+                        {type}
+                      </MenuItem>
+                    ))}
+                  </AppleSelect>
                 </FormControl>
               </Grid>
 
-              {/* Optional LinkedIn - Full width for better alignment */}
               <Grid item xs={12}>
-                <Tooltip
-                  title="Your LinkedIn URL (optional—for professional referencing in content)"
-                  arrow
-                >
-                  <AppleTextField
-                    fullWidth
-                    label="LinkedIn Profile (Optional)"
-                    value={formData.linkedinUrl}
-                    onChange={handleInputChange("linkedinUrl")}
-                    error={!!formErrors.linkedinUrl}
-                    helperText={formErrors.linkedinUrl}
-                    InputProps={{
-                      startAdornment: (
-                        <Tooltip title="LinkedIn Profile" arrow>
-                          <LinkedIn
-                            sx={{ mr: 1, color: theme.palette.primary.main }}
-                          />
-                        </Tooltip>
-                      ),
-                    }}
-                    aria-label="LinkedIn Profile URL"
-                    aria-invalid={!!formErrors.linkedinUrl}
-                  />
-                </Tooltip>
+                <AppleTextField
+                  fullWidth
+                  label="LinkedIn Profile (Optional)"
+                  value={formData.linkedinUrl}
+                  onChange={handleInputChange("linkedinUrl")}
+                  error={!!formErrors.linkedinUrl}
+                  helperText={formErrors.linkedinUrl}
+                  InputProps={{
+                    startAdornment: (
+                      <LinkedIn
+                        sx={{ mr: 1, color: theme.palette.primary.main }}
+                      />
+                    ),
+                  }}
+                  aria-label="LinkedIn Profile URL"
+                  aria-invalid={!!formErrors.linkedinUrl}
+                />
               </Grid>
 
               <Grid
@@ -2093,134 +1839,118 @@ const TCSinterviewAssistantAI = () => {
                 sx={{
                   display: "flex",
                   justifyContent: "center",
-                  gap: 2.5, // Softer gap
-                  mt: 2,
+                  gap: 3,
+                  mt: 3,
                 }}
               >
-                <Tooltip title="Proceed to AI content generation" arrow>
-                  <AppleButton
-                    onClick={handleNext}
-                    endIcon={
-                      <Tooltip title="Proceed" arrow>
-                        <ArrowForward />
-                      </Tooltip>
-                    }
-                    aria-label="Proceed to AI tools"
-                    size="large"
-                  >
-                    Unlock AI Tools
-                  </AppleButton>
-                </Tooltip>
-                <Tooltip title="Reset all fields to start fresh" arrow>
-                  <AppleClearButton
-                    onClick={handleClear}
-                    endIcon={
-                      <Tooltip title="Reset" arrow>
-                        <Refresh />
-                      </Tooltip>
-                    }
-                    aria-label="Reset profile"
-                    size="large"
-                  >
-                    Reset Profile
-                  </AppleClearButton>
-                </Tooltip>
+                <AppleButton
+                  onClick={handleNext}
+                  endIcon={<ArrowForward />}
+                  aria-label="Proceed to AI tools"
+                  size="large"
+                >
+                  Unlock AI Tools
+                </AppleButton>
+                <AppleClearButton
+                  onClick={handleClear}
+                  endIcon={<Refresh />}
+                  aria-label="Reset profile"
+                  size="large"
+                >
+                  Reset Profile
+                </AppleClearButton>
               </Grid>
             </Grid>
           </AppleCard>
+        </motion.div>
 
-          <PreparationTools
-            showCategories={showCategories}
-            selectedCategory={selectedCategory}
-            setSelectedCategory={setSelectedCategory}
-            handleGenerate={handleGenerate}
-            response={response}
-            loading={loading}
-            error={error}
-            setError={setError}
-          />
+        <PreparationTools
+          showCategories={showCategories}
+          selectedCategory={selectedCategory}
+          setSelectedCategory={setSelectedCategory}
+          handleGenerate={handleGenerate}
+          response={response}
+          loading={loading}
+          error={error}
+          setError={setError}
+        />
 
-          {!showCategories && <TCSTipsSection />}
+        {!showCategories && <TCSTipsSection />}
 
-          <Modal
-            open={clearModalOpen}
-            onClose={() => setClearModalOpen(false)}
-            closeAfterTransition
-          >
-            <Box
-              sx={{
-                position: "absolute",
-                top: "50%",
-                left: "50%",
-                transform: "translate(-50%, -50%)",
-                width: { xs: 320, sm: 400 },
-                background: "rgba(255, 255, 255, 0.98)",
-                backdropFilter: "blur(16px)", // Softer
-                borderRadius: "8px", // Less rounded
-                boxShadow: "0 8px 32px rgba(0, 0, 0, 0.12)", // Softer
-                p: 4.5, // Softer padding
-                textAlign: "center",
-              }}
-            >
-              <Typography
-                variant="h6"
-                sx={{
-                  fontWeight: 600, // Softer
-                  mb: 3,
-                  fontSize: "1.2rem", // Smaller
-                  color: theme.palette.primary.dark,
-                }}
-              >
-                Reset Profile?
-              </Typography>
-              <Typography
-                sx={{
-                  mb: 4,
-                  fontSize: "0.95rem", // Smaller
-                  lineHeight: 1.6, // Softer
-                  color: theme.palette.text.secondary,
-                }}
-              >
-                Are you sure you want to reset all fields? Your saved profile
-                will be cleared.
-              </Typography>
-              <Box sx={{ display: "flex", gap: 2.5, justifyContent: "center" }}>
-                <Tooltip title="Cancel reset" arrow>
-                  <AppleClearButton
-                    onClick={() => setClearModalOpen(false)}
-                    size="large"
-                  >
-                    Cancel
-                  </AppleClearButton>
-                </Tooltip>
-                <Tooltip title="Confirm reset" arrow>
-                  <AppleButton onClick={confirmClear} size="large">
-                    Reset
-                  </AppleButton>
-                </Tooltip>
-              </Box>
-            </Box>
-          </Modal>
-
-          {/* Footer Disclaimer */}
+        <Modal
+          open={clearModalOpen}
+          onClose={() => setClearModalOpen(false)}
+          closeAfterTransition
+        >
           <Box
             sx={{
-              mt: 6,
-              py: 3,
+              position: "absolute",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%, -50%)",
+              width: { xs: 340, sm: 440 },
+              background: "rgba(255, 255, 255, 0.98)",
+              backdropFilter: "blur(20px)",
+              borderRadius: "12px",
+              boxShadow: "0 8px 32px rgba(0, 0, 0, 0.15)",
+              p: 5,
               textAlign: "center",
-              backgroundColor: "rgba(0,0,0,0.03)",
             }}
           >
             <Typography
-              variant="body2"
-              sx={{ color: theme.palette.text.secondary }}
+              variant="h6"
+              sx={{
+                fontWeight: 600,
+                mb: 4,
+                fontSize: "1.25rem",
+                color: theme.palette.primary.dark,
+              }}
             >
-              © 2025 TCS AI Career Assistant | For internal use only | Generated
-              content is AI-assisted and should be reviewed for accuracy.
+              Reset Profile?
             </Typography>
+            <Typography
+              sx={{
+                mb: 5,
+                fontSize: "1rem",
+                lineHeight: 1.7,
+                color: theme.palette.text.secondary,
+              }}
+            >
+              Are you sure you want to reset all fields? Your saved profile will
+              be cleared.
+            </Typography>
+            <Box sx={{ display: "flex", gap: 3, justifyContent: "center" }}>
+              <AppleClearButton
+                onClick={() => setClearModalOpen(false)}
+                size="large"
+              >
+                Cancel
+              </AppleClearButton>
+              <AppleButton onClick={confirmClear} size="large">
+                Reset
+              </AppleButton>
+            </Box>
           </Box>
+        </Modal>
+
+        <Box
+          sx={{
+            mt: 7,
+            py: 4,
+            textAlign: "center",
+            backgroundColor: "rgba(0,0,0,0.05)",
+            borderRadius: "12px",
+          }}
+        >
+          <Typography
+            variant="body2"
+            sx={{ color: theme.palette.text.secondary }}
+          >
+            © 2025 TCS AI Career Assistant | For internal use only | Generated
+            content is AI-assisted and should be reviewed for accuracy.
+          </Typography>
         </Box>
-      </QueryClientProvider>
+      </Box>
     </ThemeProvider>
   );
 };
