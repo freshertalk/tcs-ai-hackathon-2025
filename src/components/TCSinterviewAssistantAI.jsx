@@ -55,7 +55,7 @@ import {
   ArrowUpward as UpIcon,
   ArrowDownward as DownIcon,
   Phone as PhoneIcon,
-  Message as MessageIcon,
+  WhatsApp as WhatsAppIcon, // Assuming imported from '@mui/icons-material/WhatsApp' or similar; if not available, use a custom SVG for realistic WhatsApp icon
 } from "@mui/icons-material";
 import { motion } from "framer-motion";
 import logo from "../assets/tcs-logo.png";
@@ -1395,6 +1395,9 @@ const TCSinterviewAssistantAI = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
 
+  const [showUp, setShowUp] = useState(false);
+  const [showDown, setShowDown] = useState(false);
+
   const handleKeyPress = (event) => {
     if (event.key === "Enter" && !showCategories) handleNext();
   };
@@ -1416,6 +1419,21 @@ const TCSinterviewAssistantAI = () => {
   const scrollToBottom = () => {
     window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
   };
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollY = window.scrollY;
+      const windowHeight = window.innerHeight;
+      const docHeight = document.documentElement.scrollHeight;
+      setShowUp(scrollY > 100);
+      setShowDown(scrollY + windowHeight < docHeight - 100);
+    };
+
+    window.addEventListener("scroll", handleScroll);
+    handleScroll(); // Initial check
+
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   return (
     <ThemeProvider theme={theme}>
@@ -1476,7 +1494,7 @@ const TCSinterviewAssistantAI = () => {
                 flexGrow: 1,
               }}
             >
-              Ultimate TCS AI Career Assistant:
+              Ultimate TCS AI Career Assistant
               <br />
               <span style={{ fontSize: "40%", fontStyle: "italic" }}>
                 (TCS AI Hackathon 2025)
@@ -2240,39 +2258,43 @@ const TCSinterviewAssistantAI = () => {
           sx={{
             position: "fixed",
             bottom: 20,
-            right: 20,
+            left: 20,
             display: "flex",
             flexDirection: "column",
             gap: 1,
             zIndex: 1000,
           }}
         >
-          <motion.div
-            whileHover={{ scale: 1.1 }}
-            transition={{ duration: 0.3 }}
-          >
-            <Fab
-              size="small"
-              color="primary"
-              aria-label="scroll to top"
-              onClick={scrollToTop}
+          {showUp && (
+            <motion.div
+              whileHover={{ scale: 1.1 }}
+              transition={{ duration: 0.3 }}
             >
-              <UpIcon />
-            </Fab>
-          </motion.div>
-          <motion.div
-            whileHover={{ scale: 1.1 }}
-            transition={{ duration: 0.3 }}
-          >
-            <Fab
-              size="small"
-              color="primary"
-              aria-label="scroll to bottom"
-              onClick={scrollToBottom}
+              <Fab
+                size="small"
+                color="primary"
+                aria-label="scroll to top"
+                onClick={scrollToTop}
+              >
+                <UpIcon />
+              </Fab>
+            </motion.div>
+          )}
+          {showDown && (
+            <motion.div
+              whileHover={{ scale: 1.1 }}
+              transition={{ duration: 0.3 }}
             >
-              <DownIcon />
-            </Fab>
-          </motion.div>
+              <Fab
+                size="small"
+                color="primary"
+                aria-label="scroll to bottom"
+                onClick={scrollToBottom}
+              >
+                <DownIcon />
+              </Fab>
+            </motion.div>
+          )}
           <motion.div
             whileHover={{ scale: 1.1 }}
             transition={{ duration: 0.3 }}
@@ -2294,7 +2316,7 @@ const TCSinterviewAssistantAI = () => {
               style={{ textDecoration: "none" }}
             >
               <Fab size="small" color="success" aria-label="whatsapp">
-                <MessageIcon />
+                <WhatsAppIcon />
               </Fab>
             </a>
           </motion.div>
