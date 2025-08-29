@@ -1146,13 +1146,6 @@ const PreparationTools = React.memo(
 // TCSTipsSection Component (Explicit left alignment for all text)
 const TCSTipsSection = () => {
   const theme = useTheme();
-  const tips = [
-    "Tailor your responses to highlight TCS values: Leading Change, Integrity, Respect for the Individual, Excellence, Learning & Sharing.",
-    "For technical roles, emphasize experience with TCS tools like TCS BaNCS, TCS iON, or cloud migrations.",
-    "Use the STAR method for behavioral questions to structure answers effectively.",
-    "Always follow up post-interview to demonstrate enthusiasm and professionalism.",
-    "Leverage internal TCS portals like Ultimatix for opportunity tracking.",
-  ];
 
   return (
     <motion.div
@@ -1175,31 +1168,168 @@ const TCSTipsSection = () => {
             Quick TCS Interview Tips
           </Typography>
         </motion.div>
-        <motion.ul
-          variants={itemVariants}
-          style={{ paddingLeft: "1.5rem", margin: 0, textAlign: "left" }} // Explicit left align
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true }}
-        >
-          {tips.map((tip, index) => (
-            <motion.li
-              key={index}
-              variants={listItemVariants}
-              custom={index}
-              style={{
-                marginBottom: "0.75rem",
-                fontSize: "0.9rem",
-                textAlign: "left",
-              }} // Explicit left align
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true }}
-            >
-              {tip}
-            </motion.li>
-          ))}
-        </motion.ul>
+        <List sx={{ textAlign: "left" }}>
+          <ListItem disablePadding>
+            <ListItemText
+              primary="1. Align with TCS Core Values"
+              primaryTypographyProps={{ variant: "h6" }}
+            />
+          </ListItem>
+          <List sx={{ pl: 4 }}>
+            <ListItem disablePadding>
+              <ListItemText
+                primary="- Tailor your responses to reflect Leading Change, Integrity, Respect for the Individual, Excellence, Learning & Sharing."
+                primaryTypographyProps={{ variant: "body2" }}
+              />
+            </ListItem>
+            <ListItem disablePadding>
+              <ListItemText
+                primary="- Provide real examples that demonstrate how you've embodied these values in past roles or projects."
+                primaryTypographyProps={{ variant: "body2" }}
+              />
+            </ListItem>
+          </List>
+          <ListItem disablePadding>
+            <ListItemText
+              primary="2. Highlight Technical Proficiency (for technical roles)"
+              primaryTypographyProps={{ variant: "h6" }}
+            />
+          </ListItem>
+          <List sx={{ pl: 4 }}>
+            <ListItem disablePadding>
+              <ListItemText
+                primary="- Emphasize experience with enterprise technologies such as SAP, Cloud (AWS/Azure/GCP), AI/ML, Full Stack Development, and Agile methodologies."
+                primaryTypographyProps={{ variant: "body2" }}
+              />
+            </ListItem>
+            <ListItem disablePadding>
+              <ListItemText
+                primary="- Showcase problem-solving skills and how you've applied tools/frameworks in real-world scenarios."
+                primaryTypographyProps={{ variant: "body2" }}
+              />
+            </ListItem>
+          </List>
+          <ListItem disablePadding>
+            <ListItemText
+              primary="3. Use the STAR Method"
+              primaryTypographyProps={{ variant: "h6" }}
+            />
+          </ListItem>
+          <List sx={{ pl: 4 }}>
+            <ListItem disablePadding>
+              <ListItemText
+                primary="- Situation, Task, Action, Result → helps structure behavioral answers clearly and persuasively."
+                primaryTypographyProps={{ variant: "body2" }}
+              />
+            </ListItem>
+            <ListItem disablePadding>
+              <ListItemText
+                primary="- Demonstrate outcomes that show measurable impact (e.g., efficiency gains, cost savings, innovation)."
+                primaryTypographyProps={{ variant: "body2" }}
+              />
+            </ListItem>
+          </List>
+          <ListItem disablePadding>
+            <ListItemText
+              primary="4. Prepare for Situational & Case-Based Questions"
+              primaryTypographyProps={{ variant: "h6" }}
+            />
+          </ListItem>
+          <List sx={{ pl: 4 }}>
+            <ListItem disablePadding>
+              <ListItemText
+                primary="- Be ready for client-centric scenarios where you must show collaboration, adaptability, and leadership."
+                primaryTypographyProps={{ variant: "body2" }}
+              />
+            </ListItem>
+            <ListItem disablePadding>
+              <ListItemText
+                primary="- Show how you handle challenges, conflicts, and cross-functional teamwork."
+                primaryTypographyProps={{ variant: "body2" }}
+              />
+            </ListItem>
+          </List>
+          <ListItem disablePadding>
+            <ListItemText
+              primary="5. Post-Interview Etiquette"
+              primaryTypographyProps={{ variant: "h6" }}
+            />
+          </ListItem>
+          <List sx={{ pl: 4 }}>
+            <ListItem disablePadding>
+              <ListItemText
+                primary="- Send a polite thank-you / follow-up email expressing interest in the role and appreciation for the opportunity."
+                primaryTypographyProps={{ variant: "body2" }}
+              />
+            </ListItem>
+            <ListItem disablePadding>
+              <ListItemText
+                primary="- Highlight one or two key discussion points that reinforce your fit for the position."
+                primaryTypographyProps={{ variant: "body2" }}
+              />
+            </ListItem>
+          </List>
+          <ListItem disablePadding>
+            <ListItemText
+              primary="6. Leverage TCS Internal Tools"
+              primaryTypographyProps={{ variant: "h6" }}
+            />
+          </ListItem>
+          <List sx={{ pl: 4 }}>
+            <ListItem disablePadding>
+              <ListItemText
+                primary="- Use Ultimatix and internal portals for opportunity tracking, learning resources, and skill certifications."
+                primaryTypographyProps={{ variant: "body2" }}
+              />
+            </ListItem>
+            <ListItem disablePadding>
+              <ListItemText
+                primary="- Mention your awareness of career mobility and growth programs within TCS."
+                primaryTypographyProps={{ variant: "body2" }}
+              />
+            </ListItem>
+          </List>
+          <ListItem disablePadding>
+            <ListItemText
+              primary="7. Showcase Continuous Learning & Certifications"
+              primaryTypographyProps={{ variant: "h6" }}
+            />
+          </ListItem>
+          <List sx={{ pl: 4 }}>
+            <ListItem disablePadding>
+              <ListItemText
+                primary="- Highlight relevant TCS iON, Coursera, AWS, SAP, or other professional certifications."
+                primaryTypographyProps={{ variant: "body2" }}
+              />
+            </ListItem>
+            <ListItem disablePadding>
+              <ListItemText
+                primary="- Show curiosity for emerging technologies | GenAI, Blockchain, Cybersecurity, Cloud-Native Development."
+                primaryTypographyProps={{ variant: "body2" }}
+              />
+            </ListItem>
+          </List>
+          <ListItem disablePadding>
+            <ListItemText
+              primary="8. Cultural Fit & Global Mindset"
+              primaryTypographyProps={{ variant: "h6" }}
+            />
+          </ListItem>
+          <List sx={{ pl: 4 }}>
+            <ListItem disablePadding>
+              <ListItemText
+                primary="- Demonstrate openness to working in diverse, multicultural teams."
+                primaryTypographyProps={{ variant: "body2" }}
+              />
+            </ListItem>
+            <ListItem disablePadding>
+              <ListItemText
+                primary="- Highlight experience with global clients, cross-border collaboration, or multi-timezone projects."
+                primaryTypographyProps={{ variant: "body2" }}
+              />
+            </ListItem>
+          </List>
+        </List>
         <motion.div variants={itemVariants}>
           <Typography
             variant="body2"
@@ -1308,7 +1438,6 @@ const TCSinterviewAssistantAI = () => {
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.6, ease: "easeOut" }}
-              whileHover={{ scale: 1.1, transition: { duration: 0.3 } }}
             />
             <Typography
               variant="h1"
@@ -1383,8 +1512,12 @@ const TCSinterviewAssistantAI = () => {
                   <Person color="primary" />
                 </ListItemIcon>
                 <ListItemText
-                  primary="Employee Name: Vinay Kumar Tiwari"
-                  primaryTypographyProps={{ fontWeight: "bold" }}
+                  primary={
+                    <span>
+                      <strong>Employee Name:</strong> Vinay Kumar Tiwari
+                    </span>
+                  }
+                  primaryTypographyProps={{ variant: "body2" }}
                 />
               </ListItem>
               <Divider sx={{ my: 1 }} />
@@ -1393,8 +1526,12 @@ const TCSinterviewAssistantAI = () => {
                   <IdIcon color="primary" />
                 </ListItemIcon>
                 <ListItemText
-                  primary="Employee ID: 2412328"
-                  primaryTypographyProps={{ fontWeight: "bold" }}
+                  primary={
+                    <span>
+                      <strong>Employee ID:</strong> 2412328
+                    </span>
+                  }
+                  primaryTypographyProps={{ variant: "body2" }}
                 />
               </ListItem>
               <Divider sx={{ my: 1 }} />
@@ -1403,8 +1540,12 @@ const TCSinterviewAssistantAI = () => {
                   <EmailIcon color="primary" />
                 </ListItemIcon>
                 <ListItemText
-                  primary="Email ID: vinay.tiwari3@tcs.com"
-                  primaryTypographyProps={{ fontWeight: "bold" }}
+                  primary={
+                    <span>
+                      <strong>Email ID:</strong> vinay.tiwari3@tcs.com
+                    </span>
+                  }
+                  primaryTypographyProps={{ variant: "body2" }}
                 />
               </ListItem>
               <Divider sx={{ my: 1 }} />
@@ -1414,23 +1555,41 @@ const TCSinterviewAssistantAI = () => {
                 </ListItemIcon>
                 <ListItemText
                   primary="Primary Skills:"
-                  primaryTypographyProps={{ fontWeight: "bold" }}
+                  primaryTypographyProps={{
+                    variant: "body2",
+                    fontWeight: "bold",
+                  }}
                 />
               </ListItem>
               <ListItem disablePadding sx={{ pl: 4 }}>
-                <ListItemText primary="• SAP CAPM" />
+                <ListItemText
+                  primary="• SAP CAPM"
+                  primaryTypographyProps={{ variant: "body2" }}
+                />
               </ListItem>
               <ListItem disablePadding sx={{ pl: 4 }}>
-                <ListItemText primary="• Node.js" />
+                <ListItemText
+                  primary="• Node.js"
+                  primaryTypographyProps={{ variant: "body2" }}
+                />
               </ListItem>
               <ListItem disablePadding sx={{ pl: 4 }}>
-                <ListItemText primary="• JavaScript" />
+                <ListItemText
+                  primary="• JavaScript"
+                  primaryTypographyProps={{ variant: "body2" }}
+                />
               </ListItem>
               <ListItem disablePadding sx={{ pl: 4 }}>
-                <ListItemText primary="• FIORI" />
+                <ListItemText
+                  primary="• FIORI"
+                  primaryTypographyProps={{ variant: "body2" }}
+                />
               </ListItem>
               <ListItem disablePadding sx={{ pl: 4 }}>
-                <ListItemText primary="• SAP UI5" />
+                <ListItemText
+                  primary="• SAP UI5"
+                  primaryTypographyProps={{ variant: "body2" }}
+                />
               </ListItem>
               <Divider sx={{ my: 1 }} />
               <ListItem disablePadding>
@@ -1439,14 +1598,41 @@ const TCSinterviewAssistantAI = () => {
                 </ListItemIcon>
                 <ListItemText
                   primary="Secondary Skills:"
-                  primaryTypographyProps={{ fontWeight: "bold" }}
+                  primaryTypographyProps={{
+                    variant: "body2",
+                    fontWeight: "bold",
+                  }}
                 />
               </ListItem>
               <ListItem disablePadding sx={{ pl: 4 }}>
-                <ListItemText primary="• Generative AI (GenAI) – Proficient in utilizing advanced GenAI platforms such as ChatGPT-5, Grok-4, Google Gemini, and Claude.ai to architect, design, and deliver innovative solutions across a wide range of technologies." />
+                <ListItemText
+                  primary={
+                    <span>
+                      • <strong>Generative AI (GenAI) –</strong> Proficient in
+                      utilizing advanced GenAI platforms such as{" "}
+                      <strong>
+                        ChatGPT-5, Grok-4, Google Gemini, and Claude.ai
+                      </strong>{" "}
+                      to architect, design, and deliver innovative solutions
+                      across a wide range of technologies.
+                    </span>
+                  }
+                  primaryTypographyProps={{ variant: "body2" }}
+                />
               </ListItem>
               <ListItem disablePadding sx={{ pl: 4 }}>
-                <ListItemText primary="• Ability to adapt and build end-to-end applications in any technology stack using GenAI-driven development." />
+                <ListItemText
+                  primary={
+                    <span>
+                      • Ability to adapt and build end-to-end applications in{" "}
+                      <strong>
+                        any technology stack using GenAI-driven development
+                      </strong>
+                      .
+                    </span>
+                  }
+                  primaryTypographyProps={{ variant: "body2" }}
+                />
               </ListItem>
             </List>
           </AppleCard>
