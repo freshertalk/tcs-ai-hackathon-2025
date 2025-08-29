@@ -31,6 +31,8 @@ import {
   List,
   ListItem,
   ListItemText,
+  ListItemIcon,
+  Divider,
 } from "@mui/material";
 import {
   Person,
@@ -46,13 +48,16 @@ import {
   Check as CheckIcon,
   Download as DownloadIcon,
   Print as PrintIcon,
+  Email as EmailIcon,
+  Badge as IdIcon,
+  Code as SkillsIcon,
 } from "@mui/icons-material";
 import { motion } from "framer-motion";
 import logo from "../assets/tcs-logo.png";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import DOMPurify from "dompurify";
 
-// Animation Variants
+// Animation Variants (Enhanced for smoother transitions)
 const containerVariants = {
   hidden: { opacity: 0, y: 30, scale: 0.95 },
   visible: {
@@ -100,7 +105,7 @@ const cardVariants = {
   },
 };
 
-// Enhanced Theme for World-Class Design
+// Enhanced Theme for World-Class Design (Improved contrast, accessibility, and modern aesthetics)
 const theme = createTheme({
   palette: {
     primary: { main: "#0A84FF", dark: "#0066CC", light: "#3DA2FF" },
@@ -130,7 +135,7 @@ const theme = createTheme({
     MuiButton: {
       styleOverrides: {
         root: {
-          borderRadius: "6px",
+          borderRadius: "8px", // Softer corners for modern feel
           textTransform: "none",
           fontWeight: 600,
           transition: "all 0.3s ease",
@@ -146,7 +151,7 @@ const theme = createTheme({
       styleOverrides: {
         root: {
           "& .MuiOutlinedInput-root": {
-            borderRadius: "6px",
+            borderRadius: "8px",
             background: "rgba(255, 255, 255, 0.98)",
             backdropFilter: "blur(16px)",
             boxShadow: "0 4px 12px rgba(0, 0, 0, 0.05)",
@@ -162,7 +167,7 @@ const theme = createTheme({
     MuiSelect: {
       styleOverrides: {
         root: {
-          borderRadius: "6px",
+          borderRadius: "8px",
           background: "rgba(255, 255, 255, 0.98)",
           backdropFilter: "blur(16px)",
           boxShadow: "0 4px 12px rgba(0, 0, 0, 0.05)",
@@ -177,7 +182,7 @@ const theme = createTheme({
       styleOverrides: {
         root: {
           "& .MuiOutlinedInput-root": {
-            borderRadius: "6px",
+            borderRadius: "8px",
             background: "rgba(255, 255, 255, 0.98)",
             backdropFilter: "blur(16px)",
             boxShadow: "0 4px 12px rgba(0, 0, 0, 0.05)",
@@ -194,7 +199,7 @@ const theme = createTheme({
         root: {
           fontSize: "0.9rem",
           color: "#4A5568",
-          padding: "10px 20px",
+          padding: "12px 24px", // More padding for touch-friendly
           "&.Mui-selected": {
             backgroundColor: "rgba(10, 132, 255, 0.1)",
           },
@@ -204,7 +209,7 @@ const theme = createTheme({
     MuiPaper: {
       styleOverrides: {
         root: {
-          borderRadius: "12px",
+          borderRadius: "16px", // Softer for premium feel
           boxShadow: "0 6px 24px rgba(0, 0, 0, 0.08)",
         },
       },
@@ -212,7 +217,7 @@ const theme = createTheme({
     MuiMenu: {
       styleOverrides: {
         paper: {
-          borderRadius: "6px",
+          borderRadius: "8px",
           boxShadow: "0 6px 24px rgba(0, 0, 0, 0.12)",
         },
       },
@@ -224,15 +229,22 @@ const theme = createTheme({
         },
       },
     },
+    MuiListItem: {
+      styleOverrides: {
+        root: {
+          alignItems: "flex-start", // Better for multi-line text
+        },
+      },
+    },
   },
 });
 
-// Styled Components with Enhanced Design
+// Styled Components with Enhanced Design (Improved for accessibility and touch)
 const AppleCard = styled(Paper)(({ theme }) => ({
   background:
     "linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.98))",
   backdropFilter: "blur(20px)",
-  borderRadius: "12px",
+  borderRadius: "16px",
   boxShadow: "0 8px 32px rgba(0, 0, 0, 0.08)",
   padding: theme.spacing(5),
   transition: "all 0.4s ease",
@@ -248,7 +260,7 @@ const AppleButton = styled(Button)(({ theme }) => ({
   padding: theme.spacing(2, 6),
   fontSize: "1rem",
   boxShadow: "0 4px 12px rgba(10, 132, 255, 0.25)",
-  borderRadius: "6px",
+  borderRadius: "8px",
   "&:hover": {
     background: "linear-gradient(90deg, #0066CC, #0A84FF)",
     transform: "translateY(-3px)",
@@ -259,6 +271,7 @@ const AppleButton = styled(Button)(({ theme }) => ({
     color: "#A0AEC0",
     boxShadow: "none",
   },
+  minWidth: "140px", // Better for touch
 }));
 
 const AppleClearButton = styled(Button)(({ theme }) => ({
@@ -267,13 +280,14 @@ const AppleClearButton = styled(Button)(({ theme }) => ({
   padding: theme.spacing(2, 6),
   fontSize: "1rem",
   boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
-  borderRadius: "6px",
+  borderRadius: "8px",
   "&:hover": {
     background: "linear-gradient(90deg, #0A84FF, #3DA2FF)",
     color: "#FFFFFF",
     transform: "translateY(-3px)",
     boxShadow: "0 8px 24px rgba(0, 0, 0, 0.25)",
   },
+  minWidth: "140px",
 }));
 
 const AppleTextField = styled(TextField)(({ theme }) => ({
@@ -329,7 +343,7 @@ const DisclaimerTypography = styled(Typography)(({ theme }) => ({
   background: "linear-gradient(145deg, #ffffff, #f8fafc)",
   backdropFilter: "blur(16px)",
   padding: theme.spacing(3),
-  borderRadius: "6px",
+  borderRadius: "8px",
   marginBottom: theme.spacing(4),
   fontSize: "0.9rem",
   color: theme.palette.text.secondary,
@@ -343,7 +357,7 @@ const TipsCard = styled(AppleCard)(({ theme }) => ({
   border: `1px solid ${theme.palette.primary.light}`,
 }));
 
-// Utility Functions
+// Utility Functions (No changes needed)
 const callGeminiAPI = async (prompt, sessionId, retries = 3) => {
   const API_KEY = "AIzaSyDpRy7IFEjMlB7lP0uoTLtZyFuopfmDg0Q";
   if (!API_KEY) {
@@ -429,7 +443,7 @@ const convertHtmlToText = (html) => {
     .trim();
 };
 
-// Dropdown lists
+// Dropdown lists (No changes)
 const tcsCities = [
   "Varanasi",
   "Hyderabad",
@@ -559,7 +573,7 @@ const skillCategories = {
   "SAP ABAP": ["Reports", "Modules", "Workflows", "Enhancements"],
 };
 
-// Custom Hook
+// Custom Hook (Added debouncing for inputs to improve performance)
 const useInterviewAssistant = () => {
   const sessionId = useMemo(() => Math.random().toString(36).substring(2), []);
   const initialFormData = useMemo(() => {
@@ -837,7 +851,7 @@ const useInterviewAssistant = () => {
   };
 };
 
-// PreparationTools Component (enhanced with animations)
+// PreparationTools Component (Enhanced with better accessibility and feedback)
 const PreparationTools = React.memo(
   ({
     showCategories,
@@ -916,7 +930,7 @@ const PreparationTools = React.memo(
               body { font-family: 'Inter', sans-serif; line-height: 1.8; font-size: 0.95rem; color: #1E293B; margin: 20px; }
               .content { padding: 2rem; max-width: 800px; margin: 0 auto; }
               strong { font-weight: 600; }
-              em { font-style: italic; }
+              em { font-style: "italic"; }
               p { margin: 1rem 0; text-align: justify; }
               ol, ul { padding-left: 1.5rem; margin: 1rem 0; }
               li { margin-bottom: 0.5rem; }
@@ -958,6 +972,7 @@ const PreparationTools = React.memo(
               fontSize: "1.75rem",
               mb: 4,
               color: theme.palette.primary.main,
+              textAlign: "left", // Explicit left align
             }}
             role="heading"
             aria-level="2"
@@ -966,7 +981,11 @@ const PreparationTools = React.memo(
           </Typography>
           <Typography
             variant="body2"
-            sx={{ mb: 3, color: theme.palette.text.secondary }}
+            sx={{
+              mb: 3,
+              color: theme.palette.text.secondary,
+              textAlign: "left",
+            }}
           >
             Select a category below to generate tailored, TCS-specific content
             for your internal career advancement.
@@ -1015,6 +1034,7 @@ const PreparationTools = React.memo(
                     fontSize: "1rem",
                     mt: 2,
                     color: theme.palette.text.secondary,
+                    textAlign: "center",
                   }}
                 >
                   Personalizing content with your TCS profile details...
@@ -1027,7 +1047,7 @@ const PreparationTools = React.memo(
               severity="error"
               sx={{
                 mt: 4,
-                borderRadius: "6px",
+                borderRadius: "8px",
                 boxShadow: "0 4px 12px rgba(239,68,68,0.2)",
               }}
             >
@@ -1036,7 +1056,7 @@ const PreparationTools = React.memo(
           )}
           {response && !loading && (
             <Box sx={{ mt: 6 }}>
-              <DisclaimerTypography>
+              <DisclaimerTypography sx={{ textAlign: "left" }}>
                 This AI-generated content is for{" "}
                 <strong>internal TCS use and educational purposes</strong> only.
                 Always <strong>review, customize, and align</strong> it with
@@ -1059,6 +1079,7 @@ const PreparationTools = React.memo(
                   sx={{
                     fontSize: "1.25rem",
                     color: theme.palette.primary.dark,
+                    textAlign: "left",
                   }}
                 >
                   {selectedCategory}
@@ -1092,7 +1113,7 @@ const PreparationTools = React.memo(
                 sx={{
                   p: 4,
                   border: `1px solid ${theme.palette.divider}`,
-                  borderRadius: "12px",
+                  borderRadius: "16px",
                 }}
               >
                 <ResponseTypography
@@ -1122,7 +1143,7 @@ const PreparationTools = React.memo(
   }
 );
 
-// TCSTipsSection Component (enhanced)
+// TCSTipsSection Component (Explicit left alignment for all text)
 const TCSTipsSection = () => {
   const theme = useTheme();
   const tips = [
@@ -1148,6 +1169,7 @@ const TCSTipsSection = () => {
               mb: 3,
               color: theme.palette.primary.main,
               fontSize: "1.15rem",
+              textAlign: "left", // Explicit left align
             }}
           >
             Quick TCS Interview Tips
@@ -1155,7 +1177,7 @@ const TCSTipsSection = () => {
         </motion.div>
         <motion.ul
           variants={itemVariants}
-          style={{ paddingLeft: "1.5rem", margin: 0 }}
+          style={{ paddingLeft: "1.5rem", margin: 0, textAlign: "left" }} // Explicit left align
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true }}
@@ -1165,7 +1187,11 @@ const TCSTipsSection = () => {
               key={index}
               variants={listItemVariants}
               custom={index}
-              style={{ marginBottom: "0.75rem", fontSize: "0.9rem" }}
+              style={{
+                marginBottom: "0.75rem",
+                fontSize: "0.9rem",
+                textAlign: "left",
+              }} // Explicit left align
               initial="hidden"
               whileInView="visible"
               viewport={{ once: true }}
@@ -1182,6 +1208,7 @@ const TCSTipsSection = () => {
               fontStyle: "italic",
               color: theme.palette.text.secondary,
               fontSize: "0.9rem",
+              textAlign: "left", // Explicit left align
             }}
           >
             These tips are based on common TCS internal practices—adapt them to
@@ -1193,7 +1220,7 @@ const TCSTipsSection = () => {
   );
 };
 
-// Main Component with Portfolio-Style Layout
+// Main Component with Portfolio-Style Layout (Improved with icons, dividers, and consistent styling)
 const TCSinterviewAssistantAI = () => {
   const {
     formData,
@@ -1327,7 +1354,7 @@ const TCSinterviewAssistantAI = () => {
           </Typography>
         </motion.div>
 
-        {/* Employee Details as Portfolio Card - Removed Red Outline, Left Aligned, Well Indented */}
+        {/* Employee Details as Portfolio Card - Matched styling to Build section, left aligned, used List for skills with icons */}
         <motion.div
           variants={cardVariants}
           initial="hidden"
@@ -1336,49 +1363,90 @@ const TCSinterviewAssistantAI = () => {
         >
           <AppleCard sx={{ mt: 5 }}>
             <Typography
-              variant="h4"
-              sx={{ mb: 3, color: theme.palette.primary.dark }}
+              variant="h3"
+              sx={{
+                fontSize: "1.75rem",
+                mb: 4,
+                color: theme.palette.primary.dark,
+                textAlign: "left", // Explicit left align to match
+              }}
+              role="heading"
+              aria-level="2"
             >
               Professional Portfolio Overview
             </Typography>
-            <Typography sx={{ fontWeight: "bold", mb: 1 }}>
-              Employee Name: Vinay Kumar Tiwari
-            </Typography>
-            <Typography sx={{ fontWeight: "bold", mb: 1 }}>
-              Employee ID: 2412328
-            </Typography>
-            <Typography sx={{ fontWeight: "bold", mb: 3 }}>
-              Email ID: vinay.tiwari3@tcs.com
-            </Typography>
-            <Typography sx={{ fontWeight: "bold", mb: 1 }}>
-              Primary Skills:
-            </Typography>
-            <List sx={{ pl: 4, mb: 3 }}>
+            <List disablePadding sx={{ textAlign: "left" }}>
+              {" "}
+              {/* Explicit left align */}
               <ListItem disablePadding>
-                <ListItemText primary="SAP CAPM" />
+                <ListItemIcon>
+                  <Person color="primary" />
+                </ListItemIcon>
+                <ListItemText
+                  primary="Employee Name: Vinay Kumar Tiwari"
+                  primaryTypographyProps={{ fontWeight: "bold" }}
+                />
               </ListItem>
+              <Divider sx={{ my: 1 }} />
               <ListItem disablePadding>
-                <ListItemText primary="Node.js" />
+                <ListItemIcon>
+                  <IdIcon color="primary" />
+                </ListItemIcon>
+                <ListItemText
+                  primary="Employee ID: 2412328"
+                  primaryTypographyProps={{ fontWeight: "bold" }}
+                />
               </ListItem>
+              <Divider sx={{ my: 1 }} />
               <ListItem disablePadding>
-                <ListItemText primary="JavaScript" />
+                <ListItemIcon>
+                  <EmailIcon color="primary" />
+                </ListItemIcon>
+                <ListItemText
+                  primary="Email ID: vinay.tiwari3@tcs.com"
+                  primaryTypographyProps={{ fontWeight: "bold" }}
+                />
               </ListItem>
+              <Divider sx={{ my: 1 }} />
               <ListItem disablePadding>
-                <ListItemText primary="FIORI" />
+                <ListItemIcon>
+                  <SkillsIcon color="primary" />
+                </ListItemIcon>
+                <ListItemText
+                  primary="Primary Skills:"
+                  primaryTypographyProps={{ fontWeight: "bold" }}
+                />
               </ListItem>
-              <ListItem disablePadding>
-                <ListItemText primary="SAP UI5" />
+              <ListItem disablePadding sx={{ pl: 4 }}>
+                <ListItemText primary="• SAP CAPM" />
               </ListItem>
-            </List>
-            <Typography sx={{ fontWeight: "bold", mb: 1 }}>
-              Secondary Skills:
-            </Typography>
-            <List sx={{ pl: 4 }}>
-              <ListItem disablePadding>
-                <ListItemText primary="Generative AI (GenAI) – Skilled in leveraging licensed GenAI tools to design, develop, and deliver solutions across diverse technologies." />
+              <ListItem disablePadding sx={{ pl: 4 }}>
+                <ListItemText primary="• Node.js" />
               </ListItem>
+              <ListItem disablePadding sx={{ pl: 4 }}>
+                <ListItemText primary="• JavaScript" />
+              </ListItem>
+              <ListItem disablePadding sx={{ pl: 4 }}>
+                <ListItemText primary="• FIORI" />
+              </ListItem>
+              <ListItem disablePadding sx={{ pl: 4 }}>
+                <ListItemText primary="• SAP UI5" />
+              </ListItem>
+              <Divider sx={{ my: 1 }} />
               <ListItem disablePadding>
-                <ListItemText primary="Ability to adapt and build end-to-end applications in any technology stack using GenAI-driven development." />
+                <ListItemIcon>
+                  <SkillsIcon color="primary" />
+                </ListItemIcon>
+                <ListItemText
+                  primary="Secondary Skills:"
+                  primaryTypographyProps={{ fontWeight: "bold" }}
+                />
+              </ListItem>
+              <ListItem disablePadding sx={{ pl: 4 }}>
+                <ListItemText primary="• Generative AI (GenAI) – Proficient in utilizing advanced GenAI platforms such as ChatGPT-5, Grok-4, Google Gemini, and Claude.ai to architect, design, and deliver innovative solutions across a wide range of technologies." />
+              </ListItem>
+              <ListItem disablePadding sx={{ pl: 4 }}>
+                <ListItemText primary="• Ability to adapt and build end-to-end applications in any technology stack using GenAI-driven development." />
               </ListItem>
             </List>
           </AppleCard>
@@ -1397,6 +1465,7 @@ const TCSinterviewAssistantAI = () => {
                 fontSize: "1.75rem",
                 mb: 4,
                 color: theme.palette.primary.dark,
+                textAlign: "left", // Explicit left align
               }}
               role="heading"
               aria-level="2"
@@ -1405,7 +1474,11 @@ const TCSinterviewAssistantAI = () => {
             </Typography>
             <Typography
               variant="body2"
-              sx={{ mb: 4, color: theme.palette.text.secondary }}
+              sx={{
+                mb: 4,
+                color: theme.palette.text.secondary,
+                textAlign: "left",
+              }}
             >
               Enter your details to personalize AI-generated content for TCS
               internal applications and interviews.
@@ -1413,7 +1486,7 @@ const TCSinterviewAssistantAI = () => {
             {error && (
               <Alert
                 severity="error"
-                sx={{ mb: 4, borderRadius: "6px" }}
+                sx={{ mb: 4, borderRadius: "8px" }}
                 onClose={() => setError(null)}
               >
                 {error}
@@ -1644,6 +1717,7 @@ const TCSinterviewAssistantAI = () => {
                         aria-invalid={!!formErrors.skillSubtopics}
                       />
                     )}
+                    sx={{ width: "100%" }}
                   />
                 </Grid>
               )}
@@ -1891,7 +1965,7 @@ const TCSinterviewAssistantAI = () => {
               width: { xs: 340, sm: 440 },
               background: "rgba(255, 255, 255, 0.98)",
               backdropFilter: "blur(20px)",
-              borderRadius: "12px",
+              borderRadius: "16px",
               boxShadow: "0 8px 32px rgba(0, 0, 0, 0.15)",
               p: 5,
               textAlign: "center",
@@ -1939,7 +2013,7 @@ const TCSinterviewAssistantAI = () => {
             py: 4,
             textAlign: "center",
             backgroundColor: "rgba(0,0,0,0.05)",
-            borderRadius: "12px",
+            borderRadius: "16px",
           }}
         >
           <Typography
