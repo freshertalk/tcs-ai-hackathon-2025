@@ -33,6 +33,7 @@ import {
   ListItemText,
   ListItemIcon,
   Divider,
+  Fab,
 } from "@mui/material";
 import {
   Person,
@@ -51,6 +52,10 @@ import {
   Email as EmailIcon,
   Badge as IdIcon,
   Code as SkillsIcon,
+  ArrowUpward as UpIcon,
+  ArrowDownward as DownIcon,
+  Phone as PhoneIcon,
+  Message as MessageIcon,
 } from "@mui/icons-material";
 import { motion } from "framer-motion";
 import logo from "../assets/tcs-logo.png";
@@ -1171,8 +1176,8 @@ const TCSTipsSection = () => {
         <List sx={{ textAlign: "left" }}>
           <ListItem disablePadding>
             <ListItemText
-              primary="1. Align with TCS Core Values"
-              primaryTypographyProps={{ variant: "h6" }}
+              primary={<strong>1. Align with TCS Core Values</strong>}
+              primaryTypographyProps={{ variant: "body2", fontWeight: "bold" }}
             />
           </ListItem>
           <List sx={{ pl: 4 }}>
@@ -1191,8 +1196,12 @@ const TCSTipsSection = () => {
           </List>
           <ListItem disablePadding>
             <ListItemText
-              primary="2. Highlight Technical Proficiency (for technical roles)"
-              primaryTypographyProps={{ variant: "h6" }}
+              primary={
+                <strong>
+                  2. Highlight Technical Proficiency (for technical roles)
+                </strong>
+              }
+              primaryTypographyProps={{ variant: "body2", fontWeight: "bold" }}
             />
           </ListItem>
           <List sx={{ pl: 4 }}>
@@ -1211,8 +1220,8 @@ const TCSTipsSection = () => {
           </List>
           <ListItem disablePadding>
             <ListItemText
-              primary="3. Use the STAR Method"
-              primaryTypographyProps={{ variant: "h6" }}
+              primary={<strong>3. Use the STAR Method</strong>}
+              primaryTypographyProps={{ variant: "body2", fontWeight: "bold" }}
             />
           </ListItem>
           <List sx={{ pl: 4 }}>
@@ -1231,8 +1240,12 @@ const TCSTipsSection = () => {
           </List>
           <ListItem disablePadding>
             <ListItemText
-              primary="4. Prepare for Situational & Case-Based Questions"
-              primaryTypographyProps={{ variant: "h6" }}
+              primary={
+                <strong>
+                  4. Prepare for Situational & Case-Based Questions
+                </strong>
+              }
+              primaryTypographyProps={{ variant: "body2", fontWeight: "bold" }}
             />
           </ListItem>
           <List sx={{ pl: 4 }}>
@@ -1251,8 +1264,8 @@ const TCSTipsSection = () => {
           </List>
           <ListItem disablePadding>
             <ListItemText
-              primary="5. Post-Interview Etiquette"
-              primaryTypographyProps={{ variant: "h6" }}
+              primary={<strong>5. Post-Interview Etiquette</strong>}
+              primaryTypographyProps={{ variant: "body2", fontWeight: "bold" }}
             />
           </ListItem>
           <List sx={{ pl: 4 }}>
@@ -1271,8 +1284,8 @@ const TCSTipsSection = () => {
           </List>
           <ListItem disablePadding>
             <ListItemText
-              primary="6. Leverage TCS Internal Tools"
-              primaryTypographyProps={{ variant: "h6" }}
+              primary={<strong>6. Leverage TCS Internal Tools</strong>}
+              primaryTypographyProps={{ variant: "body2", fontWeight: "bold" }}
             />
           </ListItem>
           <List sx={{ pl: 4 }}>
@@ -1291,8 +1304,12 @@ const TCSTipsSection = () => {
           </List>
           <ListItem disablePadding>
             <ListItemText
-              primary="7. Showcase Continuous Learning & Certifications"
-              primaryTypographyProps={{ variant: "h6" }}
+              primary={
+                <strong>
+                  7. Showcase Continuous Learning & Certifications
+                </strong>
+              }
+              primaryTypographyProps={{ variant: "body2", fontWeight: "bold" }}
             />
           </ListItem>
           <List sx={{ pl: 4 }}>
@@ -1311,8 +1328,8 @@ const TCSTipsSection = () => {
           </List>
           <ListItem disablePadding>
             <ListItemText
-              primary="8. Cultural Fit & Global Mindset"
-              primaryTypographyProps={{ variant: "h6" }}
+              primary={<strong>8. Cultural Fit & Global Mindset</strong>}
+              primaryTypographyProps={{ variant: "body2", fontWeight: "bold" }}
             />
           </ListItem>
           <List sx={{ pl: 4 }}>
@@ -1391,6 +1408,14 @@ const TCSinterviewAssistantAI = () => {
     });
     return [...new Set(allSubtopics)];
   }, [selectedSkills]);
+
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const scrollToBottom = () => {
+    window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+  };
 
   return (
     <ThemeProvider theme={theme}>
@@ -2209,6 +2234,70 @@ const TCSinterviewAssistantAI = () => {
             © 2025 TCS AI Career Assistant | For internal use only | Generated
             content is AI-assisted and should be reviewed for accuracy.
           </Typography>
+        </Box>
+        {/* Floating buttons for navigation and contact */}
+        <Box
+          sx={{
+            position: "fixed",
+            bottom: 20,
+            right: 20,
+            display: "flex",
+            flexDirection: "column",
+            gap: 1,
+            zIndex: 1000,
+          }}
+        >
+          <motion.div
+            whileHover={{ scale: 1.1 }}
+            transition={{ duration: 0.3 }}
+          >
+            <Fab
+              size="small"
+              color="primary"
+              aria-label="scroll to top"
+              onClick={scrollToTop}
+            >
+              <UpIcon />
+            </Fab>
+          </motion.div>
+          <motion.div
+            whileHover={{ scale: 1.1 }}
+            transition={{ duration: 0.3 }}
+          >
+            <Fab
+              size="small"
+              color="primary"
+              aria-label="scroll to bottom"
+              onClick={scrollToBottom}
+            >
+              <DownIcon />
+            </Fab>
+          </motion.div>
+          <motion.div
+            whileHover={{ scale: 1.1 }}
+            transition={{ duration: 0.3 }}
+          >
+            <a href="tel:+919561520911" style={{ textDecoration: "none" }}>
+              <Fab size="small" color="secondary" aria-label="call">
+                <PhoneIcon />
+              </Fab>
+            </a>
+          </motion.div>
+          <motion.div
+            whileHover={{ scale: 1.1 }}
+            transition={{ duration: 0.3 }}
+          >
+            <a
+              href="https://wa.me/919561520911"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ textDecoration: "none" }}
+            >
+              <Fab size="small" color="success" aria-label="whatsapp">
+                <MessageIcon />
+              </Fab>
+            </a>
+          </motion.div>
         </Box>
       </Box>
     </ThemeProvider>
