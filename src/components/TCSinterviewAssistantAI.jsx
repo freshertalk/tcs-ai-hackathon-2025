@@ -137,7 +137,7 @@ const PROFILE = {
   name: "Vinay Kumar Tiwari",
   title:
     "Senior Software Developer (10+ yrs) — SAP UI5 / FIORI / CAPM / BTP / GenAI Engineer",
-  ribbon: "AI Enthusiastic in Project Implementation",
+  ribbon: "AI Enthusiastic",
   currentRole:
     "Assistant Consultant — Tata Consultancy Services (Aug 2022 — Present)",
   location: "Varanasi, Uttar Pradesh, India",
@@ -145,13 +145,13 @@ const PROFILE = {
   email: "vinaytiwari.java@gmail.com",
   linkedin: "https://www.linkedin.com/in/vktiwari/",
   summary:
-    "Pragmatic engineer building scalable SAP BTP apps with SAP UI/UX excellence and secure CAP (Node.js) services, integrating GenAI where it measurably improves outcomes",
+    "Pragmatic engineer building scalable SAP BTP apps with SAP UI/UX excellence and secure CAPM (Node.js) services, integrating GenAI where it measurably improves outcomes",
 };
 
 const SKILLS = {
   core: [
     "SAP UI5 / Fiori",
-    "CAP (Node.js)",
+    "CAPM (Node.js)",
     "SAP BTP / Cloud Foundry",
     "OData / REST",
     "JavaScript (ES2023)",
