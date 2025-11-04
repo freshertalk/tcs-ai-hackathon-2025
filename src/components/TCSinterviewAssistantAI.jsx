@@ -1,2329 +1,1285 @@
 // src/TCSinterviewAssistantAI.jsx
-import React, {
-  useEffect,
-  useMemo,
-  useCallback,
-  useState,
-  useRef,
-} from "react";
+// React 18 + MUI 5 + Framer Motion — Single-page, smooth-scroll portfolio for Vinay Kumar Tiwari
+// Redesign highlights:
+// - Crisp header with active section highlight, logo at src/assets/logo.avif
+// - Apple-style hero with big circular photo (src/assets/vinay.png) on left
+// - Ribbon: "AI Enthusiastic in Project Implementation" prominently shown
+// - Clients anonymized across Experience
+// - Projects in strict reverse chronological order
+// - Contact section redesigned (was "Direct")
+// - Removed skills: Java / Spring Boot, Compose, Jest/JUnit/Mockito, HPE Fortify (SAST)
+// - Professional animations (respects prefers-reduced-motion), mobile-first, accessible
+// - Footer note italicized: Developed by Vinay Kumar Tiwari
+// - Inter font via Google Fonts
+// - Extras: scroll progress bar, section-aware nav, reduced-motion safe variants, focus-visible styles
+
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
+  AppBar,
+  Avatar,
   Box,
-  Typography,
-  TextField,
-  Select,
-  MenuItem,
   Button,
-  FormControl,
-  InputLabel,
+  Chip,
+  Container,
+  CssBaseline,
+  Divider,
   Grid,
-  Paper,
-  LinearProgress,
-  Alert,
-  Modal,
   IconButton,
-  styled,
+  Link as MuiLink,
+  LinearProgress,
+  Paper,
+  Stack,
+  TextField,
+  Toolbar,
+  Typography,
+  useMediaQuery,
   createTheme,
   ThemeProvider,
-  Autocomplete,
-  Chip,
-  useMediaQuery,
   useTheme,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemIcon,
-  Divider,
-  Fab,
+  Tooltip,
+  GlobalStyles,
 } from "@mui/material";
 import {
-  Person,
-  Work,
-  Business,
-  LocationOn,
+  DarkMode as DarkModeIcon,
+  LightMode as LightModeIcon,
   LinkedIn,
-  ArrowForward,
-  Refresh,
-  Category,
-  Autorenew as RegenerateIcon,
-  ContentCopy as CopyIcon,
-  Check as CheckIcon,
-  Download as DownloadIcon,
-  Print as PrintIcon,
-  Email as EmailIcon,
-  Badge as IdIcon,
-  Code as SkillsIcon,
-  ArrowUpward as UpIcon,
-  ArrowDownward as DownIcon,
-  Phone as PhoneIcon,
-  WhatsApp as WhatsAppIcon, // Assuming imported from '@mui/icons-material/WhatsApp' or similar; if not available, use a custom SVG for realistic WhatsApp icon
+  MailOutline,
+  Phone,
+  LocationOn,
+  ArrowDownward,
+  ArrowUpward,
+  SecurityOutlined,
+  VerifiedOutlined,
+  WorkspacePremiumOutlined,
+  StarBorderRounded,
+  RocketLaunchOutlined,
+  DevicesOtherOutlined,
+  TimelineOutlined,
+  HubOutlined,
+  LanguageOutlined,
+  CodeOutlined,
+  WorkHistoryOutlined,
+  SchoolOutlined,
+  EmojiEventsOutlined,
+  EmojiObjectsOutlined,
 } from "@mui/icons-material";
-import { motion } from "framer-motion";
-import logo from "../assets/tcs-logo.png";
-import { GoogleGenerativeAI } from "@google/generative-ai";
-import DOMPurify from "dompurify";
+import { motion, useReducedMotion } from "framer-motion";
+import logo from "../assets/logo.avif";
+import photo from "../assets/v.avif";
 
-// Animation Variants (Enhanced for smoother transitions)
-const containerVariants = {
-  hidden: { opacity: 0, y: 30, scale: 0.95 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    scale: 1,
-    transition: { duration: 0.8, ease: [0.25, 0.46, 0.45, 0.94] },
-  },
+// ---------- Theme ----------
+const buildTheme = (mode) =>
+  createTheme({
+    palette: {
+      mode,
+      primary: { main: "#2563EB" },
+      secondary: { main: "#10B981" },
+      background:
+        mode === "dark"
+          ? { default: "#0B0F1A", paper: "#0F1524" }
+          : { default: "#F7F9FC", paper: "#FFFFFF" },
+    },
+    shape: { borderRadius: 16 },
+    typography: {
+      fontFamily:
+        "Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif",
+      h1: { fontWeight: 800, letterSpacing: "-0.02em" },
+      h2: { fontWeight: 800, letterSpacing: "-0.02em" },
+      h3: { fontWeight: 700 },
+      h4: { fontWeight: 700 },
+      h5: { fontWeight: 700 },
+      h6: { fontWeight: 600 },
+      button: { textTransform: "none", fontWeight: 700 },
+    },
+    components: {
+      MuiPaper: { styleOverrides: { root: { backgroundImage: "none" } } },
+      MuiButton: { defaultProps: { disableElevation: true } },
+      MuiChip: { styleOverrides: { root: { fontWeight: 600 } } },
+      MuiLink: { defaultProps: { underline: "hover" } },
+      MuiCssBaseline: {
+        styleOverrides: {
+          ":root": { colorScheme: mode },
+          "html, body, #root": { height: "100%" },
+          "a:focus-visible, button:focus-visible": {
+            outline: `3px solid ${mode === "dark" ? "#8ab4f8" : "#2563EB"}`,
+            outlineOffset: 2,
+            borderRadius: 8,
+          },
+          "::-moz-selection": { background: "#bfdbfe" },
+          "::selection": { background: "#bfdbfe" },
+        },
+      },
+    },
+  });
+
+// ---------- Animations ----------
+const makeMotion = (reduce) => {
+  const base = reduce
+    ? { transition: { duration: 0, ease: "linear" } }
+    : { transition: { duration: 0.6, ease: "easeOut" } };
+  return {
+    fadeUp: {
+      hidden: { opacity: 0, y: reduce ? 0 : 18 },
+      visible: { opacity: 1, y: 0, ...base },
+    },
+    fade: {
+      hidden: { opacity: 0 },
+      visible: { opacity: 1, ...base },
+    },
+    hoverLift: reduce
+      ? {}
+      : { whileHover: { y: -4, boxShadow: "0 10px 30px rgba(0,0,0,.12)" } },
+  };
 };
 
-const itemVariants = {
-  hidden: { opacity: 0, y: 20, x: -10 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    x: 0,
-    transition: { duration: 0.6, ease: [0.25, 0.46, 0.45, 0.94], delay: 0.1 },
-  },
+// ---------- Data ----------
+const PROFILE = {
+  name: "Vinay Kumar Tiwari",
+  title:
+    "Senior Software Developer (10+ yrs) — SAP UI5 / FIORI / CAPM / BTP / GenAI Engineer",
+  ribbon: "AI Enthusiastic in Project Implementation",
+  currentRole:
+    "Assistant Consultant — Tata Consultancy Services (Aug 2022 — Present)",
+  location: "Varanasi, Uttar Pradesh, India",
+  phone: "+91 95615 20911",
+  email: "vinaytiwari.java@gmail.com",
+  linkedin: "https://www.linkedin.com/in/vktiwari/",
+  summary:
+    "Pragmatic engineer building scalable SAP BTP apps with SAP UI/UX excellence and secure CAP (Node.js) services, integrating GenAI where it measurably improves outcomes",
 };
 
-const listItemVariants = {
-  hidden: { opacity: 0, x: -20 },
-  visible: (i) => ({
-    opacity: 1,
-    x: 0,
-    transition: {
-      duration: 0.5,
-      ease: [0.25, 0.46, 0.45, 0.94],
-      delay: i * 0.1,
-    },
-  }),
+const SKILLS = {
+  core: [
+    "SAP UI5 / Fiori",
+    "CAP (Node.js)",
+    "SAP BTP / Cloud Foundry",
+    "OData / REST",
+    "JavaScript (ES2023)",
+    "HTML5 / CSS3",
+    "MongoDB",
+    "Git / GitHub",
+    "GenAI / Prompt Engineering",
+  ],
+  tooling: [
+    "SAP BAS / WebIDE",
+    "OpenAPI / Swagger",
+    "Postman",
+    "Docker",
+    "Cloud Foundry",
+    "Agile (Scrum/XP)",
+    "Confluence / JIRA",
+  ],
+  soft: ["Mentorship", "Stakeholder alignment", "Documentation", "Code reviews", "Agile demos"],
 };
 
-const cardVariants = {
-  hidden: { opacity: 0, scale: 0.98 },
-  visible: {
-    opacity: 1,
-    scale: 1,
-    transition: { duration: 0.7, ease: "easeOut" },
-  },
-  hover: {
-    scale: 1.02,
-    boxShadow: "0 12px 40px rgba(0, 0, 0, 0.15)",
-    transition: { duration: 0.4, ease: "easeOut" },
-  },
+const CERTS = [
+  "SAP Certified Development Associate — Fiori Application Developer (C_FIORDEV_21)",
+  "SAP Certified Development Associate — Extension Suite (C_CPE_12)",
+  "IBM Agile Explorer, Cognitive Practitioner, Design Thinking Practitioner",
+  "IBM (Coursera) — Microservices Fundamentals",
+  "CDAC Pune — Advanced Computing (6 months)",
+];
+
+const EDUCATION = {
+  degree: "B.E. — Electronics & Communication Engineering",
+  institute: "RGPV, Bhopal",
+  year: "2014",
+  score: "74.90%",
 };
 
-// Enhanced Theme for World-Class Design (Improved contrast, accessibility, and modern aesthetics)
-const theme = createTheme({
-  palette: {
-    primary: { main: "#0A84FF", dark: "#0066CC", light: "#3DA2FF" },
-    secondary: { main: "#FF2D55", dark: "#CC2444" },
-    background: {
-      default: "linear-gradient(135deg, #F0F4F8 0%, #E0E7EF 100%)",
-      paper: "rgba(255, 255, 255, 0.97)",
-    },
-    text: { primary: "#1A202C", secondary: "#4A5568" },
-    error: { main: "#EF4444" },
-    warning: { main: "#F59E0B" },
-    success: { main: "#10B981" },
+// Experience (clients anonymized)
+const EXPERIENCE = [
+  {
+    company: "Tata Consultancy Services",
+    role: "Assistant Consultant",
+    period: "Aug 2022 — Present · Varanasi",
+    items: [
+      {
+        title: "Digital transformation",
+        client: "Major Pharma Industry · USA",
+        time: "May 2024 — Present · Team lead · Healthcare",
+        points: [
+          "Fiori-compliant UI5 apps on BTP with real-time OData flows",
+          "Rapid prototyping with sprint demos to stakeholders",
+          "Quality with Git and CI and secure defaults",
+        ],
+        tags: ["SAP UI5", "Fiori", "BTP", "Node.js", "OData"],
+      },
+      {
+        title: "Solutions and innovation",
+        client: "Enterprise software lab · India",
+        time: "Sep 2022 — Apr 2024 · Developer · Hi-tech",
+        points: [
+          "Node.js and UI5 prototypes on BTP to showcase product capabilities",
+          "MVP per sprint and multi-environment maintenance",
+        ],
+        tags: ["Node.js", "SAP UI5", "BTP", "OData"],
+      },
+    ],
   },
-  typography: {
-    fontFamily:
-      "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-    h1: { fontWeight: 700, letterSpacing: "-0.025em", fontSize: "3rem" },
-    h2: { fontWeight: 600, fontSize: "2.25rem" },
-    h3: { fontWeight: 600, fontSize: "1.75rem" },
-    h4: { fontWeight: 600, fontSize: "1.25rem" },
-    h5: { fontWeight: 500, fontSize: "1.15rem" },
-    h6: { fontWeight: 500, fontSize: "1.05rem" },
-    body1: { lineHeight: 1.75, letterSpacing: "0.01em", fontSize: "1rem" },
-    body2: { fontSize: "0.9rem" },
+  {
+    company: "IBM India",
+    role: "Application Consultant",
+    period: "Jan 2020 — Aug 2022",
+    items: [
+      {
+        title: "Cloud HR benefits and claims",
+        client: "Leading healthcare group · Singapore",
+        time: "Mar 2022 — Aug 2022 · Developer · Healthcare",
+        points: [
+          "UI5 modules and BTP integrations for cloud HR workflows",
+          "Sprint MVP delivery",
+        ],
+        tags: ["UI5", "BTP", "OData"],
+      },
+      {
+        title: "S/4HANA returns transition",
+        client: "Leading aerospace enterprise · Canada",
+        time: "Sep 2021 — Feb 2022 · Developer · Aerospace",
+        points: [
+          "Custom UI5 return process with CDS and OData",
+          "UAT defect closure and UTD artifacts",
+        ],
+        tags: ["UI5", "WorkZone", "CDS"],
+      },
+      {
+        title: "Contractor resource management",
+        client: "Fortune 100 CIO organization",
+        time: "Sep 2020 — Sep 2021 · Developer · HRMS",
+        points: [
+          "Lifecycle workflows from onboarding to offboarding",
+          "Launchpad configuration and UI customization",
+        ],
+        tags: ["UI5", "OData", "Neo"],
+      },
+      {
+        title: "Self-service password reset",
+        client: "Internal initiative",
+        time: "Apr 2020 — Aug 2020 · Solo",
+        points: ["UI5 plus OData proof of concept to MVP"],
+        tags: ["UI5", "OData"],
+      },
+    ],
   },
-  components: {
-    MuiButton: {
-      styleOverrides: {
-        root: {
-          borderRadius: "8px", // Softer corners for modern feel
-          textTransform: "none",
-          fontWeight: 600,
-          transition: "all 0.3s ease",
-          boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
-          "&:hover": {
-            boxShadow: "0 6px 20px rgba(0, 0, 0, 0.15)",
-            transform: "translateY(-3px)",
-          },
-        },
+  {
+    company: "Cognizant",
+    role: "Associate — Projects",
+    period: "Mar 2019 — Dec 2019 · Bengaluru",
+    items: [
+      {
+        title: "TDM portal for B2C and B2B",
+        client: "Major telecom operator · Australia",
+        points: [
+          "Microservices for data automation and test orchestration",
+          "Service and database design with unit tests",
+        ],
+        tags: ["Microservices", "React"],
       },
-    },
-    MuiTextField: {
-      styleOverrides: {
-        root: {
-          "& .MuiOutlinedInput-root": {
-            borderRadius: "8px",
-            background: "rgba(255, 255, 255, 0.98)",
-            backdropFilter: "blur(16px)",
-            boxShadow: "0 4px 12px rgba(0, 0, 0, 0.05)",
-            "& fieldset": { border: "none" },
-            "&:hover": { boxShadow: "0 6px 20px rgba(0, 0, 0, 0.1)" },
-          },
-          "& .MuiInputBase-input": {
-            fontSize: "0.9rem",
-          },
-        },
-      },
-    },
-    MuiSelect: {
-      styleOverrides: {
-        root: {
-          borderRadius: "8px",
-          background: "rgba(255, 255, 255, 0.98)",
-          backdropFilter: "blur(16px)",
-          boxShadow: "0 4px 12px rgba(0, 0, 0, 0.05)",
-          "& fieldset": { border: "none" },
-        },
-        select: {
-          fontSize: "0.9rem",
-        },
-      },
-    },
-    MuiAutocomplete: {
-      styleOverrides: {
-        root: {
-          "& .MuiOutlinedInput-root": {
-            borderRadius: "8px",
-            background: "rgba(255, 255, 255, 0.98)",
-            backdropFilter: "blur(16px)",
-            boxShadow: "0 4px 12px rgba(0, 0, 0, 0.05)",
-            "& fieldset": { border: "none" },
-            "& .MuiInputBase-input": {
-              fontSize: "0.9rem",
-            },
-          },
-        },
-      },
-    },
-    MuiMenuItem: {
-      styleOverrides: {
-        root: {
-          fontSize: "0.9rem",
-          color: "#4A5568",
-          padding: "12px 24px", // More padding for touch-friendly
-          "&.Mui-selected": {
-            backgroundColor: "rgba(10, 132, 255, 0.1)",
-          },
-        },
-      },
-    },
-    MuiPaper: {
-      styleOverrides: {
-        root: {
-          borderRadius: "16px", // Softer for premium feel
-          boxShadow: "0 6px 24px rgba(0, 0, 0, 0.08)",
-        },
-      },
-    },
-    MuiMenu: {
-      styleOverrides: {
-        paper: {
-          borderRadius: "8px",
-          boxShadow: "0 6px 24px rgba(0, 0, 0, 0.12)",
-        },
-      },
-    },
-    MuiList: {
-      styleOverrides: {
-        root: {
-          padding: "0px 0px",
-        },
-      },
-    },
-    MuiListItem: {
-      styleOverrides: {
-        root: {
-          alignItems: "flex-start", // Better for multi-line text
-        },
-      },
-    },
+    ],
   },
+  {
+    company: "Mindtree",
+    role: "Senior Software Engineer",
+    period: "Jul 2018 — Mar 2019 · Bengaluru",
+    items: [
+      {
+        title: "Revenue management program",
+        client: "Global travel and transport provider",
+        points: [
+          "Security fixes for XSS and SQLi and log forging",
+          "Refactored core utilities",
+        ],
+        tags: ["Security", "Refactoring"],
+      },
+      {
+        title: "DC index cache performance",
+        client: "Global travel and transport provider",
+        points: [
+          "Cache intelligence from POC to delivery",
+          "Messaging and coherence optimizations",
+        ],
+        tags: ["Caching", "Performance"],
+      },
+    ],
+  },
+  {
+    company: "Wipro",
+    role: "Project Engineer",
+    period: "Sep 2015 — Jul 2018 · Bengaluru",
+    items: [
+      {
+        title: "Building management with Haystack API",
+        client: "Global semiconductor and IoT leader",
+        points: ["Java API for standardized inputs and downstream operations"],
+        tags: ["Spring MVC", "REST"],
+      },
+      {
+        title: "Converged infrastructure management",
+        client: "Enterprise infrastructure provider",
+        points: [
+          "Automation for servers and storage and networking with modern management architecture",
+        ],
+        tags: ["Automation", "Infrastructure"],
+      },
+      {
+        title: "Security management system",
+        client: "Global security solutions provider",
+        points: ["Development and code review and vulnerability fixes"],
+        tags: ["SAST", "Code review"],
+      },
+    ],
+  },
+];
+
+const PROJECTS = [
+  {
+    year: 2024,
+    name: "MedTech apps suite",
+    badge: "Healthcare",
+    desc: "Fiori UI5 apps on BTP for internal operations and faster clinical support",
+    tags: ["UI5", "BTP", "OData"],
+  },
+  {
+    year: 2022,
+    name: "Cloud HR workflows",
+    badge: "HRMS",
+    desc: "Benefits and claims with secure OData services and launchpad integration",
+    tags: ["UI5", "BTP", "Launchpad"],
+  },
+  {
+    year: 2022,
+    name: "Returns management",
+    badge: "Aerospace",
+    desc: "Custom UI5 returns process with CDS and OData and UAT stabilization",
+    tags: ["UI5", "CDS", "WorkZone"],
+  },
+  {
+    year: 2019,
+    name: "TDM portal automation",
+    badge: "Telecom",
+    desc: "Microservices driven data automation and test orchestration",
+    tags: ["Microservices", "React"],
+  },
+  {
+    year: 2018,
+    name: "Revenue management hardening",
+    badge: "Travel",
+    desc: "Security hardening and utility refactor for reliability",
+    tags: ["Security", "Refactor"],
+  },
+  {
+    year: 2018,
+    name: "DC index cache",
+    badge: "Performance",
+    desc: "Cache intelligence and messaging optimization",
+    tags: ["Caching", "Performance"],
+  },
+  {
+    year: 2017,
+    name: "Building management API",
+    badge: "IoT",
+    desc: "Standardized Java API for building data inputs",
+    tags: ["Spring MVC", "REST"],
+  },
+  {
+    year: 2017,
+    name: "Converged infra automation",
+    badge: "Infra",
+    desc: "Automation for server and storage and network management",
+    tags: ["Automation", "Infra"],
+  },
+  {
+    year: 2016,
+    name: "Security management system",
+    badge: "Security",
+    desc: "Development and vulnerability remediation",
+    tags: ["SAST", "Secure SDLC"],
+  },
+].sort((a, b) => b.year - a.year);
+
+const AWARDS = [
+  "TCS Gems and multiple account recognitions",
+  "Best team award and service and commit awards",
+  "Growth award 2022 Q1 with cash award",
+  "Recognition eCards for consistent delivery",
+  "Victory League recognition at Wipro",
+];
+
+// ---------- Utilities ----------
+const useInterFont = () => {
+  useEffect(() => {
+    const id = "inter-font-link";
+    if (!document.getElementById(id)) {
+      const link = document.createElement("link");
+      link.id = id;
+      link.rel = "stylesheet";
+      link.href =
+        "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap";
+      document.head.appendChild(link);
+    }
+  }, []);
+};
+
+const Section = React.forwardRef(function Section({ id, children, ...rest }, ref) {
+  return (
+    <Box
+      id={id}
+      ref={ref}
+      component="section"
+      sx={{ scrollMarginTop: 96, py: { xs: 8, md: 12 } }}
+      {...rest}
+    >
+      {children}
+    </Box>
+  );
 });
 
-// Styled Components with Enhanced Design (Improved for accessibility and touch)
-const AppleCard = styled(Paper)(({ theme }) => ({
-  background:
-    "linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.98))",
-  backdropFilter: "blur(20px)",
-  borderRadius: "16px",
-  boxShadow: "0 8px 32px rgba(0, 0, 0, 0.08)",
-  padding: theme.spacing(5),
-  transition: "all 0.4s ease",
-  "&:hover": {
-    boxShadow: "0 12px 48px rgba(0, 0, 0, 0.12)",
-  },
-  [theme.breakpoints.down("sm")]: { padding: theme.spacing(3.5) },
-}));
-
-const AppleButton = styled(Button)(({ theme }) => ({
-  background: "linear-gradient(90deg, #0A84FF, #3DA2FF)",
-  color: "#FFFFFF",
-  padding: theme.spacing(2, 6),
-  fontSize: "1rem",
-  boxShadow: "0 4px 12px rgba(10, 132, 255, 0.25)",
-  borderRadius: "8px",
-  "&:hover": {
-    background: "linear-gradient(90deg, #0066CC, #0A84FF)",
-    transform: "translateY(-3px)",
-    boxShadow: "0 8px 24px rgba(0, 0, 0, 0.25)",
-  },
-  "&:disabled": {
-    background: "#EDF2F7",
-    color: "#A0AEC0",
-    boxShadow: "none",
-  },
-  minWidth: "140px", // Better for touch
-}));
-
-const AppleClearButton = styled(Button)(({ theme }) => ({
-  background: "linear-gradient(145deg, #ffffff, #f8fafc)",
-  color: theme.palette.text.secondary,
-  padding: theme.spacing(2, 6),
-  fontSize: "1rem",
-  boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
-  borderRadius: "8px",
-  "&:hover": {
-    background: "linear-gradient(90deg, #0A84FF, #3DA2FF)",
-    color: "#FFFFFF",
-    transform: "translateY(-3px)",
-    boxShadow: "0 8px 24px rgba(0, 0, 0, 0.25)",
-  },
-  minWidth: "140px",
-}));
-
-const AppleTextField = styled(TextField)(({ theme }) => ({
-  "& .MuiInputBase-input": {
-    padding: theme.spacing(2.5),
-    fontSize: "0.9rem",
-    transition: "all 0.3s ease",
-    "&:focus": { background: "rgba(255, 255, 255, 0.99)" },
-  },
-}));
-
-const AppleSelect = styled(Select)(({ theme }) => ({
-  "& .MuiSelect-select": {
-    padding: theme.spacing(2.5),
-    fontSize: "0.9rem",
-    transition: "all 0.3s ease",
-    "&:focus": { background: "rgba(255, 255, 255, 0.99)" },
-  },
-}));
-
-const ResponseTypography = styled(Typography)(({ theme }) => ({
-  textAlign: "left",
-  lineHeight: 1.85,
-  fontSize: "1rem",
-  color: theme.palette.text.primary,
-  "& strong": { fontWeight: 600 },
-  "& em": { fontStyle: "italic" },
-  "& p": { margin: "1.25rem 0" },
-  "& ol": {
-    margin: "1.25rem 0",
-    paddingLeft: "2rem",
-  },
-  "& li": { marginBottom: "0.75rem" },
-  "& strong em": {
-    backgroundColor: "#FEF3C7",
-    color: "#92400E",
-    padding: "0.3rem 0.6rem",
-    borderRadius: "8px",
-    fontStyle: "italic",
-  },
-  "& ul, & ol": {
-    marginBottom: "1.25rem",
-  },
-  "& h2, & h3": {
-    fontWeight: 600,
-    marginTop: "2rem",
-    marginBottom: "1rem",
-    color: theme.palette.primary.main,
-  },
-}));
-
-const DisclaimerTypography = styled(Typography)(({ theme }) => ({
-  background: "linear-gradient(145deg, #ffffff, #f8fafc)",
-  backdropFilter: "blur(16px)",
-  padding: theme.spacing(3),
-  borderRadius: "8px",
-  marginBottom: theme.spacing(4),
-  fontSize: "0.9rem",
-  color: theme.palette.text.secondary,
-  boxShadow: "0 4px 12px rgba(0, 0, 0, 0.05)",
-  "& strong": { fontWeight: 600, color: theme.palette.error.main },
-}));
-
-const TipsCard = styled(AppleCard)(({ theme }) => ({
-  mt: 5,
-  background: "linear-gradient(135deg, #E0F2FE 0%, #F0F9FF 100%)",
-  border: `1px solid ${theme.palette.primary.light}`,
-}));
-
-// Utility Functions (No changes needed)
-const callGeminiAPI = async (prompt, sessionId, retries = 3) => {
-  const API_KEY = "AIzaSyDpRy7IFEjMlB7lP0uoTLtZyFuopfmDg0Q";
-  if (!API_KEY) {
-    throw new Error("API key is not set.");
-  }
-
-  let attempt = 0;
-  while (attempt < retries) {
-    try {
-      const genAI = new GoogleGenerativeAI(API_KEY);
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-      const result = await model.generateContent(prompt);
-      const response = await result.response;
-      let text = response.text();
-
-      text = text
-        .replace(/\*\*\*\*(.*?)\*\*\*\*/g, "<strong>$1</strong>")
-        .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-        .replace(/\[([^\]]+)\]/g, "[<strong><em>$1</em></strong>]")
-        .replace(/\n\n+/g, "</p><p style='margin-top: 1rem;'>")
-        .replace(/\n/g, "<br />")
-        .replace(/^\s*[-*]\s+/gm, "")
-        .replace(
-          /^(\d+\.\s+)([^\n]+)/gm,
-          "<li style='margin-bottom: 0.5rem;'>$2</li>"
-        )
-        .replace(
-          /<li style='margin-bottom: 0.5rem;'>(.*?)<\/li>/g,
-          (match, p1) => match.replace(/^(\d+\.\s+)/, "")
-        )
-        .replace(
-          /<li style='margin-bottom: 0.5rem;'>/,
-          "<ol style='padding-left: 1.5rem; margin: 1rem 0;'><li style='margin-bottom: 0.5rem;'>"
-        )
-        .replace(/<\/li>$/, "</li></ol>");
-
-      return `<div style="line-height: 1.8; text-align: justify; padding: 1.5rem; border-radius: 4px; background: #f8fafc; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">${text}</div>`;
-    } catch (error) {
-      attempt++;
-      if (attempt < retries) {
-        await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
-      } else {
-        throw new Error("Failed to generate response after retries.");
-      }
-    }
-  }
-};
-
-const isValidUrl = (url) => {
-  try {
-    new URL(url);
-    return true;
-  } catch {
-    return false;
-  }
-};
-
-const convertHtmlToText = (html) => {
-  if (!html) return "";
-  const sanitized = DOMPurify.sanitize(html, {
-    ALLOWED_TAGS: ["strong", "em", "p", "br", "ol", "li", "h2", "h3"],
-  });
-  const div = document.createElement("div");
-  div.innerHTML = sanitized;
-  const walk = (node, result = []) => {
-    if (node.nodeType === Node.TEXT_NODE) {
-      result.push(node.textContent.trim());
-    } else if (node.nodeType === Node.ELEMENT_NODE) {
-      if (node.tagName === "BR") result.push("\n");
-      if (node.tagName === "P") result.push("\n\n");
-      if (node.tagName === "LI") result.push("\n- ");
-      if (node.tagName === "H2" || node.tagName === "H3") result.push("\n\n");
-      if (node.tagName === "STRONG")
-        result.push(`**${node.textContent.trim()}**`);
-      if (node.tagName === "EM") result.push(`_${node.textContent.trim()}_`);
-      node.childNodes.forEach((child) => walk(child, result));
-    }
-    return result;
-  };
-  return walk(div)
-    .join("")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-};
-
-// Dropdown lists (No changes)
-const tcsCities = [
-  "Varanasi",
-  "Hyderabad",
-  "Bangalore",
-  "Pune",
-  "Chennai",
-  "Kolkata",
-  "Noida",
-  "Mumbai",
-  "Gandhinagar",
-  "Kochi",
-  "Trivandrum",
-  "Nagpur",
-  "Indore",
-  "Lucknow",
-  "Other",
-];
-
-const experienceOptions = [
-  "Fresher (0–1 Year)",
-  "Junior (1–3 Years)",
-  "Mid-Level (3–6 Years)",
-  "Senior (6–10 Years)",
-  "Expert (10+ Years)",
-];
-
-const gradeOptions = ["C1", "C2", "C3A", "C3B", "C4"];
-
-const preparationCategories = [
-  "Cover Letter for Internal Opportunities",
-  "Project Interview Confirmation Email",
-  "Follow-Up Email After Interview",
-  "Interview Feedback Email (Self-Reflection or Manager)",
-  "Career Progression & Mentorship Request Email",
-  "Reference Request Email",
-  "Rejection Follow-Up & Feedback Request",
-  "Behavioral Interview Questions & STAR Responses",
-  "Technical Interview Questions & Sample Answers",
-];
-
-const interviewTypes = [
-  "Technical Round 1",
-  "Technical Round 2",
-  "Managerial Round",
-  "HR Discussion",
-  "Panel Interview",
-  "Internal Mobility Discussion (with project manager)",
-  "Client-Facing Role Assessment",
-];
-
-const communicationTypes = [
-  "Request for Project Opportunity",
-  "Interview Scheduling Email",
-  "Thank You Email (Post Interview)",
-  "Follow-Up Reminder Email",
-  "Feedback Request Email",
-  "Escalation/Reminder for Pending Response",
-  "Promotion Discussion Email",
-];
-
-const managerialExpectationFocuses = [
-  "Project Allocation Request",
-  "Cross-Skilling / Upskilling Opportunities",
-  "Onsite/Client Project Request",
-  "Internal Role Change",
-  "High-Impact Contribution Areas",
-  "Leadership Development",
-  "Performance Review Preparation",
-];
-
-const interviewQuestionTypes = [
-  "Behavioral (STAR-based Situational Qs)",
-  "Technical (Skill-Specific)",
-  "Problem Solving / Case Study",
-  "Leadership & Ownership Questions",
-  "Client Interaction Readiness Questions",
-  "Feedback Reflection Questions",
-  "TCS-Specific Scenario Questions",
-];
-
-const tones = [
-  "Formal & Professional",
-  "Assertive (for negotiations)",
-  "Polite & Appreciative",
-  "Goal-Oriented (showcasing career path)",
-  "Concise (for busy managers)",
-  "Collaborative & Team-Focused",
-];
-
-const feedbackTypes = [
-  "Self Feedback (employee writes own reflection)",
-  "Peer/Manager Feedback (for interview evaluation)",
-  "Constructive Feedback Request (asking managers for improvement areas)",
-  "Performance Improvement Plan Discussion",
-];
-
-const skillCategories = {
-  Java: [
-    "Core",
-    "Advanced",
-    "Multithreading",
-    "Collections",
-    "Spring Framework",
-  ],
-  Microservices: [
-    "Spring Boot",
-    "API Design",
-    "Service Discovery",
-    "Resilience",
-    "Docker Integration",
-  ],
-  Cloud: ["AWS", "Azure", "GCP", "TCS Cloud Services"],
-  DevOps: ["CI/CD", "Docker", "Kubernetes", "Jenkins", "Ansible"],
-  Database: ["SQL", "NoSQL", "MongoDB", "Oracle", "PL/SQL"],
-  Testing: ["JUnit", "Mockito", "Automation Frameworks", "Selenium", "Appium"],
-  "SAP CAPM": ["CDS", "Fiori", "OData", "CAP Services", "SAP Integration"],
-  "Node.js": [
-    "Express.js",
-    "RESTful APIs",
-    "Asynchronous Programming",
-    "NPM",
-    "Microservices",
-  ],
-  "MEARN Stack": ["MongoDB", "Express.js", "Angular", "React", "Node.js"],
-  Python: ["Django", "Flask", "Data Science", "Automation Scripts"],
-  "Data Science": ["Machine Learning", "Pandas", "Scikit-Learn", "TensorFlow"],
-  "SAP ABAP": ["Reports", "Modules", "Workflows", "Enhancements"],
-};
-
-// Custom Hook (Added debouncing for inputs to improve performance)
-const useInterviewAssistant = () => {
-  const sessionId = useMemo(() => Math.random().toString(36).substring(2), []);
-  const initialFormData = useMemo(() => {
-    const savedData = localStorage.getItem("tcsInterviewAssistantFormData");
-    let parsedData = savedData ? JSON.parse(savedData) : {};
-    return {
-      employeeName: parsedData.employeeName || "Vinay Tiwari",
-      yearsOfExperience: parsedData.yearsOfExperience || "Junior (1–3 Years)",
-      companyName: "Tata Consultancy Services",
-      jobLocation: parsedData.jobLocation || "Varanasi",
-      jobPosition: parsedData.jobPosition || "Software Engineer",
-      skills: parsedData.skills || ["Microservices"],
-      skillSubtopics: parsedData.skillSubtopics || ["Spring Boot"],
-      grade: parsedData.grade || "C2",
-      interviewType: parsedData.interviewType || "Technical Round 1",
-      communicationType:
-        parsedData.communicationType || "Request for Project Opportunity",
-      managerialExpectationFocus:
-        parsedData.managerialExpectationFocus || "Project Allocation Request",
-      interviewQuestionType:
-        parsedData.interviewQuestionType || "Technical (Skill-Specific)",
-      tone: parsedData.tone || "Formal & Professional",
-      feedbackType:
-        parsedData.feedbackType ||
-        "Peer/Manager Feedback (for interview evaluation)",
-      linkedinUrl: parsedData.linkedinUrl || "",
-    };
-  }, []);
-
-  const [formData, setFormData] = useState(initialFormData);
-  const [formErrors, setFormErrors] = useState({});
-  const [showCategories, setShowCategories] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState("");
-  const [response, setResponse] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [clearModalOpen, setClearModalOpen] = useState(false);
-  const [skillsInputValue, setSkillsInputValue] = useState("");
-  const [selectedSkills, setSelectedSkills] = useState(
-    initialFormData.skills || []
-  );
-
-  const validateField = useCallback((name, value) => {
-    const stringValue = Array.isArray(value)
-      ? value.join("")
-      : String(value).trim();
-    if (!stringValue && name !== "linkedinUrl") {
-      return `${name
-        .replace(/([A-Z])/g, " $1")
-        .trim()} is required for optimal personalization.`;
-    }
-    if (name === "linkedinUrl" && stringValue && !isValidUrl(stringValue)) {
-      return "Please enter a valid LinkedIn URL (optional but recommended for profile referencing).";
-    }
-    return "";
-  }, []);
-
-  const handleInputChange = useCallback(
-    (field) => (event) => {
-      const value = event.target.value;
-      setFormData((prev) => ({ ...prev, [field]: value }));
-      setFormErrors((prev) => ({
-        ...prev,
-        [field]: validateField(field, value),
-      }));
-    },
-    [validateField]
-  );
-
-  const handleSkillsChange = useCallback(
-    (event, newValue) => {
-      setSelectedSkills(newValue);
-      setFormData((prev) => ({ ...prev, skills: newValue }));
-      setFormErrors((prev) => ({
-        ...prev,
-        skills: validateField("skills", newValue),
-      }));
-    },
-    [validateField]
-  );
-
-  const handleSkillSubtopicsChange = useCallback(
-    (event, newValue) => {
-      setFormData((prev) => ({ ...prev, skillSubtopics: newValue }));
-      setFormErrors((prev) => ({
-        ...prev,
-        skillSubtopics: validateField("skillSubtopics", newValue),
-      }));
-    },
-    [validateField]
-  );
-
-  useEffect(() => {
-    return () => {
-      localStorage.setItem(
-        "tcsInterviewAssistantFormData",
-        JSON.stringify(formData)
-      );
-    };
-  }, [formData]);
-
-  const handleNext = useCallback(() => {
-    const errors = {};
-    Object.entries(formData).forEach(([key, value]) => {
-      if (key !== "companyName" && key !== "linkedinUrl") {
-        const error = validateField(key, value);
-        if (error) errors[key] = error;
-      }
-    });
-
-    setFormErrors(errors);
-
-    if (Object.keys(errors).length === 0) {
-      setError(null);
-      setShowCategories(true);
-    } else {
-      setError(
-        "Please complete all required fields to unlock personalized AI assistance (marked below)."
-      );
-    }
-  }, [formData, validateField]);
-
-  const handleClear = useCallback(() => {
-    setClearModalOpen(true);
-  }, []);
-
-  const confirmClear = useCallback(() => {
-    setFormData({
-      employeeName: "",
-      yearsOfExperience: "Fresher (0–1 Year)",
-      companyName: "Tata Consultancy Services",
-      jobLocation: "Varanasi",
-      jobPosition: "",
-      skills: [],
-      skillSubtopics: [],
-      grade: "",
-      interviewType: "",
-      communicationType: "",
-      managerialExpectationFocus: "",
-      interviewQuestionType: "",
-      tone: "Formal & Professional",
-      feedbackType: "",
-      linkedinUrl: "",
-    });
-    setSelectedSkills([]);
-    setSkillsInputValue("");
-    setFormErrors({});
-    setShowCategories(false);
-    setSelectedCategory("");
-    setResponse("");
-    setError(null);
-    setClearModalOpen(false);
-    localStorage.removeItem("tcsInterviewAssistantFormData");
-  }, []);
-
-  const handleGenerate = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    setResponse("");
-    try {
-      const prompt = generatePrompt(selectedCategory, formData);
-      if (prompt) {
-        const aiResponse = await callGeminiAPI(prompt, sessionId);
-        setResponse(aiResponse);
-      }
-    } catch (err) {
-      setError(
-        err.message ||
-          "Failed to generate content. Please try again or refine your inputs."
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, [selectedCategory, formData, sessionId]);
-
-  const generatePrompt = useMemo(
-    () =>
-      (
-        category,
-        {
-          employeeName,
-          yearsOfExperience,
-          jobPosition,
-          companyName,
-          jobLocation,
-          skills,
-          skillSubtopics,
-          grade,
-          interviewType,
-          communicationType,
-          managerialExpectationFocus,
-          interviewQuestionType,
-          tone,
-          feedbackType,
-          linkedinUrl,
-        }
-      ) => {
-        const skillsStr = skills.join(", ");
-        const subtopicsStr = skillSubtopics.join(", ");
-        const employeeFocus = `As an existing TCS employee with ${yearsOfExperience} experience and current grade <strong>${grade}</strong>, focus on my internal achievements, key skills in ${skillsStr} (subtopics: ${subtopicsStr}), contributions to TCS projects (e.g., client deliveries, innovation initiatives), and desire for this internal project/role. Highlight transferable skills from my current role to the new internal opportunity, aligning with TCS values like integrity, excellence, and leadership. Tailor to ${interviewType}, ${communicationType}, with focus on ${managerialExpectationFocus}, using ${interviewQuestionType} style if applicable, in a ${tone} tone. For feedback, use ${feedbackType}. Use a polite, requesting tone throughout, emphasizing my request for consideration in this internal TCS opportunity and commitment to TCS's growth.`;
-        const linkedinMention = linkedinUrl
-          ? ` Reference my LinkedIn profile if relevant: <strong>${linkedinUrl}</strong>. Do not hallucinate details.`
-          : "";
-
-        switch (category) {
-          case "Cover Letter for Internal Opportunities":
-            return `Write a professional, cutting-edge cover letter from <strong>${employeeName}</strong>, an existing TCS employee, requesting consideration for the internal <strong>${jobPosition}</strong> project/role at <strong>${companyName}</strong> in <strong>${jobLocation}</strong>. ${employeeFocus} Highlight my key skills: <strong>${skillsStr}</strong>, relevant [skills], [TCS projects], enthusiasm, and [motivation] for the internal role. Include specific examples like [real-time object detection system using embedded systems] for [projects] where applicable, and tie to TCS's digital transformation goals. Use power words like <strong>achieved</strong>, <strong>led</strong>, <strong>excelled</strong>, and <strong>impacted</strong>, bolding them. Bold key terms like <strong>${employeeName}</strong>, <strong>${companyName}</strong>, <strong>${jobPosition}</strong>. Ensure the letter is well-structured with:
-  - A formal greeting (e.g., "Dear Hiring Manager," or "Dear Internal Recruitment Team,").
-  - An introductory paragraph expressing interest in the internal opportunity.
-  - 2-3 body paragraphs detailing internal qualifications, contributions to TCS, and enthusiasm for growth within the company.
-  - A closing paragraph politely requesting an interview or further discussion.
-  - A formal closing (e.g., "Sincerely,\n\n${employeeName}").
-  - Blank lines between sections for readability.
-  - Justified text, no bullet points, only paragraphs.
-  Make the content engaging, concise, impactful, and world-class, tailored for internal TCS project applications only. Stick to known facts; do not invent details.${linkedinMention}`;
-          case "Project Interview Confirmation Email":
-            return `Write a professional, world-class email from <strong>${employeeName}</strong>, an existing TCS employee, to request or confirm an internal project interview for the <strong>${jobPosition}</strong> at <strong>${companyName}</strong>. ${employeeFocus} Be polite, express enthusiasm for internal growth, and include scheduling details or confirmation. Reference TCS's collaborative culture. Use power words like <strong>eager</strong>, <strong>committed</strong>, and <strong>delighted</strong>, bolding them. Bold key terms like <strong>${employeeName}</strong>, <strong>${companyName}</strong>, <strong>${jobPosition}</strong>. Ensure the email is well-structured with a formal greeting, body, and closing, formatted for clarity with justified text without bullet points. Make the content engaging, concise, impactful, and world-class, tailored for internal TCS project applications only. Stick to known facts; do not invent details.${linkedinMention}`;
-          case "Behavioral Interview Questions & STAR Responses":
-            return `For an existing TCS employee applying for the internal <strong>${jobPosition}</strong> at <strong>${companyName}</strong>, generate a list of exactly 35 common behavioral and managerial interview questions tailored to internal scenarios, such as contributions to TCS projects, team collaborations within the company, or career progression. ${employeeFocus} Include:
-  - 20 behavioral questions focusing on [teamwork], [problem-solving], [adaptability], and [communication] in TCS environment, with sample STAR (Situation, Task, Action, Result) responses based on internal experiences.
-  - 15 managerial questions focusing on [leadership], [decision-making], [conflict resolution], and [project management] in internal TCS settings, with STAR samples.
-  Use power words like <strong>describe</strong>, <strong>explain</strong>, <strong>demonstrate</strong>, and <strong>illustrate</strong>, bolding them in each question. Bold key terms like <strong>${employeeName}</strong>, <strong>${companyName}</strong>, <strong>${jobPosition}</strong>. Include a concise explanation of the [STAR method] (Situation, Task, Action, Result) and how to apply it using [internal TCS experiences]. Format the output as:
-  - A paragraph explaining the [STAR method].
-  - A numbered list of 35 questions (1-35), with each question on a new line followed by a brief STAR sample response.
-  - No stray bullet points, only numbered list items.
-  Ensure the content is engaging, clear, visually appealing, and world-class, tailored for internal TCS project applications only. Avoid repetition in questions. Stick to known facts; do not invent details.${linkedinMention}`;
-          case "Follow-Up Email After Interview":
-            return `Write a professional, cutting-edge follow-up email from <strong>${employeeName}</strong>, an existing TCS employee, after an internal interview for the <strong>${jobPosition}</strong> at <strong>${companyName}</strong>. ${employeeFocus} Express gratitude, reiterate interest in the internal role, and highlight my value and contributions to <strong>${companyName}</strong>, aligning with TCS's innovation drive. Use power words like <strong>grateful</strong>, <strong>impressed</strong>, and <strong>confident</strong>, bolding them. Bold key terms like <strong>${employeeName}</strong>, <strong>${companyName}</strong>, <strong>${jobPosition}</strong>. Ensure the email is well-structured with a formal greeting, body, and closing, formatted for clarity with justified text without bullet points. Make the content engaging, concise, impactful, and world-class, tailored for internal TCS project applications only. Stick to known facts; do not invent details.${linkedinMention}`;
-          case "Interview Feedback Email (Self-Reflection or Manager)":
-            return `Write a professional interview feedback email from <strong>${employeeName}</strong>, an existing TCS employee, for self-reflection or manager discussion on internal <strong>${jobPosition}</strong> interview at <strong>${companyName}</strong>. ${employeeFocus} Include structured feedback based on ${feedbackType}, focusing on TCS performance metrics. Use power words like <strong>reflect</strong>, <strong>improve</strong>, and <strong>contribute</strong>, bolding them. Bold key terms like <strong>${employeeName}</strong>, <strong>${companyName}</strong>, <strong>${jobPosition}</strong>. Ensure the email is well-structured with a formal greeting, body, and closing, formatted for clarity with justified text without bullet points. Make the content engaging, concise, impactful, and world-class, tailored for internal TCS project applications only. Stick to known facts; do not invent details.${linkedinMention}`;
-          case "Career Progression & Mentorship Request Email":
-            return `Write a professional career progression email from <strong>${employeeName}</strong>, an existing TCS employee, seeking mentorship or new internal opportunities related to <strong>${jobPosition}</strong> at <strong>${companyName}</strong> in <strong>${jobLocation}</strong>. ${employeeFocus} Politely request guidance or allocation, referencing TCS's talent development programs. Use power words like <strong>grow</strong>, <strong>mentor</strong>, and <strong>advance</strong>, bolding them. Bold key terms like <strong>${employeeName}</strong>, <strong>${companyName}</strong>, <strong>${jobPosition}</strong>. Ensure the email is well-structured with a formal greeting, body, and closing, formatted for clarity with justified text without bullet points. Make the content engaging, concise, impactful, and world-class, tailored for internal TCS project applications only. Stick to known facts; do not invent details.${linkedinMention}`;
-          case "Technical Interview Questions & Sample Answers":
-            return `For an existing TCS employee applying for the internal <strong>${jobPosition}</strong> at <strong>${companyName}</strong>, generate a list of exactly 35 technical interview questions tailored to the selected skills <strong>${skillsStr}</strong> and subtopics <strong>${subtopicsStr}</strong>, aligned with ${interviewType} and ${interviewQuestionType}. ${employeeFocus} Focus on practical, TCS-relevant technical questions for internal project roles, including TCS tools like IGATE or cloud integrations. Include:
-  - Questions covering core concepts, advanced topics, coding scenarios, and TCS-specific applications.
-  - Provide brief sample answers or key points to cover, using STAR where applicable.
-  Use power words like <strong>explain</strong>, <strong>implement</strong>, <strong>optimize</strong>, and <strong>demonstrate</strong>, bolding them in each question. Bold key terms like <strong>${employeeName}</strong>, <strong>${companyName}</strong>, <strong>${jobPosition}</strong>, and skill names. Format the output as:
-  - An introductory paragraph on technical interview preparation for internal TCS roles.
-  - A numbered list of 35 questions (1-35), with each question on a new line, including a brief sample answer or key points to cover.
-  - No stray bullet points, only numbered list items.
-  Ensure the content is engaging, clear, visually appealing, and world-class, tailored for internal TCS project applications only. Avoid repetition in questions. Stick to known facts; do not invent details.${linkedinMention}`;
-          case "Reference Request Email":
-            return `Write a professional reference request email from <strong>${employeeName}</strong>, an existing TCS employee, seeking references for internal <strong>${jobPosition}</strong>. ${employeeFocus} Politely ask colleagues or managers. Bold key terms. Ensure structured format.${linkedinMention}`;
-          case "Rejection Follow-Up & Feedback Request":
-            return `Write a professional follow-up email after rejection from <strong>${employeeName}</strong> for internal <strong>${jobPosition}</strong>. ${employeeFocus} Request feedback and express continued interest. Bold key terms. Structured format.${linkedinMention}`;
-          default:
-            return "";
-        }
-      },
-    []
-  );
-
-  return {
-    formData,
-    formErrors,
-    handleInputChange,
-    handleSkillsChange,
-    handleSkillSubtopicsChange,
-    skillsInputValue,
-    setSkillsInputValue,
-    selectedSkills,
-    handleNext,
-    handleClear,
-    confirmClear,
-    clearModalOpen,
-    setClearModalOpen,
-    handleGenerate,
-    showCategories,
-    selectedCategory,
-    setSelectedCategory,
-    response,
-    loading,
-    error,
-    setError,
-  };
-};
-
-// PreparationTools Component (Enhanced with better accessibility and feedback)
-const PreparationTools = React.memo(
-  ({
-    showCategories,
-    selectedCategory,
-    setSelectedCategory,
-    handleGenerate,
-    response,
-    loading,
-    error,
-    setError,
-  }) => {
-    const [copied, setCopied] = useState(false);
-    const [downloaded, setDownloaded] = useState(false);
-    const [regenerationCount, setRegenerationCount] = useState(0);
-    const contentRef = useRef(null);
-    const theme = useTheme();
-    const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
-
-    useEffect(() => {
-      setRegenerationCount(0);
-    }, [selectedCategory]);
-
-    const handleCopy = useCallback(() => {
-      let content = "";
-      if (response && contentRef.current) {
-        content = convertHtmlToText(response);
-      }
-      navigator.clipboard
-        .writeText(content)
-        .then(() => {
-          setCopied(true);
-          setTimeout(() => setCopied(false), 2000);
-        })
-        .catch(() => {
-          const textArea = document.createElement("textarea");
-          textArea.value = content;
-          document.body.appendChild(textArea);
-          textArea.select();
-          document.execCommand("copy");
-          document.body.removeChild(textArea);
-          setCopied(true);
-          setTimeout(() => setCopied(false), 2000);
-        });
-    }, [response]);
-
-    const handleDownload = useCallback(() => {
-      let content = "";
-      if (response && contentRef.current) {
-        content = convertHtmlToText(response);
-      }
-      const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${selectedCategory
-        .replace(/[^a-z0-9]/gi, "_")
-        .toLowerCase()}_tcs_assistant.txt`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      setDownloaded(true);
-      setTimeout(() => setDownloaded(false), 2000);
-    }, [response, selectedCategory]);
-
-    const handlePrint = useCallback(() => {
-      const printContent = contentRef.current
-        ? contentRef.current.innerHTML
-        : response;
-      const printWindow = window.open("", "_blank");
-      printWindow.document.write(`
-        <html>
-          <head>
-            <title>${selectedCategory} - TCS AI Interview Assistant</title>
-            <style>
-              body { font-family: 'Inter', sans-serif; line-height: 1.8; font-size: 0.95rem; color: #1E293B; margin: 20px; }
-              .content { padding: 2rem; max-width: 800px; margin: 0 auto; }
-              strong { font-weight: 600; }
-              em { font-style: "italic"; }
-              p { margin: 1rem 0; text-align: justify; }
-              ol, ul { padding-left: 1.5rem; margin: 1rem 0; }
-              li { margin-bottom: 0.5rem; }
-              h1 { color: #0A84FF; font-size: 1.5rem; margin-bottom: 1rem; text-align: center; }
-            </style>
-          </head>
-          <body>
-            <div class="content">
-              <h1>${selectedCategory}</h1>
-              <p><em>Generated by TCS AI Interview Assistant for internal opportunities.</em></p>
-              ${printContent}
-            </div>
-          </body>
-        </html>
-      `);
-      printWindow.document.close();
-      printWindow.print();
-    }, [response, selectedCategory]);
-
-    const handleRegenerate = () => {
-      if (regenerationCount < 2) {
-        handleGenerate();
-        setRegenerationCount((prev) => prev + 1);
-      }
-    };
-
-    if (!showCategories) return null;
-
-    return (
-      <motion.div
-        variants={containerVariants}
-        initial="hidden"
-        animate="visible"
-      >
-        <AppleCard as={motion.div} variants={cardVariants} whileHover="hover">
-          <Typography
-            variant="h3"
-            sx={{
-              fontSize: "1.75rem",
-              mb: 4,
-              color: theme.palette.primary.main,
-              textAlign: "left", // Explicit left align
-            }}
-            role="heading"
-            aria-level="2"
-          >
-            AI-Powered Content Generation Tools
-          </Typography>
-          <Typography
-            variant="body2"
-            sx={{
-              mb: 3,
-              color: theme.palette.text.secondary,
-              textAlign: "left",
-            }}
-          >
-            Select a category below to generate tailored, TCS-specific content
-            for your internal career advancement.
-          </Typography>
-          <FormControl fullWidth>
-            <InputLabel id="prep-category-label">
-              Content Generation Category
-            </InputLabel>
-            <AppleSelect
-              labelId="prep-category-label"
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-              label="Content Generation Category"
-              startAdornment={
-                <Category sx={{ mr: 1, color: theme.palette.secondary.main }} />
-              }
-              aria-label="Select content generation category"
-            >
-              {preparationCategories.map((cat) => (
-                <MenuItem key={cat} value={cat}>
-                  {cat}
-                </MenuItem>
-              ))}
-            </AppleSelect>
-          </FormControl>
-          <Box sx={{ mt: 5, textAlign: "center" }}>
-            <AppleButton
-              onClick={handleGenerate}
-              disabled={!selectedCategory || loading}
-              endIcon={<ArrowForward />}
-              aria-label="Generate personalized content"
-              size="large"
-            >
-              {loading
-                ? "Generating TCS-Tailored Content..."
-                : "Generate Content"}
-            </AppleButton>
-            {loading && (
-              <Box sx={{ mt: 4 }}>
-                <LinearProgress
-                  color="secondary"
-                  sx={{ height: 5, borderRadius: 3 }}
-                />
-                <Typography
-                  sx={{
-                    fontSize: "1rem",
-                    mt: 2,
-                    color: theme.palette.text.secondary,
-                    textAlign: "center",
-                  }}
-                >
-                  Personalizing content with your TCS profile details...
-                </Typography>
-              </Box>
-            )}
-          </Box>
-          {error && (
-            <Alert
-              severity="error"
-              sx={{
-                mt: 4,
-                borderRadius: "8px",
-                boxShadow: "0 4px 12px rgba(239,68,68,0.2)",
-              }}
-            >
-              {error}
-            </Alert>
-          )}
-          {response && !loading && (
-            <Box sx={{ mt: 6 }}>
-              <DisclaimerTypography sx={{ textAlign: "left" }}>
-                This AI-generated content is for{" "}
-                <strong>internal TCS use and educational purposes</strong> only.
-                Always <strong>review, customize, and align</strong> it with
-                your personal experiences and TCS guidelines before use.
-                Sections in [brackets] are placeholders—replace with your
-                specific details. For confidentiality, do not share sensitive
-                TCS information.
-              </DisclaimerTypography>
-              <Box
-                sx={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  mb: 3,
-                  flexWrap: isMobile ? "wrap" : "nowrap",
-                }}
-              >
-                <Typography
-                  variant="h4"
-                  sx={{
-                    fontSize: "1.25rem",
-                    color: theme.palette.primary.dark,
-                    textAlign: "left",
-                  }}
-                >
-                  {selectedCategory}
-                </Typography>
-                <Box sx={{ display: "flex", gap: 2 }}>
-                  <IconButton
-                    onClick={handleCopy}
-                    aria-label="Copy generated content"
-                    sx={{ color: theme.palette.secondary.main }}
-                  >
-                    {copied ? <CheckIcon /> : <CopyIcon />}
-                  </IconButton>
-                  <IconButton
-                    onClick={handleDownload}
-                    aria-label="Download generated content"
-                    sx={{ color: theme.palette.success.main }}
-                  >
-                    {downloaded ? <CheckIcon /> : <DownloadIcon />}
-                  </IconButton>
-                  <IconButton
-                    onClick={handlePrint}
-                    aria-label="Print generated content"
-                    sx={{ color: theme.palette.text.secondary }}
-                  >
-                    <PrintIcon />
-                  </IconButton>
-                </Box>
-              </Box>
-              <AppleCard
-                elevation={0}
-                sx={{
-                  p: 4,
-                  border: `1px solid ${theme.palette.divider}`,
-                  borderRadius: "16px",
-                }}
-              >
-                <ResponseTypography
-                  variant="body1"
-                  ref={contentRef}
-                  dangerouslySetInnerHTML={{
-                    __html: DOMPurify.sanitize(response),
-                  }}
-                />
-              </AppleCard>
-              <Box sx={{ mt: 5, textAlign: "center" }}>
-                <AppleButton
-                  onClick={handleRegenerate}
-                  disabled={loading || regenerationCount >= 2}
-                  endIcon={<RegenerateIcon />}
-                  aria-label="Generate alternative response"
-                  color="secondary"
-                >
-                  Generate Alternative Version ({regenerationCount}/2)
-                </AppleButton>
-              </Box>
-            </Box>
-          )}
-        </AppleCard>
-      </motion.div>
-    );
-  }
-);
-
-// TCSTipsSection Component (Explicit left alignment for all text)
-const TCSTipsSection = () => {
-  const theme = useTheme();
-
+const Card = ({ children, sx }) => {
+  const reduce = useReducedMotion();
+  const { fadeUp } = makeMotion(reduce);
+  const hoverLift = makeMotion(reduce).hoverLift;
   return (
-    <motion.div
+    <Paper
+      component={motion.div}
+      variants={fadeUp}
       initial="hidden"
       whileInView="visible"
-      viewport={{ once: true, amount: 0.3 }}
-      variants={containerVariants}
+      viewport={{ once: true, amount: 0.2 }}
+      elevation={0}
+      sx={{
+        p: { xs: 3, md: 4 },
+        border: (t) => `1px solid ${t.palette.divider}`,
+        borderRadius: 4,
+        ...sx,
+      }}
+      {...hoverLift}
     >
-      <TipsCard as={motion.div} variants={cardVariants} whileHover="hover">
-        <motion.div variants={itemVariants}>
-          <Typography
-            variant="h5"
-            sx={{
-              mb: 3,
-              color: theme.palette.primary.main,
-              fontSize: "1.15rem",
-              textAlign: "left", // Explicit left align
-            }}
-          >
-            Quick TCS Interview Tips
-          </Typography>
-        </motion.div>
-        <List sx={{ textAlign: "left" }}>
-          <ListItem disablePadding>
-            <ListItemText
-              primary={<strong>1. Align with TCS Core Values</strong>}
-              primaryTypographyProps={{ variant: "body2", fontWeight: "bold" }}
-            />
-          </ListItem>
-          <List sx={{ pl: 4 }}>
-            <ListItem disablePadding>
-              <ListItemText
-                primary="- Tailor your responses to reflect Leading Change, Integrity, Respect for the Individual, Excellence, Learning & Sharing."
-                primaryTypographyProps={{ variant: "body2" }}
-              />
-            </ListItem>
-            <ListItem disablePadding>
-              <ListItemText
-                primary="- Provide real examples that demonstrate how you've embodied these values in past roles or projects."
-                primaryTypographyProps={{ variant: "body2" }}
-              />
-            </ListItem>
-          </List>
-          <ListItem disablePadding>
-            <ListItemText
-              primary={
-                <strong>
-                  2. Highlight Technical Proficiency (for technical roles)
-                </strong>
-              }
-              primaryTypographyProps={{ variant: "body2", fontWeight: "bold" }}
-            />
-          </ListItem>
-          <List sx={{ pl: 4 }}>
-            <ListItem disablePadding>
-              <ListItemText
-                primary="- Emphasize experience with enterprise technologies such as SAP, Cloud (AWS/Azure/GCP), AI/ML, Full Stack Development, and Agile methodologies."
-                primaryTypographyProps={{ variant: "body2" }}
-              />
-            </ListItem>
-            <ListItem disablePadding>
-              <ListItemText
-                primary="- Showcase problem-solving skills and how you've applied tools/frameworks in real-world scenarios."
-                primaryTypographyProps={{ variant: "body2" }}
-              />
-            </ListItem>
-          </List>
-          <ListItem disablePadding>
-            <ListItemText
-              primary={<strong>3. Use the STAR Method</strong>}
-              primaryTypographyProps={{ variant: "body2", fontWeight: "bold" }}
-            />
-          </ListItem>
-          <List sx={{ pl: 4 }}>
-            <ListItem disablePadding>
-              <ListItemText
-                primary="- Situation, Task, Action, Result → helps structure behavioral answers clearly and persuasively."
-                primaryTypographyProps={{ variant: "body2" }}
-              />
-            </ListItem>
-            <ListItem disablePadding>
-              <ListItemText
-                primary="- Demonstrate outcomes that show measurable impact (e.g., efficiency gains, cost savings, innovation)."
-                primaryTypographyProps={{ variant: "body2" }}
-              />
-            </ListItem>
-          </List>
-          <ListItem disablePadding>
-            <ListItemText
-              primary={
-                <strong>
-                  4. Prepare for Situational & Case-Based Questions
-                </strong>
-              }
-              primaryTypographyProps={{ variant: "body2", fontWeight: "bold" }}
-            />
-          </ListItem>
-          <List sx={{ pl: 4 }}>
-            <ListItem disablePadding>
-              <ListItemText
-                primary="- Be ready for client-centric scenarios where you must show collaboration, adaptability, and leadership."
-                primaryTypographyProps={{ variant: "body2" }}
-              />
-            </ListItem>
-            <ListItem disablePadding>
-              <ListItemText
-                primary="- Show how you handle challenges, conflicts, and cross-functional teamwork."
-                primaryTypographyProps={{ variant: "body2" }}
-              />
-            </ListItem>
-          </List>
-          <ListItem disablePadding>
-            <ListItemText
-              primary={<strong>5. Post-Interview Etiquette</strong>}
-              primaryTypographyProps={{ variant: "body2", fontWeight: "bold" }}
-            />
-          </ListItem>
-          <List sx={{ pl: 4 }}>
-            <ListItem disablePadding>
-              <ListItemText
-                primary="- Send a polite thank-you / follow-up email expressing interest in the role and appreciation for the opportunity."
-                primaryTypographyProps={{ variant: "body2" }}
-              />
-            </ListItem>
-            <ListItem disablePadding>
-              <ListItemText
-                primary="- Highlight one or two key discussion points that reinforce your fit for the position."
-                primaryTypographyProps={{ variant: "body2" }}
-              />
-            </ListItem>
-          </List>
-          <ListItem disablePadding>
-            <ListItemText
-              primary={<strong>6. Leverage TCS Internal Tools</strong>}
-              primaryTypographyProps={{ variant: "body2", fontWeight: "bold" }}
-            />
-          </ListItem>
-          <List sx={{ pl: 4 }}>
-            <ListItem disablePadding>
-              <ListItemText
-                primary="- Use Ultimatix and internal portals for opportunity tracking, learning resources, and skill certifications."
-                primaryTypographyProps={{ variant: "body2" }}
-              />
-            </ListItem>
-            <ListItem disablePadding>
-              <ListItemText
-                primary="- Mention your awareness of career mobility and growth programs within TCS."
-                primaryTypographyProps={{ variant: "body2" }}
-              />
-            </ListItem>
-          </List>
-          <ListItem disablePadding>
-            <ListItemText
-              primary={
-                <strong>
-                  7. Showcase Continuous Learning & Certifications
-                </strong>
-              }
-              primaryTypographyProps={{ variant: "body2", fontWeight: "bold" }}
-            />
-          </ListItem>
-          <List sx={{ pl: 4 }}>
-            <ListItem disablePadding>
-              <ListItemText
-                primary="- Highlight relevant TCS iON, Coursera, AWS, SAP, or other professional certifications."
-                primaryTypographyProps={{ variant: "body2" }}
-              />
-            </ListItem>
-            <ListItem disablePadding>
-              <ListItemText
-                primary="- Show curiosity for emerging technologies | GenAI, Blockchain, Cybersecurity, Cloud-Native Development."
-                primaryTypographyProps={{ variant: "body2" }}
-              />
-            </ListItem>
-          </List>
-          <ListItem disablePadding>
-            <ListItemText
-              primary={<strong>8. Cultural Fit & Global Mindset</strong>}
-              primaryTypographyProps={{ variant: "body2", fontWeight: "bold" }}
-            />
-          </ListItem>
-          <List sx={{ pl: 4 }}>
-            <ListItem disablePadding>
-              <ListItemText
-                primary="- Demonstrate openness to working in diverse, multicultural teams."
-                primaryTypographyProps={{ variant: "body2" }}
-              />
-            </ListItem>
-            <ListItem disablePadding>
-              <ListItemText
-                primary="- Highlight experience with global clients, cross-border collaboration, or multi-timezone projects."
-                primaryTypographyProps={{ variant: "body2" }}
-              />
-            </ListItem>
-          </List>
-        </List>
-        <motion.div variants={itemVariants}>
-          <Typography
-            variant="body2"
-            sx={{
-              mt: 3,
-              fontStyle: "italic",
-              color: theme.palette.text.secondary,
-              fontSize: "0.9rem",
-              textAlign: "left", // Explicit left align
-            }}
-          >
-            These tips are based on common TCS internal practices—adapt them to
-            your experience.
-          </Typography>
-        </motion.div>
-      </TipsCard>
-    </motion.div>
+      {children}
+    </Paper>
   );
 };
 
-// Main Component with Portfolio-Style Layout (Improved with icons, dividers, and consistent styling)
-const TCSinterviewAssistantAI = () => {
-  const {
-    formData,
-    formErrors,
-    handleInputChange,
-    handleSkillsChange,
-    handleSkillSubtopicsChange,
-    skillsInputValue,
-    setSkillsInputValue,
-    selectedSkills,
-    handleNext,
-    handleClear,
-    confirmClear,
-    clearModalOpen,
-    setClearModalOpen,
-    handleGenerate,
-    showCategories,
-    selectedCategory,
-    setSelectedCategory,
-    response,
-    loading,
-    error,
-    setError,
-  } = useInterviewAssistant();
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
-
-  const [showUp, setShowUp] = useState(false);
-  const [showDown, setShowDown] = useState(false);
-
-  const handleKeyPress = (event) => {
-    if (event.key === "Enter" && !showCategories) handleNext();
-  };
-
-  const availableSubtopics = useMemo(() => {
-    const allSubtopics = [];
-    selectedSkills.forEach((skill) => {
-      if (skillCategories[skill]) {
-        allSubtopics.push(...skillCategories[skill]);
-      }
-    });
-    return [...new Set(allSubtopics)];
-  }, [selectedSkills]);
-
-  const scrollToTop = () => {
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
-
-  const scrollToBottom = () => {
-    window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
-  };
-
+// scroll spy
+const useScrollSpy = (ids) => {
+  const [active, setActive] = useState(ids[0]);
+  const observer = useRef(null);
   useEffect(() => {
-    const handleScroll = () => {
-      const scrollY = window.scrollY;
-      const windowHeight = window.innerHeight;
-      const docHeight = document.documentElement.scrollHeight;
-      setShowUp(scrollY > 100);
-      setShowDown(scrollY + windowHeight < docHeight - 100);
+    const options = { root: null, rootMargin: "0px 0px -65% 0px", threshold: 0.1 };
+    const handler = (entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) setActive(entry.target.id);
+      });
     };
+    observer.current = new IntersectionObserver(handler, options);
+    ids.forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) observer.current.observe(el);
+    });
+    return () => observer.current && observer.current.disconnect();
+  }, [ids]);
+  return active;
+};
 
-    window.addEventListener("scroll", handleScroll);
-    handleScroll(); // Initial check
-
-    return () => window.removeEventListener("scroll", handleScroll);
+// progress
+const useScrollProgress = () => {
+  const [progress, setProgress] = useState(0);
+  useEffect(() => {
+    const onScroll = () => {
+      const h = document.documentElement;
+      const scrolled = h.scrollTop;
+      const height = h.scrollHeight - h.clientHeight;
+      setProgress(height ? Math.min(100, Math.max(0, (scrolled / height) * 100)) : 0);
+    };
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
   }, []);
+  return progress;
+};
+
+// ---------- Main ----------
+export default function TCSinterviewAssistantAI() {
+  useInterFont();
+  const prefersDark = useMediaQuery("(prefers-color-scheme: dark)");
+  const [mode, setMode] = useState(prefersDark ? "dark" : "light");
+  useEffect(() => setMode(prefersDark ? "dark" : "light"), [prefersDark]);
+  const theme = useMemo(() => buildTheme(mode), [mode]);
+
+  const navIds = ["about", "skills", "experience", "projects", "certs", "awards", "contact"];
+  const activeId = useScrollSpy(navIds);
+  const progress = useScrollProgress();
+
+  const reduce = useReducedMotion();
+  const { fade, fadeUp } = makeMotion(reduce);
+
+  const scrollTo = (id) =>
+    document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
 
   return (
     <ThemeProvider theme={theme}>
-      <Box
+      <CssBaseline />
+      <GlobalStyles
+        styles={{
+          html: { scrollBehavior: "smooth" },
+          "@media (prefers-reduced-motion: reduce)": { html: { scrollBehavior: "auto" } },
+        }}
+      />
+
+      {/* Header with links and logo */}
+      <AppBar
+        position="sticky"
+        color="transparent"
+        elevation={0}
+        component={motion.header}
+        variants={fade}
+        initial="hidden"
+        animate="visible"
         sx={{
-          minHeight: "100vh",
-          background: theme.palette.background.default,
-          p: { xs: 3, md: 5 },
-          maxWidth: "1600px",
-          mx: "auto",
-          position: "relative",
-          overflow: "hidden",
+          backdropFilter: "saturate(140%) blur(10px)",
+          borderBottom: (t) => `1px solid ${t.palette.divider}`,
         }}
       >
-        <link
-          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
-          rel="stylesheet"
-        />
-        <motion.div
-          initial={{ opacity: 0, y: -50 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, ease: "easeOut" }}
-        >
-          <Box
-            sx={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: isMobile ? "center" : "flex-start",
-              flexDirection: isMobile ? "column" : "row",
-              mb: 5,
-              gap: 3,
-              textAlign: isMobile ? "center" : "left",
-            }}
-          >
-            <motion.img
-              src={logo}
-              alt="TCS Logo"
-              sx={{
-                width: { xs: "20px", md: "30px" },
-                height: { xs: "20px", md: "30px" },
-                borderRadius: "50%",
-                objectFit: "cover",
-                order: isMobile ? 2 : 1,
-              }}
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.6, ease: "easeOut" }}
+        <Toolbar component="nav" aria-label="Primary">
+          <Stack direction="row" spacing={1} alignItems="center" sx={{ flexGrow: 1 }}>
+            <Avatar alt="Logo" src={logo} sx={{ width: 28, height: 28 }} />
+            <Typography variant="h6" sx={{ fontWeight: 800 }}>
+              Vinay{" "}
+              <Box component="span" sx={{ color: "primary.main" }}>
+                Tiwari
+              </Box>
+            </Typography>
+            <Chip
+              size="small"
+              label={PROFILE.ribbon}
+              color="primary"
+              variant="outlined"
+              sx={{ ml: 1, display: { xs: "none", sm: "inline-flex" } }}
+              icon={<EmojiObjectsOutlined />}
+              aria-label="AI Enthusiastic in Project Implementation"
             />
-            <Typography
-              variant="h1"
-              sx={{
-                fontSize: { xs: "2.5rem", md: "4rem" },
-                background: "linear-gradient(90deg, #0A84FF, #FF2D55)",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-                textShadow: "0 2px 6px rgba(0,0,0,0.1)",
-                order: isMobile ? 1 : 2,
-                flexGrow: 1,
-              }}
-            >
-              Ultimate TCS AI Career Assistant
-              <br />
-              <span style={{ fontSize: "40%", fontStyle: "italic" }}>
-                (TCS AI Hackathon 2025)
-              </span>
-            </Typography>
-          </Box>
-        </motion.div>
+          </Stack>
 
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.2, duration: 0.8 }}
-        >
-          <Typography
-            variant="body1"
-            sx={{
-              fontSize: { xs: "1rem", md: "1.25rem" },
-              maxWidth: "1000px",
-              mx: "auto",
-              mt: 4,
-              lineHeight: 1.7,
-              color: theme.palette.text.secondary,
-              textAlign: "center",
-            }}
+          <Stack
+            direction="row"
+            spacing={0.5}
+            alignItems="center"
+            sx={{ display: { xs: "none", md: "flex" }, mr: 1 }}
           >
-            Empowering TCS employees with AI-driven tools for internal
-            opportunities, interview preparation, career progression, and
-            professional communications—tailored to TCS's dynamic environment.
-          </Typography>
-        </motion.div>
+            {[
+              ["About", "about"],
+              ["Skills", "skills"],
+              ["Experience", "experience"],
+              ["Projects", "projects"],
+              ["Certifications", "certs"],
+              ["Awards", "awards"],
+              ["Contact", "contact"],
+            ].map(([label, id]) => (
+              <NavLink key={id} label={label} active={activeId === id} onClick={() => scrollTo(id)} />
+            ))}
+          </Stack>
 
-        {/* Employee Details as Portfolio Card - Matched styling to Build section, left aligned, used List for skills with icons */}
-        <motion.div
-          variants={cardVariants}
-          initial="hidden"
-          animate="visible"
-          whileHover="hover"
-        >
-          <AppleCard sx={{ mt: 5 }}>
-            <Typography
-              variant="h3"
-              sx={{
-                fontSize: "1.75rem",
-                mb: 4,
-                color: theme.palette.primary.dark,
-                textAlign: "left", // Explicit left align to match
-              }}
-              role="heading"
-              aria-level="2"
-            >
-              Professional Portfolio Overview
-            </Typography>
-            <List disablePadding sx={{ textAlign: "left" }}>
-              {" "}
-              {/* Explicit left align */}
-              <ListItem disablePadding>
-                <ListItemIcon>
-                  <Person color="primary" />
-                </ListItemIcon>
-                <ListItemText
-                  primary={
-                    <span>
-                      <strong>Employee Name:</strong> Vinay Kumar Tiwari
-                    </span>
-                  }
-                  primaryTypographyProps={{ variant: "body2" }}
-                />
-              </ListItem>
-              <Divider sx={{ my: 1 }} />
-              <ListItem disablePadding>
-                <ListItemIcon>
-                  <IdIcon color="primary" />
-                </ListItemIcon>
-                <ListItemText
-                  primary={
-                    <span>
-                      <strong>Employee ID:</strong> 2412328
-                    </span>
-                  }
-                  primaryTypographyProps={{ variant: "body2" }}
-                />
-              </ListItem>
-              <Divider sx={{ my: 1 }} />
-              <ListItem disablePadding>
-                <ListItemIcon>
-                  <EmailIcon color="primary" />
-                </ListItemIcon>
-                <ListItemText
-                  primary={
-                    <span>
-                      <strong>Email ID:</strong> vinay.tiwari3@tcs.com
-                    </span>
-                  }
-                  primaryTypographyProps={{ variant: "body2" }}
-                />
-              </ListItem>
-              <Divider sx={{ my: 1 }} />
-              <ListItem disablePadding>
-                <ListItemIcon>
-                  <SkillsIcon color="primary" />
-                </ListItemIcon>
-                <ListItemText
-                  primary="Primary Skills:"
-                  primaryTypographyProps={{
-                    variant: "body2",
-                    fontWeight: "bold",
-                  }}
-                />
-              </ListItem>
-              <ListItem disablePadding sx={{ pl: 4 }}>
-                <ListItemText
-                  primary="• SAP CAPM"
-                  primaryTypographyProps={{ variant: "body2" }}
-                />
-              </ListItem>
-              <ListItem disablePadding sx={{ pl: 4 }}>
-                <ListItemText
-                  primary="• Node.js"
-                  primaryTypographyProps={{ variant: "body2" }}
-                />
-              </ListItem>
-              <ListItem disablePadding sx={{ pl: 4 }}>
-                <ListItemText
-                  primary="• JavaScript"
-                  primaryTypographyProps={{ variant: "body2" }}
-                />
-              </ListItem>
-              <ListItem disablePadding sx={{ pl: 4 }}>
-                <ListItemText
-                  primary="• FIORI"
-                  primaryTypographyProps={{ variant: "body2" }}
-                />
-              </ListItem>
-              <ListItem disablePadding sx={{ pl: 4 }}>
-                <ListItemText
-                  primary="• SAP UI5"
-                  primaryTypographyProps={{ variant: "body2" }}
-                />
-              </ListItem>
-              <Divider sx={{ my: 1 }} />
-              <ListItem disablePadding>
-                <ListItemIcon>
-                  <SkillsIcon color="primary" />
-                </ListItemIcon>
-                <ListItemText
-                  primary="Secondary Skills:"
-                  primaryTypographyProps={{
-                    variant: "body2",
-                    fontWeight: "bold",
-                  }}
-                />
-              </ListItem>
-              <ListItem disablePadding sx={{ pl: 4 }}>
-                <ListItemText
-                  primary={
-                    <span>
-                      • <strong>Generative AI (GenAI) –</strong> Proficient in
-                      utilizing advanced GenAI platforms such as{" "}
-                      <strong>
-                        ChatGPT-5, Grok-4, Google Gemini, and Claude.ai
-                      </strong>{" "}
-                      to architect, design, and deliver innovative solutions
-                      across a wide range of technologies.
-                    </span>
-                  }
-                  primaryTypographyProps={{ variant: "body2" }}
-                />
-              </ListItem>
-              <ListItem disablePadding sx={{ pl: 4 }}>
-                <ListItemText
-                  primary={
-                    <span>
-                      • Ability to adapt and build end-to-end applications in{" "}
-                      <strong>
-                        any technology stack using GenAI-driven development
-                      </strong>
-                      .
-                    </span>
-                  }
-                  primaryTypographyProps={{ variant: "body2" }}
-                />
-              </ListItem>
-            </List>
-          </AppleCard>
-        </motion.div>
-
-        <motion.div
-          variants={cardVariants}
-          initial="hidden"
-          animate="visible"
-          whileHover="hover"
-        >
-          <AppleCard sx={{ mt: 5 }}>
-            <Typography
-              variant="h3"
-              sx={{
-                fontSize: "1.75rem",
-                mb: 4,
-                color: theme.palette.primary.dark,
-                textAlign: "left", // Explicit left align
-              }}
-              role="heading"
-              aria-level="2"
-            >
-              Build Your Professional Profile
-            </Typography>
-            <Typography
-              variant="body2"
-              sx={{
-                mb: 4,
-                color: theme.palette.text.secondary,
-                textAlign: "left",
-              }}
-            >
-              Enter your details to personalize AI-generated content for TCS
-              internal applications and interviews.
-            </Typography>
-            {error && (
-              <Alert
-                severity="error"
-                sx={{ mb: 4, borderRadius: "8px" }}
-                onClose={() => setError(null)}
+          <Stack direction="row" spacing={1} alignItems="center">
+            <Tooltip title="LinkedIn">
+              <IconButton
+                component={MuiLink}
+                href={PROFILE.linkedin}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Open LinkedIn profile"
               >
-                {error}
-              </Alert>
-            )}
-            <Grid container spacing={4} onKeyPress={handleKeyPress}>
-              <Grid item xs={12} md={6}>
-                <AppleTextField
-                  fullWidth
-                  label="Full Name"
-                  value={formData.employeeName}
-                  onChange={handleInputChange("employeeName")}
-                  error={!!formErrors.employeeName}
-                  helperText={formErrors.employeeName}
-                  InputProps={{
-                    startAdornment: (
-                      <Person
-                        sx={{ mr: 1, color: theme.palette.primary.main }}
-                      />
-                    ),
-                  }}
-                  required
-                  aria-label="Full Name"
-                  aria-invalid={!!formErrors.employeeName}
-                />
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <FormControl fullWidth error={!!formErrors.yearsOfExperience}>
-                  <InputLabel id="experience-label">
-                    Experience Level
-                  </InputLabel>
-                  <AppleSelect
-                    labelId="experience-label"
-                    value={formData.yearsOfExperience}
-                    onChange={handleInputChange("yearsOfExperience")}
-                    label="Experience Level"
-                    helperText={formErrors.yearsOfExperience}
-                    startAdornment={
-                      <Work sx={{ mr: 1, color: theme.palette.primary.main }} />
-                    }
-                    aria-label="Experience Level"
-                    aria-invalid={!!formErrors.yearsOfExperience}
-                  >
-                    {experienceOptions.map((exp) => (
-                      <MenuItem key={exp} value={exp}>
-                        {exp}
-                      </MenuItem>
-                    ))}
-                  </AppleSelect>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <AppleTextField
-                  fullWidth
-                  label="Organization"
-                  value={formData.companyName}
-                  InputProps={{
-                    readOnly: true,
-                    startAdornment: (
-                      <Business
-                        sx={{ mr: 1, color: theme.palette.primary.main }}
-                      />
-                    ),
-                  }}
-                  aria-label="Organization"
-                />
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <FormControl fullWidth error={!!formErrors.grade}>
-                  <InputLabel id="grade-label">Current Grade</InputLabel>
-                  <AppleSelect
-                    labelId="grade-label"
-                    value={formData.grade}
-                    onChange={handleInputChange("grade")}
-                    label="Current Grade"
-                    helperText={formErrors.grade}
-                    startAdornment={
-                      <Work sx={{ mr: 1, color: theme.palette.primary.main }} />
-                    }
-                    aria-label="Current Grade"
-                    aria-invalid={!!formErrors.grade}
-                  >
-                    {gradeOptions.map((grade) => (
-                      <MenuItem key={grade} value={grade}>
-                        {grade}
-                      </MenuItem>
-                    ))}
-                  </AppleSelect>
-                </FormControl>
-              </Grid>
-
-              <Grid item xs={12} md={6}>
-                <AppleTextField
-                  fullWidth
-                  label="Target Position"
-                  value={formData.jobPosition}
-                  onChange={handleInputChange("jobPosition")}
-                  error={!!formErrors.jobPosition}
-                  helperText={formErrors.jobPosition}
-                  InputProps={{
-                    startAdornment: (
-                      <Work sx={{ mr: 1, color: theme.palette.primary.main }} />
-                    ),
-                  }}
-                  required
-                  aria-label="Target Position"
-                  aria-invalid={!!formErrors.jobPosition}
-                />
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <FormControl fullWidth error={!!formErrors.jobLocation}>
-                  <InputLabel id="location-label">
-                    Preferred Location
-                  </InputLabel>
-                  <AppleSelect
-                    labelId="location-label"
-                    value={formData.jobLocation}
-                    onChange={handleInputChange("jobLocation")}
-                    label="Preferred Location"
-                    helperText={formErrors.jobLocation}
-                    startAdornment={
-                      <LocationOn
-                        sx={{ mr: 1, color: theme.palette.primary.main }}
-                      />
-                    }
-                    aria-label="Preferred Location"
-                    aria-invalid={!!formErrors.jobLocation}
-                  >
-                    {tcsCities.map((city) => (
-                      <MenuItem key={city} value={city}>
-                        {city}
-                      </MenuItem>
-                    ))}
-                  </AppleSelect>
-                </FormControl>
-              </Grid>
-
-              <Grid item xs={12}>
-                <Autocomplete
-                  multiple
-                  freeSolo
-                  options={Object.keys(skillCategories)}
-                  value={selectedSkills}
-                  onChange={handleSkillsChange}
-                  inputValue={skillsInputValue}
-                  onInputChange={(event, newInputValue) => {
-                    setSkillsInputValue(newInputValue);
-                  }}
-                  renderTags={(value, getTagProps) =>
-                    value.map((option, index) => (
-                      <Chip
-                        variant="outlined"
-                        label={option}
-                        {...getTagProps({ index })}
-                        size="small"
-                      />
-                    ))
-                  }
-                  renderInput={(params) => (
-                    <AppleTextField
-                      {...params}
-                      label="Key Skills"
-                      placeholder="e.g., Java, Microservices, SAP"
-                      error={!!formErrors.skills}
-                      helperText={formErrors.skills}
-                      InputProps={{
-                        ...params.InputProps,
-                        startAdornment: (
-                          <>
-                            <Work
-                              sx={{
-                                mr: 1,
-                                color: theme.palette.primary.main,
-                              }}
-                            />
-                            {params.InputProps.startAdornment}
-                          </>
-                        ),
-                      }}
-                      required
-                      aria-label="Key Skills"
-                      aria-invalid={!!formErrors.skills}
-                    />
-                  )}
-                  sx={{ width: "100%" }}
-                />
-              </Grid>
-              {selectedSkills.length > 0 && (
-                <Grid item xs={12}>
-                  <Autocomplete
-                    multiple
-                    options={availableSubtopics}
-                    value={formData.skillSubtopics}
-                    onChange={handleSkillSubtopicsChange}
-                    renderTags={(value, getTagProps) =>
-                      value.map((option, index) => (
-                        <Chip
-                          variant="outlined"
-                          label={option}
-                          {...getTagProps({ index })}
-                          size="small"
-                        />
-                      ))
-                    }
-                    renderInput={(params) => (
-                      <AppleTextField
-                        {...params}
-                        label="Skill Subtopics"
-                        placeholder="e.g., Spring Boot, AWS, JUnit"
-                        error={!!formErrors.skillSubtopics}
-                        helperText={formErrors.skillSubtopics}
-                        InputProps={{
-                          ...params.InputProps,
-                          startAdornment: (
-                            <>
-                              <Work
-                                sx={{
-                                  mr: 1,
-                                  color: theme.palette.primary.main,
-                                }}
-                              />
-                              {params.InputProps.startAdornment}
-                            </>
-                          ),
-                        }}
-                        required
-                        aria-label="Skill Subtopics"
-                        aria-invalid={!!formErrors.skillSubtopics}
-                      />
-                    )}
-                    sx={{ width: "100%" }}
-                  />
-                </Grid>
-              )}
-
-              <Grid item xs={12} md={6}>
-                <FormControl fullWidth error={!!formErrors.interviewType}>
-                  <InputLabel id="interview-type-label">
-                    Interview Stage
-                  </InputLabel>
-                  <AppleSelect
-                    labelId="interview-type-label"
-                    value={formData.interviewType}
-                    onChange={handleInputChange("interviewType")}
-                    label="Interview Stage"
-                    helperText={formErrors.interviewType}
-                    startAdornment={
-                      <Category
-                        sx={{ mr: 1, color: theme.palette.primary.main }}
-                      />
-                    }
-                    aria-label="Interview Stage"
-                    aria-invalid={!!formErrors.interviewType}
-                  >
-                    {interviewTypes.map((type) => (
-                      <MenuItem key={type} value={type}>
-                        {type}
-                      </MenuItem>
-                    ))}
-                  </AppleSelect>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <FormControl fullWidth error={!!formErrors.communicationType}>
-                  <InputLabel id="communication-type-label">
-                    Communication Purpose
-                  </InputLabel>
-                  <AppleSelect
-                    labelId="communication-type-label"
-                    value={formData.communicationType}
-                    onChange={handleInputChange("communicationType")}
-                    label="Communication Purpose"
-                    helperText={formErrors.communicationType}
-                    startAdornment={
-                      <Category
-                        sx={{ mr: 1, color: theme.palette.primary.main }}
-                      />
-                    }
-                    aria-label="Communication Purpose"
-                    aria-invalid={!!formErrors.communicationType}
-                  >
-                    {communicationTypes.map((type) => (
-                      <MenuItem key={type} value={type}>
-                        {type}
-                      </MenuItem>
-                    ))}
-                  </AppleSelect>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <FormControl
-                  fullWidth
-                  error={!!formErrors.managerialExpectationFocus}
-                >
-                  <InputLabel id="managerial-focus-label">
-                    Career Focus Area
-                  </InputLabel>
-                  <AppleSelect
-                    labelId="managerial-focus-label"
-                    value={formData.managerialExpectationFocus}
-                    onChange={handleInputChange("managerialExpectationFocus")}
-                    label="Career Focus Area"
-                    helperText={formErrors.managerialExpectationFocus}
-                    startAdornment={
-                      <Work sx={{ mr: 1, color: theme.palette.primary.main }} />
-                    }
-                    aria-label="Career Focus Area"
-                    aria-invalid={!!formErrors.managerialExpectationFocus}
-                  >
-                    {managerialExpectationFocuses.map((focus) => (
-                      <MenuItem key={focus} value={focus}>
-                        {focus}
-                      </MenuItem>
-                    ))}
-                  </AppleSelect>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <FormControl
-                  fullWidth
-                  error={!!formErrors.interviewQuestionType}
-                >
-                  <InputLabel id="question-type-label">
-                    Question Focus
-                  </InputLabel>
-                  <AppleSelect
-                    labelId="question-type-label"
-                    value={formData.interviewQuestionType}
-                    onChange={handleInputChange("interviewQuestionType")}
-                    label="Question Focus"
-                    helperText={formErrors.interviewQuestionType}
-                    startAdornment={
-                      <Category
-                        sx={{ mr: 1, color: theme.palette.primary.main }}
-                      />
-                    }
-                    aria-label="Question Focus"
-                    aria-invalid={!!formErrors.interviewQuestionType}
-                  >
-                    {interviewQuestionTypes.map((type) => (
-                      <MenuItem key={type} value={type}>
-                        {type}
-                      </MenuItem>
-                    ))}
-                  </AppleSelect>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <FormControl fullWidth error={!!formErrors.tone}>
-                  <InputLabel id="tone-label">Communication Tone</InputLabel>
-                  <AppleSelect
-                    labelId="tone-label"
-                    value={formData.tone}
-                    onChange={handleInputChange("tone")}
-                    label="Communication Tone"
-                    helperText={formErrors.tone}
-                    startAdornment={
-                      <Category
-                        sx={{ mr: 1, color: theme.palette.primary.main }}
-                      />
-                    }
-                    aria-label="Communication Tone"
-                    aria-invalid={!!formErrors.tone}
-                  >
-                    {tones.map((toneOption) => (
-                      <MenuItem key={toneOption} value={toneOption}>
-                        {toneOption}
-                      </MenuItem>
-                    ))}
-                  </AppleSelect>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <FormControl fullWidth error={!!formErrors.feedbackType}>
-                  <InputLabel id="feedback-type-label">
-                    Feedback Context
-                  </InputLabel>
-                  <AppleSelect
-                    labelId="feedback-type-label"
-                    value={formData.feedbackType}
-                    onChange={handleInputChange("feedbackType")}
-                    label="Feedback Context"
-                    helperText={formErrors.feedbackType}
-                    startAdornment={
-                      <Category
-                        sx={{ mr: 1, color: theme.palette.primary.main }}
-                      />
-                    }
-                    aria-label="Feedback Context"
-                    aria-invalid={!!formErrors.feedbackType}
-                  >
-                    {feedbackTypes.map((type) => (
-                      <MenuItem key={type} value={type}>
-                        {type}
-                      </MenuItem>
-                    ))}
-                  </AppleSelect>
-                </FormControl>
-              </Grid>
-
-              <Grid item xs={12}>
-                <AppleTextField
-                  fullWidth
-                  label="LinkedIn Profile (Optional)"
-                  value={formData.linkedinUrl}
-                  onChange={handleInputChange("linkedinUrl")}
-                  error={!!formErrors.linkedinUrl}
-                  helperText={formErrors.linkedinUrl}
-                  InputProps={{
-                    startAdornment: (
-                      <LinkedIn
-                        sx={{ mr: 1, color: theme.palette.primary.main }}
-                      />
-                    ),
-                  }}
-                  aria-label="LinkedIn Profile URL"
-                  aria-invalid={!!formErrors.linkedinUrl}
-                />
-              </Grid>
-
-              <Grid
-                item
-                xs={12}
-                sx={{
-                  display: "flex",
-                  justifyContent: "center",
-                  gap: 3,
-                  mt: 3,
-                }}
+                <LinkedIn />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Send email">
+              <IconButton
+                component={MuiLink}
+                href={`mailto:${PROFILE.email}`}
+                aria-label="Send email"
               >
-                <AppleButton
-                  onClick={handleNext}
-                  endIcon={<ArrowForward />}
-                  aria-label="Proceed to AI tools"
-                  size="large"
-                >
-                  Unlock AI Tools
-                </AppleButton>
-                <AppleClearButton
-                  onClick={handleClear}
-                  endIcon={<Refresh />}
-                  aria-label="Reset profile"
-                  size="large"
-                >
-                  Reset Profile
-                </AppleClearButton>
-              </Grid>
-            </Grid>
-          </AppleCard>
-        </motion.div>
-
-        <PreparationTools
-          showCategories={showCategories}
-          selectedCategory={selectedCategory}
-          setSelectedCategory={setSelectedCategory}
-          handleGenerate={handleGenerate}
-          response={response}
-          loading={loading}
-          error={error}
-          setError={setError}
+                <MailOutline />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title={mode === "dark" ? "Switch to light" : "Switch to dark"}>
+              <IconButton
+                onClick={() => setMode((m) => (m === "light" ? "dark" : "light"))}
+                aria-label="Toggle theme"
+              >
+                {mode === "dark" ? <LightModeIcon /> : <DarkModeIcon />}
+              </IconButton>
+            </Tooltip>
+          </Stack>
+        </Toolbar>
+        {/* Scroll progress bar */}
+        <LinearProgress
+          variant="determinate"
+          value={progress}
+          aria-label="Scroll progress"
+          sx={{
+            height: 3,
+            "& .MuiLinearProgress-bar": { transition: reduce ? "none" : "transform .2s ease" },
+          }}
         />
+      </AppBar>
 
-        {!showCategories && <TCSTipsSection />}
-
-        <Modal
-          open={clearModalOpen}
-          onClose={() => setClearModalOpen(false)}
-          closeAfterTransition
-        >
-          <Box
-            sx={{
-              position: "absolute",
-              top: "50%",
-              left: "50%",
-              transform: "translate(-50%, -50%)",
-              width: { xs: 340, sm: 440 },
-              background: "rgba(255, 255, 255, 0.98)",
-              backdropFilter: "blur(20px)",
-              borderRadius: "16px",
-              boxShadow: "0 8px 32px rgba(0, 0, 0, 0.15)",
-              p: 5,
-              textAlign: "center",
-            }}
-          >
-            <Typography
-              variant="h6"
-              sx={{
-                fontWeight: 600,
-                mb: 4,
-                fontSize: "1.25rem",
-                color: theme.palette.primary.dark,
-              }}
-            >
-              Reset Profile?
-            </Typography>
-            <Typography
-              sx={{
-                mb: 5,
-                fontSize: "1rem",
-                lineHeight: 1.7,
-                color: theme.palette.text.secondary,
-              }}
-            >
-              Are you sure you want to reset all fields? Your saved profile will
-              be cleared.
-            </Typography>
-            <Box sx={{ display: "flex", gap: 3, justifyContent: "center" }}>
-              <AppleClearButton
-                onClick={() => setClearModalOpen(false)}
-                size="large"
-              >
-                Cancel
-              </AppleClearButton>
-              <AppleButton onClick={confirmClear} size="large">
-                Reset
-              </AppleButton>
-            </Box>
-          </Box>
-        </Modal>
-
-        <Box
-          sx={{
-            mt: 7,
-            py: 4,
-            textAlign: "center",
-            backgroundColor: "rgba(0,0,0,0.05)",
-            borderRadius: "16px",
-          }}
-        >
-          <Typography
-            variant="body2"
-            sx={{ color: theme.palette.text.secondary }}
-          >
-            © 2025 TCS AI Career Assistant | For internal use only | Generated
-            content is AI-assisted and should be reviewed for accuracy.
-          </Typography>
-        </Box>
-        {/* Floating buttons for navigation and contact */}
-        <Box
-          sx={{
-            position: "fixed",
-            bottom: 20,
-            left: 20,
-            display: "flex",
-            flexDirection: "column",
-            gap: 1,
-            zIndex: 1000,
-          }}
-        >
-          {showUp && (
-            <motion.div
-              whileHover={{ scale: 1.1 }}
-              transition={{ duration: 0.3 }}
-            >
-              <Fab
-                size="small"
-                color="primary"
-                aria-label="scroll to top"
-                onClick={scrollToTop}
-              >
-                <UpIcon />
-              </Fab>
-            </motion.div>
-          )}
-          {showDown && (
-            <motion.div
-              whileHover={{ scale: 1.1 }}
-              transition={{ duration: 0.3 }}
-            >
-              <Fab
-                size="small"
-                color="primary"
-                aria-label="scroll to bottom"
-                onClick={scrollToBottom}
-              >
-                <DownIcon />
-              </Fab>
-            </motion.div>
-          )}
-          <motion.div
-            whileHover={{ scale: 1.1 }}
-            transition={{ duration: 0.3 }}
-          >
-            <a href="tel:+919561520911" style={{ textDecoration: "none" }}>
-              <Fab size="small" color="secondary" aria-label="call">
-                <PhoneIcon />
-              </Fab>
-            </a>
-          </motion.div>
-          <motion.div
-            whileHover={{ scale: 1.1 }}
-            transition={{ duration: 0.3 }}
-          >
-            <a
-              href="https://wa.me/919561520911"
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ textDecoration: "none" }}
-            >
-              <Fab size="small" color="success" aria-label="whatsapp">
-                <WhatsAppIcon />
-              </Fab>
-            </a>
-          </motion.div>
-        </Box>
+      {/* Hero */}
+      <Box
+        component={motion.section}
+        variants={fadeUp}
+        initial="hidden"
+        animate="visible"
+        sx={{
+          py: { xs: 8, md: 12 },
+          background: (t) =>
+            mode === "dark"
+              ? `linear-gradient(180deg, rgba(37,99,235,.10), transparent 40%), radial-gradient(1000px 500px at 100% -10%, rgba(37,99,235,.18), transparent 60%), ${t.palette.background.default}`
+              : `linear-gradient(180deg, rgba(37,99,235,.06), transparent 40%), radial-gradient(1000px 500px at 100% -10%, rgba(37,99,235,.14), transparent 60%), ${t.palette.background.default}`,
+        }}
+      >
+        <Container maxWidth="lg">
+          <Grid container spacing={6} alignItems="center">
+            <Grid item xs={12} md={5}>
+              <HeroPhoto />
+            </Grid>
+            <Grid item xs={12} md={7}>
+              <Stack spacing={2}>
+                <Typography
+                  variant="overline"
+                  color="primary"
+                  sx={{ letterSpacing: ".14em", fontWeight: 800 }}
+                >
+                  {PROFILE.currentRole}
+                </Typography>
+                <Typography component="h1" variant="h2">
+                  {PROFILE.title}
+                </Typography>
+                <Typography variant="h6" color="text.secondary">
+                  {PROFILE.summary}
+                </Typography>
+                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                  <Chip
+                    label="SAP Certified (FIORDEV_21, C_CPE_12)"
+                    color="primary"
+                    variant="outlined"
+                    icon={<VerifiedOutlined />}
+                  />
+                  <Chip label="Microservices and APIs" variant="outlined" icon={<HubOutlined />} />
+                  <Chip label="Security by default" variant="outlined" icon={<SecurityOutlined />} />
+                  <Chip label="Observability" variant="outlined" icon={<TimelineOutlined />} />
+                </Stack>
+                <Stack direction={{ xs: "column", sm: "row" }} spacing={2} pt={1}>
+                  <Button
+                    size="large"
+                    variant="contained"
+                    onClick={() => scrollTo("projects")}
+                    endIcon={<ArrowDownward />}
+                  >
+                    View Projects
+                  </Button>
+                  <Button
+                    size="large"
+                    variant="outlined"
+                    color="inherit"
+                    onClick={() => scrollTo("contact")}
+                  >
+                    Contact
+                  </Button>
+                </Stack>
+              </Stack>
+            </Grid>
+          </Grid>
+        </Container>
       </Box>
+
+      {/* About */}
+      <Section id="about" aria-label="About section">
+        <Container maxWidth="lg">
+          <Grid container spacing={3}>
+            <Grid item xs={12} md={7}>
+              <Card>
+                <SectionTitle icon={<EmojiObjectsOutlined color="primary" />} title="About" />
+                <Typography variant="body1" color="text.secondary">
+                  Ten plus years across SAP UI5 and Fiori and CAP with Node.js and micro frontends on
+                  BTP with a bias to clarity and resilient releases and measurable performance
+                </Typography>
+                <Divider sx={{ my: 2 }} />
+                <Stack spacing={1.2} aria-label="Contact summary">
+                  <Row icon={<LocationOn fontSize="small" />} text={PROFILE.location} />
+                  <Row
+                    icon={<Phone fontSize="small" />}
+                    node={
+                      <MuiLink href={`tel:${PROFILE.phone.replace(/\s+/g, "")}`}>
+                        {PROFILE.phone}
+                      </MuiLink>
+                    }
+                  />
+                  <Row
+                    icon={<MailOutline fontSize="small" />}
+                    node={<MuiLink href={`mailto:${PROFILE.email}`}>{PROFILE.email}</MuiLink>}
+                  />
+                  <Row
+                    icon={<LinkedIn fontSize="small" />}
+                    node={
+                      <MuiLink href={PROFILE.linkedin} target="_blank" rel="noopener">
+                        linkedin.com/in/vktiwari
+                      </MuiLink>
+                    }
+                  />
+                </Stack>
+              </Card>
+            </Grid>
+            <Grid item xs={12} md={5}>
+              <Card>
+                <SectionTitle icon={<LanguageOutlined color="primary" />} title="Languages" />
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <Chip label="English" variant="outlined" />
+                  <Chip label="Hindi" variant="outlined" />
+                </Stack>
+              </Card>
+            </Grid>
+          </Grid>
+        </Container>
+      </Section>
+
+      {/* Skills */}
+      <Section id="skills" aria-label="Skills section">
+        <Container maxWidth="lg">
+          <Grid container spacing={3}>
+            <Grid item xs={12} md={6}>
+              <Card>
+                <SectionTitle icon={<DevicesOtherOutlined color="primary" />} title="Core stack" />
+                <ChipWrap items={SKILLS.core} />
+              </Card>
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <Card>
+                <SectionTitle
+                  icon={<RocketLaunchOutlined color="primary" />}
+                  title="Tooling and practices"
+                />
+                <ChipWrap items={SKILLS.tooling} />
+              </Card>
+            </Grid>
+            <Grid item xs={12}>
+              <Card>
+                <SectionTitle icon={<StarBorderRounded color="primary" />} title="Soft skills" />
+                <ChipWrap items={SKILLS.soft} filled />
+              </Card>
+            </Grid>
+          </Grid>
+        </Container>
+      </Section>
+
+      {/* Experience */}
+      <Section id="experience" aria-label="Experience section">
+        <Container maxWidth="lg">
+          <Stack spacing={2} mb={3}>
+            <SectionTitle icon={<WorkHistoryOutlined color="primary" />} title="Experience" h3 />
+            <Typography variant="body1" color="text.secondary">
+              Client names are anonymized to protect confidentiality while keeping responsibilities
+              and impact accurate
+            </Typography>
+          </Stack>
+          <Stack spacing={3}>
+            {EXPERIENCE.map((org) => (
+              <Card key={org.company}>
+                <Stack spacing={0.5} mb={2}>
+                  <Typography variant="h5">
+                    {org.role} —{" "}
+                    <Box component="span" sx={{ color: "primary.main" }}>
+                      {org.company}
+                    </Box>
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {org.period}
+                  </Typography>
+                </Stack>
+                <Stack spacing={3}>
+                  {org.items.map((it, idx) => (
+                    <Box key={idx}>
+                      <Stack
+                        direction={{ xs: "column", sm: "row" }}
+                        justifyContent="space-between"
+                        alignItems={{ xs: "flex-start", sm: "center" }}
+                        spacing={1}
+                        mb={0.5}
+                      >
+                        <Typography variant="subtitle1" fontWeight={700}>
+                          {it.title}
+                        </Typography>
+                        {it.client && <Chip size="small" label={it.client} variant="outlined" />}
+                      </Stack>
+                      {it.time && (
+                        <Typography variant="caption" color="text.secondary">
+                          {it.time}
+                        </Typography>
+                      )}
+                      <Stack component="ul" sx={{ pl: 2, mt: 1 }} spacing={0.5}>
+                        {it.points.map((p, i) => (
+                          <Typography component="li" variant="body2" key={i}>
+                            {p}
+                          </Typography>
+                        ))}
+                      </Stack>
+                      {it.tags?.length ? (
+                        <Stack direction="row" spacing={1} mt={1} flexWrap="wrap" useFlexGap>
+                          {it.tags.map((t) => (
+                            <Chip key={t} size="small" label={t} />
+                          ))}
+                        </Stack>
+                      ) : null}
+                      {idx < org.items.length - 1 && <Divider sx={{ my: 2 }} />}
+                    </Box>
+                  ))}
+                </Stack>
+              </Card>
+            ))}
+          </Stack>
+        </Container>
+      </Section>
+
+      {/* Projects — reverse chronological */}
+      <Section id="projects" aria-label="Projects section">
+        <Container maxWidth="lg">
+          <Stack spacing={2} mb={3}>
+            <SectionTitle icon={<CodeOutlined color="primary" />} title="Projects" h3 />
+            <Typography variant="body1" color="text.secondary">
+              All projects in reverse chronological order
+            </Typography>
+          </Stack>
+          <Grid container spacing={3}>
+            {PROJECTS.map((p) => (
+              <Grid item xs={12} md={6} key={`${p.name}-${p.year}`}>
+                <Card>
+                  <Stack
+                    direction="row"
+                    spacing={1}
+                    alignItems="center"
+                    justifyContent="space-between"
+                  >
+                    <Typography variant="h6">{p.name}</Typography>
+                    <Chip label={`${p.year}`} size="small" />
+                  </Stack>
+                  <Stack direction="row" spacing={1} alignItems="center" mt={1}>
+                    <Chip label={p.badge} color="primary" variant="outlined" size="small" />
+                  </Stack>
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                    {p.desc}
+                  </Typography>
+                  <Stack direction="row" spacing={1} mt={2} flexWrap="wrap" useFlexGap>
+                    {p.tags.map((t) => (
+                      <Chip key={t} size="small" label={t} />
+                    ))}
+                  </Stack>
+                </Card>
+              </Grid>
+            ))}
+          </Grid>
+        </Container>
+      </Section>
+
+      {/* Certifications and Education */}
+      <Section id="certs" aria-label="Certifications section">
+        <Container maxWidth="lg">
+          <Grid container spacing={3}>
+            <Grid item xs={12} md={7}>
+              <Card>
+                <SectionTitle
+                  icon={<WorkspacePremiumOutlined color="primary" />}
+                  title="Certifications and training"
+                />
+                <Stack spacing={1} component="ul" sx={{ pl: 2 }}>
+                  {CERTS.map((c) => (
+                    <Typography component="li" variant="body2" key={c}>
+                      {c}
+                    </Typography>
+                  ))}
+                </Stack>
+              </Card>
+            </Grid>
+            <Grid item xs={12} md={5}>
+              <Card>
+                <SectionTitle icon={<SchoolOutlined color="primary" />} title="Education" />
+                <Typography variant="subtitle1" fontWeight={700}>
+                  {EDUCATION.degree}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {EDUCATION.institute} · {EDUCATION.year} · {EDUCATION.score}
+                </Typography>
+              </Card>
+            </Grid>
+          </Grid>
+        </Container>
+      </Section>
+
+      {/* Awards */}
+      <Section id="awards" aria-label="Awards section">
+        <Container maxWidth="lg">
+          <Card>
+            <SectionTitle
+              icon={<EmojiEventsOutlined color="primary" />}
+              title="Awards and recognition"
+            />
+            <Stack spacing={1} component="ul" sx={{ pl: 2 }}>
+              {AWARDS.map((a) => (
+                <Typography component="li" variant="body2" key={a}>
+                  {a}
+                </Typography>
+              ))}
+            </Stack>
+          </Card>
+        </Container>
+      </Section>
+
+      {/* Contact (redesigned) */}
+      <Section id="contact" aria-label="Contact section">
+        <Container maxWidth="lg">
+          <Grid container spacing={3}>
+            <Grid item xs={12} md={7}>
+              <Card>
+                <Typography variant="h5" mb={1}>
+                  Let’s build something great
+                </Typography>
+                <Typography variant="body2" color="text.secondary" mb={3}>
+                  No tracking cookies and messages only used to respond to your inquiry
+                </Typography>
+                <ContactForm emailTo={PROFILE.email} />
+              </Card>
+            </Grid>
+            <Grid item xs={12} md={5}>
+              <Card>
+                <Typography variant="h6" mb={2}>
+                  Contact
+                </Typography>
+                <Stack spacing={1}>
+                  <Row
+                    icon={<Phone fontSize="small" />}
+                    node={
+                      <MuiLink href={`tel:${PROFILE.phone.replace(/\s+/g, "")}`}>
+                        {PROFILE.phone}
+                      </MuiLink>
+                    }
+                  />
+                  <Row
+                    icon={<MailOutline fontSize="small" />}
+                    node={<MuiLink href={`mailto:${PROFILE.email}`}>{PROFILE.email}</MuiLink>}
+                  />
+                  <Row
+                    icon={<LinkedIn fontSize="small" />}
+                    node={
+                      <MuiLink href={PROFILE.linkedin} target="_blank" rel="noopener">
+                        linkedin.com/in/vktiwari
+                      </MuiLink>
+                    }
+                  />
+                  <Row icon={<LocationOn fontSize="small" />} text={PROFILE.location} />
+                </Stack>
+              </Card>
+            </Grid>
+          </Grid>
+        </Container>
+      </Section>
+
+      {/* Footer */}
+      <Box component="footer" sx={{ py: 6, borderTop: (t) => `1px solid ${t.palette.divider}` }}>
+        <Container maxWidth="lg">
+          <Stack
+            direction={{ xs: "column", sm: "row" }}
+            spacing={2}
+            alignItems="center"
+            justifyContent="space-between"
+          >
+            <Stack direction="row" spacing={1} alignItems="center">
+              <Avatar alt="Logo" src={logo} sx={{ width: 22, height: 22 }} />
+              <Typography variant="body2">
+                © {new Date().getFullYear()} {PROFILE.name}. All rights reserved
+              </Typography>
+            </Stack>
+            <Typography variant="body2" sx={{ fontStyle: "italic", opacity: 0.8 }}>
+              Developed by {PROFILE.name}
+            </Typography>
+            <Stack direction="row" spacing={2}>
+              <MuiLink href="#projects" color="inherit">
+                Projects
+              </MuiLink>
+              <MuiLink href="#experience" color="inherit">
+                Experience
+              </MuiLink>
+              <MuiLink href="#contact" color="inherit">
+                Contact
+              </MuiLink>
+            </Stack>
+          </Stack>
+        </Container>
+      </Box>
+
+      <BackToNav />
     </ThemeProvider>
   );
-};
+}
 
-export default TCSinterviewAssistantAI;
+// ---------- Subcomponents ----------
+function NavLink({ label, onClick, active }) {
+  const theme = useTheme();
+  return (
+    <Button
+      color="inherit"
+      onClick={onClick}
+      aria-current={active ? "page" : undefined}
+      sx={{
+        fontWeight: 700,
+        position: "relative",
+        "&:after": {
+          content: '""',
+          position: "absolute",
+          left: 8,
+          right: 8,
+          bottom: 6,
+          height: 2,
+          borderRadius: 2,
+          background: active ? theme.palette.primary.main : "transparent",
+          transition: "background .2s ease",
+        },
+      }}
+    >
+      {label}
+    </Button>
+  );
+}
+
+function SectionTitle({ icon, title, h3 = false }) {
+  return (
+    <Stack direction="row" spacing={1} alignItems="center" mb={2}>
+      {icon}
+      {h3 ? <Typography variant="h3">{title}</Typography> : <Typography variant="h6">{title}</Typography>}
+    </Stack>
+  );
+}
+
+function Row({ icon, text, node }) {
+  return (
+    <Stack direction="row" spacing={1} alignItems="center">
+      {icon}
+      {node ? (
+        node
+      ) : (
+        <Typography variant="body2" component="span">
+          {text}
+        </Typography>
+      )}
+    </Stack>
+  );
+}
+
+function ChipWrap({ items, filled = false }) {
+  return (
+    <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" aria-label="Chips list">
+      {items.map((s) => (
+        <Chip key={s} label={s} variant={filled ? "filled" : "outlined"} />
+      ))}
+    </Stack>
+  );
+}
+
+function HeroPhoto() {
+  const reduce = useReducedMotion();
+  const hoverLift = makeMotion(reduce).hoverLift;
+  return (
+    <Box
+      component={motion.div}
+      {...hoverLift}
+      sx={{ display: "grid", placeItems: "center" }}
+      aria-label="Profile photo"
+    >
+      <Box
+        sx={{
+          width: { xs: 220, sm: 260, md: 320 },
+          height: { xs: 220, sm: 260, md: 320 },
+          borderRadius: "50%",
+          overflow: "hidden",
+          border: (t) => `6px solid ${t.palette.mode === "dark" ? "#1f2a44" : "#e6eefc"}`,
+          boxShadow: "0 20px 60px rgba(37,99,235,.25)",
+          background: `url(${photo}) center/cover no-repeat`,
+        }}
+      />
+    </Box>
+  );
+}
+
+function ContactForm({ emailTo }) {
+  const [form, setForm] = useState({
+    name: "",
+    email: "",
+    message: "",
+    company: "",
+    role: "",
+  });
+  const [sending, setSending] = useState(false);
+  const [touched, setTouched] = useState({});
+  const emailValid = /.+@.+\..+/.test(form.email);
+  const valid = form.name.trim() && emailValid && form.message.trim();
+
+  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+  const mark = (k) => () => setTouched((t) => ({ ...t, [k]: true }));
+
+  const onSubmit = (e) => {
+    e.preventDefault();
+    if (!valid) return;
+    setSending(true);
+    const subject = encodeURIComponent(`Portfolio contact — ${form.name}`);
+    const body = encodeURIComponent(
+      `Name: ${form.name}
+Email: ${form.email}
+Company: ${form.company}
+Role: ${form.role}
+
+${form.message}`
+    );
+    window.location.href = `mailto:${emailTo}?subject=${subject}&body=${body}`;
+    setTimeout(() => setSending(false), 800);
+  };
+
+  return (
+    <Box component="form" onSubmit={onSubmit} noValidate aria-label="Contact form">
+      <Grid container spacing={2}>
+        <Grid item xs={12} sm={6}>
+          <TextField
+            fullWidth
+            label="Name"
+            value={form.name}
+            onChange={set("name")}
+            onBlur={mark("name")}
+            required
+            error={touched.name && !form.name.trim()}
+            helperText={touched.name && !form.name.trim() ? "Name is required" : " "}
+            autoComplete="name"
+            inputProps={{ "aria-required": true }}
+          />
+        </Grid>
+        <Grid item xs={12} sm={6}>
+          <TextField
+            fullWidth
+            label="Email"
+            type="email"
+            value={form.email}
+            onChange={set("email")}
+            onBlur={mark("email")}
+            required
+            error={touched.email && !emailValid}
+            helperText={touched.email && !emailValid ? "Enter a valid email" : " "}
+            autoComplete="email"
+            inputProps={{ "aria-required": true }}
+          />
+        </Grid>
+        <Grid item xs={12} sm={6}>
+          <TextField
+            fullWidth
+            label="Company"
+            value={form.company}
+            onChange={set("company")}
+            autoComplete="organization"
+          />
+        </Grid>
+        <Grid item xs={12} sm={6}>
+          <TextField fullWidth label="Role" value={form.role} onChange={set("role")} />
+        </Grid>
+        <Grid item xs={12}>
+          <TextField
+            fullWidth
+            label="Project brief"
+            value={form.message}
+            onChange={set("message")}
+            onBlur={mark("message")}
+            required
+            multiline
+            minRows={4}
+            error={touched.message && !form.message.trim()}
+            helperText={touched.message && !form.message.trim() ? "Please describe your need" : " "}
+            inputProps={{ "aria-required": true }}
+          />
+        </Grid>
+        <Grid item xs={12}>
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+            <Button type="submit" variant="contained" disabled={!valid || sending}>
+              {sending ? "Preparing" : "Send message"}
+            </Button>
+            <Button variant="outlined" color="inherit" href={`mailto:${emailTo}`}>
+              Email directly
+            </Button>
+          </Stack>
+        </Grid>
+      </Grid>
+    </Box>
+  );
+}
+
+function BackToNav() {
+  const [showUp, setShowUp] = useState(false);
+  const [showDown, setShowDown] = useState(true);
+  const reduce = useReducedMotion();
+
+  useEffect(() => {
+    const onScroll = () => {
+      const y = window.scrollY;
+      const h = document.documentElement.scrollHeight;
+      const wh = window.innerHeight;
+      setShowUp(y > 160);
+      setShowDown(y + wh < h - 160);
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  return (
+    <Box
+      sx={{
+        position: "fixed",
+        bottom: 20,
+        right: 20,
+        display: "flex",
+        flexDirection: "column",
+        gap: 1,
+        zIndex: 1200,
+      }}
+      aria-label="Quick navigation"
+    >
+      {showUp && (
+        <IconButton
+          component={motion.button}
+          whileHover={reduce ? undefined : { scale: 1.1 }}
+          whileTap={reduce ? undefined : { scale: 0.98 }}
+          color="primary"
+          size="large"
+          onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+          sx={{
+            bgcolor: "background.paper",
+            border: (t) => `1px solid ${t.palette.divider}`,
+          }}
+          aria-label="Back to top"
+        >
+          <ArrowUpward />
+        </IconButton>
+      )}
+      {showDown && (
+        <IconButton
+          component={motion.button}
+          whileHover={reduce ? undefined : { scale: 1.1 }}
+          whileTap={reduce ? undefined : { scale: 0.98 }}
+          color="primary"
+          size="large"
+          onClick={() =>
+            window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" })
+          }
+          sx={{
+            bgcolor: "background.paper",
+            border: (t) => `1px solid ${t.palette.divider}`,
+          }}
+          aria-label="Scroll to bottom"
+        >
+          <ArrowDownward />
+        </IconButton>
+      )}
+    </Box>
+  );
+}
+
