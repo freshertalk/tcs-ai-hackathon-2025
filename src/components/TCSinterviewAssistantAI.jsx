@@ -374,7 +374,11 @@ export default function TCSinterviewAssistantAI() {
                   >
                     {profile.currentRole}
                   </Typography>
-                  <Typography component="h1" variant="h3">
+                  <Typography
+                    component="h1"
+                    variant="h4"
+                    sx={{ fontWeight: 700 }}
+                  >
                     {profile.title}
                   </Typography>
                   <Typography variant="body1" color="text.secondary">
@@ -665,7 +669,14 @@ export default function TCSinterviewAssistantAI() {
             <Grid container spacing={3}>
               {PROJECTS.map((p) => (
                 <Grid item xs={12} md={6} key={`${p.name}-${p.year}`}>
-                  <Card>
+                  <Card
+                    sx={{
+                      minHeight: { md: 260 }, // equal height only on desktop
+                      display: "flex",
+                      flexDirection: "column",
+                      justifyContent: "space-between",
+                    }}
+                  >
                     <Stack
                       direction="row"
                       spacing={1}
@@ -675,6 +686,7 @@ export default function TCSinterviewAssistantAI() {
                       <Typography variant="h6">{p.name}</Typography>
                       <Chip label={`${p.year}`} size="small" />
                     </Stack>
+
                     <Stack
                       direction="row"
                       spacing={1}
@@ -688,6 +700,7 @@ export default function TCSinterviewAssistantAI() {
                         size="small"
                       />
                     </Stack>
+
                     <Typography
                       variant="body2"
                       color="text.secondary"
@@ -695,6 +708,7 @@ export default function TCSinterviewAssistantAI() {
                     >
                       {p.desc}
                     </Typography>
+
                     <Stack
                       direction="row"
                       spacing={1}
