@@ -1,1214 +1,1355 @@
 // src/TCSinterviewAssistantAI.jsx
-// React 18 + MUI 5 + Framer Motion — Resume-style single page for Vinay Kumar Tiwari
-// Design: Clean, accessible, mobile-first. Forced LIGHT mode.
-// Hero: H1 (image centered on its own row) + T1 (centered text).
-// Changes: no dark toggle, About text justified, softer hero sizes, hero image centered.
+// Status: NAVIGATION FIXED
+// Updates: "View Portfolio" -> #skills, "Contact Me" -> #contact
+// Features: Equal Grid Cards, Visible Contact Info, Full History
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useState, useEffect, memo } from "react";
 import {
-  AppBar,
   Avatar,
   Box,
-  Button,
-  Chip,
   Container,
   CssBaseline,
-  Divider,
   Grid,
   IconButton,
-  Link as MuiLink,
-  LinearProgress,
-  Paper,
   Stack,
-  TextField,
-  Toolbar,
   Typography,
-  Tooltip,
   GlobalStyles,
-  useTheme,
+  Chip,
+  useMediaQuery,
+  Link,
 } from "@mui/material";
 import {
   LinkedIn,
   MailOutline,
-  Phone,
-  LocationOn,
-  ArrowDownward,
-  ArrowUpward,
-  SecurityOutlined,
-  VerifiedOutlined,
-  WorkspacePremiumOutlined,
-  StarBorderRounded,
-  RocketLaunchOutlined,
-  DevicesOtherOutlined,
-  TimelineOutlined,
-  HubOutlined,
-  LanguageOutlined,
-  CodeOutlined,
-  WorkHistoryOutlined,
-  SchoolOutlined,
-  EmojiEventsOutlined,
+  ArrowForward,
+  StarRounded,
+  RocketLaunch,
+  Code,
   EmojiObjectsOutlined,
+  Menu as MenuIcon,
+  Close as CloseIcon,
+  GitHub,
+  WhatsApp,
+  LocationOn,
+  Phone,
 } from "@mui/icons-material";
-import { ThemeProvider, createTheme } from "@mui/material/styles";
-import { motion, useReducedMotion } from "framer-motion";
+import { createTheme, ThemeProvider, alpha } from "@mui/material/styles";
+import {
+  motion,
+  useMotionTemplate,
+  useMotionValue,
+  AnimatePresence,
+} from "framer-motion";
 
+// --- ASSETS ---
 import logo from "../assets/logo.avif";
 import photo from "../assets/v.avif";
 
-// Theme + global styles
-import buildTheme, { globalStyles } from "../theme";
+/* =============================================================================
+   DATA
+============================================================================= */
 
-// Data modules
-import PROFILE_DEFAULT, { PROFILE, SKILLS, EDUCATION } from "../data/profile";
-import EXPERIENCE from "../data/experience";
-import PROJECTS from "../data/projects";
-import CERTS from "../data/certs";
-import AWARDS from "../data/awards";
-
-// -------------------------------------------------------
-// Utilities
-// -------------------------------------------------------
-const useInterFont = () => {
-  useEffect(() => {
-    const id = "inter-font-link";
-    if (!document.getElementById(id)) {
-      const link = document.createElement("link");
-      link.id = id;
-      link.rel = "stylesheet";
-      link.href =
-        "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap";
-      document.head.appendChild(link);
-    }
-  }, []);
+const PROFILE_DATA = {
+  name: "Vinay Tiwari",
+  title:
+    "Senior Software Developer (10+ yrs) — SAP UI5 / FIORI / CAPM / BTP / GenAI Engineer",
+  currentRole: "SAP Cloud Security Consultant",
+  email: "vinay.tiwari.sap@gmail.com",
+  linkedin: "https://www.linkedin.com/in/vinay-tiwari-sap/",
+  whatsapp: "https://wa.me/917392062233",
+  whatsappNumber: "+91 73920 62233",
+  github: "https://github.com/",
+  location: "Noida, India",
+  summary:
+    "Pragmatic engineer building scalable SAP BTP apps with SAP UI/UX excellence and secure CAPM (Node.js) services, integrating GenAI where it measurably improves outcomes.",
 };
 
-const makeMotion = (reduce) => {
-  const base = reduce
-    ? { transition: { duration: 0, ease: "linear" } }
-    : { transition: { duration: 0.6, ease: "easeOut" } };
-  return {
-    fadeUp: {
-      hidden: { opacity: 0, y: reduce ? 0 : 18 },
-      visible: { opacity: 1, y: 0, ...base },
-    },
-    fade: {
-      hidden: { opacity: 0 },
-      visible: { opacity: 1, ...base },
-    },
-    hoverLift: reduce
-      ? {}
-      : { whileHover: { y: -4, boxShadow: "0 10px 30px rgba(0,0,0,.12)" } },
-  };
+const EXPERIENCE_DATA = [
+  {
+    company: "Tata Consultancy Services",
+    role: "Assistant Consultant",
+    period: "Aug 2022 — Jan 2026 · Varanasi",
+    items: [
+      {
+        title: "Digital transformation",
+        client: "Major Pharma Industry · USA",
+        time: "May 2024 — Present · Team lead · Healthcare",
+        points: [
+          "Fiori-compliant UI5 apps on BTP with real-time OData flows",
+          "Rapid prototyping with sprint demos to stakeholders",
+          "Quality with Git and CI and secure defaults",
+        ],
+        tags: ["SAP UI5", "Fiori", "BTP", "Node.js", "OData"],
+      },
+      {
+        title: "Solutions and innovation",
+        client: "Enterprise software lab · India",
+        time: "Sep 2022 — Apr 2024 · Developer · Hi-tech",
+        points: [
+          "Node.js and UI5 prototypes on BTP to showcase product capabilities",
+          "MVP per sprint and multi-environment maintenance",
+        ],
+        tags: ["Node.js", "SAP UI5", "BTP", "OData"],
+      },
+    ],
+  },
+  {
+    company: "IBM India",
+    role: "Application Consultant",
+    period: "Jan 2020 — Aug 2022",
+    items: [
+      {
+        title: "Cloud HR benefits and claims",
+        client: "Leading healthcare group · Singapore",
+        time: "Mar 2022 — Aug 2022 · Developer · Healthcare",
+        points: [
+          "UI5 modules and BTP integrations for cloud HR workflows",
+          "Sprint MVP delivery",
+        ],
+        tags: ["UI5", "BTP", "OData"],
+      },
+      {
+        title: "S/4HANA returns transition",
+        client: "Leading aerospace enterprise · Canada",
+        time: "Sep 2021 — Feb 2022 · Developer · Aerospace",
+        points: [
+          "Custom UI5 return process with CDS and OData",
+          "UAT defect closure and UTD artifacts",
+        ],
+        tags: ["UI5", "WorkZone", "CDS"],
+      },
+      {
+        title: "Contractor resource management",
+        client: "Fortune 100 CIO organization",
+        time: "Sep 2020 — Sep 2021 · Developer · HRMS",
+        points: [
+          "Lifecycle workflows from onboarding to offboarding",
+          "Launchpad configuration and UI customization",
+        ],
+        tags: ["UI5", "OData", "Neo"],
+      },
+      {
+        title: "Self-service password reset",
+        client: "Internal initiative",
+        time: "Apr 2020 — Aug 2020 · Solo",
+        points: ["UI5 plus OData proof of concept to MVP"],
+        tags: ["UI5", "OData"],
+      },
+    ],
+  },
+  {
+    company: "Cognizant",
+    role: "Associate — Projects",
+    period: "Mar 2019 — Dec 2019 · Bengaluru",
+    items: [
+      {
+        title: "TDM portal for B2C and B2B",
+        client: "Major telecom operator · Australia",
+        points: [
+          "Microservices for data automation and test orchestration",
+          "Service and database design with unit tests",
+        ],
+        tags: ["Microservices", "React"],
+      },
+    ],
+  },
+  {
+    company: "Mindtree",
+    role: "Senior Software Engineer",
+    period: "Jul 2018 — Mar 2019 · Bengaluru",
+    items: [
+      {
+        title: "Revenue management program",
+        client: "Global travel and transport provider",
+        points: [
+          "Security fixes for XSS and SQLi and log forging",
+          "Refactored core utilities",
+        ],
+        tags: ["Security", "Refactoring"],
+      },
+      {
+        title: "DC index cache performance",
+        client: "Global travel and transport provider",
+        points: [
+          "Cache intelligence from POC to delivery",
+          "Messaging and coherence optimizations",
+        ],
+        tags: ["Caching", "Performance"],
+      },
+    ],
+  },
+  {
+    company: "Wipro",
+    role: "Project Engineer",
+    period: "Sep 2015 — Jul 2018 · Bengaluru",
+    items: [
+      {
+        title: "Building management with Haystack API",
+        client: "Global semiconductor and IoT leader",
+        points: ["Java API for standardized inputs and downstream operations"],
+        tags: ["Spring MVC", "REST"],
+      },
+      {
+        title: "Converged infrastructure management",
+        client: "Enterprise infrastructure provider",
+        points: [
+          "Automation for servers and storage and networking with modern management architecture",
+        ],
+        tags: ["Automation", "Infrastructure"],
+      },
+      {
+        title: "Security management system",
+        client: "Global security solutions provider",
+        points: ["Development and code review and vulnerability fixes"],
+        tags: ["SAST", "Code review"],
+      },
+    ],
+  },
+];
+
+const PROJECTS_DATA = [
+  {
+    year: 2024,
+    name: "MedTech apps suite",
+    badge: "Healthcare",
+    desc: "Fiori UI5 apps on BTP for internal operations and faster clinical support",
+    tags: ["UI5", "BTP", "OData"],
+  },
+  {
+    year: 2022,
+    name: "Cloud HR workflows",
+    badge: "HRMS",
+    desc: "Benefits and claims with secure OData services and launchpad integration",
+    tags: ["UI5", "BTP", "Launchpad"],
+  },
+  {
+    year: 2022,
+    name: "Returns management",
+    badge: "Aerospace",
+    desc: "Custom UI5 returns process with CDS and OData and UAT stabilization",
+    tags: ["UI5", "CDS", "WorkZone"],
+  },
+  {
+    year: 2019,
+    name: "TDM portal automation",
+    badge: "Telecom",
+    desc: "Microservices driven data automation and test orchestration",
+    tags: ["Microservices", "React"],
+  },
+  {
+    year: 2018,
+    name: "Revenue management hardening",
+    badge: "Travel",
+    desc: "Security hardening and utility refactor for reliability",
+    tags: ["Security", "Refactor"],
+  },
+  {
+    year: 2018,
+    name: "DC index cache",
+    badge: "Performance",
+    desc: "Cache intelligence and messaging optimization",
+    tags: ["Caching", "Performance"],
+  },
+  {
+    year: 2017,
+    name: "Building management API",
+    badge: "IoT",
+    desc: "Standardized Java API for building data inputs",
+    tags: ["Spring MVC", "REST"],
+  },
+  {
+    year: 2017,
+    name: "Converged infra automation",
+    badge: "Infra",
+    desc: "Automation for server and storage and network management",
+    tags: ["Automation", "Infra"],
+  },
+  {
+    year: 2016,
+    name: "Security management system",
+    badge: "Security",
+    desc: "Development and vulnerability remediation",
+    tags: ["SAST", "Secure SDLC"],
+  },
+];
+
+const SKILLS_DATA = {
+  core: [
+    "SAP UI5 / Fiori",
+    "CAPM (Node.js)",
+    "SAP BTP",
+    "OData / REST",
+    "JavaScript",
+    "MongoDB",
+    "Git",
+    "GenAI",
+  ],
+  tooling: [
+    "SAP BAS",
+    "Postman",
+    "Docker",
+    "Cloud Foundry",
+    "Agile",
+    "JIRA",
+    "OpenAPI",
+  ],
+  soft: [
+    "Mentorship",
+    "Stakeholder alignment",
+    "Documentation",
+    "Code reviews",
+    "Agile demos",
+  ],
 };
 
-const Section = React.forwardRef(function Section(
-  { id, children, ...rest },
-  ref
-) {
-  return (
-    <Box
-      id={id}
-      ref={ref}
-      component="section"
-      sx={{ scrollMarginTop: 96, py: { xs: 8, md: 12 } }}
-      {...rest}
-    >
-      {children}
-    </Box>
-  );
+/* =============================================================================
+   DESIGN SYSTEM
+============================================================================= */
+
+const designTokens = {
+  colors: {
+    bg: {
+      primary: "#050507",
+      secondary: "#0A0A0C",
+    },
+    text: {
+      primary: "#FFFFFF",
+      secondary: "#A1A1AA",
+      tertiary: "#52525B",
+    },
+    border: {
+      subtle: "rgba(255, 255, 255, 0.06)",
+      highlight: "rgba(255, 255, 255, 0.12)",
+    },
+    accent: {
+      primary: "#6366F1",
+      whatsapp: "#25D366",
+      cyan: "#22D3EE",
+      emerald: "#10B981",
+      amber: "#F59E0B",
+      violet: "#8B5CF6",
+    },
+    gradient: {
+      text: "linear-gradient(to right bottom, #FFFFFF 30%, #94A3B8 100%)",
+      primary: "linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)",
+    },
+  },
+  radius: {
+    md: "12px",
+    lg: "16px",
+    xl: "24px",
+    full: "9999px",
+  },
+};
+
+const muiTheme = createTheme({
+  palette: {
+    mode: "dark",
+    primary: { main: designTokens.colors.accent.primary },
+    background: {
+      default: designTokens.colors.bg.primary,
+      paper: designTokens.colors.bg.secondary,
+    },
+    text: {
+      primary: designTokens.colors.text.primary,
+      secondary: designTokens.colors.text.secondary,
+    },
+  },
+  typography: {
+    fontFamily: '"Inter", sans-serif',
+    h1: { fontWeight: 700 },
+    h2: { fontWeight: 700 },
+    h3: { fontWeight: 600 },
+    h4: { fontWeight: 600 },
+    h5: { fontWeight: 600 },
+    button: { textTransform: "none", fontWeight: 600 },
+  },
+  components: {
+    MuiButton: {
+      styleOverrides: { root: { borderRadius: designTokens.radius.full } },
+    },
+    MuiChip: {
+      styleOverrides: {
+        root: {
+          fontWeight: 500,
+          borderRadius: 8,
+          border: `1px solid ${designTokens.colors.border.subtle}`,
+          backgroundColor: "rgba(255,255,255,0.02)",
+        },
+      },
+    },
+  },
 });
 
-const Card = ({ children, sx }) => {
-  const reduce = useReducedMotion();
-  const { fadeUp } = makeMotion(reduce);
-  const hoverLift = makeMotion(reduce).hoverLift;
+/* =============================================================================
+   COMPONENTS
+============================================================================= */
+
+const MotionBox = motion(Box);
+
+const SpotlightCard = ({ children, sx, className = "", delay = 0 }) => {
+  const mouseX = useMotionValue(0);
+  const mouseY = useMotionValue(0);
+
+  function handleMouseMove({ currentTarget, clientX, clientY }) {
+    const { left, top } = currentTarget.getBoundingClientRect();
+    mouseX.set(clientX - left);
+    mouseY.set(clientY - top);
+  }
+
   return (
-    <Paper
-      component={motion.div}
-      variants={fadeUp}
-      initial="hidden"
-      whileInView="visible"
-      viewport={{ once: true, amount: 0.2 }}
-      elevation={0}
+    <MotionBox
+      initial={{ opacity: 0, y: 20 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-50px" }}
+      transition={{ duration: 0.5, delay }}
+      className={`group relative border border-white/10 bg-gray-900/50 overflow-hidden ${className}`}
+      onMouseMove={handleMouseMove}
       sx={{
-        p: { xs: 3, md: 4 },
-        border: (t) => `1px solid ${t.palette.divider}`,
-        borderRadius: 4,
+        position: "relative",
+        height: "100%",
+        borderRadius: designTokens.radius.xl,
+        bgcolor: "rgba(255,255,255,0.02)",
+        border: `1px solid ${designTokens.colors.border.subtle}`,
+        textAlign: "left",
         ...sx,
       }}
-      {...hoverLift}
     >
-      {children}
-    </Paper>
+      <MotionBox
+        style={{
+          background: useMotionTemplate`
+            radial-gradient(
+              650px circle at ${mouseX}px ${mouseY}px,
+              rgba(99, 102, 241, 0.15),
+              transparent 80%
+            )
+          `,
+        }}
+        sx={{
+          position: "absolute",
+          inset: -1,
+          opacity: 0,
+          transition: "opacity 300ms",
+          borderRadius: "inherit",
+          zIndex: 0,
+          pointerEvents: "none",
+          "&:hover": { opacity: 1 },
+          ".MuiBox-root:hover > &": { opacity: 1 },
+        }}
+      />
+      <Box sx={{ position: "relative", zIndex: 10, height: "100%" }}>
+        {children}
+      </Box>
+    </MotionBox>
   );
 };
 
-// Scroll spy for active nav
-const useScrollSpy = (ids) => {
-  const [active, setActive] = useState(ids[0]);
-  const observer = useRef(null);
-  useEffect(() => {
-    const options = {
-      root: null,
-      rootMargin: "0px 0px -65% 0px",
-      threshold: 0.1,
-    };
-    const handler = (entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting) setActive(entry.target.id);
-      });
-    };
-    observer.current = new IntersectionObserver(handler, options);
-    ids.forEach((id) => {
-      const el = document.getElementById(id);
-      if (el) observer.current.observe(el);
-    });
-    return () => observer.current && observer.current.disconnect();
-  }, [ids]);
-  return active;
+const SectionHeader = memo(({ badge, title, highlight, subtitle }) => (
+  <Box sx={{ mb: { xs: 6, md: 8 }, maxWidth: 700, textAlign: "left" }}>
+    {badge && (
+      <MotionBox
+        initial={{ opacity: 0, x: -10 }}
+        whileInView={{ opacity: 1, x: 0 }}
+        viewport={{ once: true }}
+        sx={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 1,
+          px: 1.5,
+          py: 0.5,
+          mb: 2,
+          borderRadius: "100px",
+          bgcolor: alpha(designTokens.colors.accent.primary, 0.1),
+          border: `1px solid ${alpha(designTokens.colors.accent.primary, 0.2)}`,
+        }}
+      >
+        <Typography
+          sx={{
+            fontSize: "0.75rem",
+            fontWeight: 700,
+            color: designTokens.colors.accent.primary,
+            textTransform: "uppercase",
+            letterSpacing: "0.05em",
+          }}
+        >
+          {badge}
+        </Typography>
+      </MotionBox>
+    )}
+    <Typography
+      variant="h2"
+      sx={{
+        fontSize: { xs: "2.25rem", md: "3.5rem" },
+        lineHeight: 1.1,
+        mb: 2,
+        background: designTokens.colors.gradient.text,
+        WebkitBackgroundClip: "text",
+        WebkitTextFillColor: "transparent",
+      }}
+    >
+      {title}{" "}
+      <span style={{ color: designTokens.colors.text.tertiary }}>
+        {highlight}
+      </span>
+    </Typography>
+    {subtitle && (
+      <Typography
+        sx={{
+          fontSize: { xs: "1rem", md: "1.125rem" },
+          color: designTokens.colors.text.secondary,
+          maxWidth: "80%",
+          lineHeight: 1.6,
+        }}
+      >
+        {subtitle}
+      </Typography>
+    )}
+  </Box>
+));
+
+const CTAButton = ({
+  children,
+  variant = "primary",
+  href,
+  icon,
+  fullWidth,
+  sx,
+}) => {
+  const isPrimary = variant === "primary";
+  return (
+    <Box
+      component="a"
+      href={href}
+      // Only open in new tab if it's an external link or email
+      target={href.startsWith("#") ? "_self" : "_blank"}
+      sx={{
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 1.5,
+        px: 4,
+        py: 1.8,
+        fontSize: "0.95rem",
+        fontWeight: 600,
+        color: "#fff",
+        background: isPrimary
+          ? designTokens.colors.gradient.primary
+          : "rgba(255,255,255,0.05)",
+        border: isPrimary
+          ? "none"
+          : `1px solid ${designTokens.colors.border.highlight}`,
+        borderRadius: "100px",
+        cursor: "pointer",
+        textDecoration: "none",
+        width: fullWidth ? "100%" : "auto",
+        transition: "transform 0.2s, box-shadow 0.2s",
+        "&:hover": {
+          transform: "translateY(-2px)",
+          boxShadow: isPrimary
+            ? "0 10px 25px -5px rgba(99, 102, 241, 0.4)"
+            : "none",
+          background: !isPrimary && "rgba(255,255,255,0.08)",
+        },
+        ...sx,
+      }}
+    >
+      {children}
+      {icon && <Box sx={{ fontSize: 20, display: "flex" }}>{icon}</Box>}
+    </Box>
+  );
 };
 
-// Scroll progress
-const useScrollProgress = () => {
-  const [progress, setProgress] = useState(0);
+/* =============================================================================
+   SECTIONS
+============================================================================= */
+
+const Navbar = () => {
+  const [scrolled, setScrolled] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const isMobile = useMediaQuery(muiTheme.breakpoints.down("md"));
+  const navLinks = ["About", "Skills", "Experience", "Projects", "Contact"];
+
   useEffect(() => {
-    const onScroll = () => {
-      const h = document.documentElement;
-      const scrolled = h.scrollTop;
-      const height = h.scrollHeight - h.clientHeight;
-      setProgress(
-        height ? Math.min(100, Math.max(0, (scrolled / height) * 100)) : 0
-      );
-    };
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+    const handler = () => setScrolled(window.scrollY > 20);
+    window.addEventListener("scroll", handler);
+    return () => window.removeEventListener("scroll", handler);
   }, []);
-  return progress;
-};
-
-// Smooth scroll helper (respects reduced motion)
-const useScrollHelper = () => {
-  const reduce = useReducedMotion();
-  return (id) =>
-    document.getElementById(id)?.scrollIntoView({
-      behavior: reduce ? "auto" : "smooth",
-      block: "start",
-    });
-};
-
-// -------------------------------------------------------
-// Main
-// -------------------------------------------------------
-export default function TCSinterviewAssistantAI() {
-  useInterFont();
-
-  // FORCE LIGHT THEME
-  const theme = useMemo(() => buildTheme("light"), []);
-
-  const navIds = [
-    "about",
-    "skills",
-    "experience",
-    "projects",
-    "certs",
-    "awards",
-    "contact",
-  ];
-  const activeId = useScrollSpy(navIds);
-  const progress = useScrollProgress();
-  const scrollTo = useScrollHelper();
-
-  const reduce = useReducedMotion();
-  const { fade, fadeUp } = makeMotion(reduce);
-
-  const profile = PROFILE || PROFILE_DEFAULT; // fallback safety
 
   return (
     <>
-      <CssBaseline />
-      <GlobalStyles styles={globalStyles} />
-      <ThemeWrapper theme={theme}>
-        {/* Header */}
-        <AppBar
-          position="sticky"
-          color="transparent"
-          elevation={0}
-          component={motion.header}
-          variants={fade}
-          initial="hidden"
-          animate="visible"
+      <Box
+        component={motion.nav}
+        initial={{ y: -100 }}
+        animate={{ y: 0 }}
+        transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+        sx={{
+          position: "fixed",
+          top: { xs: 20, md: 24 },
+          left: 0,
+          right: 0,
+          zIndex: 1000,
+          display: "flex",
+          justifyContent: "center",
+          px: 2,
+        }}
+      >
+        <Box
           sx={{
-            backdropFilter: "saturate(140%) blur(10px)",
-            borderBottom: (t) => `1px solid ${t.palette.divider}`,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            width: "100%",
+            maxWidth: 1000,
+            height: { xs: 56, md: 64 },
+            px: { xs: 2, md: 4 },
+            borderRadius: "100px",
+            bgcolor: scrolled ? "rgba(10, 10, 12, 0.6)" : "transparent",
+            backdropFilter: scrolled ? "blur(16px)" : "none",
+            border: scrolled
+              ? `1px solid ${designTokens.colors.border.subtle}`
+              : "1px solid transparent",
+            transition: "all 0.4s ease",
+            boxShadow: scrolled ? "0 8px 32px rgba(0,0,0,0.2)" : "none",
           }}
         >
-          <Toolbar component="nav" aria-label="Primary">
-            <Stack
-              direction="row"
-              spacing={1}
-              alignItems="center"
-              sx={{ flexGrow: 1 }}
-            >
-              <Avatar alt="Logo" src={logo} sx={{ width: 28, height: 28 }} />
-              <Typography variant="h6" sx={{ fontWeight: 800 }}>
-                Vinay{" "}
-                <Box component="span" sx={{ color: "primary.main" }}>
-                  Tiwari
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+            <Avatar
+              src={logo}
+              sx={{
+                width: 32,
+                height: 32,
+                border: "1px solid rgba(255,255,255,0.1)",
+              }}
+            />
+            <Typography variant="h6" sx={{ fontSize: "1rem", fontWeight: 700 }}>
+              {PROFILE_DATA.name}
+            </Typography>
+          </Box>
+          {!isMobile && (
+            <Stack direction="row" spacing={1}>
+              {navLinks.map((item) => (
+                <Box
+                  key={item}
+                  component="a"
+                  href={`#${item.toLowerCase()}`}
+                  sx={{
+                    px: 2,
+                    py: 1,
+                    fontSize: "0.875rem",
+                    fontWeight: 500,
+                    color: "text.secondary",
+                    textDecoration: "none",
+                    borderRadius: "100px",
+                    transition: "all 0.2s",
+                    "&:hover": {
+                      color: "white",
+                      bgcolor: "rgba(255,255,255,0.05)",
+                    },
+                  }}
+                >
+                  {item}
                 </Box>
-              </Typography>
-              <Chip
-                size="small"
-                label={profile.ribbon || "AI Enthusiastic"}
-                color="primary"
-                variant="outlined"
-                sx={{ ml: 1, display: { xs: "none", sm: "inline-flex" } }}
-                icon={<EmojiObjectsOutlined />}
-                aria-label="AI Enthusiastic in Project Implementation"
-              />
-            </Stack>
-
-            <Stack
-              direction="row"
-              spacing={0.5}
-              alignItems="center"
-              sx={{ display: { xs: "none", md: "flex" }, mr: 1 }}
-            >
-              {[
-                ["About", "about"],
-                ["Skills", "skills"],
-                ["Experience", "experience"],
-                ["Projects", "projects"],
-                ["Certifications", "certs"],
-                ["Awards", "awards"],
-                ["Contact", "contact"],
-              ].map(([label, id]) => (
-                <NavLink
-                  key={id}
-                  label={label}
-                  active={activeId === id}
-                  onClick={() => scrollTo(id)}
-                />
               ))}
             </Stack>
-
-            <Stack direction="row" spacing={1} alignItems="center">
-              <Tooltip title="LinkedIn">
+          )}
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            {!isMobile && (
+              <>
                 <IconButton
-                  component={MuiLink}
-                  href={profile.linkedin}
+                  size="small"
+                  href={PROFILE_DATA.github}
                   target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label="Open LinkedIn profile"
+                  sx={{
+                    color: "text.secondary",
+                    "&:hover": { color: "white" },
+                  }}
                 >
-                  <LinkedIn />
+                  <GitHub fontSize="small" />
                 </IconButton>
-              </Tooltip>
-              <Tooltip title="Send email">
                 <IconButton
-                  component={MuiLink}
-                  href={`mailto:${profile.email}`}
-                  aria-label="Send email"
+                  size="small"
+                  href={PROFILE_DATA.whatsapp}
+                  target="_blank"
+                  sx={{
+                    color: designTokens.colors.accent.whatsapp,
+                    "&:hover": { opacity: 0.8 },
+                  }}
                 >
-                  <MailOutline />
+                  <WhatsApp fontSize="small" />
                 </IconButton>
-              </Tooltip>
-              {/* Theme toggle removed; forced light mode */}
-            </Stack>
-          </Toolbar>
-          <LinearProgress
-            variant="determinate"
-            value={progress}
-            aria-label="Scroll progress"
-            sx={{
-              height: 3,
-              "& .MuiLinearProgress-bar": {
-                transition: reduce ? "none" : "transform .2s ease",
-              },
-            }}
-          />
-        </AppBar>
+              </>
+            )}
+            {isMobile && (
+              <IconButton
+                onClick={() => setMenuOpen(true)}
+                sx={{ color: "white" }}
+              >
+                <MenuIcon />
+              </IconButton>
+            )}
+          </Box>
+        </Box>
+      </Box>
 
-        {/* Hero (H1/T1): Image centered row, text centered below */}
+      {/* Mobile Menu */}
+      <AnimatePresence>
+        {menuOpen && (
+          <Box
+            component={motion.div}
+            initial={{ opacity: 0, clipPath: "circle(0% at 100% 0%)" }}
+            animate={{ opacity: 1, clipPath: "circle(150% at 100% 0%)" }}
+            exit={{ opacity: 0, clipPath: "circle(0% at 100% 0%)" }}
+            transition={{ duration: 0.5, ease: "easeInOut" }}
+            sx={{
+              position: "fixed",
+              inset: 0,
+              zIndex: 1100,
+              bgcolor: designTokens.colors.bg.primary,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              p: 4,
+            }}
+          >
+            <IconButton
+              onClick={() => setMenuOpen(false)}
+              sx={{ position: "absolute", top: 24, right: 24, color: "white" }}
+            >
+              <CloseIcon />
+            </IconButton>
+            <Stack spacing={4} alignItems="center">
+              {navLinks.map((item) => (
+                <Typography
+                  key={item}
+                  component="a"
+                  href={`#${item.toLowerCase()}`}
+                  onClick={() => setMenuOpen(false)}
+                  sx={{
+                    fontSize: "2rem",
+                    fontWeight: 700,
+                    color: "white",
+                    textDecoration: "none",
+                  }}
+                >
+                  {item}
+                </Typography>
+              ))}
+            </Stack>
+          </Box>
+        )}
+      </AnimatePresence>
+    </>
+  );
+};
+
+const Hero = () => {
+  return (
+    <Box
+      id="about"
+      sx={{
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        position: "relative",
+        pt: { xs: 12, md: 0 },
+        overflow: "hidden",
+      }}
+    >
+      <Box
+        component={motion.div}
+        animate={{
+          scale: [1, 1.1, 1],
+          opacity: [0.3, 0.5, 0.3],
+        }}
+        transition={{ duration: 10, repeat: Infinity }}
+        sx={{
+          position: "absolute",
+          top: "-20%",
+          right: "-10%",
+          width: "800px",
+          height: "800px",
+          background:
+            "radial-gradient(circle, rgba(99, 102, 241, 0.12) 0%, transparent 60%)",
+          filter: "blur(80px)",
+          zIndex: 0,
+        }}
+      />
+      <Container maxWidth="lg" sx={{ position: "relative", zIndex: 1 }}>
+        <Grid container spacing={6} alignItems="center">
+          <Grid item xs={12} md={7}>
+            <MotionBox
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8 }}
+              sx={{
+                textAlign: "left",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "flex-start",
+              }}
+            >
+              <Chip
+                icon={
+                  <RocketLaunch
+                    sx={{ fontSize: "16px !important", color: "#fff" }}
+                  />
+                }
+                label={PROFILE_DATA.currentRole}
+                sx={{
+                  mb: 4,
+                  px: 1,
+                  py: 0.5,
+                  borderColor: "rgba(255,255,255,0.1)",
+                }}
+              />
+              <Typography
+                variant="h1"
+                sx={{
+                  fontSize: { xs: "3rem", sm: "4rem", md: "5.5rem" },
+                  lineHeight: 1,
+                  mb: 3,
+                  letterSpacing: "-0.03em",
+                  textAlign: "left",
+                }}
+              >
+                Building the <br />
+                <span
+                  style={{
+                    background: designTokens.colors.gradient.primary,
+                    WebkitBackgroundClip: "text",
+                    WebkitTextFillColor: "transparent",
+                  }}
+                >
+                  Digital Future
+                </span>
+              </Typography>
+              <Typography
+                sx={{
+                  fontSize: { xs: "1.125rem", md: "1.25rem" },
+                  color: designTokens.colors.text.secondary,
+                  maxWidth: 550,
+                  mb: 5,
+                  lineHeight: 1.6,
+                  textAlign: "left",
+                }}
+              >
+                {PROFILE_DATA.summary}
+              </Typography>
+              <Stack
+                direction={{ xs: "column", sm: "row" }}
+                spacing={2}
+                sx={{ width: { xs: "100%", sm: "auto" } }}
+              >
+                {/* --- NAVIGATION FIX 1: View Portfolio -> #skills --- */}
+                <CTAButton href="#skills" icon={<ArrowForward />}>
+                  View Portfolio
+                </CTAButton>
+                {/* --- NAVIGATION FIX 2: Contact Me -> #contact --- */}
+                <CTAButton
+                  variant="secondary"
+                  href="#contact"
+                  icon={<MailOutline />}
+                >
+                  Contact Me
+                </CTAButton>
+              </Stack>
+            </MotionBox>
+          </Grid>
+          <Grid
+            item
+            xs={12}
+            md={5}
+            sx={{
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+            }}
+          >
+            <MotionBox
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 1, delay: 0.2 }}
+              sx={{ position: "relative" }}
+            >
+              <Box
+                sx={{
+                  width: { xs: 280, md: 420 },
+                  height: { xs: 320, md: 500 },
+                  borderRadius: "24px",
+                  background: `url(${photo}) center/cover no-repeat`,
+                  filter: "grayscale(100%)",
+                  transition: "filter 0.5s ease",
+                  "&:hover": { filter: "grayscale(0%)" },
+                  position: "relative",
+                  zIndex: 2,
+                  boxShadow: "0 20px 40px rgba(0,0,0,0.5)",
+                }}
+              />
+            </MotionBox>
+          </Grid>
+        </Grid>
+      </Container>
+    </Box>
+  );
+};
+
+const Skills = () => {
+  return (
+    <Box id="skills" sx={{ py: 20 }}>
+      <Container>
+        <SectionHeader
+          title="Technical"
+          highlight="Expertise"
+          subtitle="A curated stack of technologies I use to build scalable products."
+        />
+        <Grid container spacing={3}>
+          <Grid item xs={12} md={4}>
+            <SpotlightCard delay={0.1}>
+              <Box sx={{ p: 4, textAlign: "left" }}>
+                <Box
+                  sx={{
+                    width: 48,
+                    height: 48,
+                    borderRadius: 3,
+                    bgcolor: alpha(designTokens.colors.accent.cyan, 0.1),
+                    color: designTokens.colors.accent.cyan,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    mb: 3,
+                  }}
+                >
+                  <Code />
+                </Box>
+                <Typography variant="h5" gutterBottom>
+                  Core Stack
+                </Typography>
+                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
+                  {SKILLS_DATA.core.map((s) => (
+                    <Chip key={s} label={s} size="small" />
+                  ))}
+                </Box>
+              </Box>
+            </SpotlightCard>
+          </Grid>
+          <Grid item xs={12} md={4}>
+            <SpotlightCard delay={0.2}>
+              <Box sx={{ p: 4, textAlign: "left" }}>
+                <Box
+                  sx={{
+                    width: 48,
+                    height: 48,
+                    borderRadius: 3,
+                    bgcolor: alpha(designTokens.colors.accent.violet, 0.1),
+                    color: designTokens.colors.accent.violet,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    mb: 3,
+                  }}
+                >
+                  <RocketLaunch />
+                </Box>
+                <Typography variant="h5" gutterBottom>
+                  Cloud & DevOps
+                </Typography>
+                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
+                  {SKILLS_DATA.tooling.map((s) => (
+                    <Chip key={s} label={s} size="small" />
+                  ))}
+                </Box>
+              </Box>
+            </SpotlightCard>
+          </Grid>
+          <Grid item xs={12} md={4}>
+            <SpotlightCard delay={0.3}>
+              <Box sx={{ p: 4, textAlign: "left" }}>
+                <Box
+                  sx={{
+                    width: 48,
+                    height: 48,
+                    borderRadius: 3,
+                    bgcolor: alpha(designTokens.colors.accent.amber, 0.1),
+                    color: designTokens.colors.accent.amber,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    mb: 3,
+                  }}
+                >
+                  <EmojiObjectsOutlined />
+                </Box>
+                <Typography variant="h5" gutterBottom>
+                  Leadership
+                </Typography>
+                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
+                  {SKILLS_DATA.soft.map((s) => (
+                    <Chip key={s} label={s} size="small" />
+                  ))}
+                </Box>
+              </Box>
+            </SpotlightCard>
+          </Grid>
+        </Grid>
+      </Container>
+    </Box>
+  );
+};
+
+const Experience = () => {
+  return (
+    <Box id="experience" sx={{ py: 10 }}>
+      <Container>
+        <SectionHeader title="Professional" highlight="Journey" />
         <Box
-          component={motion.section}
-          variants={fadeUp}
-          initial="hidden"
-          animate="visible"
           sx={{
-            py: { xs: 8, md: 12 },
-            background: (t) =>
-              `linear-gradient(180deg, rgba(37,99,235,.06), transparent 40%), radial-gradient(1000px 500px at 100% -10%, rgba(37,99,235,.14), transparent 60%), ${t.palette.background.default}`,
+            position: "relative",
+            borderLeft: "1px solid rgba(255,255,255,0.1)",
+            ml: { xs: 2, md: 0 },
+            pl: { xs: 4, md: 0 },
           }}
         >
-          <Container maxWidth="lg">
-            <Grid
-              container
-              spacing={6}
-              alignItems="center"
-              justifyContent="center"
+          {EXPERIENCE_DATA.map((job, index) => (
+            <MotionBox
+              key={index}
+              initial={{ opacity: 0, x: -20 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: index * 0.1 }}
+              sx={{
+                mb: 8,
+                ml: { md: 6 },
+                position: "relative",
+                textAlign: "left",
+              }}
             >
-              <Grid
-                item
-                xs={12}
-                sx={{ display: "flex", justifyContent: "center" }}
+              <Box
+                sx={{
+                  position: "absolute",
+                  left: { xs: -38, md: -55 },
+                  top: 6,
+                  width: 12,
+                  height: 12,
+                  borderRadius: "50%",
+                  bgcolor: designTokens.colors.accent.primary,
+                  boxShadow: `0 0 0 4px ${designTokens.colors.bg.primary}`,
+                }}
+              />
+              <Stack
+                direction={{ xs: "column", sm: "row" }}
+                alignItems="baseline"
+                justifyContent="space-between"
+                mb={1}
               >
-                <HeroPhoto />
-              </Grid>
-
-              <Grid
-                item
-                xs={12}
-                md={8}
-                sx={{ textAlign: "center", mx: "auto" }}
-              >
-                <Stack spacing={2}>
-                  <Typography
-                    variant="overline"
-                    color="primary"
-                    sx={{
-                      letterSpacing: ".14em",
-                      fontWeight: 700,
-                      fontSize: ".75rem",
-                    }}
-                  >
-                    {profile.currentRole}
-                  </Typography>
-                  <Typography
-                    component="h1"
-                    variant="h4"
-                    sx={{ fontWeight: 700 }}
-                  >
-                    {profile.title}
-                  </Typography>
-                  <Typography variant="body1" color="text.secondary">
-                    {profile.summary}
-                  </Typography>
-                  <Stack
-                    direction="row"
-                    spacing={1}
-                    flexWrap="wrap"
-                    useFlexGap
-                    justifyContent="center"
-                  >
-                    <Chip
-                      label="SAP Certified (FIORDEV_21, C_CPE_12)"
-                      color="primary"
-                      variant="outlined"
-                      icon={<VerifiedOutlined />}
-                    />
-                    <Chip
-                      label="Microservices and APIs"
-                      variant="outlined"
-                      icon={<HubOutlined />}
-                    />
-                    <Chip
-                      label="Security by default"
-                      variant="outlined"
-                      icon={<SecurityOutlined />}
-                    />
-                    <Chip
-                      label="Observability"
-                      variant="outlined"
-                      icon={<TimelineOutlined />}
-                    />
-                  </Stack>
-                  <Stack
-                    direction={{ xs: "column", sm: "row" }}
-                    spacing={2}
-                    pt={1}
-                    justifyContent="center"
-                  >
-                    <Button
-                      size="large"
-                      variant="contained"
-                      onClick={() => scrollTo("projects")}
-                      endIcon={<ArrowDownward />}
-                    >
-                      View Projects
-                    </Button>
-                    <Button
-                      size="large"
-                      variant="outlined"
-                      color="inherit"
-                      onClick={() => scrollTo("contact")}
-                    >
-                      Contact
-                    </Button>
-                  </Stack>
-                </Stack>
-              </Grid>
-            </Grid>
-          </Container>
-        </Box>
-
-        {/* About */}
-        <Section id="about" aria-label="About section">
-          <Container maxWidth="lg">
-            <Grid container spacing={3}>
-              <Grid item xs={12} md={7}>
-                <Card sx={{ height: "100%" }}>
-                  <SectionTitle
-                    icon={<EmojiObjectsOutlined color="primary" />}
-                    title="About Me"
-                  />
-                  <Typography
-                    variant="body1"
-                    color="text.secondary"
-                    sx={{ textAlign: "justify" }}
-                  >
-                    I have 10+ years of experience architecting and delivering
-                    enterprise-grade software solutions across SAP UI5, Fiori,
-                    CAPM and SAP BTP — using Node.js on the server side. I
-                    specialize in building secure, modular, n-tier business
-                    applications with clean domain boundaries and scalable
-                    design patterns. My work spans for the clients across the
-                    globe and industries including Hi-Tech, MedTech, Pharma,
-                    Travel &amp; Transportation (TTH), Aerospace, and IoT —
-                    helping customers drive digital modernization and value
-                    realization on SAP’s cloud stack. I’m hands-on across the
-                    full lifecycle: solution architecture, front-end/UI
-                    patterns, backend services, OData APIs, CAPM domain
-                    modeling, extensibility, and BTP deployments — with a
-                    constant bias toward simplicity, clarity, performance, and
-                    maintainability.
-                  </Typography>
-                  <Divider sx={{ my: 2 }} />
-                  <Stack spacing={1.2} aria-label="Contact summary">
-                    <Row
-                      icon={<LocationOn fontSize="small" />}
-                      text={profile.location}
-                    />
-                    <Row
-                      icon={<Phone fontSize="small" />}
-                      node={
-                        <MuiLink
-                          href={`tel:${profile.phone.replace(/\s+/g, "")}`}
-                        >
-                          {profile.phone}
-                        </MuiLink>
-                      }
-                    />
-                    <Row
-                      icon={<MailOutline fontSize="small" />}
-                      node={
-                        <MuiLink href={`mailto:${profile.email}`}>
-                          {profile.email}
-                        </MuiLink>
-                      }
-                    />
-                    <Row
-                      icon={<LinkedIn fontSize="small" />}
-                      node={
-                        <MuiLink
-                          href={profile.linkedin}
-                          target="_blank"
-                          rel="noopener"
-                        >
-                          linkedin.com/in/vktiwari
-                        </MuiLink>
-                      }
-                    />
-                  </Stack>
-                </Card>
-              </Grid>
-              <Grid item xs={12} md={5}>
-                <Card>
-                  <SectionTitle
-                    icon={<LanguageOutlined color="primary" />}
-                    title="Languages"
-                  />
-                  <Stack direction="row" spacing={1} alignItems="center">
-                    <Chip label="English" variant="outlined" />
-                    <Chip label="Hindi" variant="outlined" />
-                  </Stack>
-                </Card>
-              </Grid>
-            </Grid>
-          </Container>
-        </Section>
-
-        {/* Skills */}
-        <Section id="skills" aria-label="Skills section">
-          <Container maxWidth="lg">
-            <Grid container spacing={3}>
-              <Grid item xs={12} md={6}>
-                <Card>
-                  <SectionTitle
-                    icon={<DevicesOtherOutlined color="primary" />}
-                    title="Core stack"
-                  />
-                  <ChipWrap items={SKILLS.core} />
-                </Card>
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <Card>
-                  <SectionTitle
-                    icon={<RocketLaunchOutlined color="primary" />}
-                    title="Tooling and practices"
-                  />
-                  <ChipWrap items={SKILLS.tooling} />
-                </Card>
-              </Grid>
-              <Grid item xs={12}>
-                <Card>
-                  <SectionTitle
-                    icon={<StarBorderRounded color="primary" />}
-                    title="Soft skills"
-                  />
-                  <ChipWrap items={SKILLS.soft} filled />
-                </Card>
-              </Grid>
-            </Grid>
-          </Container>
-        </Section>
-
-        {/* Experience */}
-        <Section id="experience" aria-label="Experience section">
-          <Container maxWidth="lg">
-            <Stack spacing={2} mb={3}>
-              <SectionTitle
-                icon={<WorkHistoryOutlined color="primary" />}
-                title="Experience"
-                h3
-              />
-              <Typography variant="body1" color="text.secondary">
-                Client names are anonymized to protect confidentiality while
-                keeping responsibilities and impact accurate.
-              </Typography>
-            </Stack>
-            <Stack spacing={3}>
-              {EXPERIENCE.map((org) => (
-                <Card key={org.company}>
-                  <Stack spacing={0.5} mb={2}>
-                    <Typography variant="h5">
-                      {org.role} —{" "}
-                      <Box component="span" sx={{ color: "primary.main" }}>
-                        {org.company}
-                      </Box>
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {org.period}
-                    </Typography>
-                  </Stack>
-                  <Stack spacing={3}>
-                    {org.items.map((it, idx) => (
-                      <Box key={`${org.company}-${idx}`}>
-                        <Stack
-                          direction={{ xs: "column", sm: "row" }}
-                          justifyContent="space-between"
-                          alignItems={{ xs: "flex-start", sm: "center" }}
-                          spacing={1}
-                          mb={0.5}
-                        >
-                          <Typography variant="subtitle1" fontWeight={700}>
-                            {it.title}
-                          </Typography>
-                          {it.client && (
-                            <Chip
-                              size="small"
-                              label={it.client}
-                              variant="outlined"
-                            />
-                          )}
-                        </Stack>
-                        {it.time && (
-                          <Typography variant="caption" color="text.secondary">
-                            {it.time}
-                          </Typography>
-                        )}
-                        <Stack
-                          component="ul"
-                          sx={{ pl: 2, mt: 1 }}
-                          spacing={0.5}
-                        >
-                          {it.points.map((p, i) => (
-                            <Typography component="li" variant="body2" key={i}>
-                              {p}
-                            </Typography>
-                          ))}
-                        </Stack>
-                        {it.tags?.length ? (
-                          <Stack
-                            direction="row"
-                            spacing={1}
-                            mt={1}
-                            flexWrap="wrap"
-                            useFlexGap
-                          >
-                            {it.tags.map((t) => (
-                              <Chip key={t} size="small" label={t} />
-                            ))}
-                          </Stack>
-                        ) : null}
-                        {idx < org.items.length - 1 && (
-                          <Divider sx={{ my: 2 }} />
-                        )}
-                      </Box>
-                    ))}
-                  </Stack>
-                </Card>
-              ))}
-            </Stack>
-          </Container>
-        </Section>
-
-        {/* Projects */}
-        <Section id="projects" aria-label="Projects section">
-          <Container maxWidth="lg">
-            <Stack spacing={2} mb={3}>
-              <SectionTitle
-                icon={<CodeOutlined color="primary" />}
-                title="Projects"
-                h3
-              />
-              <Typography variant="body1" color="text.secondary">
-                All projects in reverse chronological order
-              </Typography>
-            </Stack>
-            <Grid container spacing={3}>
-              {PROJECTS.map((p) => (
-                <Grid item xs={12} md={6} key={`${p.name}-${p.year}`}>
-                  <Card
-                    sx={{
-                      minHeight: { md: 260 }, // equal height only on desktop
-                      display: "flex",
-                      flexDirection: "column",
-                      justifyContent: "space-between",
-                    }}
-                  >
-                    <Stack
-                      direction="row"
-                      spacing={1}
-                      alignItems="center"
-                      justifyContent="space-between"
-                    >
-                      <Typography variant="h6">{p.name}</Typography>
-                      <Chip label={`${p.year}`} size="small" />
-                    </Stack>
-
-                    <Stack
-                      direction="row"
-                      spacing={1}
-                      alignItems="center"
-                      mt={1}
-                    >
-                      <Chip
-                        label={p.badge}
-                        color="primary"
-                        variant="outlined"
-                        size="small"
-                      />
-                    </Stack>
-
-                    <Typography
-                      variant="body2"
-                      color="text.secondary"
-                      sx={{ mt: 1 }}
-                    >
-                      {p.desc}
-                    </Typography>
-
-                    <Stack
-                      direction="row"
-                      spacing={1}
-                      mt={2}
-                      flexWrap="wrap"
-                      useFlexGap
-                    >
-                      {p.tags.map((t) => (
-                        <Chip key={t} size="small" label={t} />
-                      ))}
-                    </Stack>
-                  </Card>
-                </Grid>
-              ))}
-            </Grid>
-          </Container>
-        </Section>
-
-        {/* Certifications & Education */}
-        <Section id="certs" aria-label="Certifications section">
-          <Container maxWidth="lg">
-            <Grid container spacing={3}>
-              <Grid item xs={12} md={7}>
-                <Card>
-                  <SectionTitle
-                    icon={<WorkspacePremiumOutlined color="primary" />}
-                    title="Certifications and training"
-                  />
-                  <Stack spacing={1} component="ul" sx={{ pl: 2 }}>
-                    {CERTS.map((c) => (
-                      <Typography component="li" variant="body2" key={c}>
-                        {c}
-                      </Typography>
-                    ))}
-                  </Stack>
-                </Card>
-              </Grid>
-              <Grid item xs={12} md={5}>
-                <Card>
-                  <SectionTitle
-                    icon={<SchoolOutlined color="primary" />}
-                    title="Education"
-                  />
-                  <Typography variant="subtitle1" fontWeight={700}>
-                    {EDUCATION.degree}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {EDUCATION.institute} · {EDUCATION.year} · {EDUCATION.score}
-                  </Typography>
-                </Card>
-              </Grid>
-            </Grid>
-          </Container>
-        </Section>
-
-        {/* Awards */}
-        <Section id="awards" aria-label="Awards section">
-          <Container maxWidth="lg">
-            <Card>
-              <SectionTitle
-                icon={<EmojiEventsOutlined color="primary" />}
-                title="Awards and recognition"
-              />
-              <Stack spacing={1} component="ul" sx={{ pl: 2 }}>
-                {AWARDS.map((a) => (
-                  <Typography component="li" variant="body2" key={a}>
-                    {a}
-                  </Typography>
-                ))}
-              </Stack>
-            </Card>
-          </Container>
-        </Section>
-
-        {/* Contact */}
-        <Section id="contact" aria-label="Contact section">
-          <Container maxWidth="lg">
-            <Grid container spacing={3}>
-              <Grid item xs={12} md={7}>
-                <Card>
-                  <Typography variant="h5" mb={1}>
-                    Let’s build something great
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary" mb={3}>
-                    No tracking cookies and messages only used to respond to
-                    your inquiry.
-                  </Typography>
-                  <ContactForm emailTo={profile.email} />
-                </Card>
-              </Grid>
-              <Grid item xs={12} md={5}>
-                <Card>
-                  <Typography variant="h6" mb={2}>
-                    Contact
-                  </Typography>
-                  <Stack spacing={1}>
-                    <Row
-                      icon={<Phone fontSize="small" />}
-                      node={
-                        <MuiLink
-                          href={`tel:${profile.phone.replace(/\s+/g, "")}`}
-                        >
-                          {profile.phone}
-                        </MuiLink>
-                      }
-                    />
-                    <Row
-                      icon={<MailOutline fontSize="small" />}
-                      node={
-                        <MuiLink href={`mailto:${profile.email}`}>
-                          {profile.email}
-                        </MuiLink>
-                      }
-                    />
-                    <Row
-                      icon={<LinkedIn fontSize="small" />}
-                      node={
-                        <MuiLink
-                          href={profile.linkedin}
-                          target="_blank"
-                          rel="noopener"
-                        >
-                          linkedin.com/in/vktiwari
-                        </MuiLink>
-                      }
-                    />
-                    <Row
-                      icon={<LocationOn fontSize="small" />}
-                      text={profile.location}
-                    />
-                  </Stack>
-                </Card>
-              </Grid>
-            </Grid>
-          </Container>
-        </Section>
-
-        {/* Footer */}
-        <Box
-          component="footer"
-          sx={{ py: 6, borderTop: (t) => `1px solid ${t.palette.divider}` }}
-        >
-          <Container maxWidth="lg">
-            <Stack
-              direction={{ xs: "column", sm: "row" }}
-              spacing={2}
-              alignItems="center"
-              justifyContent="space-between"
-            >
-              <Stack direction="row" spacing={1} alignItems="center">
-                <Avatar alt="Logo" src={logo} sx={{ width: 22, height: 22 }} />
-                <Typography variant="body2">
-                  © {new Date().getFullYear()} {profile.name}. All rights
-                  reserved
+                <Typography variant="h4" sx={{ fontSize: "1.5rem" }}>
+                  {job.role}
+                </Typography>
+                <Typography sx={{ color: "text.secondary" }}>
+                  {job.period}
                 </Typography>
               </Stack>
               <Typography
-                variant="body2"
-                sx={{ fontStyle: "italic", opacity: 0.8 }}
+                variant="h6"
+                color="primary"
+                sx={{ mb: 3, fontSize: "1.1rem" }}
               >
-                Developed by {profile.name}
+                {job.company}
               </Typography>
-              <Stack direction="row" spacing={2}>
-                <MuiLink href="#projects" color="inherit">
-                  Projects
-                </MuiLink>
-                <MuiLink href="#experience" color="inherit">
-                  Experience
-                </MuiLink>
-                <MuiLink href="#contact" color="inherit">
-                  Contact
-                </MuiLink>
+              <Stack spacing={2}>
+                {job.items &&
+                  job.items.map((item, i) => (
+                    <SpotlightCard key={i} sx={{ p: 3, textAlign: "left" }}>
+                      <Stack
+                        direction="row"
+                        justifyContent="space-between"
+                        mb={1}
+                      >
+                        <Typography
+                          variant="h6"
+                          sx={{ fontSize: "1rem", textAlign: "left" }}
+                        >
+                          {item.title}
+                        </Typography>
+                        {item.client && (
+                          <Chip
+                            label={item.client}
+                            size="small"
+                            icon={<StarRounded style={{ fontSize: 14 }} />}
+                          />
+                        )}
+                      </Stack>
+                      <Box
+                        component="ul"
+                        sx={{
+                          pl: 2,
+                          m: 0,
+                          color: designTokens.colors.text.secondary,
+                          textAlign: "left",
+                        }}
+                      >
+                        {item.points.map((pt, idx) => (
+                          <Typography
+                            component="li"
+                            key={idx}
+                            variant="body2"
+                            sx={{ mb: 0.5, textAlign: "left" }}
+                          >
+                            {pt}
+                          </Typography>
+                        ))}
+                      </Box>
+                    </SpotlightCard>
+                  ))}
               </Stack>
-            </Stack>
-          </Container>
+            </MotionBox>
+          ))}
+        </Box>
+      </Container>
+    </Box>
+  );
+};
+
+const Projects = () => {
+  return (
+    <Box id="projects" sx={{ py: 20, bgcolor: "rgba(255,255,255,0.01)" }}>
+      <Container>
+        <SectionHeader
+          title="Featured"
+          highlight="Work"
+          subtitle="Highlights from my development career."
+        />
+        <Grid container spacing={4} alignItems="stretch">
+          {PROJECTS_DATA.map((p, i) => (
+            <Grid item xs={12} md={6} key={i} sx={{ display: "flex" }}>
+              <SpotlightCard
+                delay={i * 0.1}
+                sx={{
+                  display: "flex",
+                  flexDirection: "column",
+                  width: "100%",
+                  height: "100%",
+                  textAlign: "left",
+                }}
+              >
+                <Box
+                  sx={{
+                    p: 4,
+                    flex: 1,
+                    display: "flex",
+                    flexDirection: "column",
+                    textAlign: "left",
+                  }}
+                >
+                  <Stack direction="row" justifyContent="space-between" mb={3}>
+                    <Box
+                      sx={{
+                        p: 1.5,
+                        borderRadius: 2,
+                        bgcolor: "rgba(255,255,255,0.05)",
+                      }}
+                    >
+                      <Code fontSize="small" />
+                    </Box>
+                    <Chip label={p.year} size="small" sx={{ height: 24 }} />
+                  </Stack>
+                  <Typography
+                    variant="h5"
+                    gutterBottom
+                    sx={{ textAlign: "left", minHeight: "3rem" }}
+                  >
+                    {p.name}
+                  </Typography>
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{
+                      mb: 4,
+                      flexGrow: 1,
+                      lineHeight: 1.7,
+                      textAlign: "left",
+                    }}
+                  >
+                    {p.desc}
+                  </Typography>
+                  <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                    {p.tags.map((t) => (
+                      <Typography
+                        key={t}
+                        variant="caption"
+                        sx={{
+                          color: designTokens.colors.accent.primary,
+                          fontWeight: 600,
+                        }}
+                      >
+                        #{t}
+                      </Typography>
+                    ))}
+                  </Stack>
+                </Box>
+              </SpotlightCard>
+            </Grid>
+          ))}
+        </Grid>
+      </Container>
+    </Box>
+  );
+};
+
+const Contact = () => {
+  return (
+    <Box id="contact" sx={{ py: 20, position: "relative" }}>
+      <Container maxWidth="md" sx={{ textAlign: "center" }}>
+        <Typography
+          variant="h2"
+          sx={{ fontSize: { xs: "2.5rem", md: "4rem" }, mb: 2 }}
+        >
+          Let's Work Together
+        </Typography>
+        <Typography
+          color="text.secondary"
+          sx={{ mb: 6, fontSize: "1.2rem", maxWidth: 600, mx: "auto" }}
+        >
+          I'm currently available for new opportunities. Whether you have a
+          question or just want to say hi, I'll try my best to get back to you!
+        </Typography>
+
+        <Stack
+          direction={{ xs: "column", sm: "row" }}
+          justifyContent="center"
+          alignItems="center"
+          spacing={{ xs: 3, sm: 6 }}
+          sx={{ mb: 6 }}
+        >
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <MailOutline sx={{ color: "text.secondary" }} />
+            <Link
+              href={`mailto:${PROFILE_DATA.email}`}
+              underline="hover"
+              color="text.primary"
+              sx={{ fontSize: "1rem", fontWeight: 500 }}
+            >
+              {PROFILE_DATA.email}
+            </Link>
+          </Box>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <Phone sx={{ color: "text.secondary" }} />
+            <Typography sx={{ fontSize: "1rem", fontWeight: 500 }}>
+              {PROFILE_DATA.whatsappNumber}
+            </Typography>
+          </Box>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <LocationOn sx={{ color: "text.secondary" }} />
+            <Typography sx={{ fontSize: "1rem", fontWeight: 500 }}>
+              {PROFILE_DATA.location}
+            </Typography>
+          </Box>
+        </Stack>
+
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "center",
+            gap: 2,
+            flexWrap: "wrap",
+            mb: 8,
+          }}
+        >
+          <CTAButton
+            href={`mailto:${PROFILE_DATA.email}`}
+            icon={<MailOutline />}
+          >
+            Say Hello
+          </CTAButton>
+          <CTAButton
+            variant="secondary"
+            href={PROFILE_DATA.linkedin}
+            icon={<LinkedIn />}
+          >
+            LinkedIn
+          </CTAButton>
+          <CTAButton
+            variant="secondary"
+            href={PROFILE_DATA.whatsapp}
+            icon={<WhatsApp />}
+            sx={{
+              borderColor: alpha(designTokens.colors.accent.whatsapp, 0.3),
+              color: designTokens.colors.accent.whatsapp,
+              "&:hover": {
+                borderColor: designTokens.colors.accent.whatsapp,
+                bgcolor: alpha(designTokens.colors.accent.whatsapp, 0.05),
+                boxShadow: `0 0 20px ${alpha(
+                  designTokens.colors.accent.whatsapp,
+                  0.2
+                )}`,
+              },
+            }}
+          >
+            WhatsApp
+          </CTAButton>
         </Box>
 
-        <BackToNav />
-      </ThemeWrapper>
-    </>
-  );
-}
-
-// -------------------------------------------------------
-// Subcomponents
-// -------------------------------------------------------
-function ThemeWrapper({ theme, children }) {
-  return (
-    <Box component={motion.div}>
-      {/* ThemeProvider colocated to avoid circular import in canvas preview */}
-      {/* In your app root, wrap with <ThemeProvider theme={theme}>. Here we inline to keep single-file use. */}
-      {/* eslint-disable-next-line react/no-unknown-property */}
-      <ThemeProviderShim theme={theme}>{children}</ThemeProviderShim>
-    </Box>
-  );
-}
-
-function ThemeProviderShim({ theme, children }) {
-  const safe = theme || createTheme();
-  return <ThemeProvider theme={safe}>{children}</ThemeProvider>;
-}
-
-function NavLink({ label, onClick, active }) {
-  const theme = useTheme();
-  return (
-    <Button
-      color="inherit"
-      onClick={onClick}
-      aria-current={active ? "page" : undefined}
-      sx={{
-        fontWeight: 700,
-        position: "relative",
-        "&:after": {
-          content: '""',
-          position: "absolute",
-          left: 8,
-          right: 8,
-          bottom: 6,
-          height: 2,
-          borderRadius: 2,
-          background: active ? theme.palette.primary.main : "transparent",
-          transition: "background .2s ease",
-        },
-      }}
-    >
-      {label}
-    </Button>
-  );
-}
-
-function SectionTitle({ icon, title, h3 = false }) {
-  return (
-    <Stack direction="row" spacing={1} alignItems="center" mb={2}>
-      {icon}
-      {h3 ? (
-        <Typography variant="h3">{title}</Typography>
-      ) : (
-        <Typography variant="h6">{title}</Typography>
-      )}
-    </Stack>
-  );
-}
-
-function Row({ icon, text, node }) {
-  return (
-    <Stack direction="row" spacing={1} alignItems="center">
-      {icon}
-      {node ? (
-        <>{node}</>
-      ) : (
-        <Typography variant="body2" component="span">
-          {text}
-        </Typography>
-      )}
-    </Stack>
-  );
-}
-
-function ChipWrap({ items, filled = false }) {
-  return (
-    <Stack
-      direction="row"
-      spacing={1}
-      useFlexGap
-      flexWrap="wrap"
-      aria-label="Chips list"
-    >
-      {items.map((s) => (
-        <Chip key={s} label={s} variant={filled ? "filled" : "outlined"} />
-      ))}
-    </Stack>
-  );
-}
-
-function HeroPhoto() {
-  const reduce = useReducedMotion();
-  const hoverLift = makeMotion(reduce).hoverLift;
-  return (
-    <Box
-      component={motion.div}
-      {...hoverLift}
-      sx={{ display: "flex", justifyContent: "center" }}
-      aria-label="Profile photo"
-    >
-      <Box
-        sx={{
-          width: { xs: 220, sm: 260, md: 320 },
-          height: { xs: 220, sm: 260, md: 320 },
-          borderRadius: "50%",
-          overflow: "hidden",
-          border: (t) =>
-            `6px solid ${t.palette.mode === "dark" ? "#1f2a44" : "#e6eefc"}`,
-          boxShadow: "0 20px 60px rgba(37,99,235,.25)",
-          background: `url(${photo}) center/cover no-repeat`,
-        }}
-      />
-    </Box>
-  );
-}
-
-function ContactForm({ emailTo }) {
-  const [form, setForm] = useState({
-    name: "",
-    email: "",
-    message: "",
-    company: "",
-    role: "",
-  });
-  const [sending, setSending] = useState(false);
-  const [touched, setTouched] = useState({});
-  const emailValid = /.+@.+\..+/.test(form.email);
-  const valid = form.name.trim() && emailValid && form.message.trim();
-
-  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
-  const mark = (k) => () => setTouched((t) => ({ ...t, [k]: true }));
-
-  const onSubmit = (e) => {
-    e.preventDefault();
-    if (!valid) return;
-    setSending(true);
-    const subject = encodeURIComponent(`Portfolio contact — ${form.name}`);
-    const body = encodeURIComponent(
-      `Name: ${form.name}\nEmail: ${form.email}\nCompany: ${form.company}\nRole: ${form.role}\n\n${form.message}`
-    );
-    window.location.href = `mailto:${emailTo}?subject=${subject}&body=${body}`;
-    setTimeout(() => setSending(false), 800);
-  };
-
-  return (
-    <Box
-      component="form"
-      onSubmit={onSubmit}
-      noValidate
-      aria-label="Contact form"
-    >
-      <Grid container spacing={2}>
-        <Grid item xs={12} sm={6}>
-          <TextField
-            fullWidth
-            label="Name"
-            value={form.name}
-            onChange={set("name")}
-            onBlur={mark("name")}
-            required
-            error={touched.name && !form.name.trim()}
-            helperText={
-              touched.name && !form.name.trim() ? "Name is required" : " "
-            }
-            autoComplete="name"
-            inputProps={{ "aria-required": true }}
-          />
-        </Grid>
-        <Grid item xs={12} sm={6}>
-          <TextField
-            fullWidth
-            label="Email"
-            type="email"
-            value={form.email}
-            onChange={set("email")}
-            onBlur={mark("email")}
-            required
-            error={touched.email && !emailValid}
-            helperText={
-              touched.email && !emailValid ? "Enter a valid email" : " "
-            }
-            autoComplete="email"
-            inputProps={{ "aria-required": true }}
-          />
-        </Grid>
-        <Grid item xs={12} sm={6}>
-          <TextField
-            fullWidth
-            label="Company"
-            value={form.company}
-            onChange={set("company")}
-            autoComplete="organization"
-          />
-        </Grid>
-        <Grid item xs={12} sm={6}>
-          <TextField
-            fullWidth
-            label="Role"
-            value={form.role}
-            onChange={set("role")}
-          />
-        </Grid>
-        <Grid item xs={12}>
-          <TextField
-            fullWidth
-            label="Project brief"
-            value={form.message}
-            onChange={set("message")}
-            onBlur={mark("message")}
-            required
-            multiline
-            minRows={4}
-            error={touched.message && !form.message.trim()}
-            helperText={
-              touched.message && !form.message.trim()
-                ? "Please describe your need"
-                : " "
-            }
-            inputProps={{ "aria-required": true }}
-          />
-        </Grid>
-        <Grid item xs={12}>
-          <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-            <Button
-              type="submit"
-              variant="contained"
-              disabled={!valid || sending}
+        <Box
+          sx={{
+            pt: 8,
+            borderTop: "1px solid rgba(255,255,255,0.05)",
+            display: "flex",
+            flexDirection: { xs: "column", md: "row" },
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 2,
+            color: "text.secondary",
+          }}
+        >
+          <Typography variant="body2">
+            © {new Date().getFullYear()} {PROFILE_DATA.name}.
+          </Typography>
+          <Stack direction="row" spacing={3}>
+            <Typography
+              variant="body2"
+              component="a"
+              href="#"
+              sx={{ color: "inherit", textDecoration: "none" }}
             >
-              {sending ? "Preparing" : "Send message"}
-            </Button>
-            <Button
-              variant="outlined"
-              color="inherit"
-              href={`mailto:${emailTo}`}
-            >
-              Email directly
-            </Button>
+              Back to Top
+            </Typography>
           </Stack>
-        </Grid>
-      </Grid>
+        </Box>
+      </Container>
     </Box>
   );
-}
+};
 
-function BackToNav() {
-  const [showUp, setShowUp] = useState(false);
-  const [showDown, setShowDown] = useState(true);
-  const reduce = useReducedMotion();
-
-  useEffect(() => {
-    const onScroll = () => {
-      const y = window.scrollY;
-      const h = document.documentElement.scrollHeight;
-      const wh = window.innerHeight;
-      setShowUp(y > 160);
-      setShowDown(y + wh < h - 160);
-    };
-    window.addEventListener("scroll", onScroll, { passive: true });
-    onScroll();
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
-
+export default function TCSinterviewAssistantAI() {
   return (
-    <Box
-      sx={{
-        position: "fixed",
-        bottom: 20,
-        right: 20,
-        display: "flex",
-        flexDirection: "column",
-        gap: 1,
-        zIndex: 1200,
-      }}
-      aria-label="Quick navigation"
-    >
-      {showUp && (
-        <IconButton
-          component={motion.button}
-          whileHover={reduce ? undefined : { scale: 1.1 }}
-          whileTap={reduce ? undefined : { scale: 0.98 }}
-          color="primary"
-          size="large"
-          onClick={() =>
-            window.scrollTo({ top: 0, behavior: reduce ? "auto" : "smooth" })
+    <ThemeProvider theme={muiTheme}>
+      <CssBaseline />
+      <GlobalStyles
+        styles={`
+          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+          html { scroll-behavior: smooth; }
+          body { 
+            background-color: ${designTokens.colors.bg.primary};
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E");
           }
-          sx={{
-            bgcolor: "background.paper",
-            border: (t) => `1px solid ${t.palette.divider}`,
-          }}
-          aria-label="Back to top"
-        >
-          <ArrowUpward />
-        </IconButton>
-      )}
-      {showDown && (
-        <IconButton
-          component={motion.button}
-          whileHover={reduce ? undefined : { scale: 1.1 }}
-          whileTap={reduce ? undefined : { scale: 0.98 }}
-          color="primary"
-          size="large"
-          onClick={() =>
-            window.scrollTo({
-              top: document.body.scrollHeight,
-              behavior: reduce ? "auto" : "smooth",
-            })
-          }
-          sx={{
-            bgcolor: "background.paper",
-            border: (t) => `1px solid ${t.palette.divider}`,
-          }}
-          aria-label="Scroll to bottom"
-        >
-          <ArrowDownward />
-        </IconButton>
-      )}
-    </Box>
+          ::selection { background: ${alpha(
+            designTokens.colors.accent.primary,
+            0.3
+          )}; color: white; }
+          ::-webkit-scrollbar { width: 6px; }
+          ::-webkit-scrollbar-track { background: transparent; }
+          ::-webkit-scrollbar-thumb { background: #333; borderRadius: 4px; }
+          ::-webkit-scrollbar-thumb:hover { background: #555; }
+        `}
+      />
+      <Navbar />
+      <main>
+        <Hero />
+        <Skills />
+        <Experience />
+        <Projects />
+        <Contact />
+      </main>
+    </ThemeProvider>
   );
 }
