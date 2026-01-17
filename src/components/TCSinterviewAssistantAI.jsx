@@ -63,7 +63,7 @@ const EXPERIENCE_DATA = [
   {
     company: "Tata Consultancy Services",
     role: "Assistant Consultant",
-    period: "Aug 2022 — Jan 2026 · Varanasi",
+    period: "Aug 2022 — Jan 2026 · Bengaluru / Varanasi",
     items: [
       {
         title: "Digital transformation",
@@ -91,7 +91,7 @@ const EXPERIENCE_DATA = [
   {
     company: "IBM India",
     role: "Application Consultant",
-    period: "Jan 2020 — Aug 2022",
+    period: "Jan 2020 — Aug 2022 · Bengaluru",
     items: [
       {
         title: "Cloud HR benefits and claims",
