@@ -1215,7 +1215,7 @@ const Hero = () => {
                   }}
                 >
                   <StatBadge value="10+" label="Years Experience" />
-                  <StatBadge value="25+" label="Projects Delivered" />
+                  <StatBadge value="11+" label="Projects Delivered" />
                   <StatBadge value="6+" label="SAP Specialization" />
                 </Stack>
               </MotionBox>
@@ -1446,7 +1446,7 @@ const Hero = () => {
 
             <Stack direction="row" spacing={4} justifyContent="center">
               <StatBadge value="10+" label="Years" />
-              <StatBadge value="25+" label="Projects" />
+              <StatBadge value="11+" label="Projects" />
               <StatBadge value="6+" label="SAP" />
             </Stack>
           </Box>
