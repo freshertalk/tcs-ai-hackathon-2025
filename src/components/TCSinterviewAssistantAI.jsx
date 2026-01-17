@@ -34,12 +34,7 @@ import {
   Phone,
 } from "@mui/icons-material";
 import { createTheme, ThemeProvider, alpha } from "@mui/material/styles";
-import {
-  motion,
-  useMotionTemplate,
-  useMotionValue,
-  AnimatePresence,
-} from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 
 // --- ASSETS ---
 import logo from "../assets/logo.avif";
@@ -53,7 +48,7 @@ const PROFILE_DATA = {
   name: "Vinay Tiwari",
   title:
     "Senior Software Developer (10+ yrs) — SAP UI5 / FIORI / CAPM / BTP / GenAI Engineer",
-  currentRole: "SAP Cloud Security Consultant",
+  currentRole: "SAP BTP, UI5, FIORI Consultant",
   email: "vinay.tiwari.sap@gmail.com",
   linkedin: "https://www.linkedin.com/in/vinay-tiwari-sap/",
   whatsapp: "https://wa.me/917392062233",
@@ -309,35 +304,34 @@ const SKILLS_DATA = {
 const designTokens = {
   colors: {
     bg: {
-      primary: "#050507",
-      secondary: "#0A0A0C",
+      primary: "#0A0A0B",
+      card: "#111113",
+      cardHover: "#161618",
+      elevated: "#1A1A1D",
     },
     text: {
       primary: "#FFFFFF",
-      secondary: "#A1A1AA",
-      tertiary: "#52525B",
+      secondary: "#B4B4B4",
+      tertiary: "#888888",
+      muted: "#666666",
     },
     border: {
-      subtle: "rgba(255, 255, 255, 0.06)",
-      highlight: "rgba(255, 255, 255, 0.12)",
+      card: "#222225",
+      hover: "#333336",
+      accent: "#3B3B3F",
     },
     accent: {
-      primary: "#6366F1",
+      primary: "#10B981",
+      secondary: "#3B82F6",
       whatsapp: "#25D366",
-      cyan: "#22D3EE",
-      emerald: "#10B981",
-      amber: "#F59E0B",
-      violet: "#8B5CF6",
-    },
-    gradient: {
-      text: "linear-gradient(to right bottom, #FFFFFF 30%, #94A3B8 100%)",
-      primary: "linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)",
+      gold: "#F59E0B",
     },
   },
   radius: {
+    sm: "8px",
     md: "12px",
     lg: "16px",
-    xl: "24px",
+    xl: "20px",
     full: "9999px",
   },
 };
@@ -348,7 +342,7 @@ const muiTheme = createTheme({
     primary: { main: designTokens.colors.accent.primary },
     background: {
       default: designTokens.colors.bg.primary,
-      paper: designTokens.colors.bg.secondary,
+      paper: designTokens.colors.bg.card,
     },
     text: {
       primary: designTokens.colors.text.primary,
@@ -356,25 +350,26 @@ const muiTheme = createTheme({
     },
   },
   typography: {
-    fontFamily: '"Inter", sans-serif',
-    h1: { fontWeight: 700 },
-    h2: { fontWeight: 700 },
-    h3: { fontWeight: 600 },
+    fontFamily: '"DM Sans", -apple-system, BlinkMacSystemFont, sans-serif',
+    h1: { fontWeight: 700, letterSpacing: "-0.02em" },
+    h2: { fontWeight: 700, letterSpacing: "-0.02em" },
+    h3: { fontWeight: 600, letterSpacing: "-0.01em" },
     h4: { fontWeight: 600 },
     h5: { fontWeight: 600 },
+    h6: { fontWeight: 600 },
+    body1: { lineHeight: 1.7 },
+    body2: { lineHeight: 1.6 },
     button: { textTransform: "none", fontWeight: 600 },
   },
   components: {
-    MuiButton: {
-      styleOverrides: { root: { borderRadius: designTokens.radius.full } },
-    },
     MuiChip: {
       styleOverrides: {
         root: {
           fontWeight: 500,
-          borderRadius: 8,
-          border: `1px solid ${designTokens.colors.border.subtle}`,
-          backgroundColor: "rgba(255,255,255,0.02)",
+          fontSize: "0.75rem",
+          borderRadius: designTokens.radius.sm,
+          border: `1px solid ${designTokens.colors.border.card}`,
+          backgroundColor: designTokens.colors.bg.card,
         },
       },
     },
@@ -387,117 +382,84 @@ const muiTheme = createTheme({
 
 const MotionBox = motion(Box);
 
-const SpotlightCard = ({ children, sx, className = "", delay = 0 }) => {
-  const mouseX = useMotionValue(0);
-  const mouseY = useMotionValue(0);
+const Card = ({ children, sx, delay = 0 }) => (
+  <MotionBox
+    initial={{ opacity: 0, y: 20 }}
+    whileInView={{ opacity: 1, y: 0 }}
+    viewport={{ once: true, margin: "-50px" }}
+    transition={{ duration: 0.4, delay, ease: "easeOut" }}
+    sx={{
+      bgcolor: designTokens.colors.bg.card,
+      border: `1px solid ${designTokens.colors.border.card}`,
+      borderRadius: designTokens.radius.lg,
+      transition: "all 0.25s ease",
+      height: "100%",
+      "&:hover": {
+        bgcolor: designTokens.colors.bg.cardHover,
+        borderColor: designTokens.colors.border.hover,
+        transform: "translateY(-2px)",
+      },
+      ...sx,
+    }}
+  >
+    {children}
+  </MotionBox>
+);
 
-  function handleMouseMove({ currentTarget, clientX, clientY }) {
-    const { left, top } = currentTarget.getBoundingClientRect();
-    mouseX.set(clientX - left);
-    mouseY.set(clientY - top);
-  }
-
-  return (
-    <MotionBox
-      initial={{ opacity: 0, y: 20 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: "-50px" }}
-      transition={{ duration: 0.5, delay }}
-      className={`group relative border border-white/10 bg-gray-900/50 overflow-hidden ${className}`}
-      onMouseMove={handleMouseMove}
-      sx={{
-        position: "relative",
-        height: "100%",
-        borderRadius: designTokens.radius.xl,
-        bgcolor: "rgba(255,255,255,0.02)",
-        border: `1px solid ${designTokens.colors.border.subtle}`,
-        textAlign: "left",
-        ...sx,
-      }}
-    >
-      <MotionBox
-        style={{
-          background: useMotionTemplate`
-            radial-gradient(
-              650px circle at ${mouseX}px ${mouseY}px,
-              rgba(99, 102, 241, 0.15),
-              transparent 80%
-            )
-          `,
-        }}
-        sx={{
-          position: "absolute",
-          inset: -1,
-          opacity: 0,
-          transition: "opacity 300ms",
-          borderRadius: "inherit",
-          zIndex: 0,
-          pointerEvents: "none",
-          "&:hover": { opacity: 1 },
-          ".MuiBox-root:hover > &": { opacity: 1 },
-        }}
-      />
-      <Box sx={{ position: "relative", zIndex: 10, height: "100%" }}>
-        {children}
-      </Box>
-    </MotionBox>
-  );
-};
-
-const SectionHeader = memo(({ badge, title, highlight, subtitle }) => (
-  <Box sx={{ mb: { xs: 6, md: 8 }, maxWidth: 700, textAlign: "left" }}>
+const SectionHeader = memo(({ badge, title, subtitle }) => (
+  <Box sx={{ mb: { xs: 5, md: 6 }, textAlign: "left" }}>
     {badge && (
-      <MotionBox
-        initial={{ opacity: 0, x: -10 }}
-        whileInView={{ opacity: 1, x: 0 }}
-        viewport={{ once: true }}
+      <Box
         sx={{
           display: "inline-flex",
           alignItems: "center",
           gap: 1,
-          px: 1.5,
-          py: 0.5,
+          px: 2,
+          py: 0.75,
           mb: 2,
-          borderRadius: "100px",
+          borderRadius: designTokens.radius.full,
           bgcolor: alpha(designTokens.colors.accent.primary, 0.1),
-          border: `1px solid ${alpha(designTokens.colors.accent.primary, 0.2)}`,
+          border: `1px solid ${alpha(designTokens.colors.accent.primary, 0.25)}`,
         }}
       >
+        <Box
+          sx={{
+            width: 6,
+            height: 6,
+            borderRadius: "50%",
+            bgcolor: designTokens.colors.accent.primary,
+          }}
+        />
         <Typography
           sx={{
-            fontSize: "0.75rem",
+            fontSize: "0.7rem",
             fontWeight: 700,
             color: designTokens.colors.accent.primary,
             textTransform: "uppercase",
-            letterSpacing: "0.05em",
+            letterSpacing: "0.1em",
           }}
         >
           {badge}
         </Typography>
-      </MotionBox>
+      </Box>
     )}
     <Typography
       variant="h2"
       sx={{
-        fontSize: { xs: "2.25rem", md: "3.5rem" },
-        lineHeight: 1.1,
-        mb: 2,
-        background: designTokens.colors.gradient.text,
-        WebkitBackgroundClip: "text",
-        WebkitTextFillColor: "transparent",
+        fontSize: { xs: "1.75rem", sm: "2.25rem", md: "2.75rem" },
+        lineHeight: 1.2,
+        mb: 1.5,
+        color: "#FFF",
       }}
     >
-      {title}{" "}
-      <span style={{ color: designTokens.colors.text.tertiary }}>
-        {highlight}
-      </span>
+      {title}
     </Typography>
     {subtitle && (
       <Typography
         sx={{
-          fontSize: { xs: "1rem", md: "1.125rem" },
-          color: designTokens.colors.text.secondary,
-          maxWidth: "80%",
+          fontSize: { xs: "0.9rem", md: "1rem" },
+          color: designTokens.colors.text.tertiary,
+          maxWidth: 550,
           lineHeight: 1.6,
         }}
       >
@@ -507,54 +469,39 @@ const SectionHeader = memo(({ badge, title, highlight, subtitle }) => (
   </Box>
 ));
 
-const CTAButton = ({
-  children,
-  variant = "primary",
-  href,
-  icon,
-  fullWidth,
-  sx,
-}) => {
+const CTAButton = ({ children, variant = "primary", href, icon, sx }) => {
   const isPrimary = variant === "primary";
   return (
     <Box
       component="a"
       href={href}
-      // Only open in new tab if it's an external link or email
       target={href.startsWith("#") ? "_self" : "_blank"}
+      rel="noopener noreferrer"
       sx={{
         display: "inline-flex",
         alignItems: "center",
         justifyContent: "center",
         gap: 1.5,
-        px: 4,
-        py: 1.8,
-        fontSize: "0.95rem",
+        px: { xs: 2.5, md: 3.5 },
+        py: { xs: 1.25, md: 1.4 },
+        fontSize: { xs: "0.85rem", md: "0.9rem" },
         fontWeight: 600,
-        color: "#fff",
-        background: isPrimary
-          ? designTokens.colors.gradient.primary
-          : "rgba(255,255,255,0.05)",
-        border: isPrimary
-          ? "none"
-          : `1px solid ${designTokens.colors.border.highlight}`,
-        borderRadius: "100px",
+        color: isPrimary ? "#0A0A0B" : "#FFF",
+        bgcolor: isPrimary ? "#FFF" : "transparent",
+        border: isPrimary ? "none" : `1px solid ${designTokens.colors.border.hover}`,
+        borderRadius: designTokens.radius.full,
         cursor: "pointer",
         textDecoration: "none",
-        width: fullWidth ? "100%" : "auto",
-        transition: "transform 0.2s, box-shadow 0.2s",
+        transition: "all 0.2s ease",
         "&:hover": {
-          transform: "translateY(-2px)",
-          boxShadow: isPrimary
-            ? "0 10px 25px -5px rgba(99, 102, 241, 0.4)"
-            : "none",
-          background: !isPrimary && "rgba(255,255,255,0.08)",
+          transform: "translateY(-1px)",
+          bgcolor: isPrimary ? "#F0F0F0" : designTokens.colors.bg.card,
         },
         ...sx,
       }}
     >
       {children}
-      {icon && <Box sx={{ fontSize: 20, display: "flex" }}>{icon}</Box>}
+      {icon && <Box sx={{ fontSize: 18, display: "flex" }}>{icon}</Box>}
     </Box>
   );
 };
@@ -570,7 +517,7 @@ const Navbar = () => {
   const navLinks = ["About", "Skills", "Experience", "Projects", "Contact"];
 
   useEffect(() => {
-    const handler = () => setScrolled(window.scrollY > 20);
+    const handler = () => setScrolled(window.scrollY > 40);
     window.addEventListener("scroll", handler);
     return () => window.removeEventListener("scroll", handler);
   }, []);
@@ -578,19 +525,21 @@ const Navbar = () => {
   return (
     <>
       <Box
-        component={motion.nav}
-        initial={{ y: -100 }}
-        animate={{ y: 0 }}
-        transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+        component="nav"
         sx={{
           position: "fixed",
-          top: { xs: 20, md: 24 },
+          top: 0,
           left: 0,
           right: 0,
           zIndex: 1000,
           display: "flex",
           justifyContent: "center",
           px: 2,
+          py: 1.5,
+          bgcolor: scrolled ? "rgba(10, 10, 11, 0.95)" : "transparent",
+          backdropFilter: scrolled ? "blur(12px)" : "none",
+          borderBottom: scrolled ? `1px solid ${designTokens.colors.border.card}` : "none",
+          transition: "all 0.3s ease",
         }}
       >
         <Box
@@ -599,34 +548,25 @@ const Navbar = () => {
             alignItems: "center",
             justifyContent: "space-between",
             width: "100%",
-            maxWidth: 1000,
-            height: { xs: 56, md: 64 },
-            px: { xs: 2, md: 4 },
-            borderRadius: "100px",
-            bgcolor: scrolled ? "rgba(10, 10, 12, 0.6)" : "transparent",
-            backdropFilter: scrolled ? "blur(16px)" : "none",
-            border: scrolled
-              ? `1px solid ${designTokens.colors.border.subtle}`
-              : "1px solid transparent",
-            transition: "all 0.4s ease",
-            boxShadow: scrolled ? "0 8px 32px rgba(0,0,0,0.2)" : "none",
+            maxWidth: 1200,
           }}
         >
           <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
             <Avatar
               src={logo}
               sx={{
-                width: 32,
-                height: 32,
-                border: "1px solid rgba(255,255,255,0.1)",
+                width: 36,
+                height: 36,
+                border: `1px solid ${designTokens.colors.border.card}`,
               }}
             />
-            <Typography variant="h6" sx={{ fontSize: "1rem", fontWeight: 700 }}>
-              {PROFILE_DATA.name}
+            <Typography sx={{ fontSize: "1rem", fontWeight: 700, color: "#FFF" }}>
+              {PROFILE_DATA.name.split(" ")[0]}
             </Typography>
           </Box>
+
           {!isMobile && (
-            <Stack direction="row" spacing={1}>
+            <Stack direction="row" spacing={1} sx={{ position: "absolute", left: "50%", transform: "translateX(-50%)" }}>
               {navLinks.map((item) => (
                 <Box
                   key={item}
@@ -635,14 +575,14 @@ const Navbar = () => {
                   sx={{
                     px: 2,
                     py: 1,
-                    fontSize: "0.875rem",
+                    fontSize: "0.85rem",
                     fontWeight: 500,
-                    color: "text.secondary",
+                    color: designTokens.colors.text.tertiary,
                     textDecoration: "none",
-                    borderRadius: "100px",
-                    transition: "all 0.2s",
+                    borderRadius: designTokens.radius.full,
+                    transition: "all 0.2s ease",
                     "&:hover": {
-                      color: "white",
+                      color: "#FFF",
                       bgcolor: "rgba(255,255,255,0.05)",
                     },
                   }}
@@ -652,6 +592,7 @@ const Navbar = () => {
               ))}
             </Stack>
           )}
+
           <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
             {!isMobile && (
               <>
@@ -659,31 +600,22 @@ const Navbar = () => {
                   size="small"
                   href={PROFILE_DATA.github}
                   target="_blank"
-                  sx={{
-                    color: "text.secondary",
-                    "&:hover": { color: "white" },
-                  }}
+                  sx={{ color: designTokens.colors.text.tertiary, "&:hover": { color: "#FFF" } }}
                 >
-                  <GitHub fontSize="small" />
+                  <GitHub sx={{ fontSize: 20 }} />
                 </IconButton>
                 <IconButton
                   size="small"
                   href={PROFILE_DATA.whatsapp}
                   target="_blank"
-                  sx={{
-                    color: designTokens.colors.accent.whatsapp,
-                    "&:hover": { opacity: 0.8 },
-                  }}
+                  sx={{ color: designTokens.colors.accent.whatsapp, "&:hover": { opacity: 0.8 } }}
                 >
-                  <WhatsApp fontSize="small" />
+                  <WhatsApp sx={{ fontSize: 20 }} />
                 </IconButton>
               </>
             )}
             {isMobile && (
-              <IconButton
-                onClick={() => setMenuOpen(true)}
-                sx={{ color: "white" }}
-              >
+              <IconButton onClick={() => setMenuOpen(true)} sx={{ color: "#FFF" }}>
                 <MenuIcon />
               </IconButton>
             )}
@@ -696,10 +628,10 @@ const Navbar = () => {
         {menuOpen && (
           <Box
             component={motion.div}
-            initial={{ opacity: 0, clipPath: "circle(0% at 100% 0%)" }}
-            animate={{ opacity: 1, clipPath: "circle(150% at 100% 0%)" }}
-            exit={{ opacity: 0, clipPath: "circle(0% at 100% 0%)" }}
-            transition={{ duration: 0.5, ease: "easeInOut" }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
             sx={{
               position: "fixed",
               inset: 0,
@@ -714,11 +646,11 @@ const Navbar = () => {
           >
             <IconButton
               onClick={() => setMenuOpen(false)}
-              sx={{ position: "absolute", top: 24, right: 24, color: "white" }}
+              sx={{ position: "absolute", top: 16, right: 16, color: "#FFF" }}
             >
               <CloseIcon />
             </IconButton>
-            <Stack spacing={4} alignItems="center">
+            <Stack spacing={3} alignItems="center">
               {navLinks.map((item) => (
                 <Typography
                   key={item}
@@ -726,9 +658,9 @@ const Navbar = () => {
                   href={`#${item.toLowerCase()}`}
                   onClick={() => setMenuOpen(false)}
                   sx={{
-                    fontSize: "2rem",
-                    fontWeight: 700,
-                    color: "white",
+                    fontSize: "1.5rem",
+                    fontWeight: 600,
+                    color: "#FFF",
                     textDecoration: "none",
                   }}
                 >
@@ -744,6 +676,8 @@ const Navbar = () => {
 };
 
 const Hero = () => {
+  const isMobile = useMediaQuery(muiTheme.breakpoints.down("md"));
+
   return (
     <Box
       id="about"
@@ -751,443 +685,271 @@ const Hero = () => {
         minHeight: "100vh",
         display: "flex",
         alignItems: "center",
-        position: "relative",
-        pt: { xs: 12, md: 0 },
-        overflow: "hidden",
+        pt: { xs: 12, md: 10 },
+        pb: { xs: 6, md: 0 },
       }}
     >
-      <Box
-        component={motion.div}
-        animate={{
-          scale: [1, 1.1, 1],
-          opacity: [0.3, 0.5, 0.3],
-        }}
-        transition={{ duration: 10, repeat: Infinity }}
-        sx={{
-          position: "absolute",
-          top: "-20%",
-          right: "-10%",
-          width: "800px",
-          height: "800px",
-          background:
-            "radial-gradient(circle, rgba(99, 102, 241, 0.12) 0%, transparent 60%)",
-          filter: "blur(80px)",
-          zIndex: 0,
-        }}
-      />
-      <Container maxWidth="lg" sx={{ position: "relative", zIndex: 1 }}>
-        <Grid container spacing={6} alignItems="center">
-          <Grid item xs={12} md={7}>
-            <MotionBox
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8 }}
-              sx={{
-                textAlign: "left",
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "flex-start",
-              }}
-            >
+      <Container maxWidth="lg">
+        {/* Desktop/Laptop: Side by side layout */}
+        {!isMobile ? (
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 6,
+            }}
+          >
+            {/* Left: Text Content */}
+            <Box sx={{ flex: 1, maxWidth: 600 }}>
               <Chip
                 icon={
-                  <RocketLaunch
-                    sx={{ fontSize: "16px !important", color: "#fff" }}
+                  <Box
+                    sx={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: "50%",
+                      bgcolor: designTokens.colors.accent.whatsapp,
+                      ml: 0.5,
+                    }}
                   />
                 }
                 label={PROFILE_DATA.currentRole}
-                sx={{
-                  mb: 4,
-                  px: 1,
-                  py: 0.5,
-                  borderColor: "rgba(255,255,255,0.1)",
-                }}
+                sx={{ mb: 3 }}
               />
+
               <Typography
                 variant="h1"
                 sx={{
-                  fontSize: { xs: "3rem", sm: "4rem", md: "5.5rem" },
-                  lineHeight: 1,
-                  mb: 3,
-                  letterSpacing: "-0.03em",
-                  textAlign: "left",
+                  fontSize: { md: "3rem", lg: "3.75rem", xl: "4.25rem" },
+                  lineHeight: 1.1,
+                  mb: 2.5,
+                  color: "#FFF",
                 }}
               >
-                Building the <br />
-                <span
-                  style={{
-                    background: designTokens.colors.gradient.primary,
+                Building the{" "}
+                <Box
+                  component="span"
+                  sx={{
+                    background: `linear-gradient(135deg, ${designTokens.colors.accent.primary} 0%, ${designTokens.colors.accent.secondary} 100%)`,
                     WebkitBackgroundClip: "text",
                     WebkitTextFillColor: "transparent",
                   }}
                 >
                   Digital Future
-                </span>
+                </Box>
               </Typography>
+
               <Typography
                 sx={{
-                  fontSize: { xs: "1.125rem", md: "1.25rem" },
+                  fontSize: "1.05rem",
                   color: designTokens.colors.text.secondary,
-                  maxWidth: 550,
-                  mb: 5,
-                  lineHeight: 1.6,
-                  textAlign: "left",
+                  maxWidth: 500,
+                  mb: 4,
+                  lineHeight: 1.7,
                 }}
               >
                 {PROFILE_DATA.summary}
               </Typography>
-              <Stack
-                direction={{ xs: "column", sm: "row" }}
-                spacing={2}
-                sx={{ width: { xs: "100%", sm: "auto" } }}
-              >
-                {/* --- NAVIGATION FIX 1: View Portfolio -> #skills --- */}
+
+              <Stack direction="row" spacing={2}>
                 <CTAButton href="#skills" icon={<ArrowForward />}>
                   View Portfolio
                 </CTAButton>
-                {/* --- NAVIGATION FIX 2: Contact Me -> #contact --- */}
-                <CTAButton
-                  variant="secondary"
-                  href="#contact"
-                  icon={<MailOutline />}
-                >
+                <CTAButton variant="secondary" href="#contact" icon={<MailOutline />}>
                   Contact Me
                 </CTAButton>
               </Stack>
-            </MotionBox>
-          </Grid>
-          <Grid
-            item
-            xs={12}
-            md={5}
-            sx={{
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
-            }}
-          >
-            <MotionBox
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 1, delay: 0.2 }}
-              sx={{ position: "relative" }}
+            </Box>
+
+            {/* Right: Photo */}
+            <Box
+              sx={{
+                flexShrink: 0,
+                width: { md: 280, lg: 320, xl: 360 },
+                height: { md: 350, lg: 400, xl: 450 },
+                borderRadius: designTokens.radius.xl,
+                overflow: "hidden",
+                border: `1px solid ${designTokens.colors.border.card}`,
+                boxShadow: "0 20px 50px rgba(0,0,0,0.4)",
+              }}
+            >
+              <Box
+                component="img"
+                src={photo}
+                alt={PROFILE_DATA.name}
+                sx={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                  objectPosition: "center top",
+                  filter: "grayscale(100%)",
+                  transition: "filter 0.4s ease",
+                  "&:hover": { filter: "grayscale(0%)" },
+                }}
+              />
+            </Box>
+          </Box>
+        ) : (
+          /* Mobile: Stacked layout with photo on top */
+          <Box sx={{ textAlign: "center" }}>
+            {/* Photo */}
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "center",
+                mb: 4,
+              }}
             >
               <Box
                 sx={{
-                  width: { xs: 280, md: 420 },
-                  height: { xs: 320, md: 500 },
-                  borderRadius: "24px",
-                  background: `url(${photo}) center/cover no-repeat`,
-                  filter: "grayscale(100%)",
-                  transition: "filter 0.5s ease",
-                  "&:hover": { filter: "grayscale(0%)" },
-                  position: "relative",
-                  zIndex: 2,
-                  boxShadow: "0 20px 40px rgba(0,0,0,0.5)",
+                  width: 200,
+                  height: 260,
+                  borderRadius: designTokens.radius.xl,
+                  overflow: "hidden",
+                  border: `1px solid ${designTokens.colors.border.card}`,
+                  boxShadow: "0 16px 40px rgba(0,0,0,0.4)",
                 }}
-              />
-            </MotionBox>
-          </Grid>
-        </Grid>
+              >
+                <Box
+                  component="img"
+                  src={photo}
+                  alt={PROFILE_DATA.name}
+                  sx={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                    objectPosition: "center top",
+                    filter: "grayscale(100%)",
+                    transition: "filter 0.4s ease",
+                    "&:hover": { filter: "grayscale(0%)" },
+                  }}
+                />
+              </Box>
+            </Box>
+
+            {/* Text Content */}
+            <Chip
+              icon={
+                <Box
+                  sx={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: "50%",
+                    bgcolor: designTokens.colors.accent.whatsapp,
+                    ml: 0.5,
+                  }}
+                />
+              }
+              label={PROFILE_DATA.currentRole}
+              sx={{ mb: 3 }}
+            />
+
+            <Typography
+              variant="h1"
+              sx={{
+                fontSize: "2.25rem",
+                lineHeight: 1.1,
+                mb: 2,
+                color: "#FFF",
+              }}
+            >
+              Building the{" "}
+              <Box
+                component="span"
+                sx={{
+                  background: `linear-gradient(135deg, ${designTokens.colors.accent.primary} 0%, ${designTokens.colors.accent.secondary} 100%)`,
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                }}
+              >
+                Digital Future
+              </Box>
+            </Typography>
+
+            <Typography
+              sx={{
+                fontSize: "0.95rem",
+                color: designTokens.colors.text.secondary,
+                mb: 4,
+                lineHeight: 1.7,
+                px: 1,
+              }}
+            >
+              {PROFILE_DATA.summary}
+            </Typography>
+
+            <Stack direction="column" spacing={2} alignItems="center">
+              <CTAButton href="#skills" icon={<ArrowForward />} sx={{ width: "100%", maxWidth: 280 }}>
+                View Portfolio
+              </CTAButton>
+              <CTAButton variant="secondary" href="#contact" icon={<MailOutline />} sx={{ width: "100%", maxWidth: 280 }}>
+                Contact Me
+              </CTAButton>
+            </Stack>
+          </Box>
+        )}
       </Container>
     </Box>
   );
 };
 
 const Skills = () => {
-  return (
-    <Box id="skills" sx={{ py: 20 }}>
-      <Container>
-        <SectionHeader
-          title="Technical"
-          highlight="Expertise"
-          subtitle="A curated stack of technologies I use to build scalable products."
-        />
-        <Grid container spacing={3}>
-          <Grid item xs={12} md={4}>
-            <SpotlightCard delay={0.1}>
-              <Box sx={{ p: 4, textAlign: "left" }}>
-                <Box
-                  sx={{
-                    width: 48,
-                    height: 48,
-                    borderRadius: 3,
-                    bgcolor: alpha(designTokens.colors.accent.cyan, 0.1),
-                    color: designTokens.colors.accent.cyan,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    mb: 3,
-                  }}
-                >
-                  <Code />
-                </Box>
-                <Typography variant="h5" gutterBottom>
-                  Core Stack
-                </Typography>
-                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
-                  {SKILLS_DATA.core.map((s) => (
-                    <Chip key={s} label={s} size="small" />
-                  ))}
-                </Box>
-              </Box>
-            </SpotlightCard>
-          </Grid>
-          <Grid item xs={12} md={4}>
-            <SpotlightCard delay={0.2}>
-              <Box sx={{ p: 4, textAlign: "left" }}>
-                <Box
-                  sx={{
-                    width: 48,
-                    height: 48,
-                    borderRadius: 3,
-                    bgcolor: alpha(designTokens.colors.accent.violet, 0.1),
-                    color: designTokens.colors.accent.violet,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    mb: 3,
-                  }}
-                >
-                  <RocketLaunch />
-                </Box>
-                <Typography variant="h5" gutterBottom>
-                  Cloud & DevOps
-                </Typography>
-                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
-                  {SKILLS_DATA.tooling.map((s) => (
-                    <Chip key={s} label={s} size="small" />
-                  ))}
-                </Box>
-              </Box>
-            </SpotlightCard>
-          </Grid>
-          <Grid item xs={12} md={4}>
-            <SpotlightCard delay={0.3}>
-              <Box sx={{ p: 4, textAlign: "left" }}>
-                <Box
-                  sx={{
-                    width: 48,
-                    height: 48,
-                    borderRadius: 3,
-                    bgcolor: alpha(designTokens.colors.accent.amber, 0.1),
-                    color: designTokens.colors.accent.amber,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    mb: 3,
-                  }}
-                >
-                  <EmojiObjectsOutlined />
-                </Box>
-                <Typography variant="h5" gutterBottom>
-                  Leadership
-                </Typography>
-                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
-                  {SKILLS_DATA.soft.map((s) => (
-                    <Chip key={s} label={s} size="small" />
-                  ))}
-                </Box>
-              </Box>
-            </SpotlightCard>
-          </Grid>
-        </Grid>
-      </Container>
-    </Box>
-  );
-};
+  const categories = [
+    { title: "Core Stack", icon: <Code />, color: designTokens.colors.accent.secondary, skills: SKILLS_DATA.core },
+    { title: "Cloud & DevOps", icon: <RocketLaunch />, color: designTokens.colors.accent.primary, skills: SKILLS_DATA.tooling },
+    { title: "Leadership", icon: <EmojiObjectsOutlined />, color: designTokens.colors.accent.gold, skills: SKILLS_DATA.soft },
+  ];
 
-const Experience = () => {
   return (
-    <Box id="experience" sx={{ py: 10 }}>
-      <Container>
-        <SectionHeader title="Professional" highlight="Journey" />
-        <Box
-          sx={{
-            position: "relative",
-            borderLeft: "1px solid rgba(255,255,255,0.1)",
-            ml: { xs: 2, md: 0 },
-            pl: { xs: 4, md: 0 },
-          }}
-        >
-          {EXPERIENCE_DATA.map((job, index) => (
-            <MotionBox
-              key={index}
-              initial={{ opacity: 0, x: -20 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: index * 0.1 }}
-              sx={{
-                mb: 8,
-                ml: { md: 6 },
-                position: "relative",
-                textAlign: "left",
-              }}
-            >
-              <Box
-                sx={{
-                  position: "absolute",
-                  left: { xs: -38, md: -55 },
-                  top: 6,
-                  width: 12,
-                  height: 12,
-                  borderRadius: "50%",
-                  bgcolor: designTokens.colors.accent.primary,
-                  boxShadow: `0 0 0 4px ${designTokens.colors.bg.primary}`,
-                }}
-              />
-              <Stack
-                direction={{ xs: "column", sm: "row" }}
-                alignItems="baseline"
-                justifyContent="space-between"
-                mb={1}
-              >
-                <Typography variant="h4" sx={{ fontSize: "1.5rem" }}>
-                  {job.role}
-                </Typography>
-                <Typography sx={{ color: "text.secondary" }}>
-                  {job.period}
-                </Typography>
-              </Stack>
-              <Typography
-                variant="h6"
-                color="primary"
-                sx={{ mb: 3, fontSize: "1.1rem" }}
-              >
-                {job.company}
-              </Typography>
-              <Stack spacing={2}>
-                {job.items &&
-                  job.items.map((item, i) => (
-                    <SpotlightCard key={i} sx={{ p: 3, textAlign: "left" }}>
-                      <Stack
-                        direction="row"
-                        justifyContent="space-between"
-                        mb={1}
-                      >
-                        <Typography
-                          variant="h6"
-                          sx={{ fontSize: "1rem", textAlign: "left" }}
-                        >
-                          {item.title}
-                        </Typography>
-                        {item.client && (
-                          <Chip
-                            label={item.client}
-                            size="small"
-                            icon={<StarRounded style={{ fontSize: 14 }} />}
-                          />
-                        )}
-                      </Stack>
-                      <Box
-                        component="ul"
-                        sx={{
-                          pl: 2,
-                          m: 0,
-                          color: designTokens.colors.text.secondary,
-                          textAlign: "left",
-                        }}
-                      >
-                        {item.points.map((pt, idx) => (
-                          <Typography
-                            component="li"
-                            key={idx}
-                            variant="body2"
-                            sx={{ mb: 0.5, textAlign: "left" }}
-                          >
-                            {pt}
-                          </Typography>
-                        ))}
-                      </Box>
-                    </SpotlightCard>
-                  ))}
-              </Stack>
-            </MotionBox>
-          ))}
-        </Box>
-      </Container>
-    </Box>
-  );
-};
-
-const Projects = () => {
-  return (
-    <Box id="projects" sx={{ py: 20, bgcolor: "rgba(255,255,255,0.01)" }}>
-      <Container>
+    <Box id="skills" sx={{ py: { xs: 8, md: 12 } }}>
+      <Container maxWidth="lg">
         <SectionHeader
-          title="Featured"
-          highlight="Work"
-          subtitle="Highlights from my development career."
+          badge="Expertise"
+          title="Technical Proficiency"
+          subtitle="Technologies I use to build scalable enterprise products."
         />
-        <Grid container spacing={4} alignItems="stretch">
-          {PROJECTS_DATA.map((p, i) => (
-            <Grid item xs={12} md={6} key={i} sx={{ display: "flex" }}>
-              <SpotlightCard
-                delay={i * 0.1}
-                sx={{
-                  display: "flex",
-                  flexDirection: "column",
-                  width: "100%",
-                  height: "100%",
-                  textAlign: "left",
-                }}
-              >
-                <Box
-                  sx={{
-                    p: 4,
-                    flex: 1,
-                    display: "flex",
-                    flexDirection: "column",
-                    textAlign: "left",
-                  }}
-                >
-                  <Stack direction="row" justifyContent="space-between" mb={3}>
-                    <Box
-                      sx={{
-                        p: 1.5,
-                        borderRadius: 2,
-                        bgcolor: "rgba(255,255,255,0.05)",
-                      }}
-                    >
-                      <Code fontSize="small" />
-                    </Box>
-                    <Chip label={p.year} size="small" sx={{ height: 24 }} />
-                  </Stack>
-                  <Typography
-                    variant="h5"
-                    gutterBottom
-                    sx={{ textAlign: "left", minHeight: "3rem" }}
-                  >
-                    {p.name}
-                  </Typography>
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
+        <Grid container spacing={2.5}>
+          {categories.map((cat, i) => (
+            <Grid item xs={12} md={4} key={cat.title}>
+              <Card delay={i * 0.1}>
+                <Box sx={{ p: 3 }}>
+                  <Box
                     sx={{
-                      mb: 4,
-                      flexGrow: 1,
-                      lineHeight: 1.7,
-                      textAlign: "left",
+                      width: 44,
+                      height: 44,
+                      borderRadius: designTokens.radius.md,
+                      bgcolor: alpha(cat.color, 0.12),
+                      color: cat.color,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      mb: 2.5,
                     }}
                   >
-                    {p.desc}
+                    {cat.icon}
+                  </Box>
+                  <Typography sx={{ mb: 2, fontSize: "1.1rem", fontWeight: 600, color: "#FFF" }}>
+                    {cat.title}
                   </Typography>
-                  <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                    {p.tags.map((t) => (
-                      <Typography
-                        key={t}
-                        variant="caption"
+                  <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.75 }}>
+                    {cat.skills.map((s) => (
+                      <Chip
+                        key={s}
+                        label={s}
+                        size="small"
                         sx={{
-                          color: designTokens.colors.accent.primary,
-                          fontWeight: 600,
+                          bgcolor: designTokens.colors.bg.elevated,
+                          color: designTokens.colors.text.secondary,
+                          borderColor: designTokens.colors.border.card,
+                          fontSize: "0.75rem",
+                          height: 28,
                         }}
-                      >
-                        #{t}
-                      </Typography>
+                      />
                     ))}
-                  </Stack>
+                  </Box>
                 </Box>
-              </SpotlightCard>
+              </Card>
             </Grid>
           ))}
         </Grid>
@@ -1196,129 +958,306 @@ const Projects = () => {
   );
 };
 
-const Contact = () => {
-  return (
-    <Box id="contact" sx={{ py: 20, position: "relative" }}>
-      <Container maxWidth="md" sx={{ textAlign: "center" }}>
-        <Typography
-          variant="h2"
-          sx={{ fontSize: { xs: "2.5rem", md: "4rem" }, mb: 2 }}
-        >
-          Let's Work Together
-        </Typography>
-        <Typography
-          color="text.secondary"
-          sx={{ mb: 6, fontSize: "1.2rem", maxWidth: 600, mx: "auto" }}
-        >
-          I'm currently available for new opportunities. Whether you have a
-          question or just want to say hi, I'll try my best to get back to you!
-        </Typography>
+const Experience = () => (
+  <Box id="experience" sx={{ py: { xs: 8, md: 12 } }}>
+    <Container maxWidth="lg">
+      <SectionHeader
+        badge="Journey"
+        title="Professional Experience"
+        subtitle="A decade of building enterprise solutions across global organizations."
+      />
 
-        <Stack
-          direction={{ xs: "column", sm: "row" }}
-          justifyContent="center"
-          alignItems="center"
-          spacing={{ xs: 3, sm: 6 }}
-          sx={{ mb: 6 }}
-        >
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-            <MailOutline sx={{ color: "text.secondary" }} />
-            <Link
-              href={`mailto:${PROFILE_DATA.email}`}
-              underline="hover"
-              color="text.primary"
-              sx={{ fontSize: "1rem", fontWeight: 500 }}
-            >
-              {PROFILE_DATA.email}
-            </Link>
-          </Box>
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-            <Phone sx={{ color: "text.secondary" }} />
-            <Typography sx={{ fontSize: "1rem", fontWeight: 500 }}>
-              {PROFILE_DATA.whatsappNumber}
-            </Typography>
-          </Box>
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-            <LocationOn sx={{ color: "text.secondary" }} />
-            <Typography sx={{ fontSize: "1rem", fontWeight: 500 }}>
-              {PROFILE_DATA.location}
-            </Typography>
-          </Box>
-        </Stack>
+      <Stack spacing={5}>
+        {EXPERIENCE_DATA.map((job, jobIndex) => (
+          <Box key={jobIndex}>
+            <Box sx={{ mb: 2.5 }}>
+              <Stack
+                direction={{ xs: "column", sm: "row" }}
+                justifyContent="space-between"
+                alignItems={{ xs: "flex-start", sm: "center" }}
+                spacing={0.5}
+                sx={{ mb: 0.5 }}
+              >
+                <Typography sx={{ fontSize: { xs: "1.2rem", md: "1.35rem" }, fontWeight: 600, color: "#FFF" }}>
+                  {job.role}
+                </Typography>
+                <Typography sx={{ color: designTokens.colors.text.muted, fontSize: "0.85rem", fontWeight: 500 }}>
+                  {job.period}
+                </Typography>
+              </Stack>
+              <Typography sx={{ color: designTokens.colors.accent.primary, fontSize: "0.95rem", fontWeight: 600 }}>
+                {job.company}
+              </Typography>
+            </Box>
 
+            <Grid container spacing={2}>
+              {job.items.map((item, i) => (
+                <Grid item xs={12} sm={6} key={i}>
+                  <Card delay={i * 0.05}>
+                    <Box sx={{ p: 2.5 }}>
+                      <Stack
+                        direction="row"
+                        justifyContent="space-between"
+                        alignItems="flex-start"
+                        spacing={1}
+                        sx={{ mb: 1.5 }}
+                      >
+                        <Typography sx={{ fontSize: "0.95rem", fontWeight: 600, color: "#FFF", lineHeight: 1.4, flex: 1 }}>
+                          {item.title}
+                        </Typography>
+                        {item.client && (
+                          <Chip
+                            label={item.client}
+                            size="small"
+                            icon={<StarRounded sx={{ fontSize: "12px !important", color: `${designTokens.colors.accent.gold} !important` }} />}
+                            sx={{
+                              flexShrink: 0,
+                              maxWidth: 180,
+                              bgcolor: alpha(designTokens.colors.accent.gold, 0.1),
+                              borderColor: alpha(designTokens.colors.accent.gold, 0.25),
+                              color: designTokens.colors.accent.gold,
+                              fontSize: "0.65rem",
+                              height: 24,
+                              "& .MuiChip-label": { px: 1 },
+                              "& .MuiChip-icon": { ml: 0.5 },
+                            }}
+                          />
+                        )}
+                      </Stack>
+                      <Box
+                        component="ul"
+                        sx={{
+                          m: 0,
+                          pl: 2,
+                          "& li": {
+                            color: designTokens.colors.text.secondary,
+                            fontSize: "0.85rem",
+                            mb: 0.5,
+                            lineHeight: 1.5,
+                            "&::marker": { color: designTokens.colors.border.accent },
+                          },
+                        }}
+                      >
+                        {item.points.map((pt, idx) => (
+                          <li key={idx}>{pt}</li>
+                        ))}
+                      </Box>
+                    </Box>
+                  </Card>
+                </Grid>
+              ))}
+            </Grid>
+          </Box>
+        ))}
+      </Stack>
+    </Container>
+  </Box>
+);
+
+const Projects = () => (
+  <Box id="projects" sx={{ py: { xs: 8, md: 12 }, bgcolor: designTokens.colors.bg.card }}>
+    <Container maxWidth="lg">
+      <SectionHeader
+        badge="Portfolio"
+        title="Featured Work"
+        subtitle="Highlights from a decade of delivering enterprise solutions."
+      />
+
+      <Grid container spacing={2}>
+        {PROJECTS_DATA.map((p, i) => (
+          <Grid item xs={12} sm={6} md={4} key={i}>
+            <Card delay={i * 0.05} sx={{ bgcolor: designTokens.colors.bg.primary }}>
+              <Box sx={{ p: 2.5, display: "flex", flexDirection: "column", height: "100%", minHeight: 200 }}>
+                <Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 2 }}>
+                  <Box
+                    sx={{
+                      p: 1,
+                      borderRadius: designTokens.radius.sm,
+                      bgcolor: designTokens.colors.bg.elevated,
+                      border: `1px solid ${designTokens.colors.border.card}`,
+                      color: designTokens.colors.text.tertiary,
+                    }}
+                  >
+                    <Code sx={{ fontSize: 18 }} />
+                  </Box>
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <Chip
+                      label={p.badge}
+                      size="small"
+                      sx={{
+                        height: 20,
+                        fontSize: "0.6rem",
+                        fontWeight: 600,
+                        bgcolor: alpha(designTokens.colors.accent.secondary, 0.12),
+                        borderColor: alpha(designTokens.colors.accent.secondary, 0.25),
+                        color: designTokens.colors.accent.secondary,
+                      }}
+                    />
+                    <Typography sx={{ fontSize: "0.75rem", fontWeight: 600, color: designTokens.colors.text.muted }}>
+                      {p.year}
+                    </Typography>
+                  </Stack>
+                </Stack>
+
+                <Typography sx={{ fontSize: "1rem", fontWeight: 600, color: "#FFF", mb: 1, lineHeight: 1.3 }}>
+                  {p.name}
+                </Typography>
+
+                <Typography sx={{ fontSize: "0.85rem", color: designTokens.colors.text.tertiary, lineHeight: 1.55, flexGrow: 1, mb: 2 }}>
+                  {p.desc}
+                </Typography>
+
+                <Stack direction="row" spacing={1.5} flexWrap="wrap" useFlexGap>
+                  {p.tags.map((t) => (
+                    <Typography
+                      key={t}
+                      sx={{
+                        fontSize: "0.7rem",
+                        fontWeight: 500,
+                        color: designTokens.colors.text.muted,
+                      }}
+                    >
+                      #{t}
+                    </Typography>
+                  ))}
+                </Stack>
+              </Box>
+            </Card>
+          </Grid>
+        ))}
+      </Grid>
+    </Container>
+  </Box>
+);
+
+const Contact = () => (
+  <Box id="contact" sx={{ py: { xs: 8, md: 12 } }}>
+    <Container maxWidth="md" sx={{ textAlign: "center" }}>
+      <Typography
+        variant="h2"
+        sx={{ fontSize: { xs: "1.75rem", sm: "2.25rem", md: "2.75rem" }, mb: 2, color: "#FFF" }}
+      >
+        Let's Work{" "}
         <Box
+          component="span"
           sx={{
-            display: "flex",
-            justifyContent: "center",
-            gap: 2,
-            flexWrap: "wrap",
-            mb: 8,
+            background: `linear-gradient(135deg, ${designTokens.colors.accent.primary}, ${designTokens.colors.accent.secondary})`,
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
           }}
         >
-          <CTAButton
-            href={`mailto:${PROFILE_DATA.email}`}
-            icon={<MailOutline />}
-          >
-            Say Hello
-          </CTAButton>
-          <CTAButton
-            variant="secondary"
-            href={PROFILE_DATA.linkedin}
-            icon={<LinkedIn />}
-          >
-            LinkedIn
-          </CTAButton>
-          <CTAButton
-            variant="secondary"
-            href={PROFILE_DATA.whatsapp}
-            icon={<WhatsApp />}
+          Together
+        </Box>
+      </Typography>
+
+      <Typography
+        sx={{
+          mb: 5,
+          fontSize: { xs: "0.9rem", md: "1rem" },
+          maxWidth: 450,
+          mx: "auto",
+          color: designTokens.colors.text.tertiary,
+          lineHeight: 1.6,
+        }}
+      >
+        Currently available for new opportunities. Whether you have a question or just want to connect, I'd love to hear from you.
+      </Typography>
+
+      <Stack
+        direction={{ xs: "column", sm: "row" }}
+        justifyContent="center"
+        alignItems="center"
+        spacing={{ xs: 2, sm: 4 }}
+        sx={{ mb: 5 }}
+      >
+        {[
+          { icon: <MailOutline sx={{ fontSize: 18 }} />, text: PROFILE_DATA.email, href: `mailto:${PROFILE_DATA.email}` },
+          { icon: <Phone sx={{ fontSize: 18 }} />, text: PROFILE_DATA.whatsappNumber },
+          { icon: <LocationOn sx={{ fontSize: 18 }} />, text: PROFILE_DATA.location },
+        ].map((item, i) => (
+          <Box
+            key={i}
             sx={{
-              borderColor: alpha(designTokens.colors.accent.whatsapp, 0.3),
-              color: designTokens.colors.accent.whatsapp,
-              "&:hover": {
-                borderColor: designTokens.colors.accent.whatsapp,
-                bgcolor: alpha(designTokens.colors.accent.whatsapp, 0.05),
-                boxShadow: `0 0 20px ${alpha(
-                  designTokens.colors.accent.whatsapp,
-                  0.2
-                )}`,
-              },
+              display: "flex",
+              alignItems: "center",
+              gap: 1,
+              color: designTokens.colors.text.secondary,
             }}
           >
-            WhatsApp
-          </CTAButton>
-        </Box>
+            <Box sx={{ color: designTokens.colors.text.muted }}>{item.icon}</Box>
+            {item.href ? (
+              <Link
+                href={item.href}
+                underline="hover"
+                sx={{ color: "inherit", fontSize: "0.85rem", fontWeight: 500 }}
+              >
+                {item.text}
+              </Link>
+            ) : (
+              <Typography sx={{ fontSize: "0.85rem", fontWeight: 500 }}>{item.text}</Typography>
+            )}
+          </Box>
+        ))}
+      </Stack>
 
-        <Box
+      <Box sx={{ display: "flex", justifyContent: "center", gap: 1.5, flexWrap: "wrap", mb: 8 }}>
+        <CTAButton href={`mailto:${PROFILE_DATA.email}`} icon={<MailOutline />}>
+          Say Hello
+        </CTAButton>
+        <CTAButton variant="secondary" href={PROFILE_DATA.linkedin} icon={<LinkedIn />}>
+          LinkedIn
+        </CTAButton>
+        <CTAButton
+          variant="secondary"
+          href={PROFILE_DATA.whatsapp}
+          icon={<WhatsApp />}
           sx={{
-            pt: 8,
-            borderTop: "1px solid rgba(255,255,255,0.05)",
-            display: "flex",
-            flexDirection: { xs: "column", md: "row" },
-            justifyContent: "space-between",
-            alignItems: "center",
-            gap: 2,
-            color: "text.secondary",
+            borderColor: alpha(designTokens.colors.accent.whatsapp, 0.4),
+            color: designTokens.colors.accent.whatsapp,
+            "&:hover": {
+              borderColor: designTokens.colors.accent.whatsapp,
+              bgcolor: alpha(designTokens.colors.accent.whatsapp, 0.1),
+            },
           }}
         >
-          <Typography variant="body2">
-            © {new Date().getFullYear()} {PROFILE_DATA.name}.
-          </Typography>
-          <Stack direction="row" spacing={3}>
-            <Typography
-              variant="body2"
-              component="a"
-              href="#"
-              sx={{ color: "inherit", textDecoration: "none" }}
-            >
-              Back to Top
-            </Typography>
-          </Stack>
+          WhatsApp
+        </CTAButton>
+      </Box>
+
+      <Box
+        sx={{
+          pt: 4,
+          borderTop: `1px solid ${designTokens.colors.border.card}`,
+          display: "flex",
+          flexDirection: { xs: "column", sm: "row" },
+          justifyContent: "space-between",
+          alignItems: "center",
+          gap: 1.5,
+        }}
+      >
+        <Typography sx={{ color: designTokens.colors.text.muted, fontSize: "0.8rem" }}>
+          © {new Date().getFullYear()} {PROFILE_DATA.name}
+        </Typography>
+        <Box
+          component="a"
+          href="#about"
+          sx={{
+            color: designTokens.colors.text.muted,
+            textDecoration: "none",
+            fontSize: "0.8rem",
+            "&:hover": { color: designTokens.colors.text.secondary },
+          }}
+        >
+          Back to Top ↑
         </Box>
-      </Container>
-    </Box>
-  );
-};
+      </Box>
+    </Container>
+  </Box>
+);
+
+/* =============================================================================
+   MAIN EXPORT
+============================================================================= */
 
 export default function TCSinterviewAssistantAI() {
   return (
@@ -1326,20 +1265,30 @@ export default function TCSinterviewAssistantAI() {
       <CssBaseline />
       <GlobalStyles
         styles={`
-          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-          html { scroll-behavior: smooth; }
-          body { 
-            background-color: ${designTokens.colors.bg.primary};
-            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E");
+          @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap');
+          
+          * { box-sizing: border-box; }
+          
+          html { 
+            scroll-behavior: smooth; 
+            scroll-padding-top: 70px;
           }
-          ::selection { background: ${alpha(
-            designTokens.colors.accent.primary,
-            0.3
-          )}; color: white; }
+          
+          body { 
+            background-color: #0A0A0B;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+          }
+          
+          ::selection { 
+            background: rgba(16, 185, 129, 0.3); 
+            color: #FFF; 
+          }
+          
           ::-webkit-scrollbar { width: 6px; }
-          ::-webkit-scrollbar-track { background: transparent; }
-          ::-webkit-scrollbar-thumb { background: #333; borderRadius: 4px; }
-          ::-webkit-scrollbar-thumb:hover { background: #555; }
+          ::-webkit-scrollbar-track { background: #0A0A0B; }
+          ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+          ::-webkit-scrollbar-thumb:hover { background: #444; }
         `}
       />
       <Navbar />
