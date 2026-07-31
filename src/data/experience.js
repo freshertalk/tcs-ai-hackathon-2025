@@ -1,147 +1,203 @@
 // src/data/experience.js
-// Clients anonymized. Keep responsibilities and impact accurate.
+// Sourced from the current résumé. Client naming follows the résumé:
+// named where the résumé names them, descriptive where it does not.
+
 const EXPERIENCE = [
   {
+    company: "IBM India Pvt. Ltd.",
+    role: "Package Consultant — SAP BTP",
+    period: "Jan 2026 — Present · Noida",
+    blurb:
+      "SAP BTP solution architecture and technical leadership for enterprise digital transformation across manufacturing, procurement, finance, sales, commercial and supply chain.",
+    items: [
+      {
+        title: "Enterprise SAP BTP digital transformation programme",
+        client: "Pidilite Industries Limited",
+        time: "Jan 2026 — Present · Solution architect · Chemical manufacturing",
+        points: [
+          "Lead architecture and delivery across 9 concurrent initiatives — 7 AMS and 2 development projects",
+          "Architect CAPM and Fiori/UI5 applications on BTP aligned to Clean Core principles",
+          "Design secure integrations with REST, OData V2/V4, Event Mesh and Integration Suite",
+          "Run architecture reviews, design workshops, estimation, impact analysis and release planning",
+          "Mentor teams on Clean Architecture, SOLID, reusable patterns and secure development",
+          "Drive AI-assisted delivery with GitHub Copilot, Claude Code, SAP Joule and prompt engineering",
+        ],
+        tags: [
+          "SAP BTP",
+          "CAPM",
+          "Fiori/UI5",
+          "HANA Cloud",
+          "Event Mesh",
+          "Integration Suite",
+        ],
+      },
+    ],
+  },
+  {
     company: "Tata Consultancy Services",
-    role: "Assistant Consultant",
-    period: "Aug 2022 — Present · Varanasi",
+    role: "Assistant Consultant / SAP BTP Team Lead",
+    period: "Aug 2022 — Jan 2026",
+    blurb:
+      "SAP BTP and Fiori/UI5 delivery across enterprise healthcare and technology transformation, leading development teams through Agile cycles.",
     items: [
       {
-        title: "Digital transformation",
-        client: "Major Pharma Industry · USA",
-        time: "May 2024 — Present · Team lead · Healthcare",
+        title: "Global MedTech digital transformation platform",
+        client: "Leading US-based medical devices enterprise",
+        time: "May 2024 — Jan 2026 · SAPUI5 / Fiori team lead · Healthcare",
         points: [
-          "Fiori-compliant UI5 apps on BTP with real-time OData flows",
-          "Rapid prototyping with sprint demos to stakeholders",
-          "Quality with Git and CI and secure defaults",
+          "Led Fiori/UI5 development for healthcare modernisation supporting critical MedTech operations",
+          "Built responsive UI5 apps to Fiori design guidelines, integrated with OData for real-time data",
+          "Used Neptune P9 to accelerate prototyping and low-code delivery",
+          "Ran sprint planning, estimation, backlog refinement, code reviews and production deployments",
         ],
-        tags: ["SAP UI5", "Fiori", "BTP", "Node.js", "OData"],
+        tags: ["SAP UI5", "Fiori", "BTP", "OData", "Neptune P9", "Git"],
       },
       {
-        title: "Solutions and innovation",
-        client: "Enterprise software lab · India",
-        time: "Sep 2022 — Apr 2024 · Developer · Hi-tech",
+        title: "Solution & innovation experience project",
+        client: "SAP SE, Bengaluru",
+        time: "Sep 2022 — Apr 2024 · BTP / UI5 developer · Hi-tech",
         points: [
-          "Node.js and UI5 prototypes on BTP to showcase product capabilities",
-          "MVP per sprint and multi-environment maintenance",
+          "Built enterprise prototypes supporting pre-sales and customer demonstrations",
+          "Developed UI5 and Node.js applications on SAP BTP integrating platform services and OData APIs",
+          "Delivered MVPs and proofs-of-concept with cross-functional teams",
         ],
-        tags: ["Node.js", "SAP UI5", "BTP", "OData"],
+        tags: ["SAP BTP", "Node.js", "SAP UI5", "OData"],
       },
     ],
   },
   {
-    company: "IBM India",
-    role: "Application Consultant",
+    company: "IBM India Pvt. Ltd.",
+    role: "Application Consultant / SAP UI5 & Fiori Developer",
     period: "Jan 2020 — Aug 2022",
+    blurb:
+      "UI5 and Fiori application development across healthcare, aerospace and human resource management.",
     items: [
       {
-        title: "Cloud HR benefits and claims",
-        client: "Leading healthcare group · Singapore",
-        time: "Mar 2022 — Aug 2022 · Developer · Healthcare",
+        title: "Cloud HR benefits & claims platform",
+        client: "Leading Asia-Pacific healthcare network, Singapore",
+        time: "Mar 2022 — Aug 2022 · UI5 / Fiori developer · Healthcare",
         points: [
-          "UI5 modules and BTP integrations for cloud HR workflows",
-          "Sprint MVP delivery",
+          "Built UI5 applications for cloud HR benefits and claims management",
+          "Designed responsive interfaces integrated with SAP BTP and OData services",
         ],
-        tags: ["UI5", "BTP", "OData"],
+        tags: ["SAP UI5", "BTP", "OData"],
       },
       {
-        title: "S/4HANA returns transition",
-        client: "Leading aerospace enterprise · Canada",
-        time: "Sep 2021 — Feb 2022 · Developer · Aerospace",
+        title: "Aerospace operations transition platform",
+        client: "Leading North American aerospace manufacturer, Canada",
+        time: "Sep 2021 — Feb 2022 · UI5 / Fiori developer · Aerospace",
         points: [
-          "Custom UI5 return process with CDS and OData",
-          "UAT defect closure and UTD artifacts",
+          "Developed custom Fiori applications for return management processes during S/4HANA transition",
+          "Resolved UAT defects, stabilised production releases and authored technical documentation",
         ],
-        tags: ["UI5", "WorkZone", "CDS"],
+        tags: ["SAP UI5", "Fiori", "S/4HANA"],
       },
       {
-        title: "Contractor resource management",
-        client: "Fortune 100 CIO organization",
-        time: "Sep 2020 — Sep 2021 · Developer · HRMS",
+        title: "Contractor Resource Management System (CRMS)",
+        client: "IBM internal — Fortune 100 CIO organisation",
+        time: "Sep 2020 — Sep 2021 · Application developer · HRMS",
         points: [
-          "Lifecycle workflows from onboarding to offboarding",
-          "Launchpad configuration and UI customization",
+          "Built HR applications managing the lifecycle of 20,000+ contractor resources",
+          "Delivered UI5 enhancements, Fiori Launchpad configuration and OData integrations",
         ],
-        tags: ["UI5", "OData", "Neo"],
+        tags: ["SAP UI5", "Launchpad", "OData"],
       },
       {
-        title: "Self-service password reset",
-        client: "Internal initiative",
-        time: "Apr 2020 — Aug 2020 · Solo",
-        points: ["UI5 plus OData proof of concept to MVP"],
-        tags: ["UI5", "OData"],
+        title: "Self-service password reset application",
+        client: "IBM internal initiative",
+        time: "Apr 2020 — Aug 2020 · Solo build",
+        points: [
+          "Designed and delivered an end-to-end UI5 application for secure SAP password resets",
+          "Owned requirements, architecture, development, testing and deployment",
+        ],
+        tags: ["SAP UI5", "Web IDE"],
       },
     ],
   },
   {
-    company: "Cognizant",
-    role: "Associate — Projects",
-    period: "Mar 2019 — Dec 2019 · Bengaluru",
+    company: "Cognizant · Mindtree · Wipro",
+    role: "Associate / Senior Software Engineer / Project Engineer",
+    period: "Sep 2015 — Dec 2019 · Bengaluru",
+    blurb:
+      "Enterprise Java and microservices development across telecommunications, automotive, cybersecurity, IoT and infrastructure.",
     items: [
       {
-        title: "TDM portal for B2C and B2B",
-        client: "Major telecom operator · Australia",
+        title: "Telecom data management portal",
+        client: "Leading Australian telecommunications provider · Cognizant",
+        time: "May 2019 — Dec 2019 · Java full-stack developer",
         points: [
-          "Microservices for data automation and test orchestration",
-          "Service and database design with unit tests",
+          "Built microservices for automated telecom data management and test execution",
+          "Designed backend services with Java 8, Spring Boot and REST APIs",
+          "Contributed to architecture, estimation, code reviews and production support",
         ],
-        tags: ["Microservices", "React"],
+        tags: ["Java 8", "Spring Boot", "Microservices", "React"],
       },
-    ],
-  },
-  {
-    company: "Mindtree",
-    role: "Senior Software Engineer",
-    period: "Jul 2018 — Mar 2019 · Bengaluru",
-    items: [
       {
-        title: "Revenue management program",
-        client: "Global travel and transport provider",
+        title: "Revenue management system",
+        client: "Global car rental & mobility provider, UK · Mindtree",
+        time: "Feb 2019 — Mar 2019 · Senior developer",
         points: [
-          "Security fixes for XSS and SQLi and log forging",
-          "Refactored core utilities",
+          "Implemented security fixes for XSS, SQL injection and log forging",
+          "Built reusable Java utilities and refactored components for maintainability",
         ],
-        tags: ["Security", "Refactoring"],
+        tags: ["Java", "Security", "Refactoring"],
       },
       {
-        title: "DC index cache performance",
-        client: "Global travel and transport provider",
+        title: "Direct Connect index cache enhancement",
+        client: "Global car rental & mobility provider, UK · Mindtree",
+        time: "Jul 2018 — Jan 2019 · Senior developer",
         points: [
-          "Cache intelligence from POC to delivery",
-          "Messaging and coherence optimizations",
+          "Designed cache management enhancements with Oracle Coherence and ActiveMQ",
+          "Delivered end-to-end from proof-of-concept through performance improvements",
         ],
-        tags: ["Caching", "Performance"],
-      },
-    ],
-  },
-  {
-    company: "Wipro",
-    role: "Project Engineer",
-    period: "Sep 2015 — Jul 2018 · Bengaluru",
-    items: [
-      {
-        title: "Building management with Haystack API",
-        client: "Global semiconductor and IoT leader",
-        points: ["Java API for standardized inputs and downstream operations"],
-        tags: ["Spring MVC", "REST"],
+        tags: ["Oracle Coherence", "ActiveMQ", "Performance"],
       },
       {
-        title: "Converged infrastructure management",
-        client: "Enterprise infrastructure provider",
+        title: "Building management platform — Haystack integration",
+        client: "Global semiconductor leader · Wipro",
+        time: "Jun 2018 — Jul 2018 · Developer · IoT",
         points: [
-          "Automation for servers and storage and networking with modern management architecture",
+          "Developed Java REST APIs for Haystack integration in IoT building management",
+          "Implemented backend services for standardised data processing and automation",
         ],
-        tags: ["Automation", "Infrastructure"],
+        tags: ["Java", "REST", "IoT"],
       },
       {
-        title: "Security management system",
-        client: "Global security solutions provider",
-        points: ["Development and code review and vulnerability fixes"],
-        tags: ["SAST", "Code review"],
+        title: "Converged IT infrastructure management & automation",
+        client: "Global enterprise IT provider, Houston USA · Wipro",
+        time: "Feb 2017 — May 2018 · Developer",
+        points: [
+          "Built applications automating server, storage and network operations",
+          "Designed backend components with Java, Spring MVC, Hibernate and REST",
+        ],
+        tags: ["Spring MVC", "Hibernate", "Automation"],
+      },
+      {
+        title: "Enterprise security management system",
+        client: "Global cybersecurity provider, Austin USA · Wipro",
+        time: "Oct 2015 — Feb 2017 · Developer",
+        points: [
+          "Developed solutions for network security and threat management",
+          "Ran security analysis with HPE Fortify and remediated vulnerabilities to enterprise standards",
+        ],
+        tags: ["HPE Fortify", "Secure SDLC", "Code review"],
       },
     ],
   },
 ];
 
-export { EXPERIENCE };
+const INITIATIVE = {
+  name: "BTP Learning Hub",
+  role: "Founder & Developer",
+  period: "Feb 2026 — Present",
+  url: "https://btplearninghub.com",
+  points: [
+    "A knowledge-sharing platform on SAP BTP, CAPM, Fiori/UI5, AI-assisted development and enterprise architecture",
+    "Built end-to-end on the MERN stack — React, Node.js, Express and MongoDB",
+    "Publishing blogs, tutorials and training content for the SAP developer community",
+  ],
+  tags: ["React", "Node.js", "Express", "MongoDB"],
+};
+
+export { EXPERIENCE, INITIATIVE };
 export default EXPERIENCE;

@@ -52,7 +52,8 @@ import { motion, AnimatePresence } from "framer-motion";
 // --- ASSETS ---
 import logo from "../assets/logo.avif";
 import photo from "../assets/v.avif";
-import resumePDF from "../assets/Resume- VinayKumarTiwari.pdf";
+// Résumé now lives in /public so it can be linked and downloaded directly.
+const resumePDF = `${process.env.PUBLIC_URL}/Vinay-Kumar-Tiwari-Resume.docx`;
 
 /* =============================================================================
    DATA

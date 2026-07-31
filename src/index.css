@@ -1,13 +1,10 @@
-body {
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
+/* Base styles live in src/styles/site.css
+   NOTE: scroll-behavior is deliberately NOT set to `smooth` here.
+   The JS scroll engine calls window.scrollTo() every frame; with CSS smooth
+   scrolling the browser would animate toward each of those calls, so
+   window.scrollY would lag far behind the engine and the page would barely
+   move. Anchor jumps pass { behavior: "smooth" } explicitly instead. */
+html { scroll-behavior: auto; }
 
-code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
-}
+/* When JS is unavailable, restore CSS smoothness for in-page anchors. */
+html.no-js { scroll-behavior: smooth; }
