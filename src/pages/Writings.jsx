@@ -3,6 +3,7 @@ import React, { useEffect } from "react";
 
 import Nav from "../components/site/Nav";
 import Footer from "../components/site/Footer";
+import ScrollTop from "../components/site/ScrollTop";
 import Marquee from "../components/site/Marquee";
 
 import Hero from "../sections/write/Hero";
@@ -15,7 +16,9 @@ import Contact from "../sections/write/Contact";
 import { BOOK, AUTHOR } from "../data/books";
 
 const LINKS = [
-  { id: "novel", label: "उपन्यास" },
+  // "उपन्यास" returns to the very top — the intro chips and the title are
+  // part of the introduction, same as "About" on the technical page.
+  { id: "top", label: "उपन्यास" },
   { id: "synopsis", label: "कहानी" },
   { id: "themes", label: "विषय" },
   { id: "author", label: "लेखक" },
@@ -55,6 +58,7 @@ export default function Writings() {
         note="दो कुल्हड़ चाय · एक उपन्यास"
         switchTo={{ href: "/technical", label: "Technical" }}
       />
+      <ScrollTop />
     </div>
   );
 }

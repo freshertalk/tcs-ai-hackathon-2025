@@ -10,7 +10,7 @@ export const BOOK = {
   kind: "उपन्यास · Novel",
   language: "हिन्दी",
   status: "पहला उपन्यास · Debut novel",
-  byline: "विनय कुमार तिवारी (दो कुल्हड़ चाय)",
+  byline: "विनय कुमार तिवारी",
   bylineRoman: "Vinay Kumar Tiwari",
 
   // Facts shown in the cover / spec block.

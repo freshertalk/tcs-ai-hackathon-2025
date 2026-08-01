@@ -3,6 +3,7 @@ import React, { useEffect } from "react";
 
 import Nav from "../components/site/Nav";
 import Footer from "../components/site/Footer";
+import ScrollTop from "../components/site/ScrollTop";
 import Marquee from "../components/site/Marquee";
 import Assistant from "../components/site/Assistant";
 
@@ -74,6 +75,7 @@ export default function Technical() {
       </main>
 
       <Footer switchTo={{ href: "/writings", label: "Writings" }} />
+      <ScrollTop />
     </div>
   );
 }

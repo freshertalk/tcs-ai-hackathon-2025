@@ -12,7 +12,7 @@ const EXPERIENCE = [
     items: [
       {
         title: "Enterprise SAP BTP digital transformation programme",
-        client: "Pidilite Industries Limited",
+        client: "Leading Indian chemical & adhesives manufacturer",
         time: "Jan 2026 — Present · Solution architect · Chemical manufacturing",
         points: [
           "Lead architecture and delivery across 9 concurrent initiatives — 7 AMS and 2 development projects",
@@ -54,7 +54,7 @@ const EXPERIENCE = [
       },
       {
         title: "Solution & innovation experience project",
-        client: "SAP SE, Bengaluru",
+        client: "Global enterprise software vendor — innovation centre, Bengaluru",
         time: "Sep 2022 — Apr 2024 · BTP / UI5 developer · Hi-tech",
         points: [
           "Built enterprise prototypes supporting pre-sales and customer demonstrations",

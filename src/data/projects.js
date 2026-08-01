@@ -25,7 +25,7 @@ const PROJECTS = [
   {
     year: 2022,
     name: "Solution & innovation experience",
-    badge: "SAP SE",
+    badge: "Enterprise software vendor",
     desc: "Enterprise prototypes and MVPs on BTP supporting pre-sales and customer demonstrations",
     tags: ["SAP BTP", "Node.js", "UI5"],
   },

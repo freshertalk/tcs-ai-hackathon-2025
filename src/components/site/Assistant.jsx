@@ -34,7 +34,7 @@ const KB = [
     a: `${YEARS}+ years across Wipro, Mindtree, Cognizant, TCS and IBM. Currently ${EXPERIENCE[0].role} at ${EXPERIENCE[0].company} (${EXPERIENCE[0].period}), leading solution architecture across 9 concurrent SAP transformation initiatives — 7 AMS and 2 development projects.`,
   },
   {
-    k: ["project", "built", "portfolio", "delivered", "shipped", "pidilite", "medtech", "amount of work"],
+    k: ["project", "built", "portfolio", "delivered", "shipped", "medtech", "clients", "amount of work"],
     a: `Selected work: ${PROJECTS.slice(0, 5).map((p) => `${p.name} (${p.year}, ${p.badge})`).join("; ")} — plus earlier Java and microservices builds in telecom, IoT, infrastructure and cybersecurity.`,
   },
   {

@@ -1218,12 +1218,42 @@ h4 {
   color: var(--ink-2);
   white-space: nowrap;
 }
+/* the inline portrait only exists on narrow screens */
+.thero__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: clamp(12px, 3vw, 32px);
+}
+.thero__row .hero__title {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+.hero__portrait--inline {
+  display: none;
+  flex: none;
+  width: clamp(112px, 30vw, 190px);
+  border-radius: 120px 120px var(--r) var(--r);
+}
+
 @media (max-width: 1100px) {
   .hero__layout {
     grid-template-columns: 1fr;
   }
-  .hero__portrait {
+  .hero__portrait--col {
     display: none;
+  }
+  .hero__portrait--inline {
+    display: block;
+  }
+  /* "Architect" wraps under "Solution" so the photo has room */
+  .thero__word {
+    display: inline-block;
+  }
+}
+@media (max-width: 560px) {
+  .thero__word {
+    display: block;
   }
 }
 
@@ -1382,6 +1412,10 @@ h4 {
 }
 
 /* दो कुल्हड़ — two cups sitting beside the title, at every size */
+.whero {
+  width: 100%;
+  min-width: 0;
+}
 .whero__row {
   display: flex;
   align-items: center;
@@ -3430,6 +3464,40 @@ h4 {
   gap: 8px 20px;
 }
 
+/* ------------------------------------------------------- back to top */
+.totop {
+  position: fixed;
+  right: max(18px, env(safe-area-inset-right));
+  bottom: max(18px, env(safe-area-inset-bottom));
+  z-index: 880;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--ink);
+  border: 1px solid var(--line-2);
+  background: color-mix(in srgb, var(--paper) 86%, transparent);
+  backdrop-filter: blur(12px) saturate(1.3);
+  -webkit-backdrop-filter: blur(12px) saturate(1.3);
+  box-shadow: var(--shadow);
+  transition: background 0.35s var(--ease), color 0.35s var(--ease),
+    border-color 0.35s var(--ease);
+}
+.totop:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+@media (pointer: coarse) {
+  .totop {
+    width: 48px;
+    height: 48px;
+    right: max(14px, env(safe-area-inset-right));
+    bottom: max(14px, env(safe-area-inset-bottom));
+  }
+}
+
 /* =========================================================================
    Touch / motion / responsive refinements
    ========================================================================= */
@@ -3570,12 +3638,40 @@ h4 {
     min-height: auto;
     padding-block: calc(var(--nav-h) + 26px) 46px;
   }
+  /* stats become a bordered 2×2 card so the labels stop looking like
+     loose fragments floating under the numbers */
   .hero__stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 18px 14px;
+    gap: 1px;
+    margin-top: 26px;
+    background: var(--line);
+    border: 1px solid var(--line);
+    border-radius: var(--r);
+    overflow: hidden;
+  }
+  .hero__stats > * {
+    background: var(--paper);
+    padding: 14px 15px;
   }
   .stat__l {
     max-width: none;
+    font-size: 0.55rem;
+    letter-spacing: 0.12em;
+  }
+  .stat__n {
+    font-size: 1.85rem;
+  }
+
+  /* full-width, thumb-friendly buttons */
+  .hero__actions {
+    gap: 10px;
+  }
+  .hero__actions > * {
+    width: 100%;
+  }
+  .hero__actions .btn {
+    width: 100%;
+    justify-content: center;
   }
 
   /* the hero chips: smallest they can be and still read */
@@ -3642,6 +3738,75 @@ h4 {
   .syn__card {
     padding: 20px;
   }
+
+  /* ---- technical page ---- */
+  .hub__cta {
+    padding: 26px 22px;
+    border-radius: var(--r-lg);
+  }
+  .hub__cta .btn {
+    width: 100%;
+    justify-content: center;
+  }
+  .hub__actions > *,
+  .hub__actions .btn {
+    width: 100%;
+    justify-content: center;
+  }
+  .hub__tagline {
+    padding-left: 14px;
+  }
+  .browser__page {
+    padding: 20px;
+  }
+  .xp__aside {
+    padding-bottom: 4px;
+  }
+  .xp__counter {
+    font-size: 3rem;
+  }
+  .xp__item {
+    padding: 17px 16px;
+  }
+  .pj__row {
+    grid-template-columns: 46px minmax(0, 1fr) 34px;
+    gap: 12px;
+  }
+  .pj__go {
+    width: 34px;
+    height: 34px;
+  }
+  .about__meta,
+  .novel__facts,
+  .hub__stats {
+    border-radius: var(--r);
+  }
+  .ct__row {
+    gap: 18px 16px;
+  }
+  .sapviz__barTxt,
+  .browser__url {
+    font-size: 0.54rem;
+  }
+
+  /* ---- writings page ---- */
+  .author__plate {
+    padding: 14px;
+  }
+  .cover__face {
+    padding: 22px;
+  }
+  .syn__hint {
+    padding-right: 4px;
+  }
+  .author__row {
+    flex-direction: column;
+    gap: 2px;
+  }
+  .author__row b {
+    min-width: 0;
+    padding-top: 0;
+  }
 }
 
 @media (max-width: 400px) {
@@ -3649,11 +3814,11 @@ h4 {
   .nav__brand > span:last-child {
     font-size: 0.88rem;
   }
-  .hero__stats {
-    gap: 16px 12px;
-  }
   .stat__n {
-    font-size: 1.7rem;
+    font-size: 1.6rem;
+  }
+  .hero__stats > * {
+    padding: 12px;
   }
 }
 

@@ -73,7 +73,7 @@ export function MaskLine({ children, delay = 0, duration = 1.05, className = "" 
 }
 
 /* ------------------------------------------------------------------ */
-/* SplitWords — word-by-word masked reveal (the Pidilite headline move) */
+/* SplitWords — word-by-word masked headline reveal                    */
 /* ------------------------------------------------------------------ */
 export function SplitWords({
   text,

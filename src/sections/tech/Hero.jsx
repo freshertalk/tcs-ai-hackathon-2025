@@ -56,12 +56,34 @@ export default function Hero() {
               </Reveal>
             </div>
 
-            <h1 className="hero__title">
-              <MaskLine delay={0.06}>SAP BTP</MaskLine>
-              <MaskLine delay={0.15}>
-                Solution <span className="amp">Architect</span>
-              </MaskLine>
-            </h1>
+            {/* On phones the portrait sits beside the title, so "Architect"
+                drops to its own line to make room. */}
+            <div className="thero__row">
+              <h1 className="hero__title">
+                <MaskLine delay={0.06}>SAP BTP</MaskLine>
+                <MaskLine delay={0.15}>
+                  Solution{" "}
+                  <span className="amp thero__word">Architect</span>
+                </MaskLine>
+              </h1>
+
+              <motion.div
+                className="hero__portrait hero__portrait--inline"
+                initial={{ opacity: 0, clipPath: "inset(100% 0 0 0)" }}
+                animate={{ opacity: 1, clipPath: "inset(0% 0 0 0)" }}
+                transition={{ duration: 1.2, delay: 0.5, ease: [0.16, 1, 0.3, 1] }}
+              >
+                <Picture
+                  name="vinay-portrait"
+                  smallName="vinay-portrait-sm"
+                  sizes="180px"
+                  alt="Vinay Kumar Tiwari"
+                  width="1000"
+                  height="1250"
+                  loading="eager"
+                />
+              </motion.div>
+            </div>
 
             <p className="hero__blurb">
               <SplitWords
@@ -122,9 +144,9 @@ export default function Hero() {
             </Reveal>
           </div>
 
-          {/* --------------------------------------------- portrait column */}
+          {/* ------------------------- portrait column (wide screens only) */}
           <motion.div
-            className="hero__portrait"
+            className="hero__portrait hero__portrait--col"
             initial={{ opacity: 0, clipPath: "inset(100% 0 0 0)" }}
             animate={{ opacity: 1, clipPath: "inset(0% 0 0 0)" }}
             transition={{ duration: 1.3, delay: 0.45, ease: [0.16, 1, 0.3, 1] }}

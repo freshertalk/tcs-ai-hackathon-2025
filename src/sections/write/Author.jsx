@@ -9,7 +9,7 @@ import {
   Arrow,
 } from "../../components/ui/motion";
 import Picture from "../../components/ui/Picture";
-import { AUTHOR } from "../../data/books";
+import { AUTHOR, BOOK } from "../../data/books";
 
 export default function Author() {
   return (
@@ -64,7 +64,9 @@ export default function Author() {
             <Reveal delay={0.2}>
               <blockquote className="author__motto">
                 <p>“{AUTHOR.motto}”</p>
-                <cite className="author__mottoBy">— {AUTHOR.name}</cite>
+                <cite className="author__mottoBy">
+                  — {AUTHOR.name} ({BOOK.title})
+                </cite>
               </blockquote>
             </Reveal>
 
