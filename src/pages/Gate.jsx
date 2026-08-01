@@ -17,6 +17,7 @@ import {
 } from "framer-motion";
 import { Reveal, MaskLine, SplitWords, Arrow, EASE } from "../components/ui/motion";
 import Picture from "../components/ui/Picture";
+import Seo from "../components/seo/Seo";
 import Kulhad from "../components/site/Kulhad";
 import { PROFILE, YEARS } from "../data/profile";
 import { BOOK } from "../data/books";
@@ -120,7 +121,6 @@ export default function Gate() {
   );
 
   useEffect(() => {
-    document.title = "Vinay Kumar Tiwari — Engineer & Author";
     document
       .querySelector('meta[name="theme-color"]')
       ?.setAttribute("content", "#0d1014");
@@ -172,6 +172,7 @@ export default function Gate() {
 
   return (
     <div className="gate" data-theme="gate" ref={rootRef} onPointerMove={onMove}>
+      <Seo page="home" />
       {/* ------------------------------------------------------ backdrop */}
       <div className="gate__bg" aria-hidden="true">
         <div className="gate__grid" />

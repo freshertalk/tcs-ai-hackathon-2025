@@ -4,6 +4,7 @@ import React, { useEffect } from "react";
 import Nav from "../components/site/Nav";
 import Footer from "../components/site/Footer";
 import ScrollTop from "../components/site/ScrollTop";
+import Seo from "../components/seo/Seo";
 import Marquee from "../components/site/Marquee";
 
 import Hero from "../sections/write/Hero";
@@ -29,7 +30,6 @@ const TICKER = BOOK.quotes.map((q, i) => ({ text: q, hl: i % 2 === 1 }));
 
 export default function Writings() {
   useEffect(() => {
-    document.title = "दो कुल्हड़ चाय — विनय कुमार तिवारी";
     document
       .querySelector('meta[name="theme-color"]')
       ?.setAttribute("content", "#faf4e9");
@@ -37,6 +37,7 @@ export default function Writings() {
 
   return (
     <div data-theme="write">
+      <Seo page="writings" />
       <Nav
         links={LINKS}
         kicker="Writings · लेखन"

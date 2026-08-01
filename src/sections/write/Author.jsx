@@ -41,7 +41,7 @@ export default function Author() {
                 name="vinay-portrait"
                 smallName="vinay-portrait-sm"
                 sizes="(max-width: 940px) 90vw, 400px"
-                alt={AUTHOR.nameRoman}
+                alt={`${AUTHOR.name} — ${AUTHOR.nameRoman}, लेखक · ${BOOK.title}`}
                 width="1000"
                 height="1250"
               />

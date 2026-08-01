@@ -4,6 +4,7 @@ import React, { useEffect } from "react";
 import Nav from "../components/site/Nav";
 import Footer from "../components/site/Footer";
 import ScrollTop from "../components/site/ScrollTop";
+import Seo from "../components/seo/Seo";
 import Marquee from "../components/site/Marquee";
 import Assistant from "../components/site/Assistant";
 
@@ -46,7 +47,6 @@ const TICKER = [
 
 export default function Technical() {
   useEffect(() => {
-    document.title = "Vinay Kumar Tiwari — SAP BTP Solution Architect";
     document
       .querySelector('meta[name="theme-color"]')
       ?.setAttribute("content", "#f4f5f7");
@@ -54,6 +54,7 @@ export default function Technical() {
 
   return (
     <div data-theme="tech">
+      <Seo page="technical" />
       <Nav
         links={LINKS}
         kicker="Technical portfolio"

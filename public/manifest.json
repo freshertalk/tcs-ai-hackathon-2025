@@ -1,15 +1,41 @@
 {
   "short_name": "Vinay Tiwari",
-  "name": "Vinay Kumar Tiwari — Engineer & Author",
-  "description": "Senior software engineer (SAP BTP · UI5 / Fiori · CAPM · GenAI) and author of the Hindi novel दो कुल्हड़ चाय.",
+  "name": "Vinay Kumar Tiwari — SAP BTP Solution Architect & Hindi Author",
+  "description": "Vinay Kumar Tiwari (विनय कुमार तिवारी) — SAP BTP Solution Architect (CAPM, Fiori/UI5, HANA Cloud, Clean Core), founder of BTP Learning Hub, and author of the Hindi novel दो कुल्हड़ चाय (Do Kulhad Chai).",
   "icons": [
-    { "src": "favicon.ico", "sizes": "16x16 32x32 48x48 64x64", "type": "image/x-icon" },
-    { "src": "apple-touch-icon.png", "type": "image/png", "sizes": "180x180" },
-    { "src": "logo192.png", "type": "image/png", "sizes": "192x192" },
-    { "src": "logo512.png", "type": "image/png", "sizes": "512x512", "purpose": "any maskable" }
+    {
+      "src": "favicon.ico",
+      "sizes": "16x16 32x32 48x48 64x64",
+      "type": "image/x-icon"
+    },
+    {
+      "src": "apple-touch-icon.png",
+      "type": "image/png",
+      "sizes": "180x180"
+    },
+    {
+      "src": "logo192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "logo512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
   ],
-  "start_url": ".",
+  "start_url": "/",
   "display": "standalone",
-  "theme_color": "#0B0907",
-  "background_color": "#0B0907"
+  "theme_color": "#0D1014",
+  "background_color": "#0D1014",
+  "scope": "/",
+  "id": "/",
+  "lang": "en-IN",
+  "dir": "ltr",
+  "categories": [
+    "business",
+    "education",
+    "books"
+  ]
 }

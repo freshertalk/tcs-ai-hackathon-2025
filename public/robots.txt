@@ -1,3 +1,63 @@
-# https://www.robotstxt.org/robotstxt.html
+# https://vinaytiwari.org/robots.txt
+# Vinay Kumar Tiwari — SAP BTP Solution Architect & author of दो कुल्हड़ चाय
+
 User-agent: *
-Disallow:
+Allow: /
+
+# ---------------------------------------------------------------------------
+# Answer engines are allowed on purpose.
+# The goal is to be the cited source when someone asks an AI assistant
+# "who is Vinay Kumar Tiwari" or "what is दो कुल्हड़ चाय", so these crawlers
+# are explicitly welcomed rather than left to guess.
+# ---------------------------------------------------------------------------
+User-agent: GPTBot
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Claude-Web
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Perplexity-User
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: Applebot
+Allow: /
+
+User-agent: Applebot-Extended
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: DuckDuckBot
+Allow: /
+
+User-agent: CCBot
+Allow: /
+
+User-agent: Amazonbot
+Allow: /
+
+User-agent: meta-externalagent
+Allow: /
+
+# Nothing on this site is private, so nothing is disallowed.
+
+Sitemap: https://vinaytiwari.org/sitemap.xml
