@@ -10,7 +10,7 @@ export const BOOK = {
   kind: "उपन्यास · Novel",
   language: "हिन्दी",
   status: "पहला उपन्यास · Debut novel",
-  byline: "विनय कुमार तिवारी",
+  byline: "विनय कुमार तिवारी (दो कुल्हड़ चाय)",
   bylineRoman: "Vinay Kumar Tiwari",
 
   // Facts shown in the cover / spec block.
@@ -28,6 +28,7 @@ export const BOOK = {
   ],
 
   factsQuote: "“कुछ कहानियाँ लोग नहीं लिखते। उन्हें बारिश लिखती है।”",
+  factsQuoteAttrib: "— विनय कुमार तिवारी (दो कुल्हड़ चाय)",
 
   route: "कानपुर आउटर → लखनऊ जंक्शन → बनारस",
   span: "2015 — 2026 · ग्यारह साल",

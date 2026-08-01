@@ -74,6 +74,7 @@ export default function Novel() {
                 ))}
                 <div className="novel__fact novel__fact--quote">
                   <p>{BOOK.factsQuote}</p>
+                  <cite className="novel__fact-attrib">{BOOK.factsQuoteAttrib}</cite>
                 </div>
               </Reveal>
 
