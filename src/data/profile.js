@@ -21,7 +21,7 @@ const PROFILE = {
   company: "IBM India Pvt. Ltd.",
   designation: "Package Consultant — SAP BTP",
   location: "Noida | Ghazipur, India",
-  phone: "+91-9561520911",
+  phone: "+91-7392062233",
   email: "vinay.tiwari.sap@gmail.com",
   linkedin: "https://www.linkedin.com/in/vinay-tiwari-sap",
   website: "https://vinaytiwari.org",
