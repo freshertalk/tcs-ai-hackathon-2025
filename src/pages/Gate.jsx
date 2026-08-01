@@ -352,6 +352,10 @@ export default function Gate() {
           >
             LinkedIn
           </a>
+          {/* plain <a>, not <Link>: a static file must not be routed by React */}
+          <a className="tlink" href="/sitemap.xml">
+            Sitemap
+          </a>
         </span>
       </motion.footer>
     </div>

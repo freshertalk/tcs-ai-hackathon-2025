@@ -6,11 +6,18 @@
 // plain <script type="application/ld+json"> — valid anywhere in the document
 // and read by Google, Bing and the answer engines alike.
 
-import React from "react";
+import React, { useEffect } from "react";
 import { PAGES, SITE, graphFor, url } from "../../data/seo";
 
 export default function Seo({ page }) {
   const p = PAGES[page];
+
+  // React does not hoist an <html lang> attribute, so set it per route.
+  // The prerender script writes the same value into the static HTML.
+  useEffect(() => {
+    if (p) document.documentElement.lang = p.lang;
+  }, [p]);
+
   if (!p) return null;
 
   const canonical = url(p.path);
@@ -30,10 +37,12 @@ export default function Seo({ page }) {
       />
       <meta name="googlebot" content="index, follow, max-snippet:-1, max-image-preview:large" />
 
-      {/* both languages point at the same URLs — the site is bilingual, not translated */}
-      <link rel="alternate" hrefLang="en-IN" href={canonical} />
-      <link rel="alternate" hrefLang="hi-IN" href={canonical} />
-      <link rel="alternate" hrefLang="x-default" href={canonical} />
+      {/*
+        No hreflang. It is only for equivalent pages in different languages;
+        /technical (English) and /writings (Hindi) are different content, so
+        annotating them would produce "no return tag" errors in Search Console
+        for no gain. <html lang> above carries the language signal instead.
+      */}
 
       {/* Open Graph */}
       <meta property="og:type" content={page === "writings" ? "book" : "profile"} />

@@ -33,9 +33,9 @@ const BUILD = path.join(ROOT, "build");
 const SRC = path.join(ROOT, "src");
 
 const ROUTES = [
-  { url: "/", out: "index.html" },
-  { url: "/technical", out: path.join("technical", "index.html") },
-  { url: "/writings", out: path.join("writings", "index.html") },
+  { url: "/", out: "index.html", lang: "en" },
+  { url: "/technical", out: path.join("technical", "index.html"), lang: "en" },
+  { url: "/writings", out: path.join("writings", "index.html"), lang: "hi" },
 ];
 
 /* ------------------------------------------------ compile src/ for node */
@@ -129,6 +129,8 @@ function main() {
       const { head, body } = splitHeadAndBody(rendered);
 
       const html = template
+        // /writings is Hindi, the rest English — React cannot hoist this one
+        .replace(/<html([^>]*)\slang="[^"]*"/i, `<html$1 lang="${route.lang}"`)
         .replace("</head>", `${head}\n  </head>`)
         .replace('<div id="root"></div>', `<div id="root">${body}</div>`);
 

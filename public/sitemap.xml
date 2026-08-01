@@ -1,12 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
   Vinay Kumar Tiwari — vinaytiwari.org
-  Three real routes. Regenerate lastmod on each meaningful content change:
+  Three real routes. Update the lastmod dates on meaningful content changes only;
   Google discounts lastmod values it finds to be dishonest.
+
+  No hreflang here on purpose: /technical (English) and /writings (Hindi) are
+  different content, not translations of one another, and hreflang is only for
+  equivalent pages in different languages. Declaring it would earn "no return
+  tag" errors in Search Console for no benefit. A per-page html lang attribute
+  carries the language signal instead.
 -->
 <urlset
   xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
-  xmlns:xhtml="http://www.w3.org/1999/xhtml"
   xmlns:image="http://www.google.com/schemas/sitemap-image/1.1"
 >
   <url>
@@ -14,9 +19,6 @@
     <lastmod>2026-08-02</lastmod>
     <changefreq>monthly</changefreq>
     <priority>1.0</priority>
-    <xhtml:link rel="alternate" hreflang="en-IN" href="https://vinaytiwari.org/" />
-    <xhtml:link rel="alternate" hreflang="hi-IN" href="https://vinaytiwari.org/" />
-    <xhtml:link rel="alternate" hreflang="x-default" href="https://vinaytiwari.org/" />
     <image:image>
       <image:loc>https://vinaytiwari.org/og-image.jpg</image:loc>
       <image:title>Vinay Kumar Tiwari — SAP BTP Solution Architect and Hindi author</image:title>
@@ -28,8 +30,6 @@
     <lastmod>2026-08-02</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.9</priority>
-    <xhtml:link rel="alternate" hreflang="en-IN" href="https://vinaytiwari.org/technical" />
-    <xhtml:link rel="alternate" hreflang="x-default" href="https://vinaytiwari.org/technical" />
     <image:image>
       <image:loc>https://vinaytiwari.org/vinay-portrait.jpg</image:loc>
       <image:title>Vinay Kumar Tiwari, SAP BTP Solution Architect</image:title>
@@ -41,9 +41,6 @@
     <lastmod>2026-08-02</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.9</priority>
-    <xhtml:link rel="alternate" hreflang="hi-IN" href="https://vinaytiwari.org/writings" />
-    <xhtml:link rel="alternate" hreflang="en-IN" href="https://vinaytiwari.org/writings" />
-    <xhtml:link rel="alternate" hreflang="x-default" href="https://vinaytiwari.org/writings" />
     <image:image>
       <image:loc>https://vinaytiwari.org/og-image.jpg</image:loc>
       <image:title>दो कुल्हड़ चाय — विनय कुमार तिवारी का पहला हिन्दी उपन्यास</image:title>

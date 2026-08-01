@@ -26,6 +26,10 @@ export default function Footer({ note, switchTo }) {
           >
             btplearninghub.com
           </a>
+          {/* plain <a>, not <Link>: a static file must not be routed by React */}
+          <a className="tlink" href="/sitemap.xml">
+            Sitemap
+          </a>
         </span>
       </footer>
     </div>
