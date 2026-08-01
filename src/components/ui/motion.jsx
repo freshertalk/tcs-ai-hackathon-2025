@@ -62,8 +62,8 @@ export function MaskLine({ children, delay = 0, duration = 1.05, className = "" 
     <span className="reveal-mask" ref={ref}>
       <motion.span
         className={`reveal-line ${className}`}
-        initial={reduced ? false : { y: "110%" }}
-        animate={{ y: shown ? "0%" : "110%" }}
+        initial={reduced ? false : { y: "125%" }}
+        animate={{ y: shown ? "0%" : "125%" }}
         transition={{ duration, delay, ease: EASE }}
       >
         {children}

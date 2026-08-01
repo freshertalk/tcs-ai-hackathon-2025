@@ -11,13 +11,10 @@ export default function Contact() {
       <div className="ct__glow" aria-hidden="true" />
       <div className="shell">
         <Reveal>
-          <span className="eyebrow">{AUTHOR.connect.heading}</span>
+          <span className="eyebrow is-hi">{AUTHOR.connect.heading}</span>
         </Reveal>
 
-        <h2
-          className="h-display title-lg"
-          style={{ marginTop: 20, fontFamily: "var(--f-hi)" }}
-        >
+        <h2 className="h-display h-hi title-lg" style={{ marginTop: 20 }}>
           <MaskLine>कहानी पसंद आई?</MaskLine>
           <MaskLine delay={0.08}>
             <span className="ital">लिखिए।</span>
@@ -56,7 +53,7 @@ export default function Contact() {
 
         <div className="ct__row">
           <Reveal y={18}>
-            <div className="ct__k">वेबसाइट</div>
+            <div className="ct__k is-hi">वेबसाइट</div>
             <div className="ct__v">
               <a
                 href={AUTHOR.connect.website}
@@ -68,17 +65,17 @@ export default function Contact() {
             </div>
           </Reveal>
           <Reveal y={18} delay={0.06}>
-            <div className="ct__k">फ़ोन</div>
+            <div className="ct__k is-hi">फ़ोन</div>
             <div className="ct__v">
               <a href={`tel:${PROFILE.phone}`}>{PROFILE.phone}</a>
             </div>
           </Reveal>
           <Reveal y={18} delay={0.12}>
-            <div className="ct__k">निवास</div>
+            <div className="ct__k is-hi">निवास</div>
             <div className="ct__v hi">नोएडा · गाज़ीपुर, उत्तर प्रदेश</div>
           </Reveal>
           <Reveal y={18} delay={0.18}>
-            <div className="ct__k">भाषा</div>
+            <div className="ct__k is-hi">भाषा</div>
             <div className="ct__v hi">हिंदी · अंग्रेज़ी · भोजपुरी</div>
           </Reveal>
         </div>

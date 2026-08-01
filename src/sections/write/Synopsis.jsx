@@ -31,7 +31,7 @@ export default function Synopsis() {
 
   const head = (
     <>
-      <span className="eyebrow">कहानी</span>
+      <span className="eyebrow is-hi">कहानी</span>
       <h2 className="h-display title-md" style={{ marginTop: 12 }}>
         <MaskLine>ग्यारह साल, एक डिब्बा</MaskLine>
       </h2>

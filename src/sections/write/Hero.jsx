@@ -38,16 +38,16 @@ export default function Hero() {
           <div className="hero__col">
             <div className="hero__meta">
               <Reveal y={14}>
-                <span className="pill">
+                <span className="pill is-hi">
                   <i />
                   {BOOK.status}
                 </span>
               </Reveal>
               <Reveal y={14} delay={0.08}>
-                <span className="pill">{BOOK.kind}</span>
+                <span className="pill is-hi">{BOOK.kind}</span>
               </Reveal>
               <Reveal y={14} delay={0.16}>
-                <span className="pill">{BOOK.span}</span>
+                <span className="pill is-hi">{BOOK.span}</span>
               </Reveal>
             </div>
 
@@ -71,7 +71,7 @@ export default function Hero() {
                     <div className="stat__n">
                       <Counter to={s.to} suffix={s.suffix} />
                     </div>
-                    <div className="stat__l hi" style={{ letterSpacing: 0 }}>
+                    <div className="stat__l is-hi">
                       {s.label}
                     </div>
                   </div>

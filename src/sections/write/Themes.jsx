@@ -16,7 +16,7 @@ export default function Themes() {
         <div className="sec-head">
           <div>
             <Reveal>
-              <span className="eyebrow">विषय · Themes</span>
+              <span className="eyebrow is-hi">विषय · Themes</span>
             </Reveal>
             <h2 className="h-display title-lg">
               <MaskLine>What the book</MaskLine>
@@ -42,7 +42,7 @@ export default function Themes() {
 
         {/* ------------------------------------------------ other writing */}
         <Reveal style={{ marginTop: "clamp(52px, 7vw, 96px)" }}>
-          <span className="eyebrow">और भी</span>
+          <span className="eyebrow is-hi">और भी</span>
           <h3 className="h-display title-md" style={{ marginTop: 14 }}>
             Also on the desk
           </h3>

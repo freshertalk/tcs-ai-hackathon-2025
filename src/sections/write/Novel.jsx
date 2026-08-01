@@ -13,7 +13,7 @@ import {
 } from "../../components/ui/motion";
 import Kulhad from "../../components/site/Kulhad";
 import { scrollToId } from "../../hooks/useSmoothScroll";
-import { BOOK, COPYRIGHT } from "../../data/books";
+import { BOOK } from "../../data/books";
 
 export default function Novel() {
   return (
@@ -44,7 +44,7 @@ export default function Novel() {
 
             <div className="novel__body">
               <Reveal>
-                <span className="tag">{BOOK.status}</span>
+                <span className="tag is-hi">{BOOK.status}</span>
               </Reveal>
 
               <h2 className="novel__title">
@@ -68,10 +68,13 @@ export default function Novel() {
               <Reveal delay={0.28} className="novel__facts" as="dl">
                 {BOOK.facts.map((f) => (
                   <div className="novel__fact" key={f.k}>
-                    <dt className="hi">{f.k}</dt>
+                    <dt className="is-hi">{f.k}</dt>
                     <dd className={f.hi ? "h" : ""}>{f.v}</dd>
                   </div>
                 ))}
+                <div className="novel__fact novel__fact--quote">
+                  <p>{BOOK.factsQuote}</p>
+                </div>
               </Reveal>
 
               <Reveal delay={0.34} className="novel__actions">
@@ -95,54 +98,12 @@ export default function Novel() {
                 </Magnetic>
               </Reveal>
 
-              {/* ------------------------------------------- copyright */}
-              <Reveal delay={0.4} className="cr">
-                <div className="cr__head">
-                  <span className="cr__seal" aria-hidden="true">
-                    ©
-                  </span>
-                  <div>
-                    <div className="cr__title">{COPYRIGHT.heading}</div>
-                    <div className="cr__status">{COPYRIGHT.statusLabel}</div>
-                  </div>
-                </div>
-
-                <dl className="cr__rows">
-                  {COPYRIGHT.rows.map((r) => (
-                    <div className="cr__row" key={r.k}>
-                      <dt>{r.k}</dt>
-                      <dd>{r.v}</dd>
-                    </div>
-                  ))}
-                </dl>
-
-                <div className="cr__office">
-                  <span className="cr__k">
-                    प्रस्तुत · Submitted to
-                  </span>
-                  <a
-                    className="cr__office-n tlink"
-                    href={COPYRIGHT.office.url}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    {COPYRIGHT.office.name}
-                  </a>
-                  <span className="cr__office-a">
-                    {COPYRIGHT.office.address}
-                  </span>
-                </div>
-
-                <p className="cr__notice">
-                  {COPYRIGHT.notice} {COPYRIGHT.noticeEn}
-                </p>
-              </Reveal>
             </div>
           </div>
 
           {/* ------------------------------------------------------- cast */}
           <Reveal style={{ marginTop: "clamp(56px, 7vw, 100px)" }}>
-            <span className="eyebrow">किरदार</span>
+            <span className="eyebrow is-hi">किरदार</span>
             <h3 className="h-display title-md" style={{ marginTop: 14 }}>
               चार लोग, एक डिब्बा
             </h3>
@@ -151,7 +112,7 @@ export default function Novel() {
           <Stagger className="cast" stagger={0.08}>
             {BOOK.cast.map((c) => (
               <motion.div className="cast__card" key={c.name} variants={riseItem}>
-                <span className="cast__seat">{c.seat}</span>
+                <span className="cast__seat is-hi">{c.seat}</span>
                 <div className="cast__name">{c.name}</div>
                 <p className="cast__line">{c.line}</p>
               </motion.div>

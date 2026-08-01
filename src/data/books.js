@@ -13,23 +13,27 @@ export const BOOK = {
   byline: "विनय कुमार तिवारी",
   bylineRoman: "Vinay Kumar Tiwari",
 
-  // Facts shown in the cover / spec block
+  // Facts shown in the cover / spec block.
+  // Exactly 8 cells so the grid (4 columns, 2 on mobile) never leaves a gap;
+  // the quote below spans the full width as its own row.
   facts: [
     { k: "विधा", v: "उपन्यास", hi: true },
     { k: "भाषा", v: "हिन्दी", hi: true },
     { k: "कालखंड", v: "2015 — 2026", hi: false },
     { k: "मार्ग", v: "कानपुर · लखनऊ · बनारस", hi: true },
     { k: "स्थिति", v: "पूर्ण · Complete", hi: false },
-    { k: "पंजीकरण", v: "LD-36102/2026-CO", hi: false },
+    { k: "कॉपीराइट पंजीकरण", v: "LD-36102/2026-CO", hi: false },
     { k: "दाख़िल", v: "01 अगस्त 2026", hi: true },
     { k: "कॉपीराइट", v: "© 2026 लेखक", hi: true },
   ],
+
+  factsQuote: "“कुछ कहानियाँ लोग नहीं लिखते। उन्हें बारिश लिखती है।”",
 
   route: "कानपुर आउटर → लखनऊ जंक्शन → बनारस",
   span: "2015 — 2026 · ग्यारह साल",
 
   logline:
-    "एक ट्रेन छह घंटे खड़ी रह जाए, तो उसमें बैठे दो अजनबियों के पास सिर्फ़ दो चीज़ें बचती हैं — बारिश और बातचीत।",
+    "एक ट्रेन साढ़े चार घंटे खड़ी रह जाए, तो उसमें बैठे दो अजनबियों के पास सिर्फ़ दो चीज़ें बचती हैं — बारिश और बातचीत।",
 
   premise:
     "शिवगंगा एक्सप्रेस, सीट छत्तीस और सैंतीस। एक रुका हुआ लाल सिग्नल, एक पूरी रात की बातचीत, और एक वादा — हर महीने की बारह तारीख़, उसी डिब्बे में, दो कुल्हड़ चाय। यह उपन्यास उस वादे के ग्यारह साल हैं।",
@@ -97,7 +101,7 @@ export const BOOK = {
     {
       when: "वह पूरी रात",
       text:
-        "ट्रेन छह घंटे रुकी रहती है। वे पूरी रात बात करते हैं। दो कुल्हड़ चाय। नाम सबसे आख़िर में पूछते हैं। सुबह उतरते हैं — बिना नंबर लिए।",
+        "ट्रेन साढ़े चार घंटे रुकी रहती है। वे पूरी रात बात करते हैं। दो कुल्हड़ चाय। नाम सबसे आख़िर में पूछते हैं। सुबह उतरते हैं — बिना नंबर लिए।",
     },
     {
       when: "डेढ़ साल बाद · लखनऊ जंक्शन",
@@ -141,7 +145,7 @@ export const BOOK = {
     {
       n: "03",
       t: "ठहराव",
-      d: "Six stalled hours on an outer signal. Rain, and conversation — the only two things left.",
+      d: "Four and a half stalled hours on an outer signal. Rain, and conversation — the only two things left.",
     },
     {
       n: "04",
@@ -193,34 +197,6 @@ export const AUTHOR = {
     website: "https://vinaytiwari.org",
     websiteLabel: "vinaytiwari.org",
   },
-};
-
-/* ---------------------------------------------------------- copyright
-   Public-facing registration details only.
-   The filing receipt also carries a receipt number, a payment transaction
-   id, a CIN and the applicant's home address and mobile — none of which
-   belong on a public page, so none of them are here.
-   ---------------------------------------------------------------------- */
-export const COPYRIGHT = {
-  heading: "कॉपीराइट · Copyright",
-  notice: "© 2026 विनय कुमार तिवारी. सर्वाधिकार सुरक्षित.",
-  noticeEn: "All rights reserved.",
-  statusLabel: "आवेदन दाख़िल · Application filed",
-  office: {
-    name: "Copyright Office, Government of India",
-    nameHi: "कॉपीराइट कार्यालय, भारत सरकार",
-    address:
-      "Intellectual Property Bhawan, Plot No. 32, Sector 14, Dwarka, New Delhi 110078",
-    url: "https://copyright.gov.in",
-  },
-  rows: [
-    { k: "कृति · Work", v: "दो कुल्हड़ चाय (Do Kulhad Chai)" },
-    { k: "आवेदक · Applicant", v: "Vinay Kumar Tiwari" },
-    { k: "डायरी सं. · Diary No.", v: "LD-36102/2026-CO" },
-    { k: "अनुरोध सं. · Request No.", v: "292470" },
-    { k: "प्रपत्र · Form", v: "Form XIV" },
-    { k: "दाख़िल · Filed", v: "01 August 2026 · Delhi branch" },
-  ],
 };
 
 /* ------------------------------------------------------- other writing */

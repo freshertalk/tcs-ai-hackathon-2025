@@ -4,7 +4,6 @@ import { Link } from "react-router-dom";
 import {
   Reveal,
   MaskLine,
-  ClipReveal,
   Parallax,
   Magnetic,
   Arrow,
@@ -19,9 +18,9 @@ export default function Author() {
         <div className="sec-head">
           <div>
             <Reveal>
-              <span className="eyebrow">{AUTHOR.kicker}</span>
+              <span className="eyebrow is-hi">{AUTHOR.kicker}</span>
             </Reveal>
-            <h2 className="h-display title-lg" style={{ fontFamily: "var(--f-hi)" }}>
+            <h2 className="h-display h-hi title-lg">
               <MaskLine>{AUTHOR.name}</MaskLine>
             </h2>
           </div>
@@ -34,8 +33,10 @@ export default function Author() {
         </div>
 
         <div className="author__grid">
+          {/* Plain opacity/-y reveal on purpose: a clip-path reveal can leave
+              the frame blank if the observer never fires. */}
           <Parallax distance={26}>
-            <ClipReveal className="author__photo" from="bottom">
+            <Reveal y={30} amount={0.12} className="author__photo">
               <Picture
                 name="vinay-portrait"
                 smallName="vinay-portrait-sm"
@@ -44,7 +45,11 @@ export default function Author() {
                 width="1000"
                 height="1250"
               />
-            </ClipReveal>
+              <span className="author__plate">
+                <span className="author__plateN">{AUTHOR.name}</span>
+                <span className="author__plateR">{AUTHOR.nameRoman}</span>
+              </span>
+            </Reveal>
           </Parallax>
 
           <div>
@@ -57,12 +62,15 @@ export default function Author() {
             </div>
 
             <Reveal delay={0.2}>
-              <p className="author__motto">“{AUTHOR.motto}”</p>
+              <blockquote className="author__motto">
+                <p>“{AUTHOR.motto}”</p>
+                <cite className="author__mottoBy">— {AUTHOR.name}</cite>
+              </blockquote>
             </Reveal>
 
             <div className="author__cols">
               <Reveal className="author__box" y={24}>
-                <div className="author__boxT">शिक्षा</div>
+                <div className="author__boxT is-hi">शिक्षा</div>
                 {AUTHOR.education.map((e) => (
                   <div className="author__row" key={e.year}>
                     <b>{e.year}</b>
@@ -72,10 +80,10 @@ export default function Author() {
               </Reveal>
 
               <Reveal className="author__box" y={24} delay={0.08}>
-                <div className="author__boxT">वर्तमान</div>
+                <div className="author__boxT is-hi">वर्तमान</div>
                 {AUTHOR.now.map((n) => (
                   <div className="author__row" key={n.k}>
-                    <b className="hi">{n.k}</b>
+                    <b className="is-hi">{n.k}</b>
                     <span>{n.v}</span>
                   </div>
                 ))}
