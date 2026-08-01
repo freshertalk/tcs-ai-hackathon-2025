@@ -62,7 +62,7 @@ export default function Technical() {
 
       <main>
         <Hero />
-        <Marquee items={TICKER} />
+        <Marquee items={TICKER} baseVelocity={22} />
         <About />
         <Stack />
         <Experience />

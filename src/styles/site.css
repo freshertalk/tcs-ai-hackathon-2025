@@ -1381,13 +1381,34 @@ h4 {
   }
 }
 
-/* दो कुल्हड़ — two cups in the writings hero's right column */
+/* दो कुल्हड़ — two cups sitting beside the title, at every size */
+.whero__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: clamp(10px, 3vw, 56px);
+  flex-wrap: nowrap;
+}
+.whero__row .hero__title {
+  flex: 0 1 auto;
+  min-width: 0;
+}
 .write-hero__cups {
   position: relative;
+  flex: none;
   display: flex;
   align-items: flex-end;
   justify-content: center;
   gap: 4px;
+}
+/* CSS beats the SVG's width/height attributes, so one instance scales
+   fluidly instead of needing a separate mobile copy. */
+.write-hero__cup svg {
+  width: clamp(72px, 14.5vw, 186px);
+  height: auto;
+}
+.write-hero__cup--b svg {
+  width: clamp(57px, 11.5vw, 148px);
 }
 .write-hero__cup {
   filter: drop-shadow(0 26px 44px rgba(63, 40, 25, 0.26));
@@ -1397,8 +1418,8 @@ h4 {
   animation: cupBobA 7s ease-in-out infinite;
 }
 .write-hero__cup--b {
-  margin-bottom: 14px;
-  margin-left: -14px;
+  margin-bottom: clamp(6px, 1vw, 14px);
+  margin-left: clamp(-14px, -1.1vw, -7px);
   opacity: 0.9;
   animation: cupBobB 7s ease-in-out infinite;
 }
@@ -1418,15 +1439,6 @@ h4 {
   }
   50% {
     transform: translateY(4px) rotate(-1deg);
-  }
-}
-/* tablets: the cups drop below the copy when the grid collapses */
-@media (max-width: 1100px) {
-  .write-hero__cups {
-    margin-top: 30px;
-    justify-content: flex-start;
-    transform: scale(0.66);
-    transform-origin: left bottom;
   }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -1491,15 +1503,18 @@ h4 {
 [data-theme="write"] .marquee {
   padding-block: clamp(18px, 2.2vw, 30px);
 }
+/* lines lifted straight from the novel, so they are set in italic —
+   Tiro Devanagari has a true italic, Martel does not. */
 [data-theme="write"] .marquee__item {
-  font-family: var(--f-hi);
+  font-family: var(--f-hi-body);
+  font-style: italic;
   font-weight: 400;
-  font-size: clamp(1.05rem, 2.1vw, 1.95rem);
-  line-height: 1.7;
+  font-size: clamp(1.02rem, 2vw, 1.8rem);
+  line-height: 1.75;
   gap: clamp(26px, 3.4vw, 54px);
 }
 [data-theme="write"] .marquee__item .hl {
-  font-style: normal;
+  font-style: italic;
 }
 
 /* =========================================================================
@@ -3053,10 +3068,11 @@ h4 {
   overflow: hidden;
 }
 .qband__q {
-  font-family: var(--f-hi);
+  font-family: var(--f-hi-body);
+  font-style: italic;
   font-weight: 400;
-  font-size: clamp(1.15rem, 3.4vw, 2.8rem);
-  line-height: 1.75;
+  font-size: clamp(1.12rem, 3.2vw, 2.6rem);
+  line-height: 1.85;
   text-align: center;
   max-width: 24ch;
   margin-inline: auto;
@@ -3526,9 +3542,9 @@ h4 {
     --r-lg: 18px;
   }
 
-  /* the hero cups need more room than a phone has */
-  .write-hero__cups {
-    display: none;
+  /* the cups stay — they just shrink with the title (see .write-hero__cup svg) */
+  .whero__row {
+    gap: 8px;
   }
 
   .nav__brand {

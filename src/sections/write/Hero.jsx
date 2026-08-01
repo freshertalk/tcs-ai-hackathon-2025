@@ -34,7 +34,9 @@ export default function Hero() {
       <div className="hero__grid" aria-hidden="true" />
 
       <motion.div className="shell hero__inner" style={{ opacity: fade }}>
-        <div className="hero__layout">
+        {/* Single column with the cups pinned beside the title, so phone and
+            desktop show the same arrangement rather than two different ones. */}
+        <div className="whero">
           <div className="hero__col">
             <div className="hero__meta">
               <Reveal y={14}>
@@ -51,12 +53,34 @@ export default function Hero() {
               </Reveal>
             </div>
 
-            <h1 className="hero__title hero__title--hi">
-              <MaskLine delay={0.06}>दो कुल्हड़</MaskLine>
-              <MaskLine delay={0.16}>
-                <span className="amp">चाय</span>
-              </MaskLine>
-            </h1>
+            <div className="whero__row">
+              <h1 className="hero__title hero__title--hi">
+                <MaskLine delay={0.06}>दो कुल्हड़</MaskLine>
+                <MaskLine delay={0.16}>
+                  <span className="amp">चाय</span>
+                </MaskLine>
+              </h1>
+
+              {/* दो कुल्हड़ — the title, literally */}
+              <div className="write-hero__cups" aria-hidden="true">
+                <motion.div
+                  className="write-hero__cup write-hero__cup--a"
+                  initial={{ opacity: 0, y: 34 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 1.2, delay: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                >
+                  <Kulhad size={186} steamOpacity={0.5} />
+                </motion.div>
+                <motion.div
+                  className="write-hero__cup write-hero__cup--b"
+                  initial={{ opacity: 0, y: 34 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 1.2, delay: 0.62, ease: [0.16, 1, 0.3, 1] }}
+                >
+                  <Kulhad size={148} steamOpacity={0.38} />
+                </motion.div>
+              </div>
+            </div>
 
             <Reveal delay={0.3}>
               <p className="hero__blurb hi" style={{ fontSize: "1.06rem" }}>
@@ -107,26 +131,6 @@ export default function Hero() {
                 </button>
               </Magnetic>
             </Reveal>
-          </div>
-
-          {/* दो कुल्हड़ — the title, literally */}
-          <div className="write-hero__cups" aria-hidden="true">
-            <motion.div
-              className="write-hero__cup write-hero__cup--a"
-              initial={{ opacity: 0, y: 34 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 1.2, delay: 0.4, ease: [0.16, 1, 0.3, 1] }}
-            >
-              <Kulhad size={186} steamOpacity={0.5} />
-            </motion.div>
-            <motion.div
-              className="write-hero__cup write-hero__cup--b"
-              initial={{ opacity: 0, y: 34 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 1.2, delay: 0.62, ease: [0.16, 1, 0.3, 1] }}
-            >
-              <Kulhad size={148} steamOpacity={0.38} />
-            </motion.div>
           </div>
         </div>
       </motion.div>

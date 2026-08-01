@@ -43,7 +43,7 @@ export default function Writings() {
 
       <main>
         <Hero />
-        <Marquee items={TICKER} baseVelocity={26} />
+        <Marquee items={TICKER} baseVelocity={12} />
         <Novel />
         <Synopsis />
         <Themes />
