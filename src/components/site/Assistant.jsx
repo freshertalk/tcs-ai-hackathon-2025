@@ -62,11 +62,19 @@ const KB = [
   {
     k: [
       "book", "novel", "kulhad", "chai", "story", "plot", "synopsis",
-      "chapter", "chapters", "excerpt", "ending", "prachi", "vivaan",
+      "prachi", "vivaan",
       "train", "promise", "twelfth", "do kulhad chai", "किताब", "उपन्यास",
       "कहानी", "अंश", "कुल्हड़", "चाय", "दो कुल्हड़ चाय",
     ],
-    a: `${BOOK.title} (${BOOK.roman}) is a completed Hindi novel — 58 chapters spanning ${BOOK.span}. ${BOOK.logline} Vivaan is in seat 36; Prachi is in seat 37. They talk all night, drink two kulhads of tea, and ask each other's names last. A year and a half later they meet again and make one rule: the twelfth of every month, the same train, the same two seats — and if one of them cannot come, the other still goes. They keep it for nine years. Then she is gone, and he keeps going anyway. ${BOOK.closing}`,
+    // Deliberately spoiler-free: the later chapters are not described here.
+    a: `${BOOK.title} (${BOOK.roman}) is a completed Hindi novel spanning ${BOOK.span}. ${BOOK.logline} Vivaan is in seat 36; Prachi is in seat 37. They talk all night, drink two kulhads of tea, and ask each other's names last. A year and a half later they meet again and make one rule: the twelfth of every month, the same train, the same two seats — and if one of them cannot come, the other still goes. What that promise costs them is the rest of the book. ${BOOK.closing}`,
+  },
+  {
+    k: [
+      "spoiler", "spoilers", "reveal", "ending", "end", "ends", "finish",
+      "conclusion", "chapter", "chapters", "excerpt", "climax",
+    ],
+    a: `No spoilers here — the later chapters are not published on this site. ${BOOK.premise}`,
   },
   {
     k: ["write", "writing", "writer", "author", "hindi", "लेखक"],

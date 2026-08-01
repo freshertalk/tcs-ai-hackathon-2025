@@ -8,7 +8,6 @@ import Marquee from "../components/site/Marquee";
 import Hero from "../sections/write/Hero";
 import Novel from "../sections/write/Novel";
 import Synopsis from "../sections/write/Synopsis";
-import Excerpt from "../sections/write/Excerpt";
 import Themes from "../sections/write/Themes";
 import Author from "../sections/write/Author";
 import Contact from "../sections/write/Contact";
@@ -18,7 +17,6 @@ import { BOOK, AUTHOR } from "../data/books";
 const LINKS = [
   { id: "novel", label: "उपन्यास" },
   { id: "synopsis", label: "कहानी" },
-  { id: "excerpt", label: "अंश" },
   { id: "themes", label: "विषय" },
   { id: "author", label: "लेखक" },
   { id: "contact", label: "संपर्क" },
@@ -48,7 +46,6 @@ export default function Writings() {
         <Marquee items={TICKER} baseVelocity={26} />
         <Novel />
         <Synopsis />
-        <Excerpt />
         <Themes />
         <Author />
         <Contact />

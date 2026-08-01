@@ -13,7 +13,7 @@ import {
 } from "../../components/ui/motion";
 import Kulhad from "../../components/site/Kulhad";
 import { scrollToId } from "../../hooks/useSmoothScroll";
-import { BOOK } from "../../data/books";
+import { BOOK, COPYRIGHT } from "../../data/books";
 
 export default function Novel() {
   return (
@@ -29,7 +29,8 @@ export default function Novel() {
                     {BOOK.kind} · {BOOK.language}
                   </span>
                   <div className="cover__art">
-                    <Kulhad size={110} steamColor="#f3d9b5" steamOpacity={0.55} />
+                    <Kulhad size={86} steamColor="#f3d9b5" steamOpacity={0.55} />
+                    <Kulhad size={86} steamColor="#f3d9b5" steamOpacity={0.4} />
                   </div>
                   <div>
                     <div className="cover__title">{BOOK.title}</div>
@@ -77,21 +78,64 @@ export default function Novel() {
                 <Magnetic>
                   <button
                     className="btn btn--solid"
-                    onClick={() => scrollToId("excerpt", 62)}
+                    onClick={() => scrollToId("synopsis", 62)}
                     data-cursor="पढ़िए"
                   >
-                    आख़िरी चार अध्याय पढ़िए
+                    कहानी एक नज़र में
                     <Arrow />
                   </button>
                 </Magnetic>
                 <Magnetic>
                   <button
                     className="btn"
-                    onClick={() => scrollToId("synopsis", 62)}
+                    onClick={() => scrollToId("author", 62)}
                   >
-                    कहानी एक नज़र में
+                    लेखक के बारे में
                   </button>
                 </Magnetic>
+              </Reveal>
+
+              {/* ------------------------------------------- copyright */}
+              <Reveal delay={0.4} className="cr">
+                <div className="cr__head">
+                  <span className="cr__seal" aria-hidden="true">
+                    ©
+                  </span>
+                  <div>
+                    <div className="cr__title">{COPYRIGHT.heading}</div>
+                    <div className="cr__status">{COPYRIGHT.statusLabel}</div>
+                  </div>
+                </div>
+
+                <dl className="cr__rows">
+                  {COPYRIGHT.rows.map((r) => (
+                    <div className="cr__row" key={r.k}>
+                      <dt>{r.k}</dt>
+                      <dd>{r.v}</dd>
+                    </div>
+                  ))}
+                </dl>
+
+                <div className="cr__office">
+                  <span className="cr__k">
+                    प्रस्तुत · Submitted to
+                  </span>
+                  <a
+                    className="cr__office-n tlink"
+                    href={COPYRIGHT.office.url}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {COPYRIGHT.office.name}
+                  </a>
+                  <span className="cr__office-a">
+                    {COPYRIGHT.office.address}
+                  </span>
+                </div>
+
+                <p className="cr__notice">
+                  {COPYRIGHT.notice} {COPYRIGHT.noticeEn}
+                </p>
               </Reveal>
             </div>
           </div>
