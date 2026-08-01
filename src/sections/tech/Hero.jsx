@@ -1,0 +1,155 @@
+// src/sections/tech/Hero.jsx
+// Two real grid columns — copy on the left, portrait on the right — so no
+// text ever ends up sitting on top of the photograph.
+
+import React, { useRef } from "react";
+import { motion, useScroll, useTransform } from "framer-motion";
+import {
+  MaskLine,
+  SplitWords,
+  Counter,
+  Magnetic,
+  Arrow,
+  Reveal,
+} from "../../components/ui/motion";
+import Picture from "../../components/ui/Picture";
+import { scrollToId } from "../../hooks/useSmoothScroll";
+import { PROFILE, YEARS } from "../../data/profile";
+
+const STATS = [
+  { to: YEARS, suffix: "+", label: "Years shipping enterprise software" },
+  { to: 9, suffix: "", label: "Concurrent SAP initiatives led" },
+  { to: 12, suffix: "+", label: "Enterprise programmes delivered" },
+  { to: 2, suffix: "", label: "SAP certifications held" },
+];
+
+export default function Hero() {
+  const ref = useRef(null);
+  const { scrollYProgress } = useScroll({
+    target: ref,
+    offset: ["start start", "end start"],
+  });
+  const y = useTransform(scrollYProgress, [0, 1], [0, 130]);
+  const fade = useTransform(scrollYProgress, [0, 0.75], [1, 0]);
+
+  return (
+    <section className="hero" id="top" ref={ref}>
+      <motion.div className="hero__wash" style={{ y }} aria-hidden="true" />
+      <div className="hero__grid" aria-hidden="true" />
+
+      <motion.div className="shell hero__inner" style={{ opacity: fade }}>
+        <div className="hero__layout">
+          {/* ------------------------------------------------- copy column */}
+          <div className="hero__col">
+            <div className="hero__meta">
+              <Reveal y={14}>
+                <span className="pill">
+                  <i />
+                  Open to architecture roles
+                </span>
+              </Reveal>
+              <Reveal y={14} delay={0.08}>
+                <span className="pill">{PROFILE.designation}</span>
+              </Reveal>
+              <Reveal y={14} delay={0.16}>
+                <span className="pill">{PROFILE.company}</span>
+              </Reveal>
+            </div>
+
+            <h1 className="hero__title">
+              <MaskLine delay={0.06}>SAP BTP</MaskLine>
+              <MaskLine delay={0.15}>
+                Solution <span className="amp">Architect</span>
+              </MaskLine>
+            </h1>
+
+            <p className="hero__blurb">
+              <SplitWords
+                text="Cloud-native SAP applications for manufacturing, healthcare, aerospace, finance and supply chain — designed on Clean Core, delivered with AI in the loop."
+                stagger={0.026}
+                delay={0.3}
+              />
+            </p>
+
+            <div className="hero__stats">
+              {STATS.map((s, i) => (
+                <Reveal key={s.label} delay={0.4 + i * 0.07} y={20}>
+                  <div>
+                    <div className="stat__n">
+                      <Counter to={s.to} suffix={s.suffix} />
+                    </div>
+                    <div className="stat__l">{s.label}</div>
+                  </div>
+                </Reveal>
+              ))}
+            </div>
+
+            <Reveal delay={0.6} className="hero__actions">
+              <Magnetic>
+                <a
+                  className="btn btn--solid btn--lg"
+                  href="https://btplearninghub.com"
+                  target="_blank"
+                  rel="noreferrer"
+                  data-cursor="Open"
+                >
+                  Visit BTP Learning Hub
+                  <Arrow />
+                </a>
+              </Magnetic>
+              <Magnetic>
+                <a
+                  className="btn btn--lg"
+                  href="#work"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    scrollToId("work", 62);
+                  }}
+                >
+                  See the work
+                </a>
+              </Magnetic>
+              <Magnetic>
+                <a
+                  className="btn btn--lg"
+                  href={`${process.env.PUBLIC_URL}/Vinay-Kumar-Tiwari-Resume.docx`}
+                  download
+                >
+                  Resume
+                  <Arrow />
+                </a>
+              </Magnetic>
+            </Reveal>
+          </div>
+
+          {/* --------------------------------------------- portrait column */}
+          <motion.div
+            className="hero__portrait"
+            initial={{ opacity: 0, clipPath: "inset(100% 0 0 0)" }}
+            animate={{ opacity: 1, clipPath: "inset(0% 0 0 0)" }}
+            transition={{ duration: 1.3, delay: 0.45, ease: [0.16, 1, 0.3, 1] }}
+          >
+            <Picture
+              name="vinay-portrait"
+              smallName="vinay-portrait-sm"
+              sizes="(max-width: 1100px) 0px, 400px"
+              alt="Vinay Kumar Tiwari"
+              width="1000"
+              height="1250"
+              loading="eager"
+              fetchPriority="high"
+            />
+            <span className="hero__portraitTag">
+              {PROFILE.location.split("|")[0].trim()}
+            </span>
+          </motion.div>
+        </div>
+      </motion.div>
+
+      <div className="hero__scroll" aria-hidden="true">
+        <span className="hero__rail" />
+        Scroll
+      </div>
+    </section>
+  );
+}

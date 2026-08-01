@@ -1,28 +1,30 @@
 // src/components/site/Nav.jsx
+// One nav, two portfolios. Links, active-section tracking and the
+// cross-portfolio switch are all driven by props from the page.
+
 import React, { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { motion, AnimatePresence, useScroll, useSpring } from "framer-motion";
 import { EASE } from "../ui/motion";
 import { scrollToId } from "../../hooks/useSmoothScroll";
-import { PROFILE } from "../../data/profile";
 import Picture from "../ui/Picture";
 
-const LINKS = [
-  { id: "intro", label: "About" },
-  { id: "book", label: "The Novel" },
-  { id: "craft", label: "Engineering" },
-  { id: "work", label: "Experience" },
-  { id: "projects", label: "Projects" },
-  { id: "assistant", label: "Ask AI" },
-  { id: "contact", label: "Contact" },
-];
-
-export default function Nav() {
+export default function Nav({
+  links = [],
+  kicker = "",
+  switchTo = { href: "/", label: "Home" },
+  contact = {},
+}) {
   const [stuck, setStuck] = useState(false);
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState("");
 
   const { scrollYProgress } = useScroll();
-  const bar = useSpring(scrollYProgress, { stiffness: 260, damping: 40, mass: 0.3 });
+  const bar = useSpring(scrollYProgress, {
+    stiffness: 260,
+    damping: 40,
+    mass: 0.3,
+  });
 
   useEffect(() => {
     const onScroll = () => setStuck(window.scrollY > 40);
@@ -41,26 +43,22 @@ export default function Nav() {
       },
       { rootMargin: "-45% 0px -50% 0px" }
     );
-    LINKS.forEach(({ id }) => {
+    links.forEach(({ id }) => {
       const el = document.getElementById(id);
       if (el) io.observe(el);
     });
     return () => io.disconnect();
-  }, []);
+  }, [links]);
 
   useEffect(() => {
     document.body.classList.toggle("is-locked", open);
     return () => document.body.classList.remove("is-locked");
   }, [open]);
 
-  // Escape closes the mobile menu; also close it if the viewport grows
-  // past the breakpoint while it's open (rotate a phone into landscape).
   useEffect(() => {
     if (!open) return undefined;
-    const onKey = (e) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    const mql = window.matchMedia("(min-width: 901px)");
+    const onKey = (e) => e.key === "Escape" && setOpen(false);
+    const mql = window.matchMedia("(min-width: 981px)");
     const onWide = (e) => e.matches && setOpen(false);
     window.addEventListener("keydown", onKey);
     mql.addEventListener("change", onWide);
@@ -72,9 +70,9 @@ export default function Nav() {
 
   const go = (id) => (e) => {
     e.preventDefault();
+    const wasOpen = open;
     setOpen(false);
-    // let the menu close before scrolling
-    setTimeout(() => scrollToId(id, 60), open ? 420 : 0);
+    setTimeout(() => scrollToId(id, 62), wasOpen ? 420 : 0);
   };
 
   return (
@@ -83,16 +81,8 @@ export default function Nav() {
 
       <header className={`nav ${stuck ? "is-stuck" : ""}`}>
         <div className="nav__row">
-          <a
-            href="#top"
-            className="nav__brand"
-            onClick={(e) => {
-              e.preventDefault();
-              window.scrollTo({ top: 0, behavior: "smooth" });
-            }}
-            data-cursor="Top"
-          >
-            <span className="nav__mark nav__mark--photo">
+          <Link to="/" className="nav__brand" data-cursor="Home">
+            <span className="nav__mark">
               <Picture
                 name="vinay-avatar-sm"
                 alt=""
@@ -103,12 +93,13 @@ export default function Nav() {
               />
             </span>
             <span>
-              Vinay <span style={{ color: "var(--ink-3)" }}>Kumar</span> Tiwari
+              Vinay Kumar Tiwari
+              {kicker && <small>{kicker}</small>}
             </span>
-          </a>
+          </Link>
 
           <nav className="nav__links" aria-label="Primary">
-            {LINKS.map((l) => (
+            {links.map((l) => (
               <a
                 key={l.id}
                 href={`#${l.id}`}
@@ -118,10 +109,10 @@ export default function Nav() {
                 {l.label}
               </a>
             ))}
-            <a className="nav__cta" href="#contact" onClick={go("contact")}>
-              <span className="hero__dot" />
-              Available
-            </a>
+            <Link className="nav__switch" to={switchTo.href}>
+              <i />
+              {switchTo.label}
+            </Link>
           </nav>
 
           <button
@@ -143,9 +134,9 @@ export default function Nav() {
             initial={{ clipPath: "inset(0 0 100% 0)" }}
             animate={{ clipPath: "inset(0 0 0% 0)" }}
             exit={{ clipPath: "inset(0 0 100% 0)" }}
-            transition={{ duration: 0.75, ease: EASE }}
+            transition={{ duration: 0.7, ease: EASE }}
           >
-            {LINKS.map((l, i) => (
+            {links.map((l, i) => (
               <span className="reveal-mask" key={l.id}>
                 <motion.a
                   href={`#${l.id}`}
@@ -154,9 +145,11 @@ export default function Nav() {
                   initial={{ y: "110%" }}
                   animate={{ y: "0%" }}
                   exit={{ y: "110%" }}
-                  transition={{ duration: 0.7, ease: EASE, delay: 0.12 + i * 0.06 }}
+                  transition={{ duration: 0.65, ease: EASE, delay: 0.1 + i * 0.055 }}
                 >
-                  <span className="menu__idx">0{i + 1}</span>
+                  <span className="menu__idx">
+                    {String(i + 1).padStart(2, "0")}
+                  </span>
                   {l.label}
                 </motion.a>
               </span>
@@ -167,15 +160,19 @@ export default function Nav() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ delay: 0.45 }}
+              transition={{ delay: 0.4 }}
             >
-              <a className="btn btn--solid menu__cta" href={`mailto:${PROFILE.email}`}>
-                {PROFILE.email}
-              </a>
-              <a className="menu__meta" href={`tel:${PROFILE.phone}`}>
-                {PROFILE.phone}
-              </a>
-              <span className="menu__meta">{PROFILE.location}</span>
+              <Link
+                className="btn btn--solid"
+                to={switchTo.href}
+                onClick={() => setOpen(false)}
+              >
+                {switchTo.label}
+              </Link>
+              {contact.email && (
+                <a href={`mailto:${contact.email}`}>{contact.email}</a>
+              )}
+              {contact.phone && <a href={`tel:${contact.phone}`}>{contact.phone}</a>}
             </motion.div>
           </motion.div>
         )}

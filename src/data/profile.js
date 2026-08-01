@@ -1,8 +1,20 @@
 // src/data/profile.js
+
+/* ---------------------------------------------------------------------------
+   Years of experience — derived, never hard-coded.
+   Career began September 2015 (Wipro, Bengaluru). YEARS rolls over on
+   1 January so every figure on the site ages itself.
+   --------------------------------------------------------------------------- */
+export const CAREER_START_YEAR = 2015;
+
+export const yearsOfExperience = (now = new Date()) =>
+  Math.max(1, now.getFullYear() - CAREER_START_YEAR);
+
+export const YEARS = yearsOfExperience();
+
 const PROFILE = {
   name: "Vinay Kumar Tiwari",
-  title:
-    "SAP BTP Solution Architect (11 yrs) — CAPM · Fiori/UI5 · HANA Cloud · GenAI",
+  title: `SAP BTP Solution Architect (${YEARS} yrs) — CAPM · Fiori/UI5 · HANA Cloud · GenAI`,
   ribbon: "AI-Assisted Engineering",
   currentRole:
     "Package Consultant — SAP BTP · IBM India Pvt. Ltd. (Jan 2026 — Present)",

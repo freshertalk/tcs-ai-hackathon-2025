@@ -9,6 +9,7 @@ import {
   useSpring,
   useTransform,
   useScroll,
+  useReducedMotion,
   animate,
 } from "framer-motion";
 
@@ -45,13 +46,24 @@ export function Reveal({
 /* MaskLine — a line of text that slides up from behind a mask.        */
 /* ------------------------------------------------------------------ */
 export function MaskLine({ children, delay = 0, duration = 1.05, className = "" }) {
+  // The observer MUST sit on the mask, not on the sliding line.
+  //
+  // The line starts translated 110% below the mask, and the mask is
+  // overflow:hidden. IntersectionObserver clips the intersection rect by
+  // ancestor overflow, so a whileInView on the line itself reports a ratio
+  // of 0 forever — the animation never starts and the heading stays
+  // invisible. Watching the (unclipped) mask fixes it.
+  const ref = useRef(null);
+  const inView = useInView(ref, { once: true, amount: 0.15 });
+  const reduced = useReducedMotion();
+  const shown = inView || reduced;
+
   return (
-    <span className="reveal-mask">
+    <span className="reveal-mask" ref={ref}>
       <motion.span
         className={`reveal-line ${className}`}
-        initial={{ y: "108%" }}
-        whileInView={{ y: "0%" }}
-        viewport={{ once: true, amount: 0.6 }}
+        initial={reduced ? false : { y: "110%" }}
+        animate={{ y: shown ? "0%" : "110%" }}
         transition={{ duration, delay, ease: EASE }}
       >
         {children}
@@ -69,9 +81,11 @@ export function SplitWords({
   delay = 0,
   stagger = 0.055,
   once = true,
-  amount = 0.5,
+  amount = 0.2,
 }) {
   const words = String(text).split(" ");
+  // amount stays low: the wrapper is unclipped, but a long paragraph can be
+  // taller than the viewport, and a high threshold would never be reached.
   return (
     <motion.span
       className={className}
@@ -99,6 +113,99 @@ export function SplitWords({
     </motion.span>
   );
 }
+
+/* ------------------------------------------------------------------ */
+/* ClipReveal — curtain wipe. The editorial image-reveal move.         */
+/* ------------------------------------------------------------------ */
+export function ClipReveal({
+  children,
+  className = "",
+  delay = 0,
+  duration = 1.15,
+  from = "bottom", // bottom | left | right | top
+  scale = true,
+  ...rest
+}) {
+  const reduced = useReducedMotion();
+  const ref = useRef(null);
+  // Same trap as MaskLine: an element clipped to inset(100%) can report a
+  // zero intersection, so the observer goes on the ref and the clip goes on
+  // the child. Never let an animation be the only thing making content visible.
+  const inView = useInView(ref, { once: true, amount: 0.15 });
+  const shown = inView || reduced;
+
+  const inset = {
+    bottom: "inset(100% 0% 0% 0%)",
+    top: "inset(0% 0% 100% 0%)",
+    left: "inset(0% 100% 0% 0%)",
+    right: "inset(0% 0% 0% 100%)",
+  }[from];
+
+  if (reduced) {
+    return (
+      <div className={className} ref={ref} {...rest}>
+        {children}
+      </div>
+    );
+  }
+
+  return (
+    <motion.div
+      className={className}
+      ref={ref}
+      initial={{ clipPath: inset }}
+      animate={{ clipPath: shown ? "inset(0% 0% 0% 0%)" : inset }}
+      transition={{ duration, delay, ease: EASE }}
+      {...rest}
+    >
+      {scale ? (
+        <motion.div
+          initial={{ scale: 1.14 }}
+          animate={{ scale: shown ? 1 : 1.14 }}
+          transition={{ duration: duration + 0.35, delay, ease: EASE }}
+          style={{ height: "100%" }}
+        >
+          {children}
+        </motion.div>
+      ) : (
+        children
+      )}
+    </motion.div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Stagger — a list container whose children rise in sequence.         */
+/* ------------------------------------------------------------------ */
+export function Stagger({
+  children,
+  className = "",
+  stagger = 0.09,
+  delay = 0,
+  amount = 0.2,
+  ...rest
+}) {
+  return (
+    <motion.div
+      className={className}
+      initial="hidden"
+      whileInView="show"
+      viewport={{ once: true, amount }}
+      variants={{
+        hidden: {},
+        show: { transition: { staggerChildren: stagger, delayChildren: delay } },
+      }}
+      {...rest}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+export const riseItem = {
+  hidden: { opacity: 0, y: 28 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.85, ease: EASE } },
+};
 
 /* ------------------------------------------------------------------ */
 /* Magnetic — element leans toward the cursor, springs back on exit.   */

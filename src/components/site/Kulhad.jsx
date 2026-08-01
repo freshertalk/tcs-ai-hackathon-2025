@@ -7,7 +7,13 @@ import { motion } from "framer-motion";
 const steamPath = (x) =>
   `M${x} 34 C ${x - 5} 24, ${x + 5} 18, ${x} 8 C ${x - 4} 2, ${x + 3} -2, ${x} -8`;
 
-export default function Kulhad({ size = 92, steam = true, tone = "#C4623A" }) {
+export default function Kulhad({
+  size = 92,
+  steam = true,
+  tone = "#B0563A",
+  steamColor = "currentColor",
+  steamOpacity = 0.45,
+}) {
   return (
     <svg
       width={size}
@@ -15,7 +21,7 @@ export default function Kulhad({ size = 92, steam = true, tone = "#C4623A" }) {
       viewBox="0 0 80 90"
       fill="none"
       aria-hidden="true"
-      style={{ overflow: "visible" }}
+      style={{ overflow: "visible", color: "var(--accent-2)" }}
     >
       <defs>
         <linearGradient id="clay" x1="0" y1="0" x2="1" y2="1">
@@ -30,7 +36,13 @@ export default function Kulhad({ size = 92, steam = true, tone = "#C4623A" }) {
       </defs>
 
       {steam && (
-        <g stroke="rgba(240,224,200,0.42)" strokeWidth="1.5" strokeLinecap="round" fill="none">
+        <g
+          stroke={steamColor}
+          strokeOpacity={steamOpacity}
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          fill="none"
+        >
           {[28, 40, 52].map((x, i) => (
             <motion.path
               key={x}
