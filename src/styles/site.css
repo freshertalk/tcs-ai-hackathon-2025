@@ -894,29 +894,79 @@ h4 {
    LANDING GATE
    ========================================================================= */
 .gate {
+  position: relative;
   min-height: 100svh;
   display: flex;
   flex-direction: column;
-  background: var(--paper);
+  background: radial-gradient(120% 80% at 50% -10%, #161c25 0%, #0d1014 55%, #090b0e 100%);
   color: var(--ink);
-  position: relative;
   overflow: hidden;
 }
-.gate__glow {
+
+/* ------------------------------------------------------------- backdrop */
+.gate__bg {
   position: absolute;
   inset: 0;
+  z-index: 0;
   pointer-events: none;
-  background: radial-gradient(
-      52% 44% at 22% 24%,
-      rgba(126, 168, 208, 0.18),
-      transparent 65%
-    ),
-    radial-gradient(50% 44% at 80% 74%, rgba(217, 138, 92, 0.2), transparent 66%);
+  overflow: hidden;
 }
+.gate__grid {
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(
+      to right,
+      rgba(244, 240, 233, 0.055) 1px,
+      transparent 1px
+    ),
+    linear-gradient(to bottom, rgba(244, 240, 233, 0.055) 1px, transparent 1px);
+  background-size: clamp(58px, 6vw, 96px) clamp(58px, 6vw, 96px);
+  mask-image: radial-gradient(80% 62% at 50% 34%, #000 0%, transparent 78%);
+  -webkit-mask-image: radial-gradient(80% 62% at 50% 34%, #000 0%, transparent 78%);
+}
+.gate__aurora {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(90px);
+  will-change: transform;
+}
+.gate__aurora--a {
+  top: -18%;
+  left: 8%;
+  width: 46vw;
+  height: 46vw;
+  background: radial-gradient(circle, rgba(58, 108, 158, 0.5), transparent 66%);
+}
+.gate__aurora--b {
+  bottom: -22%;
+  right: 4%;
+  width: 44vw;
+  height: 44vw;
+  background: radial-gradient(circle, rgba(184, 96, 54, 0.42), transparent 66%);
+}
+.gate__aurora--c {
+  top: 22%;
+  left: 44%;
+  width: 30vw;
+  height: 30vw;
+  background: radial-gradient(circle, rgba(126, 168, 208, 0.26), transparent 68%);
+}
+.gate__spot {
+  position: absolute;
+  inset: 0;
+  mix-blend-mode: screen;
+}
+.gate__vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(112% 84% at 50% 42%, transparent 46%, rgba(0, 0, 0, 0.62) 100%);
+}
+
+/* ------------------------------------------------------------------ top */
 .gate__top {
   position: relative;
   z-index: 3;
-  padding: clamp(20px, 3.4vw, 40px) var(--gutter) 0;
+  padding: clamp(18px, 3vw, 38px) var(--gutter) 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -927,7 +977,7 @@ h4 {
   align-items: center;
   gap: 12px;
   font-family: var(--f-serif);
-  font-size: 1.1rem;
+  font-size: clamp(0.98rem, 1.2vw, 1.14rem);
 }
 .gate__brand .nav__mark {
   box-shadow: 0 0 0 1px var(--line-2);
@@ -935,62 +985,132 @@ h4 {
 .gate__meta {
   font-family: var(--f-mono);
   font-size: 0.6rem;
-  letter-spacing: 0.24em;
+  letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--ink-3);
 }
+.gate__live {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  white-space: nowrap;
+}
+.gate__live i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #4fb06a;
+  box-shadow: 0 0 0 0 rgba(79, 176, 106, 0.6);
+  animation: pulse 2.6s infinite;
+}
 
+/* --------------------------------------------------------------- centre */
 .gate__head {
   position: relative;
   z-index: 3;
-  padding: clamp(34px, 6vw, 74px) var(--gutter) clamp(24px, 3.6vw, 44px);
+  padding: clamp(30px, 5.5vw, 76px) var(--gutter) clamp(24px, 3.6vw, 46px);
   text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 .gate__kicker {
   font-family: var(--f-mono);
   font-size: 0.62rem;
-  letter-spacing: 0.32em;
+  letter-spacing: 0.34em;
   text-transform: uppercase;
   color: var(--accent-2);
 }
 .gate__title {
-  margin-top: 16px;
+  margin-top: 18px;
   font-family: var(--f-serif);
-  font-size: clamp(2.1rem, 7vw, 6rem);
-  line-height: 1.08;
-  letter-spacing: -0.02em;
+  font-size: clamp(2.6rem, 9vw, 7.4rem);
+  line-height: 1.04;
+  letter-spacing: -0.022em;
 }
-.gate__title em {
+.gate__amp {
   font-style: italic;
   color: var(--accent-2);
+  display: inline-block;
+  animation: ampSway 7s ease-in-out infinite;
+}
+@keyframes ampSway {
+  0%,
+  100% {
+    transform: rotate(-4deg) translateY(0);
+  }
+  50% {
+    transform: rotate(4deg) translateY(-3px);
+  }
 }
 .gate__note {
-  margin: 18px auto 0;
-  max-width: 56ch;
+  margin: clamp(16px, 2.2vw, 26px) auto 0;
+  max-width: 54ch;
   color: var(--ink-2);
-  font-size: clamp(0.95rem, 1.15vw, 1.08rem);
+  font-size: clamp(0.95rem, 1.15vw, 1.1rem);
+  line-height: 1.75;
+}
+.gate__hint {
+  margin-top: clamp(20px, 2.6vw, 32px);
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  font-family: var(--f-mono);
+  font-size: 0.58rem;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.gate__hintRule {
+  width: 34px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--line-2));
+}
+.gate__hint kbd {
+  font-family: var(--f-mono);
+  font-size: 0.58rem;
+  letter-spacing: 0;
+  padding: 3px 8px;
+  border-radius: 5px;
+  border: 1px solid var(--line-2);
+  background: rgba(244, 240, 233, 0.05);
+  color: var(--ink-2);
 }
 
+/* ---------------------------------------------------------------- doors */
 .gate__split {
   position: relative;
   z-index: 3;
   flex: 1;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: flex;
   gap: 1px;
   background: var(--line);
   border-top: 1px solid var(--line);
-  min-height: clamp(320px, 46vh, 520px);
+  min-height: clamp(300px, 40vh, 460px);
+}
+.gate__doorWrap {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  transition: flex-grow 0.9s var(--ease), opacity 0.55s var(--ease);
+}
+/* attention shifts weight: the hovered panel takes room, the other steps back */
+.gate__split.is-hovering .gate__doorWrap {
+  opacity: 0.46;
+}
+.gate__split.is-hovering .gate__doorWrap.is-on {
+  opacity: 1;
+  flex-grow: 1.22;
 }
 .gate__door {
   position: relative;
+  flex: 1;
+  min-width: 0;
   display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  gap: 14px;
-  padding: clamp(28px, 4vw, 60px) clamp(24px, 3.6vw, 56px)
-    clamp(32px, 4.4vw, 62px);
-  background: var(--paper);
+  align-items: flex-end;
+  padding: clamp(26px, 3.6vw, 58px) clamp(22px, 3.4vw, 54px)
+    clamp(28px, 4vw, 58px);
+  background: #0f1319;
   overflow: hidden;
   isolation: isolate;
   transition: color 0.55s var(--ease);
@@ -1002,32 +1122,66 @@ h4 {
   z-index: -1;
   background: var(--door);
   opacity: 0;
-  transform: translateY(100%);
-  transition: transform 0.85s var(--ease), opacity 0.5s var(--ease);
+  transform: translateY(101%);
+  transition: transform 0.9s var(--ease), opacity 0.5s var(--ease);
 }
-.gate__door:hover::before {
+.gate__door:hover::before,
+.gate__door:focus-visible::before {
   transform: translateY(0);
   opacity: 1;
 }
 .gate__door--tech {
-  --door: linear-gradient(150deg, #1e4b7a, #0f2740);
+  --door: linear-gradient(155deg, #1f4f7f 0%, #10283f 62%, #0b1a29 100%);
+  --motif: #8fc0ea;
 }
 .gate__door--write {
-  --door: linear-gradient(150deg, #7b2b2b, #3a1414);
+  --door: linear-gradient(155deg, #7e2f2f 0%, #451717 62%, #2c0f0f 100%);
+  --motif: #e8a97f;
 }
-.gate__door:hover {
-  color: #fff;
+
+.gate__ghost {
+  position: absolute;
+  right: clamp(-6px, 0.6vw, 12px);
+  bottom: clamp(-24px, -1vw, -8px);
+  font-family: var(--f-serif);
+  font-size: clamp(8rem, 17vw, 18rem);
+  line-height: 0.8;
+  color: rgba(244, 240, 233, 0.035);
+  pointer-events: none;
+  transition: color 0.6s var(--ease), transform 0.9s var(--ease);
 }
-.gate__door:hover .gate__doorNote,
-.gate__door:hover .gate__doorIdx,
-.gate__door:hover .gate__doorList li {
-  color: rgba(255, 255, 255, 0.78);
+.gate__door:hover .gate__ghost {
+  color: rgba(255, 255, 255, 0.075);
+  transform: translateY(-8px);
 }
-.gate__door:hover .gate__go {
-  background: #fff;
-  color: #16181c;
-  border-color: #fff;
-  transform: rotate(45deg);
+
+.gate__motif {
+  position: absolute;
+  top: clamp(22px, 3vw, 46px);
+  right: clamp(22px, 3vw, 46px);
+  width: clamp(78px, 9vw, 128px);
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  opacity: 0.5;
+  transition: opacity 0.6s var(--ease), transform 0.9s var(--ease);
+  pointer-events: none;
+}
+.gate__door:hover .gate__motif {
+  opacity: 1;
+  transform: scale(1.06);
+}
+.gate__motif svg {
+  width: 100%;
+  height: 100%;
+}
+
+.gate__doorBody {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(10px, 1.2vw, 15px);
+  max-width: 46ch;
 }
 .gate__doorIdx {
   font-family: var(--f-mono);
@@ -1039,7 +1193,7 @@ h4 {
 }
 .gate__doorTitle {
   font-family: var(--f-serif);
-  font-size: clamp(1.85rem, 4.6vw, 3.9rem);
+  font-size: clamp(2rem, 4.4vw, 3.8rem);
   line-height: 1.08;
   letter-spacing: -0.02em;
 }
@@ -1047,36 +1201,61 @@ h4 {
   display: block;
   font-family: var(--f-hi);
   font-weight: 400;
-  font-size: 0.5em;
+  font-size: 0.48em;
   line-height: 1.5;
   opacity: 0.72;
   margin-top: 8px;
 }
 .gate__doorNote {
   color: var(--ink-2);
-  font-size: 0.94rem;
-  max-width: 40ch;
+  font-size: clamp(0.88rem, 1.02vw, 0.97rem);
+  line-height: 1.72;
   transition: color 0.5s var(--ease);
 }
-.gate__doorList {
+.gate__door--write .gate__doorNote {
+  font-family: var(--f-hi-body);
+  line-height: 1.95;
+}
+.gate__doorMeta {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 18px;
+  gap: 7px;
+  margin-top: 2px;
+}
+.gate__doorMeta span {
+  padding: 5px 12px;
+  border-radius: 99px;
+  border: 1px solid var(--line-2);
   font-family: var(--f-mono);
-  font-size: 0.58rem;
+  font-size: 0.57rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--ink-3);
+  transition: color 0.5s var(--ease), border-color 0.5s var(--ease);
 }
-.gate__doorList li {
-  transition: color 0.5s var(--ease);
+.gate__door--write .gate__doorMeta span {
+  font-family: var(--f-hi-body);
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+.gate__cta {
+  margin-top: clamp(8px, 1.4vw, 16px);
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  font-size: 0.92rem;
+  font-weight: 500;
+  color: var(--ink);
+  transition: color 0.5s var(--ease), gap 0.5s var(--ease);
+}
+.gate__door--write .gate__cta {
+  font-family: var(--f-hi-body);
 }
 .gate__go {
-  position: absolute;
-  top: clamp(24px, 3.4vw, 46px);
-  right: clamp(24px, 3.4vw, 46px);
-  width: 52px;
-  height: 52px;
+  width: 40px;
+  height: 40px;
+  flex: none;
   border-radius: 50%;
   border: 1px solid var(--line-2);
   display: grid;
@@ -1084,28 +1263,228 @@ h4 {
   transition: background 0.5s var(--ease), color 0.5s var(--ease),
     border-color 0.5s var(--ease), transform 0.5s var(--ease);
 }
+
+/* hovered state — everything lifts to white together */
+.gate__door:hover,
+.gate__door:focus-visible {
+  color: #fff;
+}
+.gate__door:hover .gate__doorNote,
+.gate__door:hover .gate__doorIdx,
+.gate__door:hover .gate__doorMeta span {
+  color: rgba(255, 255, 255, 0.82);
+}
+.gate__door:hover .gate__doorMeta span {
+  border-color: rgba(255, 255, 255, 0.34);
+}
+.gate__door:hover .gate__cta {
+  gap: 18px;
+}
+.gate__door:hover .gate__go {
+  background: #fff;
+  border-color: #fff;
+  color: #14181e;
+  transform: rotate(45deg);
+}
+.gate__door:focus-visible {
+  outline: 2px solid var(--accent-2);
+  outline-offset: -6px;
+}
+
+/* --------------------------------------------------------------- motifs */
+.gm__ring {
+  fill: none;
+  stroke: var(--motif);
+  stroke-opacity: 0.35;
+  stroke-width: 1;
+  stroke-dasharray: 3 8;
+}
+.gm__core {
+  fill: var(--motif);
+  fill-opacity: 0.9;
+}
+.gm__node {
+  fill: var(--motif);
+}
+.gm__nodeSm {
+  fill: var(--motif);
+  fill-opacity: 0.65;
+}
+.gm__pulse {
+  fill: none;
+  stroke: var(--motif);
+  stroke-width: 1.2;
+  transform-origin: 100px 100px;
+  animation: gmPulse 3.4s ease-out infinite;
+  opacity: 0;
+}
+@keyframes gmPulse {
+  0% {
+    transform: scale(0.7);
+    opacity: 0.55;
+  }
+  100% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+}
+.gm__spin {
+  transform-origin: 100px 100px;
+  animation: svSpin 26s linear infinite;
+}
+.gm__spinSlow {
+  transform-origin: 100px 100px;
+  animation: svSpin 38s linear infinite reverse;
+}
+.gm__cups {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  color: var(--motif);
+}
+.gm__cups > svg:last-child {
+  margin-left: -12px;
+  margin-bottom: 6px;
+  opacity: 0.85;
+}
+
+/* --------------------------------------------------------------- footer */
 .gate__foot {
   position: relative;
   z-index: 3;
-  padding: 18px var(--gutter) 26px;
+  padding: 16px var(--gutter) max(22px, env(safe-area-inset-bottom));
   display: flex;
   flex-wrap: wrap;
   gap: 10px 26px;
   justify-content: space-between;
+  align-items: center;
   font-size: 0.78rem;
   color: var(--ink-3);
   border-top: 1px solid var(--line);
 }
-@media (max-width: 860px) {
+.gate__footLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 22px;
+}
+
+/* ---------------------------------------------------------- responsive */
+@media (max-width: 900px) {
   .gate__split {
-    grid-template-columns: 1fr;
+    flex-direction: column;
+    min-height: 0;
+  }
+  .gate__doorWrap,
+  .gate__split.is-hovering .gate__doorWrap,
+  .gate__split.is-hovering .gate__doorWrap.is-on {
+    flex: none;
+    opacity: 1;
+  }
+  .gate__door {
+    min-height: 300px;
+  }
+  .gate__motif {
+    width: 82px;
+  }
+  .gate__ghost {
+    font-size: 9rem;
+    bottom: -18px;
+  }
+}
+@media (max-width: 640px) {
+  .gate {
+    min-height: 100svh;
+  }
+  .gate__top {
+    padding-top: 16px;
+  }
+  .gate__meta {
+    font-size: 0.52rem;
+    letter-spacing: 0.16em;
+  }
+  .gate__head {
+    padding-block: 26px 22px;
+  }
+  .gate__kicker {
+    font-size: 0.55rem;
+    letter-spacing: 0.26em;
+  }
+  .gate__title {
+    font-size: clamp(2.4rem, 15vw, 3.6rem);
+  }
+  .gate__note {
+    font-size: 0.92rem;
+    max-width: 34ch;
+  }
+  .gate__hint {
+    display: none;
+  }
+  .gate__door {
+    min-height: 0;
+    padding: 24px 20px 26px;
+  }
+  .gate__doorTitle {
+    font-size: clamp(1.8rem, 9vw, 2.5rem);
+  }
+  .gate__doorNote {
+    font-size: 0.87rem;
+  }
+  .gate__motif {
+    width: 62px;
+    top: 20px;
+    right: 18px;
+    opacity: 0.85;
+  }
+  .gate__ghost {
+    font-size: 7rem;
+    bottom: -14px;
+    right: 4px;
+  }
+  .gate__cta {
+    font-size: 0.88rem;
+    width: 100%;
+    justify-content: space-between;
   }
   .gate__go {
-    width: 44px;
-    height: 44px;
+    width: 36px;
+    height: 36px;
+  }
+  .gate__foot {
+    justify-content: flex-start;
+    font-size: 0.74rem;
+    padding-block: 14px;
+  }
+  .gate__aurora {
+    filter: blur(60px);
   }
 }
 
+/* touch: no hover states, so show each panel at full strength */
+@media (hover: none) {
+  .gate__door:hover::before {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  .gate__door:hover {
+    color: var(--ink);
+  }
+  .gate__motif {
+    opacity: 0.85;
+  }
+  .gate__split.is-hovering .gate__doorWrap {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gate__amp,
+  .gm__pulse,
+  .gm__spin,
+  .gm__spinSlow,
+  .gate__live i {
+    animation: none;
+  }
+}
 /* =========================================================================
    HERO (shared skeleton, themed per page)
    ========================================================================= */

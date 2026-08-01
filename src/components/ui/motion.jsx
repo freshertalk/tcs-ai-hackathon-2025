@@ -282,7 +282,13 @@ export function Parallax({ children, distance = 90, className = "", style }) {
   const y = useTransform(scrollYProgress, [0, 1], [distance, -distance]);
   const sy = useSpring(y, { stiffness: 90, damping: 22, mass: 0.4 });
   return (
-    <motion.div ref={ref} className={className} style={{ y: sy, ...style }}>
+    <motion.div
+      ref={ref}
+      className={className}
+      // useScroll measures against the offset parent; a static element makes
+      // framer-motion warn and can skew the offsets.
+      style={{ position: "relative", y: sy, ...style }}
+    >
       {children}
     </motion.div>
   );

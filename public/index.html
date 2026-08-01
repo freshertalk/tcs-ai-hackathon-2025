@@ -30,7 +30,10 @@
       href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300..700&family=Instrument+Serif:ital@0;1&family=Plus+Jakarta+Sans:ital,wght@0,300..700;1,300..500&family=Martel:wght@400;700&family=Tiro+Devanagari+Hindi:ital@0;1&family=IBM+Plex+Mono:wght@400;500&display=swap"
       rel="stylesheet"
     />
-    <link rel="preload" as="image" href="%PUBLIC_URL%/vinay-portrait-sm.webp" type="image/webp" fetchpriority="high" />
+    <!-- No portrait preload here: this is an SPA and only /technical shows the
+         hero portrait, so preloading it globally made Chrome warn that the
+         resource went unused on / and /writings. The hero <img> carries
+         loading="eager" + fetchpriority="high" instead. -->
 
     <title>Vinay Kumar Tiwari — Engineer &amp; Author</title>
   </head>
