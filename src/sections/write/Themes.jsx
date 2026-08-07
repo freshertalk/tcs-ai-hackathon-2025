@@ -7,7 +7,7 @@ import {
   Stagger,
   riseItem,
 } from "../../components/ui/motion";
-import { BOOK, OTHER_WRITING } from "../../data/books";
+import { BOOK } from "../../data/books";
 
 export default function Themes() {
   return (
@@ -40,23 +40,6 @@ export default function Themes() {
           ))}
         </Stagger>
 
-        {/* ------------------------------------------------ other writing */}
-        <Reveal style={{ marginTop: "clamp(52px, 7vw, 96px)" }}>
-          <span className="eyebrow is-hi">और भी</span>
-          <h3 className="h-display title-md" style={{ marginTop: 14 }}>
-            Also on the desk
-          </h3>
-        </Reveal>
-
-        <Stagger className="ow" stagger={0.08} style={{ marginTop: 28 }}>
-          {OTHER_WRITING.map((w) => (
-            <motion.article className="ow__card" key={w.title} variants={riseItem}>
-              <span className="ow__k">{w.kind}</span>
-              <h4 className="ow__t">{w.title}</h4>
-              <p className="ow__d">{w.d}</p>
-            </motion.article>
-          ))}
-        </Stagger>
       </div>
     </section>
   );

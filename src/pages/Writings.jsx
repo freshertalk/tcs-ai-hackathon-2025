@@ -9,7 +9,8 @@ import Marquee from "../components/site/Marquee";
 
 import Hero from "../sections/write/Hero";
 import Novel from "../sections/write/Novel";
-import Synopsis from "../sections/write/Synopsis";
+import Opening from "../sections/write/Opening";
+import Lines from "../sections/write/Lines";
 import Themes from "../sections/write/Themes";
 import Author from "../sections/write/Author";
 import Contact from "../sections/write/Contact";
@@ -20,7 +21,8 @@ const LINKS = [
   // "उपन्यास" returns to the very top — the intro chips and the title are
   // part of the introduction, same as "About" on the technical page.
   { id: "top", label: "उपन्यास" },
-  { id: "synopsis", label: "कहानी" },
+  { id: "opening", label: "पहला पन्ना" },
+  { id: "lines", label: "पंक्तियाँ" },
   { id: "themes", label: "विषय" },
   { id: "author", label: "लेखक" },
   { id: "contact", label: "संपर्क" },
@@ -48,8 +50,9 @@ export default function Writings() {
       <main>
         <Hero />
         <Marquee items={TICKER} baseVelocity={12} />
+        <Opening />
         <Novel />
-        <Synopsis />
+        <Lines />
         <Themes />
         <Author />
         <Contact />

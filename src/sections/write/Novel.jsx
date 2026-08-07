@@ -82,10 +82,10 @@ export default function Novel() {
                 <Magnetic>
                   <button
                     className="btn btn--solid"
-                    onClick={() => scrollToId("synopsis", 62)}
+                    onClick={() => scrollToId("lines", 62)}
                     data-cursor="पढ़िए"
                   >
-                    कहानी एक नज़र में
+                    पंक्तियाँ पढ़िए
                     <Arrow />
                   </button>
                 </Magnetic>
@@ -122,12 +122,21 @@ export default function Novel() {
         </div>
       </section>
 
-      {/* ------------------------------------------------------ quote band */}
+      {/* --------------------------------------------- the three epigraphs */}
       <section className="qband">
         <div className="shell">
           <Reveal>
-            <p className="qband__q">{BOOK.epigraph.text}</p>
-            <p className="qband__from">— {BOOK.epigraph.from}</p>
+            <span className="qband__kicker">पहले पन्ने से पहले</span>
+          </Reveal>
+          <div className="qband__grid">
+            {BOOK.epigraphs.map((e, i) => (
+              <Reveal key={e.slice(0, 18)} delay={i * 0.12} y={26}>
+                <p className="qband__q">{e}</p>
+              </Reveal>
+            ))}
+          </div>
+          <Reveal delay={0.4}>
+            <p className="qband__from">— {BOOK.byline} ({BOOK.title})</p>
           </Reveal>
         </div>
       </section>

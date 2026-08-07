@@ -70,6 +70,15 @@ export default function Author() {
               </blockquote>
             </Reveal>
 
+            {/* the manuscript's dedication page, carried over as-is */}
+            <Reveal delay={0.24}>
+              <div className="dedic">
+                <span className="dedic__k">समर्पण</span>
+                <p className="dedic__to">{BOOK.dedication.to}</p>
+                <p className="dedic__body">{BOOK.dedication.body}</p>
+              </div>
+            </Reveal>
+
             <div className="author__cols">
               <Reveal className="author__box" y={24}>
                 <div className="author__boxT is-hi">शिक्षा</div>

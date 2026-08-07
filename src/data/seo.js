@@ -133,7 +133,7 @@ export const PAGES = {
     keywords: [...BOOK_TERMS, "विनय कुमार तिवारी", "Vinay Kumar Tiwari author"],
     lang: "hi",
     summary:
-      "दो कुल्हड़ चाय (Do Kulhad Chai) विनय कुमार तिवारी का पहला हिन्दी उपन्यास है। शिवगंगा एक्सप्रेस में सीट छत्तीस और सैंतीस पर बैठे दो अजनबी — विवान और प्राची — एक रुके हुए लाल सिग्नल पर पूरी रात बात करते हैं, और फिर एक वादा करते हैं: हर महीने की बारह तारीख़, उसी ट्रेन में, दो कुल्हड़ चाय। कहानी कानपुर आउटर से लखनऊ जंक्शन होते हुए बनारस तक जाती है। Do Kulhad Chai is a Hindi literary novel by Vinay Kumar Tiwari, copyright filed with the Copyright Office, Government of India (Diary No. LD-36102/2026-CO).",
+      "दो कुल्हड़ चाय (Do Kulhad Chai) विनय कुमार तिवारी का पहला हिन्दी उपन्यास है — छत्तीस अध्याय और एक आख़िरी अध्याय, 2015 से 2026 तक फैले ग्यारह साल। शिवगंगा एक्सप्रेस साढ़े चार घंटे एक लाल सिग्नल पर खड़ी रह जाती है, और सीट छत्तीस और सैंतीस पर बैठे दो अजनबी — विवान और प्राची — पूरी रात बात करते हैं। नाम वे सबसे आख़िर में पूछते हैं। कहानी कानपुर आउटर से लखनऊ जंक्शन होते हुए बनारस तक जाती है। Do Kulhad Chai is a Hindi literary novel by Vinay Kumar Tiwari — 37 chapters spanning eleven years — copyright filed with the Copyright Office, Government of India (Diary No. LD-36102/2026-CO).",
   },
 };
 

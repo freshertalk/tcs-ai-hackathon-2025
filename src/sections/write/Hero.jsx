@@ -13,9 +13,9 @@ import { scrollToId } from "../../hooks/useSmoothScroll";
 import { BOOK } from "../../data/books";
 
 const STATS = [
-  { to: 58, suffix: "", label: "अध्याय" },
+  { to: 37, suffix: "", label: "अध्याय" },
   { to: 11, suffix: "", label: "साल का कालखंड" },
-  { to: 142, suffix: "", label: "रिकॉर्डिंग्स · चेहरे" },
+  { to: 23, suffix: "", label: "पंक्तियाँ यहाँ" },
   { to: 2, suffix: "", label: "कुल्हड़ · हर बार" },
 ];
 
@@ -107,19 +107,19 @@ export default function Hero() {
               <Magnetic>
                 <button
                   className="btn btn--solid btn--lg"
-                  onClick={() => scrollToId("novel", 62)}
+                  onClick={() => scrollToId("opening", 62)}
                   data-cursor="पढ़िए"
                 >
-                  उपन्यास के बारे में
+                  पहला पन्ना पढ़िए
                   <Arrow />
                 </button>
               </Magnetic>
               <Magnetic>
                 <button
                   className="btn btn--lg"
-                  onClick={() => scrollToId("synopsis", 62)}
+                  onClick={() => scrollToId("lines", 62)}
                 >
-                  कहानी
+                  पंक्तियाँ
                 </button>
               </Magnetic>
               <Magnetic>

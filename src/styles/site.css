@@ -3483,12 +3483,249 @@ h4 {
   justify-content: flex-end;
 }
 
+/* =========================================================================
+   प्रस्तावना — the opening scene, set as a page
+   ========================================================================= */
+.op {
+  background: var(--paper-2);
+}
+.op__head {
+  text-align: center;
+  margin-bottom: clamp(28px, 4vw, 48px);
+}
+.op__head .eyebrow::before {
+  display: none;
+}
+.op__title {
+  margin-top: 14px;
+}
+.op__stamp {
+  margin-top: 14px;
+  font-family: var(--f-mono);
+  font-size: 0.58rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.op__page {
+  position: relative;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+  padding: clamp(26px, 4.4vw, 68px) clamp(22px, 4vw, 62px)
+    clamp(24px, 3.4vw, 46px);
+}
+/* a thin inner rule, like a printed page block */
+.op__page::before {
+  content: "";
+  position: absolute;
+  inset: clamp(8px, 1vw, 14px);
+  border: 1px solid var(--line);
+  border-radius: calc(var(--r-lg) - 6px);
+  pointer-events: none;
+}
+.op__rule {
+  position: relative;
+  display: block;
+  text-align: center;
+  color: var(--accent-2);
+  font-size: 0.85rem;
+  margin-bottom: clamp(18px, 2.4vw, 30px);
+}
+.op__body {
+  position: relative;
+  display: grid;
+  gap: clamp(16px, 2vw, 24px);
+  max-width: 60ch;
+  margin-inline: auto;
+}
+.op__p {
+  font-family: var(--f-hi-body);
+  font-size: clamp(1rem, 1.22vw, 1.14rem);
+  line-height: 2.2;
+  color: var(--ink-2);
+  white-space: pre-line;
+}
+.op__p--hi {
+  font-family: var(--f-hi);
+  font-size: clamp(1.1rem, 1.7vw, 1.5rem);
+  line-height: 1.85;
+  color: var(--ink);
+  border-left: 3px solid var(--accent-2);
+  padding-left: clamp(16px, 2vw, 24px);
+}
+.op__p--note {
+  background: var(--accent-soft);
+  border-radius: var(--r);
+  padding: clamp(16px, 2.2vw, 26px);
+  color: var(--ink);
+}
+.op__ask {
+  margin-top: clamp(8px, 1.4vw, 16px);
+  text-align: center;
+  font-family: var(--f-hi);
+  font-weight: 700;
+  font-size: clamp(1.25rem, 2.4vw, 2rem);
+  line-height: 1.7;
+  color: var(--accent);
+}
+.op__foot {
+  position: relative;
+  margin-top: clamp(24px, 3vw, 40px);
+  padding-top: clamp(16px, 2vw, 24px);
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: center;
+  gap: 6px 14px;
+}
+.op__footTitle {
+  font-family: var(--f-hi);
+  font-weight: 700;
+  font-size: 1.02rem;
+  color: var(--ink);
+}
+.op__footBy {
+  font-family: var(--f-hi-body);
+  font-style: italic;
+  font-size: 0.92rem;
+  color: var(--accent);
+}
+.op__after {
+  margin-top: clamp(22px, 3vw, 34px);
+  text-align: center;
+  font-family: var(--f-hi-body);
+  font-size: clamp(0.96rem, 1.2vw, 1.1rem);
+  line-height: 2;
+  color: var(--ink-3);
+}
+.op__after span {
+  color: var(--accent);
+}
+
+/* =========================================================================
+   पंक्तियाँ — quotable lines on a rail
+   ========================================================================= */
+.ln {
+  background: var(--paper);
+}
+.ln__card {
+  position: relative;
+  flex: 0 0 auto;
+  margin: 0;
+  width: min(78vw, 430px);
+  min-height: clamp(280px, 40vh, 380px);
+  padding: clamp(26px, 3vw, 40px);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 18px;
+  overflow: hidden;
+  transition: border-color 0.5s var(--ease), box-shadow 0.5s var(--ease),
+    transform 0.5s var(--ease);
+}
+.ln__card:hover {
+  border-color: var(--accent);
+  box-shadow: var(--shadow);
+  transform: translateY(-4px);
+}
+.ln__quote {
+  position: absolute;
+  top: clamp(-14px, -0.5vw, -6px);
+  right: clamp(14px, 2vw, 26px);
+  font-family: var(--f-display);
+  font-size: clamp(5rem, 9vw, 8rem);
+  line-height: 1;
+  color: var(--accent);
+  opacity: 0.1;
+  pointer-events: none;
+}
+.ln__text {
+  position: relative;
+  margin: 0;
+  font-family: var(--f-hi);
+  font-weight: 400;
+  font-size: clamp(1.05rem, 1.7vw, 1.42rem);
+  line-height: 1.95;
+  color: var(--ink);
+}
+.ln__by {
+  font-family: var(--f-hi-body);
+  font-style: italic;
+  font-size: 0.85rem;
+  line-height: 1.8;
+  color: var(--accent);
+}
+.ln__idx {
+  position: absolute;
+  left: clamp(24px, 3vw, 38px);
+  bottom: clamp(16px, 2vw, 22px);
+  font-family: var(--f-mono);
+  font-size: 0.56rem;
+  letter-spacing: 0.2em;
+  color: var(--ink-3);
+}
+.syn--swipe .ln__card {
+  scroll-snap-align: center;
+  width: min(84vw, 400px);
+  min-height: clamp(250px, 50vw, 340px);
+}
+
+@media (max-width: 640px) {
+  .op__page {
+    padding: 22px 18px 20px;
+  }
+  .op__page::before {
+    inset: 7px;
+  }
+  .op__p--hi {
+    padding-left: 14px;
+  }
+}
+
 /* quote band */
 .qband {
   background: var(--accent);
   color: var(--on-accent);
   padding-block: clamp(46px, 7vw, 100px);
   overflow: hidden;
+}
+.qband__kicker {
+  display: block;
+  text-align: center;
+  font-family: var(--f-hi-body);
+  font-size: 0.86rem;
+  letter-spacing: 0.04em;
+  opacity: 0.66;
+  margin-bottom: clamp(26px, 3.4vw, 44px);
+}
+.qband__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  gap: clamp(26px, 4vw, 54px);
+  align-items: start;
+}
+.qband__grid .qband__q {
+  white-space: pre-line;
+  max-width: none;
+  font-size: clamp(1.02rem, 1.8vw, 1.42rem);
+  line-height: 1.95;
+  padding-inline: clamp(0px, 1vw, 14px);
+}
+.qband__grid > *:not(:last-child) .qband__q {
+  border-right: 1px solid rgba(255, 255, 255, 0.16);
+}
+@media (max-width: 820px) {
+  .qband__grid > *:not(:last-child) .qband__q {
+    border-right: 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.16);
+    padding-bottom: clamp(20px, 3vw, 30px);
+  }
 }
 .qband__q {
   font-family: var(--f-hi-body);
@@ -3648,6 +3885,39 @@ h4 {
   line-height: 1.8;
   color: var(--accent);
 }
+/* समर्पण — the dedication page, carried across from the manuscript */
+.dedic {
+  margin-top: clamp(20px, 2.6vw, 30px);
+  padding: clamp(20px, 2.4vw, 30px) clamp(20px, 2.4vw, 30px)
+    clamp(20px, 2.4vw, 30px) clamp(22px, 2.6vw, 34px);
+  border-left: 2px solid var(--accent-2);
+  background: linear-gradient(100deg, var(--surface-2), transparent 80%);
+  border-radius: 0 var(--r) var(--r) 0;
+}
+.dedic__k {
+  font-family: var(--f-mono);
+  font-size: 0.55rem;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--accent-2);
+}
+.dedic__to {
+  margin-top: 10px;
+  font-family: var(--f-hi);
+  font-weight: 700;
+  font-size: clamp(1.05rem, 1.5vw, 1.28rem);
+  line-height: 1.6;
+  color: var(--ink);
+}
+.dedic__body {
+  margin-top: 8px;
+  font-family: var(--f-hi-body);
+  font-style: italic;
+  font-size: clamp(0.94rem, 1.15vw, 1.05rem);
+  line-height: 2;
+  color: var(--ink-2);
+}
+
 .author__cols {
   margin-top: clamp(28px, 3.4vw, 44px);
   display: grid;
@@ -3699,43 +3969,6 @@ h4 {
   .author__photo {
     justify-self: center;
   }
-}
-
-/* other writing */
-.ow {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
-  gap: clamp(14px, 1.8vw, 22px);
-}
-.ow__card {
-  border: 1px solid var(--line);
-  border-radius: var(--r-lg);
-  padding: clamp(22px, 2.4vw, 30px);
-  background: var(--surface);
-  transition: transform 0.6s var(--ease), box-shadow 0.6s var(--ease);
-}
-.ow__card:hover {
-  transform: translateY(-5px);
-  box-shadow: var(--shadow);
-}
-.ow__k {
-  font-family: var(--f-mono);
-  font-size: 0.55rem;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--accent-2);
-}
-.ow__t {
-  margin-top: 12px;
-  font-family: var(--f-display);
-  font-size: 1.3rem;
-  letter-spacing: -0.02em;
-}
-.ow__d {
-  margin-top: 10px;
-  color: var(--ink-2);
-  font-size: 0.9rem;
-  line-height: 1.75;
 }
 
 /* =========================================================================
@@ -3892,7 +4125,6 @@ h4 {
   .stack__col:hover,
   .themes__cell:hover,
   .cast__card:hover,
-  .ow__card:hover,
   .xp__item:hover {
     transform: none;
     box-shadow: none;
@@ -4113,7 +4345,6 @@ h4 {
   .track,
   .themes__cell,
   .cast__card,
-  .ow__card,
   .syn__card {
     padding: 20px;
   }
