@@ -12,6 +12,7 @@ import Novel from "../sections/write/Novel";
 import Opening from "../sections/write/Opening";
 import Lines from "../sections/write/Lines";
 import Themes from "../sections/write/Themes";
+import Teaser from "../sections/write/Teaser";
 import Author from "../sections/write/Author";
 import Contact from "../sections/write/Contact";
 
@@ -28,7 +29,11 @@ const LINKS = [
   { id: "contact", label: "संपर्क" },
 ];
 
-const TICKER = BOOK.quotes.map((q, i) => ({ text: q, hl: i % 2 === 1 }));
+// The strapline leads the moving strip, then the pull-quotes follow it.
+const TICKER = [
+  { text: BOOK.marqueeLine, hl: true },
+  ...BOOK.quotes.map((q) => ({ text: q })),
+];
 
 export default function Writings() {
   useEffect(() => {
@@ -54,6 +59,7 @@ export default function Writings() {
         <Novel />
         <Lines />
         <Themes />
+        <Teaser />
         <Author />
         <Contact />
       </main>

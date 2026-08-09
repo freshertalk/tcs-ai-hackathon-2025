@@ -61,6 +61,10 @@ export const BOOK = {
     from: "दो कुल्हड़ चाय",
   },
 
+  // The line that runs in the moving strip at the top of the page.
+  marqueeLine:
+    "एक ट्रेन, दो कुल्हड़ चाय और हर महीने की एक तारीख़— कुछ मुलाक़ातें खत्म नहीं होतीं, वे हमारी ज़िंदगी का हिस्सा बन जाती हैं।",
+
   // Rotating pull-quotes used in the ticker and the quote band.
   // Kept deliberately context-free — no lines that give away the ending.
   quotes: [
@@ -71,6 +75,15 @@ export const BOOK = {
     "नाम हमने सबसे आख़िर में पूछे थे।",
     "कुछ बातें बोल देने से छोटी हो जाती हैं।",
   ],
+
+  // Back-cover teaser — the closing pitch of the writings page.
+  teaser: {
+    beats: ["एक रात।", "एक मुलाक़ात।", "दो कुल्हड़ चाय।"],
+    question: "लेकिन क्या एक रात की मुलाक़ात पूरी ज़िंदगी बदल सकती है?",
+    cta: "जानने के लिए पढ़िए",
+    ctaBook: "दो कुल्हड़ चाय",
+    by: "विनय कुमार तिवारी",
+  },
 
   // Two protagonists
   cast: [
@@ -239,7 +252,9 @@ export const AUTHOR = {
 
   connect: {
     heading: "लेखक से जुड़ें",
-    email: "vinay.tiwari.sap@gmail.com",
+    // The literary address — deliberately separate from the SAP/work inbox
+    // used on /technical.
+    email: "author.vinaytiwari1@gmail.com",
     website: "https://vinaytiwari.org",
     websiteLabel: "vinaytiwari.org",
   },
