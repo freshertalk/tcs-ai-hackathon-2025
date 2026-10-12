@@ -1,104 +1,58 @@
 // src/sections/write/Novel.jsx
+// About the novel — the fuller version of what the hero says in a breath:
+// the book in a paragraph, the four people on the train, and the three lines
+// that stand before page one.
+
 import React from "react";
 import { motion } from "framer-motion";
-import {
-  Reveal,
-  MaskLine,
-  Tilt,
-  Parallax,
-  Magnetic,
-  Stagger,
-  riseItem,
-  Arrow,
-} from "../../components/ui/motion";
-import Kulhad from "../../components/site/Kulhad";
-import { scrollToId } from "../../hooks/useSmoothScroll";
+import { Reveal, MaskLine, Stagger, riseItem } from "../../components/ui/motion";
 import { BOOK } from "../../data/books";
+import { useCatalog } from "../../library/hooks";
+import { fmtDate } from "../../reader/util";
 
 export default function Novel() {
+  const { data } = useCatalog();
+  const entry = data && data.books.find((b) => b.slug === BOOK.slug);
+
+  // the date is the publisher's single source of truth (public/ebooks/books.json)
+  const facts = BOOK.facts.map((f) =>
+    f.k === "स्थिति" && entry
+      ? { k: "प्रकाशन", v: fmtDate(entry.published), hi: false }
+      : f
+  );
+
   return (
     <>
       <section className="section novel" id="novel">
         <div className="shell">
-          <div className="novel__stage">
-            <Parallax distance={30}>
-              <Tilt max={9} className="cover">
-                <div className="cover__face">
-                  <span className="cover__glow" aria-hidden="true" />
-                  <span className="cover__top">
-                    {BOOK.kind} · {BOOK.language}
-                  </span>
-                  <div className="cover__art">
-                    <Kulhad size={86} steamColor="#f3d9b5" steamOpacity={0.55} />
-                    <Kulhad size={86} steamColor="#f3d9b5" steamOpacity={0.4} />
-                  </div>
-                  <div>
-                    <div className="cover__title">{BOOK.title}</div>
-                    <div className="cover__by" style={{ marginTop: 10 }}>
-                      {BOOK.byline}
-                    </div>
-                  </div>
-                </div>
-              </Tilt>
-            </Parallax>
-
-            <div className="novel__body">
+          <div className="novel__about">
+            <div>
               <Reveal>
-                <span className="tag is-hi">{BOOK.status}</span>
+                <span className="eyebrow is-hi">उपन्यास के बारे में</span>
               </Reveal>
-
-              <h2 className="novel__title">
-                <MaskLine>{BOOK.title}</MaskLine>
+              <h2 className="h-display h-hi title-lg novel__title2">
+                <MaskLine>एक रात।</MaskLine>
+                <MaskLine delay={0.08}>
+                  <span className="ital">ग्यारह साल।</span>
+                </MaskLine>
               </h2>
+            </div>
 
+            <div>
               <Reveal delay={0.1}>
-                <span className="novel__roman">
-                  {BOOK.roman} · {BOOK.route}
-                </span>
-              </Reveal>
-
-              <Reveal delay={0.16}>
                 <p className="novel__logline">{BOOK.logline}</p>
               </Reveal>
-
-              <Reveal delay={0.22}>
-                <p className="novel__premise">{BOOK.premise}</p>
+              <Reveal delay={0.16}>
+                <p className="novel__premise">{BOOK.closing}</p>
               </Reveal>
-
-              <Reveal delay={0.28} className="novel__facts" as="dl">
-                {BOOK.facts.map((f) => (
+              <Reveal delay={0.22} className="novel__facts" as="dl">
+                {facts.map((f) => (
                   <div className="novel__fact" key={f.k}>
                     <dt className="is-hi">{f.k}</dt>
                     <dd className={f.hi ? "h" : ""}>{f.v}</dd>
                   </div>
                 ))}
-                <div className="novel__fact novel__fact--quote">
-                  <p>{BOOK.factsQuote}</p>
-                  <cite className="novel__fact-attrib">{BOOK.factsQuoteAttrib}</cite>
-                </div>
               </Reveal>
-
-              <Reveal delay={0.34} className="novel__actions">
-                <Magnetic>
-                  <button
-                    className="btn btn--solid"
-                    onClick={() => scrollToId("lines", 62)}
-                    data-cursor="पढ़िए"
-                  >
-                    पंक्तियाँ पढ़िए
-                    <Arrow />
-                  </button>
-                </Magnetic>
-                <Magnetic>
-                  <button
-                    className="btn"
-                    onClick={() => scrollToId("author", 62)}
-                  >
-                    लेखक के बारे में
-                  </button>
-                </Magnetic>
-              </Reveal>
-
             </div>
           </div>
 

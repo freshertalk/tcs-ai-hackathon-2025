@@ -13,12 +13,16 @@
 /* --------------------------------------------------------------- tokens */
 :root {
   /* type */
-  --f-tech: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
-  --f-serif: "Instrument Serif", "Iowan Old Style", Georgia, serif;
-  --f-body: "Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
-  --f-hi: "Martel", "Nirmala UI", serif;
-  --f-hi-body: "Tiro Devanagari Hindi", "Nirmala UI", serif;
-  --f-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  /* Hindi is always Noto Sans Devanagari. Each Latin face names it next,
+     so a Hindi word inside a Latin stack lands on it rather than on
+     whatever the system happens to have. */
+  --f-hi-face: "Noto Sans Devanagari", "Nirmala UI", "Mangal", sans-serif;
+  --f-tech: "Bricolage Grotesque", "Noto Sans Devanagari", "Segoe UI", system-ui, sans-serif;
+  --f-serif: "Instrument Serif", "Noto Sans Devanagari", "Iowan Old Style", Georgia, serif;
+  --f-body: "Plus Jakarta Sans", "Noto Sans Devanagari", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-hi: var(--f-hi-face);
+  --f-hi-body: var(--f-hi-face);
+  --f-mono: "IBM Plex Mono", "Noto Sans Devanagari", ui-monospace, "SF Mono", Menlo, monospace;
 
   /* the display face each theme uses — overridden per theme */
   --f-display: var(--f-tech);

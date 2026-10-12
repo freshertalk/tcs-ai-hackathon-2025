@@ -1,0 +1,426 @@
+{
+ "slug": "do-kulhad-chai",
+ "version": "bfa4089f8904",
+ "title": "दो कुल्हड़ चाय",
+ "author": "विनय कुमार तिवारी",
+ "language": "hi",
+ "publisher": "विनय कुमार तिवारी (स्व-प्रकाशित)",
+ "published": "2026-10-16",
+ "updated": "2026-10-11T17:21:33Z",
+ "rights": "© 2026 विनय कुमार तिवारी। सर्वाधिकार सुरक्षित।",
+ "description": "एक आदमी है, जो हर महीने की बारह तारीख़ को एक ट्रेन में चढ़ता है। वह हर बार दो टिकट लेता है। और वह हमेशा अकेला सफ़र करता है। यह किताब यह बताने के लिए लिखी गई है कि दूसरा टिकट किसका है।",
+ "subjects": [
+  "हिंदी उपन्यास"
+ ],
+ "identifier": "urn:uuid:8b98004e-4e2f-51c2-9608-318fe61df565",
+ "cover": "cover.jpg",
+ "coverSmall": "cover-sm.jpg",
+ "art": {
+  "srcHash": "1d344e9fb6120a94",
+  "original": {
+   "back": "art/back.png",
+   "front": "art/front.png",
+   "jacket": "art/jacket.png",
+   "spine": "art/spine.png"
+  },
+  "back": "back.jpg",
+  "backSmall": "back-sm.jpg",
+  "front": "cover.jpg",
+  "frontMd": "cover-md.jpg",
+  "frontSmall": "cover-sm.jpg",
+  "jacket": "jacket.jpg",
+  "jacketSmall": "jacket-sm.jpg",
+  "spine": "art/spine.png"
+ },
+ "source": {
+  "file": "दो कुल्हड़ चाय.epub",
+  "hash": "bfa4089f8904c8c41899bcda201ffd9df2cdd36b8ebdf90eb7d9373b4bcd2854"
+ },
+ "stats": {
+  "chapters": 36,
+  "sections": 42,
+  "words": 48758,
+  "minutes": 325,
+  "wpm": 150
+ },
+ "chapters": [
+  {
+   "id": "cover",
+   "file": "chapters/cover.dat",
+   "title": "आवरण",
+   "num": "",
+   "kind": "front",
+   "words": 0,
+   "minutes": 0
+  },
+  {
+   "id": "titlepage",
+   "file": "chapters/titlepage.dat",
+   "title": "शीर्षक-पृष्ठ",
+   "num": "",
+   "kind": "front",
+   "words": 9,
+   "minutes": 1
+  },
+  {
+   "id": "copyright",
+   "file": "chapters/copyright.dat",
+   "title": "कॉपीराइट",
+   "num": "",
+   "kind": "front",
+   "words": 66,
+   "minutes": 1
+  },
+  {
+   "id": "dedication",
+   "file": "chapters/dedication.dat",
+   "title": "समर्पण",
+   "num": "",
+   "kind": "front",
+   "words": 23,
+   "minutes": 1
+  },
+  {
+   "id": "prologue",
+   "file": "chapters/prologue.dat",
+   "title": "दूसरा टिकट",
+   "num": "",
+   "kind": "front",
+   "words": 43,
+   "minutes": 1
+  },
+  {
+   "id": "ch01",
+   "file": "chapters/ch01.dat",
+   "title": "प्लेटफ़ॉर्म नंबर 12",
+   "num": "01",
+   "kind": "chapter",
+   "words": 2117,
+   "minutes": 14
+  },
+  {
+   "id": "ch02",
+   "file": "chapters/ch02.dat",
+   "title": "दो कुल्हड़ चाय",
+   "num": "02",
+   "kind": "chapter",
+   "words": 858,
+   "minutes": 6
+  },
+  {
+   "id": "ch03",
+   "file": "chapters/ch03.dat",
+   "title": "लाल सिग्नल",
+   "num": "03",
+   "kind": "chapter",
+   "words": 2179,
+   "minutes": 15
+  },
+  {
+   "id": "ch04",
+   "file": "chapters/ch04.dat",
+   "title": "नाम, सबसे आख़िर में",
+   "num": "04",
+   "kind": "chapter",
+   "words": 1427,
+   "minutes": 10
+  },
+  {
+   "id": "ch05",
+   "file": "chapters/ch05.dat",
+   "title": "सुबह होने से पहले",
+   "num": "05",
+   "kind": "chapter",
+   "words": 1316,
+   "minutes": 9
+  },
+  {
+   "id": "ch06",
+   "file": "chapters/ch06.dat",
+   "title": "किसी और की दुआ",
+   "num": "06",
+   "kind": "chapter",
+   "words": 1914,
+   "minutes": 13
+  },
+  {
+   "id": "ch07",
+   "file": "chapters/ch07.dat",
+   "title": "बनारस पहुँचने से पहले",
+   "num": "07",
+   "kind": "chapter",
+   "words": 1760,
+   "minutes": 12
+  },
+  {
+   "id": "ch08",
+   "file": "chapters/ch08.dat",
+   "title": "घर, जो कुछ नहीं पूछता",
+   "num": "08",
+   "kind": "chapter",
+   "words": 1870,
+   "minutes": 12
+  },
+  {
+   "id": "ch09",
+   "file": "chapters/ch09.dat",
+   "title": "अधूरी चिट्ठियाँ",
+   "num": "09",
+   "kind": "chapter",
+   "words": 1167,
+   "minutes": 8
+  },
+  {
+   "id": "ch10",
+   "file": "chapters/ch10.dat",
+   "title": "जिसे भेजा ही नहीं",
+   "num": "10",
+   "kind": "chapter",
+   "words": 1569,
+   "minutes": 10
+  },
+  {
+   "id": "ch11",
+   "file": "chapters/ch11.dat",
+   "title": "जिस वादे के लिए वह बनारस आई थी",
+   "num": "11",
+   "kind": "chapter",
+   "words": 1346,
+   "minutes": 9
+  },
+  {
+   "id": "ch12",
+   "file": "chapters/ch12.dat",
+   "title": "बेंगलुरु की बारिश",
+   "num": "12",
+   "kind": "chapter",
+   "words": 1427,
+   "minutes": 10
+  },
+  {
+   "id": "ch13",
+   "file": "chapters/ch13.dat",
+   "title": "सफ़ेद कागज़",
+   "num": "13",
+   "kind": "chapter",
+   "words": 1489,
+   "minutes": 10
+  },
+  {
+   "id": "ch14",
+   "file": "chapters/ch14.dat",
+   "title": "पहली पाठक",
+   "num": "14",
+   "kind": "chapter",
+   "words": 2906,
+   "minutes": 19
+  },
+  {
+   "id": "ch15",
+   "file": "chapters/ch15.dat",
+   "title": "एक पुराना कैमरा, एक नई शुरुआत",
+   "num": "15",
+   "kind": "chapter",
+   "words": 1829,
+   "minutes": 12
+  },
+  {
+   "id": "ch16",
+   "file": "chapters/ch16.dat",
+   "title": "एक साल बाद",
+   "num": "16",
+   "kind": "chapter",
+   "words": 1003,
+   "minutes": 7
+  },
+  {
+   "id": "ch17",
+   "file": "chapters/ch17.dat",
+   "title": "जिस किताब पर उसका नाम नहीं था",
+   "num": "17",
+   "kind": "chapter",
+   "words": 1254,
+   "minutes": 8
+  },
+  {
+   "id": "ch18",
+   "file": "chapters/ch18.dat",
+   "title": "तलाश की शुरुआत",
+   "num": "18",
+   "kind": "chapter",
+   "words": 863,
+   "minutes": 6
+  },
+  {
+   "id": "ch19",
+   "file": "chapters/ch19.dat",
+   "title": "“एक मुसाफ़िर”",
+   "num": "19",
+   "kind": "chapter",
+   "words": 1908,
+   "minutes": 13
+  },
+  {
+   "id": "ch20",
+   "file": "chapters/ch20.dat",
+   "title": "चलो… वहीं मिलते हैं",
+   "num": "20",
+   "kind": "chapter",
+   "words": 1288,
+   "minutes": 9
+  },
+  {
+   "id": "ch21",
+   "file": "chapters/ch21.dat",
+   "title": "“कैसी हो?”",
+   "num": "21",
+   "kind": "chapter",
+   "words": 1295,
+   "minutes": 9
+  },
+  {
+   "id": "ch22",
+   "file": "chapters/ch22.dat",
+   "title": "जिसे हम प्रेम समझते रहे…",
+   "num": "22",
+   "kind": "chapter",
+   "words": 1452,
+   "minutes": 10
+  },
+  {
+   "id": "ch23",
+   "file": "chapters/ch23.dat",
+   "title": "अस्सी घाट की सुबह",
+   "num": "23",
+   "kind": "chapter",
+   "words": 1338,
+   "minutes": 9
+  },
+  {
+   "id": "ch24",
+   "file": "chapters/ch24.dat",
+   "title": "जिस दिन हमने भविष्य की बात की",
+   "num": "24",
+   "kind": "chapter",
+   "words": 1190,
+   "minutes": 8
+  },
+  {
+   "id": "ch25",
+   "file": "chapters/ch25.dat",
+   "title": "पहली बारह",
+   "num": "25",
+   "kind": "chapter",
+   "words": 1157,
+   "minutes": 8
+  },
+  {
+   "id": "ch26",
+   "file": "chapters/ch26.dat",
+   "title": "बारहवीं बारह",
+   "num": "26",
+   "kind": "chapter",
+   "words": 752,
+   "minutes": 5
+  },
+  {
+   "id": "ch27",
+   "file": "chapters/ch27.dat",
+   "title": "जिस बारह को हम बीच में उतर गए",
+   "num": "27",
+   "kind": "chapter",
+   "words": 1587,
+   "minutes": 11
+  },
+  {
+   "id": "ch28",
+   "file": "chapters/ch28.dat",
+   "title": "वे महीने जब ट्रेनें नहीं चलीं",
+   "num": "28",
+   "kind": "chapter",
+   "words": 1109,
+   "minutes": 7
+  },
+  {
+   "id": "ch29",
+   "file": "chapters/ch29.dat",
+   "title": "एक साधारण दिन",
+   "num": "29",
+   "kind": "chapter",
+   "words": 695,
+   "minutes": 5
+  },
+  {
+   "id": "ch30",
+   "file": "chapters/ch30.dat",
+   "title": "जिसे हम आराम समझने लगे",
+   "num": "30",
+   "kind": "chapter",
+   "words": 1251,
+   "minutes": 8
+  },
+  {
+   "id": "ch31",
+   "file": "chapters/ch31.dat",
+   "title": "आख़िरी बारह तारीख़",
+   "num": "31",
+   "kind": "chapter",
+   "words": 551,
+   "minutes": 4
+  },
+  {
+   "id": "ch32",
+   "file": "chapters/ch32.dat",
+   "title": "नौ सितम्बर",
+   "num": "32",
+   "kind": "chapter",
+   "words": 636,
+   "minutes": 4
+  },
+  {
+   "id": "ch33",
+   "file": "chapters/ch33.dat",
+   "title": "पहली अकेली बारह",
+   "num": "33",
+   "kind": "chapter",
+   "words": 1033,
+   "minutes": 7
+  },
+  {
+   "id": "ch34",
+   "file": "chapters/ch34.dat",
+   "title": "जो पीछे लिखा था",
+   "num": "34",
+   "kind": "chapter",
+   "words": 978,
+   "minutes": 7
+  },
+  {
+   "id": "ch35",
+   "file": "chapters/ch35.dat",
+   "title": "बारह तारीख़ें",
+   "num": "35",
+   "kind": "chapter",
+   "words": 799,
+   "minutes": 5
+  },
+  {
+   "id": "ch36",
+   "file": "chapters/ch36.dat",
+   "title": "11–12 जुलाई 2026",
+   "num": "36",
+   "kind": "chapter",
+   "words": 1094,
+   "minutes": 7
+  },
+  {
+   "id": "author",
+   "file": "chapters/author.dat",
+   "title": "लेखक के बारे में",
+   "num": "",
+   "kind": "back",
+   "words": 210,
+   "minutes": 1
+  }
+ ]
+}

@@ -1,5 +1,6 @@
-// src/pages/Writings.jsx
-import React, { useEffect } from "react";
+// src/pages/Home.jsx
+// The front page: the author, the novel, and a way straight into reading it.
+import React, { useEffect, useRef } from "react";
 
 import Nav from "../components/site/Nav";
 import Footer from "../components/site/Footer";
@@ -8,6 +9,9 @@ import Seo from "../components/seo/Seo";
 import Marquee from "../components/site/Marquee";
 
 import Hero from "../sections/write/Hero";
+import StickyRead from "../sections/write/StickyRead";
+import Shelf from "../sections/write/Shelf";
+import Covers from "../sections/write/Covers";
 import Novel from "../sections/write/Novel";
 import Opening from "../sections/write/Opening";
 import Lines from "../sections/write/Lines";
@@ -16,16 +20,17 @@ import Teaser from "../sections/write/Teaser";
 import Author from "../sections/write/Author";
 import Contact from "../sections/write/Contact";
 
+import { useCatalog } from "../library/hooks";
 import { BOOK, AUTHOR } from "../data/books";
 
 const LINKS = [
   // "उपन्यास" returns to the very top — the intro chips and the title are
-  // part of the introduction, same as "About" on the technical page.
+  // part of the introduction.
   { id: "top", label: "उपन्यास" },
   { id: "opening", label: "पहला पन्ना" },
   { id: "lines", label: "पंक्तियाँ" },
-  { id: "themes", label: "विषय" },
   { id: "author", label: "लेखक" },
+  { to: "/library", label: "किताबघर" },
   { id: "contact", label: "संपर्क" },
 ];
 
@@ -35,26 +40,34 @@ const TICKER = [
   ...BOOK.quotes.map((q) => ({ text: q })),
 ];
 
-export default function Writings() {
+export default function Home() {
+  const readRef = useRef(null);
+  const { data } = useCatalog();
+  const entry = data ? data.books.find((b) => b.slug === BOOK.slug) : null;
+
   useEffect(() => {
+    // the page opens in chai-gold light; the browser bar should match it
     document
       .querySelector('meta[name="theme-color"]')
-      ?.setAttribute("content", "#faf4e9");
+      ?.setAttribute("content", "#f6dfa4");
   }, []);
 
   return (
     <div data-theme="write">
-      <Seo page="writings" />
+      <Seo page="home" book={entry} />
       <Nav
         links={LINKS}
-        kicker="Writings · लेखन"
-        switchTo={{ href: "/technical", label: "Technical" }}
+        tone="light"
+        kicker="विनय कुमार तिवारी"
+        cta={{ href: `/read/${BOOK.slug}`, label: "पढ़ें" }}
         contact={{ email: AUTHOR.connect.email }}
       />
 
       <main>
-        <Hero />
+        <Hero readRef={readRef} />
         <Marquee items={TICKER} baseVelocity={12} />
+        <Shelf />
+        <Covers />
         <Opening />
         <Novel />
         <Lines />
@@ -64,10 +77,8 @@ export default function Writings() {
         <Contact />
       </main>
 
-      <Footer
-        note="दो कुल्हड़ चाय · एक उपन्यास"
-        switchTo={{ href: "/technical", label: "Technical" }}
-      />
+      <Footer note="दो कुल्हड़ चाय · एक उपन्यास" />
+      <StickyRead targetRef={readRef} />
       <ScrollTop />
     </div>
   );

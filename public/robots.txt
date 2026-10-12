@@ -1,63 +1,121 @@
 # https://vinaytiwari.org/robots.txt
-# Vinay Kumar Tiwari — SAP BTP Solution Architect & author of दो कुल्हड़ चाय
+# Vinay Kumar Tiwari — author of दो कुल्हड़ चाय
+
+# ---------------------------------------------------------------------------
+# What is open, and what is not.
+#
+# The pages that describe the book and the author are open to everyone —
+# including the AI answer engines, on purpose: the goal is to be the cited
+# source when someone asks "who is Vinay Kumar Tiwari" or "what is
+# दो कुल्हड़ चाय".
+#
+# The text of the book itself is for reading in the reader, not for
+# collecting. The chapter files and the reader's pages are closed to every
+# crawler below. (A crawler can ignore this file — it is a request, not a
+# lock — but the well-behaved ones, which is all of the named ones, will not
+# fetch the book's text.)
+# ---------------------------------------------------------------------------
 
 User-agent: *
 Allow: /
+Disallow: /content/*/chapters/
+Disallow: /read/
+Disallow: /ebooks/
 
-# ---------------------------------------------------------------------------
-# Answer engines are allowed on purpose.
-# The goal is to be the cited source when someone asks an AI assistant
-# "who is Vinay Kumar Tiwari" or "what is दो कुल्हड़ चाय", so these crawlers
-# are explicitly welcomed rather than left to guess.
-# ---------------------------------------------------------------------------
 User-agent: GPTBot
 Allow: /
+Disallow: /content/*/chapters/
+Disallow: /read/
+Disallow: /ebooks/
 
 User-agent: OAI-SearchBot
 Allow: /
+Disallow: /content/*/chapters/
+Disallow: /read/
+Disallow: /ebooks/
 
 User-agent: ChatGPT-User
 Allow: /
+Disallow: /content/*/chapters/
+Disallow: /read/
+Disallow: /ebooks/
 
 User-agent: ClaudeBot
 Allow: /
+Disallow: /content/*/chapters/
+Disallow: /read/
+Disallow: /ebooks/
 
 User-agent: Claude-Web
 Allow: /
+Disallow: /content/*/chapters/
+Disallow: /read/
+Disallow: /ebooks/
 
 User-agent: anthropic-ai
 Allow: /
+Disallow: /content/*/chapters/
+Disallow: /read/
+Disallow: /ebooks/
 
 User-agent: PerplexityBot
 Allow: /
+Disallow: /content/*/chapters/
+Disallow: /read/
+Disallow: /ebooks/
 
 User-agent: Perplexity-User
 Allow: /
+Disallow: /content/*/chapters/
+Disallow: /read/
+Disallow: /ebooks/
 
 User-agent: Google-Extended
 Allow: /
+Disallow: /content/*/chapters/
+Disallow: /read/
+Disallow: /ebooks/
 
 User-agent: Applebot
 Allow: /
+Disallow: /content/*/chapters/
+Disallow: /read/
+Disallow: /ebooks/
 
 User-agent: Applebot-Extended
 Allow: /
+Disallow: /content/*/chapters/
+Disallow: /read/
+Disallow: /ebooks/
 
 User-agent: Bingbot
 Allow: /
+Disallow: /content/*/chapters/
+Disallow: /read/
+Disallow: /ebooks/
 
 User-agent: DuckDuckBot
 Allow: /
+Disallow: /content/*/chapters/
+Disallow: /read/
+Disallow: /ebooks/
 
 User-agent: CCBot
 Allow: /
+Disallow: /content/*/chapters/
+Disallow: /read/
+Disallow: /ebooks/
 
 User-agent: Amazonbot
 Allow: /
+Disallow: /content/*/chapters/
+Disallow: /read/
+Disallow: /ebooks/
 
 User-agent: meta-externalagent
 Allow: /
-
-# Nothing on this site is private, so nothing is disallowed.
+Disallow: /content/*/chapters/
+Disallow: /read/
+Disallow: /ebooks/
 
 Sitemap: https://vinaytiwari.org/sitemap.xml

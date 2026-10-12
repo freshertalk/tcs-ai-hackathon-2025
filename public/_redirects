@@ -1,1 +1,11 @@
+# Retired addresses: the site is an author's site now. 301 keeps old links,
+# bookmarks and search results landing somewhere useful.
+/technical   /   301
+/writings    /   301
+
+# The reader gets its own neutral shell (written by scripts/prerender.js) so
+# chapters do not inherit the home page's canonical/robots tags.
+/read/*    /read/index.html   200
+
+# Everything else is the single-page app.
 /*    /index.html   200

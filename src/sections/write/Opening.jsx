@@ -6,8 +6,10 @@
 // so it creates appetite without spending a single plot point.
 
 import React from "react";
+import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Reveal, MaskLine, EASE } from "../../components/ui/motion";
+import { IconEye } from "../../reader/icons";
 import { OPENING, BOOK } from "../../data/books";
 
 function Line({ l, i }) {
@@ -73,6 +75,15 @@ export default function Opening() {
           <p className="op__after">
             यहाँ से आगे साढ़े चार घंटे हैं, और उनके बाद ग्यारह साल।
             <span> वह सब किताब में है।</span>
+          </p>
+        </Reveal>
+
+        <Reveal delay={0.18}>
+          <p className="op__go">
+            <Link className="btn btn--solid btn--lg" to={`/read/${BOOK.slug}`} data-cursor="पढ़िए">
+              <IconEye width={20} height={20} />
+              आगे की कहानी पढ़ें
+            </Link>
           </p>
         </Reveal>
       </div>

@@ -2,6 +2,7 @@
 import React from "react";
 import { Reveal, MaskLine, Magnetic, Arrow } from "../../components/ui/motion";
 import Picture from "../../components/ui/Picture";
+import SocialIcons from "../../components/site/SocialIcons";
 import { AUTHOR } from "../../data/books";
 import { PROFILE } from "../../data/profile";
 
@@ -79,6 +80,11 @@ export default function Contact() {
             <div className="ct__v hi">हिंदी · अंग्रेज़ी · भोजपुरी</div>
           </Reveal>
         </div>
+
+        <Reveal delay={0.2} className="ct__follow" style={{ marginTop: 34 }}>
+          <span className="ct__followK is-hi">फ़ॉलो कीजिए</span>
+          <SocialIcons size="lg" />
+        </Reveal>
 
         <Reveal delay={0.26} style={{ marginTop: 40 }}>
           <Magnetic>

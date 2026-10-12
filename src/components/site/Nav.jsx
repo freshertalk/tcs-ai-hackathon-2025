@@ -1,19 +1,23 @@
 // src/components/site/Nav.jsx
-// One nav, two portfolios. Links, active-section tracking and the
-// cross-portfolio switch are all driven by props from the page.
+// One nav for the whole author site. Entries are either in-page anchors
+// ({ id, label }) that scroll and track the section in view, or routes
+// ({ to, label }) that navigate. `cta` is the one highlighted action.
 
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence, useScroll, useSpring } from "framer-motion";
 import { EASE } from "../ui/motion";
 import { scrollToId } from "../../hooks/useSmoothScroll";
-import Picture from "../ui/Picture";
+import { KulhadPair } from "./Kulhad";
+import SocialIcons from "./SocialIcons";
+import { IconEye } from "../../reader/icons";
 
 export default function Nav({
   links = [],
   kicker = "",
-  switchTo = { href: "/", label: "Home" },
+  cta = null,
   contact = {},
+  tone = "light", // "dark": the page opens on a dark band, so type is light until it scrolls
 }) {
   const [stuck, setStuck] = useState(false);
   const [open, setOpen] = useState(false);
@@ -44,7 +48,7 @@ export default function Nav({
       { rootMargin: "-45% 0px -50% 0px" }
     );
     links.forEach(({ id }) => {
-      const el = document.getElementById(id);
+      const el = id && document.getElementById(id);
       if (el) io.observe(el);
     });
     return () => io.disconnect();
@@ -79,51 +83,55 @@ export default function Nav({
     <>
       <motion.div className="progress" style={{ scaleX: bar }} />
 
-      <header className={`nav ${stuck ? "is-stuck" : ""}`}>
+      <header className={`nav ${stuck ? "is-stuck" : ""} ${tone === "dark" ? "nav--dark" : ""}`}>
         <div className="nav__row">
           <Link to="/" className="nav__brand" data-cursor="Home">
-            <span className="nav__mark">
-              <Picture
-                name="vinay-avatar-sm"
-                alt=""
-                width="200"
-                height="200"
-                loading="eager"
-                aria-hidden="true"
-              />
+            <span className="nav__cup" aria-hidden="true">
+              <KulhadPair size={46} />
             </span>
-            <span>
-              Vinay Kumar Tiwari
-              {kicker && <small>{kicker}</small>}
+            <span className="nav__name">
+              दो कुल्हड़ चाय
+              <small>{kicker || "विनय कुमार तिवारी"}</small>
             </span>
           </Link>
 
           <nav className="nav__links" aria-label="Primary">
-            {links.map((l) => (
-              <a
-                key={l.id}
-                href={`#${l.id}`}
-                onClick={go(l.id)}
-                className={`nav__link ${active === l.id ? "is-active" : ""}`}
-              >
-                {l.label}
-              </a>
-            ))}
-            <Link className="nav__switch" to={switchTo.href}>
-              <i />
-              {switchTo.label}
-            </Link>
+            {links.map((l) =>
+              l.to ? (
+                <Link key={l.to + l.label} to={l.to} className="nav__link">
+                  {l.label}
+                </Link>
+              ) : (
+                <a
+                  key={l.id}
+                  href={`#${l.id}`}
+                  onClick={go(l.id)}
+                  className={`nav__link ${active === l.id ? "is-active" : ""}`}
+                >
+                  {l.label}
+                </a>
+              )
+            )}
+            {cta && (
+              <Link className="nav__switch nav__switch--cta" to={cta.href}>
+                <IconEye width={16} height={16} />
+                {cta.label}
+              </Link>
+            )}
           </nav>
 
-          <button
-            className={`nav__burger ${open ? "is-open" : ""}`}
-            onClick={() => setOpen((v) => !v)}
-            aria-label={open ? "Close menu" : "Open menu"}
-            aria-expanded={open}
-          >
-            <span />
-            <span />
-          </button>
+          <div className="nav__end">
+            <SocialIcons className="nav__social" size="sm" />
+            <button
+              className={`nav__burger ${open ? "is-open" : ""}`}
+              onClick={() => setOpen((v) => !v)}
+              aria-label={open ? "Close menu" : "Open menu"}
+              aria-expanded={open}
+            >
+              <span />
+              <span />
+            </button>
+          </div>
         </div>
       </header>
 
@@ -137,21 +145,35 @@ export default function Nav({
             transition={{ duration: 0.7, ease: EASE }}
           >
             {links.map((l, i) => (
-              <span className="reveal-mask" key={l.id}>
-                <motion.a
-                  href={`#${l.id}`}
-                  onClick={go(l.id)}
-                  className="menu__item reveal-line"
-                  initial={{ y: "110%" }}
-                  animate={{ y: "0%" }}
-                  exit={{ y: "110%" }}
-                  transition={{ duration: 0.65, ease: EASE, delay: 0.1 + i * 0.055 }}
-                >
-                  <span className="menu__idx">
-                    {String(i + 1).padStart(2, "0")}
-                  </span>
-                  {l.label}
-                </motion.a>
+              <span className="reveal-mask" key={l.id || l.to + l.label}>
+                {l.to ? (
+                  <motion.span
+                    initial={{ y: "110%" }}
+                    animate={{ y: "0%" }}
+                    exit={{ y: "110%" }}
+                    transition={{ duration: 0.65, ease: EASE, delay: 0.1 + i * 0.055 }}
+                    style={{ display: "block" }}
+                    className="reveal-line"
+                  >
+                    <Link to={l.to} onClick={() => setOpen(false)} className="menu__item">
+                      <span className="menu__idx">{String(i + 1).padStart(2, "0")}</span>
+                      {l.label}
+                    </Link>
+                  </motion.span>
+                ) : (
+                  <motion.a
+                    href={`#${l.id}`}
+                    onClick={go(l.id)}
+                    className="menu__item reveal-line"
+                    initial={{ y: "110%" }}
+                    animate={{ y: "0%" }}
+                    exit={{ y: "110%" }}
+                    transition={{ duration: 0.65, ease: EASE, delay: 0.1 + i * 0.055 }}
+                  >
+                    <span className="menu__idx">{String(i + 1).padStart(2, "0")}</span>
+                    {l.label}
+                  </motion.a>
+                )}
               </span>
             ))}
 
@@ -162,16 +184,13 @@ export default function Nav({
               exit={{ opacity: 0 }}
               transition={{ delay: 0.4 }}
             >
-              <Link
-                className="btn btn--solid"
-                to={switchTo.href}
-                onClick={() => setOpen(false)}
-              >
-                {switchTo.label}
-              </Link>
-              {contact.email && (
-                <a href={`mailto:${contact.email}`}>{contact.email}</a>
+              <SocialIcons className="menu__social" />
+              {cta && (
+                <Link className="btn btn--solid" to={cta.href} onClick={() => setOpen(false)}>
+                  {cta.label}
+                </Link>
               )}
+              {contact.email && <a href={`mailto:${contact.email}`}>{contact.email}</a>}
               {contact.phone && <a href={`tel:${contact.phone}`}>{contact.phone}</a>}
             </motion.div>
           </motion.div>

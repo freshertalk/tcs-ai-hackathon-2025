@@ -6,10 +6,11 @@
 // knows the voice — this is the line that asks them to commit.
 
 import React from "react";
+import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Reveal, Magnetic, Arrow, EASE } from "../../components/ui/motion";
-import { scrollToId } from "../../hooks/useSmoothScroll";
+import { Reveal, Magnetic, EASE } from "../../components/ui/motion";
 import Kulhad from "../../components/site/Kulhad";
+import { IconEye } from "../../reader/icons";
 import { BOOK } from "../../data/books";
 
 const T = BOOK.teaser;
@@ -56,14 +57,14 @@ export default function Teaser() {
 
         <Reveal delay={1.3} className="tz__actions">
           <Magnetic>
-            <button
+            <Link
               className="btn btn--lg tz__btn"
-              onClick={() => scrollToId("opening", 62)}
+              to={`/read/${BOOK.slug}`}
               data-cursor="पढ़िए"
             >
-              पहला पन्ना पढ़िए
-              <Arrow />
-            </button>
+              <IconEye width={20} height={20} />
+              उपन्यास पढ़ें
+            </Link>
           </Magnetic>
         </Reveal>
       </div>

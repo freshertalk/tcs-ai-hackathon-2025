@@ -1,0 +1,125 @@
+/* ==========================================================================
+   Type — one face, one reading size.
+
+   Face
+     Every Hindi word on this site, and every page of every book, is set in
+     Noto Sans Devanagari (the family tokens live at the top of site.css).
+     Latin letters keep their own display faces; the Hindi falls through to
+     Noto Sans Devanagari inside the same stack.
+
+   Size
+     Text is 17px. That means running text, descriptions, captions, labels,
+     buttons and navigation. Headings keep the sizes they were designed at.
+     Display typography — the pull-quotes, the ticker strip, big numerals —
+     is lettering, not text, and is likewise left alone.
+
+   This sheet loads last, so where a component set its own text size, the
+   token below wins without having to edit every rule.
+   ========================================================================== */
+
+:root {
+  --fs-text: 17px;
+}
+
+body {
+  font-size: var(--fs-text);
+}
+
+/* ------------------------------------------------------------ site text */
+.lead,
+.sec-head__note,
+.btn,
+.btn--sm,
+.btn--lg,
+.nav__link,
+.nav__switch,
+.menu__foot,
+.novel__roman,
+.novel__logline,
+.novel__fact--quote p,
+.novel__fact-attrib,
+.novel__fact dd,
+.novel__fact dd.h,
+.cast__line,
+.op__p,
+.op__p--hi,
+.op__footTitle,
+.op__footBy,
+.op__after,
+.ln__by,
+.tz__cta,
+.tz__by,
+.qband__kicker,
+.themes__d,
+.author__p,
+.author__mottoBy,
+.dedic__body,
+.author__row,
+.ct__v,
+.foot {
+  font-size: var(--fs-text);
+}
+
+/* -------------------------------------------- library, book, the listing */
+.bcard__by,
+.bcard__meta,
+.lib__grid--one .bcard__meta,
+.lib__grid--one .bcard__by,
+.lib__note,
+.lib__howD,
+.lib__state,
+.bk__by,
+.bk__by span,
+.bk__desc,
+.bk__facts dt,
+.bk__facts dd,
+.bk__resume p,
+.bk__groupT,
+.bk__num,
+.bk__rowT,
+.bk__rowM,
+.bk__fmtP,
+.bk__rights,
+.bh__kicker,
+.bh__by,
+.bh__tag,
+.bh__facts dt,
+.bh__facts dd,
+.bh__read,
+.bh__ghost,
+.bh__card p,
+.bh__cardT,
+.bh__more,
+.sread__text b,
+.sread__text small,
+.bshow__tabs button,
+.covers__cap {
+  font-size: var(--fs-text);
+}
+/* a laptop screen is short: the listing keeps its cards above the fold at 16 */
+@media (min-width: 761px) and (max-height: 860px) {
+  .bh {
+    --fs-text: 16px;
+  }
+}
+
+/* The big buttons read at the same size; their weight and padding carry them. */
+.btn--lg,
+.bh__read {
+  font-weight: 700;
+}
+
+/* ------------------------------------------------ Hindi has no true italic */
+/* Noto Sans Devanagari has no italic, and a browser's slanted copy of a
+   Devanagari face is not a design — it breaks the headline bar. Emphasis in
+   Hindi is carried by colour and weight, not slant. */
+.h-hi .ital,
+.h-hi .ital *,
+[data-theme="write"] .marquee__item,
+[data-theme="write"] .marquee__item .hl,
+.marquee__item .hl {
+  font-style: normal;
+}
+.h-hi .ital {
+  font-weight: 700;
+}

@@ -1,0 +1,1971 @@
+/* ==========================================================================
+   Library — covers, cards, the library page and the book page.
+   Lives on the "write" theme tokens (warm ivory + deep maroon).
+   ========================================================================== */
+
+/* The library pages sit on the write theme's ivory, not the body default. */
+[data-theme="write"] {
+  background: var(--paper);
+  color: var(--ink);
+}
+
+/* ---------------------------------------------------------------- cover */
+.bcover {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1819 / 2551;
+  object-fit: cover;
+  border-radius: 3px 10px 10px 3px;
+  background: var(--surface-2);
+  /* the spine: a soft shadow down the left, then the drop shadow */
+  box-shadow: inset 7px 0 10px -8px rgba(0, 0, 0, 0.75), var(--shadow-lg);
+}
+.bcover--plain {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 9% 10%;
+  background: linear-gradient(155deg, #8e3232 0%, #5f1f1f 46%, #2e1010 100%);
+  color: #f7ead8;
+}
+.bcover__t {
+  font-family: var(--f-hi);
+  font-weight: 700;
+  font-size: clamp(1.2rem, 3vw, 1.9rem);
+  line-height: 1.5;
+}
+.bcover__a {
+  font-family: var(--f-hi-body);
+  opacity: 0.8;
+}
+
+/* the cover on the home page carries the 3D tilt, so give it a link target */
+.cover--art a {
+  display: block;
+}
+
+/* ----------------------------------------------------------------- cards */
+.bcard {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 22px;
+}
+.bcard__cover {
+  display: block;
+  transition: transform 0.7s var(--ease);
+}
+@media (hover: hover) {
+  .bcard__cover:hover {
+    transform: translateY(-6px) rotate(-0.4deg);
+  }
+}
+.bcard__body {
+  min-width: 0;
+}
+.bcard__title {
+  font-family: var(--f-hi);
+  font-weight: 700;
+  font-size: clamp(1.25rem, 2.1vw, 1.6rem);
+  line-height: 1.5;
+  letter-spacing: 0;
+}
+.bcard__by {
+  margin-top: 2px;
+  color: var(--ink-2);
+  font-family: var(--f-hi-body);
+}
+.bcard__meta {
+  margin-top: 10px;
+  color: var(--ink-3);
+  font-family: var(--f-hi-body);
+  font-size: 0.9rem;
+}
+.bcard__prog {
+  margin-top: 16px;
+  height: 4px;
+  border-radius: 99px;
+  background: var(--line);
+  overflow: hidden;
+  max-width: 320px;
+}
+.bcard__prog i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+}
+.bcard__actions {
+  margin-top: 20px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+/* ------------------------------------------------------------ the shelf */
+.lib__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 1fr));
+  gap: clamp(28px, 4vw, 56px);
+}
+/* one book: give it the room of a feature, cover beside the words */
+.lib__grid--one {
+  grid-template-columns: 1fr;
+}
+.lib__grid--one .bcard {
+  grid-template-columns: minmax(150px, 280px) minmax(0, 1fr);
+  align-items: center;
+  gap: clamp(22px, 4.4vw, 64px);
+}
+.lib__grid--one .bcard__title {
+  font-size: clamp(1.7rem, 3.6vw, 3rem);
+}
+.lib__grid--one .bcard__meta,
+.lib__grid--one .bcard__by {
+  font-size: 1rem;
+}
+@media (max-width: 480px) {
+  .lib__grid--one .bcard {
+    grid-template-columns: 1fr;
+  }
+  .lib__grid--one .bcard__cover {
+    width: min(70%, 280px);
+  }
+}
+
+.lib__state {
+  color: var(--ink-2);
+  font-family: var(--f-hi-body);
+  padding-block: 24px;
+}
+
+/* --------------------------------------------------------- library page */
+.lib {
+  padding-top: calc(var(--nav-h) + clamp(28px, 6vw, 84px));
+  min-height: 70vh;
+}
+.lib__head {
+  padding-bottom: clamp(36px, 5vw, 72px);
+}
+.lib__title {
+  margin-top: 18px;
+}
+.lib__note {
+  margin-top: 26px;
+  max-width: 54ch;
+  color: var(--ink-2);
+  font-size: clamp(1rem, 1.25vw, 1.14rem);
+}
+.lib__shelf {
+  padding-bottom: clamp(60px, 9vw, 130px);
+}
+.lib__how {
+  padding-block: clamp(56px, 8vw, 120px);
+}
+.lib__howGrid {
+  margin-top: 34px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr));
+  gap: clamp(26px, 3.4vw, 54px);
+}
+.lib__howK {
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: var(--accent);
+}
+.lib__howD {
+  margin-top: 10px;
+  color: var(--ink-2);
+  font-size: 0.98rem;
+}
+
+/* ----------------------------------------------------------- shelf (home) */
+.shelf {
+  background: var(--paper);
+}
+
+/* ------------------------------------------------------------ book page */
+.bk {
+  padding-top: calc(var(--nav-h) + clamp(24px, 5vw, 70px));
+}
+.bk__hero {
+  display: grid;
+  grid-template-columns: minmax(200px, 380px) minmax(0, 1fr);
+  gap: clamp(30px, 6vw, 96px);
+  align-items: center;
+  padding-bottom: clamp(56px, 8vw, 120px);
+}
+.bk__cover {
+  width: 100%;
+}
+.bk__title {
+  margin-top: 18px;
+  padding-bottom: 0.1em;
+}
+.bk__by {
+  margin-top: 14px;
+  font-family: var(--f-hi-body);
+  font-size: 1.1rem;
+  color: var(--ink);
+}
+.bk__by span {
+  color: var(--ink-3);
+  font-size: 0.85rem;
+  margin-right: 8px;
+}
+.bk__desc {
+  margin-top: 24px;
+  max-width: 54ch;
+  color: var(--ink-2);
+  font-size: clamp(1rem, 1.25vw, 1.14rem);
+}
+.bk__facts {
+  margin: 30px 0 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, max-content));
+  gap: 18px clamp(22px, 3.4vw, 48px);
+  padding-top: 22px;
+  border-top: 1px solid var(--line);
+}
+.bk__facts dt {
+  font-family: var(--f-hi-body);
+  font-size: 0.8rem;
+  color: var(--ink-3);
+}
+.bk__facts dd {
+  margin: 2px 0 0;
+  font-family: var(--f-hi-body);
+  font-size: 1.05rem;
+  color: var(--ink);
+}
+.bk__actions {
+  margin-top: 32px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.bk__actions .btn {
+  font-family: var(--f-hi-body);
+}
+.bk__resume {
+  margin-top: 26px;
+  max-width: 420px;
+}
+.bk__resume p {
+  margin-top: 8px;
+  font-family: var(--f-hi-body);
+  font-size: 0.9rem;
+  color: var(--ink-2);
+}
+.bk__bar {
+  height: 4px;
+  border-radius: 99px;
+  background: var(--line);
+  overflow: hidden;
+}
+.bk__bar i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+}
+
+@media (max-width: 760px) {
+  .bk__hero {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+  .bk__cover {
+    width: min(80vw, 360px);
+    margin-inline: auto;
+  }
+}
+
+/* contents list */
+.bk__tocSec {
+  padding-block: clamp(50px, 7vw, 100px);
+  border-top: 1px solid var(--line);
+}
+.bk__group {
+  margin-top: 34px;
+}
+.bk__groupT {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--ink-3);
+  letter-spacing: 0.04em;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+}
+.bk__toc {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.bk__row {
+  display: grid;
+  grid-template-columns: 3rem minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 10px;
+  padding: 14px 4px;
+  border-bottom: 1px solid var(--line);
+  transition: background 0.3s var(--ease), padding 0.4s var(--ease);
+}
+@media (hover: hover) {
+  .bk__row:hover {
+    background: var(--accent-soft);
+    padding-inline: 14px;
+  }
+}
+.bk__row:active {
+  background: var(--accent-soft);
+}
+.bk__num {
+  font-family: var(--f-mono);
+  font-size: 0.8rem;
+  color: var(--accent-2);
+}
+.bk__rowT {
+  font-family: var(--f-hi-body);
+  font-size: 1.04rem;
+  color: var(--ink);
+}
+.bk__rowM {
+  font-family: var(--f-hi-body);
+  font-size: 0.82rem;
+  color: var(--ink-3);
+  display: inline-flex;
+  align-items: center;
+}
+
+/* formats */
+.bk__formats {
+  padding-block: clamp(50px, 7vw, 100px);
+}
+.bk__fmt {
+  margin-top: 26px;
+  display: grid;
+  gap: 28px;
+  justify-items: start;
+}
+.bk__fmtP {
+  margin-top: 16px;
+  max-width: 58ch;
+  color: var(--ink-2);
+}
+.bk__fmt .btn {
+  font-family: var(--f-hi-body);
+}
+.bk__rights {
+  margin-top: 36px;
+  color: var(--ink-3);
+  font-size: 0.85rem;
+}
+
+/* ==========================================================================
+   The front door — a book listing.
+   The palette is the cover itself: night navy, steel rain, clay and a red
+   signal, with gold for the one thing to press.
+   ========================================================================== */
+.bh,
+.bk__heroWrap {
+  --ink: #f4f0e9;
+  --ink-2: #c3cbdb;
+  --ink-3: #8793ab;
+  --line: rgba(244, 240, 233, 0.14);
+  --line-2: rgba(244, 240, 233, 0.3);
+  --paper: #0b1426;
+  --accent: #e0b062;
+  --accent-2: #f08a5d;
+  --on-accent: #1b1308;
+  --shadow: 0 30px 80px -40px rgba(0, 0, 0, 0.9);
+  --shadow-lg: 0 50px 110px -50px rgba(0, 0, 0, 0.95);
+
+  position: relative;
+  overflow: hidden;
+  color: var(--ink);
+  background: radial-gradient(120% 90% at 82% -10%, #1b315c 0%, transparent 58%),
+    linear-gradient(180deg, #071022 0%, #0b1426 58%, #0f1d38 100%);
+}
+.bh::after,
+.bk__heroWrap::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(224, 176, 98, 0.55), transparent);
+}
+
+.bh {
+  padding: calc(var(--nav-h) + clamp(14px, 3vw, 40px)) 0 clamp(36px, 5.5vw, 76px);
+}
+
+/* weather */
+.bh__bg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  -webkit-mask-image: linear-gradient(180deg, #000 30%, transparent 100%);
+  mask-image: linear-gradient(180deg, #000 30%, transparent 100%);
+}
+.bh__rain {
+  position: absolute;
+  inset: -25% -10%;
+  background-image: repeating-linear-gradient(
+    104deg,
+    transparent 0 26px,
+    rgba(176, 202, 240, 0.075) 26px 27px,
+    transparent 27px 58px,
+    rgba(176, 202, 240, 0.045) 58px 59px,
+    transparent 59px 91px
+  );
+  animation: bhrain 6.5s linear infinite;
+}
+.bh__rain--b {
+  background-image: repeating-linear-gradient(
+    104deg,
+    transparent 0 41px,
+    rgba(176, 202, 240, 0.06) 41px 42px,
+    transparent 42px 97px
+  );
+  animation-duration: 9.5s;
+  opacity: 0.8;
+}
+@keyframes bhrain {
+  to {
+    transform: translate3d(-90px, 200px, 0);
+  }
+}
+.bh__glow {
+  position: absolute;
+  left: 2%;
+  top: 14%;
+  width: min(54vw, 640px);
+  aspect-ratio: 1;
+  background: radial-gradient(circle, rgba(193, 102, 58, 0.3), transparent 62%);
+}
+.bh__signal {
+  position: absolute;
+  right: clamp(24px, 12%, 220px);
+  top: clamp(90px, 15%, 150px);
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #ff4a3d;
+  box-shadow: 0 0 0 7px rgba(255, 74, 61, 0.1), 0 0 70px 22px rgba(255, 74, 61, 0.32);
+  animation: bhpulse 4.2s ease-in-out infinite;
+}
+@keyframes bhpulse {
+  50% {
+    opacity: 0.55;
+    transform: scale(0.82);
+  }
+}
+
+/* the listing */
+.bh__grid {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(230px, 410px) minmax(0, 1fr);
+  grid-template-areas:
+    "cover head"
+    "cover body";
+  column-gap: clamp(30px, 6vw, 100px);
+  align-items: start;
+}
+.bh__cover {
+  grid-area: cover;
+  align-self: center;
+}
+.bh__tilt {
+  width: 100%;
+}
+.bh__tilt .bcover {
+  box-shadow: inset 8px 0 12px -9px rgba(0, 0, 0, 0.8), 0 46px 90px -34px rgba(0, 0, 0, 0.9),
+    0 0 90px -26px rgba(224, 176, 98, 0.3);
+}
+.bh__head {
+  grid-area: head;
+  align-self: end;
+  padding-top: clamp(4px, 1vw, 14px);
+}
+.bh__body {
+  grid-area: body;
+  min-width: 0;
+}
+
+.bh__kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  font-family: var(--f-hi-body);
+  font-size: 0.92rem;
+  color: var(--accent);
+  letter-spacing: 0.02em;
+}
+.bh__kicker::before {
+  content: "";
+  width: 30px;
+  height: 2px;
+  background: currentColor;
+  opacity: 0.8;
+}
+.bh__title {
+  margin-top: 10px;
+  font-family: var(--f-hi);
+  font-weight: 700;
+  font-size: clamp(2.15rem, 5.4vw, 4.6rem);
+  line-height: 1.3;
+  letter-spacing: 0;
+  color: var(--ink);
+}
+.bh__by {
+  margin-top: 4px;
+  font-family: var(--f-hi-body);
+  font-size: clamp(1rem, 1.5vw, 1.2rem);
+  color: var(--ink-2);
+}
+.bh__by span {
+  font-size: 0.82em;
+  color: var(--ink-3);
+  margin-right: 6px;
+}
+.bh__by b {
+  font-weight: 400;
+  color: var(--ink);
+}
+.bh__tag {
+  margin-top: clamp(14px, 2vw, 24px);
+  max-width: 54ch;
+  font-size: clamp(1rem, 1.3vw, 1.18rem);
+  color: var(--ink-2);
+}
+
+.bh__facts {
+  margin: clamp(16px, 2vw, 26px) 0 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px 18px;
+  max-width: 640px;
+}
+.bh__facts dt {
+  font-family: var(--f-hi-body);
+  font-size: 0.74rem;
+  color: var(--ink-3);
+}
+.bh__facts dd {
+  margin: 2px 0 0;
+  font-family: var(--f-hi-body);
+  font-size: 0.98rem;
+  line-height: 1.45;
+  color: var(--ink);
+}
+
+.bh__actions {
+  margin-top: clamp(20px, 2.6vw, 32px);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px 24px;
+}
+.bh__read {
+  min-height: 56px;
+  padding: 0 32px;
+  font-family: var(--f-hi-body);
+  font-size: 1.08rem;
+  font-weight: 700;
+  box-shadow: 0 16px 44px -16px rgba(224, 176, 98, 0.6);
+}
+.bh__ghost {
+  font-family: var(--f-hi-body);
+  font-size: 0.98rem;
+  color: var(--ink-2);
+  text-decoration: underline;
+  text-decoration-color: var(--line-2);
+  text-underline-offset: 6px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  transition: color 0.3s var(--ease);
+}
+.bh__ghost:hover {
+  color: var(--ink);
+}
+
+.bh__cards {
+  margin-top: clamp(24px, 3vw, 40px);
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  max-width: 820px;
+}
+.bh__card {
+  padding: 18px 20px;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.045);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+.bh__card p {
+  margin-top: 6px;
+  font-size: 0.95rem;
+  line-height: 1.85;
+  color: var(--ink-2);
+}
+.bh__card p b {
+  color: var(--ink);
+  font-weight: 700;
+}
+.bh__cardT {
+  font-family: var(--f-hi-body);
+  font-size: 0.78rem;
+  font-weight: 400;
+  letter-spacing: 0.03em;
+  color: var(--accent);
+}
+.bh__card--author {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+.bh__avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  overflow: hidden;
+  box-shadow: 0 0 0 2px rgba(224, 176, 98, 0.55);
+}
+.bh__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.bh__more {
+  display: inline-block;
+  margin-top: 6px;
+  font-family: var(--f-hi-body);
+  font-size: 0.86rem;
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 5px;
+  min-height: 32px;
+}
+
+/* a laptop screen is short: tighten the column so the cards still make the
+   first screen, rather than dropping the button's neighbours below the fold */
+@media (min-width: 761px) and (max-height: 860px) {
+  .bh {
+    padding-top: calc(var(--nav-h) + 6px);
+    padding-bottom: 36px;
+  }
+  .bh__title {
+    font-size: clamp(2.1rem, 4vw, 3.3rem);
+    margin-top: 6px;
+  }
+  .bh__tag {
+    margin-top: 10px;
+    font-size: 1rem;
+  }
+  .bh__facts {
+    margin-top: 14px;
+    padding-top: 12px;
+  }
+  .bh__actions {
+    margin-top: 16px;
+  }
+  .bh__read {
+    min-height: 50px;
+  }
+  .bh__cards {
+    margin-top: 18px;
+  }
+  .bh__card {
+    padding: 12px 16px;
+  }
+  .bh__card p {
+    margin-top: 4px;
+    font-size: 0.88rem;
+    line-height: 1.7;
+  }
+  .bh__avatar {
+    width: 44px;
+    height: 44px;
+  }
+}
+
+/* the same listing on a phone: cover beside the title, details beneath */
+@media (max-width: 900px) {
+  .bh__cards {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 760px) {
+  .bh {
+    padding-top: calc(var(--nav-h) + 6px);
+    padding-bottom: 34px;
+  }
+  /* the signal would sit on the title at this width */
+  .bh__signal {
+    display: none;
+  }
+  /* One column. The cover leads, large and centred, like the book held in
+     two hands; the turn-over tabs sit right beneath it. */
+  .bh__grid {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "cover"
+      "head"
+      "body";
+    row-gap: 22px;
+  }
+  .bh__cover {
+    align-self: start;
+    width: min(78vw, 350px);
+    justify-self: center;
+  }
+  .bh__head {
+    align-self: start;
+    padding-top: 0;
+    text-align: center;
+  }
+  .bh__kicker {
+    justify-content: center;
+  }
+  .bh__title {
+    font-size: clamp(2.1rem, 10vw, 2.9rem);
+    margin-top: 8px;
+  }
+  .bh__tag {
+    text-align: center;
+    margin-inline: auto;
+  }
+  .bh__facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  /* the button first, then the description: the action is the point */
+  .bh__body {
+    display: flex;
+    flex-direction: column;
+  }
+  .bh__body > .bh__actions {
+    order: 1;
+    margin-top: 4px;
+  }
+  .bh__body > .bh__tag {
+    order: 2;
+  }
+  .bh__body > .bh__facts {
+    order: 3;
+  }
+  .bh__body > .bh__cards {
+    order: 4;
+  }
+  .bh__actions {
+    gap: 4px 20px;
+    justify-content: center;
+  }
+  .bh__read {
+    flex: 1 1 100%;
+    justify-content: center;
+  }
+  .bh__ghost {
+    margin-inline: 4px;
+  }
+  .bh__card {
+    padding: 16px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bh__rain,
+  .bh__signal {
+    animation: none;
+  }
+}
+@media (prefers-reduced-data: reduce) {
+  .bh__rain {
+    display: none;
+  }
+}
+
+/* --------------------------------------------- sticky read bar (phones) */
+.sread {
+  position: fixed;
+  z-index: 870;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: none;
+  align-items: center;
+  gap: 12px;
+  padding: 10px max(14px, env(safe-area-inset-right)) calc(10px + env(safe-area-inset-bottom))
+    max(14px, env(safe-area-inset-left));
+  background: rgba(11, 20, 38, 0.94);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  border-top: 1px solid rgba(244, 240, 233, 0.12);
+  color: #f4f0e9;
+  --accent: #e0b062;
+  --accent-2: #f08a5d;
+  --on-accent: #1b1308;
+}
+.sread__cover {
+  width: 36px;
+  flex: none;
+}
+.sread__cover .bcover {
+  box-shadow: none;
+  border-radius: 2px 5px 5px 2px;
+}
+.sread__text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.35;
+}
+.sread__text b {
+  font-family: var(--f-hi);
+  font-size: 0.95rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sread__text small {
+  font-family: var(--f-hi-body);
+  font-size: 0.74rem;
+  color: #aab4c8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sread__btn {
+  flex: none;
+  min-height: 46px;
+  padding: 0 20px;
+  font-family: var(--f-hi-body);
+  font-weight: 700;
+}
+@media (max-width: 760px) {
+  .sread {
+    display: flex;
+  }
+  /* keep the back-to-top button clear of the bar */
+  .totop {
+    bottom: calc(78px + env(safe-area-inset-bottom));
+  }
+}
+
+/* ------------------------------------------------ nav: the novel as brand */
+.nav__cup {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  flex: none;
+}
+.nav__name {
+  font-family: var(--f-hi);
+  font-weight: 700;
+  font-size: 1.04rem;
+  line-height: 1.25;
+  letter-spacing: 0;
+}
+.nav__brand .nav__name small {
+  font-family: var(--f-hi-body);
+  font-weight: 400;
+  font-size: 0.7rem;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink-3);
+}
+.nav__switch--cta {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+  font-family: var(--f-hi-body);
+  font-weight: 700;
+  padding: 8px 18px 8px 14px;
+}
+.nav__switch--cta:hover {
+  background: var(--accent-2);
+  border-color: var(--accent-2);
+  color: #fff;
+}
+
+.nav--dark:not(.is-stuck) .nav__brand,
+.nav--dark:not(.is-stuck) .nav__name {
+  color: #f4f0e9;
+}
+.nav--dark:not(.is-stuck) .nav__brand .nav__name small {
+  color: #e0b062;
+}
+.nav--dark:not(.is-stuck) .nav__link {
+  color: rgba(244, 240, 233, 0.78);
+}
+.nav--dark:not(.is-stuck) .nav__link:hover,
+.nav--dark:not(.is-stuck) .nav__link.is-active {
+  color: #fff;
+}
+.nav--dark:not(.is-stuck) .nav__link::after {
+  background: #e0b062;
+}
+.nav--dark:not(.is-stuck) .nav__switch--cta {
+  background: #e0b062;
+  border-color: #e0b062;
+  color: #1b1308;
+}
+.nav--dark:not(.is-stuck) .nav__switch--cta:hover {
+  background: #f08a5d;
+  border-color: #f08a5d;
+  color: #fff;
+}
+.nav--dark:not(.is-stuck) .nav__burger {
+  border-color: rgba(244, 240, 233, 0.35);
+}
+.nav--dark:not(.is-stuck) .nav__burger span {
+  background: #f4f0e9;
+}
+
+/* --------------------------------------------- about the novel (home) */
+.novel__about {
+  display: grid;
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+  gap: clamp(28px, 6vw, 96px);
+  align-items: start;
+}
+.novel__title2 {
+  margin-top: 18px;
+}
+@media (max-width: 900px) {
+  .novel__about {
+    grid-template-columns: 1fr;
+  }
+}
+.op__go {
+  margin-top: 30px;
+  text-align: center;
+}
+.op__go .btn {
+  font-family: var(--f-hi-body);
+  font-weight: 700;
+}
+
+/* --------------------------------------- book page: the same night as home */
+.bk {
+  padding-top: 0;
+}
+.bk__heroWrap {
+  padding: calc(var(--nav-h) + clamp(24px, 5vw, 70px)) 0 clamp(48px, 7vw, 100px);
+}
+.bk__heroWrap .bk__hero {
+  padding-bottom: 0;
+}
+.bk__heroWrap .bcover {
+  box-shadow: inset 8px 0 12px -9px rgba(0, 0, 0, 0.8), 0 46px 90px -34px rgba(0, 0, 0, 0.9),
+    0 0 90px -26px rgba(224, 176, 98, 0.3);
+}
+.bk__heroWrap .bk__desc {
+  color: var(--ink-2);
+}
+.bk__heroWrap .bk__by {
+  color: var(--ink);
+}
+.bk__heroWrap .eyebrow {
+  color: var(--accent);
+}
+.bk__heroWrap .btn--solid {
+  font-family: var(--f-hi-body);
+  font-weight: 700;
+}
+
+/* ==========================================================================
+   The book as an object: front cover, back cover, and the turn between.
+   ========================================================================== */
+.bshow {
+  width: 100%;
+}
+.bshow__stage {
+  position: relative;
+  width: 100%;
+  perspective: 1700px;
+  touch-action: pan-y; /* a horizontal swipe is ours; vertical still scrolls */
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+/* a small turn-and-back, once, so the second face is not a secret */
+.bshow__stage.has-peek .bshow__book {
+  animation: bshowPeek 1.7s var(--ease) 1.3s 1 backwards;
+}
+@keyframes bshowPeek {
+  0%,
+  100% {
+    transform: rotateY(0deg);
+  }
+  38% {
+    transform: rotateY(-22deg);
+  }
+  62% {
+    transform: rotateY(-22deg);
+  }
+}
+.bshow__book {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1819 / 2551;
+  transform-style: preserve-3d;
+  transition: transform 0.95s var(--ease);
+  will-change: transform;
+}
+.bshow__face {
+  position: absolute;
+  inset: 0;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  border-radius: 3px 10px 10px 3px;
+}
+.bshow__face--back {
+  transform: rotateY(180deg);
+  /* seen from behind the spine is on the right */
+  border-radius: 10px 3px 3px 10px;
+}
+.bshow__face .bcover {
+  height: 100%;
+}
+
+.bshow__tabs {
+  margin: 20px auto 0;
+  display: flex;
+  width: max-content;
+  max-width: 100%;
+  padding: 4px;
+  gap: 4px;
+  border-radius: 99px;
+  border: 1px solid var(--line-2);
+  background: rgba(255, 255, 255, 0.05);
+}
+.bshow__tabs button {
+  min-height: 42px;
+  padding: 0 18px;
+  border-radius: 99px;
+  font-family: var(--f-hi-body);
+  font-size: 0.9rem;
+  color: var(--ink-2);
+  transition: background 0.3s var(--ease), color 0.3s var(--ease);
+}
+.bshow__tabs button.is-on {
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 700;
+}
+
+/* ------------------------------------------------------ the back cover */
+/* One unit rules this block: 1cqw is exactly 1% of the cover's width. The
+   same numbers are used to draw the downloadable picture in
+   src/library/coverImage.js — change them together. */
+.bback {
+  container-type: inline-size;
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border-radius: inherit;
+  color: #f4f0e9;
+  background: radial-gradient(120% 70% at 78% -8%, #1d3560 0%, transparent 62%),
+    linear-gradient(180deg, #071022 0%, #0b1426 55%, #101f3b 100%);
+  box-shadow: inset -8px 0 12px -9px rgba(0, 0, 0, 0.8), 0 46px 90px -34px rgba(0, 0, 0, 0.9),
+    0 0 90px -26px rgba(224, 176, 98, 0.22);
+}
+.bback__in {
+  position: relative;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 2.4cqw;
+  padding: 6cqw 8cqw 5cqw;
+}
+/* the cover's rain, still */
+.bback::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(
+    104deg,
+    transparent 0 5cqw,
+    rgba(176, 202, 240, 0.07) 5cqw 5.2cqw,
+    transparent 5.2cqw 11cqw
+  );
+  -webkit-mask-image: linear-gradient(180deg, #000 10%, transparent 90%);
+  mask-image: linear-gradient(180deg, #000 10%, transparent 90%);
+}
+.bback__top {
+  display: flex;
+  justify-content: space-between;
+  gap: 4cqw;
+  font-family: var(--f-hi-body);
+  font-size: 3.6cqw;
+  letter-spacing: 0;
+  color: #e3b66c;
+  line-height: 1.4;
+}
+.bback__body {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 0;
+  flex: 1;
+  gap: 3cqw;
+}
+.bback__blurb {
+  margin: 0;
+  font-family: var(--f-hi-body);
+  font-size: 5.6cqw;
+  line-height: 1.55;
+  text-align: center;
+  color: #f7f3ec;
+}
+.bback__blurb span {
+  display: block;
+}
+.bback__blurb span + span {
+  margin-top: 0.5em;
+}
+.bback__rule {
+  display: block;
+  width: 22cqw;
+  height: 1px;
+  margin-inline: auto;
+  background: linear-gradient(90deg, transparent, #d9a65a, transparent);
+}
+.bback__quote {
+  margin: 0;
+  font-family: var(--f-hi-body);
+  font-size: 4.4cqw;
+  line-height: 1.5;
+  text-align: center;
+  color: #efd29a;
+}
+.bback__about {
+  margin: 0;
+  font-family: var(--f-hi-body);
+  font-size: 4cqw;
+  line-height: 1.5;
+  color: #c9d1e0;
+  border-top: 1px solid rgba(244, 240, 233, 0.2);
+  padding-top: 2.4cqw;
+}
+.bback__about b {
+  display: block;
+  font-weight: 400;
+  font-size: 3.45cqw;
+  line-height: 1.4;
+  letter-spacing: 0;
+  color: #e3b66c;
+}
+.bback__foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 3cqw;
+  font-family: var(--f-hi-body);
+  font-size: 3.6cqw;
+  line-height: 1.4;
+  color: #a9b3c8;
+}
+
+/* ------------------------------------------- both covers, laid out flat */
+.covers {
+  background: var(--paper-2);
+  padding-block: clamp(56px, 8vw, 120px);
+}
+.covers__head {
+  margin-bottom: clamp(30px, 4.5vw, 60px);
+}
+.covers__title {
+  margin-top: 14px;
+}
+.covers__pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(22px, 5vw, 80px);
+  justify-items: center;
+  max-width: 980px;
+  margin-inline: auto;
+}
+.covers__item {
+  width: 100%;
+  max-width: 440px;
+}
+.covers__face {
+  width: 100%;
+  aspect-ratio: 1819 / 2551;
+  border-radius: 3px 10px 10px 3px;
+}
+.covers__face .bcover {
+  height: 100%;
+}
+.covers__face--back {
+  border-radius: 10px 3px 3px 10px;
+}
+.covers__cap {
+  margin-top: 16px;
+  text-align: center;
+  font-family: var(--f-hi-body);
+  font-size: 0.9rem;
+  color: var(--ink-3);
+}
+@media (max-width: 760px) {
+  .covers__pair {
+    grid-template-columns: 1fr;
+    gap: 34px;
+  }
+  .covers__item {
+    max-width: min(86vw, 380px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bshow__stage.has-peek .bshow__book {
+    animation: none;
+  }
+  .bshow__book {
+    transition-duration: 0.01ms;
+  }
+}
+
+/* ===================================================== social icons */
+.nav__end {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: none;
+}
+.social {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.social__a {
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid var(--line-2);
+  color: var(--ink);
+  background: transparent;
+  transition: background 0.3s var(--ease), color 0.3s var(--ease),
+    border-color 0.3s var(--ease), transform 0.3s var(--ease);
+}
+a.social__a:hover,
+a.social__a:focus-visible {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
+  transform: translateY(-2px);
+}
+.social__a.is-soon {
+  cursor: default;
+  opacity: 0.72;
+}
+.social--sm .social__a {
+  width: 34px;
+  height: 34px;
+}
+.social--lg .social__a {
+  width: 50px;
+  height: 50px;
+}
+.social--lg .social__a svg {
+  width: 22px;
+  height: 22px;
+}
+.nav--dark:not(.is-stuck) .social__a {
+  color: #f4f0e9;
+  border-color: rgba(244, 240, 233, 0.35);
+}
+.nav--dark:not(.is-stuck) a.social__a:hover {
+  background: #e0b062;
+  border-color: #e0b062;
+  color: #1b1308;
+}
+.menu__social {
+  margin-bottom: 4px;
+}
+.ct__follow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+.ct__followK {
+  font-size: var(--fs-text);
+  color: var(--ink-3);
+  letter-spacing: 0;
+}
+@media (max-width: 360px) {
+  .nav__end {
+    gap: 8px;
+  }
+  .social--sm .social__a {
+    width: 32px;
+    height: 32px;
+  }
+}
+
+/* ==========================================================================
+   A lighter room for the cover.
+   The front door used to be the cover's own night, so the navy book sat on a
+   navy page and disappeared. It now stands in chai-gold light — the cover is
+   the darkest thing in view and reads at once as an object.
+   ========================================================================== */
+.bh,
+.bk__heroWrap {
+  --ink: #2a1709;
+  --ink-2: #4a3220;
+  --ink-3: #6f5a45;
+  --line: rgba(42, 23, 9, 0.16);
+  --line-2: rgba(42, 23, 9, 0.34);
+  --paper: #f3d996;
+  --accent: #8c2f1b;
+  --accent-2: #c0502d;
+  --on-accent: #fff7e8;
+  --shadow: 0 30px 70px -40px rgba(70, 35, 8, 0.55);
+  --shadow-lg: 0 50px 100px -50px rgba(70, 35, 8, 0.6);
+  color: var(--ink);
+  background: radial-gradient(62% 80% at 20% 48%, #fff4d6 0%, rgba(255, 244, 214, 0) 68%),
+    linear-gradient(180deg, #f6dfa4 0%, #efca7c 60%, #e6b765 100%);
+}
+.bh::after,
+.bk__heroWrap::after {
+  background: linear-gradient(90deg, transparent, rgba(140, 47, 27, 0.35), transparent);
+}
+.bh__rain {
+  background-image: repeating-linear-gradient(
+    104deg,
+    transparent 0 26px,
+    rgba(120, 70, 30, 0.07) 26px 27px,
+    transparent 27px 58px,
+    rgba(120, 70, 30, 0.045) 58px 59px,
+    transparent 59px 91px
+  );
+}
+.bh__rain--b {
+  background-image: repeating-linear-gradient(
+    104deg,
+    transparent 0 41px,
+    rgba(120, 70, 30, 0.06) 41px 42px,
+    transparent 42px 97px
+  );
+}
+.bh__glow {
+  background: radial-gradient(circle, rgba(255, 246, 222, 0.85), transparent 64%);
+}
+.bh__signal {
+  background: #d63a2b;
+  box-shadow: 0 0 0 7px rgba(214, 58, 43, 0.12), 0 0 60px 18px rgba(214, 58, 43, 0.28);
+}
+.bh__tilt .bcover,
+.bk__heroWrap .bcover {
+  box-shadow: inset 8px 0 12px -9px rgba(0, 0, 0, 0.8), 0 40px 70px -28px rgba(60, 28, 6, 0.7),
+    0 0 0 1px rgba(10, 18, 40, 0.5);
+}
+.bh__card {
+  background: rgba(255, 250, 236, 0.66);
+  border-color: rgba(42, 23, 9, 0.14);
+  box-shadow: 0 18px 36px -26px rgba(80, 40, 10, 0.5);
+}
+.bh__read {
+  box-shadow: 0 16px 36px -16px rgba(140, 47, 27, 0.6);
+}
+.bshow__tabs {
+  background: rgba(255, 250, 236, 0.55);
+}
+.bshow__tabs button.is-on {
+  color: var(--on-accent);
+}
+.bk__heroWrap .eyebrow {
+  color: var(--accent);
+}
+
+/* ------------------------------------------------ nav: a pair of kulhads */
+.nav__cup {
+  width: auto;
+  margin-right: 4px;
+}
+/* two cups, large enough to read as cups */
+.nav__cup svg {
+  display: block;
+  width: clamp(62px, 6.4vw, 90px);
+  height: auto;
+}
+.nav__name {
+  font-size: 1.32rem;
+}
+.nav__brand .nav__name small {
+  font-size: 0.86rem;
+}
+.social--sm .social__a {
+  width: 38px;
+  height: 38px;
+}
+.social--sm .social__a svg {
+  width: 19px;
+  height: 19px;
+}
+@media (max-width: 560px) {
+  .nav__cup svg {
+    width: 54px;
+  }
+  .nav__name {
+    font-size: 1.12rem;
+  }
+  .nav__brand {
+    gap: 6px;
+  }
+  .nav__end {
+    gap: 6px;
+  }
+  .social--sm {
+    gap: 5px;
+  }
+  .social--sm .social__a {
+    width: 32px;
+    height: 32px;
+  }
+  .social--sm .social__a svg {
+    width: 17px;
+    height: 17px;
+  }
+  .nav__burger {
+    width: 42px;
+    height: 42px;
+  }
+}
+@media (max-width: 380px) {
+  .nav__brand .nav__name small {
+    display: none;
+  }
+}
+
+/* ==========================================================================
+   The shelf: the novel stands on a plank, face out, with its spine beside it.
+   ========================================================================== */
+.shelf {
+  position: relative;
+  overflow: hidden;
+}
+.shelf__head {
+  max-width: 760px;
+}
+.shelf__title {
+  margin-top: 16px;
+}
+.shelf__lede {
+  margin-top: 18px;
+  max-width: 52ch;
+  font-size: calc(var(--fs-text) + 1px);
+  line-height: 1.9;
+  color: var(--ink-2);
+}
+.shelf__case {
+  position: relative;
+  margin-top: clamp(30px, 5vw, 56px);
+  padding: clamp(26px, 4.4vw, 60px) clamp(18px, 4vw, 60px) 0;
+  border-radius: 22px 22px 0 0;
+  background: radial-gradient(80% 110% at 24% 40%, rgba(255, 247, 226, 0.9), transparent 70%),
+    linear-gradient(180deg, #f7ead0 0%, #efdcb6 100%);
+  box-shadow: inset 0 0 0 1px rgba(80, 45, 15, 0.12), inset 0 40px 70px -50px rgba(80, 45, 15, 0.45);
+}
+.shelf__row {
+  --w: clamp(190px, 24vw, 290px);
+  --h: calc(var(--w) * 1.4025);
+  display: flex;
+  align-items: flex-end;
+  gap: clamp(14px, 3vw, 44px);
+}
+.shelf__feature {
+  position: relative;
+  flex: none;
+  width: var(--w);
+  display: block;
+  transform-origin: 0% 100%;
+  transform: perspective(1100px) rotateY(-9deg);
+  transition: transform 0.6s var(--ease);
+}
+.shelf__feature:hover,
+.shelf__feature:focus-visible {
+  transform: perspective(1100px) rotateY(-2deg) translateY(-6px);
+}
+.shelf__feature .bcover {
+  width: 100%;
+  height: auto;
+  border-radius: 3px 8px 8px 3px;
+  box-shadow: inset 7px 0 10px -8px rgba(0, 0, 0, 0.7), 0 30px 40px -22px rgba(50, 24, 6, 0.75),
+    0 0 0 1px rgba(10, 18, 40, 0.5);
+}
+.shelf__spine {
+  flex: none;
+  width: calc(var(--w) * 0.17);
+  height: var(--h);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 0;
+  border-radius: 3px 6px 6px 3px;
+  color: #f4f0e9;
+  background: linear-gradient(90deg, #060d1b 0%, #0f1d38 45%, #0a1530 100%);
+  box-shadow: inset 2px 0 0 rgba(255, 255, 255, 0.07), 0 30px 40px -24px rgba(50, 24, 6, 0.75),
+    0 0 0 1px rgba(10, 18, 40, 0.5);
+}
+.shelf__spineT,
+.shelf__spineA {
+  writing-mode: vertical-rl;
+  white-space: nowrap;
+}
+.shelf__spineT {
+  font-family: var(--f-hi);
+  font-weight: 700;
+  font-size: calc(var(--w) * 0.075);
+  letter-spacing: 0.04em;
+  color: #f4f0e9;
+}
+.shelf__spineA {
+  font-family: var(--f-hi-body);
+  font-size: calc(var(--w) * 0.048);
+  color: #e0b062;
+}
+
+.shelf__plaque {
+  flex: 1;
+  min-width: 0;
+  align-self: center;
+  padding: clamp(14px, 2vw, 26px);
+  margin-bottom: clamp(14px, 2vw, 30px);
+  border-radius: 16px;
+  background: rgba(255, 252, 244, 0.78);
+  border: 1px solid rgba(80, 45, 15, 0.16);
+  box-shadow: 0 22px 44px -30px rgba(80, 40, 10, 0.55);
+}
+.shelf__kicker {
+  font-family: var(--f-hi-body);
+  font-size: var(--fs-text);
+  color: var(--accent-2);
+}
+.shelf__book {
+  margin-top: 6px;
+  font-weight: 700;
+  font-size: clamp(1.7rem, 3.4vw, 2.6rem);
+  line-height: 1.3;
+  color: var(--ink);
+}
+.shelf__by {
+  margin-top: 2px;
+  font-size: var(--fs-text);
+  color: var(--ink-2);
+}
+.shelf__by span {
+  color: var(--ink-3);
+  margin-right: 6px;
+}
+.shelf__facts {
+  margin-top: 8px;
+  font-size: var(--fs-text);
+  color: var(--ink-3);
+}
+.shelf__go {
+  margin-top: 18px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 22px;
+}
+.shelf__link {
+  font-family: var(--f-hi-body);
+  font-size: var(--fs-text);
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 6px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+}
+.shelf__cups {
+  flex: none;
+  align-self: flex-end;
+  margin-bottom: 0;
+  padding-bottom: 2px;
+}
+
+/* the plank itself */
+.shelf__plank {
+  position: relative;
+  height: 24px;
+  margin-inline: calc(-1 * clamp(18px, 4vw, 60px));
+  border-radius: 0 0 10px 10px;
+  background: linear-gradient(180deg, #c58a52 0%, #9a6338 45%, #6e4122 100%);
+  box-shadow: 0 22px 30px -14px rgba(60, 30, 10, 0.55);
+}
+.shelf__plank::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 3px;
+  background: rgba(255, 236, 200, 0.55);
+}
+
+.shelf__perks {
+  list-style: none;
+  margin: clamp(40px, 6vw, 70px) 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px clamp(16px, 2.4vw, 34px);
+}
+.shelf__perks li {
+  padding-top: 14px;
+  border-top: 2px solid var(--accent-2);
+}
+.shelf__perks b {
+  display: block;
+  font-size: var(--fs-text);
+  font-weight: 700;
+  color: var(--ink);
+}
+.shelf__perks span {
+  display: block;
+  margin-top: 6px;
+  font-size: var(--fs-text);
+  line-height: 1.75;
+  color: var(--ink-2);
+}
+.shelf__more {
+  margin-top: 26px;
+}
+
+@media (max-width: 900px) {
+  .shelf__perks {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .shelf__cups {
+    display: none;
+  }
+}
+@media (max-width: 760px) {
+  .shelf__row {
+    --w: min(46vw, 210px);
+    flex-wrap: wrap;
+    row-gap: 18px;
+  }
+  .shelf__plaque {
+    flex: 1 1 100%;
+    order: 3;
+    margin-bottom: 18px;
+  }
+}
+@media (max-width: 480px) {
+  .shelf__perks {
+    grid-template-columns: 1fr;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .shelf__feature {
+    transition: none;
+  }
+}
+
+/* ==========================================================================
+   A cover, opened like a picture.
+   ========================================================================== */
+body.is-cover-open {
+  overflow: hidden;
+}
+.cv {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  display: flex;
+  flex-direction: column;
+  color: #f4f0e9;
+  animation: cvIn 0.28s ease both;
+}
+@keyframes cvIn {
+  from {
+    opacity: 0;
+  }
+}
+.cv__scrim {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  background: rgba(8, 10, 16, 0.92);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  cursor: zoom-out;
+}
+.cv__bar {
+  position: relative;
+  z-index: 2;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: max(12px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) 8px
+    max(14px, env(safe-area-inset-left));
+}
+.cv__tabs {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 99px;
+  border: 1px solid rgba(244, 240, 233, 0.22);
+  background: rgba(255, 255, 255, 0.06);
+}
+.cv__tabs button {
+  min-height: 42px;
+  padding: 0 16px;
+  border-radius: 99px;
+  font-family: var(--f-hi-body);
+  font-size: 0.95rem;
+  color: #d4dae6;
+  white-space: nowrap;
+}
+.cv__tabs button.is-on {
+  background: #e0b062;
+  color: #1b1308;
+  font-weight: 700;
+}
+.cv__acts {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.cv__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 46px;
+  min-width: 46px;
+  padding: 0 14px;
+  border-radius: 99px;
+  border: 1px solid rgba(244, 240, 233, 0.3);
+  color: #f4f0e9;
+  font-family: var(--f-hi-body);
+  font-size: 0.98rem;
+  font-weight: 700;
+  transition: background 0.2s ease, opacity 0.2s ease;
+}
+.cv__btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+.cv__btn:disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+.cv__btn--solid {
+  background: #e0b062;
+  border-color: #e0b062;
+  color: #1b1308;
+}
+.cv__btn--solid:hover {
+  background: #f08a5d;
+  border-color: #f08a5d;
+}
+.cv__x {
+  padding: 0;
+}
+
+.cv__stage {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  padding: 6px max(12px, env(safe-area-inset-right)) 6px max(12px, env(safe-area-inset-left));
+  overflow: auto;
+  overscroll-behavior: contain;
+  pointer-events: none; /* clicks beside the picture reach the scrim */
+}
+.cv__img {
+  pointer-events: auto;
+  display: block;
+  max-width: min(94vw, 760px);
+  /* the bars take about 140px; the picture gets the rest, whole */
+  max-height: calc(100vh - 150px);
+  max-height: calc(100dvh - 150px);
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: 4px 10px 10px 4px;
+  box-shadow: 0 40px 90px -30px rgba(0, 0, 0, 0.9);
+  background-size: cover;
+  cursor: zoom-in;
+  -webkit-user-drag: none;
+  animation: cvImg 0.34s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+@keyframes cvImg {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+}
+.cv__stage.is-zoom {
+  display: block;
+  text-align: center;
+}
+.cv__stage.is-zoom .cv__img {
+  display: inline-block;
+  max-width: none;
+  max-height: none;
+  width: min(1819px, 220vw);
+  margin: 4px auto;
+  cursor: zoom-out;
+}
+.cv__note {
+  color: #c3cbdb;
+  font-family: var(--f-hi-body);
+}
+.cv__hint {
+  position: relative;
+  z-index: 2;
+  flex: none;
+  margin: 0;
+  padding: 8px 16px max(14px, env(safe-area-inset-bottom));
+  text-align: center;
+  font-family: var(--f-hi-body);
+  font-size: 0.9rem;
+  color: #aab4c8;
+  pointer-events: none;
+}
+@media (max-width: 520px) {
+  .cv__tabs button {
+    padding: 0 12px;
+    font-size: 0.86rem;
+  }
+  .cv__btn--solid span {
+    display: none;
+  }
+  .cv__btn--solid {
+    padding: 0;
+    width: 46px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cv,
+  .cv__img {
+    animation: none;
+  }
+}
+
+/* what opens it */
+.bshow__stage {
+  position: relative;
+}
+.bshow__zoom {
+  position: absolute;
+  z-index: 3;
+  top: 10px;
+  right: 10px;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: #f4f0e9;
+  background: rgba(8, 12, 24, 0.55);
+  border: 1px solid rgba(244, 240, 233, 0.35);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+.bshow__zoom:hover {
+  background: rgba(8, 12, 24, 0.8);
+  transform: scale(1.06);
+}
+.bshow__stage,
+.bshow__face {
+  cursor: zoom-in;
+}
+.covers__face[role="button"] {
+  cursor: zoom-in;
+  transition: transform 0.4s var(--ease);
+}
+.covers__face[role="button"]:hover,
+.covers__face[role="button"]:focus-visible {
+  transform: translateY(-4px);
+}
+button.shelf__feature {
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: zoom-in;
+  text-align: left;
+}
+
+/* ------------------------------------------- supplied cover pictures */
+.bback-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+}
+.cv__stage.is-wide .cv__img {
+  max-width: min(96vw, 1500px);
+  border-radius: 6px;
+}
+.cv__btn--ghost {
+  padding: 0 14px;
+  font-size: 0.9rem;
+}
+.shelf__spine--art {
+  width: calc(var(--h) * 0.0628);
+  padding: 0;
+  background: none;
+  border-radius: 0;
+  box-shadow: none;
+  overflow: visible;
+}
+.shelf__spine--art img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+  box-shadow: 0 30px 40px -24px rgba(50, 24, 6, 0.75), 0 0 0 1px rgba(10, 18, 40, 0.5);
+}
+.covers__wrapItem {
+  margin-top: clamp(34px, 5vw, 70px);
+  max-width: 1000px;
+  margin-inline: auto;
+}
+.covers__jacket {
+  cursor: zoom-in;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 40px 70px -40px rgba(40, 20, 5, 0.65);
+  transition: transform 0.4s var(--ease);
+}
+.covers__jacket:hover,
+.covers__jacket:focus-visible {
+  transform: translateY(-4px);
+}
+.covers__jacket img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+@media (max-width: 480px) {
+  .cv__btn--ghost {
+    display: none;
+  }
+}

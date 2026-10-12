@@ -1,0 +1,35 @@
+{
+ "books": [
+  {
+   "slug": "do-kulhad-chai",
+   "version": "bfa4089f8904",
+   "title": "दो कुल्हड़ चाय",
+   "author": "विनय कुमार तिवारी",
+   "language": "hi",
+   "description": "एक आदमी है, जो हर महीने की बारह तारीख़ को एक ट्रेन में चढ़ता है। वह हर बार दो टिकट लेता है। और वह हमेशा अकेला सफ़र करता है। यह किताब यह बताने के लिए लिखी गई है कि दूसरा टिकट किसका है।",
+   "published": "2026-10-16",
+   "updated": "2026-10-11T17:21:33Z",
+   "cover": "cover.jpg",
+   "coverSmall": "cover-sm.jpg",
+   "art": {
+    "srcHash": "1d344e9fb6120a94",
+    "original": {
+     "back": "art/back.png",
+     "front": "art/front.png",
+     "jacket": "art/jacket.png",
+     "spine": "art/spine.png"
+    },
+    "back": "back.jpg",
+    "backSmall": "back-sm.jpg",
+    "front": "cover.jpg",
+    "frontMd": "cover-md.jpg",
+    "frontSmall": "cover-sm.jpg",
+    "jacket": "jacket.jpg",
+    "jacketSmall": "jacket-sm.jpg",
+    "spine": "art/spine.png"
+   },
+   "chapters": 36,
+   "minutes": 325
+  }
+ ]
+}

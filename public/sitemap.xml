@@ -1,14 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
   Vinay Kumar Tiwari — vinaytiwari.org
-  Three real routes. Update the lastmod dates on meaningful content changes only;
-  Google discounts lastmod values it finds to be dishonest.
+  Real routes only. `npm run build` regenerates this file from the library
+  catalogue (scripts/prerender.js), so a newly published book is listed
+  without editing it by hand. Update lastmod on meaningful content changes
+  only; Google discounts lastmod values it finds to be dishonest.
 
-  No hreflang here on purpose: /technical (English) and /writings (Hindi) are
-  different content, not translations of one another, and hreflang is only for
-  equivalent pages in different languages. Declaring it would earn "no return
-  tag" errors in Search Console for no benefit. A per-page html lang attribute
-  carries the language signal instead.
+  The reader (/read/…) is deliberately absent: those pages are noindex, and
+  the book page above them is the canonical address for each book.
+
+  No hreflang here on purpose: pages are not translations of one another, and
+  hreflang is only for equivalent pages in different languages. A per-page
+  html lang attribute carries the language signal instead.
 -->
 <urlset
   xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
@@ -16,34 +19,30 @@
 >
   <url>
     <loc>https://vinaytiwari.org/</loc>
-    <lastmod>2026-08-02</lastmod>
+    <lastmod>2026-10-11</lastmod>
     <changefreq>monthly</changefreq>
     <priority>1.0</priority>
     <image:image>
       <image:loc>https://vinaytiwari.org/og-image.jpg</image:loc>
-      <image:title>Vinay Kumar Tiwari — SAP BTP Solution Architect and Hindi author</image:title>
-    </image:image>
-  </url>
-
-  <url>
-    <loc>https://vinaytiwari.org/technical</loc>
-    <lastmod>2026-08-02</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.9</priority>
-    <image:image>
-      <image:loc>https://vinaytiwari.org/vinay-portrait.jpg</image:loc>
-      <image:title>Vinay Kumar Tiwari, SAP BTP Solution Architect</image:title>
-    </image:image>
-  </url>
-
-  <url>
-    <loc>https://vinaytiwari.org/writings</loc>
-    <lastmod>2026-08-02</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.9</priority>
-    <image:image>
-      <image:loc>https://vinaytiwari.org/og-image.jpg</image:loc>
       <image:title>दो कुल्हड़ चाय — विनय कुमार तिवारी का पहला हिन्दी उपन्यास</image:title>
+    </image:image>
+  </url>
+
+  <url>
+    <loc>https://vinaytiwari.org/library</loc>
+    <lastmod>2026-10-11</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://vinaytiwari.org/books/do-kulhad-chai</loc>
+    <lastmod>2026-10-11</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.9</priority>
+    <image:image>
+      <image:loc>https://vinaytiwari.org/content/do-kulhad-chai/cover.jpg</image:loc>
+      <image:title>दो कुल्हड़ चाय — आवरण</image:title>
     </image:image>
   </url>
 </urlset>

@@ -66,8 +66,8 @@ const PROFILE_DATA = {
   currentRole: "SAP BTP/UI5/FIORI/CAP (Node.js) Consultant",
   email: "vinay.tiwari.sap@gmail.com",
   linkedin: "https://www.linkedin.com/in/vinay-tiwari-sap/",
-  whatsapp: "https://wa.me/917392062233",
-  whatsappNumber: "+91 73920 62233",
+  whatsapp: "https://wa.me/919561520911",
+  whatsappNumber: "+91 95615 20911",
   github: "https://github.com/vinaytiwarisap",
   location: "Noida, India",
   summary:

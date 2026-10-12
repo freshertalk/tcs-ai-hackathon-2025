@@ -19,6 +19,13 @@
 /manifest.json
   Content-Type: application/manifest+json; charset=utf-8
 
+# Published books. File names are not hashed and a book can be replaced, so
+# always ask the server whether a file changed (a cheap 304 when it has not).
+# Chapters are also requested as ?v=<version>, so a new edition is never
+# served from an old cache.
+/content/*
+  Cache-Control: public, max-age=0, must-revalidate
+
 # Hashed build assets never change under the same name.
 /static/*
   Cache-Control: public, max-age=31536000, immutable

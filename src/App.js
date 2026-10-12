@@ -1,22 +1,31 @@
 // src/App.js
-import React, { useEffect, useLayoutEffect, useState } from "react";
+import React, { useLayoutEffect } from "react";
 import { Routes, Route, useLocation, Navigate } from "react-router-dom";
 import { MotionConfig, AnimatePresence, motion } from "framer-motion";
 
 import useSmoothScroll from "./hooks/useSmoothScroll";
-import Preloader from "./components/site/Preloader";
 import Cursor from "./components/site/Cursor";
+import CoverViewerHost from "./library/CoverViewer";
 
-import Gate from "./pages/Gate";
-import Technical from "./pages/Technical";
-import Writings from "./pages/Writings";
+import Home from "./pages/Home";
+import Library from "./pages/Library";
+import BookPage from "./pages/Book";
+import Reader from "./reader/Reader";
 
 import "./styles/site.css";
+import "./styles/library.css";
+import "./styles/reader.css";
+import "./styles/typography.css"; // last: it sets the one text size
 
 const EASE = [0.16, 1, 0.3, 1];
 
+// The reading room is its own world: no preloader, cursor, grain or
+// inertial scroll — a page of prose wants the platform's own scrolling.
+const isReaderPath = (p) => p === "/read" || p.startsWith("/read/");
+
 /**
- * Every route change lands at the top of the new page.
+ * Every route change lands at the top of the new page — except inside the
+ * reader, which restores its own position and would be fought by this.
  *
  * Three things fight us here, so all three are handled:
  *   1. the browser's own scroll restoration on history navigation,
@@ -27,6 +36,8 @@ function ScrollTop() {
   const { pathname } = useLocation();
 
   useLayoutEffect(() => {
+    if (isReaderPath(pathname)) return undefined;
+
     if ("scrollRestoration" in window.history) {
       window.history.scrollRestoration = "manual";
     }
@@ -51,48 +62,44 @@ function ScrollTop() {
 }
 
 export default function App() {
-  const [loading, setLoading] = useState(true);
   const location = useLocation();
+  const reading = isReaderPath(location.pathname);
 
-  useSmoothScroll(!loading);
+  // No splash screen: the cover, the author and the Read button are the
+  // first thing on screen, as soon as the page can paint them.
+  useSmoothScroll(!reading);
 
-  useEffect(() => {
-    if (loading) {
-      window.scrollTo(0, 0);
-      document.body.classList.add("is-locked");
-    } else {
-      document.body.classList.remove("is-locked");
-    }
-  }, [loading]);
+  // All reader chapters share one transition key, so turning a chapter does
+  // not fade the whole room out and in.
+  const routeKey = reading ? "/read" : location.pathname;
 
   return (
     // reducedMotion="user" collapses every animation to a cross-fade for
     // visitors who ask their OS for less motion.
     <MotionConfig reducedMotion="user">
-      <div className="grain" aria-hidden="true" />
-      <Cursor />
+      {!reading && <div className="grain" aria-hidden="true" />}
+      {!reading && <Cursor />}
       <ScrollTop />
-
-      {loading && (
-        <Preloader
-          onDone={() => setLoading(false)}
-          word="दो कुल्हड़ चाय"
-          sub="Engineer &amp; Author"
-        />
-      )}
+      <CoverViewerHost />
 
       <AnimatePresence mode="wait">
         <motion.div
-          key={location.pathname}
+          key={routeKey}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.4, ease: EASE }}
+          transition={{ duration: reading ? 0.2 : 0.4, ease: EASE }}
         >
           <Routes location={location}>
-            <Route path="/" element={<Gate />} />
-            <Route path="/technical" element={<Technical />} />
-            <Route path="/writings" element={<Writings />} />
+            <Route path="/" element={<Home />} />
+            <Route path="/library" element={<Library />} />
+            <Route path="/books/:slug" element={<BookPage />} />
+            <Route path="/read/:slug" element={<Reader />} />
+            <Route path="/read/:slug/:chapter" element={<Reader />} />
+
+            {/* retired addresses: keep every old link and bookmark alive */}
+            <Route path="/writings" element={<Navigate to="/" replace />} />
+            <Route path="/technical" element={<Navigate to="/" replace />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </motion.div>

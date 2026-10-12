@@ -26,7 +26,7 @@ export default function Author() {
           </div>
           <Reveal delay={0.16}>
             <p className="sec-head__note">
-              {AUTHOR.nameRoman} · Ghazipur → Noida · SAP consultant by day,
+              {AUTHOR.nameRoman} · Ghazipur → Noida · engineer by day,
               novelist by night.
             </p>
           </Reveal>
@@ -126,8 +126,8 @@ export default function Author() {
                 </a>
               </Magnetic>
               <Magnetic>
-                <Link className="btn" to="/technical" data-cursor="Engineering">
-                  The engineer's side
+                <Link className="btn" to="/library" data-cursor="किताबें">
+                  किताबघर
                   <Arrow />
                 </Link>
               </Magnetic>

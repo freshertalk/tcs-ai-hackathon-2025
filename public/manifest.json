@@ -1,7 +1,7 @@
 {
-  "short_name": "Vinay Tiwari",
-  "name": "Vinay Kumar Tiwari — SAP BTP Solution Architect & Hindi Author",
-  "description": "Vinay Kumar Tiwari (विनय कुमार तिवारी) — SAP BTP Solution Architect (CAPM, Fiori/UI5, HANA Cloud, Clean Core), founder of BTP Learning Hub, and author of the Hindi novel दो कुल्हड़ चाय (Do Kulhad Chai).",
+  "short_name": "दो कुल्हड़ चाय",
+  "name": "दो कुल्हड़ चाय — विनय कुमार तिवारी",
+  "description": "विनय कुमार तिवारी (Vinay Kumar Tiwari) का हिन्दी उपन्यास दो कुल्हड़ चाय (Do Kulhad Chai) — ऑनलाइन पढ़िए, फ़ोन, टैबलेट और कंप्यूटर पर।",
   "icons": [
     {
       "src": "favicon.ico",
@@ -25,17 +25,29 @@
       "purpose": "any maskable"
     }
   ],
+  "shortcuts": [
+    {
+      "name": "पढ़ना जारी रखें",
+      "short_name": "पढ़िए",
+      "url": "/read/do-kulhad-chai"
+    },
+    {
+      "name": "किताबघर",
+      "short_name": "किताबघर",
+      "url": "/library"
+    }
+  ],
   "start_url": "/",
   "display": "standalone",
-  "theme_color": "#0D1014",
-  "background_color": "#0D1014",
+  "theme_color": "#FAF4E9",
+  "background_color": "#FAF4E9",
   "scope": "/",
   "id": "/",
-  "lang": "en-IN",
+  "lang": "hi-IN",
   "dir": "ltr",
   "categories": [
-    "business",
+    "books",
     "education",
-    "books"
+    "entertainment"
   ]
 }

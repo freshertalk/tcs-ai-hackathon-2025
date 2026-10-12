@@ -1,4 +1,10 @@
 // src/pages/Technical.jsx
+//
+// HIDDEN. The site is now an author's site and this page is deliberately not
+// routed (see App.js — /technical redirects home) or linked, and it is kept
+// out of the sitemap. Everything it needs is still here, so bringing it back
+// is: add the route, add a link, add a sitemap entry, and give it a real
+// entry in data/seo.js. Until then it carries noindex as a safety net.
 import React, { useEffect } from "react";
 
 import Nav from "../components/site/Nav";
@@ -54,7 +60,14 @@ export default function Technical() {
 
   return (
     <div data-theme="tech">
-      <Seo page="technical" />
+      <Seo
+        meta={{
+          title: "Technical portfolio — Vinay Kumar Tiwari",
+          path: "/technical",
+          noindex: true,
+          lang: "en",
+        }}
+      />
       <Nav
         links={LINKS}
         kicker="Technical portfolio"

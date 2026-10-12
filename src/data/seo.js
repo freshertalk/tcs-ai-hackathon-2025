@@ -8,23 +8,25 @@
 //      These read structured data and plain prose far more than keywords, and
 //      most of them do NOT execute JavaScript, which is why the build also
 //      prerenders static HTML (see scripts/prerender.js).
+//
+// The site is an author's site: the person is Vinay Kumar Tiwari, the work is
+// his writing. Books come from the library (public/content), so book pages
+// build their metadata from each book's own book.json.
 // ---------------------------------------------------------------------------
 
-import { PROFILE, YEARS, SKILLS, EDUCATION } from "./profile";
-import { CERTS } from "./certs";
 import { BOOK, AUTHOR } from "./books";
 
 export const SITE = {
   origin: "https://vinaytiwari.org",
   name: "Vinay Kumar Tiwari",
   shortName: "Vinay Tiwari",
-  locale: "en_IN",
-  localeAlt: "hi_IN",
+  locale: "hi_IN",
+  localeAlt: "en_IN",
   twitter: "", // add the @handle if one exists
   ogImage: "/og-image.jpg",
 };
 
-const url = (p = "/") => `${SITE.origin}${p === "/" ? "/" : p}`;
+export const url = (p = "/") => `${SITE.origin}${p === "/" ? "/" : p}`;
 
 /* ---------------------------------------------------------------------------
    Name variants.
@@ -38,35 +40,21 @@ export const NAME_VARIANTS = [
   "Tiwari Vinay",
   "Tiwari Vinay Kumar",
   "Vinay K. Tiwari",
-  "Vinay",
   "विनय कुमार तिवारी",
   "विनय तिवारी",
-  "Vinay Tiwari SAP",
-  "SAP Vinay Tiwari",
-  "Vinay Tiwari SAP BTP",
-  "Vinay Tiwari BTP Learning Hub",
   "Vinay Tiwari author",
   "Vinay Tiwari Hindi author",
+  "Vinay Kumar Tiwari novelist",
 ];
 
 /* Topics this person is a credible source on — feeds knowsAbout + keywords. */
 export const TOPICS = [
-  ...SKILLS.sap,
-  ...SKILLS.ai,
-  ...SKILLS.engineering,
-  ...SKILLS.architecture,
-  "SAP Business Technology Platform",
-  "SAP CAP",
-  "SAPUI5",
-  "SAP Fiori Elements",
-  "SAP S/4HANA extensions",
-  "SAP BTP architecture",
-  "Clean Core extensibility",
-  "Enterprise cloud architecture",
-  "AI-assisted software engineering",
   "Hindi literature",
   "Hindi fiction",
   "Hindi novel",
+  "हिन्दी उपन्यास",
+  "Contemporary Hindi fiction",
+  "Storytelling",
 ];
 
 /* Book-side terms — the novel is its own searchable entity. */
@@ -78,70 +66,67 @@ export const BOOK_TERMS = [
   "दो कुल्हड़ चाय विनय कुमार तिवारी",
   "हिन्दी उपन्यास",
   "Hindi novel 2026",
+  "Hindi novel online",
+  "हिन्दी उपन्यास ऑनलाइन पढ़ें",
   "विवान प्राची",
   "शिवगंगा एक्सप्रेस",
-  "सीट छत्तीस सैंतीस",
+  "सीट तैंतीस छत्तीस",
+  "सीट 33 और 36",
   "बारह तारीख़",
-  "कानपुर लखनऊ बनारस",
+  "नई दिल्ली कानपुर आउटर बनारस",
+  "दूसरा टिकट",
   "नई हिन्दी कहानी",
   "रेलवे प्रेम कहानी",
-];
-
-const TECH_TERMS = [
-  "SAP BTP Solution Architect",
-  "SAP BTP consultant India",
-  "SAP CAPM developer",
-  "SAP Fiori UI5 developer",
-  "SAP HANA Cloud",
-  "SAP Integration Suite",
-  "SAP Event Mesh",
-  "Clean Core",
-  "SAP certified Fiori application developer",
-  "C_FIORDEV_21",
-  "C_CPE_12",
-  "BTP Learning Hub",
-  "SAP BTP tutorials",
-  "SAP consultant Noida",
-  "IBM SAP consultant",
 ];
 
 /* ---------------------------------------------------------------- per page */
 export const PAGES = {
   home: {
     path: "/",
-    title:
-      "Vinay Kumar Tiwari — SAP BTP Solution Architect & Hindi Author (दो कुल्हड़ चाय)",
-    description: `Vinay Kumar Tiwari (विनय कुमार तिवारी) — SAP BTP Solution Architect with ${YEARS}+ years across IBM, TCS, Cognizant, Mindtree and Wipro, founder of BTP Learning Hub, and author of the Hindi novel दो कुल्हड़ चाय (Do Kulhad Chai).`,
-    keywords: [...NAME_VARIANTS, ...TECH_TERMS.slice(0, 6), ...BOOK_TERMS.slice(0, 4)],
-    lang: "en",
-    summary: `Vinay Kumar Tiwari — also written Vinay Tiwari, Tiwari Vinay, or विनय कुमार तिवारी — is an SAP BTP Solution Architect based in Noida, India, originally from Ghazipur, Uttar Pradesh. He has ${YEARS}+ years of enterprise delivery experience across IBM, TCS, Cognizant, Mindtree and Wipro, founded the free SAP learning site BTP Learning Hub, and wrote the Hindi novel दो कुल्हड़ चाय (Do Kulhad Chai). This site holds two portfolios: a technical one and a literary one.`,
-  },
-  technical: {
-    path: "/technical",
-    title: `Vinay Kumar Tiwari — SAP BTP Solution Architect | ${YEARS}+ Years, SAP Certified`,
-    description: `SAP BTP Solution Architect Vinay Kumar Tiwari: ${YEARS}+ years delivering CAPM, Fiori/UI5, HANA Cloud, Integration Suite and Clean Core extensions for manufacturing, healthcare, aerospace and finance. SAP certified (C_FIORDEV_21, C_CPE_12). Founder of BTP Learning Hub.`,
-    keywords: [...TECH_TERMS, ...NAME_VARIANTS.slice(0, 6)],
-    lang: "en",
-    summary: `Technical portfolio of Vinay Kumar Tiwari (Vinay Tiwari), SAP BTP Solution Architect and Package Consultant at IBM India, based in Noida. ${YEARS}+ years across SAP Business Technology Platform, CAP (CAPM), SAP Fiori and SAPUI5, SAP HANA Cloud, Integration Suite, Event Mesh, Cloud Foundry and Clean Core extensibility for S/4HANA, with AI-assisted engineering. SAP Certified Development Associate for SAP Fiori Application Developer (C_FIORDEV_21) and SAP Extension Suite (C_CPE_12). Founder of BTP Learning Hub, a free SAP BTP tutorial site.`,
-  },
-  writings: {
-    path: "/writings",
-    title:
-      "दो कुल्हड़ चाय (Do Kulhad Chai) — हिन्दी उपन्यास · विनय कुमार तिवारी",
+    title: "दो कुल्हड़ चाय — विनय कुमार तिवारी का हिन्दी उपन्यास · ऑनलाइन पढ़िए",
     description:
-      "दो कुल्हड़ चाय — विनय कुमार तिवारी का पहला हिन्दी उपन्यास। शिवगंगा एक्सप्रेस, सीट छत्तीस और सैंतीस, और हर महीने की बारह तारीख़ का एक वादा। Do Kulhad Chai, a Hindi novel by Vinay Kumar Tiwari.",
-    keywords: [...BOOK_TERMS, "विनय कुमार तिवारी", "Vinay Kumar Tiwari author"],
+      "दो कुल्हड़ चाय (Do Kulhad Chai) — विनय कुमार तिवारी का पहला हिन्दी उपन्यास। शिवगंगा एक्सप्रेस, सीट 33 और 36, एक रुका हुआ लाल सिग्नल, और हर महीने की बारह तारीख़ का एक वादा। पूरा उपन्यास ऑनलाइन पढ़िए — फ़ोन, टैबलेट या कंप्यूटर पर।",
+    keywords: [...BOOK_TERMS, ...NAME_VARIANTS.slice(0, 7)],
     lang: "hi",
+    type: "website",
     summary:
-      "दो कुल्हड़ चाय (Do Kulhad Chai) विनय कुमार तिवारी का पहला हिन्दी उपन्यास है — छत्तीस अध्याय और एक आख़िरी अध्याय, 2015 से 2026 तक फैले ग्यारह साल। शिवगंगा एक्सप्रेस साढ़े चार घंटे एक लाल सिग्नल पर खड़ी रह जाती है, और सीट छत्तीस और सैंतीस पर बैठे दो अजनबी — विवान और प्राची — पूरी रात बात करते हैं। नाम वे सबसे आख़िर में पूछते हैं। कहानी कानपुर आउटर से लखनऊ जंक्शन होते हुए बनारस तक जाती है। Do Kulhad Chai is a Hindi literary novel by Vinay Kumar Tiwari — 37 chapters spanning eleven years — copyright filed with the Copyright Office, Government of India (Diary No. LD-36102/2026-CO).",
+      "विनय कुमार तिवारी (Vinay Kumar Tiwari, Vinay Tiwari) हिन्दी के लेखक हैं। गाज़ीपुर, उत्तर प्रदेश के रहने वाले और अब नोएडा में बसे विनय का पहला उपन्यास दो कुल्हड़ चाय (Do Kulhad Chai) है — छत्तीस अध्याय और 2015 से 2026 तक फैले ग्यारह साल। 12 जुलाई 2015 की रात नई दिल्ली से बनारस जाती शिवगंगा एक्सप्रेस कानपुर आउटर पर साढ़े चार घंटे एक लाल सिग्नल के सामने खड़ी रह जाती है, और सीट 33 और 36 पर बैठे दो अजनबी — विवान और प्राची — पूरी रात बात करते हैं, और नाम सबसे आख़िर में पूछते हैं। इस वेबसाइट पर पूरा उपन्यास ऑनलाइन पढ़ा जा सकता है। Vinay Kumar Tiwari is a Hindi author; his debut novel Do Kulhad Chai can be read online on this website.",
+  },
+  library: {
+    path: "/library",
+    title: "किताबघर · Books — विनय कुमार तिवारी की किताबें ऑनलाइन पढ़िए",
+    description:
+      "विनय कुमार तिवारी की किताबें — ऑनलाइन पढ़िए, कहीं भी, किसी भी डिवाइस पर। फ़ोन, टैबलेट और कंप्यूटर के लिए बना, ई-रीडर जैसा पढ़ने का अनुभव।",
+    keywords: ["किताबघर", "हिन्दी किताबें ऑनलाइन", "Hindi books online", "Hindi ebook online", ...BOOK_TERMS.slice(0, 4)],
+    lang: "hi",
+    type: "website",
+    summary:
+      "विनय कुमार तिवारी की प्रकाशित किताबों का किताबघर। हर किताब ऑनलाइन रीडर में पढ़ी जा सकती है — पन्ने पलटकर या स्क्रॉल करके, अपनी पसंद के रंग और अक्षर में।",
   },
 };
+
+/** Per-book metadata, built from that book's book.json. */
+export function bookMeta(book) {
+  const isFlagship = book.slug === BOOK.slug;
+  const roman = isFlagship ? ` (${BOOK.roman})` : "";
+  return {
+    path: `/books/${book.slug}`,
+    title: `${book.title}${roman} — ${book.author} · पूरा उपन्यास ऑनलाइन पढ़िए`,
+    description: `${book.description} — ${book.author}। ${book.stats.chapters} अध्याय, लगभग ${book.stats.minutes} मिनट का पाठ। ऑनलाइन पढ़िए।`,
+    keywords: isFlagship
+      ? [...BOOK_TERMS, ...NAME_VARIANTS.slice(0, 5)]
+      : [book.title, book.author, ...(book.subjects || [])],
+    lang: book.language === "hi" ? "hi" : "en",
+    type: "book",
+    image: book.cover ? `${SITE.origin}/content/${book.slug}/${book.cover}` : `${SITE.origin}${SITE.ogImage}`,
+  };
+}
 
 /* ---------------------------------------------------------------------------
    JSON-LD entity graph.
    Kept strictly truthful: no ratings, no ISBN, no offers — the novel is
-   copyright-filed but not yet published, and inventing those fields is both
-   a structured-data violation and a trust problem.
+   copyright-filed and self-published, and inventing those fields is both a
+   structured-data violation and a trust problem.
    --------------------------------------------------------------------------- */
 export const personLd = () => ({
   "@type": "Person",
@@ -151,13 +136,13 @@ export const personLd = () => ({
   givenName: "Vinay",
   additionalName: "Kumar",
   familyName: "Tiwari",
-  jobTitle: "SAP BTP Solution Architect",
-  description: `${PROFILE.summary}. Author of the Hindi novel दो कुल्हड़ चाय (Do Kulhad Chai).`,
+  jobTitle: "Author",
+  description:
+    "Hindi author from Ghazipur, Uttar Pradesh, based in Noida. Writer of the Hindi novel दो कुल्हड़ चाय (Do Kulhad Chai). Software engineer by profession, novelist by night.",
   url: SITE.origin,
   image: `${SITE.origin}/vinay-portrait.jpg`,
-  email: `mailto:${PROFILE.email}`,
-  telephone: PROFILE.phone,
-  knowsLanguage: ["en", "hi", "bho"],
+  email: `mailto:${AUTHOR.connect.email}`,
+  knowsLanguage: ["hi", "en", "bho"],
   knowsAbout: TOPICS,
   nationality: { "@type": "Country", name: "India" },
   homeLocation: {
@@ -169,48 +154,7 @@ export const personLd = () => ({
       addressCountry: "IN",
     },
   },
-  worksFor: {
-    "@type": "Organization",
-    name: PROFILE.company,
-    url: "https://www.ibm.com",
-  },
-  alumniOf: EDUCATION.map((e) => ({
-    "@type": "EducationalOrganization",
-    name: e.institute,
-  })),
-  hasCredential: CERTS.map((c) => ({
-    "@type": "EducationalOccupationalCredential",
-    name: c,
-  })),
-  sameAs: [
-    PROFILE.linkedin,
-    "https://btplearninghub.com",
-    SITE.origin,
-  ].filter(Boolean),
-});
-
-export const bookLd = () => ({
-  "@type": "Book",
-  "@id": `${SITE.origin}/writings#book`,
-  name: "दो कुल्हड़ चाय",
-  alternateName: ["Do Kulhad Chai", "Do Kulhad Chai novel", "दो कुल्हड़ चाय उपन्यास"],
-  inLanguage: "hi",
-  genre: ["Fiction", "Literary fiction", "Hindi literature", "हिन्दी उपन्यास"],
-  bookEdition: "First",
-  abstract: BOOK.premise,
-  description: `${BOOK.logline} ${BOOK.closing}`,
-  author: { "@id": `${SITE.origin}/#person` },
-  copyrightYear: 2026,
-  copyrightHolder: { "@id": `${SITE.origin}/#person` },
-  countryOfOrigin: { "@type": "Country", name: "India" },
-  about: BOOK.themes.map((t) => t.t),
-  character: BOOK.cast.map((c) => ({ "@type": "Person", name: c.name })),
-  contentLocation: [
-    { "@type": "Place", name: "Kanpur" },
-    { "@type": "Place", name: "Lucknow Junction" },
-    { "@type": "Place", name: "Varanasi (Banaras)" },
-  ],
-  url: url("/writings"),
+  sameAs: [SITE.origin, "https://www.instagram.com/_vinaytiwari"],
 });
 
 export const websiteLd = () => ({
@@ -219,47 +163,82 @@ export const websiteLd = () => ({
   url: SITE.origin,
   name: "Vinay Kumar Tiwari",
   alternateName: NAME_VARIANTS.slice(0, 6),
-  inLanguage: ["en-IN", "hi-IN"],
+  inLanguage: ["hi-IN", "en-IN"],
   publisher: { "@id": `${SITE.origin}/#person` },
   about: { "@id": `${SITE.origin}/#person` },
 });
 
-export const hubLd = () => ({
-  "@type": "WebSite",
-  "@id": "https://btplearninghub.com/#website",
-  url: "https://btplearninghub.com",
-  name: "BTP Learning Hub",
-  description:
-    "Free SAP BTP tutorials and architecture walkthroughs — CAP, Fiori/UI5, HANA Cloud, Integration Suite and AI-assisted engineering.",
-  inLanguage: "en",
-  author: { "@id": `${SITE.origin}/#person` },
-});
+/** A Book entity. `book` is a book.json (or the BOOK stub for the home page). */
+export const bookLd = (book) => {
+  const flagship = book.slug === BOOK.slug;
+  const readUrl = url(`/read/${book.slug}`);
+  const ld = {
+    "@type": "Book",
+    "@id": `${url(`/books/${book.slug}`)}#book`,
+    name: book.title,
+    inLanguage: book.language || "hi",
+    author: { "@id": `${SITE.origin}/#person` },
+    description: book.description,
+    url: url(`/books/${book.slug}`),
+    isAccessibleForFree: true,
+    workExample: {
+      "@type": "Book",
+      bookFormat: "https://schema.org/EBook",
+      inLanguage: book.language || "hi",
+      isAccessibleForFree: true,
+      url: readUrl,
+      potentialAction: { "@type": "ReadAction", target: readUrl },
+    },
+  };
+
+  if (book.cover) ld.image = `${SITE.origin}/content/${book.slug}/${book.cover}`;
+  if (book.published) ld.datePublished = String(book.published);
+  if (book.stats && book.stats.words) ld.wordCount = book.stats.words;
+
+  if (flagship) {
+    Object.assign(ld, {
+      alternateName: ["Do Kulhad Chai", "Do Kulhad Chai novel", "दो कुल्हड़ चाय उपन्यास"],
+      genre: ["Fiction", "Literary fiction", "Hindi literature", "हिन्दी उपन्यास"],
+      bookEdition: "First",
+      abstract: BOOK.premise,
+      copyrightYear: 2026,
+      copyrightHolder: { "@id": `${SITE.origin}/#person` },
+      countryOfOrigin: { "@type": "Country", name: "India" },
+      about: BOOK.themes.map((t) => t.t),
+      character: BOOK.cast.map((c) => ({ "@type": "Person", name: c.name })),
+      contentLocation: [
+        { "@type": "Place", name: "New Delhi Railway Station" },
+        { "@type": "Place", name: "Kanpur" },
+        { "@type": "Place", name: "Lucknow" },
+        { "@type": "Place", name: "Bengaluru" },
+        { "@type": "Place", name: "Varanasi (Banaras)" },
+      ],
+    });
+  }
+  return ld;
+};
 
 /* Answer-engine fuel: short, direct Q&A in the exact shape people ask. */
 export const FAQ = [
   {
     q: "Who is Vinay Kumar Tiwari?",
-    a: `Vinay Kumar Tiwari (also written Vinay Tiwari, विनय कुमार तिवारी) is an SAP BTP Solution Architect based in Noida, India, with ${YEARS}+ years of enterprise delivery across IBM, TCS, Cognizant, Mindtree and Wipro. He founded BTP Learning Hub and wrote the Hindi novel दो कुल्हड़ चाय (Do Kulhad Chai).`,
-  },
-  {
-    q: "What does Vinay Tiwari specialise in?",
-    a: "SAP Business Technology Platform architecture: CAP (CAPM), SAP Fiori and SAPUI5, SAP HANA Cloud, Integration Suite, Event Mesh, Cloud Foundry and Clean Core extensibility for S/4HANA — with AI-assisted engineering built into delivery.",
-  },
-  {
-    q: "Which SAP certifications does Vinay Kumar Tiwari hold?",
-    a: "SAP Certified Development Associate — SAP Fiori Application Developer (C_FIORDEV_21) and SAP Certified Development Associate — SAP Extension Suite (C_CPE_12).",
-  },
-  {
-    q: "What is BTP Learning Hub?",
-    a: "BTP Learning Hub (btplearninghub.com) is Vinay Kumar Tiwari's own technical website — free, ad-free SAP BTP guides covering CAP, Fiori/UI5, HANA Cloud, Integration Suite, AI-assisted engineering and certification prep.",
+    a: "Vinay Kumar Tiwari (also written Vinay Tiwari, विनय कुमार तिवारी) is a Hindi author from Ghazipur, Uttar Pradesh, now based in Noida. His debut novel is दो कुल्हड़ चाय (Do Kulhad Chai). By day he builds software systems; by night he writes about the people life left something unsaid with.",
   },
   {
     q: "दो कुल्हड़ चाय उपन्यास किसके बारे में है?",
-    a: "दो कुल्हड़ चाय विनय कुमार तिवारी का पहला हिन्दी उपन्यास है। शिवगंगा एक्सप्रेस में सीट छत्तीस और सैंतीस पर बैठे दो अजनबी एक रात बात करते हैं और एक वादा करते हैं — हर महीने की बारह तारीख़, उसी ट्रेन में, दो कुल्हड़ चाय।",
+    a: "दो कुल्हड़ चाय विनय कुमार तिवारी का पहला हिन्दी उपन्यास है। 12 जुलाई 2015 की रात शिवगंगा एक्सप्रेस कानपुर आउटर पर साढ़े चार घंटे लाल सिग्नल के सामने रुकी रह जाती है। सीट 33 पर लेखक विवान है, सीट 36 पर फ़ोटोग्राफ़र प्राची। दोनों पूरी रात बात करते हैं और नाम सबसे आख़िर में पूछते हैं। आगे चलकर उनके बीच एक वादा बनता है — हर महीने की बारह तारीख़, उसी ट्रेन में, दो कुल्हड़ चाय। किताब की पहली पंक्तियाँ ही बताती हैं कि एक आदमी हर बार दो टिकट लेता है और अकेला सफ़र करता है; और किताब यह बताने के लिए लिखी गई है कि दूसरा टिकट किसका है।",
   },
   {
     q: "Who wrote Do Kulhad Chai?",
-    a: "Do Kulhad Chai (दो कुल्हड़ चाय) is written by Vinay Kumar Tiwari, an SAP consultant from Ghazipur, Uttar Pradesh, now based in Noida. It is his debut Hindi novel, copyright filed with the Copyright Office, Government of India (Diary No. LD-36102/2026-CO).",
+    a: "Do Kulhad Chai (दो कुल्हड़ चाय) is written by Vinay Kumar Tiwari. It is his debut Hindi novel, copyright filed with the Copyright Office, Government of India (Diary No. LD-36102/2026-CO).",
+  },
+  {
+    q: "दो कुल्हड़ चाय कहाँ पढ़ें?",
+    a: "पूरा उपन्यास vinaytiwari.org पर ऑनलाइन पढ़ा जा सकता है — फ़ोन, टैबलेट और कंप्यूटर पर, पन्ने पलटकर या स्क्रॉल करके। रीडर ई-रीडर जैसा है: अपनी पसंद का रंग और अक्षर, और जहाँ छोड़ा था वहीं से आगे।",
+  },
+  {
+    q: "How can I read Do Kulhad Chai online?",
+    a: "The full Hindi novel can be read in the browser at vinaytiwari.org/read/do-kulhad-chai — on phone, tablet or desktop, with adjustable type, themes and an e-reader style page-turning mode that remembers where you stopped.",
   },
 ];
 
@@ -283,54 +262,59 @@ export const breadcrumbLd = (crumbs) => ({
   })),
 });
 
-/** Full @graph for a given page key. */
-export function graphFor(key) {
-  const page = PAGES[key];
-  const base = [personLd(), websiteLd()];
+const webPageLd = (meta, type = "WebPage") => ({
+  "@type": type,
+  "@id": `${url(meta.path)}#webpage`,
+  url: url(meta.path),
+  name: meta.title,
+  description: meta.description,
+  inLanguage: meta.lang === "hi" ? "hi-IN" : "en-IN",
+  isPartOf: { "@id": `${SITE.origin}/#website` },
+  about: { "@id": `${SITE.origin}/#person` },
+  primaryImageOfPage: meta.image || `${SITE.origin}${SITE.ogImage}`,
+});
 
-  const webPage = {
-    "@type": key === "technical" ? "ProfilePage" : "WebPage",
-    "@id": `${url(page.path)}#webpage`,
-    url: url(page.path),
-    name: page.title,
-    description: page.description,
-    inLanguage: page.lang === "hi" ? "hi-IN" : "en-IN",
-    isPartOf: { "@id": `${SITE.origin}/#website` },
-    about: { "@id": `${SITE.origin}/#person` },
-    primaryImageOfPage: `${SITE.origin}${SITE.ogImage}`,
-  };
+/**
+ * Full @graph. `book` is required for the "book" key; on the home page it is
+ * the catalogue entry for the flagship novel (for its date and cover).
+ */
+export function graphFor(key, book) {
+  const base = [personLd(), websiteLd()];
 
   if (key === "home") {
     return [
       ...base,
-      webPage,
-      bookLd(),
-      hubLd(),
+      webPageLd(PAGES.home, "ProfilePage"),
+      bookLd({ ...BOOK, description: BOOK.logline, language: "hi", ...(book || {}) }),
       faqLd(),
       breadcrumbLd([{ name: "Home", path: "/" }]),
     ];
   }
-  if (key === "technical") {
+
+  if (key === "library") {
     return [
       ...base,
-      webPage,
-      hubLd(),
-      faqLd(),
+      webPageLd(PAGES.library, "CollectionPage"),
       breadcrumbLd([
         { name: "Home", path: "/" },
-        { name: "Technical portfolio", path: "/technical" },
+        { name: "किताबघर", path: "/library" },
       ]),
     ];
   }
-  return [
-    ...base,
-    webPage,
-    bookLd(),
-    breadcrumbLd([
-      { name: "Home", path: "/" },
-      { name: "Writings · लेखन", path: "/writings" },
-    ]),
-  ];
-}
 
-export { url };
+  if (key === "book" && book) {
+    const meta = bookMeta(book);
+    return [
+      ...base,
+      webPageLd(meta),
+      bookLd(book),
+      breadcrumbLd([
+        { name: "Home", path: "/" },
+        { name: "किताबघर", path: "/library" },
+        { name: book.title, path: meta.path },
+      ]),
+    ];
+  }
+
+  return base;
+}
