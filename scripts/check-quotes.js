@@ -124,6 +124,7 @@ function main() {
     ["marquee", BOOK.marqueeLine],
     ["teaser", BOOK.teaser.question],
     ["logline", BOOK.logline],
+    ...BOOK.highlight.lines.map((t) => ["front-page lines", t]),
     ["dedication", BOOK.dedication.body],
     ["epigraph", BOOK.epigraph.text],
     ...AUTHOR.lines.map((t) => ["author note", t]),
@@ -134,7 +135,7 @@ function main() {
   for (const [where, q] of quoted) {
     // a quotation can run across paragraphs: check sentence by sentence
     const parts = q
-      .split(/\n|।/)
+      .split(/\n|।|\?|!/) // a sentence-ending mark is a boundary, not part of the words
       .map(norm)
       .filter((p) => p.length >= 12);
     const missing = parts.filter((p) => !text.includes(p));

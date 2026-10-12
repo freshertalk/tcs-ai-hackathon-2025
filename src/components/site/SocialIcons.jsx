@@ -1,5 +1,5 @@
 // src/components/site/SocialIcons.jsx
-// Instagram and Facebook, as plain round icon links.
+// Instagram, Facebook and YouTube, as plain round icon links.
 //
 // The addresses live in AUTHOR.connect.social (src/data/books.js). An icon
 // whose address is not set yet is drawn but is not a link — it never points
@@ -26,10 +26,13 @@ export function IconFacebook(props) {
   );
 }
 
-export function IconLinkedIn(props) {
+export function IconYouTube(props) {
   return (
-    <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true" focusable="false" {...props}>
-      <path d="M6.2 8.6h-3V20h3V8.6zM4.7 3.7a1.75 1.75 0 100 3.5 1.75 1.75 0 000-3.5zM20.5 20v-6.3c0-3.1-1.7-4.6-3.9-4.6-1.8 0-2.6 1-3 1.7V8.6h-3V20h3v-6.1c0-1.6.3-3.2 2.3-3.2s2 1.8 2 3.3V20h2.6z" />
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true" focusable="false" {...props}>
+      <path
+        fillRule="evenodd"
+        d="M21.6 7.2a2.5 2.5 0 00-1.76-1.77C18.3 5 12 5 12 5s-6.3 0-7.84.43A2.5 2.5 0 002.4 7.2C2 8.76 2 12 2 12s0 3.24.4 4.8a2.5 2.5 0 001.76 1.77C5.7 19 12 19 12 19s6.3 0 7.84-.43a2.5 2.5 0 001.76-1.77C22 15.24 22 12 22 12s0-3.24-.4-4.8zM10 15V9l5.2 3L10 15z"
+      />
     </svg>
   );
 }
@@ -37,7 +40,7 @@ export function IconLinkedIn(props) {
 const NETWORKS = [
   { key: "instagram", label: "Instagram", Icon: IconInstagram },
   { key: "facebook", label: "Facebook", Icon: IconFacebook },
-  { key: "linkedin", label: "LinkedIn", Icon: IconLinkedIn },
+  { key: "youtube", label: "YouTube", Icon: IconYouTube },
 ];
 
 export default function SocialIcons({ className = "", size = "md" }) {

@@ -96,6 +96,19 @@ export const BOOK = {
   logline:
     "एक आदमी है, जो हर महीने की बारह तारीख़ को एक ट्रेन में चढ़ता है। वह हर बार दो टिकट लेता है। और वह हमेशा अकेला सफ़र करता है। यह किताब यह बताने के लिए लिखी गई है कि दूसरा टिकट किसका है।",
 
+  // Three lines set under the premise on the front page: the book's own words,
+  // the ones that stop a reader — the loneliness, the tiredness of hoping, what
+  // stays behind. (The premise above them already ends on the question the
+  // book exists to answer, so it is not repeated.) Word for word;
+  // scripts/check-quotes.js checks every one against the published edition.
+  highlight: {
+    lines: [
+      "अकेले आदमी दो चाय नहीं लेते।",
+      "इंसान उम्मीद छोड़ने से नहीं थकता। बार-बार उम्मीद करने से थकता है।",
+      "कुछ लोग चले नहीं जाते… बस हमारी आदतों में बदल जाते हैं।",
+    ],
+  },
+
   // What the book is, in a breath: everything here happens on its first night.
   premise:
     "12 जुलाई 2015। नई दिल्ली से बनारस जाती शिवगंगा एक्सप्रेस कानपुर आउटर पर एक लाल सिग्नल के सामने साढ़े चार घंटे खड़ी रह जाती है। सीट 33 पर एक लेखक है जो लिखना छोड़ने जा रहा है; सीट 36 पर एक फ़ोटोग्राफ़र जो हर चीज़ को भूल जाने से पहले सँभाल लेना चाहती है। बारिश, दो कुल्हड़ चाय और एक पूरी रात — और नाम, जो वे सबसे आख़िर में पूछते हैं।",
@@ -325,7 +338,7 @@ export const AUTHOR = {
     social: {
       instagram: "https://www.instagram.com/_vinaytiwari",
       facebook: "", // set to the Facebook address, e.g. https://www.facebook.com/…
-      linkedin: "https://www.linkedin.com/in/vinay-tiwari-sap",
+      youtube: "", // set to the channel address, e.g. https://www.youtube.com/@…
     },
   },
 };

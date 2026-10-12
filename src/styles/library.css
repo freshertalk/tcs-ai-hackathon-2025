@@ -1964,8 +1964,8 @@ button.shelf__feature {
 .social__a--facebook {
   background: #1877f2;
 }
-.social__a--linkedin {
-  background: #0a66c2;
+.social__a--youtube {
+  background: #ff0000;
 }
 a.social__a:hover,
 a.social__a:focus-visible {
@@ -1983,9 +1983,9 @@ a.social__a--facebook:hover,
 a.social__a--facebook:focus-visible {
   background: #1877f2;
 }
-a.social__a--linkedin:hover,
-a.social__a--linkedin:focus-visible {
-  background: #0a66c2;
+a.social__a--youtube:hover,
+a.social__a--youtube:focus-visible {
+  background: #ff0000;
 }
 .social__a.is-soon {
   opacity: 0.88;

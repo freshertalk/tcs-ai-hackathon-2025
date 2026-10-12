@@ -717,3 +717,13 @@
     right: 0;
   }
 }
+
+/* ------------------------------------------- the name under the book's title */
+/* The author's name beside the cups: dark and a little heavier, so it reads at
+   a glance rather than as a grey caption. (On the dark-toned bar the light rule
+   in library.css still applies: it is more specific.) */
+.nav__brand .nav__name small {
+  color: #1b130e;
+  font-weight: 600;
+  opacity: 1;
+}

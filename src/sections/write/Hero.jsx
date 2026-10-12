@@ -98,6 +98,14 @@ export default function Hero({ readRef }) {
             <p className="bh__tag hi">{BOOK.logline}</p>
           </Reveal>
 
+          {/* three lines from the book, in the same plain type as the premise above.
+              The premise already ends on "दूसरा टिकट किसका है", so it is not repeated. */}
+          {BOOK.highlight.lines.map((l, i) => (
+            <Reveal key={l} y={14} delay={0.2 + i * 0.07} duration={0.85}>
+              <p className="bh__tag bh__tag--more hi">{l}</p>
+            </Reveal>
+          ))}
+
           <Reveal y={18} delay={0.18} duration={0.9}>
             <HeroVoices slug={BOOK.slug} />
           </Reveal>

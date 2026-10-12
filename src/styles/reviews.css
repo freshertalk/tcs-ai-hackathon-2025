@@ -633,3 +633,8 @@
   font-weight: 600;
   color: var(--ink-2);
 }
+
+/* the lines under the premise: same type as the premise, a little closer */
+.bh__tag--more {
+  margin-top: 8px;
+}
