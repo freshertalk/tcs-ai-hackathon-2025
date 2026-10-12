@@ -319,7 +319,7 @@ script against the verified e-mail.
 ### The documents edition
 
 Collecting usage statistics, keeping an audit log and offering coupons had to
-be in the Privacy Policy and Terms, so the **edition is `2026-10-12.4`**
+be in the Privacy Policy and Terms, so the **edition is `2026-10-12.5`**
 (`LEGAL.version` in `src/data/legal.js` and `LEGAL_VERSION` in the script —
 always change both together). A new edition ends the sign-ins made under the
 old one: every reader (the owner included) signs in once more and ticks the
@@ -353,7 +353,23 @@ in your court read them before relying on them.
 
 ### Selling the book
 
-The whole cycle is on the site and in the script — nothing else to host.
+The whole cycle is on the site and in the script — nothing else to host. Two ways
+to take payment, chosen by `PAYMENT_PROVIDER` at the top of the selling section:
+
+**`"upi"` (the default): Google Pay / UPI straight to your UPI ID.** Set
+`UPI.vpa` (or the script property `UPI_ID`). The reader presses **Google Pay
+खोलिए** (phone) or scans the QR (computer) — the amount and the order number are
+filled in — pays, and writes the 12-digit UPI transaction number their app shows.
+The order then *waits*: you get an e-mail, check your account, and press
+**Confirm** in **Admin ▸ Sales ▸ Waiting for your confirmation** (or **Not found**,
+with a reason the reader is e-mailed so they can try again). Only on Confirm are
+the invoice number issued, the book opened for ever and the receipt mailed. No
+fee, no gateway, no account to open — but it is not automatic: nothing tells the
+site that the money arrived, so you are the check. Each transaction number settles
+one order only, and an order accepts at most five wrong numbers.
+
+**`"razorpay"`: automatic, through Razorpay** — described below. The code for
+both is in the script; switching is one word.
 
 **What a reader goes through**
 

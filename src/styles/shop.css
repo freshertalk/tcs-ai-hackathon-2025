@@ -1782,3 +1782,189 @@
     line-height: 1.7;
   }
 }
+
+/* ===================================================== paying by UPI / GPay */
+.upi__steps {
+  list-style: none;
+  margin: 18px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 16px;
+  counter-reset: upi;
+}
+.upi__steps > li {
+  position: relative;
+  display: grid;
+  gap: 6px;
+  padding-left: 40px;
+  counter-increment: upi;
+  line-height: 1.7;
+}
+.upi__steps > li::before {
+  content: counter(upi);
+  position: absolute;
+  left: 0;
+  top: 1px;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #7b2b2b;
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+.upi__steps b {
+  font-size: 1rem;
+}
+.upi__steps li > span {
+  color: #4a3b30;
+  font-size: 0.94rem;
+}
+.upi__alt {
+  color: #7b2b2b;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.upi__pay {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  margin-top: 6px;
+  padding: 14px;
+  border-radius: 16px;
+  background: #fbf4e6;
+  border: 1px solid rgba(31, 22, 17, 0.08);
+}
+.upi__qr {
+  flex: none;
+  width: 164px;
+  height: 164px;
+  padding: 8px;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: inset 0 0 0 1px rgba(31, 22, 17, 0.1);
+}
+.upi__qr svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.upi__id {
+  margin: 0;
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.upi__id dt {
+  font-size: 0.74rem;
+  letter-spacing: 0.04em;
+  color: #7a6a5a;
+}
+.upi__id dd {
+  margin: 1px 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  overflow-wrap: anywhere;
+}
+.upi__id code {
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #1f1611;
+}
+.upi__copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 99px;
+  border: 1px solid rgba(31, 22, 17, 0.18);
+  background: #fff;
+  color: #4a3b30;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+.upi__copy:hover {
+  border-color: #7b2b2b;
+  color: #7b2b2b;
+}
+.upi__form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+.upi__form input {
+  flex: 1 1 200px;
+  min-width: 0;
+  padding: 12px 14px;
+  border-radius: 13px;
+  border: 1.5px solid rgba(31, 22, 17, 0.2);
+  background: #fff;
+  color: #1f1611;
+  font: inherit;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  letter-spacing: 0.08em;
+}
+.upi__form input:focus {
+  outline: none;
+  border-color: #7b2b2b;
+  box-shadow: 0 0 0 4px rgba(123, 43, 43, 0.14);
+}
+.upi__note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 16px 0 0;
+  font-size: 0.86rem;
+  line-height: 1.7;
+  color: #6b5d50;
+}
+.upi__note svg {
+  flex: none;
+  margin-top: 3px;
+  color: #7b2b2b;
+}
+.upi__wait {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+.upi__wait p {
+  margin: 0 0 8px;
+  line-height: 1.8;
+}
+.upi__wait code {
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-weight: 600;
+}
+.upi__clock {
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #fbf0d6;
+  color: #7a5410;
+}
+@media (max-width: 560px) {
+  .upi__pay {
+    padding: 12px;
+  }
+  .upi__wait {
+    grid-template-columns: 1fr;
+  }
+}
+
+.upi__form input::placeholder {
+  font-family: inherit;
+  letter-spacing: 0;
+}

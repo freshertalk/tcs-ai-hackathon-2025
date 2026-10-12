@@ -18,6 +18,7 @@ export const resumePayment = (slug, orderId) => call("shop_resume", { slug, orde
 export const listOrders = () => call("shop_orders");
 export const getReceipt = (orderId) => call("shop_receipt", { orderId });
 export const resendReceipt = (orderId) => call("shop_resend", { orderId });
+export const claimPayment = (orderId, utr) => call("shop_claim", { orderId, utr });
 
 const SHOP_ERRORS = {
   payments_off: "ऑनलाइन भुगतान अभी चालू नहीं है। कृपया थोड़ी देर बाद आइए, या लेखक को लिखिए।",
@@ -29,6 +30,8 @@ const SHOP_ERRORS = {
   pending: "भुगतान अभी प्रक्रिया में है — एक-दो मिनट बाद “भुगतान की जाँच कीजिए” दबाइए।",
   failed: "भुगतान सफल नहीं हुआ — फिर कोशिश कीजिए।",
   missing: "यह ऑर्डर नहीं मिला।",
+  utr_used: "यह लेन-देन संख्या किसी और ऑर्डर पर दर्ज है। कृपया अपनी ऐप में दिखने वाली सही संख्या लिखिए।",
+  duplicate: "यह किताब पहले से इस खाते में है।",
 };
 
 /** A sentence for a shop failure; anything else falls back to the general ones. */
@@ -40,6 +43,7 @@ export function shopMessage(e) {
     if (why === "state") return "राज्य चुनिए — GST उसी से तय होता है।";
     if (why === "phone") return "मोबाइल नंबर सही नहीं लगता।";
     if (why === "accept") return "आगे बढ़ने के लिए शर्तों वाले डिब्बे पर निशान लगाइए।";
+    if (why === "utr") return "लेन-देन संख्या ठीक 12 अंकों की होती है — ऐप में दिखने वाली संख्या देखकर फिर लिखिए।";
   }
   return SHOP_ERRORS[c] || explain(e);
 }

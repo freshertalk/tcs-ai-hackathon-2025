@@ -102,8 +102,8 @@ function Continue({ book, progress }) {
   );
 }
 
-const ORDER_LABEL = { paid: "भुगतान सफल", free: "मुफ़्त", created: "भुगतान बाकी", refunded: "रिफ़ंड" };
-const ORDER_TONE = { paid: "ok", free: "ok", created: "warn", refunded: "muted" };
+const ORDER_LABEL = { paid: "भुगतान सफल", free: "मुफ़्त", created: "भुगतान बाकी", pending: "पुष्टि की प्रतीक्षा", refunded: "रिफ़ंड" };
+const ORDER_TONE = { paid: "ok", free: "ok", created: "warn", pending: "warn", refunded: "muted" };
 
 /** What they have bought: receipts, and the way back to an unpaid order. */
 function Purchases({ me }) {
@@ -124,8 +124,8 @@ function Purchases({ me }) {
                   {o.coupon ? ` · कूपन ${o.coupon}` : ""}
                 </small>
                 <small>
-                  <Link to={o.status === "created" ? `/checkout?order=${encodeURIComponent(o.id)}` : `/receipt/${encodeURIComponent(o.id)}`}>
-                    {o.status === "created" ? "भुगतान कीजिए" : "रसीद देखिए"}
+                  <Link to={o.status === "created" || o.status === "pending" ? `/checkout?order=${encodeURIComponent(o.id)}` : `/receipt/${encodeURIComponent(o.id)}`}>
+                    {o.status === "created" ? "भुगतान कीजिए" : o.status === "pending" ? "स्थिति देखिए" : "रसीद देखिए"}
                   </Link>
                 </small>
               </div>

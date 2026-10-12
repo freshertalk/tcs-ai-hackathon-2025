@@ -28,7 +28,8 @@ import { Card, Loading } from "../admin/ui";
 import { IconBook, IconCard, IconCart, IconCheck, IconLock, IconMail, IconPrint, IconReceipt, IconTag, IconTrash } from "../components/ui/icons";
 import Receipt from "./Receipt";
 import { addToCart, clearCart, removeFromCart, setCartCoupon, useCart } from "./store";
-import { getQuote, getReceipt, openPayment, placeOrder, resendReceipt, resumePayment, shopMessage, verifyPayment } from "./api";
+import { claimPayment, getQuote, getReceipt, openPayment, placeOrder, resendReceipt, resumePayment, shopMessage, verifyPayment } from "./api";
+import UpiPay from "./UpiPay";
 import { inr, inrShort, receiptLines } from "./format";
 
 const NAV = [
@@ -177,6 +178,12 @@ export default function CheckoutPage() {
       .then((d) => {
         if (!live) return;
         setQuote(d);
+        if (d.pendingOrder && !orderId) {
+          // paid and waiting for the author's confirmation: show that, not a fresh cart
+          const next = new URLSearchParams();
+          next.set("order", d.pendingOrder);
+          setParams(next, { replace: true });
+        }
         setCouponMsg(d.coupon && !d.coupon.valid ? COUPON_REASON[d.coupon.reason] || COUPON_REASON.unknown : "");
         if (d.coupon && !d.coupon.valid && cart.coupon) setCartCoupon("");
       })
@@ -185,6 +192,7 @@ export default function CheckoutPage() {
     return () => {
       live = false;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, inCart, slug, cart.coupon, form.state, step, tick]);
 
   const finish = useCallback(
@@ -298,10 +306,58 @@ export default function CheckoutPage() {
     }
   };
 
+  // UPI: the reader gives the transaction number; the order waits for the owner
+  const claim = async (utr) => {
+    if (working.current || !order) return;
+    working.current = true;
+    setBusy("claim");
+    setMsg(null);
+    try {
+      const d = await claimPayment(order.id, utr);
+      setOrder(d.order);
+      if (d.checkout) setCheckout(d.checkout);
+    } catch (e) {
+      setMsg({ tone: "bad", text: shopMessage(e) });
+    }
+    working.current = false;
+    setBusy("");
+  };
+
+  // UPI: has the owner confirmed it yet?
+  const refreshOrder = useCallback(
+    async (quiet) => {
+      if (!order) return;
+      if (!quiet) setBusy("refresh");
+      try {
+        const d = await getReceipt(order.id);
+        if (d.order.status === "paid" || d.order.status === "free") finish(d.order);
+        else {
+          setOrder(d.order);
+          if (d.checkout) setCheckout(d.checkout);
+          if (!quiet) setMsg({ tone: "warn", text: "अभी पुष्टि नहीं हुई है — लेखक रकम देखते ही पुष्टि करेंगे।" });
+        }
+      } catch (e) {
+        if (!quiet) setMsg({ tone: "bad", text: shopMessage(e) });
+      }
+      if (!quiet) setBusy("");
+    },
+    [order, finish]
+  );
+
+  // while a UPI order is waiting, look again every half minute (page visible)
+  useEffect(() => {
+    if (step !== "pay" || !order || order.status !== "pending") return undefined;
+    const t = setInterval(() => {
+      if (document.visibilityState === "visible") refreshOrder(true);
+    }, 30000);
+    return () => clearInterval(t);
+  }, [step, order, refreshOrder]);
+
   // Coming back from a UPI app (or another tab) with the page still on "pay":
   // look once for the payment, quietly, so the person is not left wondering.
   useEffect(() => {
     if (step !== "pay" || !order || order.status !== "created") return undefined;
+    if (checkout && checkout.provider === "upi") return undefined;
     const back = () => {
       if (document.visibilityState !== "visible" || busy === "verify") return;
       const now = Date.now();
@@ -319,7 +375,7 @@ export default function CheckoutPage() {
       document.removeEventListener("visibilitychange", back);
       window.removeEventListener("focus", back);
     };
-  }, [step, order, busy, slug, finish]);
+  }, [step, order, checkout, busy, slug, finish]);
 
   // never close the tab in the middle of confirming a payment
   useEffect(() => {
@@ -473,6 +529,9 @@ export default function CheckoutPage() {
         <Steps step="pay" />
         <div className="co__grid">
           <div className="co__main">
+            {checkout && checkout.provider === "upi" ? (
+              <UpiPay order={order} checkout={checkout} onClaim={claim} onRefresh={() => refreshOrder(false)} busy={busy} msg={msg} />
+            ) : (
             <Card title="ऑर्डर बन गया — अब भुगतान कीजिए" sub="Your receipt is ready; the book opens the moment the payment is confirmed.">
               {test && (
                 <p className="co__test" role="note">
@@ -512,6 +571,7 @@ export default function CheckoutPage() {
                 </button>
               </p>
             </Card>
+            )}
             <Receipt order={order} />
           </div>
           <div className="co__side">

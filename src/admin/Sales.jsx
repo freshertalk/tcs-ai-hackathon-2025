@@ -16,18 +16,26 @@ import { download, fmtN, fmtWhen, tzMinutes, toCsv } from "./format";
 import { IconAlert, IconCheck, IconDownload, IconReceipt, IconRefresh, IconSearch, IconTag, IconUsers } from "../components/ui/icons";
 import { BOOK } from "../data/books";
 
-const TONE = { paid: "ok", free: "ok", created: "warn", refunded: "muted", duplicate: "warn" };
-const LABEL = { paid: "paid", free: "free", created: "awaiting payment", refunded: "refunded", duplicate: "duplicate — refund by hand" };
+const TONE = { paid: "ok", free: "ok", created: "warn", refunded: "muted", duplicate: "warn", pending: "warn" };
+const LABEL = { paid: "paid", free: "free", created: "awaiting payment", refunded: "refunded", duplicate: "duplicate — refund by hand", pending: "to confirm" };
 
 function Setup({ p }) {
   if (!p) return null;
+  const upi = p.provider === "upi";
   const items = [
-    {
-      ok: p.ready,
-      text: p.ready
-        ? `Razorpay keys are set (${p.mode} mode)${p.mode === "test" ? " — no real money moves. Replace the key id/secret with the live ones when you are ready." : "."}`
-        : "Razorpay keys are missing. In the script: Project Settings → Script properties → add RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET.",
-    },
+    upi
+      ? {
+          ok: p.ready,
+          text: p.ready
+            ? "Payment is by UPI / Google Pay to your UPI ID. Each order waits for you to confirm it below once the money is in your account."
+            : "Your UPI ID is not set. In the script set UPI.vpa (or the script property UPI_ID).",
+        }
+      : {
+          ok: p.ready,
+          text: p.ready
+            ? `Razorpay keys are set (${p.mode} mode)${p.mode === "test" ? " — no real money moves. Replace the key id/secret with the live ones when you are ready." : "."}`
+            : "Razorpay keys are missing. In the script: Project Settings → Script properties → add RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET.",
+        },
     {
       ok: p.mail !== false,
       text:
@@ -91,6 +99,36 @@ export default function Sales() {
 
   const d = state.data;
   const k = d && d.kpi;
+
+  const confirmPay = async (o) => {
+    if (!window.confirm(`Confirm ${inr(o.total)} from ${o.email}?\n\nUPI transaction number: ${o.utr}\n\nOnly confirm once this amount is in your account. The reader gets the book and the receipt at once.`)) return;
+    setBusy(o.id);
+    setNote(null);
+    try {
+      await call("order_confirm", { orderId: o.id });
+      setNote({ ok: true, text: `Confirmed. ${o.email} now has the book and the receipt is on its way.` });
+      load(q, status);
+    } catch (e) {
+      setNote({ ok: false, text: e && e.code === "duplicate" ? "They already own this book — refund that UPI payment by hand." : shopMessage(e) });
+      load(q, status);
+    }
+    setBusy("");
+  };
+
+  const rejectPay = async (o) => {
+    const reason = window.prompt("Why is it not confirmed? (the reader is e-mailed this)", "यह लेन-देन संख्या हमारे खाते में नहीं मिली।");
+    if (reason === null) return;
+    setBusy(o.id);
+    setNote(null);
+    try {
+      await call("order_reject", { orderId: o.id, reason });
+      setNote({ ok: true, text: "The reader has been told and may enter the number again." });
+      load(q, status);
+    } catch (e) {
+      setNote({ ok: false, text: shopMessage(e) });
+    }
+    setBusy("");
+  };
 
   const refund = async (o) => {
     if (!window.confirm(`Refund ${inr(o.total)} to ${o.email} and take the book away from that account?\n\nOrder ${o.id}`)) return;
@@ -180,6 +218,53 @@ export default function Sales() {
             <Kpi label="Owners of the book" icon={<IconUsers size={18} />} value={fmtN(d.owners)} hint={`${fmtN(k.refunded)} refunded`} />
           </div>
 
+          {d.rows.some((o) => o.status === "pending") && (
+            <Card title="Waiting for your confirmation" sub="Paid by UPI — check your account, then confirm. The book opens only when you do.">
+              <div className="tbl-wrap">
+                <table className="tbl">
+                  <thead>
+                    <tr>
+                      <th>Reader</th>
+                      <th className="num">Amount</th>
+                      <th>UPI transaction number</th>
+                      <th />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {d.rows
+                      .filter((o) => o.status === "pending")
+                      .map((o) => (
+                        <tr key={o.id}>
+                          <td>
+                            <b>{o.name || "—"}</b>
+                            <small className="sub">{o.email}</small>
+                          </td>
+                          <td className="num">
+                            <b>{inr(o.total)}</b>
+                            <small className="sub">{fmtWhen(o.claimedAt || o.at)}</small>
+                          </td>
+                          <td>
+                            <span className="dmono">{o.utr}</span>
+                            <small className="sub">{o.id}</small>
+                          </td>
+                          <td className="num">
+                            <div className="row">
+                              <button type="button" className="db db--solid db--sm" onClick={() => confirmPay(o)} disabled={busy === o.id}>
+                                Confirm
+                              </button>
+                              <button type="button" className="db db--ghost db--sm" onClick={() => rejectPay(o)} disabled={busy === o.id}>
+                                Not found
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          )}
+
           <Card title="Give someone the book" sub="A reviewer's copy, a gift, or a reader who paid another way. They need only sign in with this e-mail.">
             <form className="sales__grant" onSubmit={give}>
               <input type="email" value={grant} onChange={(e) => setGrant(e.target.value)} placeholder="reader@example.com" aria-label="E-mail" required />
@@ -209,6 +294,7 @@ export default function Sales() {
                   <option value="">All</option>
                   <option value="paid">Paid</option>
                   <option value="free">Free</option>
+                  <option value="pending">To confirm (UPI)</option>
                   <option value="created">Awaiting payment</option>
                   <option value="refunded">Refunded</option>
                   <option value="duplicate">Duplicate (needs refund)</option>
