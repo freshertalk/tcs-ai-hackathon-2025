@@ -123,7 +123,7 @@ export default function BookPage() {
 
               <Reveal delay={0.1}>
                 <p className="bk__by">
-                  <span>लेखक</span> {book.author}
+                  <span>लेखक:</span> {book.author}
                 </p>
                 <Price slug={book.slug} />
                 <CouponBox slug={book.slug} />

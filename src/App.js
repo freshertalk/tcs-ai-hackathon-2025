@@ -11,6 +11,7 @@ import SignInDialogHost from "./auth/SignInDialog";
 import TrackerHost from "./analytics/TrackerHost";
 import ErrorBoundary from "./components/site/ErrorBoundary";
 import OfflineBar from "./components/site/OfflineBar";
+import MotionHost from "./components/site/MotionHost";
 import CookieNotice from "./legal/CookieNotice";
 import Legal from "./pages/Legal";
 
@@ -25,6 +26,7 @@ import "./styles/reader.css";
 import "./styles/auth.css";
 import "./styles/reviews.css";
 import "./styles/dash.css";
+import "./styles/motion.css";
 import "./styles/typography.css"; // last: it sets the one text size
 
 // the account and admin screens are for a few people: they load when asked for
@@ -105,14 +107,15 @@ export default function App() {
       <SyncHost />
       <SignInDialogHost />
       <TrackerHost />
+      <MotionHost />
       <CookieNotice />
       <OfflineBar />
 
       <AnimatePresence mode="wait">
         <motion.div
           key={routeKey}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
+          initial={{ opacity: 0, y: reading ? 0 : 10 }}
+          animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0 }}
           transition={{ duration: reading ? 0.2 : 0.4, ease: EASE }}
         >

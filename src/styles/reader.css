@@ -1870,13 +1870,14 @@ body.is-reader-paged {
   flex: none;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  min-height: 42px;
-  padding: 0 14px 0 10px;
+  gap: 5px;
+  min-height: 34px;
+  margin-left: 6px;
+  padding: 0 11px 0 8px;
   border-radius: 99px;
   border: 1px solid var(--rd-line);
   color: var(--rd-fg);
-  font-size: 0.95rem;
+  font-size: 0.8rem;
   font-weight: 700;
   white-space: nowrap;
   transition: background 0.2s ease;

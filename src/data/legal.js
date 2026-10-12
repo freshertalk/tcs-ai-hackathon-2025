@@ -15,7 +15,7 @@
 // ---------------------------------------------------------------------------
 
 export const LEGAL = {
-  version: "2026-10-12.2",
+  version: "2026-10-12.3",
   updated: "12 October 2026",
   site: "https://vinaytiwari.org",
   owner: "Vinay Kumar Tiwari",
@@ -106,8 +106,8 @@ export const TERMS = {
       h: "10. Limitation of liability",
       p: [
         "TO THE FULLEST EXTENT PERMITTED BY APPLICABLE LAW, THE OWNER, AND HIS FAMILY MEMBERS, HEIRS, REPRESENTATIVES, AGENTS, CONTRACTORS, LICENSORS AND SERVICE PROVIDERS, SHALL NOT BE LIABLE TO YOU OR TO ANY PERSON CLAIMING THROUGH YOU FOR ANY LOSS OR DAMAGE OF ANY KIND ARISING OUT OF OR IN CONNECTION WITH THE WEBSITE, ITS CONTENT, ITS USE OR INABILITY TO USE IT, OR THESE TERMS, WHETHER IN CONTRACT, TORT (INCLUDING NEGLIGENCE), STATUTE OR OTHERWISE, INCLUDING ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, EXEMPLARY OR PUNITIVE LOSS, LOSS OF PROFIT, REVENUE, GOODWILL, DATA, USE OR OPPORTUNITY, BUSINESS INTERRUPTION, UNAUTHORISED ACCESS TO OR ALTERATION OF DATA, OR LOSS ARISING FROM ANY CONTRIBUTION, ACT OR OMISSION OF ANY USER OR THIRD PARTY, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH LOSS.",
-        "WITHOUT PREJUDICE TO THE FOREGOING, IF, NOTWITHSTANDING THESE TERMS, ANY LIABILITY IS ADJUDGED TO ARISE, THE OWNER’S TOTAL AGGREGATE LIABILITY FOR ALL CLAIMS SHALL NOT EXCEED THE LOWER OF (A) THE AMOUNT, IF ANY, ACTUALLY PAID BY YOU TO THE OWNER FOR THE SPECIFIC ACCESS GIVING RISE TO THE CLAIM IN THE THREE (3) MONTHS PRECEDING THE CLAIM AND (B) INDIAN RUPEES ONE HUNDRED (INR 100).",
-        "Nothing in these Terms excludes or limits any liability, or any right of yours, that cannot lawfully be excluded or limited under applicable law. The parties agree that the limitations in this clause are reasonable and form an essential basis of the bargain, and that the Website would not be made available without them.",
+        "WITHOUT PREJUDICE TO THE FOREGOING, AND NOTWITHSTANDING ANYTHING CONTAINED IN THESE TERMS, THE PRIVACY POLICY, THE REFUND POLICY OR ANY OTHER DOCUMENT, THE TOTAL AGGREGATE LIABILITY OF THE OWNER TO ANY ONE USER FOR ALL CLAIMS OF EVERY KIND — AND THE TOTAL OF ANY DAMAGES, COMPENSATION, PENALTY, FINE, CHARGE, INTEREST, COST, REFUND, RESTITUTION, RECOVERY OR OTHER SUM THAT THE OWNER MAY BE ORDERED, DIRECTED, ASSESSED OR HELD LIABLE TO PAY TO OR FOR THAT USER, OR ON THE CLAIM, COMPLAINT OR APPLICATION OF THAT USER OR OF ANYONE CLAIMING THROUGH HIM OR HER, BEFORE ANY COURT, TRIBUNAL, COMMISSION, FORUM OR AUTHORITY — SHALL IN NO EVENT EXCEED THE AMOUNT ACTUALLY PAID BY THAT USER TO THE OWNER FOR THE SPECIFIC ACCESS, PURCHASE OR SERVICE FROM WHICH THE CLAIM ARISES. WHERE THE USER HAS PAID NOTHING, SUCH LIABILITY SHALL BE NIL. EACH USER AGREES NOT TO CLAIM, AND TO CONFINE ANY CLAIM, COMPLAINT OR APPLICATION MADE BY OR ON BEHALF OF HIM OR HER, TO THAT AMOUNT.",
+        "Nothing in these Terms excludes or limits any liability, or any right of yours, that cannot lawfully be excluded or limited under applicable law. The parties agree that the limitations in this clause are reasonable, that they fairly reflect the price (or the absence of any price) at which the Website is made available, and that they form an essential basis of the bargain, without which the Website would not be made available. If any part of this clause is held unenforceable, it shall be enforced to the greatest extent the law allows.",
       ],
     },
     {
@@ -130,9 +130,9 @@ export const TERMS = {
       ],
     },
     {
-      h: "14. Grievance Officer and contact",
+      h: "14. Contact and complaints",
       p: [
-        `In accordance with the Information Technology Act, 2000, the rules made under it and the Consumer Protection (E-Commerce) Rules, 2020, the Grievance Officer is ${C.owner}, Ghazipur, Uttar Pradesh, India. Notices, complaints, takedown requests and any request under the Privacy Policy may be sent by e-mail to ${C.email}. Complaints will be acknowledged within forty-eight (48) hours and the Owner shall endeavour to dispose of them within thirty (30) days of receipt. Please quote the page address, your registered e-mail and full particulars.`,
+        `Notices, complaints, takedown requests and any request under the Privacy Policy may be sent by e-mail to ${C.email}, addressed to ${C.owner}, the author and owner of the Website, or to any other person whom the Owner may name for the purpose by a notice on the Website. Complaints are acknowledged within forty-eight (48) hours and the Owner shall endeavour to resolve them within thirty (30) days of receipt. Please quote the page address, your registered e-mail address and full particulars.`,
       ],
     },
     {
@@ -149,6 +149,27 @@ export const TERMS = {
       p: [
         "The Owner may issue discount codes (“Coupons”) on such terms as he decides, including their amount, the period in which they may be used, the number of times they may be used in all and by one person, the persons or groups of persons (for example holders of a particular e-mail domain) who may use them, and the works to which they apply. Those terms are checked by the Owner’s systems when a Coupon is applied; a Coupon that is outside its terms is of no effect.",
         "A Coupon has no cash value, is personal to the account it is applied for, may not be sold, transferred or published for others to use, and may not be combined with another unless the Owner says so. The Owner may withdraw, pause or change a Coupon at any time before it is applied, and may cancel the benefit of a Coupon obtained by mistake, by abuse of the Website, by automated means or by misrepresentation. Applying a Coupon creates a record (a reference number, your account, the price and the discount) which is evidence of the offer made to you and is not itself a payment or a contract of sale.",
+      ],
+    },
+    {
+      h: "17. Your responsibility for your use",
+      p: [
+        "The Website is made available on the footing that each User is solely responsible for his or her own use of it. Without limitation, you are solely and entirely responsible for: (a) your account, your sign-in credentials, your devices, browsers and networks, and everything done through them, whether or not by you; (b) every Contribution, message and communication you make; (c) your compliance with every law, rule and regulation that applies to you and to your use of the Website, wherever you are; (d) the accuracy, lawfulness and completeness of everything you submit, and your authority to submit it; (e) any reliance you place on anything on the Website, and any decision, act or omission of yours, or of anyone claiming through you, in connection with it; and (f) every consequence, loss, liability, claim, penalty or proceeding that arises from your use, misuse or inability to use the Website, whether suffered by you or caused to another.",
+        "The Owner is the author of the literary work and the person who makes it available. He does not control, and is not answerable for, what Users do, say, submit, copy, share or rely on, or for the acts, omissions, content, services, systems or networks of other Users, of Google, of hosting, domain, content-delivery and payment providers, or of any other third party. As to material submitted by Users, the Owner is an intermediary within the meaning of the Information Technology Act, 2000 and claims the protection of Section 79 of that Act and of the rules made under it.",
+      ],
+    },
+    {
+      h: "18. Release; no reliance; assumption of risk",
+      p: [
+        "To the fullest extent permitted by law, you, on your own behalf and on behalf of every person claiming through you, irrevocably and unconditionally release and discharge the Owner, and his family members, heirs, representatives, agents, contractors, licensors and service providers, from all claims, demands, actions, causes of action, liabilities, damages and losses of every kind, known or unknown, present or future, that arise out of or in connection with your access to or use of the Website, other than a claim that cannot lawfully be released. You acknowledge that you use the Website voluntarily, with full knowledge of its nature and of the risks that attend the internet and electronic services, and that you assume those risks.",
+        "You confirm that you have not relied on any statement, description, rating, comment, promise or representation, whether on the Website, in any communication or otherwise, that is not expressly set out in the Terms, the Privacy Policy and the Refund Policy. No person is authorised to vary those documents on the Owner’s behalf except by a revision posted on the Website.",
+      ],
+    },
+    {
+      h: "19. Notice before proceedings; unjustified claims",
+      p: [
+        "A User shall not commence any suit, complaint, application or other proceeding against the Owner concerning the Website unless he or she has first given the notice, and waited the period, provided in clause 13. A claim, complaint or application that is dismissed, withdrawn, or found to be frivolous, vexatious, false or without merit, entitles the Owner to recover from the User, in addition to any costs the court or forum awards, his reasonable costs of defending it, including advocates’ fees, and the User shall pay them. Every claim is in all cases subject to the monetary limit in clause 10.",
+        "This clause does not prevent any person from approaching a court, tribunal or authority where the law gives him or her that right; it regulates only the order in which, and the terms on which, claims are raised against the Owner.",
       ],
     },
   ],
@@ -243,7 +264,7 @@ export const PRIVACY = {
     {
       h: "11. Your responsibilities",
       p: [
-        "You are responsible for the accuracy and lawfulness of what you provide, for the privacy of anything you choose to post publicly, and for the security of your devices and accounts. Please do not post sensitive personal data in a comment.",
+        "You are solely responsible for the accuracy and lawfulness of what you provide, for your authority to provide it (in particular, you must not provide personal data of another person without that person’s authority), for the privacy of anything you choose to post publicly, and for the security of your devices, networks and accounts and everything done through them. Please do not post sensitive personal data in a comment.",
       ],
     },
     {
@@ -253,9 +274,11 @@ export const PRIVACY = {
       ],
     },
     {
-      h: "13. Grievance Officer; law and jurisdiction",
+      h: "13. Contact and complaints; limit of liability; law and jurisdiction",
       p: [
-        `Grievance Officer: ${C.owner}, Ghazipur, Uttar Pradesh, India; e-mail ${C.email}. Complaints are acknowledged within forty-eight (48) hours and we endeavour to resolve them within thirty (30) days. This policy is governed by the laws of India and any dispute is subject to the exclusive jurisdiction of ${C.court}, as provided in the Terms of Use.`,
+        `Contact and complaints: ${C.owner}, e-mail ${C.email}, or any other person the Owner may name on the Website. Complaints are acknowledged within forty-eight (48) hours and the Owner shall endeavour to resolve them within thirty (30) days.`,
+        "Any liability of the Owner arising under or in connection with this policy is subject to the limits in clause 10 of the Terms of Use. In particular, the total of any damages, compensation, penalty, fine, charge or recovery payable by the Owner to or for any one person shall not exceed the amount actually paid by that person to the Owner, and is nil where nothing was paid.",
+        `This policy is governed by the laws of India and any dispute is subject to the exclusive jurisdiction of ${C.court}, as provided in the Terms of Use.`,
       ],
     },
   ],
@@ -334,7 +357,8 @@ export const REFUND = {
     {
       h: "11. Statutory rights; law and jurisdiction; contact",
       p: [
-        `Nothing in this policy affects any right that cannot lawfully be excluded under the Consumer Protection Act, 2019 or the rules under it. This policy is governed by the laws of India and any dispute is subject to the exclusive jurisdiction of ${C.court}, as provided in the Terms of Use. Contact and Grievance Officer: ${C.owner}, ${C.email}; complaints are acknowledged within forty-eight (48) hours and resolved within thirty (30) days.`,
+        `Nothing in this policy affects any right that cannot lawfully be excluded under the Consumer Protection Act, 2019 or the rules under it. This policy is governed by the laws of India and any dispute is subject to the exclusive jurisdiction of ${C.court}, as provided in the Terms of Use. Contact and complaints: ${C.owner}, ${C.email}, or any other person the Owner may name on the Website; complaints are acknowledged within forty-eight (48) hours and the Owner shall endeavour to resolve them within thirty (30) days.`,
+        "Any refund, and any damages, compensation, penalty, fine, charge, interest, recovery or other sum payable by the Owner in connection with this policy, shall not exceed the amount actually paid by the person concerned for the access to which it relates, and is nil where nothing was paid, as provided in clause 10 of the Terms of Use.",
       ],
     },
   ],

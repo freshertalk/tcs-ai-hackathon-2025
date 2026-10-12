@@ -66,17 +66,17 @@ export const BOOK = {
   bylineRoman: "Vinay Kumar Tiwari",
 
   // Facts shown in the "about the novel" block.
-  // Exactly 8 cells so the grid (4 columns, 2 on mobile) never leaves a gap.
+  // Exactly 6 cells so the grid (3 columns, 2 on mobile) never leaves a gap.
   // The "स्थिति" cell is replaced at runtime by the publication date.
+  // ISBN is left empty on purpose: write it into `v` once there is one (an
+  // empty value is drawn as a dash).
   facts: [
     { k: "विधा", v: "उपन्यास", hi: true },
     { k: "भाषा", v: "हिन्दी", hi: true },
-    { k: "अध्याय", v: "36 + प्रस्तावना", hi: true },
-    { k: "कालखंड", v: "जुलाई 2015 — जुलाई 2026", hi: true },
-    { k: "मार्ग", v: "नई दिल्ली · कानपुर आउटर · बनारस", hi: true },
+    { k: "अध्याय", v: "36", hi: true },
     { k: "स्थिति", v: "प्रकाशित", hi: true },
-    { k: "कॉपीराइट पंजीकरण", v: "LD-36102/2026-CO", hi: false },
     { k: "कॉपीराइट", v: "© 2026 लेखक", hi: true },
+    { k: "ISBN", v: "", hi: false },
   ],
 
   // Three lines that stand before page one: the book's own cover line, and

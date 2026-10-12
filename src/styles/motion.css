@@ -1,0 +1,131 @@
+/* ==========================================================================
+   Motion. See src/components/site/MotionHost.jsx for the rules this serves.
+   Only transform and opacity ever animate, so it costs a phone almost nothing.
+   ========================================================================== */
+
+:root {
+  --mx-ease: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ------------------------------------------------- arriving into view */
+.mx-on [data-mx]:not([data-mx-in]) {
+  opacity: 0;
+  transform: translate3d(0, var(--mx-y, 28px), 0);
+}
+.mx-on [data-mx="head"]:not([data-mx-in]) {
+  --mx-y: 36px;
+}
+.mx-on [data-mx="card"]:not([data-mx-in]) {
+  transform: translate3d(0, 34px, 0) scale(0.972);
+}
+.mx-on [data-mx="img"]:not([data-mx-in]) {
+  transform: scale(1.07);
+}
+
+.mx-on [data-mx] {
+  transition: opacity 0.85s var(--mx-ease) var(--mx-d, 0ms), transform 1s var(--mx-ease) var(--mx-d, 0ms);
+  will-change: opacity, transform;
+}
+.mx-on [data-mx="img"] {
+  transition-duration: 1s, 1.4s;
+}
+.mx-on [data-mx][data-mx-in] {
+  opacity: 1;
+  transform: none;
+}
+
+/* smaller steps on a small screen: less to travel, quicker to settle */
+@media (max-width: 760px) {
+  .mx-on [data-mx]:not([data-mx-in]) {
+    --mx-y: 18px;
+  }
+  .mx-on [data-mx="head"]:not([data-mx-in]) {
+    --mx-y: 22px;
+  }
+  .mx-on [data-mx="card"]:not([data-mx-in]) {
+    transform: translate3d(0, 22px, 0) scale(0.985);
+  }
+  .mx-on [data-mx] {
+    transition-duration: 0.6s, 0.7s;
+  }
+}
+
+/* a pictures also comes into focus, where a pointer device and room allow */
+@media (hover: hover) and (min-width: 900px) {
+  .mx-on [data-mx="img"]:not([data-mx-in]) {
+    filter: blur(5px);
+  }
+  .mx-on [data-mx="img"] {
+    transition-property: opacity, transform, filter;
+    transition-duration: 1s, 1.4s, 0.9s;
+  }
+  .mx-on [data-mx="img"][data-mx-in] {
+    filter: none;
+  }
+}
+
+/* a very low-powered device: a plain fade, no travelling */
+.mx-lite [data-mx]:not([data-mx-in]) {
+  transform: none !important;
+  filter: none !important;
+}
+.mx-lite [data-mx] {
+  transition-property: opacity;
+  transition-duration: 0.5s;
+}
+
+/* -------------------------------------------- hover and press, everywhere */
+@media (hover: hover) {
+  .bcard,
+  .cast__card,
+  .themes__cell,
+  .kpi,
+  .dc,
+  .rv-item {
+    transition: transform 0.35s var(--mx-ease), box-shadow 0.35s var(--mx-ease), border-color 0.25s ease;
+  }
+  .bcard:hover,
+  .cast__card:hover,
+  .themes__cell:hover,
+  .kpi:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 30px 50px -34px rgba(63, 40, 25, 0.55);
+  }
+}
+.btn,
+.db,
+.rdw__go,
+.dpill,
+.tabs__b,
+.cpn__open,
+.acctb__signin,
+.acctb__btn {
+  transition-property: transform, box-shadow, background, border-color, color, opacity;
+  transition-duration: 0.2s;
+  transition-timing-function: var(--mx-ease);
+}
+.btn:active,
+.db:active,
+.rdw__go:active,
+.dpill:active,
+.tabs__b:active,
+.cpn__open:active,
+.acctb__signin:active {
+  transform: scale(0.965);
+}
+
+/* focus is always visible, and always warm */
+:focus-visible {
+  outline: 3px solid rgba(193, 102, 58, 0.65);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mx-on [data-mx] {
+    transition: none !important;
+  }
+  .btn:active,
+  .db:active {
+    transform: none;
+  }
+}

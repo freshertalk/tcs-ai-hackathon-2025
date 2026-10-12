@@ -543,3 +543,93 @@
   font-weight: 700;
   color: #7b2b2b;
 }
+
+/* ------------------------------------------------ the rating plate (hero) */
+.bh__meta {
+  display: grid;
+  justify-items: start;
+  gap: 12px;
+  margin-top: 8px;
+}
+.rvp {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 20px 10px 16px;
+  border-radius: 20px;
+  overflow: hidden;
+  isolation: isolate;
+  text-decoration: none;
+  color: #1f1611;
+  background: linear-gradient(135deg, rgba(255, 252, 244, 0.96), rgba(251, 238, 208, 0.92));
+  border: 1px solid rgba(214, 160, 60, 0.55);
+  box-shadow: 0 20px 36px -24px rgba(150, 95, 20, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.85);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+.rvp::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(110deg, transparent 35%, rgba(255, 255, 255, 0.7) 50%, transparent 65%);
+  transform: translateX(-130%);
+  animation: rvpSweep 6s ease-in-out 1.6s infinite;
+}
+@keyframes rvpSweep {
+  0%,
+  60% {
+    transform: translateX(-130%);
+  }
+  100% {
+    transform: translateX(130%);
+  }
+}
+.rvp:hover,
+.rvp:focus-visible {
+  transform: translateY(-2px);
+  box-shadow: 0 26px 40px -22px rgba(150, 95, 20, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+.rvp__score {
+  font-family: var(--f-serif);
+  font-size: 2.5rem;
+  line-height: 1;
+  color: #7b2b2b;
+  padding-right: 14px;
+  border-right: 1px solid rgba(123, 43, 43, 0.22);
+}
+.rvp__body {
+  display: grid;
+  gap: 3px;
+}
+.rvp .stars__base {
+  color: rgba(31, 22, 17, 0.14);
+}
+.rvp .stars__fill {
+  color: #e2a21d;
+  filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.8));
+}
+.rvp__sub {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #6b5238;
+  white-space: nowrap;
+}
+.rvp__sub i {
+  font-style: normal;
+  display: inline-block;
+  transition: transform 0.2s ease;
+}
+.rvp:hover .rvp__sub i {
+  transform: translateX(3px);
+}
+@media (prefers-reduced-motion: reduce) {
+  .rvp::after {
+    animation: none;
+  }
+}
+/* the price line: label, then the figures */
+.price__lbl {
+  font-weight: 600;
+  color: var(--ink-2);
+}

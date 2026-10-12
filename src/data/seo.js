@@ -230,7 +230,7 @@ export const FAQ = [
   },
   {
     q: "Who wrote Do Kulhad Chai?",
-    a: "Do Kulhad Chai (दो कुल्हड़ चाय) is written by Vinay Kumar Tiwari. It is his debut Hindi novel, copyright filed with the Copyright Office, Government of India (Diary No. LD-36102/2026-CO).",
+    a: "Do Kulhad Chai (दो कुल्हड़ चाय) is written by Vinay Kumar Tiwari. It is his debut Hindi novel, © 2026 Vinay Kumar Tiwari.",
   },
   {
     q: "दो कुल्हड़ चाय कहाँ पढ़ें?",

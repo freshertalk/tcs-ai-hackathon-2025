@@ -60,15 +60,28 @@ function useGoogleRating() {
 }
 
 /* ------------------------------------------------------------------ chip */
-/** A one-line "★ 4.6 · 23 राय" — and nothing at all until there are ratings. */
+/**
+ * The rating, as a small plate of its own: the score, five gold stars and how
+ * many readers gave it — and nothing at all until there are ratings.
+ */
 export function RatingChip({ slug, className = "" }) {
   const s = useSummary(slug);
   if (!s.count) return null;
   return (
-    <a className={`rv-chip ${className}`} href="#reviews">
-      <StarRow value={s.average} size={16} />
-      <b>{s.average.toFixed(1)}</b>
-      <span>({s.count} राय)</span>
+    <a
+      className={`rvp ${className}`}
+      href="#reviews"
+      aria-label={`पाँच में ${s.average.toFixed(1)} — ${s.count} पाठकों की राय`}
+    >
+      <span className="rvp__score">{s.average.toFixed(1)}</span>
+      <span className="rvp__body">
+        <span className="rvp__stars">
+          <StarRow value={s.average} size={22} />
+        </span>
+        <span className="rvp__sub">
+          {s.count} पाठकों की राय <i aria-hidden="true">→</i>
+        </span>
+      </span>
     </a>
   );
 }

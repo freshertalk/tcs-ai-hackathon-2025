@@ -50,7 +50,7 @@ var MAX_COMMENTS = 40;
 // The edition of the legal documents (src/data/legal.js, LEGAL.version). A
 // reader's key is released only if their latest acceptance is for this
 // edition — change both together, and everyone is asked to accept again.
-var LEGAL_VERSION = "2026-10-12.2";
+var LEGAL_VERSION = "2026-10-12.3";
 
 // Bumped whenever this file changes in a way worth being able to see from outside:
 // open  <web-app URL>?check=1  in a browser to read it.

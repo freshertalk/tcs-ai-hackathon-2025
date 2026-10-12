@@ -316,12 +316,37 @@ script against the verified e-mail.
 ### The documents edition
 
 Collecting usage statistics, keeping an audit log and offering coupons had to
-be in the Privacy Policy and Terms, so the **edition is `2026-10-12.2`**
+be in the Privacy Policy and Terms, so the **edition is `2026-10-12.3`**
 (`LEGAL.version` in `src/data/legal.js` and `LEGAL_VERSION` in the script —
 always change both together). A new edition ends the sign-ins made under the
 old one: every reader (the owner included) signs in once more and ticks the
 box, and the book key is fetched again. Do not change the edition for small
 corrections; change it when the documents change in substance.
+
+### What the legal documents now say about responsibility
+
+Three things were added to the Terms (and referred to from the Privacy Policy
+and the Refund Policy):
+
+- **A hard monetary limit (clause 10).** The most the Owner can be made to pay
+  any one person — damages, compensation, penalty, fine, charge, interest,
+  costs, refund or any other recovery, before any court, tribunal, commission
+  or forum — is the amount that person actually paid for the access in
+  question, and is nil where they paid nothing.
+- **Responsibility for use (clause 17)**, **release and no reliance (clause
+  18)**, and **notice before proceedings, with costs for unjustified claims
+  (clause 19)**.
+- **Contact and complaints** is a plain line (clauses 14, Privacy 13, Refund
+  11): the author's e-mail, 48 hours to acknowledge, 30 days to resolve. The
+  Owner is not styled the statutory "Grievance Officer"; the text lets him name
+  another person on the Website.
+
+No document can stop a case being filed or guarantee a result, and a term that
+tries to excuse fraud, wilful wrongdoing, or duties the law imposes (for
+example under the Digital Personal Data Protection Act, 2023, or consumer
+law) is void and can weaken the rest. These clauses are written as strongly as
+the law allows and each carries a saving clause. Have an advocate who practises
+in your court read them before relying on them.
 
 ### Putting these on
 
@@ -377,6 +402,24 @@ Each time you publish an edition (`npm run book:publish`, or `npm start`):
    Older rows may stay: readers who still have an older edition open keep working.
 3. Builds on another machine (`--soft`, no `.book-keys.json`) never invent a key:
    they keep the edition as published.
+
+## Motion, in one place
+
+`src/components/site/MotionHost.jsx` + `src/styles/motion.css`. As a heading,
+paragraph, picture or card scrolls into view it settles (a short rise and fade;
+a picture eases down from a slight zoom), neighbours a few tens of
+milliseconds apart.
+
+- Only `transform` and `opacity` animate. A device with ≤ 2 cores or ≤ 1 GB
+  gets a plain fade; small screens travel less.
+- Nothing is hidden until JavaScript has run, so the prerendered pages and
+  search engines see everything.
+- `prefers-reduced-motion` switches it off entirely.
+- Each element is released once it has arrived, so its own hover and press
+  effects work. State is kept in `data-mx*` attributes, never in `className`.
+- Left alone: the hero, the ticker, pinned rails, the reader, and anything a
+  framer-motion wrapper controls (it leaves an inline opacity or transform).
+  Add `data-mx-skip` to any element to exclude it.
 
 ## Legal pages and consent
 

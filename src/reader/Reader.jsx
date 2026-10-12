@@ -837,11 +837,6 @@ function ReaderShell({ book, chapterId }) {
 
       {/* -------------------------------------------------------- top bar */}
       <header className="rd__top">
-        {/* the way out: progress is saved as the reader unmounts */}
-        <Link className="rd__exit" to="/" aria-label="किताब से बाहर निकलें" title="बाहर निकलें">
-          <IconClose width={20} height={20} />
-          <span>बाहर</span>
-        </Link>
         <div className="rd__heading">
           <span className="rd__book">{book.title}</span>
           <span className="rd__chap">
@@ -887,6 +882,11 @@ function ReaderShell({ book, chapterId }) {
             <IconType />
           </button>
         </div>
+        {/* the way out: at the end of the bar, small; progress is saved as the reader unmounts */}
+        <Link className="rd__exit" to="/" aria-label="किताब से बाहर निकलें" title="बाहर निकलें">
+          <IconClose width={15} height={15} />
+          <span>बाहर</span>
+        </Link>
       </header>
 
       {/* ----------------------------------------------------------- text */}

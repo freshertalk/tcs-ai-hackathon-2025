@@ -82,7 +82,7 @@ export default function Hero({ readRef }) {
           </Reveal>
           <Reveal y={14} delay={0.12} duration={0.8}>
             <p className="bh__by">
-              <span>लेखक</span> <b>{BOOK.byline}</b>
+              <span>लेखक:</span> <b>{BOOK.byline}</b>
             </p>
             <div className="bh__meta">
               <Price className="bh__price" />

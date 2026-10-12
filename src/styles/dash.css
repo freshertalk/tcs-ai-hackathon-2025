@@ -1021,36 +1021,36 @@
   border-radius: 12px;
   border: 1px solid rgba(31, 22, 17, 0.2);
 }
-.hls {
+.syshls {
   list-style: none;
   margin: 0;
   padding: 0;
   display: grid;
   gap: 8px;
 }
-.hl {
+.syshl {
   display: grid;
   grid-template-columns: 26px minmax(0, 1fr);
   gap: 10px;
   align-items: start;
   font-size: 0.92rem;
 }
-.hl small {
+.syshl small {
   display: block;
   color: #8a7868;
 }
-.hl__i {
+.syshl__i {
   width: 26px;
   height: 26px;
   display: grid;
   place-items: center;
   border-radius: 50%;
 }
-.hl.is-ok .hl__i {
+.syshl.is-ok .syshl__i {
   background: #e1f0e4;
   color: #25683a;
 }
-.hl.is-bad .hl__i {
+.syshl.is-bad .syshl__i {
   background: #fbe3df;
   color: #a1281f;
 }

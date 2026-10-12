@@ -29,8 +29,8 @@ function useHealth() {
 
 function Row({ ok, label, hint }) {
   return (
-    <li className={`hl ${ok ? "is-ok" : "is-bad"}`}>
-      <span className="hl__i">{ok ? <IconCheck size={16} strokeWidth={2.6} /> : <IconAlert size={16} />}</span>
+    <li className={`syshl ${ok ? "is-ok" : "is-bad"}`}>
+      <span className="syshl__i">{ok ? <IconCheck size={16} strokeWidth={2.6} /> : <IconAlert size={16} />}</span>
       <span>
         {label}
         {hint && !ok ? <small>{hint}</small> : null}
@@ -142,7 +142,7 @@ export default function System() {
             <p className="sys__build">
               Script build <code>{d.build || "unknown — deploy the newest script"}</code> · documents edition <code>{d.legal || "?"}</code>
             </p>
-            <ul className="hls">
+            <ul className="syshls">
               <Row ok={Boolean(d.v8)} label="V8 runtime" hint="Project settings → tick “Enable Chrome V8 runtime”." />
               <Row ok={Boolean(d.clientId)} label="Google client id set" />
               <Row ok={Boolean(d.keysTab)} label="Keys tab holds the book key" hint="Paste the row from book-keys-for-sheet.tsv." />

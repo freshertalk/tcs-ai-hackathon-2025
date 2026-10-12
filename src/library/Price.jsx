@@ -16,7 +16,7 @@ export default function Price({ slug = BOOK.slug, className = "" }) {
 
   return (
     <p className={`price ${className}`}>
-      <span className="price__lbl">ई-बुक का मूल्य</span>
+      <span className="price__lbl">ई-बुक · विशेष मूल्य:</span>
       <s className="price__mrp">
         <span className="sr-only">पहले का मूल्य </span>
         {fmt(p.mrp)}

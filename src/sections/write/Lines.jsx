@@ -34,7 +34,7 @@ function Head() {
     <>
       <span className="eyebrow is-hi">पंक्तियाँ</span>
       <h2 className="h-display h-hi title-md" style={{ marginTop: 12 }}>
-        <MaskLine>कुछ वाक्य, जो अकेले भी खड़े रह जाते हैं</MaskLine>
+        <MaskLine>कुछ पंक्तियाँ, जो बाद तक साथ चलती हैं</MaskLine>
       </h2>
     </>
   );

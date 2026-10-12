@@ -101,7 +101,7 @@ export default function Shelf() {
               <span className="shelf__kicker">पहली किताब · हिन्दी उपन्यास</span>
               <h3 className="shelf__book hi-d">{book.title}</h3>
               <p className="shelf__by">
-                <span>लेखक</span> {book.author}
+                <span>लेखक:</span> {book.author}
               </p>
               <p className="shelf__facts">
                 {book.chapters} अध्याय · {fmtMinutes(book.minutes)} · {fmtDate(book.published)}

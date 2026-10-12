@@ -49,7 +49,7 @@ export default function Novel() {
                 {facts.map((f) => (
                   <div className="novel__fact" key={f.k}>
                     <dt className="is-hi">{f.k}</dt>
-                    <dd className={f.hi ? "h" : ""}>{f.v}</dd>
+                    <dd className={f.hi ? "h" : ""}>{f.v || <span className="novel__blank" aria-label="अभी उपलब्ध नहीं">—</span>}</dd>
                   </div>
                 ))}
               </Reveal>
