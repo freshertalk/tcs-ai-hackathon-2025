@@ -12,11 +12,13 @@ import { percentRead } from "../library/BookCard";
 import BookShowcase from "../library/BookShowcase";
 import { useBook, useProgress } from "../library/hooks";
 import { fmtDate, fmtMinutes } from "../reader/util";
-import { IconCheck, IconEye, IconShare } from "../reader/icons";
+import { IconCheck, IconShare } from "../reader/icons";
 import { SITE_LINKS } from "./Library";
 import { ReviewsSection } from "../reviews/Reviews";
 import Price from "../library/Price";
 import CouponBox from "../coupons/CouponBox";
+import BuyBar from "../shop/BuyBar";
+import { BOOK } from "../data/books";
 
 const LANGS = { hi: "हिन्दी", en: "English", bho: "भोजपुरी", ur: "اردو" };
 
@@ -126,7 +128,16 @@ export default function BookPage() {
                   <span>लेखक:</span> {book.author}
                 </p>
                 <Price slug={book.slug} />
-                <CouponBox slug={book.slug} />
+                <div className="bk__buyrow">
+                  <BuyBar
+                    book={book}
+                    slug={book.slug}
+                    readClass="btn btn--solid bk__buy"
+                    buyClass="btn btn--solid bk__buy"
+                    cartClass="bk__cart"
+                  />
+                  <CouponBox slug={book.slug} className="bk__coupon" />
+                </div>
               </Reveal>
 
               <Reveal delay={0.16}>
@@ -151,20 +162,16 @@ export default function BookPage() {
                     <dt>प्रकाशन</dt>
                     <dd>{fmtDate(book.published)}</dd>
                   </div>
+                  <div>
+                    <dt>ISBN</dt>
+                    <dd>{((BOOK.facts || []).find((f) => f.k === "ISBN") || {}).v || "—"}</dd>
+                  </div>
                 </dl>
               </Reveal>
 
               <Reveal delay={0.28} className="bk__actions">
-                <Link
-                  className="btn btn--solid btn--lg"
-                  to={`/read/${book.slug}`}
-                  data-cursor="पढ़िए"
-                >
-                  <IconEye width={20} height={20} />
-                  {pct > 0 ? "पढ़ना जारी रखें" : "पढ़ें"}
-                </Link>
                 {pct > 0 && firstChapter && (
-                  <Link className="btn btn--lg" to={`/read/${book.slug}/${firstChapter.id}`}>
+                  <Link className="btn" to={`/read/${book.slug}/${firstChapter.id}`}>
                     शुरू से पढ़ें
                   </Link>
                 )}

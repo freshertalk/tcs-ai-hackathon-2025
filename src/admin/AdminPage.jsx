@@ -21,9 +21,10 @@ import { explain } from "../api/collector";
 import Overview from "./Overview";
 import Readers from "./Readers";
 import Coupons from "./Coupons";
+import Sales from "./Sales";
 import Audit from "./Audit";
 import System from "./System";
-import { IconAlert, IconChart, IconList, IconShield, IconStar, IconTag, IconUsers, IconSignOut } from "../components/ui/icons";
+import { IconAlert, IconChart, IconList, IconReceipt, IconShield, IconStar, IconTag, IconUsers, IconSignOut } from "../components/ui/icons";
 
 const NAV = [
   { to: "/", label: "मुखपृष्ठ" },
@@ -34,6 +35,7 @@ const NAV = [
 const TABS = [
   { id: "overview", label: "Analytics", icon: <IconChart size={17} /> },
   { id: "readers", label: "Readers", icon: <IconUsers size={17} /> },
+  { id: "sales", label: "Sales", icon: <IconReceipt size={17} /> },
   { id: "coupons", label: "Coupons", icon: <IconTag size={17} /> },
   { id: "audit", label: "Audit log", icon: <IconList size={17} /> },
   { id: "reviews", label: "Comments", icon: <IconStar size={17} /> },
@@ -57,7 +59,7 @@ function ScriptNotice({ error, onRetry, email }) {
     const sep = REVIEWS.endpoint.includes("?") ? "&" : "?";
     fetch(`${REVIEWS.endpoint}${sep}check=1`, { cache: "no-store" })
       .then((r) => r.json())
-      .then((d) => live && setState(d && d.analytics ? "ok" : "old"))
+      .then((d) => live && setState(d && d.analytics && d.shop ? "ok" : "old"))
       .catch(() => live && setState("unknown"));
     return () => {
       live = false;
@@ -73,7 +75,7 @@ function ScriptNotice({ error, onRetry, email }) {
       <h1>The script on Google is older than this site</h1>
       <p>
         You are signed in as <b>{email}</b>, the admin account. The dashboard cannot open because the script that
-        keeps your Sheet does not know the new actions yet (statistics, coupons, audit log).
+        keeps your Sheet does not know the new actions yet (statistics, coupons, audit log, sales).
       </p>
       <ol className="deny__steps">
         <li>In your Sheet: Extensions → Apps Script.</li>
@@ -181,6 +183,7 @@ export default function AdminPage() {
       <div className="dsh__body" role="tabpanel">
         {tab === "overview" && <Overview />}
         {tab === "readers" && <Readers />}
+        {tab === "sales" && <Sales />}
         {tab === "coupons" && <Coupons />}
         {tab === "audit" && <Audit />}
         {tab === "reviews" && (

@@ -108,6 +108,15 @@ const sha = (s) => crypto.createHash("sha256").update(s).digest("hex").slice(0, 
       pass(`collector script is "${j.build}" (V8 ${j.v8 ? "on" : "OFF"}, Keys tab ${j.keysTab ? "ok" : "MISSING"}, signature check ${j.signatureCheck ? "ok" : "FAILED"})`);
       if (!j.v8 || !j.keysTab || !j.signatureCheck) fail("the collector reports a problem — see the line above");
       if (!j.analytics) fail("the collector script predates the dashboards (no statistics, coupons or audit log): paste the newest scripts/reviews-apps-script.gs and deploy it as a New version");
+      if (j.analytics && !j.shop) fail("the collector script predates the shop (cart, orders, receipts): paste the newest scripts/reviews-apps-script.gs and deploy it as a New version");
+      if (j.shop) {
+        if (j.shop.paywall && !j.shop.payments) warn("the paywall is on but the Razorpay keys are not set in the script properties: nobody can buy yet (Project Settings → Script properties: RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET)");
+        else if (j.shop.payments) pass(`payments are set up (${j.shop.mode} mode)${j.shop.mode === "test" ? " — remember to swap in the live keys" : ""}`);
+        if (!j.shop.paywall) warn("PAYWALL is off in the script: any signed-in reader can read without buying");
+        if (j.shop.payments && !j.shop.mail) warn("the script cannot send mail yet: run setupPayments once in the editor and accept the permission, or receipts will not be e-mailed");
+        if (j.shop.gst && !j.shop.gstin) warn("GST is on in the script but SELLER.gstin is empty: add your GSTIN, or set GST.enabled = false if you are not registered");
+        if (!j.shop.address) warn("SELLER.address is empty in the script: receipts print without a seller address");
+      }
       const want = (fs.readFileSync(path.join(ROOT, "src", "data", "legal.js"), "utf8").match(/version: "([^"]+)"/) || [])[1];
       if (want && j.legal && j.legal !== want) fail(`documents edition in the script is ${j.legal} but the site has ${want}: set LEGAL_VERSION in the script to ${want}`);
       else if (want) pass(`documents edition ${want} agrees between the site and the script`);

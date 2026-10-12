@@ -26,12 +26,15 @@ import "./styles/reader.css";
 import "./styles/auth.css";
 import "./styles/reviews.css";
 import "./styles/dash.css";
+import "./styles/shop.css";
 import "./styles/motion.css";
 import "./styles/typography.css"; // last: it sets the one text size
 
 // the account and admin screens are for a few people: they load when asked for
 const AccountPage = lazy(() => import("./account/AccountPage"));
 const AdminPage = lazy(() => import("./admin/AdminPage"));
+const CheckoutPage = lazy(() => import("./shop/CheckoutPage"));
+const ReceiptPage = lazy(() => import("./shop/ReceiptPage"));
 
 const Quiet = () => (
   <div className="qgate" role="status" aria-live="polite">
@@ -130,6 +133,9 @@ export default function App() {
             <Route path="/books/:slug" element={<BookPage />} />
             <Route path="/account" element={<AccountPage />} />
             <Route path="/admin" element={<AdminPage />} />
+            <Route path="/checkout" element={<CheckoutPage />} />
+            <Route path="/cart" element={<Navigate to="/checkout" replace />} />
+            <Route path="/receipt/:id" element={<ReceiptPage />} />
             <Route path="/read/:slug" element={<Reader />} />
             <Route path="/read/:slug/:chapter" element={<Reader />} />
 

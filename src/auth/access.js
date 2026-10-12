@@ -7,8 +7,10 @@
 //   • carries a Google token it can verify, and
 //   • comes from an account whose latest consent record is for the current
 //     edition of the Terms, Privacy Policy and Refund Policy.
-// Without both, the chapter files are noise — so "you must be signed in to
-// read" holds for anyone who fetches the files directly, too.
+//   • belongs to an account that owns the book (paid, a free order, or a copy
+//     the author granted — see "SELLING THE BOOK" in the collector),
+// Without all three, the chapter files are noise — so "you must be signed in
+// and have bought it" holds for anyone who fetches the files directly, too.
 //
 // Once it has been released to a signed-in reader the key stays on that
 // device, for that account and that edition of the documents — so the person
@@ -22,7 +24,7 @@ import { authConfigured, currentUser, dropSession, freshCredential, onSignOut } 
 export class AccessError extends Error {
   constructor(code) {
     super(code);
-    this.code = code; // signin | consent | nokey | network
+    this.code = code; // signin | consent | purchase | nokey | network
   }
 }
 
@@ -90,6 +92,7 @@ async function askForKey(book, credential) {
   const code = d && d.error;
   if (code === "auth") throw new AccessError("signin");
   if (code === "consent") throw new AccessError("consent");
+  if (code === "purchase") throw new AccessError("purchase");
   if (code === "nokey") throw new AccessError("nokey");
   throw new AccessError("network");
 }

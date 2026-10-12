@@ -25,11 +25,6 @@ export default function Price({ slug = BOOK.slug, className = "" }) {
         <span className="sr-only">अब का मूल्य </span>
         {fmt(p.selling)}
       </b>
-      {p.buyUrl ? (
-        <a className="price__buy" href={p.buyUrl} target="_blank" rel="noopener noreferrer">
-          खरीदिए
-        </a>
-      ) : null}
     </p>
   );
 }

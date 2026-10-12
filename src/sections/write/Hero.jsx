@@ -13,9 +13,9 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Reveal, Magnetic, EASE } from "../../components/ui/motion";
+import { Reveal, EASE } from "../../components/ui/motion";
 import Picture from "../../components/ui/Picture";
-import { ReadButton } from "../../library/BookCard";
+import BuyBar from "../../shop/BuyBar";
 import { RatingChip } from "../../reviews/Reviews";
 import Price from "../../library/Price";
 import CouponBox from "../../coupons/CouponBox";
@@ -49,6 +49,8 @@ export default function Hero({ readRef }) {
     { k: "अध्याय", v: String(book.chapters) },
     { k: "पढ़ने का समय", v: fmtMinutes(book.minutes) },
     { k: "प्रकाशन", v: fmtDate(book.published) },
+    // blank until there is one (BOOK.facts, "ISBN"): drawn as a dash
+    { k: "ISBN", v: ((BOOK.facts || []).find((f) => f.k === "ISBN") || {}).v || "" },
   ];
 
   return (
@@ -86,9 +88,23 @@ export default function Hero({ readRef }) {
             </p>
             <div className="bh__meta">
               <Price className="bh__price" />
-              <RatingChip slug={BOOK.slug} />
             </div>
-            <CouponBox className="bh__coupon" />
+            {/* the action sits with the price: buy, add to cart, a coupon */}
+            <div className="bh__buyrow">
+              <span ref={readRef} className="bh__buy">
+                <BuyBar
+                  book={book}
+                  slug={BOOK.slug}
+                  readClass="btn btn--solid bh__read"
+                  buyClass="btn btn--solid bh__read"
+                  cartClass="bh__cart"
+                />
+              </span>
+              <CouponBox className="bh__coupon" />
+            </div>
+            <div className="bh__rate">
+              <RatingChip slug={BOOK.slug} compact />
+            </div>
           </Reveal>
         </div>
 
@@ -119,24 +135,21 @@ export default function Hero({ readRef }) {
               {facts.map((f) => (
                 <div key={f.k}>
                   <dt>{f.k}</dt>
-                  <dd>{f.v}</dd>
+                  <dd>{f.v || "—"}</dd>
                 </div>
               ))}
             </dl>
           </Reveal>
 
           <Reveal y={18} delay={0.24} duration={0.9} className="bh__actions">
-            <Magnetic>
-              <span ref={readRef} style={{ display: "inline-flex" }}>
-                <ReadButton book={book} className="btn btn--solid btn--lg bh__read" />
-              </span>
-            </Magnetic>
-            <a className="bh__ghost" href="#opening">
-              पहला पन्ना देखिए
-            </a>
-            <Link className="bh__ghost" to={`/books/${BOOK.slug}#contents`}>
-              अनुक्रम
-            </Link>
+            <span className="bh__links">
+              <a className="bh__ghost" href="#opening">
+                पहला पन्ना देखिए
+              </a>
+              <Link className="bh__ghost" to={`/books/${BOOK.slug}#contents`}>
+                अनुक्रम
+              </Link>
+            </span>
           </Reveal>
 
           <Reveal y={22} delay={0.3} duration={0.95} className="bh__cards">

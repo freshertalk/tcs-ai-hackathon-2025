@@ -9,12 +9,17 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Cover, percentRead } from "../../library/BookCard";
 import { useProgress } from "../../library/hooks";
 import { IconEye } from "../../reader/icons";
+import { IconCart } from "../../components/ui/icons";
 import { BOOK } from "../../data/books";
+import { useOwns } from "../../shop/BuyBar";
+import { addToCart } from "../../shop/store";
+import { inrShort } from "../../shop/format";
 
 export default function StickyRead({ targetRef }) {
   const [away, setAway] = useState(false);
   const progress = useProgress(BOOK.slug);
   const pct = percentRead(progress);
+  const owns = useOwns(BOOK.slug);
 
   useEffect(() => {
     const el = targetRef.current;
@@ -51,10 +56,17 @@ export default function StickyRead({ targetRef }) {
             <b>{BOOK.title}</b>
             <small>{BOOK.byline}</small>
           </span>
-          <Link className="btn btn--solid sread__btn" to={`/read/${BOOK.slug}`}>
-            <IconEye width={18} height={18} />
-            {pct > 0 ? `जारी रखें · ${pct}%` : "पढ़ें"}
-          </Link>
+          {owns === false ? (
+            <Link className="btn btn--solid sread__btn" to="/checkout?buy=1" onClick={() => addToCart(BOOK.slug)}>
+              <IconCart size={18} />
+              खरीदिए · {inrShort(BOOK.price.selling)}
+            </Link>
+          ) : (
+            <Link className="btn btn--solid sread__btn" to={`/read/${BOOK.slug}`}>
+              <IconEye width={18} height={18} />
+              {pct > 0 ? `जारी रखें · ${pct}%` : "पढ़ें"}
+            </Link>
+          )}
         </motion.div>
       )}
     </AnimatePresence>

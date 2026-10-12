@@ -727,3 +727,33 @@
   font-weight: 600;
   opacity: 1;
 }
+
+/* ----------------------------- the title is the title, on a phone as well */
+/* Below 400px site.css sets the brand's last span to 0.88rem, which is almost
+   the size of the author's name beneath it (0.86rem) — they read as the same
+   line. The title keeps its size and weight on a phone, and the name under it
+   stays clearly smaller. The longer selector is deliberate: it has to win over
+   that older rule without touching it. */
+@media (max-width: 560px) {
+  .nav__row .nav__brand .nav__name {
+    font-size: 1.18rem;
+    font-weight: 800;
+    line-height: 1.12;
+    letter-spacing: -0.005em;
+  }
+  .nav__row .nav__brand .nav__name small {
+    margin-top: 3px;
+    font-size: 0.76rem;
+    font-weight: 600;
+    line-height: 1.2;
+    letter-spacing: 0.01em;
+  }
+}
+@media (max-width: 400px) {
+  .nav__row .nav__brand .nav__name {
+    font-size: 1.1rem;
+  }
+  .nav__row .nav__brand .nav__name small {
+    font-size: 0.7rem;
+  }
+}

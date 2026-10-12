@@ -25,6 +25,45 @@ function Icon({ size = 20, children, ...rest }) {
 }
 
 /** Sign in: a person stepping through a doorway. */
+/** A shopping cart. */
+export const IconCart = (p) => (
+  <Icon {...p}>
+    <circle cx="9" cy="19.2" r="1.4" />
+    <circle cx="17" cy="19.2" r="1.4" />
+    <path d="M3.5 4.5h2.2l1.7 9.3a1.5 1.5 0 0 0 1.5 1.2h7.7a1.5 1.5 0 0 0 1.5-1.2l1.1-6H6.5" />
+  </Icon>
+);
+
+/** A till receipt with a torn edge. */
+export const IconReceipt = (p) => (
+  <Icon {...p}>
+    <path d="M6 3.5h12v17l-2.4-1.6-2.4 1.6-2.4-1.6-2.4 1.6L6 20.5z" />
+    <path d="M9 8.5h6M9 12h6M9 15.5h3.5" />
+  </Icon>
+);
+
+export const IconCard = (p) => (
+  <Icon {...p}>
+    <rect x="3" y="5.5" width="18" height="13" rx="2.2" />
+    <path d="M3 10h18M7 15h3" />
+  </Icon>
+);
+
+export const IconMail = (p) => (
+  <Icon {...p}>
+    <rect x="3" y="5.5" width="18" height="13" rx="2.2" />
+    <path d="m4 7.5 8 6 8-6" />
+  </Icon>
+);
+
+export const IconPrint = (p) => (
+  <Icon {...p}>
+    <path d="M7 9V4h10v5" />
+    <rect x="4" y="9" width="16" height="8" rx="2" />
+    <path d="M7 14h10v6H7z" />
+  </Icon>
+);
+
 export const IconSignIn = (p) => (
   <Icon {...p}>
     <path d="M14.5 4.5h3A2.5 2.5 0 0 1 20 7v10a2.5 2.5 0 0 1-2.5 2.5h-3" />

@@ -1,0 +1,1279 @@
+/* ==========================================================================
+   Buying the book: the cart, the checkout, the receipt.
+   The same cream, ink and clay as the account page — a receipt is a document,
+   so it is drawn as one: plain paper, a ruled table, and it prints cleanly.
+   ========================================================================== */
+
+/* ------------------------------------------------- buttons used only here */
+.db--lg {
+  padding: 14px 24px;
+  font-size: 1.02rem;
+  border-radius: 16px;
+}
+
+/* ------------------------------------------- the navigation bar's controls */
+/* One size for everything on the right of the bar: 34px circles, the social
+   icons smaller still, no pulsing. The sign-in is an avatar — a person in a
+   cream disc — and becomes the reader's picture once they are in. */
+.nav__end {
+  gap: 8px;
+}
+.nav__end .social--sm {
+  gap: 6px;
+}
+.nav__end .social--sm .social__a {
+  width: 28px;
+  height: 28px;
+}
+.nav__end .social--sm .social__a svg {
+  width: 14px;
+  height: 14px;
+}
+.nav__end .nav__burger {
+  width: 36px;
+  height: 36px;
+}
+
+.nav__end .acctb__signin,
+.nav__end .acctb__btn.is-in {
+  width: 36px;
+  height: 36px;
+  min-width: 0;
+  padding: 0;
+}
+.nav__end .acctb__signin {
+  color: #6b5646;
+  background: #f3e9d8;
+  box-shadow: inset 0 0 0 1px rgba(31, 22, 17, 0.16);
+  transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+.nav__end .acctb__signin::after {
+  display: none;
+}
+.nav__end .acctb__signin:hover,
+.nav__end .acctb__signin:focus-visible {
+  transform: none;
+  color: #7b2b2b;
+  background: #fff;
+  box-shadow: inset 0 0 0 1.5px #7b2b2b;
+}
+.nav__end .acctb__btn.is-in {
+  box-shadow: 0 0 0 1.5px #fff, 0 0 0 3px rgba(123, 43, 43, 0.45);
+}
+.nav__end .acctb__btn.is-in img,
+.nav__end .acctb__btn.is-in span {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+}
+.nav--dark:not(.is-stuck) .nav__end .acctb__signin {
+  color: #f4f0e9;
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.34);
+}
+
+/* the cart in the navigation bar */
+.cartb {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 50%;
+  color: #3a2418;
+  background: #f3e9d8;
+  box-shadow: inset 0 0 0 1px rgba(31, 22, 17, 0.16);
+  transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+.cartb:hover,
+.cartb:focus-visible {
+  color: #7b2b2b;
+  background: #fff;
+  box-shadow: inset 0 0 0 1.5px #7b2b2b;
+}
+.cartb svg {
+  width: 18px;
+  height: 18px;
+}
+.cartb b {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  display: grid;
+  place-items: center;
+  border-radius: 99px;
+  background: #7b2b2b;
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1;
+  box-shadow: 0 0 0 2px #faf4e9;
+}
+.nav--dark:not(.is-stuck) .cartb {
+  color: #f4f0e9;
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.34);
+}
+
+/* a button-shaped placeholder while ownership is being looked up */
+.buy__wait {
+  display: inline-flex;
+  min-width: 170px;
+  min-height: 44px;
+  border-radius: 999px;
+  background: linear-gradient(100deg, rgba(31, 22, 17, 0.08) 20%, rgba(31, 22, 17, 0.16) 40%, rgba(31, 22, 17, 0.08) 60%);
+  background-size: 220% 100%;
+  animation: buyWait 1.3s linear infinite;
+  box-shadow: none;
+  border: 0;
+}
+@keyframes buyWait {
+  to {
+    background-position: -220% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .buy__wait {
+    animation: none;
+  }
+}
+
+/* ------------------------------------------------ buying, in one quiet row */
+/* Buy now is the one emphasised action (solid, accent); Add to cart sits beside
+   it as an outline of the same height; the two text links are a smaller row
+   beneath. 44px high, 15px text, a 150ms colour change and a 1px press — and
+   nothing that moves on its own. */
+.bh__actions {
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+  margin-top: clamp(14px, 2vw, 22px);
+}
+.bh__buy {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  width: auto;
+}
+.bh__buy .bh__read,
+.bk__buyrow .bk__buy {
+  flex: 0 0 auto;
+  min-height: 44px;
+  height: 44px;
+  padding: 0 20px;
+  gap: 8px;
+  border-radius: 999px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0;
+  box-shadow: 0 8px 18px -12px rgba(178, 67, 31, 0.7);
+  transition: background-color 0.15s ease, box-shadow 0.15s ease, transform 0.12s ease;
+}
+.bh__buy .bh__read:hover,
+.bk__buyrow .bk__buy:hover {
+  box-shadow: 0 10px 20px -12px rgba(178, 67, 31, 0.8);
+}
+.bh__buy .bh__read:active,
+.bk__buyrow .bk__buy:active,
+.bh__cart:active,
+.bk__cart:active {
+  transform: translateY(1px);
+}
+.bh__cart,
+.bk__cart {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  height: 44px;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 1.5px solid rgba(31, 22, 17, 0.22);
+  background: transparent;
+  color: #1f1611;
+  font-size: 0.92rem;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.12s ease;
+}
+.bh__cart:hover,
+.bk__cart:hover {
+  background: rgba(255, 255, 255, 0.7);
+  border-color: #7b2b2b;
+  color: #7b2b2b;
+}
+.bh__cart.is-in,
+.bk__cart.is-in {
+  color: #1c6b43;
+  border-color: rgba(28, 107, 67, 0.45);
+  background: rgba(231, 243, 236, 0.7);
+  animation: cartIn 0.22s ease-out both;
+}
+@keyframes cartIn {
+  from {
+    opacity: 0.4;
+    transform: scale(0.97);
+  }
+}
+.bh__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 18px;
+}
+.bh__links .bh__ghost {
+  min-height: 32px;
+  font-size: 0.88rem;
+  margin: 0;
+}
+.bh__buy .bh__read:focus-visible,
+.bh__cart:focus-visible,
+.bk__cart:focus-visible {
+  outline: 2px solid #7b2b2b;
+  outline-offset: 3px;
+}
+@media (max-width: 760px) {
+  .bh__body > .bh__actions {
+    justify-items: stretch;
+    margin-top: 14px;
+  }
+  .bh__buy {
+    flex-wrap: nowrap;
+  }
+  .bh__buy .bh__read {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+  .bh__cart {
+    flex: 0 0 auto;
+  }
+  .bh__links {
+    justify-content: center;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bh__cart.is-in,
+  .bk__cart.is-in {
+    animation: none;
+  }
+}
+
+/* ------------------------------------------------------------- the page */
+.co .shell {
+  display: grid;
+  gap: clamp(16px, 2vw, 26px);
+}
+.co__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* the four steps */
+.co__steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  counter-reset: none;
+}
+.co__steps li {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+  color: #8b7b6c;
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+.co__steps li::before {
+  content: "";
+  position: absolute;
+  top: 15px;
+  left: calc(-50% + 20px);
+  width: calc(100% - 40px);
+  height: 2px;
+  background: rgba(31, 22, 17, 0.14);
+}
+.co__steps li:first-child::before {
+  display: none;
+}
+.co__dot {
+  position: relative;
+  z-index: 1;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #f1e7d6;
+  border: 1.5px solid rgba(31, 22, 17, 0.18);
+  font-size: 0.88rem;
+}
+.co__steps li.is-past {
+  color: #1c6b43;
+}
+.co__steps li.is-past::before,
+.co__steps li.is-now::before {
+  background: #1c6b43;
+}
+.co__steps li.is-past .co__dot {
+  background: #1c6b43;
+  border-color: #1c6b43;
+  color: #fff;
+}
+.co__steps li.is-now {
+  color: #7b2b2b;
+}
+.co__steps li.is-now .co__dot {
+  background: #7b2b2b;
+  border-color: #7b2b2b;
+  color: #fff;
+  box-shadow: 0 0 0 5px rgba(123, 43, 43, 0.14);
+}
+
+/* main column + the sum, which stays in view on a wide screen */
+.co__grid {
+  display: grid;
+  gap: clamp(16px, 2vw, 26px);
+  align-items: start;
+}
+@media (min-width: 900px) {
+  .co__grid {
+    grid-template-columns: minmax(0, 1fr) 340px;
+  }
+  .co__side {
+    position: sticky;
+    top: calc(var(--nav-h, 78px) + 16px);
+  }
+}
+.co__main,
+.co__side {
+  display: grid;
+  gap: clamp(16px, 2vw, 26px);
+  min-width: 0;
+}
+
+/* the item in the cart */
+.co__item {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: center;
+  padding: 14px;
+  border-radius: 18px;
+  background: #fbf4e6;
+  border: 1px solid rgba(31, 22, 17, 0.08);
+}
+.co__item img,
+.co__noimg {
+  width: 76px;
+  height: 106px;
+  object-fit: cover;
+  border-radius: 8px;
+  box-shadow: 0 14px 24px -14px rgba(40, 20, 10, 0.7);
+  background: #e8dcc6;
+}
+.co__itemBody h3 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+.co__itemBody p {
+  margin: 2px 0 0;
+  color: #5c4b3e;
+}
+.co__price {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  margin-top: 8px !important;
+}
+.co__price s {
+  color: #8b7b6c;
+}
+.co__price b {
+  font-size: 1.35rem;
+  color: #7b2b2b;
+}
+.co__price span {
+  font-size: 0.84rem;
+  color: #6b5d50;
+}
+.co__rm {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  color: #8a3b30;
+  transition: background 0.15s ease;
+}
+.co__rm:hover {
+  background: rgba(138, 59, 48, 0.1);
+}
+
+/* coupon */
+.co__coupon {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+}
+.co__coupon label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 0.92rem;
+}
+.co__coupon > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.co__coupon input,
+.co__form input,
+.co__form select {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 13px;
+  border: 1.5px solid rgba(31, 22, 17, 0.2);
+  background: #fff;
+  color: #1f1611;
+  font: inherit;
+  letter-spacing: 0.02em;
+}
+.co__coupon input {
+  flex: 1 1 200px;
+  width: auto;
+  text-transform: uppercase;
+}
+.co__coupon input:focus,
+.co__form input:focus,
+.co__form select:focus {
+  outline: none;
+  border-color: #7b2b2b;
+  box-shadow: 0 0 0 4px rgba(123, 43, 43, 0.14);
+}
+.co__form input[readonly] {
+  background: #f4ead7;
+  color: #5c4b3e;
+}
+.co__ok,
+.co__bad {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.92rem;
+}
+.co__ok {
+  color: #1c6b43;
+}
+.co__bad {
+  color: #a23a2c;
+}
+
+/* details form */
+.co__form {
+  display: grid;
+  gap: 14px;
+}
+@media (min-width: 640px) {
+  .co__form {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+.co__form label {
+  display: grid;
+  gap: 6px;
+}
+.co__form label > span {
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: #4a3b30;
+}
+.co__tick2 {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 14px;
+  border-radius: 14px;
+  background: #fbf4e6;
+  border: 1px solid rgba(31, 22, 17, 0.08);
+  cursor: pointer;
+}
+.co__tick2 input {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin-top: 3px;
+  accent-color: #7b2b2b;
+}
+.co__tick2 span {
+  font-size: 0.94rem;
+  line-height: 1.75;
+}
+.co__tick2 a {
+  color: #7b2b2b;
+  text-decoration: underline;
+}
+
+/* actions and messages */
+.co__act {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 18px;
+}
+.co__small {
+  margin: 14px 0 0;
+  font-size: 0.86rem;
+  color: #6b5d50;
+  line-height: 1.7;
+}
+.co__msg {
+  margin: 14px 0 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  font-size: 0.94rem;
+  line-height: 1.7;
+}
+.co__msg.is-ok {
+  background: #e7f3ec;
+  color: #1c5c3b;
+}
+.co__msg.is-warn {
+  background: #fbf0d6;
+  color: #7a5410;
+}
+.co__msg.is-bad {
+  background: #f9e3df;
+  color: #8a2c20;
+}
+.co__own {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  margin-top: 16px;
+  padding: 14px;
+  border-radius: 14px;
+  background: #e7f3ec;
+}
+.co__own p {
+  margin: 0;
+  color: #1c5c3b;
+  font-weight: 700;
+}
+.co__back {
+  justify-self: start;
+}
+
+/* the sum */
+.co__sum {
+  padding: clamp(16px, 2vw, 22px);
+  border-radius: 22px;
+  background: #fffdf8;
+  border: 1px solid rgba(31, 22, 17, 0.09);
+  box-shadow: 0 24px 50px -40px rgba(63, 40, 25, 0.55);
+}
+.co__sum h3 {
+  margin: 0 0 8px;
+  font-size: 1.05rem;
+}
+.co__sum table,
+.rcp__lines {
+  width: 100%;
+  border-collapse: collapse;
+}
+.co__sum th,
+.co__sum td,
+.rcp__lines th,
+.rcp__lines td {
+  padding: 8px 0;
+  border-bottom: 1px dashed rgba(31, 22, 17, 0.16);
+  font-size: 0.95rem;
+  font-weight: 400;
+  text-align: left;
+  color: #3a2a1f;
+}
+.co__sum td,
+.rcp__lines td {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.co__sum .is-strike,
+.rcp__lines .is-strike {
+  text-decoration: line-through;
+  color: #8b7b6c;
+}
+.co__sum .is-good td,
+.rcp__lines .is-good td {
+  color: #1c6b43;
+}
+.co__sum .is-total th,
+.co__sum .is-total td,
+.rcp__lines .is-total th,
+.rcp__lines .is-total td {
+  border-bottom: 0;
+  border-top: 2px solid #1f1611;
+  padding-top: 12px;
+  font-weight: 800;
+  font-size: 1.12rem;
+  color: #1f1611;
+}
+.co__sumNote {
+  margin: 8px 0 0;
+  font-size: 0.82rem;
+  color: #6b5d50;
+}
+.co__save {
+  margin: 12px 0 0;
+  padding: 9px 12px;
+  border-radius: 10px;
+  background: #e7f3ec;
+  color: #1c5c3b;
+  font-size: 0.9rem;
+}
+
+/* paying */
+.co__test {
+  margin: 0 0 14px;
+  padding: 11px 14px;
+  border-radius: 12px;
+  background: #fbf0d6;
+  color: #6b4a0c;
+  font-size: 0.9rem;
+  line-height: 1.7;
+}
+.co__test code {
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.7);
+}
+.co__payRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.co__payAmt {
+  margin: 0;
+  font-family: var(--f-serif);
+  font-size: clamp(2rem, 4vw, 2.6rem);
+  line-height: 1.1;
+  color: #7b2b2b;
+  font-variant-numeric: tabular-nums;
+}
+.co__payFor {
+  margin: 4px 0 0;
+  color: #5c4b3e;
+}
+.co__pay {
+  box-shadow: 0 18px 30px -16px rgba(123, 43, 43, 0.8);
+}
+.co__trust {
+  list-style: none;
+  margin: 18px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.co__trust li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: #4a3b30;
+}
+.co__trust svg {
+  flex: none;
+  margin-top: 3px;
+  color: #1c6b43;
+}
+
+/* done / empty */
+.co__done,
+.co__empty {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  text-align: center;
+  padding: clamp(20px, 4vw, 40px) 0 4px;
+}
+.co__tick {
+  width: 76px;
+  height: 76px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: #fff;
+  background: linear-gradient(150deg, #2c8a5a, #1c6b43);
+  box-shadow: 0 20px 34px -18px rgba(28, 107, 67, 0.85), 0 0 0 10px rgba(28, 107, 67, 0.1);
+  animation: coPop 0.5s cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+.co__tick.is-muted {
+  color: #6b5d50;
+  background: #efe5d2;
+  box-shadow: none;
+}
+@keyframes coPop {
+  from {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .co__tick {
+    animation: none;
+  }
+}
+.co__h {
+  margin: 4px 0 0;
+  font-family: var(--f-serif);
+  font-weight: 400;
+  font-size: clamp(1.7rem, 3.4vw, 2.4rem);
+  line-height: 1.2;
+}
+.co__lead {
+  margin: 0;
+  max-width: 54ch;
+  color: #3a2a1f;
+  line-height: 1.85;
+}
+.co__mail {
+  margin: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  max-width: 60ch;
+  text-align: left;
+  padding: 12px 16px;
+  border-radius: 14px;
+  background: #fffdf8;
+  border: 1px solid rgba(31, 22, 17, 0.09);
+  font-size: 0.94rem;
+  line-height: 1.7;
+}
+.co__mail svg {
+  flex: none;
+  margin-top: 3px;
+  color: #7b2b2b;
+}
+.co__done .co__act,
+.co__empty .co__act {
+  justify-content: center;
+}
+.co__receipt {
+  margin-inline: auto;
+}
+
+/* ------------------------------------------------------ the receipt itself */
+.rcp {
+  position: relative;
+  width: 100%;
+  max-width: 720px;
+  padding: clamp(20px, 3vw, 34px);
+  border-radius: 6px;
+  background: #fffefb;
+  border: 1px solid rgba(31, 22, 17, 0.12);
+  box-shadow: 0 30px 60px -44px rgba(63, 40, 25, 0.7);
+  color: #1f1611;
+}
+/* the edges of a till roll */
+.rcp::before,
+.rcp::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 9px;
+  background: radial-gradient(circle at 7px 0, transparent 5px, #fffefb 5.5px) 0 0 / 14px 9px repeat-x;
+}
+.rcp::before {
+  top: -8px;
+  transform: scaleY(-1);
+  filter: drop-shadow(0 -1px 0 rgba(31, 22, 17, 0.1));
+}
+.rcp::after {
+  bottom: -8px;
+  filter: drop-shadow(0 1px 0 rgba(31, 22, 17, 0.1));
+}
+.rcp__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 14px;
+  border-bottom: 2px solid #1f1611;
+}
+.rcp__brand {
+  margin: 0;
+  font-size: 0.8rem;
+  letter-spacing: 0.12em;
+  color: #8a5a2b;
+}
+.rcp__title {
+  margin: 4px 0 0;
+  font-size: clamp(1.2rem, 2.4vw, 1.5rem);
+  font-weight: 800;
+}
+.rcp__st {
+  flex: none;
+  padding: 5px 12px;
+  border-radius: 99px;
+  font-size: 0.8rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.rcp__st--ok {
+  background: #e1f1e8;
+  color: #1c5c3b;
+}
+.rcp__st--warn {
+  background: #fbf0d6;
+  color: #7a5410;
+}
+.rcp__st--muted {
+  background: #ece3d2;
+  color: #5c4b3e;
+}
+.rcp__meta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 14px 0 0;
+}
+.rcp__meta dt,
+.rcp__pay dt {
+  font-size: 0.74rem;
+  letter-spacing: 0.04em;
+  color: #7a6a5a;
+}
+.rcp__meta dd,
+.rcp__pay dd {
+  margin: 2px 0 0;
+  font-weight: 700;
+  font-size: 0.92rem;
+  overflow-wrap: anywhere;
+}
+.rcp__mono {
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 0.84rem !important;
+  font-weight: 600 !important;
+}
+.rcp__parties {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px dashed rgba(31, 22, 17, 0.2);
+}
+.rcp__party h4,
+.rcp__pay h4 {
+  margin: 0 0 6px;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #8a5a2b;
+}
+.rcp__party p {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+.rcp__item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 18px;
+  padding: 12px 0;
+  border-top: 2px solid #1f1611;
+  border-bottom: 1px solid rgba(31, 22, 17, 0.14);
+}
+.rcp__item b {
+  display: block;
+  font-size: 1.05rem;
+}
+.rcp__item small {
+  display: block;
+  margin-top: 2px;
+  color: #6b5d50;
+  font-size: 0.82rem;
+  line-height: 1.6;
+}
+.rcp__note,
+.rcp__saved {
+  margin: 10px 0 0;
+  font-size: 0.84rem;
+  color: #6b5d50;
+}
+.rcp__saved {
+  color: #1c6b43;
+  font-size: 0.9rem;
+}
+.rcp__pay {
+  margin-top: 18px;
+  padding: 14px;
+  border-radius: 10px;
+  background: #f8efdc;
+}
+.rcp__pay dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 16px;
+  margin: 0;
+}
+.rcp__foot {
+  margin-top: 18px;
+  padding-top: 12px;
+  border-top: 1px dashed rgba(31, 22, 17, 0.2);
+  font-size: 0.8rem;
+  line-height: 1.7;
+  color: #6b5d50;
+}
+@media (max-width: 560px) {
+  .rcp__meta,
+  .rcp__parties,
+  .rcp__pay dl {
+    grid-template-columns: 1fr;
+  }
+  .co__item {
+    grid-template-columns: 62px minmax(0, 1fr) auto;
+    gap: 12px;
+  }
+  .co__item img,
+  .co__noimg {
+    width: 62px;
+    height: 88px;
+  }
+  .co__steps li {
+    font-size: 0.78rem;
+  }
+}
+
+/* --------------------------------------------- printing a receipt cleanly */
+@media print {
+  body * {
+    visibility: hidden !important;
+  }
+  .rcp,
+  .rcp * {
+    visibility: visible !important;
+  }
+  .rcp {
+    position: absolute;
+    inset: 0 auto auto 0;
+    max-width: none;
+    box-shadow: none;
+    border: 0;
+  }
+  .rcp::before,
+  .rcp::after {
+    display: none;
+  }
+  .grain,
+  .cookie,
+  .sread {
+    display: none !important;
+  }
+}
+
+/* --------------------------------------- the book is not yet owned (reader) */
+.rdw__buy {
+  display: grid;
+  gap: 10px;
+  justify-items: center;
+  margin-top: 6px;
+}
+.rdw__price {
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.rdw__price s {
+  color: #8b7b6c;
+}
+.rdw__price b {
+  font-size: 1.6rem;
+  color: #7b2b2b;
+}
+.rdw__act {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+}
+
+/* ------------------------------------------- the account's "my purchases" */
+.ordl {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+.ordl li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: #fbf4e6;
+}
+.ordl li > svg {
+  color: #7b2b2b;
+}
+.ordl b {
+  display: block;
+}
+.ordl small {
+  display: block;
+  color: #6b5d50;
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
+.ordl__r {
+  text-align: right;
+  display: grid;
+  gap: 4px;
+  justify-items: end;
+}
+.ordl__amt {
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------------------------- admin: sales */
+.sales__setup {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 4px;
+  padding: 0;
+  list-style: none;
+}
+.sales__setup li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #f8efdc;
+  font-size: 0.92rem;
+  line-height: 1.6;
+}
+.sales__setup li.is-ok {
+  background: #e7f3ec;
+}
+.sales__setup li.is-bad {
+  background: #f9e3df;
+}
+.sales__grant {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.sales__grant input {
+  flex: 1 1 220px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1.5px solid rgba(31, 22, 17, 0.2);
+  background: #fff;
+  font: inherit;
+}
+
+/* the wall's buy button is a link, and its quieter neighbour */
+.rdw__go {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.rdw__go--ghost {
+  background: transparent;
+  color: #7b2b2b;
+  border: 1.5px solid rgba(123, 43, 43, 0.4);
+}
+
+/* a small select beside the search in an admin table header */
+.sel {
+  padding: 9px 12px;
+  border-radius: 12px;
+  border: 1.5px solid rgba(31, 22, 17, 0.2);
+  background: #fff;
+  color: #1f1611;
+  font: inherit;
+  font-size: 0.9rem;
+}
+
+/* ------------------------------------------------ the front page, spaced well */
+/* The cover starts level with the title (it used to centre itself on a column
+   three screens tall and start below the fold). The price,
+   the buy row and the rating are one block under the author's name. */
+@media (min-width: 761px) {
+  .bh__cover {
+    align-self: start;
+    margin-top: 14px;
+  }
+  .bh__grid {
+    align-items: start;
+  }
+  .bh__head {
+    align-self: start;
+  }
+}
+.bh__buyrow,
+.bk__buyrow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 12px;
+  margin-top: 14px;
+}
+.bh__buyrow .cpn__open,
+.bk__buyrow .cpn__open {
+  margin-top: 0;
+  height: 36px;
+  padding: 0 14px;
+  font-size: 0.88rem;
+}
+.bh__buyrow .cpn,
+.bk__buyrow .cpn {
+  flex: 1 1 100%;
+  margin-top: 0;
+}
+.bh__rate {
+  margin-top: 12px;
+}
+.rvp.rvp--sm {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  border-radius: 0;
+  font-size: 0.88rem;
+  color: #4a3b30;
+  text-decoration: none;
+}
+.rvp.rvp--sm b {
+  font-size: 0.98rem;
+  color: #7b2b2b;
+}
+.rvp.rvp--sm > span:last-child {
+  border-bottom: 1px solid rgba(31, 22, 17, 0.25);
+}
+.rvp.rvp--sm:hover > span:last-child {
+  color: #7b2b2b;
+  border-color: #7b2b2b;
+}
+
+/* five facts, one row on a wide screen; three across on a phone */
+.bh__facts {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  max-width: 760px;
+}
+.bk__facts {
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+}
+.bh__facts dd {
+  overflow-wrap: anywhere;
+}
+
+/* the links under the facts: a quiet row, after them */
+.bh__body > .bh__actions {
+  margin-top: 14px;
+}
+
+@media (max-width: 760px) {
+  .bh__head {
+    text-align: center;
+  }
+  .bh__meta,
+  .bh__buyrow,
+  .bh__rate {
+    justify-content: center;
+  }
+  .bh__rate {
+    display: flex;
+  }
+  .bh__facts {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px 12px;
+  }
+  .bh__facts dd {
+    font-size: 0.9rem;
+  }
+  .bh__body > .bh__actions {
+    order: 4;
+  }
+  .bh__body > .bh__cards {
+    order: 5;
+  }
+}
+@media (max-width: 560px) {
+  /* a smaller cover puts the title, the price and the buy button on the first screen */
+  .bh__cover {
+    width: min(50vw, 220px);
+  }
+  .bh__grid {
+    row-gap: 14px;
+  }
+  .bh__buyrow .bh__buy {
+    width: 100%;
+  }
+}
+
+/* the turn-over tabs keep one line, even under a small cover */
+.bh__cover .bshow__tabs {
+  position: relative;
+  left: 50%;
+  width: max-content;
+  max-width: 92vw;
+  transform: translateX(-50%);
+}
+.bh__cover .bshow__tabs button {
+  white-space: nowrap;
+  padding: 0 14px;
+  min-height: 38px;
+  font-size: 0.86rem;
+}
+
+/* the book page: the same small cover on a phone, so the price and the buy
+   button are on the first screen */
+@media (max-width: 560px) {
+  .bk__cover {
+    width: min(50vw, 220px);
+    margin-inline: auto;
+  }
+  .bk__hero {
+    row-gap: 14px;
+  }
+  .bk__buyrow {
+    justify-content: flex-start;
+  }
+}

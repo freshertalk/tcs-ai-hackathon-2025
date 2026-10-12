@@ -20,6 +20,12 @@ import { AccessError, accessRequired, ensureAccess } from "../auth/access";
 import LoginScreen from "../auth/LoginScreen";
 import { contentUrl } from "../library/api";
 import { LEGAL } from "../data/legal";
+import { BOOK } from "../data/books";
+import { IconCart } from "../components/ui/icons";
+import { addToCart } from "../shop/store";
+import { resumePayment } from "../shop/api";
+import { loadMe } from "../account/me";
+import { inrShort } from "../shop/format";
 
 // why the collector would not vouch for a lapsed sign-in (see verifyLapsedGoogle_)
 const LAPSE = {
@@ -56,7 +62,8 @@ export default function ReadWall({ book, children }) {
   const { user } = useAuth();
   const issue = useLoginIssue();
   // a person who is plainly signed out never sees a spinner first
-  const [state, setState] = useState(!gated ? "ok" : user ? "checking" : "signin"); // checking | ok | signin | nokey | error
+  const [state, setState] = useState(!gated ? "ok" : user ? "checking" : "signin"); // checking | ok | signin | purchase | nokey | error
+  const resumed = useRef(false);
   const [why, setWhy] = useState("");
   const [seen, setSeen] = useState(null);
   const redirected = useRef(false);
@@ -80,8 +87,25 @@ export default function ReadWall({ book, children }) {
           signOut();
           return;
         }
+        if (code === "purchase" && !resumed.current) {
+          // paid, then closed the tab before the book opened? Ask the gateway
+          // once before showing the price: it settles by itself if so.
+          resumed.current = true;
+          resumePayment(book.slug)
+            .then((d) => {
+              if (d && d.settled) {
+                loadMe({ force: true });
+                check();
+              } else {
+                setState("purchase");
+              }
+            })
+            .catch(() => setState("purchase"));
+          return;
+        }
         setState(code === "signin" || code === "consent" ? "signin" : code);
       });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gated, user, book]);
 
   // signing out takes the book away again, at once
@@ -117,6 +141,41 @@ export default function ReadWall({ book, children }) {
         book={book}
         error={why === "consent" ? "आगे पढ़ने के लिए फिर से साइन इन कीजिए।" : reasonText(i)}
       />
+    );
+  }
+
+  if (state === "purchase") {
+    return (
+      <div className="rd rd--scroll rdw" data-theme="paper">
+        <div className="rdw__card">
+          {book.coverSmall && (
+            <img className="rdw__cover" src={contentUrl(book.slug, book.coverSmall)} alt="" width="120" height="168" />
+          )}
+          <h1 className="rdw__t hi-d">{book.title}</h1>
+          <p className="rdw__by">{book.author}</p>
+          <p className="rdw__p hi">
+            यह किताब खरीदने के बाद आपके खाते में <b>हमेशा के लिए</b> खुल जाती है — एक बार का भुगतान, आगे कोई शुल्क नहीं।
+          </p>
+          <div className="rdw__buy">
+            {book.slug === BOOK.slug ? (
+              <p className="rdw__price">
+                <s>{inrShort(BOOK.price.mrp)}</s> <b>{inrShort(BOOK.price.selling)}</b>
+              </p>
+            ) : null}
+            <div className="rdw__act">
+              <Link className="rdw__go" to="/checkout?buy=1" onClick={() => addToCart(book.slug)}>
+                <IconCart size={18} /> अभी खरीदिए
+              </Link>
+              <Link className="rdw__go rdw__go--ghost" to={`/books/${book.slug}`}>
+                किताब के बारे में
+              </Link>
+            </div>
+          </div>
+          <p className="rdw__back">
+            <Link to="/">← मुख पृष्ठ</Link>
+          </p>
+        </div>
+      </div>
     );
   }
 

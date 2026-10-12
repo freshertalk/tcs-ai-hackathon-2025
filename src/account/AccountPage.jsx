@@ -22,12 +22,15 @@ import { fmtDate } from "../reader/util";
 import { StarRow } from "../reviews/Stars";
 import { getCookieChoice, reopenCookieNotice } from "../legal/consent";
 import { Card, Chip, Empty, Failure, Kpi, Loading } from "../admin/ui";
+import { inr } from "../shop/format";
 import { download, fmtAgo, fmtDur, fmtN, fmtWhen, rupees } from "../admin/format";
 import {
   IconBook,
   IconBookmark,
+  IconCart,
   IconClock,
   IconDownload,
+  IconReceipt,
   IconShield,
   IconSignOut,
   IconStar,
@@ -95,6 +98,57 @@ function Continue({ book, progress }) {
           )}
         </div>
       </div>
+    </Card>
+  );
+}
+
+const ORDER_LABEL = { paid: "भुगतान सफल", free: "मुफ़्त", created: "भुगतान बाकी", refunded: "रिफ़ंड" };
+const ORDER_TONE = { paid: "ok", free: "ok", created: "warn", refunded: "muted" };
+
+/** What they have bought: receipts, and the way back to an unpaid order. */
+function Purchases({ me }) {
+  const rows = (me && me.purchases) || [];
+  const owns = Boolean(me && me.access && me.access[BOOK.slug]);
+  return (
+    <Card title="आपकी खरीद" sub="Your purchases and receipts">
+      {rows.length ? (
+        <ul className="ordl">
+          {rows.map((o) => (
+            <li key={o.id}>
+              <IconReceipt size={22} />
+              <div>
+                <b className="hi">{o.title}</b>
+                <small>
+                  {o.invoice ? `${o.invoice} · ` : ""}
+                  {fmtWhen(o.paidAt || o.at)}
+                  {o.coupon ? ` · कूपन ${o.coupon}` : ""}
+                </small>
+                <small>
+                  <Link to={o.status === "created" ? `/checkout?order=${encodeURIComponent(o.id)}` : `/receipt/${encodeURIComponent(o.id)}`}>
+                    {o.status === "created" ? "भुगतान कीजिए" : "रसीद देखिए"}
+                  </Link>
+                </small>
+              </div>
+              <div className="ordl__r">
+                <span className="ordl__amt">{inr(o.total)}</span>
+                <Chip tone={ORDER_TONE[o.status] || "muted"}>{ORDER_LABEL[o.status] || o.status}</Chip>
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <Empty>आपने अभी कोई किताब नहीं खरीदी।</Empty>
+      )}
+      {!owns && (
+        <Link className="db db--solid db--sm" to="/checkout?buy=1">
+          <IconCart size={15} /> किताब खरीदिए · {inr(BOOK.price.selling)}
+        </Link>
+      )}
+      {owns && (
+        <p className="co__small">
+          यह किताब आपके खाते में <b>हमेशा के लिए</b> है — आगे कोई शुल्क नहीं।
+        </p>
+      )}
     </Card>
   );
 }
@@ -266,6 +320,8 @@ export default function AccountPage() {
           <Kpi label="Bookmarks · highlights" icon={<IconBookmark size={18} />} value={`${fmtN(marks.bookmarks.length)} · ${fmtN(marks.marks.length)}`} hint="on this device" />
         </div>
       )}
+
+      {me && <Purchases me={me} />}
 
       <div className="grid2">
         <Continue book={book} progress={progress} />

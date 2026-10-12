@@ -17,7 +17,7 @@ import { signOut, useAuth } from "./google";
 import { openSignIn } from "./SignInDialog";
 import { syncAvailable, useSyncStatus } from "../sync/sync";
 import { useMe } from "../account/me";
-import { GoogleG, IconDashboard, IconShield, IconSignIn, IconSignOut } from "../components/ui/icons";
+import { GoogleG, IconDashboard, IconShield, IconSignIn, IconSignOut, IconUser } from "../components/ui/icons";
 
 export { GoogleG };
 
@@ -137,7 +137,7 @@ export function AccountButton({ className = "" }) {
     return (
       <div className={`acctb ${className}`}>
         <button type="button" className="acctb__signin" aria-label="Sign in" onClick={() => openSignIn()}>
-          <IconSignIn size={21} />
+          <IconUser size={20} />
         </button>
         <span className="acctb__tip" role="tooltip">
           साइन इन · Sign in

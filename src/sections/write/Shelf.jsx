@@ -9,7 +9,8 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { Reveal, MaskLine } from "../../components/ui/motion";
 import ChaiMark from "../../components/site/ChaiMark";
-import { Cover, ReadButton } from "../../library/BookCard";
+import { Cover } from "../../library/BookCard";
+import BuyBar from "../../shop/BuyBar";
 import { contentUrl } from "../../library/api";
 import { openCoverViewer } from "../../library/CoverViewer";
 import Price from "../../library/Price";
@@ -100,7 +101,13 @@ export default function Shelf() {
               </p>
               <Price slug={book.slug} className="shelf__price" />
               <div className="shelf__go">
-                <ReadButton book={book} className="btn btn--solid btn--lg" />
+                <BuyBar
+                  book={book}
+                  slug={book.slug}
+                  readClass="btn btn--solid bh__read"
+                  buyClass="btn btn--solid bh__read"
+                  cartClass="bh__cart"
+                />
                 <Link className="shelf__link" to={`/books/${book.slug}`}>
                   किताब का पन्ना
                 </Link>

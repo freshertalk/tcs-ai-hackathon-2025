@@ -45,10 +45,10 @@ export const BOOK = {
   // matches the slug the book is published under in the library
   slug: "do-kulhad-chai",
 
-  // The E-Book price. Shown as: ₹ <mrp>/= only (struck through) and
-  // ₹ <selling>/= only.
-  // buyUrl, once there is a place to buy, adds a "खरीदिए" link beside it.
-  price: { mrp: 399, selling: 115, buyUrl: "" },
+  // The E-Book price, as it is SHOWN: ₹ <mrp>/= only (struck through) and
+  // ₹ <selling>/= only. What is actually charged is decided by the collector
+  // (PRICES in scripts/reviews-apps-script.gs) — keep the two the same.
+  price: { mrp: 399, selling: 115 },
   title: "दो कुल्हड़ चाय",
   roman: "Do Kulhad Chai",
   kind: "उपन्यास · Novel",

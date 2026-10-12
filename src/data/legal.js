@@ -15,7 +15,7 @@
 // ---------------------------------------------------------------------------
 
 export const LEGAL = {
-  version: "2026-10-12.3",
+  version: "2026-10-12.4",
   updated: "12 October 2026",
   site: "https://vinaytiwari.org",
   owner: "Vinay Kumar Tiwari",
@@ -55,7 +55,7 @@ export const TERMS = {
     {
       h: "3. Limited licence; restrictions",
       p: [
-        "Subject to your continuing compliance with these Terms, the Owner grants you a limited, personal, non-exclusive, non-transferable, non-sublicensable, revocable licence to read the published content on the Website, online, through the reader provided, for your own non-commercial purposes. No ownership or other right is transferred to you.",
+        "Subject to your continuing compliance with these Terms, and, where the content is offered for sale, to payment of its price, the Owner grants you a limited, personal, non-exclusive, non-transferable, non-sublicensable licence to read the published content on the Website, online, through the reader provided, for your own non-commercial purposes. The licence is revocable only for breach of these Terms or as the law requires. No ownership or other right is transferred to you.",
         "You shall not, and shall not permit or assist any other person to: (a) download, copy, reproduce, record, photograph, screen-capture for circulation, print, translate, adapt, excerpt beyond fair dealing permitted by the Copyright Act, 1957, publish, communicate to the public, sell, rent, lend, share or otherwise exploit the content; (b) use any robot, spider, scraper, crawler or automated means, or any text-and-data-mining, machine-learning or artificial-intelligence tool or process, to access, extract, ingest, index, summarise or train upon the content or the Website; (c) circumvent, disable, decrypt, probe or interfere with any technical, access-control, encryption, rights-management or security measure, key, token or sign-in requirement; (d) remove any copyright, attribution or other notice; or (e) use the Website unlawfully or in a manner that may damage, overburden or impair it.",
         "Breach of this clause may constitute infringement under Sections 51, 63 and 65A of the Copyright Act, 1957 and offences and contraventions under Sections 43, 66 and related provisions of the Information Technology Act, 2000, and the Owner reserves every civil and criminal remedy, including injunction, damages and recovery of legal costs.",
       ],
@@ -84,9 +84,13 @@ export const TERMS = {
       ],
     },
     {
-      h: "7. Prices and payments",
+      h: "7. Prices, orders and payments",
       p: [
-        "Any price displayed on the Website is indicative, may be changed or withdrawn at any time without notice, and is subject to applicable taxes. Where payment is offered, it is processed by independent third-party payment service providers on their own terms; the Owner does not store card, bank or wallet credentials and is not responsible for the acts, omissions, delays, charges or failures of any bank, payment gateway or intermediary. Refunds, if any, are governed solely by the Refund Policy.",
+        "Prices are shown in Indian rupees. The amount you are asked to pay is worked out by the Owner’s systems when you confirm an order and is shown to you, with any Coupon, the tax included in it and the total, on the receipt before you pay; the price shown to you when you confirm is the price you pay. The Owner may change or withdraw a price or an offer at any time, which does not affect an order already paid for.",
+        "An order is made when you press the button that confirms it and is complete only when the payment has been verified by the Owner’s systems with the payment provider, or, where the total is nil because of a Coupon, when the order is confirmed. Until then you have no access to the content ordered, and the Owner may decline or cancel an order, in which case any amount paid for it is returned to you.",
+        "The price of a work is a single payment for a personal licence under clause 3 to read that work through the Website’s reader, on the account used to buy it, without any subscription, renewal or further charge for that work, for as long as the Website is made available. It is not a sale of a copy, a file or any right in the work, and it does not include any other work, edition or feature that the Owner may later offer.",
+        "Payment is taken by an independent payment service provider (at the date of these Terms, Razorpay) in its own window and on its own terms. Your card, UPI, bank or wallet details are entered there and are not received or stored by the Owner, who is not responsible for the acts, omissions, delays, charges or failures of any bank, payment gateway or intermediary. On a verified payment the Owner issues a receipt (a tax invoice where he is registered for GST), shows it on the Website and sends it, with the payment details, to the e-mail address of your account. You are responsible for that address being correct and able to receive mail; the receipt is in any case available from your account page.",
+        "Taxes: where the Owner is registered for goods and services tax, the price shown includes it, and the receipt shows its amount and how it is divided. Refunds, if any, are governed solely by the Refund Policy.",
       ],
     },
     {
@@ -148,7 +152,7 @@ export const TERMS = {
       h: "16. Coupons, discounts and promotional codes",
       p: [
         "The Owner may issue discount codes (“Coupons”) on such terms as he decides, including their amount, the period in which they may be used, the number of times they may be used in all and by one person, the persons or groups of persons (for example holders of a particular e-mail domain) who may use them, and the works to which they apply. Those terms are checked by the Owner’s systems when a Coupon is applied; a Coupon that is outside its terms is of no effect.",
-        "A Coupon has no cash value, is personal to the account it is applied for, may not be sold, transferred or published for others to use, and may not be combined with another unless the Owner says so. The Owner may withdraw, pause or change a Coupon at any time before it is applied, and may cancel the benefit of a Coupon obtained by mistake, by abuse of the Website, by automated means or by misrepresentation. Applying a Coupon creates a record (a reference number, your account, the price and the discount) which is evidence of the offer made to you and is not itself a payment or a contract of sale.",
+        "A Coupon has no cash value, is personal to the account it is applied for, may not be sold, transferred or published for others to use, and may not be combined with another unless the Owner says so. The Owner may withdraw, pause or change a Coupon at any time before it is applied, and may cancel the benefit of a Coupon obtained by mistake, by abuse of the Website, by automated means or by misrepresentation. A Coupon is used up, and counted against its limits, only when an order that carries it is paid or, where it makes the total nil, confirmed; trying a Coupon uses nothing. The record of its use (the order number, your account, the price and the discount) is evidence of the offer made to you.",
       ],
     },
     {
@@ -204,15 +208,16 @@ export const PRIVACY = {
           "(g) Technical information: IP address, browser type, device, operating-system and request details, which are processed automatically by the web server, hosting and content-delivery providers and by your browser when you visit.",
           "(h) Usage statistics: the pages you open, the time at which you open them, the seconds you are active on each page (while the page is visible and you are using it), the chapters you open, your device type (phone, tablet or computer) and the website that sent you here. If you pressed “Accept” on the cookie notice, these are linked to a random identifier kept in your browser; if you pressed “Necessary only”, only page views are counted and no identifier is used; if you are signed in, they are linked to your account. No IP address, and nothing you type, is part of these statistics.",
           "(i) Activity and audit records: a record of significant actions on the Website, such as signing in, the reading key being released to your account, a rating or comment being made, changed or moderated, a coupon being applied, and a request for a copy or erasure of your data, with the time and your account and device details, kept for security, accountability and the establishment, exercise or defence of legal claims.",
-          "(j) Coupons: the code you applied, the price and discount, and a reference number."
+          "(j) Coupons: the code you applied, the price and discount, and a reference number.",
+          "(k) Orders and payments: when you buy, the name you give for the receipt, your e-mail address, an optional telephone number and your state (which decides how goods and services tax is shown), the order, its price, any Coupon, the tax and the total, the invoice number, the time, how the receipt e-mail went, and the details the payment provider returns to us about the payment: its reference numbers, the method (for example UPI, card or net banking) and a masked identifier of it (such as the last four digits of a card or a partly hidden UPI address). The receipt is stored exactly as it was issued."
         ),
-        "We do not knowingly collect payment-card or bank credentials. Where payment is offered it is handled by independent payment providers under their own policies.",
+        "Your card, UPI, bank or wallet credentials are entered in the payment provider’s own window and are not received or stored by the Website or by the Owner’s records.",
       ],
     },
     {
       h: "3. Purposes",
       p: [
-        "We use information to: operate and secure the Website; verify that you are signed in and entitled to read; provide the reader, ratings, comments and synchronisation; moderate Contributions and prevent abuse, fraud and unauthorised copying; keep records of consent, of access and of significant activity for legal, security and evidentiary purposes; measure and understand how the Website is used (audience, time spent, popular pages) so as to improve it; administer coupons and prevent their misuse; respond to you; comply with law and lawful requests of authorities; establish, exercise or defend legal claims; and maintain and improve the Website. We do not sell your personal data and do not use it for third-party advertising.",
+        "We use information to: operate and secure the Website; verify that you are signed in and entitled to read; provide the reader, ratings, comments and synchronisation; moderate Contributions and prevent abuse, fraud and unauthorised copying; keep records of consent, of access and of significant activity for legal, security and evidentiary purposes; measure and understand how the Website is used (audience, time spent, popular pages) so as to improve it; administer coupons and prevent their misuse; take payment, give you access to what you have bought, issue receipts and invoices, send them to you by e-mail, keep the accounts and tax records that law requires, and deal with refunds, failed payments and disputes; respond to you; comply with law and lawful requests of authorities; establish, exercise or defend legal claims; and maintain and improve the Website. We do not sell your personal data and do not use it for third-party advertising.",
       ],
     },
     {
@@ -226,7 +231,7 @@ export const PRIVACY = {
     {
       h: "5. Sharing and processors",
       p: [
-        "Information is processed on our behalf by, or shared with: Google LLC and its affiliates (sign-in, and spreadsheet and script services in which ratings, consent records and synchronised data are stored); our web-hosting, domain and content-delivery providers; and, where payment is offered, payment service providers. They act under their own terms and policies, some on servers outside India. We may also disclose information where required by law, court order or lawful request of a government or regulatory authority, to protect rights, property or safety, or to investigate misuse. Your name, picture, rating and comment are shown publicly with your Contribution.",
+        "Information is processed on our behalf by, or shared with: Google LLC and its affiliates (sign-in, and spreadsheet and script services in which ratings, consent records and synchronised data are stored); our web-hosting, domain and content-delivery providers; and, for purchases, our payment service provider (at the date of this policy, Razorpay), which receives your name, e-mail address, optional telephone number and the order amount and handles your payment details itself, and Google’s mail service, through which your receipt is sent. They act under their own terms and policies, some on servers outside India. We may also disclose information where required by law, court order or lawful request of a government or regulatory authority, to protect rights, property or safety, or to investigate misuse. Your name, picture, rating and comment are shown publicly with your Contribution.",
       ],
     },
     {
@@ -238,7 +243,7 @@ export const PRIVACY = {
     {
       h: "7. Retention",
       p: [
-        "We keep information for as long as needed for the purposes in this policy. Consent and access records are retained for as long as necessary to establish, exercise or defend legal claims, including any applicable limitation period, and may be kept after you stop using the Website. Usage statistics are kept for as long as they are useful for understanding the Website and may be deleted or aggregated at any time. Contributions may be kept, anonymised or removed at our discretion. Information held by Google or other providers is subject to their own retention.",
+        "We keep information for as long as needed for the purposes in this policy. Consent and access records are retained for as long as necessary to establish, exercise or defend legal claims, including any applicable limitation period, and may be kept after you stop using the Website. Order, receipt and payment records are kept for the period that tax, accounting and company law require of a seller (generally several years from the end of the financial year) and for as long as needed to deal with a dispute, and are not removed on a request for erasure while that need lasts. Usage statistics are kept for as long as they are useful for understanding the Website and may be deleted or aggregated at any time. Contributions may be kept, anonymised or removed at our discretion. Information held by Google or other providers is subject to their own retention.",
       ],
     },
     {
@@ -257,7 +262,7 @@ export const PRIVACY = {
       h: "10. Your rights and choices",
       p: [
         `Subject to applicable law, you may ask to access a summary of your personal data, to have it corrected or updated, to have it erased, to withdraw consent (which does not affect processing already done), to nominate a person to exercise your rights, and to have a grievance addressed. Send your request from your registered e-mail address to ${C.email}. We may need to verify your identity and may decline or limit a request that is excessive, unlawful, or that would affect the rights of others or our ability to keep records for legal claims. Withdrawal of consent or erasure may end your access to sign-in-based features.`,
-        "If you are signed in you can, from your account page, download a copy of the information described in this policy that is held against your account, and ask for your reading data, your name and comment on ratings, and your picture and e-mail address in activity records to be erased. Records of your acceptance, of access and the audit log are kept as stated in clause 7, and a rating’s star value may remain in the overall tally without your name.",
+        "If you are signed in you can, from your account page, download a copy of the information described in this policy that is held against your account, and ask for your reading data, your name and comment on ratings, and your picture and e-mail address in activity records to be erased. Records of your acceptance, of access, of your orders and payments and the audit log are kept as stated in clause 7, and a rating’s star value may remain in the overall tally without your name.",
         "You can also sign out at any time from the Website and manage your Google account and permissions at Google’s account settings.",
       ],
     },
@@ -290,14 +295,14 @@ export const REFUND = {
   path: "/refund",
   title: "Refund Policy",
   intro: [
-    `This Refund Policy applies to any payment made to ${C.owner} (the “Owner”) through ${C.site} (the “Website”) for digital content or access. It forms part of the Terms of Use. By making any payment or accepting the Terms you agree to this policy. At the date of this policy the Website may display prices for information; nothing in this policy obliges the Owner to offer any paid service.`,
+    `This Refund Policy applies to any payment made to ${C.owner} (the “Owner”) through ${C.site} (the “Website”) for digital content or access. It forms part of the Terms of Use. By making any payment or accepting the Terms you agree to this policy. Nothing in this policy obliges the Owner to offer any paid service, and it does not apply to anything offered free.`,
     `Last updated: ${C.updated}. Version: ${C.version}.`,
   ],
   sections: [
     {
       h: "1. Nature of the product",
       p: [
-        "The Owner offers digital literary content and online reading access only. No physical goods are shipped. Access is delivered electronically and immediately, through the Website’s reader, and the content cannot be returned.",
+        "The Owner offers digital literary content and online reading access only. No physical goods are shipped. Access is delivered electronically and immediately — as soon as the payment is verified, with no step in between — through the Website’s reader, and the content cannot be returned. A purchase is a single payment for a personal licence to read the work, as set out in clause 7 of the Terms of Use.",
       ],
     },
     {
@@ -309,7 +314,7 @@ export const REFUND = {
     {
       h: "3. Limited exceptions",
       p: [
-        "A refund will be considered only where, upon verification by the Owner: (a) the same item has been paid for more than once, in which case the duplicate amount is refundable; (b) the amount has been debited from your account but access has not been provided within forty-eight (48) hours and the Owner is unable to provide it; or (c) a refund is required by applicable law.",
+        "A refund will be considered only where, upon verification by the Owner: (a) the same item has been paid for more than once, in which case the duplicate amount is refundable; (b) the amount has been debited from your account but access has not been provided within forty-eight (48) hours and the Owner is unable to provide it (a payment that was made but not yet shown is normally completed within minutes by the “check payment” button on the checkout page, or on your next visit, and needs no request); or (c) a refund is required by applicable law.",
       ],
     },
     {
@@ -321,7 +326,7 @@ export const REFUND = {
     {
       h: "5. How to request",
       p: [
-        `Send a request from your registered e-mail address to ${C.email} within seven (7) days of the transaction, stating the transaction or order identifier, the date, the amount, the item, the payment method (without full card or account numbers) and the reason, with a screenshot or bank statement extract where available. Requests that are incomplete, late, or unverifiable may be declined. The Owner may ask for further information.`,
+        `Send a request from your registered e-mail address to ${C.email} within seven (7) days of the transaction, stating the order number or invoice number (both are on your receipt), the date, the amount, the item, the payment method (without full card or account numbers) and the reason, with a screenshot or bank statement extract where available. Requests that are incomplete, late, or unverifiable may be declined. The Owner may ask for further information.`,
       ],
     },
     {

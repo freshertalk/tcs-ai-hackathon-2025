@@ -64,9 +64,25 @@ function useGoogleRating() {
  * The rating, as a small plate of its own: the score, five gold stars and how
  * many readers gave it — and nothing at all until there are ratings.
  */
-export function RatingChip({ slug, className = "" }) {
+export function RatingChip({ slug, className = "", compact = false }) {
   const s = useSummary(slug);
   if (!s.count) return null;
+  if (compact) {
+    // one quiet line: the stars, the score, how many readers
+    return (
+      <a
+        className={`rvp rvp--sm ${className}`}
+        href="#reviews"
+        aria-label={`पाँच में ${s.average.toFixed(1)} — ${s.count} पाठकों की राय`}
+      >
+        <StarRow value={s.average} size={15} />
+        <b>{s.average.toFixed(1)}</b>
+        <span>
+          {s.count} पाठकों की राय <i aria-hidden="true">→</i>
+        </span>
+      </a>
+    );
+  }
   return (
     <a
       className={`rvp ${className}`}

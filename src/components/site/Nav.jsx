@@ -11,6 +11,7 @@ import { scrollToId } from "../../hooks/useSmoothScroll";
 import ChaiMark from "./ChaiMark";
 import SocialIcons from "./SocialIcons";
 import { AccountButton } from "../../auth/Account";
+import CartButton from "../../shop/CartButton";
 import { IconEye } from "../../reader/icons";
 
 export default function Nav({
@@ -122,6 +123,7 @@ export default function Nav({
           </nav>
 
           <div className="nav__end">
+            <CartButton className="nav__cart" />
             <AccountButton className="nav__acct" />
             <SocialIcons className="nav__social" size="sm" />
             <button

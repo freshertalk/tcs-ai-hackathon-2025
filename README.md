@@ -242,7 +242,9 @@ everything is kept in the same Google Sheet, by the same script
 | Address  | For      | What it is |
 |----------|----------|------------|
 | `/account` | any signed-in reader | profile, time spent, where they are in the book, highlights, their rating, coupons used, what is on record about them, **download my data**, **erase my data** |
-| `/admin`   | admins only | **Analytics**, **Readers**, **Coupons**, **Audit log**, **Comments** (moderation), **Team & system** |
+| `/admin`   | admins only | **Analytics**, **Readers**, **Sales**, **Coupons**, **Audit log**, **Comments** (moderation), **Team & system** |
+| `/checkout` | any signed-in reader | cart → confirm → pay → read (see "Selling the book") |
+| `/receipt/<order>` | the buyer, and admins | the receipt, to look at, print or save as PDF |
 
 The navigation bar's sign-in icon opens the one sign-in dialog; once signed in
 it becomes the person's picture with a menu (My account · Admin dashboard ·
@@ -257,7 +259,9 @@ then the book; anyone not signed in gets the full-page sign-in
 | `Events` | one row per page view, per chapter opened, and per batch of seconds spent on a page |
 | `Users` | one row per signed-in account: first/last seen, sign-in count, role, status |
 | `Coupons` | the codes, with their rules |
-| `Redemptions` | the ledger: every time a code was applied (reference, price, discount) |
+| `Redemptions` | the ledger: every time a code was used by a paid or free order (order number, price, discount) |
+| `Orders` | one row per order, with the receipt exactly as it was issued (last column) |
+| `Entitlements` | who may read which book: written when a payment is verified, a free order completes, or the admin grants a copy |
 | `Audit` | who did what and when — append-only; nothing in the script edits or deletes a row |
 
 ### Analytics: what is counted, and for whom
@@ -290,18 +294,17 @@ it — the price it applies a code to is its own table, `PRICES` at the top of
 the coupons section (keep it the same as `BOOK.price` in `src/data/books.js`).
 
 A reader opens “कूपन कोड है?” under the price, sees the price after the code,
-and presses **कूपन पक्का करें** to get a **receipt** (`KC-…`) which is written
-to the ledger and shown on their account page. **There is no payment gateway
-on this site**: the receipt says what to pay and carries the reference; once
-`BOOK.price.buyUrl` is set, the reference and amount are passed to it, and until
-then the receipt offers an e-mail to the author with the same details.
+and presses **इस कूपन से खरीदिए**, which takes them to the checkout with the code
+applied. **Trying a code uses nothing up**: it is counted only when an order that
+carries it is paid (or, if it makes the total ₹0, confirmed).
 
 ### Audit log
 
 Recorded with the actor's verified e-mail, role, time and device string:
 `auth.consent` (every sign-in), `book.key` (key released), `review.create/
-update/approve/hide/delete`, `coupon.create/update/pause/resume/redeem/
-refused`, `admin.view`, `team.add/remove`, `data.export/erase`, and
+update/approve/hide/delete`, `coupon.create/update/pause/resume/refused`,
+`order.create/paid/refund/resend/bad-signature/mismatch`, `access.grant/revoke`,
+`book.locked`, `admin.view`, `team.add/remove`, `data.export/erase`, and
 `security.denied` (an admin action tried by someone who is not one). The
 script cannot see an IP address, so none is recorded. Filter by period,
 person, action and text; export to CSV.
@@ -316,7 +319,7 @@ script against the verified e-mail.
 ### The documents edition
 
 Collecting usage statistics, keeping an audit log and offering coupons had to
-be in the Privacy Policy and Terms, so the **edition is `2026-10-12.3`**
+be in the Privacy Policy and Terms, so the **edition is `2026-10-12.4`**
 (`LEGAL.version` in `src/data/legal.js` and `LEGAL_VERSION` in the script —
 always change both together). A new edition ends the sign-ins made under the
 old one: every reader (the owner included) signs in once more and ticks the
@@ -348,11 +351,81 @@ law) is void and can weaken the rest. These clauses are written as strongly as
 the law allows and each carries a saving clause. Have an advocate who practises
 in your court read them before relying on them.
 
+### Selling the book
+
+The whole cycle is on the site and in the script — nothing else to host.
+
+**What a reader goes through**
+
+1. **Add to cart** / **Buy now** (the front page, the book page, the phone's
+   sticky bar). The cart is a slug in this browser; it holds no price.
+2. **Checkout** (`/checkout`): the cart, a coupon box, and the price worked out by the
+   script — MRP, price, coupon, the discounted price, GST, the total.
+3. **Confirm**: name, state (for GST), the tick-box. This makes the **order and its
+   receipt** (an order summary with "payment due") and nothing is charged yet.
+4. **Pay now**: Razorpay's own window (UPI, card, net banking, wallet). The card
+   or UPI details never reach this site or the Sheet.
+5. The script checks Razorpay's **signature** with the key secret, then reads the
+   payment back from Razorpay (amount, order, status). Only then does it write
+   the access, issue the invoice number, and mail the receipt with the payment
+   details. The page opens the book — **access is automatic, once, for good**.
+6. If the tab is closed after paying, the next visit to the reading page (or the
+   "भुगतान की जाँच कीजिए" button, or Razorpay's webhook) finds the payment by
+   asking Razorpay and finishes the order. Paying twice for one book is
+   refused: an owner is told they own it.
+
+**What the script decides** (`SELLING THE BOOK` in `scripts/reviews-apps-script.gs`)
+
+- the price (`PRICES`), the coupon, the tax (`GST`: rate, inclusive or on top, CGST+SGST
+  inside the seller's state, IGST outside it) and the total — in whole paise, so
+  the parts always add up;
+- who may read: `book_key` answers `purchase` unless the account owns the book
+  (or is in the admin team). `PAYWALL = false` switches this off for testing;
+- the receipt, kept exactly as issued (a later price change does not alter it);
+  invoice numbers run `KC/2627/000001…` in sequence for each financial year.
+
+**To go live** (Razorpay test mode first — the Sales tab says which you are in)
+
+1. razorpay.com ▸ create an account ▸ Settings ▸ API keys ▸ generate **test** keys.
+2. In the script: Project Settings ▸ **Script properties** ▸ add
+   `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET`. They never go in the file, in
+   git or in the browser.
+3. Fill `SELLER` (address, state, GSTIN) and `GST` at the top of the selling
+   section. **If you are not registered for GST, set `GST.enabled = false`** — you
+   may not charge it; receipts then say GST is not applicable. `GST.sac` is the
+   service code of an e-book: confirm it with your accountant.
+4. In the editor run **`setupPayments`** once: it asks for permission to send mail,
+   checks the keys with Razorpay and mails you a test receipt.
+5. Deploy ▸ Manage deployments ▸ ✏ ▸ **New version**. `?check=1` should show
+   `build 2026-10-12-shop`, `legal 2026-10-12.4` and a `shop` block (`payments`
+   true, `mode` test, `mail` true).
+6. Try it: sign in, buy with Razorpay's test UPI `success@razorpay` (or test card
+   `4111 1111 1111 1111`). Look at **Admin ▸ Sales**.
+7. When happy, put the **live** key id/secret in the same two properties.
+
+*Optional:* Razorpay ▸ Webhooks ▸ add the web-app URL, event `payment.captured`.
+The script believes nothing in a notification — it looks the order up and asks
+Razorpay. (Apps Script cannot read Razorpay's signature header, and Razorpay
+may report the redirect Google answers with as a failure; the return-visit
+check above does the same job, so the webhook is a bonus, not a need.)
+
+**Who already had the book.** With the paywall on, accounts that read before it
+existed do not own it. Give them access from **Admin ▸ Sales ▸ Give someone the
+book**, or sell it to them. Someone who already fetched the key keeps it on that
+device until a new edition is published (a new edition has a new key).
+
+**Limits worth knowing.** Mail goes out from your Gmail through `MailApp`: about
+100 recipients a day on a free account (1,500 on Workspace). When the quota is
+used up the order still completes; the receipt is on the page and in "मेरा खाता",
+and **Resend** works the next day. A refund (Admin ▸ Sales) goes through Razorpay
+and takes the reader's copy away with it. Two people using the last use of a
+limited coupon in the same minute may both succeed.
+
 ### Putting these on
 
 1. Paste the new script over the old one and **Deploy → Manage deployments → ✏ →
    New version**. Open `<web-app URL>?check=1`: `build` should read
-   `2026-10-12-dashboards` and `analytics` should be `true`.
+   `2026-10-12-shop` and `analytics` should be `true`.
 2. `npm run build`, upload the contents of `build/`, then
    `node scripts/verify-deploy.js`.
 3. Sign in as the owner and open **/admin**. The tabs above appear in the
