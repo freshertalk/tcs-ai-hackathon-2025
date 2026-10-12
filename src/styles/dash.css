@@ -1409,3 +1409,24 @@
   text-align: center;
   box-shadow: 0 20px 40px -20px rgba(0, 0, 0, 0.6);
 }
+
+.deny--wide {
+  max-width: 640px;
+  text-align: left;
+  justify-items: start;
+}
+.deny__steps {
+  margin: 4px 0 6px;
+  padding-left: 1.3em;
+  display: grid;
+  gap: 8px;
+  line-height: 1.7;
+  color: #3a2c22;
+}
+.deny__steps code {
+  padding: 2px 7px;
+  border-radius: 7px;
+  background: #f4e9d8;
+  font-family: var(--f-mono);
+  font-size: 0.85rem;
+}

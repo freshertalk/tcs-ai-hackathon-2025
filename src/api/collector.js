@@ -101,5 +101,7 @@ export function explain(e) {
   if (c === "toolarge") return "अवधि बहुत लंबी है — छोटी अवधि चुनिए।";
   if (c === "invalid") return "भरी हुई जानकारी सही नहीं है।";
   if (c === "missing") return "यह अब मौजूद नहीं है।";
+  // an older script does not know the newer actions and answers "invalid" or "unknown"
+  if (c === "unknown") return "सर्वर की स्क्रिप्ट इस साइट से पुरानी है — नया संस्करण डिप्लॉय कीजिए।";
   return "कुछ गड़बड़ हो गई — थोड़ी देर बाद फिर कोशिश कीजिए।";
 }

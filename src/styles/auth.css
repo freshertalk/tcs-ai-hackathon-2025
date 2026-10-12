@@ -5,53 +5,45 @@
    ========================================================================== */
 
 /* ------------------------------------------------------------- chai mark */
+/* Two wrappers per wisp (see ChaiMark.jsx): the outer one only positions it on
+   the tea; this animates the inner one. Rises, thins, drifts and widens as
+   vapour does, each wisp on its own slow clock. */
 .chai {
   display: block;
   overflow: visible;
   --chai-steam: #9a6c50;
 }
-.chai__steam path {
-  fill: none;
-  stroke: var(--chai-steam);
-  stroke-width: 3.4;
-  stroke-linecap: round;
-  stroke-dasharray: 90;
-  stroke-dashoffset: 90;
+.chai__w {
   opacity: 0;
   transform-box: fill-box;
   transform-origin: 50% 100%;
-  animation: chaiSteam 3.9s cubic-bezier(0.4, 0, 0.3, 1) infinite;
+  animation: chaiRise var(--d, 4.6s) cubic-bezier(0.35, 0.1, 0.3, 1) infinite;
 }
-@keyframes chaiSteam {
+@keyframes chaiRise {
   0% {
     opacity: 0;
-    stroke-dashoffset: 90;
-    transform: translateY(4px) scale(0.92, 0.9);
+    transform: translate(0, 5px) scale(0.8, 0.6);
   }
-  20% {
+  16% {
     opacity: 0.95;
   }
-  62% {
+  58% {
     opacity: 0.6;
-    stroke-dashoffset: 0;
-    transform: translateY(-5px) scale(1.04, 1.04);
+    transform: translate(var(--sway, 0px), -9px) scale(1.04, 1.02);
   }
   100% {
     opacity: 0;
-    stroke-dashoffset: -70;
-    transform: translateY(-9px) scale(1.18, 1.1);
+    transform: translate(calc(var(--sway, 0px) * 2.4), -20px) scale(1.4, 1.2);
   }
 }
-.chai--still .chai__steam path {
+.chai--still .chai__w {
   animation: none;
-  opacity: 0.4;
-  stroke-dashoffset: 0;
+  opacity: 0.55;
 }
 @media (prefers-reduced-motion: reduce) {
-  .chai__steam path {
+  .chai__w {
     animation: none;
-    opacity: 0.4;
-    stroke-dashoffset: 0;
+    opacity: 0.55;
   }
 }
 
@@ -63,17 +55,19 @@
   margin-right: 6px;
 }
 .nav__cup .chai {
-  width: clamp(76px, 7vw, 100px);
+  /* the drawing carries headroom for the steam, so it is sized to keep the
+     cups inside the bar even when the bar shrinks on scroll */
+  width: clamp(66px, 5.7vw, 82px);
   height: auto;
-  margin-top: 6px;
-  --chai-steam: #93654a;
+  margin-top: 0;
+  --chai-steam: #8a5d43;
 }
 .nav--dark:not(.is-stuck) .nav__cup .chai {
   --chai-steam: #f3d9b5;
 }
 @media (max-width: 560px) {
   .nav__cup .chai {
-    width: 66px;
+    width: 62px;
   }
 }
 

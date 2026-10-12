@@ -3503,13 +3503,18 @@ h4 {
 .op__title {
   margin-top: 14px;
 }
+/* the date, day, hour and station of the first night: set as reading, not as a
+   label — large enough to be read at a glance, dark enough to be seen */
 .op__stamp {
-  margin-top: 14px;
-  font-family: var(--f-mono);
-  font-size: 0.58rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--ink-3);
+  margin-top: clamp(16px, 2vw, 24px);
+  font-family: var(--f-hi-body);
+  font-size: clamp(1.15rem, 2.1vw, 1.65rem);
+  font-weight: 600;
+  line-height: 1.6;
+  letter-spacing: 0.01em;
+  text-transform: none;
+  color: var(--ink-2);
+  text-wrap: balance;
 }
 .op__page {
   position: relative;

@@ -11,15 +11,7 @@
 //     novel is a slow reveal; the site must not do the revealing for it.
 // ---------------------------------------------------------------------------
 
-// The house's name as it appears on the site: the shelf, the footer, the
-// listing. Change it here and it changes everywhere. The copyright of the
-// book itself stays with the author (BOOK.facts).
-export const PUBLISHER = {
-  name: "कुल्हड़ प्रकाशन",
-  roman: "Kulhad Prakashan",
-};
-
-// Ratings and comments (src/reviews). Readers need no account.
+// Ratings and comments (src/reviews). Signing in with Google is how a reader rates.
 //   endpoint       the Web-app URL of scripts/reviews-apps-script.gs, once it is
 //                  deployed from a Google Sheet. Empty = a reader's rating stays
 //                  on their own device and they are offered an e-mail to you.

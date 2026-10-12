@@ -1,7 +1,6 @@
 // src/components/site/Footer.jsx
 import React from "react";
 import { Link } from "react-router-dom";
-import { PUBLISHER } from "../../data/books";
 import { reopenCookieNotice } from "../../legal/consent";
 
 export default function Footer({ note }) {
@@ -10,7 +9,7 @@ export default function Footer({ note }) {
     <div className="shell">
       <footer className="foot">
         <span>© {year} Vinay Kumar Tiwari</span>
-        <span className="foot__hi">{note ? `${PUBLISHER.name} · ${note}` : PUBLISHER.name}</span>
+        <span className="foot__hi">{note ? `दो कुल्हड़ चाय · ${note}` : "दो कुल्हड़ चाय"}</span>
         <span className="foot__links">
           <Link className="tlink" to="/">
             Home

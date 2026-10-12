@@ -53,7 +53,7 @@ export default function LoginScreen({ reason = "default", book = null, error = "
               height="118"
             />
           ) : null}
-          <p className="ls__eyebrow">कुल्हड़ प्रकाशन · Kulhad Prakashan</p>
+          <p className="ls__eyebrow">दो कुल्हड़ चाय · विनय कुमार तिवारी</p>
           <h1 id="ls-title" className="ls__t hi-d">
             {w.h}
           </h1>

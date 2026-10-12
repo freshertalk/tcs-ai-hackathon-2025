@@ -1,22 +1,21 @@
 // src/sections/write/Shelf.jsx
-// The house's shelf: the novel stands on a plank, cover turned to the room,
-// its spine beside it, a pair of kulhads next to it — and the way in.
+// The shelf: the novel stands on a plank, cover turned to the room, its spine
+// beside it, a pair of kulhads next to it — and the way in.
 //
 // Nothing here is claimed that the book does not say. The words are the
-// book's own (its three beats, its prologue's last line); the "perks" are
-// facts about how the reader works.
+// book's own (its three beats, its prologue's last line).
 
 import React from "react";
 import { Link } from "react-router-dom";
 import { Reveal, MaskLine } from "../../components/ui/motion";
-import { KulhadPair } from "../../components/site/Kulhad";
+import ChaiMark from "../../components/site/ChaiMark";
 import { Cover, ReadButton } from "../../library/BookCard";
 import { contentUrl } from "../../library/api";
 import { openCoverViewer } from "../../library/CoverViewer";
 import Price from "../../library/Price";
 import { useCatalog } from "../../library/hooks";
 import { fmtDate, fmtMinutes } from "../../reader/util";
-import { BOOK, PUBLISHER } from "../../data/books";
+import { BOOK } from "../../data/books";
 
 const FALLBACK = {
   slug: BOOK.slug,
@@ -31,13 +30,6 @@ const FALLBACK = {
   description: BOOK.logline,
 };
 
-const PERKS = [
-  { k: "पहला पन्ना, अभी", d: "खाता नहीं, फ़ॉर्म नहीं — बटन दबाइए और पढ़ना शुरू।" },
-  { k: "फ़ोन, टैबलेट, कंप्यूटर", d: "जिस स्क्रीन पर आराम मिले, वहीं पन्ने पलटिए।" },
-  { k: "आपकी जगह, याद", d: "रुकिए तो वहीं से, जहाँ छोड़ा था — हर बार।" },
-  { k: "आपकी पसंद का पन्ना", d: "रंग, अक्षर का आकार, चमक — सब आपके हाथ में।" },
-];
-
 export default function Shelf() {
   const { data } = useCatalog();
   const entry = data && data.books.find((b) => b.slug === BOOK.slug);
@@ -49,7 +41,7 @@ export default function Shelf() {
       <div className="shell">
         <div className="shelf__head">
           <Reveal>
-            <span className="eyebrow is-hi">{PUBLISHER.name} · रचनाएँ</span>
+            <span className="eyebrow is-hi">रचनाएँ</span>
           </Reveal>
           <h2 className="h-display h-hi title-md shelf__title">
             {BOOK.teaser.beats.map((b, i) => (
@@ -60,7 +52,7 @@ export default function Shelf() {
           </h2>
           <Reveal delay={0.2}>
             <p className="shelf__lede hi">
-              {PUBLISHER.name} की अलमारी में सबसे आगे रखी किताब। इसके पीछे का सवाल वही है, जो
+              विनय कुमार तिवारी की पहली किताब, सबसे आगे रखी हुई। इसके पीछे का सवाल वही है, जो
               इसके पहले पन्ने पर पूछा गया है — दूसरा टिकट किसका है?
             </p>
           </Reveal>
@@ -116,20 +108,11 @@ export default function Shelf() {
             </div>
 
             <div className="shelf__cups" aria-hidden="true">
-              <KulhadPair size={46} steam />
+              <ChaiMark size={70} />
             </div>
           </div>
           <div className="shelf__plank" aria-hidden="true" />
         </Reveal>
-
-        <ul className="shelf__perks">
-          {PERKS.map((p, i) => (
-            <Reveal as="li" key={p.k} y={20} delay={i * 0.06}>
-              <b className="hi-d">{p.k}</b>
-              <span className="hi">{p.d}</span>
-            </Reveal>
-          ))}
-        </ul>
 
         <Reveal className="shelf__more" y={16}>
           <Link className="shelf__link" to="/library">

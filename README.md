@@ -467,15 +467,15 @@ src/
 └─ styles/                     site.css · library.css · reader.css
 ```
 
-## The house
+## The shelf
 
-The site is the front of a small publishing house, with the novel as its first
-book. The name is one constant, `PUBLISHER` in `src/data/books.js`, so it can
-be changed in one place. The copyright of the book itself stays with the author.
+The site is the author's own: a shelf with the novel as its first book. There
+is no publisher name anywhere on it (the book is self-published, as its EPUB
+says), and the copyright of the book stays with the author.
 
 - **The shelf** (`src/sections/write/Shelf.jsx`): the novel face-out on a plank,
   its spine beside it, a pair of kulhads, and the way in. Its words are the
-  book own; the four perks are facts about how the reader works.
+  book own.
 - **The front door** is a pale, rain-washed light with a clay-red button, so
   the navy cover is the darkest thing in view (`.bh` in `src/styles/library.css`).
 - **Nav:** the pair of kulhads; Instagram, Facebook, LinkedIn. An address left

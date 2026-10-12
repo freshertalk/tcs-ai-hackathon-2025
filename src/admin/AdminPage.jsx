@@ -14,7 +14,7 @@ import usePrivatePage from "../components/site/usePrivatePage";
 import LoginScreen from "../auth/LoginScreen";
 import { useAuth } from "../auth/google";
 import { useMe } from "../account/me";
-import { BOOK } from "../data/books";
+import { BOOK, REVIEWS } from "../data/books";
 import { AdminPanel } from "../reviews/Reviews";
 import { Failure, Loading, Tabs } from "./ui";
 import { explain } from "../api/collector";
@@ -23,7 +23,7 @@ import Readers from "./Readers";
 import Coupons from "./Coupons";
 import Audit from "./Audit";
 import System from "./System";
-import { IconChart, IconList, IconShield, IconStar, IconTag, IconUsers, IconSignOut } from "../components/ui/icons";
+import { IconAlert, IconChart, IconList, IconShield, IconStar, IconTag, IconUsers, IconSignOut } from "../components/ui/icons";
 
 const NAV = [
   { to: "/", label: "मुखपृष्ठ" },
@@ -39,6 +39,58 @@ const TABS = [
   { id: "reviews", label: "Comments", icon: <IconStar size={17} /> },
   { id: "system", label: "Team & system", icon: <IconShield size={17} /> },
 ];
+
+/**
+ * The admin account is right but the dashboard cannot open: the commonest cause
+ * is that the script on Google (which keeps the Sheet) is still an older build
+ * than this site, so it does not know the new actions. Ask it, and say so.
+ */
+function ScriptNotice({ error, onRetry, email }) {
+  const [state, setState] = useState("checking"); // checking | old | ok | unknown
+
+  useEffect(() => {
+    let live = true;
+    if (!REVIEWS.endpoint) {
+      setState("unknown");
+      return undefined;
+    }
+    const sep = REVIEWS.endpoint.includes("?") ? "&" : "?";
+    fetch(`${REVIEWS.endpoint}${sep}check=1`, { cache: "no-store" })
+      .then((r) => r.json())
+      .then((d) => live && setState(d && d.analytics ? "ok" : "old"))
+      .catch(() => live && setState("unknown"));
+    return () => {
+      live = false;
+    };
+  }, []);
+
+  if (state === "checking") return <Loading label="Checking the script…" />;
+  if (state !== "old") return <Failure error={error} text={explain(error)} onRetry={onRetry} />;
+
+  return (
+    <div className="deny deny--wide">
+      <IconAlert size={34} />
+      <h1>The script on Google is older than this site</h1>
+      <p>
+        You are signed in as <b>{email}</b>, the admin account. The dashboard cannot open because the script that
+        keeps your Sheet does not know the new actions yet (statistics, coupons, audit log).
+      </p>
+      <ol className="deny__steps">
+        <li>In your Sheet: Extensions → Apps Script.</li>
+        <li>
+          Replace the code with the newest <code>scripts/reviews-apps-script.gs</code> and press Ctrl+S.
+        </li>
+        <li>Deploy → Manage deployments → ✏ → Version: <b>New version</b> → Deploy.</li>
+        <li>Reload this page.</li>
+      </ol>
+      <div className="deny__act">
+        <button type="button" className="db db--solid" onClick={() => window.location.reload()}>
+          I have deployed it — reload
+        </button>
+      </div>
+    </div>
+  );
+}
 
 const fromHash = () => {
   const h = (typeof window !== "undefined" && window.location.hash.replace("#", "")) || "";
@@ -83,7 +135,7 @@ export default function AdminPage() {
   if (status === "error" && !me) {
     return frame(
       <div className="shell">
-        <Failure error={error} text={explain(error)} onRetry={reload} />
+        <ScriptNotice error={error} onRetry={reload} email={user.email} />
       </div>
     );
   }
@@ -116,7 +168,7 @@ export default function AdminPage() {
     <div className="shell">
       <header className="dsh__head">
         <div>
-          <p className="dsh__eyebrow">कुल्हड़ प्रकाशन · Admin</p>
+          <p className="dsh__eyebrow">दो कुल्हड़ चाय · Admin</p>
           <h1 className="dsh__t">Dashboard</h1>
           <p className="dsh__sub">
             {me.owner ? "Owner" : "Admin"} · {user.email}
