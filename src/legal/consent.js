@@ -141,6 +141,11 @@ export function consentSettled() {
   return inflight || Promise.resolve();
 }
 
+/** The edition the collector answered with, when it is not this site's. */
+function skew(d) {
+  return d && d.legal && String(d.legal) !== LEGAL.version ? String(d.legal) : "";
+}
+
 async function post(body) {
   const res = await fetch(REVIEWS.endpoint, {
     method: "POST",
@@ -185,6 +190,13 @@ export async function retryAcceptance(idToken) {
   if (!t || !u || t.email !== u.email || !idToken) return false;
   inflight = post(consentBody(idToken, "signin-retry", t.at))
     .then((d) => {
+      // it wrote the acceptance — but for an edition it does not recognise as
+      // the current one, so the key will not be released: tell them why
+      const s = skew(d);
+      if (s) {
+        setIssue("edition-skew", s);
+        return false;
+      }
       if (d.session) setSession(d.session, d.exp);
       setIssue(null);
       return true;
@@ -253,7 +265,9 @@ onSignIn((s) => {
   inflight = post(body)
     .then((d) => {
       if (d.session) setSession(d.session, d.exp);
-      setIssue(null);
+      const s = skew(d);
+      if (s) setIssue("edition-skew", s);
+      else setIssue(null);
       if (accepting) {
         try {
           sessionStorage.removeItem(PENDING_KEY);

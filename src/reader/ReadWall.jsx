@@ -19,6 +19,7 @@ import { localTermsAccepted, useLoginIssue } from "../legal/consent";
 import { AccessError, accessRequired, ensureAccess } from "../auth/access";
 import LoginScreen from "../auth/LoginScreen";
 import { contentUrl } from "../library/api";
+import { LEGAL } from "../data/legal";
 
 // why the collector would not vouch for a lapsed sign-in (see verifyLapsedGoogle_)
 const LAPSE = {
@@ -41,6 +42,9 @@ const REASONS = {
 
 function reasonText(i) {
   if (!i) return "";
+  if (i.code === "edition-skew") {
+    return `साइट अभी अपडेट हो रही है, इसलिए किताब अभी नहीं खुल सकती — थोड़ी देर बाद फिर कोशिश कीजिए। (साइट के मालिक के लिए: शर्तों का संस्करण साइट पर ${LEGAL.version} है, पर Google स्क्रिप्ट पर ${i.why || "पुराना"}। scripts/reviews-apps-script.gs को नए संस्करण (New version) के रूप में डिप्लॉय कीजिए।)`;
+  }
   if (i.code === "renew-auth") {
     return LAPSE[i.why] || `पुराने साइन-इन को सर्वर ने नहीं माना${i.why ? ` (${i.why})` : ""}।`;
   }

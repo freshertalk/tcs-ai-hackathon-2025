@@ -94,17 +94,21 @@ export default function Hero({ readRef }) {
 
         {/* --------------------------------------- the rest of the listing */}
         <div className="bh__body">
+          {/* the premise and three lines from the book, as one passage: one card,
+              one reveal. The premise already ends on "दूसरा टिकट किसका है", so the
+              question is not repeated. All in the plain type of the premise. */}
           <Reveal y={18} delay={0.16} duration={0.9}>
-            <p className="bh__tag hi">{BOOK.logline}</p>
+            <div className="bh__story">
+              <p className="bh__tag hi">{BOOK.logline}</p>
+              <div className="bh__verse" role="group" aria-label="किताब की पंक्तियाँ">
+                {BOOK.highlight.lines.map((l) => (
+                  <p key={l} className="bh__tag hi">
+                    {l}
+                  </p>
+                ))}
+              </div>
+            </div>
           </Reveal>
-
-          {/* three lines from the book, in the same plain type as the premise above.
-              The premise already ends on "दूसरा टिकट किसका है", so it is not repeated. */}
-          {BOOK.highlight.lines.map((l, i) => (
-            <Reveal key={l} y={14} delay={0.2 + i * 0.07} duration={0.85}>
-              <p className="bh__tag bh__tag--more hi">{l}</p>
-            </Reveal>
-          ))}
 
           <Reveal y={18} delay={0.18} duration={0.9}>
             <HeroVoices slug={BOOK.slug} />
