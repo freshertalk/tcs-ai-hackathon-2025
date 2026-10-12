@@ -158,13 +158,145 @@ says so, and no rating is ever added to the page's structured data.
   device and the page offers to e-mail it to you.
 - **Moderation:** every rating counts at once; a comment shows only after you
   type `Y` in its *approved* cell. Delete a row to remove a rating.
-- **One voice per device:** a random id kept in the browser lets a returning
+- **Sign in with Google (optional):** put a Google OAuth *Web* client id in
+  `AUTH.googleClientId` (`src/data/books.js`) and in `CLIENT_ID` in the script
+  (steps at the top of `scripts/reviews-apps-script.gs`). Readers then sign in
+  with Google to rate: one rating per account, their name and picture beside a
+  comment, and the right to change their own. Reading never needs a sign-in.
+  The browser sends Google's signed token; the script checks it with Google
+  every time. **Admin:** `author.vinaytiwari1@gmail.com` (`ADMIN_EMAIL`) sees a
+  moderation list under the comments — show/hide, delete — and the script
+  refuses the same calls from anyone else. E-mail addresses stay in your Sheet
+  and are never sent to the page. No server, no database of your own.
+- **Sync across devices (signed-in readers):** `src/sync/` keeps the reader's
+  place, finished chapters, bookmarks and highlights in step through the
+  **Sync** tab of the same Sheet (one row per reader per book, readable only
+  with that reader's own Google token). Bookmarks and highlights are merged
+  (union; the newer edit of a highlight wins; a removal travels as a
+  tombstone). A device with no place yet adopts the saved one; a device that
+  already has a place is *offered* the newer one ("वहाँ चलें"), never moved.
+  Status and sign-out are in the reader's settings (**Aa**) and in the account
+  button in the navigation bar. Reading stays possible with no sign-in at all.
+- **The OAuth client secret is not used** by any of this (the browser flow
+  needs only the public client id) and must never be put in this repository.
+- **One voice per device:** (when sign-in is not on) a random id kept in the browser lets a returning
   reader change their rating instead of adding another. It identifies nobody.
   Without sign-in this cannot stop a determined person; it stops accidents.
 - **Other places:** `REVIEWS.places` shows links (Google Books, Goodreads,
   Amazon) once you have the addresses. `REVIEWS.googleBooksId` shows Google's
   own rating beside yours when Google has one for the volume — labelled as
   Google's, never merged into ours.
+
+## Reading is for signed-in readers
+
+The chapter files on the server are **encrypted** (AES-256-GCM). The key is not
+in the site and not on the web server: it is a row in the **Keys** tab of the
+collector's Sheet, and `scripts/reviews-apps-script.gs` hands it only to a
+request that carries a Google token it can verify **and** comes from an account
+whose latest row in the **Consent** tab is for the current edition of the legal
+documents. So the sign-in requirement holds even for someone who fetches the
+chapter files directly. The reader (`src/reader/ReadWall.jsx`) shows the
+sign-in card until the key is granted; signing out forgets it.
+
+**One login, then no more asking.** Google's ID token lives only about an hour,
+so it is used once: at sign-in the collector verifies it, records the
+acceptance, and answers with its own **session token** (signed with a secret it
+keeps in Script Properties, valid 30 days). The browser sends that from then on,
+so nothing is re-asked when Google's hour runs out. If the session itself ends
+(30 days) and the person already accepted, the reading page shows their name and
+one Google button — no tick-box. The tick-box and policy text exist only in the
+sign-in dialog. To sign everyone out at once, delete the `SESSION_SECRET` script
+property.
+
+**Already signed in? Never asked again.** Three things make the card a last
+resort rather than a routine:
+
+- *The key stays on the device.* Once released to a signed-in reader it is kept
+  in `localStorage` (`vkt.bk.<slug>.<version>`, tied to the account and to the
+  edition of the documents). Opening a chapter then needs neither the collector
+  nor Google. Sign-out removes it; a new edition of the documents or of the book
+  invalidates it.
+- *A lapsed Google token is renewed in the background.* A browser that signed in
+  before sessions existed holds a Google token that is long past its hour. The
+  collector checks that token's RSA signature against Google's published keys
+  (`verifyLapsedGoogle_`, needs the V8 runtime — the default) and accepts it for
+  **two things only**: issuing a session (`session`) and re-writing an acceptance
+  the browser already holds (`consent` with `source: signin-retry`, noted in the
+  Consent tab as "token had lapsed"). Never for the book key, reviews or sync
+  directly. Limit: 30 days past expiry (`LAPSED_DAYS`), and only while Google
+  still lists the signing key — the script remembers keys it has seen
+  (`GOOGLE_KEYS` script property).
+- *Only then* the one-press card (name + Google button). With a script that
+  predates this, the card is where a lapsed login ends up. The card says why the
+  collector would not vouch for the old login (`too-old`, `key-unknown`,
+  `other-app`, …); the same reason is in the browser console as `[login] …`.
+  To keep Google's older signing keys available, the script notes the current
+  keys at most once an hour when the tally is requested (up to 16 are kept).
+
+**Sheets turns text into numbers and dates.** A Google account id is a
+21-digit number and the edition is `2026-10-12`; written with a plain
+`appendRow`, Sheets rounds the first and makes the second a date, so an
+acceptance could never be found again. The script now writes those rows with a
+plain-text cell format (`appendText_`), stores the id as `g:<id>`, and still
+recognises older rows by the e-mail beside them (`hasConsent_`). If you add a
+column that holds ids or version strings, write it the same way.
+
+The reading page has no sign-in of its own. If the book cannot be opened for
+the person, the sign-in they hold is ended and the one sign-in dialog (the same
+as the navigation bar's) opens, with the reason shown on the page.
+
+**Putting it on the server (nginx on the VPS).** `public/_headers` and
+`public/_redirects` are for Netlify / Cloudflare Pages; nginx ignores them, so
+`deploy/nginx.example.conf` carries the same rules (single-page fallback,
+no-cache for `index.html`, long cache for `/static`, revalidation for
+`/content`, www → plain address). Then:
+
+1. `npm run build` — it needs `.book-keys.json`; the Keys tab row must be the one
+   in `book-keys-for-sheet.tsv` for this edition.
+2. Upload the **whole contents of `build/`** (including `content/`, `static/`
+   and `read/`) to the web root.
+3. `node scripts/verify-deploy.js https://vinaytiwari.org` — reads the public
+   site and checks: it is this build, the edition matches, chapters are
+   ciphertext and identical, every route opens, the collector is current.
+4. In Google Cloud ▸ Credentials ▸ your Web client, **Authorised JavaScript
+   origins** must list `https://vinaytiwari.org` (and `https://www.vinaytiwari.org`
+   unless www redirects).
+
+Health check, no editor needed: open `<web-app URL>?check=1`. It returns the
+`build` name and yes/no answers (V8 runtime, Keys tab, signature check) and
+nothing private. If the editor's Run button says "An unknown error has
+occurred", that is the editor, not the script.
+
+Each time you publish an edition (`npm run book:publish`, or `npm start`):
+
+1. A new random key is made and kept in `.book-keys.json` (git-ignored — **back
+   it up**; with it you can re-publish, without it you simply publish again and
+   get a new key and version).
+2. `book-keys-for-sheet.tsv` is written. Paste its row (slug, version, key) into
+   the **Keys** tab of the Sheet. Until you do, nobody can open the book.
+   Older rows may stay: readers who still have an older edition open keep working.
+3. Builds on another machine (`--soft`, no `.book-keys.json`) never invent a key:
+   they keep the edition as published.
+
+## Legal pages and consent
+
+`src/data/legal.js` holds the **Terms of Use**, **Privacy Policy** and **Refund
+Policy** (pages `/terms`, `/privacy`, `/refund`; small, justified, English;
+Ghazipur jurisdiction; e-mail author.vinaytiwari1@gmail.com). `LEGAL.version`
+is the edition people accept.
+
+- **First visit:** a cookie and privacy notice (`src/legal/CookieNotice.jsx`);
+  the choice is kept with the edition. The footer can reopen it.
+- **Sign-in:** the box must be ticked before Google's button appears; when
+  Google returns the token, the acceptance is written — append-only — to the
+  **Consent** tab: time, Google account id, e-mail, name, edition, cookie choice,
+  browser, language, page and time zone. **Access** records each key release.
+- **Changing the documents:** edit `legal.js`, bump `LEGAL.version`, and set the
+  same `LEGAL_VERSION` in the script. Everyone is asked to accept again before
+  the key is released.
+- These texts are a careful draft, not legal advice: have an advocate review
+  them. No document can exclude liability that the law does not allow to be
+  excluded (statutory consumer rights, data-protection duties, fraud).
 
 ## Structure
 

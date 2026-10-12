@@ -10,6 +10,7 @@ import { EASE } from "../ui/motion";
 import { scrollToId } from "../../hooks/useSmoothScroll";
 import { KulhadPair } from "./Kulhad";
 import SocialIcons from "./SocialIcons";
+import { AccountButton } from "../../auth/Account";
 import { IconEye } from "../../reader/icons";
 
 export default function Nav({
@@ -121,6 +122,7 @@ export default function Nav({
           </nav>
 
           <div className="nav__end">
+            <AccountButton className="nav__acct" />
             <SocialIcons className="nav__social" size="sm" />
             <button
               className={`nav__burger ${open ? "is-open" : ""}`}
@@ -184,6 +186,7 @@ export default function Nav({
               exit={{ opacity: 0 }}
               transition={{ delay: 0.4 }}
             >
+              <AccountButton className="menu__acct" />
               <SocialIcons className="menu__social" />
               {cta && (
                 <Link className="btn btn--solid" to={cta.href} onClick={() => setOpen(false)}>

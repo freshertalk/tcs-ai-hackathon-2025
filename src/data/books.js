@@ -27,6 +27,18 @@ export const PUBLISHER = {
 //                  book is listed there and Google has a rating for it.
 //   places         pages where the book can also be rated; only those with an
 //                  address are shown. Fill them in once the book is listed.
+// Sign in with Google (src/auth). No server and no database of your own.
+//   googleClientId  the OAuth "Web application" client id from Google Cloud
+//                   Console (it is public, not a secret). Empty = no sign-in:
+//                   the site stays anonymous, exactly as before.
+//   adminEmail      the one Google account that may moderate comments. The
+//                   collector (scripts/reviews-apps-script.gs) enforces it —
+//                   keep ADMIN_EMAIL there the same.
+export const AUTH = {
+  googleClientId: "886670255024-mhd165asnk3l9m3oio6limie2n9h7cff.apps.googleusercontent.com",
+  adminEmail: "author.vinaytiwari1@gmail.com",
+};
+
 export const REVIEWS = {
   endpoint: "https://script.google.com/macros/s/AKfycbzfuDeSFktvkhvQRBOTeDPlPmerp5801BS2AVhVtg0-AvOti5rLQynmeXLivJOXT4rneQ/exec",
   googleBooksId: "",

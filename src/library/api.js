@@ -19,6 +19,8 @@
 // ---------------------------------------------------------------------------
 
 import DOMPurify from "dompurify";
+import { decryptChapter } from "../auth/access";
+import { onSignOut } from "../auth/google";
 
 const ROOT = `${process.env.PUBLIC_URL || ""}/content`;
 
@@ -156,11 +158,20 @@ export function getChapter(book, id) {
     // ?v= makes each edition's files distinct URLs: nothing stale can be served
     const url = `${contentUrl(book.slug, entry.file)}?v=${book.version || "0"}`;
     const raw = await fetchText(url);
-    const html = clean(unscramble(raw, `${book.slug}:${book.version}`));
+    // books published with a reading key are AES-encrypted; older ones are
+    // only scrambled (see scripts/publish-book.js)
+    const text = book.enc ? await decryptChapter(book, id, raw) : unscramble(raw, `${book.slug}:${book.version}`);
+    const html = clean(text);
     cache.chapters.set(key, html);
     return html;
   });
 }
+
+// signing out takes the opened chapters out of memory too
+onSignOut(() => {
+  cache.chapters.clear();
+  cache.text.clear();
+});
 
 /** Warm the cache; failures are silent because nobody asked for this. */
 export function prefetchChapter(book, id) {

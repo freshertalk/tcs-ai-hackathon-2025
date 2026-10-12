@@ -27,6 +27,8 @@ import Contents from "./Contents";
 import Settings from "./Settings";
 import MarkSheet from "./MarkSheet";
 import { ReviewsSection } from "../reviews/Reviews";
+import ReadWall from "./ReadWall";
+import { dismissSuggestion, takeSuggestion, useSuggestion, watchBook } from "../sync/sync";
 import { clamp01, fmtMinutes } from "./util";
 import {
   IconBack,
@@ -148,6 +150,10 @@ function ReaderShell({ book, chapterId }) {
   const location = useLocation();
   const { prefs, update, reset, resolvedTheme } = useReaderPrefs();
   const notes = useAnnotations(slug);
+  const resume = useSuggestion(slug);
+  useEffect(() => {
+    watchBook(slug);
+  }, [slug]);
 
   const chapters = book.chapters;
   const index = chapters.findIndex((c) => c.id === chapterId);
@@ -1019,7 +1025,32 @@ function ReaderShell({ book, chapterId }) {
         </div>
       )}
 
-      {back && !panel && !sheet && (
+      {resume && !panel && !sheet && (
+        <div className="rd__resume" role="status">
+          <span>
+            दूसरे डिवाइस पर आप{" "}
+            {(() => {
+              const c = chapters.find((x) => x.id === resume.chapter);
+              return c ? (c.num ? `${c.num} · ${c.title}` : c.title) : "आगे";
+            })()}{" "}
+            तक पहुँचे थे
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              const s = takeSuggestion(slug);
+              if (s) goTo(s.chapter, { pos: s.pos, mark: true });
+            }}
+          >
+            वहाँ चलें
+          </button>
+          <button type="button" className="rd__resumeX" aria-label="बंद करें" onClick={() => dismissSuggestion(slug)}>
+            ✕
+          </button>
+        </div>
+      )}
+
+      {back && !panel && !sheet && !resume && (
         <button
           type="button"
           className="rd__back"
@@ -1163,6 +1194,10 @@ export default function Reader() {
     return <Navigate replace to={`/read/${slug}/${resume || first}`} />;
   }
 
-  return <ReaderShell key={slug} book={book} chapterId={chapter} />;
+  return (
+    <ReadWall book={book}>
+      <ReaderShell key={slug} book={book} chapterId={chapter} />
+    </ReadWall>
+  );
 }
 

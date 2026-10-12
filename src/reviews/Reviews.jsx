@@ -1,15 +1,36 @@
 // src/reviews/Reviews.jsx
 // "पाठकों की राय" — what readers have said, and a place to say it.
 //
-// No sign-in. A reader presses stars, may add a name and a few words, and
-// sends. Nothing on this page is made up: until readers have rated the book,
-// it says so.
+// A reader presses stars, may add a few words, and sends. When Google sign-in
+// is configured (AUTH.googleClientId + the collector's CLIENT_ID) they sign in
+// with Google first: one rating per account, their name and picture beside a
+// comment, and the right to change or take back their own. Without it the page
+// stays anonymous, as before.
+//
+// The admin account sees a moderation list under the comments. That is only a
+// view: every action is checked again by the collector.
+//
+// Nothing on this page is made up: until readers have rated the book, it says
+// so.
 
 import React, { useEffect, useState } from "react";
-import { REVIEWS, AUTHOR } from "../data/books";
+import { AUTH, REVIEWS, AUTHOR } from "../data/books";
 import { fmtDate } from "../reader/util";
+import { useAuth } from "../auth/google";
+import { openSignIn } from "../auth/SignInDialog";
+import { GoogleG } from "../auth/Account";
 import { StarRow, StarInput } from "./Stars";
-import { getMine, loadGoogleBooks, loadSummary, peekSummary, submitReview, subscribe } from "./api";
+import {
+  adminApprove,
+  adminList,
+  adminRemove,
+  getMine,
+  loadGoogleBooks,
+  loadSummary,
+  peekSummary,
+  submitReview,
+  subscribe,
+} from "./api";
 
 /* ------------------------------------------------------------------ hooks */
 export function useSummary(slug) {
@@ -52,15 +73,65 @@ export function RatingChip({ slug, className = "" }) {
   );
 }
 
+/* --------------------------------------------------------------- sign-in */
+function SignIn({ why }) {
+  return (
+    <div className="rv-signin">
+      <p className="rv-form__q hi-d">{why || "राय देने के लिए Google से साइन इन कीजिए"}</p>
+      <button type="button" className="acct__go" onClick={() => openSignIn("rate")}>
+        <GoogleG size={18} />
+        <span>साइन इन</span>
+      </button>
+      <p className="rv-fine">
+        टिप्पणी के साथ आपका नाम और फ़ोटो दिखेगा। आपका ई-मेल कभी नहीं दिखता।
+      </p>
+    </div>
+  );
+}
+
+function Who({ user, onOut }) {
+  return (
+    <div className="rv-who">
+      {user.picture ? (
+        <img src={user.picture} alt="" width="34" height="34" referrerPolicy="no-referrer" />
+      ) : (
+        <span className="rv-who__i" aria-hidden="true">
+          {String(user.name || "?").slice(0, 1)}
+        </span>
+      )}
+      <span className="rv-who__n">
+        {user.name}
+        {user.admin ? <em> · एडमिन</em> : null}
+      </span>
+      <button type="button" className="rv-link" onClick={onOut}>
+        साइन-आउट
+      </button>
+    </div>
+  );
+}
+
 /* ------------------------------------------------------------------ form */
 function ReviewForm({ book, compact = false }) {
+  const { user, configured, signOut } = useAuth();
+  const summary = useSummary(book.slug);
   const mine = getMine(book.slug);
+
   const [rating, setRating] = useState(mine ? mine.rating : 0);
   const [name, setName] = useState(mine ? mine.name : "");
   const [comment, setComment] = useState(mine ? mine.comment : "");
   const [hp, setHp] = useState(""); // a field only a robot fills
-  const [state, setState] = useState("idle"); // idle | sending | done | error
+  const [state, setState] = useState("idle"); // idle | sending | done | error | reauth
   const [result, setResult] = useState(null);
+
+  // their Google name is the starting point; they may write another
+  useEffect(() => {
+    if (user && !name) setName(user.name || "");
+    // only when the person arrives, not on every keystroke
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user && user.email]);
+
+  const gate = configured && summary.signIn;
+  const needSignIn = gate && (!user || state === "reauth");
 
   const send = async (e) => {
     e.preventDefault();
@@ -70,10 +141,18 @@ function ReviewForm({ book, compact = false }) {
       const r = await submitReview({ slug: book.slug, rating, name, comment, hp });
       setResult(r);
       setState("done");
-    } catch {
-      setState("error");
+    } catch (err) {
+      setState(err && err.message === "signin" ? "reauth" : "error");
     }
   };
+
+  if (needSignIn) {
+    return (
+      <div className={`rv-form ${compact ? "rv-form--compact" : ""}`}>
+        <SignIn why={state === "reauth" ? "साइन-इन की अवधि पूरी हो गई — फिर साइन इन कीजिए" : undefined} />
+      </div>
+    );
+  }
 
   if (state === "done") {
     const mail = `mailto:${AUTHOR.connect.email}?subject=${encodeURIComponent(
@@ -104,6 +183,8 @@ function ReviewForm({ book, compact = false }) {
 
   return (
     <form className={`rv-form ${compact ? "rv-form--compact" : ""}`} onSubmit={send} noValidate>
+      {gate && user && <Who user={user} onOut={signOut} />}
+
       <p className="rv-form__q hi-d">{mine ? "आपकी राय" : "आपको यह किताब कैसी लगी?"}</p>
       <StarInput value={rating} onChange={setRating} size={compact ? 34 : 40} disabled={state === "sending"} />
 
@@ -151,7 +232,9 @@ function ReviewForm({ book, compact = false }) {
         <button type="submit" className="rv-send" disabled={!rating || state === "sending"}>
           {state === "sending" ? "भेज रहे हैं…" : mine ? "राय बदलिए" : "राय भेजिए"}
         </button>
-        <span className="rv-fine">कोई लॉग-इन नहीं · {comment.length}/600</span>
+        <span className="rv-fine">
+          {gate ? "Google खाते से" : "कोई लॉग-इन नहीं"} · {comment.length}/600
+        </span>
       </div>
       {state === "error" && (
         <p className="rv-error" role="alert">
@@ -162,12 +245,108 @@ function ReviewForm({ book, compact = false }) {
   );
 }
 
+/* ----------------------------------------------------------------- admin */
+function AdminPanel({ slug }) {
+  const [rows, setRows] = useState(null);
+  const [err, setErr] = useState("");
+  const [busy, setBusy] = useState("");
+
+  const explain = (e) =>
+    e && e.message === "signin"
+      ? "साइन-इन की अवधि पूरी हो गई — पेज ताज़ा करके फिर साइन इन कीजिए।"
+      : e && e.message === "forbidden"
+      ? "यह खाता एडमिन नहीं है।"
+      : "सूची अभी नहीं खुल पाई।";
+
+  const load = () =>
+    adminList(slug)
+      .then((r) => {
+        setErr("");
+        setRows(r);
+      })
+      .catch((e) => setErr(explain(e)));
+
+  useEffect(() => {
+    load();
+    // once per book
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slug]);
+
+  const run = async (key, fn) => {
+    setBusy(key);
+    try {
+      await fn();
+      await load();
+      loadSummary(slug, { fresh: true });
+    } catch (e) {
+      setErr(explain(e));
+    }
+    setBusy("");
+  };
+
+  const pending = (rows || []).filter((r) => r.comment && !r.approved).length;
+
+  return (
+    <section className="rv-admin" aria-label="एडमिन — टिप्पणियाँ">
+      <h3 className="rv-admin__t hi-d">
+        एडमिन · सभी राय {rows ? `(${rows.length})` : ""}
+        {pending ? <b className="rv-admin__n">{pending} जाँच के लिए</b> : null}
+      </h3>
+      {err && <p className="rv-error">{err}</p>}
+      {rows && rows.length === 0 && <p className="rv-note">अभी कोई राय नहीं आई।</p>}
+      <ul className="rv-admin__list">
+        {(rows || []).map((r) => (
+          <li key={r.key} className={`rv-admin__row ${r.comment && !r.approved ? "is-pending" : ""}`}>
+            <div className="rv-admin__top">
+              <StarRow value={r.rating} size={15} />
+              <b>{r.name || "—"}</b>
+              <span className="rv-admin__mail">{r.email || "बिना साइन-इन"}</span>
+              <time dateTime={r.at}>{fmtDate(r.at.slice(0, 10))}</time>
+            </div>
+            {r.comment ? (
+              <p className="rv-admin__txt hi" lang="hi">
+                {r.comment}
+              </p>
+            ) : (
+              <p className="rv-fine">केवल रेटिंग</p>
+            )}
+            <div className="rv-admin__act">
+              {r.comment && (
+                <button
+                  type="button"
+                  className="rv-mini rv-mini--ok"
+                  disabled={busy === r.key}
+                  onClick={() => run(r.key, () => adminApprove(slug, r.key, !r.approved))}
+                >
+                  {r.approved ? "छिपाइए" : "दिखाइए"}
+                </button>
+              )}
+              <button
+                type="button"
+                className="rv-mini rv-mini--del"
+                disabled={busy === r.key}
+                onClick={() => {
+                  if (window.confirm("यह राय हमेशा के लिए हटाएँ?")) run(r.key, () => adminRemove(slug, r.key));
+                }}
+              >
+                हटाइए
+              </button>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 /* ----------------------------------------------------------- the section */
 export function ReviewsSection({ book, variant = "page" }) {
   const s = useSummary(book.slug);
   const g = useGoogleRating();
+  const { user } = useAuth();
   const places = (REVIEWS.places || []).filter((p) => p.url);
   const top = Math.max(1, ...s.distribution);
+  const admin = Boolean(user && user.admin && AUTH.googleClientId && REVIEWS.endpoint);
 
   if (variant === "reader") {
     return (
@@ -238,6 +417,17 @@ export function ReviewsSection({ book, variant = "page" }) {
           {s.comments.map((c, i) => (
             <li key={`${c.at}-${i}`} className="rv-item">
               <div className="rv-item__top">
+                {c.picture ? (
+                  <img
+                    className="rv-item__pic"
+                    src={c.picture}
+                    alt=""
+                    width="28"
+                    height="28"
+                    loading="lazy"
+                    referrerPolicy="no-referrer"
+                  />
+                ) : null}
                 <StarRow value={c.rating} size={15} />
                 <b className="hi-d">{c.name || "एक पाठक"}</b>
                 {c.at && <time dateTime={c.at}>{fmtDate(c.at.slice(0, 10))}</time>}
@@ -263,6 +453,8 @@ export function ReviewsSection({ book, variant = "page" }) {
           ))}
         </p>
       )}
+
+      {admin && <AdminPanel slug={book.slug} />}
     </div>
   );
 }

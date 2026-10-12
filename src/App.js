@@ -6,6 +6,10 @@ import { MotionConfig, AnimatePresence, motion } from "framer-motion";
 import useSmoothScroll from "./hooks/useSmoothScroll";
 import Cursor from "./components/site/Cursor";
 import CoverViewerHost from "./library/CoverViewer";
+import SyncHost from "./sync/SyncHost";
+import SignInDialogHost from "./auth/SignInDialog";
+import CookieNotice from "./legal/CookieNotice";
+import Legal from "./pages/Legal";
 
 import Home from "./pages/Home";
 import Library from "./pages/Library";
@@ -81,6 +85,9 @@ export default function App() {
       {!reading && <Cursor />}
       <ScrollTop />
       <CoverViewerHost />
+      <SyncHost />
+      <SignInDialogHost />
+      <CookieNotice />
 
       <AnimatePresence mode="wait">
         <motion.div
@@ -93,6 +100,9 @@ export default function App() {
           <Routes location={location}>
             <Route path="/" element={<Home />} />
             <Route path="/library" element={<Library />} />
+            <Route path="/terms" element={<Legal doc="terms" />} />
+            <Route path="/privacy" element={<Legal doc="privacy" />} />
+            <Route path="/refund" element={<Legal doc="refund" />} />
             <Route path="/books/:slug" element={<BookPage />} />
             <Route path="/read/:slug" element={<Reader />} />
             <Route path="/read/:slug/:chapter" element={<Reader />} />

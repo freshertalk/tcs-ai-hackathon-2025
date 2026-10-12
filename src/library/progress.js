@@ -44,6 +44,17 @@ export function saveProgress(slug, patch) {
   return next;
 }
 
+/**
+ * Put a record in place as it is — the sync uses this to adopt a place read on
+ * another device without stamping it "now", so it is not mistaken for new
+ * reading here.
+ */
+export function replaceProgress(slug, record) {
+  const all = readAll();
+  all[slug] = { ...record, done: { ...(record.done || {}) } };
+  writeAll(all);
+}
+
 export function clearProgress(slug) {
   const all = readAll();
   delete all[slug];

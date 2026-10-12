@@ -16,6 +16,7 @@
 // that volume, it is shown beside ours, labelled as Google's.
 
 import { REVIEWS } from "../data/books";
+import { authConfigured, freshCredential } from "../auth/google";
 
 const DEVICE_KEY = "vkt.reviews.device.v1";
 const MINE_KEY = "vkt.reviews.mine.v1";
@@ -27,6 +28,7 @@ const empty = () => ({
   average: 0,
   distribution: [0, 0, 0, 0, 0],
   comments: [],
+  signIn: false,
 });
 
 /* ------------------------------------------------------------- this device */
@@ -92,6 +94,7 @@ function normalise(d) {
   return {
     configured: true,
     loaded: true,
+    signIn: Boolean(d.signIn),
     count,
     average: Number(d.average) || 0,
     distribution: dist,
@@ -100,6 +103,7 @@ function normalise(d) {
           .filter((c) => c && String(c.comment || "").trim())
           .map((c) => ({
             name: String(c.name || "").slice(0, 40),
+            picture: /^https:\/\//.test(String(c.picture || "")) ? String(c.picture) : "",
             rating: Number(c.rating) || 0,
             comment: String(c.comment).slice(0, 600),
             at: String(c.at || ""),
@@ -158,11 +162,18 @@ export async function submitReview({ slug, rating, name, comment, hp }) {
 
   if (!REVIEWS.endpoint) return { ok: true, shared: false, pending: false };
 
+  // a signed-in reader proves who they are with Google's token
+  let idToken = "";
+  if (authConfigured) {
+    idToken = (await freshCredential()) || "";
+    if (!idToken && peekSummary(slug).signIn) throw new Error("signin");
+  }
+
   const res = await fetch(REVIEWS.endpoint, {
     method: "POST",
     // text/plain keeps this a "simple" request: no pre-flight for the collector to answer
     headers: { "Content-Type": "text/plain;charset=utf-8" },
-    body: JSON.stringify({ ...clean, device: deviceId(), hp: hp || "" }),
+    body: JSON.stringify({ ...clean, device: deviceId(), idToken, hp: hp || "" }),
   });
   if (!res.ok) throw new Error("send failed");
   let body = {};
@@ -196,3 +207,25 @@ export function loadGoogleBooks(volumeId) {
   gbCache.set(volumeId, p);
   return p;
 }
+
+/* ------------------------------------------------------------------ admin */
+// These only work for the admin account: the collector checks Google's token
+// and the e-mail inside it, and refuses everyone else.
+async function adminCall(action, extra) {
+  if (!REVIEWS.endpoint) throw new Error("no endpoint");
+  const idToken = await freshCredential();
+  if (!idToken) throw new Error("signin");
+  const res = await fetch(REVIEWS.endpoint, {
+    method: "POST",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify({ action, idToken, ...extra }),
+  });
+  const d = await res.json();
+  if (!d || d.ok === false) throw new Error((d && d.error) || "failed");
+  return d;
+}
+
+/** Every rating and comment for a book, pending ones included. */
+export const adminList = (slug) => adminCall("admin_list", { slug }).then((d) => d.rows || []);
+export const adminApprove = (slug, key, approved) => adminCall("admin_set", { slug, key, approved });
+export const adminRemove = (slug, key) => adminCall("admin_delete", { slug, key });

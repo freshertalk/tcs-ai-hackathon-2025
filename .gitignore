@@ -21,3 +21,7 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# the reading key and the rows to paste into the Sheet — never commit these
+.book-keys.json
+book-keys-for-sheet.tsv

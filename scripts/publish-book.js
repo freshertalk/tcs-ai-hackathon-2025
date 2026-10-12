@@ -277,7 +277,44 @@ function parseToc(zip, pkg) {
 const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+/* ---------------------------------------------------- the reading key */
+// Chapters are encrypted with AES-256-GCM under a random key made here, per
+// edition. The key is NOT in the published site and NOT in the site's code:
+// it goes to a file that stays on this machine (.book-keys.json, ignored by
+// git) and to book-keys-for-sheet.tsv, whose rows you paste into the "Keys"
+// tab of the collector's Sheet (scripts/reviews-apps-script.gs). The collector
+// hands the key only to a signed-in account that has accepted the current
+// terms. Anyone who fetches the chapter files directly gets noise.
+const KEYS_FILE = path.join(ROOT, ".book-keys.json");
+const SHEET_TSV = path.join(ROOT, "book-keys-for-sheet.tsv");
+
+function loadKeys() {
+  try {
+    return JSON.parse(fs.readFileSync(KEYS_FILE, "utf8"));
+  } catch {
+    return {};
+  }
+}
+
+function saveKeys(keys) {
+  fs.writeFileSync(KEYS_FILE, JSON.stringify(keys, null, 1) + "\n", "utf8");
+  const rows = Object.entries(keys)
+    .map(([slug, e]) => [slug, e.version, e.key].join("\t"))
+    .join("\n");
+  fs.writeFileSync(SHEET_TSV, rows + "\n", "utf8");
+}
+
+/** base64( iv[12] | ciphertext | tag[16] ) — the layout WebCrypto expects. */
+function encrypt(text, keyHex, aad) {
+  const iv = crypto.randomBytes(12);
+  const c = crypto.createCipheriv("aes-256-gcm", Buffer.from(keyHex, "hex"), iv);
+  c.setAAD(Buffer.from(aad, "utf8"));
+  const body = Buffer.concat([c.update(Buffer.from(text, "utf8")), c.final()]);
+  return Buffer.concat([iv, body, c.getAuthTag()]).toString("base64");
+}
+
 /**
+ * The older scheme, kept so books published before the reading key still open.
  * Chapters are stored scrambled (UTF-8 → XOR with a key → base64) rather than
  * as readable HTML. This is NOT encryption: the reader's own code undoes it in
  * the browser, so anyone determined can too. What it does is stop the files
@@ -517,13 +554,35 @@ function publish(input, slug, overrides, args) {
   // overrides plus the cover pictures. Replace the file, change the date or
   // swap a picture, and this changes.
   const hash = sha(epubBuf, JSON.stringify(overrides), art ? art.srcHash : "");
-  const version = hash.slice(0, 12);
+
+  // one random reading key per edition, kept while the edition is unchanged
+  const keys = loadKeys();
+
+  // A build on another machine (the server, CI) has no reading key. It must not
+  // invent a new one — that would lock the book. It keeps what is published.
+  if (args.soft && !keys[slug] && fs.existsSync(path.join(bookDir, "book.json"))) {
+    try {
+      const prevBook = JSON.parse(fs.readFileSync(path.join(bookDir, "book.json"), "utf8"));
+      if (prevBook.enc) {
+        console.log(`Keeping    "${prevBook.title}" (${slug}) — published as it is (no reading key on this machine)`);
+        return "unchanged";
+      }
+    } catch {
+      /* publish normally */
+    }
+  }
+
+  let keyEntry = keys[slug];
+  if (!keyEntry || keyEntry.hash !== hash) {
+    keyEntry = { hash, key: crypto.randomBytes(32).toString("hex") };
+  }
+  const version = sha(hash, keyEntry.key).slice(0, 12);
 
   const bookPath = path.join(bookDir, "book.json");
   if (!args.force && fs.existsSync(bookPath)) {
     try {
       const prev = JSON.parse(fs.readFileSync(bookPath, "utf8"));
-      if (prev.source && prev.source.hash === hash) {
+      if (prev.source && prev.source.hash === hash && prev.enc && prev.version === version) {
         console.log(`Unchanged  "${prev.title}" (${slug}) — already up to date`);
         return "unchanged";
       }
@@ -538,7 +597,6 @@ function publish(input, slug, overrides, args) {
 
   const lang = pkg.language.split("-")[0];
   const wpm = WPM[lang] || WPM.default;
-  const key = `${slug}:${version}`;
 
   // ids are the file names, so URLs read /read/<slug>/ch05
   const idOf = (href) => posix.basename(href).replace(/\.[^.]+$/, "");
@@ -605,7 +663,11 @@ function publish(input, slug, overrides, args) {
   };
 
   const writeChapter = (id, html) =>
-    fs.writeFileSync(path.join(bookDir, "chapters", `${id}.dat`), scramble(html, key), "utf8");
+    fs.writeFileSync(
+      path.join(bookDir, "chapters", `${id}.dat`),
+      encrypt(html, keyEntry.key, `${slug}:${version}:${id}`),
+      "utf8"
+    );
 
   const chapters = [];
   for (const item of sections) {
@@ -691,6 +753,7 @@ function publish(input, slug, overrides, args) {
     cover,
     coverSmall,
     art: art || undefined,
+    enc: { alg: "AES-256-GCM", v: 1 },
     source: { file: path.basename(input), hash },
     stats: {
       chapters: chapters.filter((c) => c.kind === "chapter").length,
@@ -702,6 +765,11 @@ function publish(input, slug, overrides, args) {
     chapters,
   };
   fs.writeFileSync(bookPath, JSON.stringify(book, null, 1) + "\n", "utf8");
+
+  // remember the key for this edition and write the rows for the Sheet
+  keyEntry.version = version;
+  keys[slug] = keyEntry;
+  saveKeys(keys);
 
   /* catalogue */
   const indexPath = path.join(contentRoot, "index.json");
@@ -740,6 +808,8 @@ function publish(input, slug, overrides, args) {
   console.log(`  length      ${words.toLocaleString("en-IN")} words · about ${book.stats.minutes} min`);
   console.log(`  cover       ${cover || "none"}${coverSmall && coverSmall !== cover ? ` (+ ${coverSmall})` : ""}`);
   console.log(`  written to  ${path.relative(ROOT, bookDir)}`);
+  console.log(`  READING KEY ${path.relative(ROOT, SHEET_TSV)} — paste its row into the "Keys" tab of the Sheet`);
+  console.log("              (columns: slug, version, key). Until you do, nobody can open the book.");
   if (cover && coverSmall === cover) {
     console.log("  tip         add a 640px-wide cover-sm.jpg beside the cover for faster cards");
   }

@@ -33,6 +33,18 @@ function unscramble(b64, key) {
   return out.toString("utf8");
 }
 
+/* the AES reading key, for editions published with one (kept in .book-keys.json) */
+function decryptGcm(b64, keyHex, aad) {
+  const buf = Buffer.from(b64.trim(), "base64");
+  const iv = buf.subarray(0, 12);
+  const tag = buf.subarray(buf.length - 16);
+  const body = buf.subarray(12, buf.length - 16);
+  const d = require("crypto").createDecipheriv("aes-256-gcm", Buffer.from(keyHex, "hex"), iv);
+  d.setAAD(Buffer.from(aad, "utf8"));
+  d.setAuthTag(tag);
+  return Buffer.concat([d.update(body), d.final()]).toString("utf8");
+}
+
 const ENT = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " " };
 const plain = (html) =>
   html
@@ -77,7 +89,22 @@ function main() {
   const key = `${book.slug}:${book.version}`;
   const text = norm(
     book.chapters
-      .map((c) => plain(unscramble(fs.readFileSync(path.join(bookDir, c.file), "utf8"), key)))
+      .map((c) => {
+        const raw = fs.readFileSync(path.join(bookDir, c.file), "utf8");
+        if (!book.enc) return plain(unscramble(raw, key));
+        let keys = {};
+        try {
+          keys = JSON.parse(fs.readFileSync(path.join(ROOT, ".book-keys.json"), "utf8"));
+        } catch {
+          /* handled below */
+        }
+        const k = keys[book.slug];
+        if (!k || k.version !== book.version) {
+          console.error("The reading key for this edition is not on this machine (.book-keys.json).");
+          process.exit(1);
+        }
+        return plain(decryptGcm(raw, k.key, `${book.slug}:${book.version}:${c.id}`));
+      })
       .join("\n")
   );
 

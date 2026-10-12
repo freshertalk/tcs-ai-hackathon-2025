@@ -2,6 +2,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { PUBLISHER } from "../../data/books";
+import { reopenCookieNotice } from "../../legal/consent";
 
 export default function Footer({ note }) {
   const year = new Date().getFullYear();
@@ -20,6 +21,18 @@ export default function Footer({ note }) {
           <Link className="tlink" to="/read/do-kulhad-chai">
             Read
           </Link>
+          <Link className="tlink" to="/privacy">
+            Privacy Policy
+          </Link>
+          <Link className="tlink" to="/terms">
+            Terms of Use
+          </Link>
+          <Link className="tlink" to="/refund">
+            Refund Policy
+          </Link>
+          <button type="button" className="tlink foot__cookie" onClick={reopenCookieNotice}>
+            Cookie settings
+          </button>
           {/* plain <a>, not <Link>: a static file must not be routed by React */}
           <a className="tlink" href="/sitemap.xml">
             Sitemap

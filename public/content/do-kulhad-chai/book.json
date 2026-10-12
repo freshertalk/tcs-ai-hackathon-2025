@@ -1,6 +1,6 @@
 {
  "slug": "do-kulhad-chai",
- "version": "918c8ad471fe",
+ "version": "72b864403a55",
  "title": "दो कुल्हड़ चाय",
  "author": "विनय कुमार तिवारी",
  "language": "hi",
@@ -28,6 +28,10 @@
   "frontMd": "cover-md.jpg",
   "frontSmall": "cover-sm.jpg",
   "spine": "art/spine.png"
+ },
+ "enc": {
+  "alg": "AES-256-GCM",
+  "v": 1
  },
  "source": {
   "file": "दो कुल्हड़ चाय.epub",

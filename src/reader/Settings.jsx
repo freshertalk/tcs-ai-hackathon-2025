@@ -5,6 +5,8 @@
 import React, { useEffect } from "react";
 import { THEMES, WIDTHS, LINES, SIZE, TURNS } from "./prefs";
 import { IconClose, IconScroll, IconPages } from "./icons";
+import { AccountPanel } from "../auth/Account";
+import { authConfigured } from "../auth/google";
 
 function Seg({ label, value, options, onChange }) {
   return (
@@ -45,6 +47,12 @@ export default function Settings({ prefs, update, reset, onClose, canFullscreen,
       </div>
 
       <div className="rdp__scroll set" data-lenis-prevent>
+        {authConfigured && (
+          <div className="set__row set__row--acct">
+            <AccountPanel compact />
+          </div>
+        )}
+
         {/* reading mode */}
         <Seg
           label="पढ़ने का ढंग"
