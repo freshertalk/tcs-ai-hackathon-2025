@@ -144,6 +144,28 @@ DRM, and nothing running in a web page can be.
 
 Reader pages are `noindex`; the book page is the canonical address.
 
+## Ratings and comments (no sign-in)
+
+`src/reviews/` — readers press stars, may add a name and a few words, and
+send. It appears on the home page (**राय**), on each book's page, and at the
+end of the book in the reader. Nothing is invented: until there are ratings it
+says so, and no rating is ever added to the page's structured data.
+
+- **Where they are kept:** in a Google Sheet you own, through the small web app in
+  `scripts/reviews-apps-script.gs` (set-up steps are at the top of that file —
+  about five minutes). Put the web-app URL in `REVIEWS.endpoint` in
+  `src/data/books.js` and rebuild. Until then a reader's rating stays on their own
+  device and the page offers to e-mail it to you.
+- **Moderation:** every rating counts at once; a comment shows only after you
+  type `Y` in its *approved* cell. Delete a row to remove a rating.
+- **One voice per device:** a random id kept in the browser lets a returning
+  reader change their rating instead of adding another. It identifies nobody.
+  Without sign-in this cannot stop a determined person; it stops accidents.
+- **Other places:** `REVIEWS.places` shows links (Google Books, Goodreads,
+  Amazon) once you have the addresses. `REVIEWS.googleBooksId` shows Google's
+  own rating beside yours when Google has one for the volume — labelled as
+  Google's, never merged into ours.
+
 ## Structure
 
 ```

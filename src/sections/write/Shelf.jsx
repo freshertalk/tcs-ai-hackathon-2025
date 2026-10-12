@@ -13,6 +13,7 @@ import { KulhadPair } from "../../components/site/Kulhad";
 import { Cover, ReadButton } from "../../library/BookCard";
 import { contentUrl } from "../../library/api";
 import { openCoverViewer } from "../../library/CoverViewer";
+import Price from "../../library/Price";
 import { useCatalog } from "../../library/hooks";
 import { fmtDate, fmtMinutes } from "../../reader/util";
 import { BOOK, PUBLISHER } from "../../data/books";
@@ -105,6 +106,7 @@ export default function Shelf() {
               <p className="shelf__facts">
                 {book.chapters} अध्याय · {fmtMinutes(book.minutes)} · {fmtDate(book.published)}
               </p>
+              <Price slug={book.slug} className="shelf__price" />
               <div className="shelf__go">
                 <ReadButton book={book} className="btn btn--solid btn--lg" />
                 <Link className="shelf__link" to={`/books/${book.slug}`}>

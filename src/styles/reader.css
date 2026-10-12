@@ -1962,3 +1962,32 @@ body.is-reader-paged {
     padding: 0 11px;
   }
 }
+
+/* the fold of a printed book: a narrow crease at the binding, not a wash
+   across the page — the paper is otherwise as clean as the screen */
+.pg__gutter {
+  width: 6%;
+  min-width: 18px;
+  max-width: 46px;
+}
+.pg {
+  --rd-gutter: 0.09;
+}
+.rd[data-theme="night"] .pg,
+.rd[data-theme="black"] .pg {
+  --rd-gutter: 0.4;
+}
+
+/* the fold, as lightly as a printed page shows it: a few pixels, a breath of grey */
+.pg__gutter {
+  width: 16px;
+  min-width: 0;
+  max-width: none;
+}
+.pg {
+  --rd-gutter: 0.045;
+}
+.rd[data-theme="night"] .pg,
+.rd[data-theme="black"] .pg {
+  --rd-gutter: 0.22;
+}

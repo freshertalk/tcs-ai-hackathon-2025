@@ -19,9 +19,32 @@ export const PUBLISHER = {
   roman: "Kulhad Prakashan",
 };
 
+// Ratings and comments (src/reviews). Readers need no account.
+//   endpoint       the Web-app URL of scripts/reviews-apps-script.gs, once it is
+//                  deployed from a Google Sheet. Empty = a reader's rating stays
+//                  on their own device and they are offered an e-mail to you.
+//   googleBooksId  a Google Books volume id (the id=… in its address), if the
+//                  book is listed there and Google has a rating for it.
+//   places         pages where the book can also be rated; only those with an
+//                  address are shown. Fill them in once the book is listed.
+export const REVIEWS = {
+  endpoint: "https://script.google.com/macros/s/AKfycbzfuDeSFktvkhvQRBOTeDPlPmerp5801BS2AVhVtg0-AvOti5rLQynmeXLivJOXT4rneQ/exec",
+  googleBooksId: "",
+  places: [
+    { name: "Google Books", url: "" },
+    { name: "Goodreads", url: "" },
+    { name: "Amazon", url: "" },
+  ],
+};
+
 export const BOOK = {
   // matches the slug the book is published under in the library
   slug: "do-kulhad-chai",
+
+  // The E-Book price. Shown as: ₹ <mrp>/= only (struck through) and
+  // ₹ <selling>/= only.
+  // buyUrl, once there is a place to buy, adds a "खरीदिए" link beside it.
+  price: { mrp: 399, selling: 115, buyUrl: "" },
   title: "दो कुल्हड़ चाय",
   roman: "Do Kulhad Chai",
   kind: "उपन्यास · Novel",

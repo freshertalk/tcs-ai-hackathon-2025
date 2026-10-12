@@ -14,6 +14,8 @@ import { useBook, useProgress } from "../library/hooks";
 import { fmtDate, fmtMinutes } from "../reader/util";
 import { IconCheck, IconEye, IconShare } from "../reader/icons";
 import { SITE_LINKS } from "./Library";
+import { ReviewsSection } from "../reviews/Reviews";
+import Price from "../library/Price";
 
 const LANGS = { hi: "हिन्दी", en: "English", bho: "भोजपुरी", ur: "اردو" };
 
@@ -122,6 +124,7 @@ export default function BookPage() {
                 <p className="bk__by">
                   <span>लेखक</span> {book.author}
                 </p>
+                <Price slug={book.slug} />
               </Reveal>
 
               <Reveal delay={0.16}>
@@ -217,6 +220,16 @@ export default function BookPage() {
                   </div>
                 );
               })}
+            </div>
+          </section>
+
+          {/* ------------------------------------------- readers' opinions */}
+          <section className="section bk__reviews" id="reviews">
+            <div className="shell shell--narrow">
+              <Reveal>
+                <span className="eyebrow is-hi">पाठकों की राय</span>
+              </Reveal>
+              <ReviewsSection book={book} />
             </div>
           </section>
 

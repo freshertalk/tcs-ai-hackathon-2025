@@ -17,6 +17,7 @@ import Opening from "../sections/write/Opening";
 import Lines from "../sections/write/Lines";
 import Themes from "../sections/write/Themes";
 import Teaser from "../sections/write/Teaser";
+import Reviews from "../sections/write/Reviews";
 import Author from "../sections/write/Author";
 import Contact from "../sections/write/Contact";
 
@@ -29,6 +30,7 @@ const LINKS = [
   { id: "top", label: "उपन्यास" },
   { id: "opening", label: "पहला पन्ना" },
   { id: "lines", label: "पंक्तियाँ" },
+  { id: "reviews", label: "राय" },
   { id: "author", label: "लेखक" },
   { to: "/library", label: "रचनाएँ" },
   { id: "contact", label: "संपर्क" },
@@ -73,6 +75,7 @@ export default function Home() {
         <Lines />
         <Themes />
         <Teaser />
+        <Reviews />
         <Author />
         <Contact />
       </main>

@@ -26,6 +26,7 @@ import PagedView from "./PagedView";
 import Contents from "./Contents";
 import Settings from "./Settings";
 import MarkSheet from "./MarkSheet";
+import { ReviewsSection } from "../reviews/Reviews";
 import { clamp01, fmtMinutes } from "./util";
 import {
   IconBack,
@@ -1116,6 +1117,7 @@ function ReaderShell({ book, chapterId }) {
           {panel === "end" && (
             <div className="rdp rdp--center" role="dialog" aria-modal="true" aria-label="किताब समाप्त">
               <FlowFooter book={book} next={null} />
+              <ReviewsSection book={book} variant="reader" />
             </div>
           )}
         </>

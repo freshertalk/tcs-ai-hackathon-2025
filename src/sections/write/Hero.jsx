@@ -16,6 +16,8 @@ import { motion } from "framer-motion";
 import { Reveal, Magnetic, EASE } from "../../components/ui/motion";
 import Picture from "../../components/ui/Picture";
 import { ReadButton } from "../../library/BookCard";
+import { RatingChip } from "../../reviews/Reviews";
+import Price from "../../library/Price";
 import BookShowcase from "../../library/BookShowcase";
 import { useCatalog } from "../../library/hooks";
 import { fmtDate, fmtMinutes } from "../../reader/util";
@@ -80,6 +82,10 @@ export default function Hero({ readRef }) {
             <p className="bh__by">
               <span>लेखक</span> <b>{BOOK.byline}</b>
             </p>
+            <div className="bh__meta">
+              <Price className="bh__price" />
+              <RatingChip slug={BOOK.slug} />
+            </div>
           </Reveal>
         </div>
 
