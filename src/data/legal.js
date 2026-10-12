@@ -15,7 +15,7 @@
 // ---------------------------------------------------------------------------
 
 export const LEGAL = {
-  version: "2026-10-12",
+  version: "2026-10-12.2",
   updated: "12 October 2026",
   site: "https://vinaytiwari.org",
   owner: "Vinay Kumar Tiwari",
@@ -144,6 +144,13 @@ export const TERMS = {
         "Evidence: you agree that the Owner’s electronic records of your acceptance, sign-in, Contributions and activity, whether kept by himself or by his service providers, are admissible and shall be conclusive evidence of the matters recorded, in the absence of manifest error, in any proceeding.",
       ],
     },
+    {
+      h: "16. Coupons, discounts and promotional codes",
+      p: [
+        "The Owner may issue discount codes (“Coupons”) on such terms as he decides, including their amount, the period in which they may be used, the number of times they may be used in all and by one person, the persons or groups of persons (for example holders of a particular e-mail domain) who may use them, and the works to which they apply. Those terms are checked by the Owner’s systems when a Coupon is applied; a Coupon that is outside its terms is of no effect.",
+        "A Coupon has no cash value, is personal to the account it is applied for, may not be sold, transferred or published for others to use, and may not be combined with another unless the Owner says so. The Owner may withdraw, pause or change a Coupon at any time before it is applied, and may cancel the benefit of a Coupon obtained by mistake, by abuse of the Website, by automated means or by misrepresentation. Applying a Coupon creates a record (a reference number, your account, the price and the discount) which is evidence of the offer made to you and is not itself a payment or a contract of sale.",
+      ],
+    },
   ],
 };
 
@@ -173,7 +180,10 @@ export const PRIVACY = {
           "(d) Reading information (when you are signed in): your place in the book, chapters finished, bookmarks, highlights and notes, so that they can be kept in step across your devices.",
           "(e) Access records: the time at which access to the reading key was granted to your account.",
           "(f) Communications: anything you send us, including by e-mail.",
-          "(g) Technical information: IP address, browser type, device, operating-system and request details, which are processed automatically by the web server, hosting and content-delivery providers and by your browser when you visit."
+          "(g) Technical information: IP address, browser type, device, operating-system and request details, which are processed automatically by the web server, hosting and content-delivery providers and by your browser when you visit.",
+          "(h) Usage statistics: the pages you open, the time at which you open them, the seconds you are active on each page (while the page is visible and you are using it), the chapters you open, your device type (phone, tablet or computer) and the website that sent you here. If you pressed “Accept” on the cookie notice, these are linked to a random identifier kept in your browser; if you pressed “Necessary only”, only page views are counted and no identifier is used; if you are signed in, they are linked to your account. No IP address, and nothing you type, is part of these statistics.",
+          "(i) Activity and audit records: a record of significant actions on the Website, such as signing in, the reading key being released to your account, a rating or comment being made, changed or moderated, a coupon being applied, and a request for a copy or erasure of your data, with the time and your account and device details, kept for security, accountability and the establishment, exercise or defence of legal claims.",
+          "(j) Coupons: the code you applied, the price and discount, and a reference number."
         ),
         "We do not knowingly collect payment-card or bank credentials. Where payment is offered it is handled by independent payment providers under their own policies.",
       ],
@@ -181,13 +191,14 @@ export const PRIVACY = {
     {
       h: "3. Purposes",
       p: [
-        "We use information to: operate and secure the Website; verify that you are signed in and entitled to read; provide the reader, ratings, comments and synchronisation; moderate Contributions and prevent abuse, fraud and unauthorised copying; keep records of consent and of access for legal and evidentiary purposes; respond to you; comply with law and lawful requests of authorities; establish, exercise or defend legal claims; and maintain and improve the Website. We do not sell your personal data and do not use it for third-party advertising.",
+        "We use information to: operate and secure the Website; verify that you are signed in and entitled to read; provide the reader, ratings, comments and synchronisation; moderate Contributions and prevent abuse, fraud and unauthorised copying; keep records of consent, of access and of significant activity for legal, security and evidentiary purposes; measure and understand how the Website is used (audience, time spent, popular pages) so as to improve it; administer coupons and prevent their misuse; respond to you; comply with law and lawful requests of authorities; establish, exercise or defend legal claims; and maintain and improve the Website. We do not sell your personal data and do not use it for third-party advertising.",
       ],
     },
     {
       h: "4. Cookies, local storage and similar technologies",
       p: [
-        "The Website uses browser local storage and a limited number of cookies. They are used for: remembering your cookie and consent choice; your reading preferences (theme, text size and similar); your place, bookmarks and highlights on that device; a random device identifier used to limit duplicate ratings; your signed-in state; and the cover and reader features you have used. Google’s sign-in service sets its own cookies and may read cookies it has already set. The Website does not use advertising cookies or cross-site tracking cookies of its own and does not use third-party analytics at the date of this policy.",
+        "The Website uses browser local storage and a limited number of cookies. They are used for: remembering your cookie and consent choice; your reading preferences (theme, text size and similar); your place, bookmarks and highlights on that device; a random device identifier used to limit duplicate ratings; if you pressed “Accept”, a random visitor identifier used for the usage statistics described in clause 2(h); your signed-in state; and the cover and reader features you have used. Google’s sign-in service sets its own cookies and may read cookies it has already set. The Website does not use advertising cookies or cross-site tracking cookies of its own and does not use third-party analytics services at the date of this policy; its usage statistics are kept by the Owner in his own records.",
+        "Your cookie choice applies to the usage statistics as stated in clause 2(h). Signed-in use of the Website is counted against the account, as you accept when you sign in. You can change the cookie choice at any time from “Cookie settings” in the footer or from your account page.",
         "You may refuse or clear cookies and local storage through your browser settings; parts of the Website, including sign-in and reading position, may then not work or may be lost. Fonts and scripts may be fetched from third-party servers (for example Google), which then receive your IP address and technical details.",
       ],
     },
@@ -206,7 +217,7 @@ export const PRIVACY = {
     {
       h: "7. Retention",
       p: [
-        "We keep information for as long as needed for the purposes in this policy. Consent and access records are retained for as long as necessary to establish, exercise or defend legal claims, including any applicable limitation period, and may be kept after you stop using the Website. Contributions may be kept, anonymised or removed at our discretion. Information held by Google or other providers is subject to their own retention.",
+        "We keep information for as long as needed for the purposes in this policy. Consent and access records are retained for as long as necessary to establish, exercise or defend legal claims, including any applicable limitation period, and may be kept after you stop using the Website. Usage statistics are kept for as long as they are useful for understanding the Website and may be deleted or aggregated at any time. Contributions may be kept, anonymised or removed at our discretion. Information held by Google or other providers is subject to their own retention.",
       ],
     },
     {
@@ -225,6 +236,7 @@ export const PRIVACY = {
       h: "10. Your rights and choices",
       p: [
         `Subject to applicable law, you may ask to access a summary of your personal data, to have it corrected or updated, to have it erased, to withdraw consent (which does not affect processing already done), to nominate a person to exercise your rights, and to have a grievance addressed. Send your request from your registered e-mail address to ${C.email}. We may need to verify your identity and may decline or limit a request that is excessive, unlawful, or that would affect the rights of others or our ability to keep records for legal claims. Withdrawal of consent or erasure may end your access to sign-in-based features.`,
+        "If you are signed in you can, from your account page, download a copy of the information described in this policy that is held against your account, and ask for your reading data, your name and comment on ratings, and your picture and e-mail address in activity records to be erased. Records of your acceptance, of access and the audit log are kept as stated in clause 7, and a rating’s star value may remain in the overall tally without your name.",
         "You can also sign out at any time from the Website and manage your Google account and permissions at Google’s account settings.",
       ],
     },
@@ -314,7 +326,13 @@ export const REFUND = {
       ],
     },
     {
-      h: "10. Statutory rights; law and jurisdiction; contact",
+      h: "10. Coupons and discounted purchases",
+      p: [
+        "Where a Coupon or other discount was applied, any refund that is due under this policy is of the amount actually paid, not of the list price. A Coupon has no cash value and is not refundable, exchangeable or re-issued once applied, unless the Owner decides otherwise in writing.",
+      ],
+    },
+    {
+      h: "11. Statutory rights; law and jurisdiction; contact",
       p: [
         `Nothing in this policy affects any right that cannot lawfully be excluded under the Consumer Protection Act, 2019 or the rules under it. This policy is governed by the laws of India and any dispute is subject to the exclusive jurisdiction of ${C.court}, as provided in the Terms of Use. Contact and Grievance Officer: ${C.owner}, ${C.email}; complaints are acknowledged within forty-eight (48) hours and resolved within thirty (30) days.`,
       ],

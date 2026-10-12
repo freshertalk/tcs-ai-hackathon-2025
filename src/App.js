@@ -1,5 +1,5 @@
 // src/App.js
-import React, { useLayoutEffect } from "react";
+import React, { Suspense, lazy, useLayoutEffect } from "react";
 import { Routes, Route, useLocation, Navigate } from "react-router-dom";
 import { MotionConfig, AnimatePresence, motion } from "framer-motion";
 
@@ -8,6 +8,9 @@ import Cursor from "./components/site/Cursor";
 import CoverViewerHost from "./library/CoverViewer";
 import SyncHost from "./sync/SyncHost";
 import SignInDialogHost from "./auth/SignInDialog";
+import TrackerHost from "./analytics/TrackerHost";
+import ErrorBoundary from "./components/site/ErrorBoundary";
+import OfflineBar from "./components/site/OfflineBar";
 import CookieNotice from "./legal/CookieNotice";
 import Legal from "./pages/Legal";
 
@@ -19,7 +22,21 @@ import Reader from "./reader/Reader";
 import "./styles/site.css";
 import "./styles/library.css";
 import "./styles/reader.css";
+import "./styles/auth.css";
+import "./styles/reviews.css";
+import "./styles/dash.css";
 import "./styles/typography.css"; // last: it sets the one text size
+
+// the account and admin screens are for a few people: they load when asked for
+const AccountPage = lazy(() => import("./account/AccountPage"));
+const AdminPage = lazy(() => import("./admin/AdminPage"));
+
+const Quiet = () => (
+  <div className="qgate" role="status" aria-live="polite">
+    <span className="qgate__ring" />
+    <span className="sr-only">खुल रहा है…</span>
+  </div>
+);
 
 const EASE = [0.16, 1, 0.3, 1];
 
@@ -87,7 +104,9 @@ export default function App() {
       <CoverViewerHost />
       <SyncHost />
       <SignInDialogHost />
+      <TrackerHost />
       <CookieNotice />
+      <OfflineBar />
 
       <AnimatePresence mode="wait">
         <motion.div
@@ -97,6 +116,8 @@ export default function App() {
           exit={{ opacity: 0 }}
           transition={{ duration: reading ? 0.2 : 0.4, ease: EASE }}
         >
+          <ErrorBoundary resetKey={routeKey}>
+          <Suspense fallback={<Quiet />}>
           <Routes location={location}>
             <Route path="/" element={<Home />} />
             <Route path="/library" element={<Library />} />
@@ -104,6 +125,8 @@ export default function App() {
             <Route path="/privacy" element={<Legal doc="privacy" />} />
             <Route path="/refund" element={<Legal doc="refund" />} />
             <Route path="/books/:slug" element={<BookPage />} />
+            <Route path="/account" element={<AccountPage />} />
+            <Route path="/admin" element={<AdminPage />} />
             <Route path="/read/:slug" element={<Reader />} />
             <Route path="/read/:slug/:chapter" element={<Reader />} />
 
@@ -112,6 +135,8 @@ export default function App() {
             <Route path="/technical" element={<Navigate to="/" replace />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+          </Suspense>
+          </ErrorBoundary>
         </motion.div>
       </AnimatePresence>
     </MotionConfig>

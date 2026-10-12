@@ -18,6 +18,8 @@ import Picture from "../../components/ui/Picture";
 import { ReadButton } from "../../library/BookCard";
 import { RatingChip } from "../../reviews/Reviews";
 import Price from "../../library/Price";
+import CouponBox from "../../coupons/CouponBox";
+import HeroVoices from "../../reviews/HeroVoices";
 import BookShowcase from "../../library/BookShowcase";
 import { useCatalog } from "../../library/hooks";
 import { fmtDate, fmtMinutes } from "../../reader/util";
@@ -86,6 +88,7 @@ export default function Hero({ readRef }) {
               <Price className="bh__price" />
               <RatingChip slug={BOOK.slug} />
             </div>
+            <CouponBox className="bh__coupon" />
           </Reveal>
         </div>
 
@@ -93,6 +96,10 @@ export default function Hero({ readRef }) {
         <div className="bh__body">
           <Reveal y={18} delay={0.16} duration={0.9}>
             <p className="bh__tag hi">{BOOK.logline}</p>
+          </Reveal>
+
+          <Reveal y={18} delay={0.18} duration={0.9}>
+            <HeroVoices slug={BOOK.slug} />
           </Reveal>
 
           <Reveal y={18} delay={0.2} duration={0.9}>

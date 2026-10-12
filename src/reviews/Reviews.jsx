@@ -18,7 +18,7 @@ import { AUTH, REVIEWS, AUTHOR } from "../data/books";
 import { fmtDate } from "../reader/util";
 import { useAuth } from "../auth/google";
 import { openSignIn } from "../auth/SignInDialog";
-import { GoogleG } from "../auth/Account";
+import { IconSignIn } from "../components/ui/icons";
 import { StarRow, StarInput } from "./Stars";
 import {
   adminApprove,
@@ -79,7 +79,7 @@ function SignIn({ why }) {
     <div className="rv-signin">
       <p className="rv-form__q hi-d">{why || "राय देने के लिए Google से साइन इन कीजिए"}</p>
       <button type="button" className="acct__go" onClick={() => openSignIn("rate")}>
-        <GoogleG size={18} />
+        <IconSignIn size={18} />
         <span>साइन इन</span>
       </button>
       <p className="rv-fine">
@@ -246,7 +246,7 @@ function ReviewForm({ book, compact = false }) {
 }
 
 /* ----------------------------------------------------------------- admin */
-function AdminPanel({ slug }) {
+export function AdminPanel({ slug }) {
   const [rows, setRows] = useState(null);
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState("");

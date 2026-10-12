@@ -270,6 +270,19 @@ export async function freshCredential() {
   return attempt;
 }
 
+/**
+ * What can vouch for this person right now without asking Google or anyone: a
+ * session in date, or a Google token that is still fresh. Never prompts, never
+ * calls the collector — for things (page statistics) that must stay out of the
+ * way and are happy to go anonymous.
+ */
+export function quietCredential() {
+  if (!authConfigured) return null;
+  if (sessionValid()) return state.session.token;
+  if (state && state.exp * 1000 > Date.now() + 30 * 1000) return state.credential;
+  return null;
+}
+
 /* ------------------------------------------------------------------- hook */
 export function useAuth() {
   const [user, setUser] = useState(currentUser);

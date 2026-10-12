@@ -86,7 +86,8 @@ function Skeleton({ label = "अध्याय खुल रहा है…" }
   return (
     <div className="rd__loading" role="status">
       <span className="rd__spinner" aria-hidden="true" />
-      <span>{label}</span>
+      {/* a ring and nothing else on screen; the words are for screen readers */}
+      <span className="sr-only">{label}</span>
     </div>
   );
 }

@@ -1,22 +1,25 @@
 // src/reader/ReadWall.jsx
-// Reading is for signed-in readers. This stands where the book would open:
-// it checks that this account is signed in and has been given the key — and
-// only then lets the reader mount.
+// Reading is for signed-in readers. This stands where the book would open.
 //
-// Acceptance of the Terms of Use, Privacy Policy and Refund Policy is asked in
-// one place only: the sign-in dialog (src/auth/SignInDialog.jsx). This page
-// carries no tick-box and no policy text of its own: when the reader is not
-// signed in it opens that dialog, and offers a button to open it again. If an
-// account turns out to have no acceptance on record, it is signed out and the
-// same dialog is opened — never a second, different question mid-reading.
+//   signed in, key on the device   → the book, at once (no screen in between)
+//   signed in, key to be fetched   → one turning ring, then the book — nothing
+//                                    else is shown
+//   not signed in                  → the full sign-in screen
+//
+// The page has no sign-in of its own: the screen it shows is the same one the
+// navigation bar's icon opens (src/auth/SignInDialog.jsx), acceptance of the
+// Terms of Use, Privacy Policy and Refund Policy included. If the book cannot
+// be opened for the person because the sign-in they hold cannot be verified,
+// it is ended and they are shown that screen, with the reason.
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { signOut, useAuth } from "../auth/google";
 import { localTermsAccepted, useLoginIssue } from "../legal/consent";
 import { AccessError, accessRequired, ensureAccess } from "../auth/access";
-import { openSignIn } from "../auth/SignInDialog";
+import LoginScreen from "../auth/LoginScreen";
 import { contentUrl } from "../library/api";
+
 // why the collector would not vouch for a lapsed sign-in (see verifyLapsedGoogle_)
 const LAPSE = {
   "too-old": "आपका पिछला साइन-इन 30 दिन से भी पुराना है।",
@@ -26,7 +29,7 @@ const LAPSE = {
 };
 
 const REASONS = {
-  auth: "Google की जाँच पूरी नहीं हुई — बटन फिर दबाइए।",
+  auth: "Google की जाँच पूरी नहीं हुई — फिर कोशिश कीजिए।",
   consent: "शर्तों की स्वीकृति सर्वर पर दर्ज नहीं हो पाई।",
   "consent-record": "आपकी स्वीकृति सर्वर पर दर्ज है, पर मेल नहीं खा रही — एडमिन को बताइए।",
   nokey: "इस संस्करण की चाबी सर्वर पर अभी नहीं है।",
@@ -36,15 +39,24 @@ const REASONS = {
   network: "सर्वर तक पहुँचा नहीं जा सका — इंटरनेट देखिए।",
 };
 
+function reasonText(i) {
+  if (!i) return "";
+  if (i.code === "renew-auth") {
+    return LAPSE[i.why] || `पुराने साइन-इन को सर्वर ने नहीं माना${i.why ? ` (${i.why})` : ""}।`;
+  }
+  return REASONS[i.code] || `कारण: ${i.code}`;
+}
 
 export default function ReadWall({ book, children }) {
   const gated = accessRequired(book);
   const { user } = useAuth();
   const issue = useLoginIssue();
-  const [state, setState] = useState(gated ? "checking" : "ok"); // checking | ok | signin | nokey | error
+  // a person who is plainly signed out never sees a spinner first
+  const [state, setState] = useState(!gated ? "ok" : user ? "checking" : "signin"); // checking | ok | signin | nokey | error
   const [why, setWhy] = useState("");
+  const [seen, setSeen] = useState(null);
   const redirected = useRef(false);
-  const asked = useRef(false);
+  const ended = useRef(false);
 
   const check = useCallback(() => {
     if (!gated) return;
@@ -73,71 +85,51 @@ export default function ReadWall({ book, children }) {
     check();
   }, [check]);
 
-  // This page has no sign-in of its own. If the book cannot be opened for the
-  // person it is because the sign-in they hold could not be verified; it is
-  // ended, and the one sign-in (the same as in the navigation bar) opens, once.
-  const [seen, setSeen] = useState(null);
+  // The book could not be opened for someone who is "signed in": that sign-in
+  // cannot be verified. End it, once, and keep the reason for the screen.
   useEffect(() => {
-    if (state !== "signin" || asked.current) return;
-    asked.current = true;
+    if (state !== "signin" || ended.current || !user) return;
+    ended.current = true;
     setSeen(issue);
-    if (user) signOut();
-    openSignIn("read");
+    signOut();
   }, [state, user, issue]);
 
   if (!gated || state === "ok") return children;
+
+  if (state === "checking") {
+    return (
+      <div className="qgate" role="status" aria-live="polite">
+        <span className="qgate__ring" />
+        <span className="sr-only">किताब खुल रही है…</span>
+      </div>
+    );
+  }
+
+  if (state === "signin") {
+    const i = issue || seen;
+    return (
+      <LoginScreen
+        reason="read"
+        book={book}
+        error={why === "consent" ? "आगे पढ़ने के लिए फिर से साइन इन कीजिए।" : reasonText(i)}
+      />
+    );
+  }
 
   return (
     <div className="rd rd--scroll rdw" data-theme="paper">
       <div className="rdw__card">
         {book.coverSmall && (
-          <img
-            className="rdw__cover"
-            src={contentUrl(book.slug, book.coverSmall)}
-            alt=""
-            width="120"
-            height="168"
-          />
+          <img className="rdw__cover" src={contentUrl(book.slug, book.coverSmall)} alt="" width="120" height="168" />
         )}
         <h1 className="rdw__t hi-d">{book.title}</h1>
         <p className="rdw__by">{book.author}</p>
 
-        {state === "checking" && (
-          <p className="rdw__p" role="status">
-            आपका खाता जाँचा जा रहा है…
-          </p>
-        )}
-
-        {state === "signin" && (
-          <>
-            <p className="rdw__p hi">
-              {why === "consent"
-                ? "आगे पढ़ने के लिए फिर से साइन इन कीजिए।"
-                : "यह किताब केवल साइन-इन किए हुए पाठकों के लिए खुलती है। Google से साइन इन कीजिए — आपकी पढ़ने की जगह, बुकमार्क और रेखांकन भी आपके सभी डिवाइस पर साथ चलेंगे।"}
-            </p>
-            {issue || seen ? (
-              <p className="rdw__issue" role="alert">
-                {(() => {
-                  const i = issue || seen;
-                  return i.code === "renew-auth"
-                    ? LAPSE[i.why] || `पुराने साइन-इन को सर्वर ने नहीं माना${i.why ? ` (${i.why})` : ""}।`
-                    : REASONS[i.code] || `कारण: ${i.code}`;
-                })()}
-              </p>
-            ) : null}
-            <button type="button" className="rdw__go" onClick={() => openSignIn("read")}>
-              साइन इन
-            </button>
-          </>
-        )}
-
-        {state === "nokey" && (
+        {state === "nokey" ? (
           <p className="rdw__p hi" role="alert">
             यह संस्करण अभी पढ़ने के लिए खोला नहीं गया है। कृपया थोड़ी देर बाद फिर आइए।
           </p>
-        )}
-
-        {state === "error" && (
+        ) : (
           <>
             <p className="rdw__p hi" role="alert">
               अभी किताब नहीं खुल पाई। इंटरनेट देखकर फिर कोशिश कीजिए।

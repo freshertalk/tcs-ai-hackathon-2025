@@ -233,6 +233,106 @@ resort rather than a routine:
   To keep Google's older signing keys available, the script notes the current
   keys at most once an hour when the tally is requested (up to 16 are kept).
 
+## Account, admin dashboard, coupons and the audit log
+
+Two screens sit behind sign-in. Neither has a server or database of its own:
+everything is kept in the same Google Sheet, by the same script
+(`scripts/reviews-apps-script.gs`).
+
+| Address  | For      | What it is |
+|----------|----------|------------|
+| `/account` | any signed-in reader | profile, time spent, where they are in the book, highlights, their rating, coupons used, what is on record about them, **download my data**, **erase my data** |
+| `/admin`   | admins only | **Analytics**, **Readers**, **Coupons**, **Audit log**, **Comments** (moderation), **Team & system** |
+
+The navigation bar's sign-in icon opens the one sign-in dialog; once signed in
+it becomes the person's picture with a menu (My account · Admin dashboard ·
+Sign out). Reading shows a single turning ring while the key is checked and
+then the book; anyone not signed in gets the full-page sign-in
+(`src/auth/LoginScreen.jsx`).
+
+### Tabs the script creates (on first use)
+
+| Tab | Holds |
+|-----|-------|
+| `Events` | one row per page view, per chapter opened, and per batch of seconds spent on a page |
+| `Users` | one row per signed-in account: first/last seen, sign-in count, role, status |
+| `Coupons` | the codes, with their rules |
+| `Redemptions` | the ledger: every time a code was applied (reference, price, discount) |
+| `Audit` | who did what and when — append-only; nothing in the script edits or deletes a row |
+
+### Analytics: what is counted, and for whom
+
+- A page view when the address changes; the **seconds a person is actually
+  there** (tab visible and a tap, key or scroll in the last minute — three
+  minutes inside the reader); a chapter opened.
+- **Signed in** → by account. **“Accept”** → by a random id kept in the
+  browser. **“Necessary only”** → page views only, no id. **No choice yet** →
+  nothing is sent. Bots and the admin's own browsing are left out.
+- Batched every 30 s and when the tab is hidden; nothing ever blocks a page.
+- The dashboard asks the script for any period — today, yesterday, 7/30/90 days,
+  this/last month, all time, or two dates — with the change against the
+  period before, a daily (weekly/monthly for long ranges) series, hours of the
+  day, devices, referrers, top pages, most-opened chapters, new vs returning
+  visitors, time spent (signed-in vs others, reading vs elsewhere), and the
+  most engaged readers. Results are cached for a minute.
+- **Scale.** Each tracked page view is about two rows. A Sheet holds 10 million
+  cells; at nine columns that is ~1 million rows. When the Events tab gets
+  large, copy old rows to another file and delete them here — the dashboard
+  reads whatever is in the tab.
+
+### Coupons
+
+An admin makes a code with: type (**percent off**, **flat ₹ off**, **fixed
+price**), amount, **total uses**, **uses per person**, **valid from / until**,
+a **group** (a list of e-mail addresses and/or a whole domain such as
+`@college.edu`), the book it is for, and a note. The script enforces all of
+it — the price it applies a code to is its own table, `PRICES` at the top of
+the coupons section (keep it the same as `BOOK.price` in `src/data/books.js`).
+
+A reader opens “कूपन कोड है?” under the price, sees the price after the code,
+and presses **कूपन पक्का करें** to get a **receipt** (`KC-…`) which is written
+to the ledger and shown on their account page. **There is no payment gateway
+on this site**: the receipt says what to pay and carries the reference; once
+`BOOK.price.buyUrl` is set, the reference and amount are passed to it, and until
+then the receipt offers an e-mail to the author with the same details.
+
+### Audit log
+
+Recorded with the actor's verified e-mail, role, time and device string:
+`auth.consent` (every sign-in), `book.key` (key released), `review.create/
+update/approve/hide/delete`, `coupon.create/update/pause/resume/redeem/
+refused`, `admin.view`, `team.add/remove`, `data.export/erase`, and
+`security.denied` (an admin action tried by someone who is not one). The
+script cannot see an IP address, so none is recorded. Filter by period,
+person, action and text; export to CSV.
+
+### Admins
+
+`ADMIN_EMAIL` in the script is the **owner**. The owner adds or removes other
+admins in **Team & system** (kept in the script property `ADMINS`). The
+dashboard only decides what to show: every request is checked again by the
+script against the verified e-mail.
+
+### The documents edition
+
+Collecting usage statistics, keeping an audit log and offering coupons had to
+be in the Privacy Policy and Terms, so the **edition is `2026-10-12.2`**
+(`LEGAL.version` in `src/data/legal.js` and `LEGAL_VERSION` in the script —
+always change both together). A new edition ends the sign-ins made under the
+old one: every reader (the owner included) signs in once more and ticks the
+box, and the book key is fetched again. Do not change the edition for small
+corrections; change it when the documents change in substance.
+
+### Putting these on
+
+1. Paste the new script over the old one and **Deploy → Manage deployments → ✏ →
+   New version**. Open `<web-app URL>?check=1`: `build` should read
+   `2026-10-12-dashboards` and `analytics` should be `true`.
+2. `npm run build`, upload the contents of `build/`, then
+   `node scripts/verify-deploy.js`.
+3. Sign in as the owner and open **/admin**. The tabs above appear in the
+   Sheet as they are first used.
+
 **Sheets turns text into numbers and dates.** A Google account id is a
 21-digit number and the edition is `2026-10-12`; written with a plain
 `appendRow`, Sheets rounds the first and makes the second a date, so an

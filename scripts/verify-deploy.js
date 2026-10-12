@@ -107,6 +107,10 @@ const sha = (s) => crypto.createHash("sha256").update(s).digest("hex").slice(0, 
     if (j && j.build) {
       pass(`collector script is "${j.build}" (V8 ${j.v8 ? "on" : "OFF"}, Keys tab ${j.keysTab ? "ok" : "MISSING"}, signature check ${j.signatureCheck ? "ok" : "FAILED"})`);
       if (!j.v8 || !j.keysTab || !j.signatureCheck) fail("the collector reports a problem — see the line above");
+      if (!j.analytics) fail("the collector script predates the dashboards (no statistics, coupons or audit log): paste the newest scripts/reviews-apps-script.gs and deploy it as a New version");
+      const want = (fs.readFileSync(path.join(ROOT, "src", "data", "legal.js"), "utf8").match(/version: "([^"]+)"/) || [])[1];
+      if (want && j.legal && j.legal !== want) fail(`documents edition in the script is ${j.legal} but the site has ${want}: set LEGAL_VERSION in the script to ${want}`);
+      else if (want) pass(`documents edition ${want} agrees between the site and the script`);
     } else fail("the collector has no ?check=1 answer: deploy the newest scripts/reviews-apps-script.gs as a New version");
   } else warn("no collector address found in src/data/books.js");
 

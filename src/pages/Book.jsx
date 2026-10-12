@@ -16,6 +16,7 @@ import { IconCheck, IconEye, IconShare } from "../reader/icons";
 import { SITE_LINKS } from "./Library";
 import { ReviewsSection } from "../reviews/Reviews";
 import Price from "../library/Price";
+import CouponBox from "../coupons/CouponBox";
 
 const LANGS = { hi: "हिन्दी", en: "English", bho: "भोजपुरी", ur: "اردو" };
 
@@ -125,6 +126,7 @@ export default function BookPage() {
                   <span>लेखक</span> {book.author}
                 </p>
                 <Price slug={book.slug} />
+                <CouponBox slug={book.slug} />
               </Reveal>
 
               <Reveal delay={0.16}>

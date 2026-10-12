@@ -20,102 +20,136 @@ User-agent: *
 Allow: /
 Disallow: /content/*/chapters/
 Disallow: /read/
+Disallow: /account
+Disallow: /admin
 Disallow: /ebooks/
 
 User-agent: GPTBot
 Allow: /
 Disallow: /content/*/chapters/
 Disallow: /read/
+Disallow: /account
+Disallow: /admin
 Disallow: /ebooks/
 
 User-agent: OAI-SearchBot
 Allow: /
 Disallow: /content/*/chapters/
 Disallow: /read/
+Disallow: /account
+Disallow: /admin
 Disallow: /ebooks/
 
 User-agent: ChatGPT-User
 Allow: /
 Disallow: /content/*/chapters/
 Disallow: /read/
+Disallow: /account
+Disallow: /admin
 Disallow: /ebooks/
 
 User-agent: ClaudeBot
 Allow: /
 Disallow: /content/*/chapters/
 Disallow: /read/
+Disallow: /account
+Disallow: /admin
 Disallow: /ebooks/
 
 User-agent: Claude-Web
 Allow: /
 Disallow: /content/*/chapters/
 Disallow: /read/
+Disallow: /account
+Disallow: /admin
 Disallow: /ebooks/
 
 User-agent: anthropic-ai
 Allow: /
 Disallow: /content/*/chapters/
 Disallow: /read/
+Disallow: /account
+Disallow: /admin
 Disallow: /ebooks/
 
 User-agent: PerplexityBot
 Allow: /
 Disallow: /content/*/chapters/
 Disallow: /read/
+Disallow: /account
+Disallow: /admin
 Disallow: /ebooks/
 
 User-agent: Perplexity-User
 Allow: /
 Disallow: /content/*/chapters/
 Disallow: /read/
+Disallow: /account
+Disallow: /admin
 Disallow: /ebooks/
 
 User-agent: Google-Extended
 Allow: /
 Disallow: /content/*/chapters/
 Disallow: /read/
+Disallow: /account
+Disallow: /admin
 Disallow: /ebooks/
 
 User-agent: Applebot
 Allow: /
 Disallow: /content/*/chapters/
 Disallow: /read/
+Disallow: /account
+Disallow: /admin
 Disallow: /ebooks/
 
 User-agent: Applebot-Extended
 Allow: /
 Disallow: /content/*/chapters/
 Disallow: /read/
+Disallow: /account
+Disallow: /admin
 Disallow: /ebooks/
 
 User-agent: Bingbot
 Allow: /
 Disallow: /content/*/chapters/
 Disallow: /read/
+Disallow: /account
+Disallow: /admin
 Disallow: /ebooks/
 
 User-agent: DuckDuckBot
 Allow: /
 Disallow: /content/*/chapters/
 Disallow: /read/
+Disallow: /account
+Disallow: /admin
 Disallow: /ebooks/
 
 User-agent: CCBot
 Allow: /
 Disallow: /content/*/chapters/
 Disallow: /read/
+Disallow: /account
+Disallow: /admin
 Disallow: /ebooks/
 
 User-agent: Amazonbot
 Allow: /
 Disallow: /content/*/chapters/
 Disallow: /read/
+Disallow: /account
+Disallow: /admin
 Disallow: /ebooks/
 
 User-agent: meta-externalagent
 Allow: /
 Disallow: /content/*/chapters/
 Disallow: /read/
+Disallow: /account
+Disallow: /admin
 Disallow: /ebooks/
 
 Sitemap: https://vinaytiwari.org/sitemap.xml

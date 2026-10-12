@@ -16,7 +16,9 @@ export default function CookieNotice() {
       <p className="ck__t">
         <b>Cookies and privacy.</b> This website uses cookies and browser storage that are necessary for it to
         work — for your reading preferences, your place in the book and your sign-in — and Google’s sign-in
-        service sets its own cookies. We do not use advertising cookies. By continuing you agree to our{" "}
+        service sets its own cookies. If you press “Accept”, we also keep anonymous usage statistics (pages
+        opened and time spent, under a random id); “Necessary only” counts page views and nothing more. We do
+        not use advertising cookies. By continuing you agree to our{" "}
         <Link to="/privacy">Privacy Policy</Link>, <Link to="/terms">Terms of Use</Link> and{" "}
         <Link to="/refund">Refund Policy</Link>. Signing in requires your express acceptance of them.
       </p>

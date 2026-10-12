@@ -1,17 +1,25 @@
 // src/auth/Account.jsx
 // The reader's Google account, in two shapes: a panel (for the settings sheet
-// and the phone menu's account row) and a small icon button for the
-// navigation bar.
+// and the phone menu's account row) and the button in the navigation bar.
 //
-// The navigation button carries no words at all: Google's own "G" before
-// sign-in, the person's picture after, and a single sign-out icon when it is
-// pressed. Signing in always goes through the dialog (src/auth/SignInDialog),
-// where the acceptance of the policies is asked and recorded.
+// Signed out, the navigation button is a sign-in icon (a person stepping
+// through a door) with a tooltip — not Google's "G": the page may offer other
+// ways in one day, and an icon should say what it does. Signed in, it is the
+// person's picture, and pressing it opens a small menu: their account page,
+// the admin dashboard if they are an admin, and sign-out.
+//
+// Signing in always goes through the dialog (src/auth/SignInDialog), where the
+// acceptance of the policies is asked and recorded.
 
 import React, { useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { signOut, useAuth } from "./google";
 import { openSignIn } from "./SignInDialog";
 import { syncAvailable, useSyncStatus } from "../sync/sync";
+import { useMe } from "../account/me";
+import { GoogleG, IconDashboard, IconShield, IconSignIn, IconSignOut } from "../components/ui/icons";
+
+export { GoogleG };
 
 const STATUS = {
   idle: "तैयार",
@@ -31,41 +39,11 @@ function ago(ts) {
   return `${Math.round(m / 60)} घंटे पहले`;
 }
 
-/** Google's four-colour "G", as a mark. */
-export function GoogleG({ size = 20 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 48 48" aria-hidden="true" focusable="false">
-      <path
-        fill="#EA4335"
-        d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.1C12.4 13.6 17.7 9.5 24 9.5z"
-      />
-      <path
-        fill="#4285F4"
-        d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.6 5.9c4.4-4.1 7-10.1 7-17.6z"
-      />
-      <path
-        fill="#FBBC05"
-        d="M10.5 28.7a14.5 14.5 0 010-9.4l-7.9-6.1a24 24 0 000 21.6l7.9-6.1z"
-      />
-      <path
-        fill="#34A853"
-        d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.6-5.9c-2.1 1.4-4.8 2.3-8.3 2.3-6.3 0-11.6-4.1-13.5-9.8l-7.9 6.1C6.5 42.6 14.6 48 24 48z"
-      />
-    </svg>
-  );
-}
-
-const IconOut = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <path d="M9 4H5.5A1.5 1.5 0 004 5.5v13A1.5 1.5 0 005.5 20H9" />
-    <path d="M15 8l4 4-4 4M19 12H9" />
-  </svg>
-);
-
 /** The whole account story, for a panel. */
 export function AccountPanel({ compact = false }) {
   const { user, configured } = useAuth();
   const sync = useSyncStatus();
+  const { isAdmin } = useMe();
   if (!configured) return null;
 
   if (!user) {
@@ -76,8 +54,8 @@ export function AccountPanel({ compact = false }) {
           पढ़ने के लिए साइन-इन ज़रूरी है। साइन इन करने पर आपकी पढ़ने की जगह, बुकमार्क और रेखांकन आपके सभी
           डिवाइस पर साथ चलेंगे, और आप किताब को अपने नाम से रेटिंग दे सकेंगे।
         </p>
-        <button type="button" className="acct__go" onClick={openSignIn}>
-          <GoogleG size={18} />
+        <button type="button" className="acct__go" onClick={() => openSignIn()}>
+          <IconSignIn size={18} />
           <span>साइन इन</span>
         </button>
       </div>
@@ -113,6 +91,19 @@ export function AccountPanel({ compact = false }) {
         आपकी पढ़ने की जगह, बुकमार्क और रेखांकन इसी खाते से जुड़कर सभी डिवाइस पर दिखेंगे।
       </p>
 
+      <div className="acct__links">
+        <Link to="/account" className="acct__go">
+          <IconDashboard size={18} />
+          <span>मेरा खाता</span>
+        </Link>
+        {isAdmin && (
+          <Link to="/admin" className="acct__go">
+            <IconShield size={18} />
+            <span>एडमिन डैशबोर्ड</span>
+          </Link>
+        )}
+      </div>
+
       <button type="button" className="acct__out" onClick={signOut}>
         साइन-आउट
       </button>
@@ -120,10 +111,11 @@ export function AccountPanel({ compact = false }) {
   );
 }
 
-/** The navigation bar's account: an icon, signed out or in — no words. */
+/** The navigation bar's account: an icon, signed out or in. */
 export function AccountButton({ className = "" }) {
   const { user, configured } = useAuth();
   const sync = useSyncStatus();
+  const { isAdmin, me } = useMe();
   const [open, setOpen] = useState(false);
   const box = useRef(null);
 
@@ -144,28 +136,26 @@ export function AccountButton({ className = "" }) {
   if (!user) {
     return (
       <div className={`acctb ${className}`}>
-        <button
-          type="button"
-          className="acctb__btn"
-          aria-label="Sign in with Google"
-          title="Google"
-          onClick={openSignIn}
-        >
-          <GoogleG size={20} />
+        <button type="button" className="acctb__signin" aria-label="Sign in" onClick={() => openSignIn()}>
+          <IconSignIn size={21} />
         </button>
+        <span className="acctb__tip" role="tooltip">
+          साइन इन · Sign in
+        </span>
       </div>
     );
   }
+
+  const close = () => setOpen(false);
 
   return (
     <div className={`acctb ${className}`} ref={box}>
       <button
         type="button"
         className="acctb__btn is-in"
-        aria-haspopup="true"
+        aria-haspopup="menu"
         aria-expanded={open}
         aria-label={`Account: ${user.name}`}
-        title={user.name}
         onClick={() => setOpen((v) => !v)}
       >
         {user.picture ? (
@@ -175,10 +165,62 @@ export function AccountButton({ className = "" }) {
         )}
         {syncAvailable() && <i className={`acctb__dot is-${sync.status}`} aria-hidden="true" />}
       </button>
+      {!open && (
+        <span className="acctb__tip" role="tooltip">
+          {user.name}
+        </span>
+      )}
+
       {open && (
-        <div className="acctb__pop acctb__pop--icons">
-          <button type="button" className="acctb__out" aria-label="Sign out" title="Sign out" onClick={signOut}>
-            <IconOut />
+        <div className="acctb__menu" role="menu">
+          <div className="acctb__who">
+            {user.picture ? (
+              <img src={user.picture} alt="" width="44" height="44" referrerPolicy="no-referrer" />
+            ) : (
+              <span className="acctb__ini" aria-hidden="true">
+                {String(user.name || "?").slice(0, 1)}
+              </span>
+            )}
+            <div>
+              <b>{user.name}</b>
+              <span>{user.email}</span>
+              {isAdmin ? <span className="acctb__role">Admin</span> : null}
+            </div>
+          </div>
+
+          <Link to="/account" className="acctb__item" role="menuitem" onClick={close}>
+            <IconDashboard size={20} />
+            <span>
+              मेरा खाता
+              <small>
+                {me && me.usage && me.usage.seconds
+                  ? `पढ़ने में बिताया समय · ${Math.max(1, Math.round(me.usage.seconds / 60))} मिनट`
+                  : "प्रोफ़ाइल, प्रगति और डेटा"}
+              </small>
+            </span>
+          </Link>
+
+          {isAdmin && (
+            <Link to="/admin" className="acctb__item" role="menuitem" onClick={close}>
+              <IconShield size={20} />
+              <span>
+                एडमिन डैशबोर्ड
+                <small>आँकड़े, कूपन, ऑडिट लॉग</small>
+              </span>
+            </Link>
+          )}
+
+          <button
+            type="button"
+            className="acctb__item acctb__item--out"
+            role="menuitem"
+            onClick={() => {
+              close();
+              signOut();
+            }}
+          >
+            <IconSignOut size={20} />
+            <span>साइन-आउट</span>
           </button>
         </div>
       )}

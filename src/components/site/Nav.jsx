@@ -8,7 +8,7 @@ import { Link } from "react-router-dom";
 import { motion, AnimatePresence, useScroll, useSpring } from "framer-motion";
 import { EASE } from "../ui/motion";
 import { scrollToId } from "../../hooks/useSmoothScroll";
-import { KulhadPair } from "./Kulhad";
+import ChaiMark from "./ChaiMark";
 import SocialIcons from "./SocialIcons";
 import { AccountButton } from "../../auth/Account";
 import { IconEye } from "../../reader/icons";
@@ -88,7 +88,7 @@ export default function Nav({
         <div className="nav__row">
           <Link to="/" className="nav__brand" data-cursor="Home">
             <span className="nav__cup" aria-hidden="true">
-              <KulhadPair size={46} />
+              <ChaiMark size={52} />
             </span>
             <span className="nav__name">
               दो कुल्हड़ चाय
