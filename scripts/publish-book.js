@@ -307,7 +307,9 @@ const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replac
 //   सामने / front   the front cover       -> cover.jpg  cover-md.jpg  cover-sm.jpg
 //   पीछे / back     the back cover        -> back.jpg   back-sm.jpg
 //   रीढ़ / spine    the spine             -> spine.png
-//   जैकेट / jacket  the full wrap-around  -> jacket.jpg jacket-sm.jpg
+//
+// Any other file in the folder (for example a full wrap-around jacket) is left
+// alone: the site does not show it.
 //
 // The originals are kept as they are (art/front.png …) for the "download"
 // button; the web sizes are made here. Resizing uses what the machine has —
@@ -316,7 +318,6 @@ const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replac
 // none of those still works from what was published.
 const ART_ROLES = [
   { role: "spine", test: /रीढ|spine/i },
-  { role: "jacket", test: /जैकेट|jacket|wrap/i },
   { role: "front", test: /सामने|front/i },
   { role: "back", test: /पीछे|back/i },
 ];
@@ -329,10 +330,6 @@ const ART_SIZES = {
   back: [
     { name: "back.jpg", width: 2000, q: 88, key: "back" },
     { name: "back-sm.jpg", width: 640, q: 84, key: "backSmall" },
-  ],
-  jacket: [
-    { name: "jacket.jpg", width: 2400, q: 86, key: "jacket" },
-    { name: "jacket-sm.jpg", width: 1000, q: 84, key: "jacketSmall" },
   ],
   spine: [],
 };
@@ -480,6 +477,17 @@ function prepareArt(slug, bookDir) {
   if (!resized) {
     console.log("  note        could not resize the cover pictures here; using the originals (larger files)");
   }
+
+  // tidy: anything an earlier run made that is no longer part of the set
+  const keepNames = new Set(
+    [...Object.values(art).filter((v) => typeof v === "string"), ...Object.values(art.original)].map((n) =>
+      n.replace(/^art\//, "")
+    )
+  );
+  for (const f of fs.readdirSync(path.join(bookDir, "art"))) {
+    if (!keepNames.has(f)) fs.rmSync(path.join(bookDir, "art", f), { force: true });
+  }
+  for (const f of ["jacket.jpg", "jacket-sm.jpg"]) fs.rmSync(path.join(bookDir, f), { force: true });
   return art;
 }
 

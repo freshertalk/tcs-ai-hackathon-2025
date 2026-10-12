@@ -56,7 +56,7 @@ function Missing() {
         <h1 className="h-display h-hi title-md">यह किताब नहीं मिली।</h1>
         <p className="lib__note hi">पता ग़लत हो सकता है, या किताब हटा दी गई है।</p>
         <Link className="btn btn--solid" to="/library" style={{ marginTop: 26 }}>
-          किताबघर देखिए
+          रचनाएँ देखिए
         </Link>
       </div>
     </main>
@@ -86,7 +86,7 @@ export default function BookPage() {
       <Nav
         links={SITE_LINKS}
         tone="light"
-        kicker="किताबघर"
+        kicker="रचनाएँ"
         cta={{ href: `/read/${slug}`, label: pct > 0 ? "पढ़ना जारी रखें" : "पढ़ें" }}
       />
 
@@ -188,7 +188,7 @@ export default function BookPage() {
           <section className="section bk__tocSec" id="contents">
             <div className="shell shell--narrow">
               <Reveal>
-                <span className="eyebrow is-hi">अनुक्रम · Contents</span>
+                <span className="eyebrow is-hi">अनुक्रम</span>
               </Reveal>
 
               {GROUPS.map((g) => {
@@ -242,7 +242,7 @@ export default function BookPage() {
         </main>
       )}
 
-      <Footer note="दो कुल्हड़ चाय · किताबघर" />
+      <Footer note="दो कुल्हड़ चाय · रचनाएँ" />
     </div>
   );
 }

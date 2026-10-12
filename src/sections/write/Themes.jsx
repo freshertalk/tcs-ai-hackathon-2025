@@ -16,12 +16,12 @@ export default function Themes() {
         <div className="sec-head">
           <div>
             <Reveal>
-              <span className="eyebrow is-hi">विषय · Themes</span>
+              <span className="eyebrow is-hi">विषय</span>
             </Reveal>
-            <h2 className="h-display title-lg">
-              <MaskLine>What the book</MaskLine>
+            <h2 className="h-display h-hi title-lg">
+              <MaskLine>यह किताब</MaskLine>
               <MaskLine delay={0.08}>
-                <span className="ital">is really about</span>
+                <span className="ital">असल में किस बारे में है</span>
               </MaskLine>
             </h2>
           </div>
@@ -35,7 +35,7 @@ export default function Themes() {
             <motion.div className="themes__cell" key={t.n} variants={riseItem}>
               <div className="themes__n">{t.n}</div>
               <div className="themes__t">{t.t}</div>
-              <p className="themes__d">{t.d}</p>
+              <p className="themes__d hi">{t.d}</p>
             </motion.div>
           ))}
         </Stagger>

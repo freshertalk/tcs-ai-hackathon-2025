@@ -2,7 +2,7 @@
  "books": [
   {
    "slug": "do-kulhad-chai",
-   "version": "bfa4089f8904",
+   "version": "918c8ad471fe",
    "title": "दो कुल्हड़ चाय",
    "author": "विनय कुमार तिवारी",
    "language": "hi",
@@ -12,11 +12,10 @@
    "cover": "cover.jpg",
    "coverSmall": "cover-sm.jpg",
    "art": {
-    "srcHash": "1d344e9fb6120a94",
+    "srcHash": "1808ac4f85712dbb",
     "original": {
      "back": "art/back.png",
      "front": "art/front.png",
-     "jacket": "art/jacket.png",
      "spine": "art/spine.png"
     },
     "back": "back.jpg",
@@ -24,8 +23,6 @@
     "front": "cover.jpg",
     "frontMd": "cover-md.jpg",
     "frontSmall": "cover-sm.jpg",
-    "jacket": "jacket.jpg",
-    "jacketSmall": "jacket-sm.jpg",
     "spine": "art/spine.png"
    },
    "chapters": 36,

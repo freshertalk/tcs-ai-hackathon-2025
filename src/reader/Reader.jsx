@@ -10,7 +10,7 @@
 // This route opts out of the site shell (preloader, custom cursor, inertial
 // scroll, grain): a page of prose wants the platform's own scrolling.
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Link, Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
 
 import Seo from "../components/seo/Seo";
@@ -40,6 +40,45 @@ import {
 } from "./icons";
 
 /* ----------------------------------------------------------- small parts */
+/**
+ * A line of text that always shows whole. When it fits, it just sits there;
+ * when the screen is too narrow for it, it slides slowly to its end and back,
+ * pausing at each end, so a long chapter title can be read in full instead of
+ * being cut to "17 · जिस कि…".
+ */
+function Scrolling({ children }) {
+  const box = useRef(null);
+  const txt = useRef(null);
+  const [shift, setShift] = useState(0);
+
+  useLayoutEffect(() => {
+    const b = box.current;
+    const t = txt.current;
+    if (!b || !t) return undefined;
+    const measure = () => {
+      const over = Math.ceil(t.scrollWidth - b.clientWidth);
+      setShift(over > 2 ? over + 6 : 0);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(b);
+    document.fonts?.ready?.then(measure);
+    return () => ro.disconnect();
+  }, [children]);
+
+  return (
+    <span ref={box} className={`mq ${shift ? "is-moving" : ""}`}>
+      <span
+        ref={txt}
+        className="mq__t"
+        style={shift ? { "--mq-shift": `-${shift}px`, "--mq-dur": `${Math.max(4, Math.round(3 + shift / 22))}s` } : undefined}
+      >
+        {children}
+      </span>
+    </span>
+  );
+}
+
 function Skeleton({ label = "अध्याय खुल रहा है…" }) {
   return (
     <div className="rd__loading" role="status">
@@ -94,7 +133,7 @@ function FlowFooter({ book, next, onNext }) {
           किताब के पन्ने पर
         </Link>
         <Link className="rd__btn rd__btn--ghost" to="/library">
-          किताबघर
+          रचनाएँ
         </Link>
       </div>
     </div>
@@ -797,7 +836,9 @@ function ReaderShell({ book, chapterId }) {
         </Link>
         <div className="rd__heading">
           <span className="rd__book">{book.title}</span>
-          <span className="rd__chap">{label}</span>
+          <span className="rd__chap">
+            <Scrolling>{label}</Scrolling>
+          </span>
         </div>
         <div className="rd__tools">
           <button
@@ -890,7 +931,9 @@ function ReaderShell({ book, chapterId }) {
 
       {/* a quiet line of status for when the bars are tucked away */}
       <div className="rd__status">
-        <span>{label}</span>
+        <span>
+          <Scrolling>{label}</Scrolling>
+        </span>
         <button type="button" className="rd__cycle" onClick={cycleProgress} title="बदलने के लिए दबाइए">
           {progressText}
         </button>
@@ -911,7 +954,9 @@ function ReaderShell({ book, chapterId }) {
 
         <div className="rd__seek">
           <div className="rd__seekText">
-            <span>{seekLabel || label}</span>
+            <span>
+              <Scrolling>{seekLabel || label}</Scrolling>
+            </span>
             {preview !== null ? (
               <span>{`${Math.floor(preview / 10)}%`}</span>
             ) : (
@@ -1091,7 +1136,7 @@ export default function Reader() {
         <div className="rd__loading rd__loading--err" role="alert">
           <p>यह किताब नहीं मिली।</p>
           <Link className="rd__btn" to="/library">
-            किताबघर देखिए
+            रचनाएँ देखिए
           </Link>
         </div>
       </div>

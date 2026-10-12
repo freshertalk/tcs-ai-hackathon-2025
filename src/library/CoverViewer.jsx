@@ -46,14 +46,11 @@ function download(href, name) {
 const FACE_LABEL = {
   front: "आगे का आवरण",
   back: "पिछला आवरण",
-  jacket: "पूरा जैकेट",
 };
 
-/** The faces this book has, in the order they are shown. */
-function facesOf(book) {
-  const faces = ["front", "back"];
-  if (book.art && book.art.jacket) faces.push("jacket");
-  return faces;
+/** The faces a book has, in the order they are shown. */
+function facesOf() {
+  return ["front", "back"];
 }
 
 const fileExt = (p) => (String(p).match(/\.[a-z0-9]+$/i) || [".jpg"])[0].toLowerCase();
@@ -153,10 +150,6 @@ export default function CoverViewerHost() {
       src = typeset;
       web = typeset;
     }
-  } else if (art && art.jacket) {
-    src = contentUrl(book.slug, art.jacket);
-    web = src;
-    original = art.original && art.original.jacket ? contentUrl(book.slug, art.original.jacket) : null;
   }
   const placeholder =
     face === "front" && book.coverSmall ? contentUrl(book.slug, book.coverSmall) : null;
@@ -225,7 +218,7 @@ export default function CoverViewerHost() {
         </div>
       </header>
 
-      <div className={`cv__stage ${zoom ? "is-zoom" : ""} ${face === "jacket" ? "is-wide" : ""}`} data-lenis-prevent>
+      <div className={`cv__stage ${zoom ? "is-zoom" : ""}`} data-lenis-prevent>
         {src ? (
           <img
             key={face}

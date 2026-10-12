@@ -142,32 +142,32 @@ export const BOOK = {
     {
       n: "01",
       t: "वादा",
-      d: "A promise that is made once and kept month after month — the twelfth, the same train, two kulhads, whether or not both can come.",
+      d: "एक ऐसा वादा जो एक बार किया गया और महीने-दर-महीने निभाया गया — वही बारह तारीख़, वही ट्रेन, दो कुल्हड़, चाहे दोनों आ पाएँ या नहीं।",
     },
     {
       n: "02",
       t: "नाम, सबसे आख़िर में",
-      d: "Two strangers who trade their heaviest truths before they trade their names — because a name makes you stop looking at the person.",
+      d: "दो अजनबी, जो अपना नाम बताने से पहले अपनी सबसे भारी सच्चाइयाँ एक-दूसरे को सौंप देते हैं — क्योंकि नाम जान लेने के बाद इंसान को देखना बंद हो जाता है।",
     },
     {
       n: "03",
       t: "ठहराव",
-      d: "A red signal, four and a half stalled hours, rain. Stalled trains frighten more than stalled lives — and then, one night, they are the only place a life gets going.",
+      d: "एक लाल सिग्नल, साढ़े चार घंटे का रुकना, बारिश। रुकी हुई ट्रेनें रुकी हुई ज़िंदगी से ज़्यादा डरावनी लगती हैं — और फिर एक रात वही रुकाव वह जगह बन जाता है जहाँ ज़िंदगी चल पड़ती है।",
     },
     {
       n: "04",
       t: "भूल जाने का डर",
-      d: "A camera, a diary, a voice recorder, a watch worn for what it reminds her of: everything done so that nothing blurs.",
+      d: "एक कैमरा, एक डायरी, एक रिकॉर्डर, एक घड़ी जो समय बताने के लिए नहीं, याद दिलाने के लिए पहनी गई है — सब कुछ इसलिए कि कुछ भी धुँधला न पड़े।",
     },
     {
       n: "05",
       t: "अनकहा",
-      d: "The call that was not picked up, the letter that was never posted, the question no one asked — 'तुम ठीक हो?' — and what that silence gave back.",
+      d: "वह फ़ोन जो उठाया नहीं गया, वह चिट्ठी जो कभी पोस्ट नहीं हुई, वह सवाल जो किसी ने नहीं पूछा — “तुम ठीक हो?” — और उस चुप्पी ने जो लौटाया।",
     },
     {
       n: "06",
       t: "घर",
-      d: "Fathers who ask only “सब ठीक है?”, mothers who put one more roti on the plate: love that never says the whole sentence.",
+      d: "वे पिता जो बस इतना पूछते हैं “सब ठीक है?”, वे माँएँ जो थाली में एक रोटी और रख देती हैं — वह प्रेम जो पूरा वाक्य कभी नहीं कहता।",
     },
   ],
 };

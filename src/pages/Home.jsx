@@ -30,7 +30,7 @@ const LINKS = [
   { id: "opening", label: "पहला पन्ना" },
   { id: "lines", label: "पंक्तियाँ" },
   { id: "author", label: "लेखक" },
-  { to: "/library", label: "किताबघर" },
+  { to: "/library", label: "रचनाएँ" },
   { id: "contact", label: "संपर्क" },
 ];
 
@@ -46,10 +46,10 @@ export default function Home() {
   const entry = data ? data.books.find((b) => b.slug === BOOK.slug) : null;
 
   useEffect(() => {
-    // the page opens in chai-gold light; the browser bar should match it
+    // the page opens in pale, rain-washed light; the browser bar should match it
     document
       .querySelector('meta[name="theme-color"]')
-      ?.setAttribute("content", "#f6dfa4");
+      ?.setAttribute("content", "#e9eef6");
   }, []);
 
   return (

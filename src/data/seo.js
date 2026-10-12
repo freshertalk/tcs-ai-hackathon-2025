@@ -94,14 +94,14 @@ export const PAGES = {
   },
   library: {
     path: "/library",
-    title: "किताबघर · Books — विनय कुमार तिवारी की किताबें ऑनलाइन पढ़िए",
+    title: "रचनाएँ · Books — विनय कुमार तिवारी की किताबें ऑनलाइन पढ़िए",
     description:
       "विनय कुमार तिवारी की किताबें — ऑनलाइन पढ़िए, कहीं भी, किसी भी डिवाइस पर। फ़ोन, टैबलेट और कंप्यूटर के लिए बना, ई-रीडर जैसा पढ़ने का अनुभव।",
-    keywords: ["किताबघर", "हिन्दी किताबें ऑनलाइन", "Hindi books online", "Hindi ebook online", ...BOOK_TERMS.slice(0, 4)],
+    keywords: ["रचनाएँ", "हिन्दी किताबें ऑनलाइन", "Hindi books online", "Hindi ebook online", ...BOOK_TERMS.slice(0, 4)],
     lang: "hi",
     type: "website",
     summary:
-      "विनय कुमार तिवारी की प्रकाशित किताबों का किताबघर। हर किताब ऑनलाइन रीडर में पढ़ी जा सकती है — पन्ने पलटकर या स्क्रॉल करके, अपनी पसंद के रंग और अक्षर में।",
+      "विनय कुमार तिवारी की प्रकाशित रचनाएँ। हर किताब ऑनलाइन रीडर में पढ़ी जा सकती है — पन्ने पलटकर या स्क्रॉल करके, अपनी पसंद के रंग और अक्षर में।",
   },
 };
 
@@ -297,7 +297,7 @@ export function graphFor(key, book) {
       webPageLd(PAGES.library, "CollectionPage"),
       breadcrumbLd([
         { name: "Home", path: "/" },
-        { name: "किताबघर", path: "/library" },
+        { name: "रचनाएँ", path: "/library" },
       ]),
     ];
   }
@@ -310,7 +310,7 @@ export function graphFor(key, book) {
       bookLd(book),
       breadcrumbLd([
         { name: "Home", path: "/" },
-        { name: "किताबघर", path: "/library" },
+        { name: "रचनाएँ", path: "/library" },
         { name: book.title, path: meta.path },
       ]),
     ];

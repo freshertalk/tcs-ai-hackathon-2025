@@ -32,7 +32,7 @@ function Card({ text, i }) {
 function Head() {
   return (
     <>
-      <span className="eyebrow is-hi">पंक्तियाँ · Lines</span>
+      <span className="eyebrow is-hi">पंक्तियाँ</span>
       <h2 className="h-display h-hi title-md" style={{ marginTop: 12 }}>
         <MaskLine>कुछ वाक्य, जो अकेले भी खड़े रह जाते हैं</MaskLine>
       </h2>

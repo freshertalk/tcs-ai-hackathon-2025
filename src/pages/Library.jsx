@@ -1,5 +1,5 @@
 // src/pages/Library.jsx
-// किताबघर — everything on the shelf, and a short note on how it reads.
+// रचनाएँ — everything on the shelf, and a short note on how it reads.
 
 import React, { useEffect } from "react";
 
@@ -12,7 +12,7 @@ import { useCatalog } from "../library/hooks";
 
 export const SITE_LINKS = [
   { to: "/", label: "मुखपृष्ठ" },
-  { to: "/library", label: "किताबघर" },
+  { to: "/library", label: "रचनाएँ" },
 ];
 
 const HOW = [
@@ -49,14 +49,14 @@ export default function Library() {
       <Seo page="library" />
       <Nav
         links={SITE_LINKS}
-        kicker="किताबघर · Books"
+        kicker="रचनाएँ"
         cta={{ href: "/read/do-kulhad-chai", label: "पढ़ना शुरू करें" }}
       />
 
       <main className="lib">
         <header className="shell lib__head">
           <Reveal>
-            <span className="eyebrow is-hi">किताबघर · Books</span>
+            <span className="eyebrow is-hi">रचनाएँ</span>
           </Reveal>
           <h1 className="h-display h-hi title-lg lib__title">
             <MaskLine>किताबें, जो आपके साथ</MaskLine>
@@ -73,9 +73,9 @@ export default function Library() {
         </header>
 
         <section className="shell lib__shelf" aria-label="किताबें">
-          {error && <p className="lib__state">किताबघर अभी खुल नहीं पाया। थोड़ी देर बाद फिर देखिए।</p>}
+          {error && <p className="lib__state">रचनाएँ अभी खुल नहीं पाईं। थोड़ी देर बाद फिर देखिए।</p>}
           {!error && !data && <p className="lib__state">किताबें आ रही हैं…</p>}
-          {data && books.length === 0 && <p className="lib__state">किताबघर अभी ख़ाली है।</p>}
+          {data && books.length === 0 && <p className="lib__state">रचनाएँ अभी ख़ाली हैं।</p>}
 
           {books.length > 0 && (
             <ul className={`lib__grid ${books.length === 1 ? "lib__grid--one" : ""}`}>
@@ -105,7 +105,7 @@ export default function Library() {
         </section>
       </main>
 
-      <Footer note="दो कुल्हड़ चाय · किताबघर" />
+      <Footer note="दो कुल्हड़ चाय · रचनाएँ" />
     </div>
   );
 }

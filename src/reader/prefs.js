@@ -4,9 +4,9 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-// v4: the book opens on white at a larger size — earlier saved choices are
-// let go rather than carried into different defaults
-const KEY = "vkt.reader.prefs.v4";
+// v5: the reader opens as the author set it — pages, white, 16, tight lines,
+// wide text, left-aligned. Earlier saved choices are let go once.
+const KEY = "vkt.reader.prefs.v5";
 
 export const THEMES = [
   { id: "auto", label: "स्वतः", note: "System", bg: "linear-gradient(135deg,#faf4e9 50%,#15181e 50%)", fg: "#2a2018" },
@@ -44,8 +44,7 @@ export const WIDTHS = [
 ];
 
 export const SIZE = { min: 10, max: 36, step: 1 };
-export const DEFAULT_SIZE = 20;
-const DEFAULT_SIZE_PHONE = 18;
+export const DEFAULT_SIZE = 16;
 // How a page turns.
 export const TURNS = [
   { id: "page", label: "पन्ना पलटना" },
@@ -67,10 +66,9 @@ function defaults() {
   return {
     theme: "white",
     font: "sans",
-    size:
-      typeof window !== "undefined" && window.innerWidth < 640 ? DEFAULT_SIZE_PHONE : DEFAULT_SIZE,
-    line: 1.9,
-    width: "medium",
+    size: DEFAULT_SIZE,
+    line: 1.7,
+    width: "wide",
     align: "left",
     mode: "paged",
     awake: false,

@@ -48,7 +48,7 @@ export default function Shelf() {
       <div className="shell">
         <div className="shelf__head">
           <Reveal>
-            <span className="eyebrow is-hi">{PUBLISHER.name} · किताबघर</span>
+            <span className="eyebrow is-hi">{PUBLISHER.name} · रचनाएँ</span>
           </Reveal>
           <h2 className="h-display h-hi title-md shelf__title">
             {BOOK.teaser.beats.map((b, i) => (
@@ -131,7 +131,7 @@ export default function Shelf() {
 
         <Reveal className="shelf__more" y={16}>
           <Link className="shelf__link" to="/library">
-            पूरा किताबघर देखिए
+            सभी रचनाएँ देखिए
           </Link>
         </Reveal>
       </div>

@@ -51,7 +51,7 @@ export default function SocialIcons({ className = "", size = "md" }) {
           return (
             <a
               key={key}
-              className="social__a"
+              className={`social__a social__a--${key}`}
               href={href}
               target="_blank"
               rel="noopener noreferrer"
@@ -66,7 +66,7 @@ export default function SocialIcons({ className = "", size = "md" }) {
         return (
           <span
             key={key}
-            className="social__a is-soon"
+            className={`social__a social__a--${key} is-soon`}
             role="img"
             aria-label={`${label} — जल्द`}
             title={`${label} — जल्द`}

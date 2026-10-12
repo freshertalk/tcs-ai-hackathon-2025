@@ -115,7 +115,9 @@ function paintTwo(R, dir, p) {
   const other = R["leaf" + B];
   if (!leaf || !other) return;
 
-  leaf.style.transform = `rotateY(${dir > 0 ? -deg : deg}deg)`;
+  // a sheet is never quite flat: its free edge trails, then catches up
+  const bend = (dir > 0 ? -1 : 1) * s * 1.3;
+  leaf.style.transform = `rotateY(${dir > 0 ? -deg : deg}deg) skewY(${bend}deg)`;
   leaf.style.zIndex = "4";
   other.style.zIndex = "2";
 
@@ -123,6 +125,13 @@ function paintTwo(R, dir, p) {
   op(R["fxBack" + A], deg > 90 ? ((180 - deg) / 90) * 0.3 : 0.3);
   op(R["fxUnder" + A], s * 0.55);
   op(R["fxFront" + B], deg > 90 ? ((deg - 90) / 90) * 0.4 : 0);
+
+  // light slides across the sheet as it bends away
+  const sheen = R["sheen" + A];
+  if (sheen) {
+    sheen.style.opacity = String(s * 0.6);
+    sheen.style.backgroundPosition = `${(1 - p) * 100}% 0`;
+  }
 }
 
 function restTwo(R) {
@@ -133,7 +142,9 @@ function restTwo(R) {
       el.style.zIndex = "2";
     }
   }
-  for (const k of ["fxFrontL", "fxFrontR", "fxBackL", "fxBackR", "fxUnderL", "fxUnderR"]) op(R[k], 0);
+  for (const k of ["fxFrontL", "fxFrontR", "fxBackL", "fxBackR", "fxUnderL", "fxUnderR", "sheenL", "sheenR"]) {
+    op(R[k], 0);
+  }
 }
 
 function paintOne(R, dir, p) {
@@ -141,11 +152,15 @@ function paintOne(R, dir, p) {
   if (!R.leaf) return;
   if (dir > 0) {
     const deg = p * 180;
-    R.leaf.style.transform = `rotateY(${-deg}deg)`;
+    R.leaf.style.transform = `rotateY(${-deg}deg) skewY(${-s * 1.3}deg)`;
     R.leaf.style.zIndex = "4";
     op(R.fxFront, clamp(deg / 80, 0, 1) * 0.38);
     op(R.fxBack, deg > 90 ? ((180 - deg) / 90) * 0.3 : 0.3);
     op(R.fxUnder, s * 0.5);
+    if (R.sheen) {
+      R.sheen.style.opacity = String(s * 0.6);
+      R.sheen.style.backgroundPosition = `${(1 - p) * 100}% 0`;
+    }
   } else if (R.leafPrev) {
     // the previous page swings back in from the left and lands on this one
     R.leafPrev.style.visibility = "visible";
@@ -166,7 +181,7 @@ function restOne(R) {
     R.leafPrev.style.transform = "rotateY(-180deg)";
     R.leafPrev.style.zIndex = "1";
   }
-  for (const k of ["fxFront", "fxBack", "fxUnder", "fxPrev"]) op(R[k], 0);
+  for (const k of ["fxFront", "fxBack", "fxUnder", "fxPrev", "sheen"]) op(R[k], 0);
 }
 
 /* ------------------------------------------------------------ the view */
@@ -521,6 +536,10 @@ export default function PagedView({
     if (e.pointerType === "mouse" && e.button !== 0) return;
     if (e.target.closest && e.target.closest("a, button, input, textarea")) return;
     if (anim.current) finishNow();
+    if (peeked.current) {
+      peeked.current = 0;
+      rest();
+    }
 
     const d = {
       id: e.pointerId,
@@ -555,9 +574,44 @@ export default function PagedView({
     drag.current = d;
   };
 
+  // the page stirs as the mouse comes to its edge — and settles when it leaves
+  const peeked = useRef(0);
+  const peek = (e) => {
+    if (anim.current || e.pointerType !== "mouse" || !frameRef.current) return;
+    const dm = dimsRef.current;
+    if (!dm) return;
+    const L = layRef.current;
+    const rect = frameRef.current.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width;
+    const band = 0.16;
+    let dir = 0;
+    let k = 0;
+    if (x > 1 - band) {
+      dir = 1;
+      k = (x - (1 - band)) / band;
+    } else if (x < band) {
+      dir = -1;
+      k = (band - x) / band;
+    }
+    const can = dir > 0 ? idxRef.current < L.S - 1 : idxRef.current > 0;
+    if (!dir || !can || style !== "page") {
+      if (peeked.current) {
+        peeked.current = 0;
+        rest();
+      }
+      return;
+    }
+    peeked.current = dir;
+    paint(dir, 0.012 + k * k * 0.05);
+  };
+
   const onPointerMove = (e) => {
     const d = drag.current;
-    if (!d || d.cancelled || e.pointerId !== d.id) return;
+    if (!d) {
+      peek(e);
+      return;
+    }
+    if (d.cancelled || e.pointerId !== d.id) return;
     const dx = e.clientX - d.x0;
     const dy = e.clientY - d.y0;
     const now = performance.now();
@@ -741,7 +795,11 @@ export default function PagedView({
         <div
           ref={bkRef}
           className="bk bk--two"
-          style={{ width: dims.P * 2, height: dims.H, visibility: ready ? "visible" : "hidden" }}
+          style={{
+            width: dims.P * 2,
+            height: dims.H,
+            visibility: ready ? "visible" : "hidden",
+          }}
         >
           <div className="slot" style={{ left: 0, width: dims.P, height: dims.H }}>
             {renderPage(ref(s - 1, "l"), "l")}
@@ -760,6 +818,7 @@ export default function PagedView({
             <div className="leaf__f">
               {renderPage(ref(s, "l"), "l", true)}
               <i className="fx fx--front-l" ref={(el) => (R.fxFrontL = el)} />
+              <i className="fx fx--sheen" ref={(el) => (R.sheenL = el)} />
             </div>
             <div className="leaf__b">
               {renderPage(ref(s - 1, "r"), "r")}
@@ -775,6 +834,7 @@ export default function PagedView({
             <div className="leaf__f">
               {renderPage(ref(s, "r"), "r")}
               <i className="fx fx--front-r" ref={(el) => (R.fxFrontR = el)} />
+              <i className="fx fx--sheen" ref={(el) => (R.sheenR = el)} />
             </div>
             <div className="leaf__b">
               {renderPage(ref(s + 1, "l"), "l")}
@@ -792,7 +852,11 @@ export default function PagedView({
         <div
           ref={bkRef}
           className="bk bk--one"
-          style={{ width: dims.P, height: dims.H, visibility: ready ? "visible" : "hidden" }}
+          style={{
+            width: dims.P,
+            height: dims.H,
+            visibility: ready ? "visible" : "hidden",
+          }}
         >
           <div className="slot" style={{ left: 0, width: dims.P, height: dims.H }}>
             {renderPage(ref(c + 1), "r")}
@@ -807,6 +871,7 @@ export default function PagedView({
             <div className="leaf__f">
               {renderPage(ref(c), "r", true)}
               <i className="fx fx--front-one" ref={(el) => (R.fxFront = el)} />
+              <i className="fx fx--sheen" ref={(el) => (R.sheen = el)} />
             </div>
             <div className="leaf__b leaf__b--blank">
               <i className="fx fx--back" ref={(el) => (R.fxBack = el)} />
@@ -838,6 +903,12 @@ export default function PagedView({
       onPointerMove={onPointerMove}
       onPointerUp={(e) => endDrag(e, false)}
       onPointerCancel={(e) => endDrag(e, true)}
+      onPointerLeave={() => {
+        if (peeked.current) {
+          peeked.current = 0;
+          rest();
+        }
+      }}
       onWheel={onWheel}
     >
       <button

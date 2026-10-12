@@ -8,7 +8,6 @@ import { Reveal, MaskLine } from "../../components/ui/motion";
 import { Cover } from "../../library/BookCard";
 import { BackCover } from "../../library/BookShowcase";
 import { zoomProps } from "../../library/CoverViewer";
-import { contentUrl } from "../../library/api";
 import { useCatalog } from "../../library/hooks";
 import { BOOK } from "../../data/books";
 
@@ -28,7 +27,6 @@ export default function Covers() {
   const entry = data && data.books.find((b) => b.slug === BOOK.slug);
   // art only ever comes from the published catalogue — never from the fallback
   const book = entry ? { ...FALLBACK, ...entry, art: entry.art } : FALLBACK;
-  const jacket = book.art && book.art.jacket ? book.art : null;
 
   return (
     <section className="section covers" id="covers">
@@ -57,27 +55,6 @@ export default function Covers() {
             <p className="covers__cap">पिछला आवरण · बड़ा करने के लिए दबाइए</p>
           </Reveal>
         </div>
-
-        {jacket && (
-          <Reveal className="covers__wrapItem" y={30} delay={0.1}>
-            <div className="covers__jacket" {...zoomProps(book, "jacket")}>
-              <img
-                src={contentUrl(book.slug, jacket.jacketSmall || jacket.jacket)}
-                srcSet={`${contentUrl(book.slug, jacket.jacketSmall || jacket.jacket)} 1000w, ${contentUrl(
-                  book.slug,
-                  jacket.jacket
-                )} 2400w`}
-                sizes="(max-width: 760px) 94vw, 980px"
-                width="1000"
-                height="672"
-                alt={`${book.title} — पूरा जैकेट: पीछे, रीढ़ और आगे`}
-                loading="lazy"
-                decoding="async"
-              />
-            </div>
-            <p className="covers__cap">पूरा जैकेट — पीछे, रीढ़ और आगे · बड़ा करने के लिए दबाइए</p>
-          </Reveal>
-        )}
       </div>
     </section>
   );
