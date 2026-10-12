@@ -757,3 +757,102 @@
     font-size: 0.7rem;
   }
 }
+
+/* ---------------------------------------- the acceptance, in plain Hindi */
+.si__agree {
+  font-size: 0.94rem;
+  line-height: 1.8;
+}
+.si__ver {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.76rem;
+  color: #8a7c6d;
+}
+
+/* ---------------------------------------- the full-page sign-in, minimal */
+.lp {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--paper, #faf4e9);
+  color: #1f1611;
+  font-family: var(--f-body);
+}
+.lp__main {
+  flex: 1 0 auto;
+  display: grid;
+  align-content: start;
+  justify-items: center;
+  gap: 16px;
+  padding: calc(var(--nav-h, 78px) + clamp(28px, 7vh, 72px)) 16px clamp(36px, 8vh, 80px);
+}
+.lp__card {
+  width: min(460px, 100%);
+  display: grid;
+  gap: 16px;
+  padding: clamp(20px, 4vw, 32px);
+  border-radius: 20px;
+  background: #fffdf8;
+  border: 1px solid rgba(31, 22, 17, 0.09);
+  box-shadow: 0 28px 60px -44px rgba(63, 40, 25, 0.6);
+}
+.lp__head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 16px;
+  align-items: center;
+}
+.lp__cover {
+  width: 52px;
+  height: auto;
+  border-radius: 3px 6px 6px 3px;
+  box-shadow: 0 12px 22px -12px rgba(0, 0, 0, 0.55);
+}
+.lp__eyebrow {
+  margin: 0 0 4px;
+  font-size: 0.8rem;
+  color: #8a5a2b;
+}
+.lp__t {
+  margin: 0;
+  font-size: clamp(1.3rem, 2.6vw, 1.6rem);
+  font-weight: 700;
+  line-height: 1.4;
+  color: #1f1611;
+}
+.lp__p {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.85;
+  color: #4a3b30;
+}
+.lp__err {
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: #fdeceb;
+  color: #8a1c14;
+  font-size: 0.92rem;
+  line-height: 1.7;
+}
+.lp__fine {
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.7;
+  color: #6b5d50;
+  text-align: center;
+}
+.lp__back {
+  margin: 0;
+  font-size: 0.92rem;
+}
+.lp__back a {
+  color: #5c4b3e;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.lp .si__ghost,
+.lp .si__btn {
+  min-height: 48px;
+}

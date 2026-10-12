@@ -1249,14 +1249,19 @@
 }
 
 /* the turn-over tabs keep one line, even under a small cover */
-.bh__cover .bshow__tabs {
+.bh__cover .bshow__tabs,
+.bk__cover .bshow__tabs {
+  /* centred on the cover whatever its width — margin 0, not auto, or the two
+     centrings add up and push it to the right */
   position: relative;
   left: 50%;
+  margin-inline: 0;
   width: max-content;
   max-width: 92vw;
   transform: translateX(-50%);
 }
-.bh__cover .bshow__tabs button {
+.bh__cover .bshow__tabs button,
+.bk__cover .bshow__tabs button {
   white-space: nowrap;
   padding: 0 14px;
   min-height: 38px;
@@ -1275,5 +1280,505 @@
   }
   .bk__buyrow {
     justify-content: flex-start;
+  }
+}
+
+/* ---------------------------------------------- the separator in the bar */
+/* cart and sign-in on one side, the social icons on the other */
+.nav__end .nav__social {
+  position: relative;
+  padding-left: 12px;
+  margin-left: 2px;
+}
+.nav__end .nav__social::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 1px;
+  height: 20px;
+  transform: translateY(-50%);
+  background: rgba(31, 22, 17, 0.2);
+}
+.nav--dark:not(.is-stuck) .nav__end .nav__social::before {
+  background: rgba(255, 255, 255, 0.32);
+}
+
+/* ------------------------------------------------------------ the footer */
+/* Two short lines of small type instead of a tall block: the copyright and
+   the name on one side, the links on the other. */
+.shell > .foot {
+  padding-block: 12px;
+  gap: 4px 20px;
+  font-size: 0.76rem;
+  line-height: 1.5;
+}
+.shell > .foot .foot__copy {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 8px;
+}
+.shell > .foot .foot__hi {
+  font-size: 0.78rem;
+}
+.shell > .foot .foot__links {
+  gap: 2px 14px;
+}
+.shell > .foot .tlink,
+.shell > .foot .foot__cookie {
+  font-size: 0.76rem;
+  padding: 0;
+}
+@media (max-width: 560px) {
+  .shell > .foot {
+    justify-content: center;
+    text-align: center;
+    padding-block: 10px;
+  }
+  .shell > .foot .foot__links {
+    justify-content: center;
+    gap: 2px 12px;
+  }
+}
+
+/* ------------------------------------------------ the phone, set properly */
+/* A larger cover (it is the product); a price that is one tidy line with a
+   small caption; buttons 40px high that fill the row exactly; everything on
+   one centre line. */
+@media (max-width: 560px) {
+  .bh__cover,
+  .bk__cover {
+    width: min(68vw, 290px);
+    margin-inline: auto;
+  }
+  .bh__grid {
+    row-gap: 12px;
+  }
+
+  .bh__head,
+  .bk__info {
+    text-align: center;
+  }
+  .bh__kicker {
+    font-size: 0.82rem;
+  }
+  .bh__title {
+    margin-top: 6px;
+  }
+
+  /* price: caption on top, then the struck price and the price together */
+  .bh__head .price,
+  .bk__info .price {
+    justify-content: center;
+    align-items: baseline;
+    gap: 0 12px;
+    margin-top: 8px;
+    text-align: center;
+  }
+  .bh__head .price__lbl,
+  .bk__info .price__lbl {
+    flex: 1 1 100%;
+    font-size: 0.78rem;
+    letter-spacing: 0.02em;
+  }
+  .bh__head .price__mrp,
+  .bk__info .price__mrp {
+    font-size: 0.95rem;
+  }
+  .bh__head .price__now,
+  .bk__info .price__now {
+    font-size: 1.35rem;
+  }
+
+  /* buttons: one row, equal height, centred */
+  .bh__buyrow,
+  .bk__buyrow {
+    justify-content: center;
+    gap: 8px;
+    margin-top: 10px;
+  }
+  .bh__buyrow .bh__buy,
+  .bk__buyrow > .bk__buy,
+  .bk__buyrow > .bk__cart {
+    min-width: 0;
+  }
+  .bh__buy .bh__read,
+  .bk__buyrow .bk__buy {
+    height: 40px;
+    min-height: 40px;
+    padding: 0 14px;
+    font-size: 0.88rem;
+    gap: 6px;
+  }
+  .bh__cart,
+  .bk__cart {
+    height: 40px;
+    padding: 0 12px;
+    font-size: 0.86rem;
+    gap: 5px;
+  }
+  .bh__buyrow .cpn__open,
+  .bk__buyrow .cpn__open {
+    height: 32px;
+    padding: 0 12px;
+    font-size: 0.82rem;
+  }
+  .bh__rate {
+    margin-top: 6px;
+  }
+  .rvp.rvp--sm {
+    font-size: 0.82rem;
+  }
+
+  /* the author's name beside the cups stays, now that the bar has the room */
+  .nav__row .nav__brand .nav__name small {
+    display: block;
+  }
+}
+@media (max-width: 380px) {
+  .bh__cover,
+  .bk__cover {
+    width: min(70vw, 260px);
+  }
+  .bh__buy .bh__read,
+  .bk__buyrow .bk__buy {
+    padding: 0 12px;
+    font-size: 0.84rem;
+  }
+  .bh__cart,
+  .bk__cart {
+    padding: 0 10px;
+    font-size: 0.82rem;
+  }
+}
+
+/* ======================================================== the library page */
+.lib2 {
+  padding-top: calc(var(--nav-h, 78px) + clamp(18px, 3.5vw, 44px));
+  min-height: 70vh;
+}
+.lib2__head {
+  display: grid;
+  gap: 8px;
+  padding-bottom: clamp(18px, 2.4vw, 30px);
+}
+.lib2__title {
+  margin: 4px 0 0;
+  font-weight: 700;
+  font-size: clamp(1.7rem, 3.6vw, 2.6rem);
+  line-height: 1.35;
+  letter-spacing: 0;
+  color: var(--ink, #1f1611);
+}
+.lib2__title span {
+  color: var(--accent, #b4421f);
+}
+.lib2__note {
+  margin: 0;
+  max-width: 62ch;
+  color: var(--ink-2, #4a3b30);
+  line-height: 1.8;
+}
+.lib2__shelf {
+  display: grid;
+  gap: clamp(18px, 2.4vw, 28px);
+  padding-bottom: clamp(28px, 4vw, 52px);
+}
+.lib2__search input {
+  width: min(420px, 100%);
+  padding: 11px 14px;
+  border-radius: 12px;
+  border: 1.5px solid rgba(31, 22, 17, 0.2);
+  background: #fff;
+  font: inherit;
+}
+.lib2__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: clamp(16px, 2vw, 24px);
+}
+
+/* the book card */
+.lbk {
+  display: grid;
+  grid-template-columns: minmax(150px, 250px) minmax(0, 1fr);
+  gap: clamp(20px, 3.4vw, 48px);
+  align-items: center;
+  padding: clamp(18px, 2.6vw, 32px);
+  border-radius: 24px;
+  background: #fffdf8;
+  border: 1px solid rgba(31, 22, 17, 0.09);
+  box-shadow: 0 30px 60px -46px rgba(63, 40, 25, 0.6);
+}
+.lbk__cover {
+  display: block;
+  border-radius: 6px 12px 12px 6px;
+  box-shadow: 0 26px 40px -24px rgba(8, 14, 30, 0.7);
+  overflow: hidden;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+@media (hover: hover) {
+  .lbk__cover:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 32px 44px -24px rgba(8, 14, 30, 0.75);
+  }
+}
+.lbk__cover img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.lbk__body {
+  min-width: 0;
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+}
+.lbk__kicker {
+  margin: 0;
+  font-size: 0.86rem;
+  color: var(--accent, #b4421f);
+}
+.lbk__title {
+  margin: 0;
+  font-size: clamp(1.6rem, 3vw, 2.3rem);
+  line-height: 1.3;
+  font-weight: 700;
+}
+.lbk__title a {
+  color: inherit;
+}
+.lbk__by {
+  margin: 0;
+  color: var(--ink-2, #4a3b30);
+}
+.lbk__by span {
+  color: var(--ink-3, #7a6c5e);
+  margin-right: 4px;
+}
+.lbk__facts {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.lbk__facts li {
+  padding: 4px 11px;
+  border-radius: 99px;
+  background: #f3e9d8;
+  color: #4a3b30;
+  font-size: 0.84rem;
+}
+.lbk__desc {
+  margin: 4px 0 0;
+  max-width: 62ch;
+  color: var(--ink-2, #4a3b30);
+  line-height: 1.8;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.lbk__buy {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 18px;
+}
+.lbk__buy .price {
+  margin: 0;
+  gap: 2px 10px;
+}
+.lbk__buy .price__lbl {
+  font-size: 0.8rem;
+}
+.lbk__buy .price__mrp {
+  font-size: 0.95rem;
+}
+.lbk__buy .price__now {
+  font-size: 1.3rem;
+}
+.lbk__act {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 18px;
+  margin-top: 4px;
+}
+.lbk__more {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: #5c4b3e;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  text-decoration-color: rgba(31, 22, 17, 0.25);
+  transition: color 0.15s ease, text-decoration-color 0.15s ease;
+}
+.lbk__more:hover {
+  color: #7b2b2b;
+  text-decoration-color: #7b2b2b;
+}
+.lbk__more i {
+  font-style: normal;
+}
+.lbk__prog {
+  position: relative;
+  width: min(320px, 100%);
+  display: grid;
+  gap: 4px;
+  font-size: 0.8rem;
+  color: #6b5d50;
+}
+.lbk__prog i {
+  display: block;
+  height: 4px;
+  border-radius: 99px;
+  background: linear-gradient(90deg, #b4421f, #c1663a);
+}
+
+/* four promises, in one strip */
+.lib2__promise {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr));
+  gap: 10px;
+}
+.lib2__promise li {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: rgba(255, 253, 248, 0.7);
+  border: 1px solid rgba(31, 22, 17, 0.08);
+}
+.lib2__ico {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: #f1e3cf;
+  color: #7b2b2b;
+}
+.lib2__promise b {
+  display: block;
+  font-size: 0.94rem;
+  line-height: 1.35;
+}
+.lib2__promise small {
+  display: block;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: #6b5d50;
+}
+
+/* how it reads: compact tiles */
+.lib2__how {
+  padding-block: clamp(26px, 4vw, 52px) clamp(34px, 5vw, 64px);
+  background: rgba(243, 233, 216, 0.45);
+  border-top: 1px solid rgba(31, 22, 17, 0.07);
+}
+.lib2__howGrid {
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr));
+  gap: 12px;
+}
+.lib2__howGrid > li {
+  padding: 16px 18px;
+  border-radius: 16px;
+  background: #fffdf8;
+  border: 1px solid rgba(31, 22, 17, 0.08);
+}
+.lib2__howGrid .lib__howK {
+  font-size: 1rem;
+}
+.lib2__howGrid .lib__howD {
+  margin-top: 6px;
+  font-size: 0.9rem;
+  line-height: 1.75;
+}
+
+@media (max-width: 640px) {
+  .lbk {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    text-align: center;
+  }
+  .lbk__cover {
+    width: min(62vw, 250px);
+  }
+  .lbk__body {
+    justify-items: center;
+  }
+  .lbk__facts,
+  .lbk__buy,
+  .lbk__act {
+    justify-content: center;
+  }
+  .lbk__act .bh__buy {
+    justify-content: center;
+    flex-wrap: nowrap;
+  }
+}
+
+@media (max-width: 640px) {
+  .lbk__buy {
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+  .lbk__buy .price {
+    justify-content: center;
+    text-align: center;
+  }
+  .lbk__buy .price__lbl {
+    flex: 1 1 100%;
+  }
+  .lbk__desc {
+    text-align: left;
+  }
+}
+
+@media (max-width: 640px) {
+  /* four promises as a 2 × 2 block, not four tall rows */
+  .lib2__promise {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .lib2__promise li {
+    grid-template-columns: 1fr;
+    justify-items: start;
+    gap: 6px;
+    padding: 10px 12px;
+  }
+  .lib2__ico {
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+  }
+  .lib2__promise b {
+    font-size: 0.88rem;
+  }
+  .lib2__promise small {
+    font-size: 0.76rem;
+  }
+  .lib2__howGrid > li {
+    padding: 12px 14px;
+  }
+  .lib2__howGrid .lib__howD {
+    font-size: 0.86rem;
+    line-height: 1.7;
   }
 }

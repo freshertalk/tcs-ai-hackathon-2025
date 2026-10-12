@@ -1,98 +1,87 @@
 // src/auth/LoginScreen.jsx
 // The sign-in, as a whole page. Used where a page cannot be shown to someone
-// who is not signed in: the reading room, the account page, the admin pages.
+// who is not signed in: the reading room, the cart, the account page, the
+// admin pages.
 //
-// There is one sign-in on this site (SignInCard). This only gives it a room.
+// One quiet card under the site's own navigation bar: who is asking, why
+// signing in is needed here, the acceptance of the policies, Google's button.
+// There is one sign-in on this site (SignInCard); this only gives it a room.
 
 import React from "react";
 import { Link } from "react-router-dom";
-import { SignInArt, SignInCard } from "./SignInDialog";
-import { IconBook, IconBookmark, IconStar } from "../components/ui/icons";
+import Nav from "../components/site/Nav";
+import Footer from "../components/site/Footer";
+import { SignInCard } from "./SignInDialog";
 import { contentUrl } from "../library/api";
+import { BOOK } from "../data/books";
+
+const NAV = [
+  { to: "/", label: "मुखपृष्ठ" },
+  { to: "/library", label: "रचनाएँ" },
+];
 
 const WHY = {
   read: {
     h: "पढ़ने के लिए साइन इन कीजिए",
-    p: "यह किताब केवल साइन-इन किए हुए पाठकों के लिए खुलती है। एक बार साइन इन कीजिए — फिर 30 दिन तक आपसे कुछ नहीं पूछा जाएगा।",
+    p: "किताब खोलने के लिए कृपया अपने Google खाते से एक बार साइन इन कीजिए। इसके बाद 30 दिन तक आपसे दोबारा नहीं पूछा जाएगा।",
   },
   account: {
-    h: "अपना खाता खोलिए",
-    p: "साइन इन करने पर आपकी पढ़ने की प्रगति, बुकमार्क, रेखांकन और आपकी राय एक जगह दिखेंगी।",
+    h: "अपना खाता देखने के लिए साइन इन कीजिए",
+    p: "साइन इन करने पर आपकी खरीद, रसीदें और पढ़ने की प्रगति एक ही जगह दिखाई देंगी।",
   },
   checkout: {
     h: "खरीदने के लिए साइन इन कीजिए",
-    p: "आपकी रसीद और खरीदी हुई किताब आपके खाते से जुड़ी रहेगी — इसलिए भुगतान से पहले एक बार साइन इन कीजिए। एक बार खरीदी हुई किताब हमेशा के लिए आपकी है।",
+    p: "आपकी रसीद और खरीदी हुई किताब आपके खाते से जुड़ी रहेगी, इसलिए भुगतान से पहले एक बार साइन इन कीजिए।",
   },
   admin: {
     h: "एडमिन के लिए साइन इन",
-    p: "डैशबोर्ड केवल एडमिन खातों के लिए है। अपने Google खाते से साइन इन कीजिए।",
+    p: "यह पन्ना केवल एडमिन खातों के लिए है। कृपया अपने Google खाते से साइन इन कीजिए।",
   },
   default: {
-    h: "स्वागत है",
-    p: "Google से साइन इन कीजिए — आपकी पढ़ने की जगह, बुकमार्क और रेखांकन आपके सभी डिवाइस पर साथ चलेंगे।",
+    h: "साइन इन कीजिए",
+    p: "कृपया अपने Google खाते से साइन इन कीजिए।",
   },
 };
 
-const BENEFITS = [
-  { Icon: IconBook, t: "जहाँ छोड़ा था, वहीं से", d: "आपकी पढ़ने की जगह हर डिवाइस पर एक-सी" },
-  { Icon: IconBookmark, t: "बुकमार्क और रेखांकन", d: "आपके पन्ने, आपकी पंक्तियाँ — सहेजी हुई" },
-  { Icon: IconStar, t: "अपने नाम से राय", d: "रेटिंग और टिप्पणी, जिसे आप कभी बदल सकें" },
-];
-
 export default function LoginScreen({ reason = "default", book = null, error = "" }) {
   const w = WHY[reason] || WHY.default;
+  const cover = book && book.coverSmall ? contentUrl(book.slug, book.coverSmall) : contentUrl(BOOK.slug, "cover-sm.jpg");
 
   return (
-    <main className="ls" data-theme="write">
-      <SignInArt />
+    <div data-theme="write" className="lp">
+      <Nav links={NAV} kicker="साइन इन" />
 
-      <section className="ls__form" aria-labelledby="ls-title">
-        <div className="ls__card">
-          {book && book.coverSmall ? (
-            <img
-              className="ls__cover"
-              src={contentUrl(book.slug, book.coverSmall)}
-              alt=""
-              width="84"
-              height="118"
-            />
-          ) : null}
-          <p className="ls__eyebrow">दो कुल्हड़ चाय · विनय कुमार तिवारी</p>
-          <h1 id="ls-title" className="ls__t hi-d">
-            {w.h}
-          </h1>
-          <p className="ls__p hi">{w.p}</p>
+      <main className="lp__main">
+        <section className="lp__card" aria-labelledby="lp-title">
+          <header className="lp__head">
+            <img className="lp__cover" src={cover} alt="" width="52" height="73" />
+            <div>
+              <p className="lp__eyebrow">दो कुल्हड़ चाय · विनय कुमार तिवारी</p>
+              <h1 id="lp-title" className="lp__t hi-d">
+                {w.h}
+              </h1>
+            </div>
+          </header>
+
+          <p className="lp__p hi">{w.p}</p>
 
           {error ? (
-            <p className="ls__err" role="alert">
+            <p className="lp__err" role="alert">
               {error}
             </p>
           ) : null}
 
-          <ul className="ls__why">
-            {BENEFITS.map(({ Icon, t, d }) => (
-              <li key={t}>
-                <span className="ls__ico">
-                  <Icon size={20} />
-                </span>
-                <span>
-                  <b className="hi-d">{t}</b>
-                  <small className="hi">{d}</small>
-                </span>
-              </li>
-            ))}
-          </ul>
-
           <SignInCard />
 
-          <p className="ls__fine" lang="en">
-            We never see your Google password. Signing in records your acceptance of the policies as evidence.
-          </p>
-          <p className="ls__back">
-            <Link to="/">← मुख पृष्ठ</Link>
-          </p>
-        </div>
-      </section>
-    </main>
+          <p className="lp__fine hi">आपका Google पासवर्ड हमें कभी दिखाई नहीं देता। केवल आपका नाम, ई-मेल और फ़ोटो हमें मिलते हैं।</p>
+        </section>
+
+        <p className="lp__back">
+          <Link to="/">← मुखपृष्ठ पर लौटिए</Link>
+        </p>
+      </main>
+
+      <Footer />
+    </div>
   );
 }

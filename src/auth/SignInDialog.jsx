@@ -78,26 +78,27 @@ export function SignInCard({ lead, onSignedIn }) {
     <div className="si">
       {lead ? <p className="si__lead hi">{lead}</p> : null}
 
-      <label className={`si__agree ${nudge ? "is-nudged" : ""}`} lang="en" key={`a${nudge}`}>
+      <label className={`si__agree ${nudge ? "is-nudged" : ""}`} key={`a${nudge}`}>
         <input ref={box} type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} />
         <span className="si__tick" aria-hidden="true">
           <IconCheck size={16} strokeWidth={2.6} />
         </span>
-        <span className="si__txt">
-          I have read and agree to the{" "}
+        <span className="si__txt hi">
+          मैंने{" "}
           <Link to="/terms" target="_blank" rel="noopener">
-            Terms of Use
+            उपयोग की शर्तें
           </Link>
           ,{" "}
           <Link to="/privacy" target="_blank" rel="noopener">
-            Privacy Policy
+            गोपनीयता नीति
           </Link>{" "}
-          and{" "}
+          और{" "}
           <Link to="/refund" target="_blank" rel="noopener">
-            Refund Policy
+            रिफ़ंड नीति
           </Link>{" "}
-          (edition {LEGAL.version}), and I consent to the recording of this acceptance — date and time, account
-          and device details — as evidence.
+          पढ़ ली हैं और मैं उनसे सहमत हूँ। इस सहमति का रिकॉर्ड (तारीख़ और समय, खाते व डिवाइस का ब्योरा) प्रमाण के रूप
+          में सुरक्षित रखे जाने की भी मेरी सहमति है।
+          <small className="si__ver">संस्करण {LEGAL.version}</small>
         </span>
       </label>
 
@@ -112,12 +113,12 @@ export function SignInCard({ lead, onSignedIn }) {
       </div>
       {!agree && (
         <p id="si-hint" className={`si__hint ${nudge ? "is-nudged" : ""}`} key={`h${nudge}`}>
-          पहले ऊपर का बॉक्स टिक कीजिए · Tick the box to continue
+          आगे बढ़ने के लिए कृपया ऊपर का बॉक्स चुनिए।
         </p>
       )}
       {failed && (
         <p className="si__err" role="alert">
-          Google sign-in could not open. Please reload the page and try again.
+          Google साइन-इन खुल नहीं पाया। कृपया पन्ना फिर से खोलकर कोशिश कीजिए।
         </p>
       )}
     </div>
@@ -189,8 +190,8 @@ export default function SignInDialogHost() {
           </button>
           <p className="sid__eyebrow">दो कुल्हड़ चाय</p>
           <h2 id="sid-title" className="sid__t hi-d">
-            स्वागत है
-            <small lang="en">Sign in with Google</small>
+            साइन इन कीजिए
+            <small>अपने Google खाते से</small>
           </h2>
           <SignInCard lead={LEADS[reason]} />
         </div>

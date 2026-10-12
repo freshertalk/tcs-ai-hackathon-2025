@@ -8,8 +8,12 @@ export default function Footer({ note }) {
   return (
     <div className="shell">
       <footer className="foot">
-        <span>© {year} Vinay Kumar Tiwari</span>
-        <span className="foot__hi">{note ? `दो कुल्हड़ चाय · ${note}` : "दो कुल्हड़ चाय"}</span>
+        <span className="foot__copy">
+          <span>© {year} Vinay Kumar Tiwari</span>
+          <span className="foot__hi">
+            {note ? (String(note).startsWith("दो कुल्हड़ चाय") ? note : `दो कुल्हड़ चाय · ${note}`) : "दो कुल्हड़ चाय"}
+          </span>
+        </span>
         <span className="foot__links">
           <Link className="tlink" to="/">
             Home
