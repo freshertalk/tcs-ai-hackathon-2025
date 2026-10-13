@@ -37,7 +37,6 @@ const TARGETS = [
   "main .bcard",
   "main .cast__card",
   "main .themes__cell",
-  "main .novel__fact",
   "main .dc",
   "main .kpi",
   "main .snap__c",
@@ -45,7 +44,8 @@ const TARGETS = [
   "main .rv-sum",
   "main .rv-form",
   "main .cp",
-  ".foot",
+  // not the footer: it is the last 44px of the page, inside the strip the
+  // observer ignores at the bottom of the screen, so it would never be revealed
 ].join(",");
 
 const SKIP = [
@@ -66,7 +66,7 @@ const SKIP = [
   ".stars",
   ".hv",
   ".bh",
-  ".syn",
+  ".lnc",
   ".offline",
   "[data-mx-skip]",
 ].join(",");
@@ -93,7 +93,7 @@ function kindOf(el) {
   const t = el.tagName;
   if (t === "IMG") return "img";
   if (/^H[1-4]$/.test(t)) return "head";
-  if (/\b(bcard|cast__card|themes__cell|novel__fact|dc|kpi|snap__c|rv-item|rv-sum|rv-form|cp)\b/.test(el.className || "")) return "card";
+  if (/\b(bcard|cast__card|themes__cell|dc|kpi|snap__c|rv-item|rv-sum|rv-form|cp)\b/.test(el.className || "")) return "card";
   return "text";
 }
 

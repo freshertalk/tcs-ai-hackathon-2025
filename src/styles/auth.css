@@ -47,30 +47,6 @@
   }
 }
 
-/* in the navigation bar: sits low enough that the steam stays inside it */
-.nav__cup {
-  display: inline-flex;
-  align-items: flex-end;
-  overflow: visible;
-  margin-right: 6px;
-}
-.nav__cup .chai {
-  /* the drawing carries headroom for the steam, so it is sized to keep the
-     cups inside the bar even when the bar shrinks on scroll */
-  width: clamp(66px, 5.7vw, 82px);
-  height: auto;
-  margin-top: 0;
-  --chai-steam: #8a5d43;
-}
-.nav--dark:not(.is-stuck) .nav__cup .chai {
-  --chai-steam: #f3d9b5;
-}
-@media (max-width: 560px) {
-  .nav__cup .chai {
-    width: 62px;
-  }
-}
-
 /* --------------------------------------------------------- the night panel */
 .sia {
   position: relative;
@@ -696,65 +672,11 @@
   border-radius: 0 0 12px 12px;
   color: #8a1c14;
 }
-.menu__foot .acctb__menu {
-  position: static;
-  width: 100%;
-  margin-top: 8px;
-}
 
 /* on a phone the sign-in icon stays in the bar (the social icons wait in the menu) */
 @media (max-width: 560px) {
-  .nav__acct {
-    display: block;
-  }
-  .nav__social {
-    display: none;
-  }
-  .nav__end {
-    gap: 10px;
-  }
   .acctb__tip {
     right: 0;
-  }
-}
-
-/* ------------------------------------------- the name under the book's title */
-/* The author's name beside the cups: dark and a little heavier, so it reads at
-   a glance rather than as a grey caption. (On the dark-toned bar the light rule
-   in library.css still applies: it is more specific.) */
-.nav__brand .nav__name small {
-  color: #1b130e;
-  font-weight: 600;
-  opacity: 1;
-}
-
-/* ----------------------------- the title is the title, on a phone as well */
-/* Below 400px site.css sets the brand's last span to 0.88rem, which is almost
-   the size of the author's name beneath it (0.86rem) — they read as the same
-   line. The title keeps its size and weight on a phone, and the name under it
-   stays clearly smaller. The longer selector is deliberate: it has to win over
-   that older rule without touching it. */
-@media (max-width: 560px) {
-  .nav__row .nav__brand .nav__name {
-    font-size: 1.18rem;
-    font-weight: 800;
-    line-height: 1.12;
-    letter-spacing: -0.005em;
-  }
-  .nav__row .nav__brand .nav__name small {
-    margin-top: 3px;
-    font-size: 0.76rem;
-    font-weight: 600;
-    line-height: 1.2;
-    letter-spacing: 0.01em;
-  }
-}
-@media (max-width: 400px) {
-  .nav__row .nav__brand .nav__name {
-    font-size: 1.1rem;
-  }
-  .nav__row .nav__brand .nav__name small {
-    font-size: 0.7rem;
   }
 }
 
@@ -770,7 +692,10 @@
   color: #8a7c6d;
 }
 
-/* ---------------------------------------- the full-page sign-in, minimal */
+/* ============================================================ sign-in page */
+/* One card, two parts: the book on a clay panel (so it is clear where you are
+   and what you came for) and the sign-in beside it. On a phone the book is a
+   short strip above the sign-in. */
 .lp {
   min-height: 100dvh;
   display: flex;
@@ -782,41 +707,94 @@
 .lp__main {
   flex: 1 0 auto;
   display: grid;
-  align-content: start;
+  align-content: center;
   justify-items: center;
   gap: 16px;
-  padding: calc(var(--nav-h, 78px) + clamp(28px, 7vh, 72px)) 16px clamp(36px, 8vh, 80px);
+  padding: calc(var(--nav-h, 78px) + clamp(20px, 4vh, 48px)) 16px clamp(28px, 6vh, 64px);
 }
 .lp__card {
-  width: min(460px, 100%);
+  width: min(900px, 100%);
   display: grid;
-  gap: 16px;
-  padding: clamp(20px, 4vw, 32px);
-  border-radius: 20px;
+  grid-template-columns: minmax(0, 0.78fr) minmax(0, 1.22fr);
+  border-radius: 24px;
+  overflow: hidden;
   background: #fffdf8;
   border: 1px solid rgba(31, 22, 17, 0.09);
-  box-shadow: 0 28px 60px -44px rgba(63, 40, 25, 0.6);
+  box-shadow: 0 34px 70px -48px rgba(63, 40, 25, 0.65);
 }
-.lp__head {
+.lp__book {
+  position: relative;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 16px;
-  align-items: center;
+  align-content: center;
+  justify-items: center;
+  gap: 18px;
+  padding: clamp(24px, 3.4vw, 40px);
+  overflow: hidden;
+  text-align: center;
+  background: radial-gradient(110% 80% at 20% 0%, #f8ead3 0%, transparent 62%), linear-gradient(165deg, #efd9b8 0%, #dfb78c 100%);
+}
+.lp__rain {
+  position: absolute;
+  inset: -20% -10%;
+  background-image: repeating-linear-gradient(104deg, transparent 0 28px, rgba(123, 43, 43, 0.06) 28px 29px, transparent 29px 64px);
+  pointer-events: none;
 }
 .lp__cover {
-  width: 52px;
+  position: relative;
+  width: min(100%, 190px);
   height: auto;
-  border-radius: 3px 6px 6px 3px;
-  box-shadow: 0 12px 22px -12px rgba(0, 0, 0, 0.55);
+  border-radius: 4px 10px 10px 4px;
+  box-shadow: inset 6px 0 10px -8px rgba(0, 0, 0, 0.8), 0 26px 44px -22px rgba(74, 38, 16, 0.75), 0 0 0 1px rgba(74, 38, 16, 0.12);
+}
+.lp__bookT {
+  position: relative;
+  margin: 0;
+  display: grid;
+  gap: 2px;
+  color: #3a2a1f;
+}
+.lp__bookT > b {
+  font-size: 1.25rem;
+  line-height: 1.4;
+  color: #1f1611;
+}
+.lp__bookT > span {
+  font-size: 0.94rem;
+}
+.lp__price {
+  margin-top: 6px;
+  color: #5c4b3e;
+}
+.lp__price s {
+  color: #8a735c;
+}
+.lp__price b {
+  font-size: 1.1rem;
+  color: #7b2b2b;
+}
+.lp__form {
+  min-width: 0;
+  display: grid;
+  align-content: center;
+  gap: 14px;
+  padding: clamp(22px, 3.4vw, 40px);
 }
 .lp__eyebrow {
-  margin: 0 0 4px;
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 5px 12px;
+  border-radius: 99px;
+  background: #f6ece0;
   font-size: 0.8rem;
-  color: #8a5a2b;
+  font-weight: 700;
+  color: #5c4b3e;
 }
 .lp__t {
   margin: 0;
-  font-size: clamp(1.3rem, 2.6vw, 1.6rem);
+  font-size: clamp(1.4rem, 2.6vw, 1.8rem);
   font-weight: 700;
   line-height: 1.4;
   color: #1f1611;
@@ -841,7 +819,6 @@
   font-size: 0.84rem;
   line-height: 1.7;
   color: #6b5d50;
-  text-align: center;
 }
 .lp__back {
   margin: 0;
@@ -855,4 +832,38 @@
 .lp .si__ghost,
 .lp .si__btn {
   min-height: 48px;
+}
+@media (max-width: 760px) {
+  .lp__main {
+    align-content: start;
+  }
+  .lp__card {
+    width: min(480px, 100%);
+    grid-template-columns: 1fr;
+    border-radius: 20px;
+  }
+  /* the book, as a strip */
+  .lp__book {
+    grid-template-columns: auto minmax(0, 1fr);
+    justify-items: start;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 18px;
+    text-align: left;
+  }
+  .lp__cover {
+    width: 54px;
+  }
+  .lp__bookT > b {
+    font-size: 1.08rem;
+  }
+  .lp__price {
+    margin-top: 2px;
+  }
+  .lp__form {
+    padding: 20px 18px 22px;
+  }
+  .lp__fine {
+    text-align: center;
+  }
 }

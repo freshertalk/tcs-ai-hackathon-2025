@@ -319,7 +319,7 @@ script against the verified e-mail.
 ### The documents edition
 
 Collecting usage statistics, keeping an audit log and offering coupons had to
-be in the Privacy Policy and Terms, so the **edition is `2026-10-12.5`**
+be in the Privacy Policy and Terms, so the **edition is `2026-10-13.1`**
 (`LEGAL.version` in `src/data/legal.js` and `LEGAL_VERSION` in the script —
 always change both together). A new edition ends the sign-ins made under the
 old one: every reader (the owner included) signs in once more and ticks the
@@ -353,23 +353,7 @@ in your court read them before relying on them.
 
 ### Selling the book
 
-The whole cycle is on the site and in the script — nothing else to host. Two ways
-to take payment, chosen by `PAYMENT_PROVIDER` at the top of the selling section:
-
-**`"upi"` (the default): Google Pay / UPI straight to your UPI ID.** Set
-`UPI.vpa` (or the script property `UPI_ID`). The reader presses **Google Pay
-खोलिए** (phone) or scans the QR (computer) — the amount and the order number are
-filled in — pays, and writes the 12-digit UPI transaction number their app shows.
-The order then *waits*: you get an e-mail, check your account, and press
-**Confirm** in **Admin ▸ Sales ▸ Waiting for your confirmation** (or **Not found**,
-with a reason the reader is e-mailed so they can try again). Only on Confirm are
-the invoice number issued, the book opened for ever and the receipt mailed. No
-fee, no gateway, no account to open — but it is not automatic: nothing tells the
-site that the money arrived, so you are the check. Each transaction number settles
-one order only, and an order accepts at most five wrong numbers.
-
-**`"razorpay"`: automatic, through Razorpay** — described below. The code for
-both is in the script; switching is one word.
+The whole cycle is on the site and in the script — nothing else to host.
 
 **What a reader goes through**
 
@@ -406,14 +390,29 @@ both is in the script; switching is one word.
 2. In the script: Project Settings ▸ **Script properties** ▸ add
    `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET`. They never go in the file, in
    git or in the browser.
+   For a local check, the same two values can sit in `.env` (git-ignored);
+   `node scripts/check-razorpay.js` asks Razorpay whether they are a valid pair
+   (read-only — nothing is created or charged). The website itself never reads
+   `.env`: its backend is the script, which reads only its Script properties.
 3. Fill `SELLER` (address, state, GSTIN) and `GST` at the top of the selling
    section. **If you are not registered for GST, set `GST.enabled = false`** — you
    may not charge it; receipts then say GST is not applicable. `GST.sac` is the
    service code of an e-book: confirm it with your accountant.
 4. In the editor run **`setupPayments`** once: it asks for permission to send mail,
-   checks the keys with Razorpay and mails you a test receipt.
+   checks the keys with Razorpay and mails you a test receipt. If the log says
+   *"You do not have permission to call MailApp… script.send_mail"*, the project's
+   manifest lists its permissions by hand and mail is not among them: Project
+   Settings ▸ tick **Show "appsscript.json" manifest file in editor**, open it and
+   add `"https://www.googleapis.com/auth/script.send_mail"` to `oauthScopes` (or
+   delete the whole `oauthScopes` list), then run `setupPayments` again and press
+   **Allow**. The three permissions this script needs are in
+   `scripts/appsscript.json`. If Google shows **no** Allow screen and the error
+   stays, it is reusing the old consent: open
+   <https://myaccount.google.com/permissions>, find the project, **Remove access**,
+   and run `setupPayments` again. The first lines of its log list the permissions
+   the run actually holds.
 5. Deploy ▸ Manage deployments ▸ ✏ ▸ **New version**. `?check=1` should show
-   `build 2026-10-12-shop`, `legal 2026-10-12.4` and a `shop` block (`payments`
+   `build 2026-10-13-legal`, `legal 2026-10-12.4` and a `shop` block (`payments`
    true, `mode` test, `mail` true).
 6. Try it: sign in, buy with Razorpay's test UPI `success@razorpay` (or test card
    `4111 1111 1111 1111`). Look at **Admin ▸ Sales**.
@@ -441,7 +440,7 @@ limited coupon in the same minute may both succeed.
 
 1. Paste the new script over the old one and **Deploy → Manage deployments → ✏ →
    New version**. Open `<web-app URL>?check=1`: `build` should read
-   `2026-10-12-shop` and `analytics` should be `true`.
+   `2026-10-13-legal` and `analytics` should be `true`.
 2. `npm run build`, upload the contents of `build/`, then
    `node scripts/verify-deploy.js`.
 3. Sign in as the owner and open **/admin**. The tabs above appear in the
@@ -506,7 +505,7 @@ milliseconds apart.
 - `prefers-reduced-motion` switches it off entirely.
 - Each element is released once it has arrived, so its own hover and press
   effects work. State is kept in `data-mx*` attributes, never in `className`.
-- Left alone: the hero, the ticker, pinned rails, the reader, and anything a
+- Left alone: the hero, the ticker, the lines rail, the reader, and anything a
   framer-motion wrapper controls (it leaves an inline opacity or transform).
   Add `data-mx-skip` to any element to exclude it.
 
@@ -553,7 +552,7 @@ src/
 │                              hooks · BookCard (cover, card, Read button)
 ├─ sections/write/             the home page's sections (Hero is the listing)
 ├─ data/                       books.js (the novel's copy) · seo.js
-└─ styles/                     site.css · library.css · reader.css
+└─ styles/                     site.css · library.css · reader.css · home.css (the front page's layout)
 ```
 
 ## The shelf
@@ -562,12 +561,19 @@ The site is the author's own: a shelf with the novel as its first book. There
 is no publisher name anywhere on it (the book is self-published, as its EPUB
 says), and the copyright of the book stays with the author.
 
-- **The shelf** (`src/sections/write/Shelf.jsx`): the novel face-out on a plank,
-  its spine beside it, a pair of kulhads, and the way in. Its words are the
-  book own.
+- **The home page** (`src/pages/Home.jsx`, laid out in `src/styles/home.css`)
+  shows the book once, at the top, and then answers a reader's questions in
+  order: the listing with its price and buy buttons (Hero), what the story is
+  and who is in it (Novel), its first page (Opening), its lines on a rail the
+  reader moves themselves (Lines), its themes, readers' ratings, the author,
+  the closing invitation to buy (Teaser), and how to write in (Contact). No
+  section takes over the scroll, and nothing below the hero repeats the cover.
 - **The front door** is a pale, rain-washed light with a clay-red button, so
   the navy cover is the darkest thing in view (`.bh` in `src/styles/library.css`).
-- **Nav:** the pair of kulhads; Instagram, Facebook, LinkedIn. An address left
+- **Nav** (`src/components/site/Nav.jsx`, every rule in `src/styles/nav.css`):
+  brand, a capsule of links, then the action, cart, account and social links.
+  Below 1100px the links fold into a menu under the bar. The action is "read"
+  for someone who owns the book and "buy" for everyone else. The pair of kulhads; Instagram, Facebook, LinkedIn. An address left
   empty in `AUTHOR.connect.social` draws the icon without a link.
 - **रचनाएँ** (`/library`) is the catalogue; it was called पुस्तकालय, then किताबघर.
 

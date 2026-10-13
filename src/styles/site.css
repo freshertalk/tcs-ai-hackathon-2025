@@ -405,9 +405,7 @@ section[id] {
 .stat__l.is-hi,
 .cast__seat.is-hi,
 .author__boxT.is-hi,
-.author__row b.is-hi,
-.novel__fact dt.is-hi,
-.syn__idx.is-hi {
+.author__row b.is-hi {
   font-family: var(--f-hi-body);
   /* Tiro's glyphs read noticeably larger than the mono face at the same
      px size, so this multiplier stays modest. */
@@ -682,162 +680,6 @@ h4 {
   width: 84px;
 }
 
-/* ------------------------------------------------------------------ nav */
-.nav {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 900;
-  height: var(--nav-h);
-  display: flex;
-  align-items: center;
-  border-bottom: 1px solid transparent;
-  transition: background 0.5s var(--ease), backdrop-filter 0.5s var(--ease),
-    border-color 0.5s var(--ease), height 0.5s var(--ease);
-}
-.nav.is-stuck {
-  height: 64px;
-  background: color-mix(in srgb, var(--paper) 82%, transparent);
-  backdrop-filter: blur(16px) saturate(1.4);
-  -webkit-backdrop-filter: blur(16px) saturate(1.4);
-  border-bottom-color: var(--line);
-}
-.nav__row {
-  width: 100%;
-  max-width: var(--maxw);
-  margin-inline: auto;
-  padding-inline: var(--gutter);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 22px;
-}
-.nav__brand {
-  display: flex;
-  align-items: center;
-  gap: 11px;
-  font-family: var(--f-display);
-  font-size: 1.04rem;
-  letter-spacing: -0.015em;
-  flex: none;
-}
-.nav__mark {
-  width: 32px;
-  height: 32px;
-  flex: none;
-  border-radius: 50%;
-  overflow: hidden;
-  box-shadow: 0 0 0 1px var(--line-2);
-}
-.nav__mark img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-.nav__brand small {
-  display: block;
-  font-family: var(--f-mono);
-  font-size: 0.52rem;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: var(--accent-2);
-  line-height: 1.4;
-}
-.nav__links {
-  display: flex;
-  align-items: center;
-  gap: clamp(12px, 1.8vw, 30px);
-}
-.nav__link {
-  position: relative;
-  font-size: 0.84rem;
-  color: var(--ink-2);
-  padding-block: 6px;
-  transition: color 0.35s var(--ease);
-}
-.nav__link::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  bottom: 0;
-  width: 100%;
-  height: 1px;
-  background: var(--accent);
-  transform: scaleX(0);
-  transform-origin: right;
-  transition: transform 0.5s var(--ease);
-}
-.nav__link:hover,
-.nav__link.is-active {
-  color: var(--ink);
-}
-.nav__link:hover::after,
-.nav__link.is-active::after {
-  transform: scaleX(1);
-  transform-origin: left;
-}
-
-/* the cross-portfolio switch */
-.nav__switch {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 16px 8px 12px;
-  border: 1px solid var(--line-2);
-  border-radius: 99px;
-  font-size: 0.78rem;
-  font-weight: 500;
-  color: var(--ink);
-  white-space: nowrap;
-  transition: background 0.4s var(--ease), color 0.4s var(--ease),
-    border-color 0.4s var(--ease);
-}
-.nav__switch i {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--accent-2);
-  flex: none;
-}
-.nav__switch:hover {
-  background: var(--ink);
-  border-color: var(--ink);
-  color: var(--paper);
-}
-
-.nav__burger {
-  display: none;
-  width: 46px;
-  height: 46px;
-  border: 1px solid var(--line-2);
-  border-radius: 50%;
-  position: relative;
-  flex: none;
-}
-.nav__burger span {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 17px;
-  height: 1.4px;
-  background: var(--ink);
-  transform: translate(-50%, -50%);
-  transition: transform 0.45s var(--ease);
-}
-.nav__burger span:first-child {
-  transform: translate(-50%, calc(-50% - 4px));
-}
-.nav__burger span:last-child {
-  transform: translate(-50%, calc(-50% + 4px));
-}
-.nav__burger.is-open span:first-child {
-  transform: translate(-50%, -50%) rotate(45deg);
-}
-.nav__burger.is-open span:last-child {
-  transform: translate(-50%, -50%) rotate(-45deg);
-}
-
 .progress {
   position: fixed;
   top: 0;
@@ -847,51 +689,6 @@ h4 {
   z-index: 901;
   background: linear-gradient(90deg, var(--accent), var(--accent-2));
   transform-origin: 0%;
-}
-
-.menu {
-  position: fixed;
-  inset: 0;
-  z-index: 899;
-  background: var(--paper-2);
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  padding: var(--nav-h) var(--gutter) 40px;
-}
-.menu__item {
-  font-family: var(--f-display);
-  font-size: clamp(2rem, 8.6vw, 3.2rem);
-  line-height: 1.28;
-  color: var(--ink);
-  display: block;
-  overflow: hidden;
-}
-.menu__idx {
-  font-family: var(--f-mono);
-  font-size: 0.58rem;
-  color: var(--accent-2);
-  vertical-align: super;
-  margin-right: 12px;
-  letter-spacing: 0.14em;
-}
-.menu__foot {
-  margin-top: 40px;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 12px;
-  color: var(--ink-3);
-  font-size: 0.85rem;
-}
-
-@media (max-width: 980px) {
-  .nav__links {
-    display: none;
-  }
-  .nav__burger {
-    display: block;
-  }
 }
 
 /* =========================================================================
@@ -982,9 +779,6 @@ h4 {
   gap: 12px;
   font-family: var(--f-serif);
   font-size: clamp(0.98rem, 1.2vw, 1.14rem);
-}
-.gate__brand .nav__mark {
-  box-shadow: 0 0 0 1px var(--line-2);
 }
 .gate__meta {
   font-family: var(--f-mono);
@@ -3131,12 +2925,6 @@ h4 {
 .novel {
   background: var(--paper-2);
 }
-.novel__stage {
-  display: grid;
-  grid-template-columns: minmax(240px, 380px) minmax(0, 1fr);
-  gap: clamp(30px, 5vw, 84px);
-  align-items: center;
-}
 .cover {
   perspective: 1500px;
   will-change: transform;
@@ -3214,9 +3002,6 @@ h4 {
   z-index: 1;
 }
 
-.novel__body {
-  min-width: 0;
-}
 .tag {
   display: inline-flex;
   gap: 8px;
@@ -3230,21 +3015,6 @@ h4 {
   font-size: 0.58rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-}
-.novel__title {
-  font-family: var(--f-hi);
-  font-weight: 700;
-  font-size: clamp(1.9rem, 5vw, 4.2rem);
-  line-height: 1.48;
-  margin-block: 18px 6px;
-}
-/* mixed Latin + Devanagari, so not the mono face */
-.novel__roman {
-  font-family: var(--f-hi-body);
-  font-size: 0.9rem;
-  line-height: 1.8;
-  letter-spacing: 0.04em;
-  color: var(--ink-3);
 }
 .novel__logline {
   margin-top: clamp(20px, 2.6vw, 32px);
@@ -3262,84 +3032,7 @@ h4 {
   color: var(--ink-2);
   max-width: 60ch;
 }
-/* Fixed column counts, not auto-fit: 6 facts divide exactly into 3 and 2,
-   so the grid can never end a row with an empty cell. */
-.novel__facts {
-  margin-top: clamp(24px, 3vw, 38px);
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 1px;
-  background: var(--line);
-  border: 1px solid var(--line);
-  border-radius: var(--r);
-  overflow: hidden;
-}
-@media (max-width: 900px) {
-  .novel__facts {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-.novel__fact--quote {
-  grid-column: 1 / -1;
-  display: grid;
-  place-items: center;
-  text-align: center;
-  padding: clamp(18px, 2.4vw, 26px);
-  background: linear-gradient(
-    120deg,
-    color-mix(in srgb, var(--accent) 8%, var(--surface)),
-    var(--surface)
-  );
-}
-.novel__fact--quote p {
-  font-family: var(--f-hi);
-  font-weight: 400;
-  font-size: clamp(0.98rem, 1.5vw, 1.22rem);
-  line-height: 1.85;
-  color: var(--accent);
-  max-width: 46ch;
-}
-.novel__fact-attrib {
-  display: block;
-  margin-top: 10px;
-  font-family: var(--f-hi-body);
-  font-style: italic;
-  font-size: clamp(0.82rem, 1.1vw, 0.96rem);
-  line-height: 1.7;
-  color: var(--ink-3);
-  letter-spacing: 0.01em;
-}
-.novel__fact {
-  background: var(--surface);
-  padding: 15px 17px;
-}
-.novel__fact dt {
-  font-family: var(--f-mono);
-  font-size: 0.54rem;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--ink-3);
-}
-.novel__fact dd {
-  margin: 7px 0 0;
-  font-family: var(--f-display);
-  font-size: 1.06rem;
-  color: var(--ink);
-}
-.novel__fact dd.h {
-  font-family: var(--f-hi);
-  font-size: 1rem;
-}
-.novel__actions {
-  margin-top: clamp(24px, 3vw, 36px);
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-}
 @media (max-width: 940px) {
-  .novel__stage {
-    grid-template-columns: 1fr;
-  }
   .cover {
     justify-self: center;
   }
@@ -3382,109 +3075,6 @@ h4 {
   font-size: 0.95rem;
   line-height: 1.95;
   color: var(--ink-2);
-}
-
-/* synopsis scroller */
-.syn {
-  position: relative;
-  background: var(--paper);
-}
-.syn__sticky {
-  position: sticky;
-  top: 0;
-  height: 100svh;
-  display: flex;
-  align-items: center;
-  overflow: hidden;
-}
-.syn__rail {
-  display: flex;
-  gap: clamp(18px, 2.4vw, 36px);
-  padding-inline: var(--gutter);
-  will-change: transform;
-}
-.syn__card {
-  flex: 0 0 auto;
-  width: min(78vw, 450px);
-  min-height: clamp(300px, 44vh, 410px);
-  padding: clamp(24px, 3vw, 38px);
-  border: 1px solid var(--line);
-  border-radius: var(--r-lg);
-  background: var(--surface);
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-  position: relative;
-  overflow: hidden;
-  transition: border-color 0.5s var(--ease), box-shadow 0.5s var(--ease);
-}
-.syn__card:hover {
-  border-color: var(--accent);
-  box-shadow: var(--shadow);
-}
-.syn__idx {
-  font-family: var(--f-mono);
-  font-size: 0.58rem;
-  letter-spacing: 0.2em;
-  color: var(--accent-2);
-}
-/* the beat labels are Devanagari — Instrument Serif has no Devanagari */
-.syn__when {
-  font-family: var(--f-hi-body);
-  font-size: 1.05rem;
-  line-height: 1.75;
-  color: var(--accent);
-}
-.syn__text {
-  font-family: var(--f-hi-body);
-  font-size: clamp(0.96rem, 1.18vw, 1.1rem);
-  line-height: 2;
-  color: var(--ink-2);
-}
-.syn__card--end {
-  background: linear-gradient(165deg, var(--accent-soft), var(--surface));
-  border-color: var(--accent);
-}
-.syn__card--end .syn__text {
-  color: var(--ink);
-}
-.syn__head {
-  position: absolute;
-  top: clamp(68px, 10vh, 116px);
-  left: var(--gutter);
-  z-index: 3;
-  pointer-events: none;
-}
-.syn--swipe {
-  padding-block: clamp(60px, 11vw, 100px);
-  height: auto;
-}
-.syn__swipe {
-  margin-top: clamp(24px, 5vw, 38px);
-  display: flex;
-  gap: 15px;
-  overflow-x: auto;
-  overscroll-behavior-x: contain;
-  scroll-snap-type: x mandatory;
-  scroll-padding-inline: var(--gutter);
-  padding-inline: max(var(--gutter), env(safe-area-inset-left));
-  padding-block: 4px 18px;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-}
-.syn__swipe::-webkit-scrollbar {
-  display: none;
-}
-.syn__swipe .syn__card {
-  scroll-snap-align: center;
-  width: min(84vw, 410px);
-  min-height: clamp(270px, 52vw, 370px);
-}
-.syn__hint {
-  margin-top: 10px;
-  color: var(--ink-3);
-  display: flex;
-  justify-content: flex-end;
 }
 
 /* =========================================================================
@@ -3678,11 +3268,6 @@ h4 {
   font-size: 0.56rem;
   letter-spacing: 0.2em;
   color: var(--ink-3);
-}
-.syn--swipe .ln__card {
-  scroll-snap-align: center;
-  width: min(84vw, 400px);
-  min-height: clamp(250px, 50vw, 340px);
 }
 
 @media (max-width: 640px) {
@@ -4280,8 +3865,7 @@ h4 {
 
 .btn:active,
 .chip:active,
-.ai__chip:active,
-.nav__switch:active {
+.ai__chip:active {
   transform: scale(0.97);
 }
 .pj__row:active::before {
@@ -4290,9 +3874,6 @@ h4 {
 }
 
 @media (pointer: coarse) {
-  .nav__link {
-    padding-block: 12px;
-  }
   .chip,
   .ai__chip {
     min-height: 42px;
@@ -4303,10 +3884,6 @@ h4 {
   }
   .pj__row {
     padding-block: 20px;
-  }
-  .nav__burger {
-    width: 48px;
-    height: 48px;
   }
 }
 
@@ -4334,17 +3911,11 @@ h4 {
     width: 100%;
     justify-content: center;
   }
-  .novel__facts {
-    grid-template-columns: repeat(2, 1fr);
-  }
   .foot {
     flex-direction: column;
     align-items: flex-start;
     gap: 12px;
     padding-block: 24px 32px;
-  }
-  .menu {
-    padding-bottom: max(40px, env(safe-area-inset-bottom));
   }
   .grain {
     display: none;
@@ -4361,15 +3932,6 @@ h4 {
   /* the cups stay — they just shrink with the title (see .write-hero__cup svg) */
   .whero__row {
     gap: 8px;
-  }
-
-  .nav__brand {
-    font-size: 0.94rem;
-    gap: 9px;
-  }
-  .nav__mark {
-    width: 28px;
-    height: 28px;
   }
 
   .hero {
@@ -4444,9 +4006,6 @@ h4 {
     width: 26px;
   }
 
-  .novel__facts {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
   .novel__logline {
     padding-left: 14px;
   }
@@ -4471,8 +4030,7 @@ h4 {
   .hub__panel,
   .track,
   .themes__cell,
-  .cast__card,
-  .syn__card {
+  .cast__card {
     padding: 20px;
   }
 
@@ -4514,7 +4072,6 @@ h4 {
     height: 34px;
   }
   .about__meta,
-  .novel__facts,
   .hub__stats {
     border-radius: var(--r);
   }
@@ -4533,9 +4090,6 @@ h4 {
   .cover__face {
     padding: 22px;
   }
-  .syn__hint {
-    padding-right: 4px;
-  }
   .author__row {
     flex-direction: column;
     gap: 2px;
@@ -4547,10 +4101,6 @@ h4 {
 }
 
 @media (max-width: 400px) {
-  .nav__brand span:first-of-type,
-  .nav__brand > span:last-child {
-    font-size: 0.88rem;
-  }
   .stat__n {
     font-size: 1.6rem;
   }
@@ -4563,10 +4113,6 @@ h4 {
   .hero {
     min-height: auto;
     padding-block: 110px 60px;
-  }
-  .syn__sticky {
-    height: auto;
-    padding-block: 60px;
   }
 }
 

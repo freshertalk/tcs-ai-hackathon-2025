@@ -32,51 +32,29 @@ export default function Author() {
         </div>
 
         <div className="author__grid">
-          {/* Plain opacity/-y reveal on purpose: a clip-path reveal can leave
-              the frame blank if the observer never fires. */}
-          <Parallax distance={26}>
-            <Reveal y={30} amount={0.12} className="author__photo">
-              <Picture
-                name="vinay-portrait"
-                smallName="vinay-portrait-sm"
-                sizes="(max-width: 940px) 90vw, 400px"
-                alt={`${AUTHOR.name} — ${AUTHOR.nameRoman}, लेखक · ${BOOK.title}`}
-                width="1000"
-                height="1250"
-              />
-              <span className="author__plate">
-                <span className="author__plateN">{AUTHOR.name}</span>
-                <span className="author__plateR">{AUTHOR.nameRoman}</span>
-              </span>
-            </Reveal>
-          </Parallax>
-
-          <div>
-            <div className="author__lines">
-              {AUTHOR.lines.map((l, i) => (
-                <Reveal key={l} delay={i * 0.06} y={22}>
-                  <p className="author__p">{l}</p>
-                </Reveal>
-              ))}
-            </div>
-
-            <Reveal delay={0.2}>
-              <blockquote className="author__motto">
-                <p>“{AUTHOR.motto}”</p>
-                <cite className="author__mottoBy">
-                  — {AUTHOR.name} ({BOOK.title})
-                </cite>
-              </blockquote>
-            </Reveal>
-
-            {/* the manuscript's dedication page, carried over as-is */}
-            <Reveal delay={0.24}>
-              <div className="dedic">
-                <span className="dedic__k">समर्पण</span>
-                <p className="dedic__to">{BOOK.dedication.to}</p>
-                <p className="dedic__body">{BOOK.dedication.body}</p>
-              </div>
-            </Reveal>
+          {/* Two columns on a wide screen: the portrait with the two fact boxes
+              under it, and the words beside them. On a phone the wrappers
+              dissolve (display: contents) and the pieces are put in reading
+              order: portrait, words, boxes, links — see home.css. */}
+          <div className="author__side">
+            {/* Plain opacity/-y reveal on purpose: a clip-path reveal can leave
+                the frame blank if the observer never fires. */}
+            <Parallax distance={26}>
+              <Reveal y={30} amount={0.12} className="author__photo">
+                <Picture
+                  name="vinay-portrait"
+                  smallName="vinay-portrait-sm"
+                  sizes="(max-width: 940px) 90vw, 400px"
+                  alt={`${AUTHOR.name} — ${AUTHOR.nameRoman}, लेखक · ${BOOK.title}`}
+                  width="1000"
+                  height="1250"
+                />
+                <span className="author__plate">
+                  <span className="author__plateN">{AUTHOR.name}</span>
+                  <span className="author__plateR">{AUTHOR.nameRoman}</span>
+                </span>
+              </Reveal>
+            </Parallax>
 
             <div className="author__cols">
               <Reveal className="author__box" y={24}>
@@ -99,11 +77,36 @@ export default function Author() {
                 ))}
               </Reveal>
             </div>
+          </div>
 
-            <Reveal
-              delay={0.26}
-              style={{ marginTop: 30, display: "flex", gap: 12, flexWrap: "wrap" }}
-            >
+          <div className="author__main">
+            <div className="author__lines">
+              {AUTHOR.lines.map((l, i) => (
+                <Reveal key={l} delay={i * 0.06} y={22}>
+                  <p className="author__p">{l}</p>
+                </Reveal>
+              ))}
+            </div>
+
+            <Reveal delay={0.2} className="author__mottoWrap">
+              <blockquote className="author__motto">
+                <p>“{AUTHOR.motto}”</p>
+                <cite className="author__mottoBy">
+                  — {AUTHOR.name} ({BOOK.title})
+                </cite>
+              </blockquote>
+            </Reveal>
+
+            {/* the manuscript's dedication page, carried over as-is */}
+            <Reveal delay={0.24} className="author__dedicWrap">
+              <div className="dedic">
+                <span className="dedic__k">समर्पण</span>
+                <p className="dedic__to">{BOOK.dedication.to}</p>
+                <p className="dedic__body">{BOOK.dedication.body}</p>
+              </div>
+            </Reveal>
+
+            <Reveal delay={0.26} className="author__go">
               <Magnetic>
                 <a
                   className="btn btn--solid"

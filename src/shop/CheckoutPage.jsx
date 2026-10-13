@@ -8,6 +8,11 @@
 //                    the payment; this site never sees a card or a UPI PIN
 //   4. पढ़िए         access is already given; the receipt is mailed
 //
+// The page is laid out the same way at every step: a short heading with the
+// four steps beside it, the step's own card, and the priced order next to it.
+// On a phone the priced order folds into one line above the card, and the
+// step's button stays at the bottom of the screen with the total beside it.
+//
 // Nothing on this page decides a price. A quote and an order are asked of the
 // collector, which answers with amounts it has worked out itself; what the
 // browser sends is a slug, a code, a name and a state.
@@ -17,6 +22,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import Nav from "../components/site/Nav";
 import Footer from "../components/site/Footer";
 import usePrivatePage from "../components/site/usePrivatePage";
+import useMediaQuery from "../hooks/useMediaQuery";
 import LoginScreen from "../auth/LoginScreen";
 import { useAuth } from "../auth/google";
 import { loadMe } from "../account/me";
@@ -24,12 +30,11 @@ import { BOOK } from "../data/books";
 import { useBook } from "../library/hooks";
 import { contentUrl } from "../library/api";
 import { COUPON_REASON } from "../coupons/reasons";
-import { Card, Loading } from "../admin/ui";
+import { Loading } from "../admin/ui";
 import { IconBook, IconCard, IconCart, IconCheck, IconLock, IconMail, IconPrint, IconReceipt, IconTag, IconTrash } from "../components/ui/icons";
 import Receipt from "./Receipt";
-import { addToCart, clearCart, removeFromCart, setCartCoupon, useCart } from "./store";
-import { claimPayment, getQuote, getReceipt, openPayment, placeOrder, resendReceipt, resumePayment, shopMessage, verifyPayment } from "./api";
-import UpiPay from "./UpiPay";
+import { addToCart, removeFromCart, setCartCoupon, useCart } from "./store";
+import { getQuote, getReceipt, openPayment, placeOrder, resendReceipt, resumePayment, shopMessage, verifyPayment } from "./api";
 import { inr, inrShort, receiptLines } from "./format";
 
 const NAV = [
@@ -58,12 +63,36 @@ function Steps({ step }) {
   );
 }
 
-function Summary({ amounts, caption = "भुगतान का हिसाब" }) {
+/** The heading of a step, with the four steps beside it. */
+function Head({ step, title, lead }) {
+  return (
+    <header className="co__head">
+      <div className="co__headT">
+        <p className="co__eyebrow">
+          <IconLock size={14} /> सुरक्षित चेकआउट
+        </p>
+        <h1 className="co__title hi-d">{title}</h1>
+        {lead ? <p className="co__sub hi">{lead}</p> : null}
+      </div>
+      <Steps step={step} />
+    </header>
+  );
+}
+
+/** The order, priced: the book, the lines of the bill, the total. On a narrow
+    screen it folds to one line — the caption and the amount — and opens on a tap. */
+function Summary({ amounts, cover, wide, caption = "ऑर्डर का हिसाब" }) {
   if (!amounts) return null;
   const lines = receiptLines({ amounts, status: "created" });
-  return (
-    <aside className="co__sum" aria-label={caption}>
-      <h3>{caption}</h3>
+  const body = (
+    <div className="co__sumBody">
+      <div className="co__sumItem">
+        {cover ? <img src={cover} alt="" width="46" height="64" /> : <span className="co__noimg" />}
+        <p>
+          <b className="hi-d">{BOOK.title}</b>
+          <span className="hi">ई-बुक · {BOOK.byline}</span>
+        </p>
+      </div>
       <table>
         <tbody>
           {lines.map((l) => (
@@ -82,9 +111,74 @@ function Summary({ amounts, caption = "भुगतान का हिसाब
           आप <b>{inr(amounts.saved)}</b> बचा रहे हैं
         </p>
       )}
-    </aside>
+    </div>
+  );
+
+  if (wide) {
+    return (
+      <aside className="co__sum" aria-label={caption}>
+        <h2 className="co__sumT">{caption}</h2>
+        {body}
+      </aside>
+    );
+  }
+  return (
+    <details className="co__sum co__sum--fold">
+      <summary>
+        <span className="co__sumK">
+          <IconReceipt size={17} /> {caption}
+        </span>
+        <b>{inr(amounts.total)}</b>
+        <i className="co__chev" aria-hidden="true" />
+      </summary>
+      {body}
+    </details>
   );
 }
+
+/** What a buyer can count on, in three lines. */
+function Assure() {
+  return (
+    <ul className="co__assure">
+      <li>
+        <IconLock size={16} /> भुगतान Razorpay के सुरक्षित प्लेटफ़ॉर्म पर होता है।
+      </li>
+      <li>
+        <IconMail size={16} /> रसीद आपके ई-मेल पर भेजी जाती है।
+      </li>
+      <li>
+        <IconBook size={16} /> किताब आपके खाते से जुड़ी रहती है।
+      </li>
+    </ul>
+  );
+}
+
+/** The step's button. On a phone this row stays at the bottom of the screen,
+    with the amount beside the button, for as long as the card is in view. */
+function Go({ total, hint, children }) {
+  return (
+    <div className="co__go">
+      {hint ? (
+        <p className="co__goHint" role="note">
+          {hint}
+        </p>
+      ) : null}
+      {total ? (
+        <p className="co__goSum">
+          <span>कुल देय</span>
+          <b>{total}</b>
+        </p>
+      ) : null}
+      {children}
+    </div>
+  );
+}
+
+const Next = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M5 12h14M13 6l6 6-6 6" />
+  </svg>
+);
 
 export default function CheckoutPage() {
   usePrivatePage("कार्ट और भुगतान");
@@ -92,6 +186,7 @@ export default function CheckoutPage() {
   const cart = useCart();
   const [params, setParams] = useSearchParams();
   const { data: book } = useBook(BOOK.slug);
+  const wide = useMediaQuery("(min-width: 900px)");
 
   const slug = BOOK.slug;
   const inCart = cart.items.some((i) => i.slug === slug);
@@ -178,12 +273,6 @@ export default function CheckoutPage() {
       .then((d) => {
         if (!live) return;
         setQuote(d);
-        if (d.pendingOrder && !orderId) {
-          // paid and waiting for the author's confirmation: show that, not a fresh cart
-          const next = new URLSearchParams();
-          next.set("order", d.pendingOrder);
-          setParams(next, { replace: true });
-        }
         setCouponMsg(d.coupon && !d.coupon.valid ? COUPON_REASON[d.coupon.reason] || COUPON_REASON.unknown : "");
         if (d.coupon && !d.coupon.valid && cart.coupon) setCartCoupon("");
       })
@@ -192,7 +281,6 @@ export default function CheckoutPage() {
     return () => {
       live = false;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, inCart, slug, cart.coupon, form.state, step, tick]);
 
   const finish = useCallback(
@@ -306,58 +394,10 @@ export default function CheckoutPage() {
     }
   };
 
-  // UPI: the reader gives the transaction number; the order waits for the owner
-  const claim = async (utr) => {
-    if (working.current || !order) return;
-    working.current = true;
-    setBusy("claim");
-    setMsg(null);
-    try {
-      const d = await claimPayment(order.id, utr);
-      setOrder(d.order);
-      if (d.checkout) setCheckout(d.checkout);
-    } catch (e) {
-      setMsg({ tone: "bad", text: shopMessage(e) });
-    }
-    working.current = false;
-    setBusy("");
-  };
-
-  // UPI: has the owner confirmed it yet?
-  const refreshOrder = useCallback(
-    async (quiet) => {
-      if (!order) return;
-      if (!quiet) setBusy("refresh");
-      try {
-        const d = await getReceipt(order.id);
-        if (d.order.status === "paid" || d.order.status === "free") finish(d.order);
-        else {
-          setOrder(d.order);
-          if (d.checkout) setCheckout(d.checkout);
-          if (!quiet) setMsg({ tone: "warn", text: "अभी पुष्टि नहीं हुई है — लेखक रकम देखते ही पुष्टि करेंगे।" });
-        }
-      } catch (e) {
-        if (!quiet) setMsg({ tone: "bad", text: shopMessage(e) });
-      }
-      if (!quiet) setBusy("");
-    },
-    [order, finish]
-  );
-
-  // while a UPI order is waiting, look again every half minute (page visible)
-  useEffect(() => {
-    if (step !== "pay" || !order || order.status !== "pending") return undefined;
-    const t = setInterval(() => {
-      if (document.visibilityState === "visible") refreshOrder(true);
-    }, 30000);
-    return () => clearInterval(t);
-  }, [step, order, refreshOrder]);
-
   // Coming back from a UPI app (or another tab) with the page still on "pay":
   // look once for the payment, quietly, so the person is not left wondering.
   useEffect(() => {
     if (step !== "pay" || !order || order.status !== "created") return undefined;
-    if (checkout && checkout.provider === "upi") return undefined;
     const back = () => {
       if (document.visibilityState !== "visible" || busy === "verify") return;
       const now = Date.now();
@@ -375,7 +415,7 @@ export default function CheckoutPage() {
       document.removeEventListener("visibilitychange", back);
       window.removeEventListener("focus", back);
     };
-  }, [step, order, checkout, busy, slug, finish]);
+  }, [step, order, busy, slug, finish]);
 
   // never close the tab in the middle of confirming a payment
   useEffect(() => {
@@ -432,6 +472,7 @@ export default function CheckoutPage() {
   const stateOk = !gstAsksState || Boolean(form.state);
   const nameOk = form.name.trim().length >= 2;
   const canConfirm = Boolean(quote) && !quote.owned && nameOk && stateOk && form.accept && busy === "" && (a.totalPaise === 0 || quote.payments.ready);
+  const cover = book && book.coverSmall ? contentUrl(book.slug, book.coverSmall) : "";
 
   /* ------------------------------------------------------------- done */
   if (step === "done" && order) {
@@ -440,7 +481,9 @@ export default function CheckoutPage() {
     const refunded = order.status === "refunded" && !duplicate;
     return frame(
       <>
-        <Steps step="done" />
+        <header className="co__head co__head--solo">
+          <Steps step="done" />
+        </header>
         <section className="co__done">
           <span className={`co__tick ${refunded ? "is-muted" : ""}`}>{refunded ? <IconReceipt size={34} /> : <IconCheck size={36} strokeWidth={2.6} />}</span>
           <h1 className="co__h">
@@ -453,7 +496,7 @@ export default function CheckoutPage() {
           )}
           {!refunded && !duplicate && (
             <p className="co__lead hi">
-              <b>{order.item.title}</b> अब आपके खाते में <b>हमेशा के लिए</b> खुल चुकी है — इसके लिए आगे कोई शुल्क नहीं लगेगा।
+              <b>{order.item.title}</b> अब आपके खाते में <b>हमेशा के लिए</b> खुल चुकी है — इसके लिए आगे कोई शुल्क नहीं लगेगा। (पहुँच वेबसाइट की उपलब्धता के अधीन है।)
             </p>
           )}
           <p className="co__mail" hidden={refunded || duplicate}>
@@ -524,61 +567,66 @@ export default function CheckoutPage() {
   /* -------------------------------------------------------------- pay */
   if (step === "pay" && order) {
     const test = checkout && checkout.mode === "test";
+    const back = () => {
+      setStep("details");
+      setOrder(null);
+      setCheckout(null);
+      setParams(new URLSearchParams(), { replace: true });
+    };
     return frame(
       <>
-        <Steps step="pay" />
+        <Head step="pay" title="ऑर्डर बन गया — अब भुगतान कीजिए" lead="भुगतान की पुष्टि होते ही किताब आपके खाते में खुल जाएगी।" />
         <div className="co__grid">
           <div className="co__main">
-            {checkout && checkout.provider === "upi" ? (
-              <UpiPay order={order} checkout={checkout} onClaim={claim} onRefresh={() => refreshOrder(false)} busy={busy} msg={msg} />
-            ) : (
-            <Card title="ऑर्डर बन गया — अब भुगतान कीजिए" sub="Your receipt is ready; the book opens the moment the payment is confirmed.">
+            <section className="dc co__card">
               {test && (
                 <p className="co__test" role="note">
                   <b>टेस्ट मोड</b> — असली पैसा नहीं कटेगा। टेस्ट UPI: <code>success@razorpay</code>, टेस्ट कार्ड: <code>4111 1111 1111 1111</code>
                 </p>
               )}
-              <div className="co__payRow">
-                <div>
-                  <p className="co__payAmt">{inr(order.amounts.total)}</p>
-                  <p className="co__payFor hi">{order.item.title} · ई-बुक · हमेशा के लिए</p>
-                </div>
-                <button type="button" className="db db--solid db--lg co__pay" onClick={pay} disabled={busy !== "" || !checkout}>
-                  <IconCard size={20} />
-                  {busy === "verify" ? "पुष्टि हो रही है…" : busy === "pay" ? "भुगतान खुला है…" : `अभी भुगतान कीजिए · ${inr(order.amounts.total)}`}
-                </button>
+              <div className="co__payTop">
+                <p className="co__payK">देय राशि</p>
+                <p className="co__payAmt">{inr(order.amounts.total)}</p>
+                <p className="co__payFor hi">{order.item.title} · ई-बुक · वेबसाइट की उपलब्धता तक</p>
               </div>
-              <ul className="co__trust">
-                <li>
-                  <IconLock size={16} /> भुगतान Razorpay की सुरक्षित खिड़की में होता है — कार्ट/UPI का विवरण इस साइट पर नहीं आता।
-                </li>
-                <li>
-                  <IconCheck size={16} strokeWidth={2.4} /> UPI, कार्ड, नेट-बैंकिंग और वॉलेट से।
-                </li>
-                <li>
-                  <IconMail size={16} /> भुगतान के बाद रसीद आपके ई-मेल पर आएगी और किताब अपने-आप खुल जाएगी।
-                </li>
-              </ul>
               {msg && (
                 <p className={`co__msg is-${msg.tone}`} role="alert">
                   {msg.text}
                 </p>
               )}
-              <p className="co__small">
-                भुगतान कर दिया था पर पन्ना नहीं बदला?{" "}
-                <button type="button" className="lnk" onClick={recheck} disabled={busy !== ""}>
-                  {busy === "resume" ? "जाँच रहे हैं…" : "भुगतान की जाँच कीजिए"}
+              <Go>
+                <button type="button" className="db db--solid db--lg co__pay" onClick={pay} disabled={busy !== "" || !checkout}>
+                  <IconCard size={20} />
+                  {busy === "verify" ? "पुष्टि हो रही है…" : busy === "pay" ? "भुगतान खुला है…" : `अभी भुगतान कीजिए · ${inr(order.amounts.total)}`}
+                </button>
+              </Go>
+              <ul className="co__trust">
+                <li>
+                  <IconLock size={16} /> आपका भुगतान Razorpay के सुरक्षित प्लेटफ़ॉर्म पर संसाधित होता है; आपके कार्ड या UPI का कोई विवरण इस वेबसाइट पर संग्रहीत नहीं किया जाता।
+                </li>
+                <li>
+                  <IconCheck size={16} strokeWidth={2.4} /> भुगतान के लिए UPI, डेबिट/क्रेडिट कार्ड, नेट-बैंकिंग और वॉलेट उपलब्ध हैं।
+                </li>
+                <li>
+                  <IconMail size={16} /> भुगतान की पुष्टि होते ही रसीद आपके पंजीकृत ई-मेल पर भेज दी जाएगी और पुस्तक आपके खाते में उपलब्ध हो जाएगी।
+                </li>
+              </ul>
+              <p className="co__under">
+                <span>
+                  भुगतान कर दिया था पर पन्ना नहीं बदला?{" "}
+                  <button type="button" className="lnk" onClick={recheck} disabled={busy !== ""}>
+                    {busy === "resume" ? "जाँच रहे हैं…" : "भुगतान की जाँच कीजिए"}
+                  </button>
+                </span>
+                <button type="button" className="lnk co__quiet" onClick={back} disabled={busy !== ""}>
+                  ← विवरण बदलना है
                 </button>
               </p>
-            </Card>
-            )}
+            </section>
             <Receipt order={order} />
           </div>
           <div className="co__side">
-            <Summary amounts={order.amounts} caption="आपका ऑर्डर" />
-            <button type="button" className="lnk co__back" onClick={() => { setStep("details"); setOrder(null); setCheckout(null); setParams(new URLSearchParams(), { replace: true }); }}>
-              ← विवरण बदलना है
-            </button>
+            <Summary amounts={order.amounts} cover={cover} wide={wide} caption="आपका ऑर्डर" />
           </div>
         </div>
       </>
@@ -587,61 +635,71 @@ export default function CheckoutPage() {
 
   /* ---------------------------------------------- cart and confirm */
   const showDetails = step === "details";
+  const total = a ? inr(a.total) : "";
+  const why = !form.accept ? "आगे बढ़ने के लिए कृपया ऊपर का बॉक्स चुनिए।" : !nameOk ? "रसीद के लिए कृपया अपना नाम लिखिए।" : !stateOk ? "कृपया अपना राज्य चुनिए।" : "";
   return frame(
     <>
-      <Steps step={showDetails ? "details" : "cart"} />
+      {showDetails ? (
+        <Head step="details" title="ऑर्डर पक्का कीजिए" lead="रसीद इन्हीं विवरणों से बनेगी।" />
+      ) : (
+        <Head step="cart" title="आपका कार्ट" lead="1 किताब · ई-बुक · एक बार का भुगतान · पहुँच वेबसाइट की उपलब्धता के अधीन" />
+      )}
       <div className="co__grid">
         <div className="co__main">
           {!showDetails ? (
-            <Card title="आपका कार्ट" sub="1 किताब · ई-बुक · एक बार का भुगतान, हमेशा की पहुँच">
+            <section className="dc co__card">
               <div className="co__item">
-                {book && book.coverSmall ? (
-                  <img src={contentUrl(book.slug, book.coverSmall)} alt="" width="76" height="106" />
-                ) : (
-                  <span className="co__noimg" />
-                )}
+                {cover ? <img src={cover} alt="" width="84" height="118" /> : <span className="co__noimg" />}
                 <div className="co__itemBody">
-                  <h3 className="hi-d">{BOOK.title}</h3>
+                  <h2 className="hi-d">{BOOK.title}</h2>
                   <p className="hi">{BOOK.byline}</p>
-                  <p className="co__price">
-                    <s>{inrShort(BOOK.price.mrp)}</s> <b>{a ? inrShort(a.list) : inrShort(BOOK.price.selling)}</b>
-                    <span>ई-बुक · आजीवन पहुँच</span>
+                  <p className="co__tags">
+                    <span>ई-बुक</span>
+                    <span>हिन्दी</span>
+                    <span>इसी वेबसाइट पर पढ़ने के लिए</span>
                   </p>
                 </div>
-                <button type="button" className="co__rm" onClick={() => removeFromCart(slug)} aria-label="कार्ट से हटाइए">
-                  <IconTrash size={18} />
-                </button>
+                <div className="co__itemEnd">
+                  <p className="co__price">
+                    <s>{inrShort(BOOK.price.mrp)}</s> <b>{a ? inrShort(a.list) : inrShort(BOOK.price.selling)}</b>
+                  </p>
+                  <button type="button" className="co__rm" onClick={() => removeFromCart(slug)} aria-label="कार्ट से हटाइए">
+                    <IconTrash size={16} /> हटाइए
+                  </button>
+                </div>
               </div>
 
               <form className="co__coupon" onSubmit={applyCoupon}>
                 <label htmlFor="co-code">
                   <IconTag size={16} /> कूपन कोड
                 </label>
-                <div>
-                  <input
-                    id="co-code"
-                    value={code}
-                    onChange={(e) => setCode(e.target.value.toUpperCase())}
-                    placeholder="कोड लिखिए (हो तो)"
-                    autoComplete="off"
-                    autoCapitalize="characters"
-                    spellCheck="false"
-                    maxLength={24}
-                  />
-                  <button type="submit" className="db db--ghost" disabled={!code.trim() || quoting}>
-                    लगाइए
-                  </button>
-                  {cart.coupon ? (
-                    <button type="button" className="db db--ghost" onClick={() => { setCartCoupon(""); setCode(""); }}>
-                      हटाइए
-                    </button>
-                  ) : null}
-                </div>
                 {a && a.coupon ? (
                   <p className="co__ok" role="status">
-                    <IconCheck size={16} strokeWidth={2.6} /> कूपन <b>{a.coupon}</b> लग गया — {inr(a.discount)} की छूट
+                    <IconCheck size={16} strokeWidth={2.6} />
+                    <span>
+                      कूपन <b>{a.coupon}</b> लग गया — {inr(a.discount)} की छूट
+                    </span>
+                    <button type="button" className="lnk" onClick={() => { setCartCoupon(""); setCode(""); }}>
+                      हटाइए
+                    </button>
                   </p>
-                ) : null}
+                ) : (
+                  <div className="co__couponRow">
+                    <input
+                      id="co-code"
+                      value={code}
+                      onChange={(e) => setCode(e.target.value.toUpperCase())}
+                      placeholder="कोड लिखिए (हो तो)"
+                      autoComplete="off"
+                      autoCapitalize="characters"
+                      spellCheck="false"
+                      maxLength={24}
+                    />
+                    <button type="submit" className="db db--ghost" disabled={!code.trim() || quoting}>
+                      {quoting && cart.coupon ? "जाँच रहे हैं…" : "लगाइए"}
+                    </button>
+                  </div>
+                )}
                 {couponMsg ? (
                   <p className="co__bad" role="alert">
                     {couponMsg}
@@ -666,18 +724,16 @@ export default function CheckoutPage() {
                   </Link>
                 </div>
               ) : (
-                <div className="co__act">
+                <Go total={total}>
                   <button type="button" className="db db--solid db--lg" disabled={!quote || quoting} onClick={() => setStep("details")}>
-                    आगे बढ़िए — पक्का करें
+                    {quoting && !quote ? "हिसाब लगा रहे हैं…" : "आगे बढ़िए"} <Next />
                   </button>
-                  <button type="button" className="lnk" onClick={() => { clearCart(); }}>
-                    कार्ट खाली कीजिए
-                  </button>
-                </div>
+                </Go>
               )}
-            </Card>
+            </section>
           ) : (
-            <Card title="ऑर्डर पक्का कीजिए" sub="रसीद इन्हीं विवरणों से बनेगी">
+            <section className="dc co__card">
+              <h2 className="co__h2">आपके विवरण</h2>
               <div className="co__form">
                 <label>
                   <span>रसीद पर नाम</span>
@@ -713,13 +769,23 @@ export default function CheckoutPage() {
                 )}
               </div>
 
-              <label className="co__tick2">
-                <input type="checkbox" checked={form.accept} onChange={(e) => setForm({ ...form, accept: e.target.checked })} />
-                <span className="hi">
-                  मैंने <Link to="/terms" target="_blank">उपयोग की शर्तें</Link>, <Link to="/privacy" target="_blank">गोपनीयता नीति</Link> और{" "}
-                  <Link to="/refund" target="_blank">रिफ़ंड नीति</Link> पढ़ ली हैं, और मैं समझता/समझती हूँ कि यह एक डिजिटल ई-बुक है जो मेरे खाते में ऑनलाइन पढ़ी जाती है।
-                </span>
-              </label>
+              {/* what the buyer is agreeing to, one point to a line, and then the box */}
+              <div className="co__know">
+                <h2 className="co__h2">खरीदने से पहले कृपया ध्यान दीजिए</h2>
+                <ul className="hi">
+                  <li>यह एक डिजिटल ई-बुक है जो केवल इसी वेबसाइट पर आपके खाते में ऑनलाइन पढ़ी जाती है — कोई फ़ाइल या डाउनलोड नहीं।</li>
+                  <li>इसकी पहुँच वेबसाइट की उपलब्धता के अधीन है।</li>
+                  <li>भुगतान के बाद किताब खुल जाने पर रिफ़ंड नहीं मिलता (रिफ़ंड नीति, खंड 2)।</li>
+                  <li>वेबसाइट खरीद के 90 दिन के भीतर स्थायी रूप से बंद हो जाए तो अनुरोध करने पर किताब की PDF प्रति आपके ई-मेल पर भेजी जाएगी (उपयोग की शर्तें, खंड 24)।</li>
+                </ul>
+                <label className="co__tick2">
+                  <input type="checkbox" checked={form.accept} onChange={(e) => setForm({ ...form, accept: e.target.checked })} />
+                  <span className="hi">
+                    मैंने <Link to="/terms" target="_blank">उपयोग की शर्तें</Link>, <Link to="/privacy" target="_blank">गोपनीयता नीति</Link> और{" "}
+                    <Link to="/refund" target="_blank">रिफ़ंड नीति</Link> पढ़ ली हैं, और ऊपर लिखी चारों बातें समझता/समझती हूँ।
+                  </span>
+                </label>
+              </div>
 
               {quote && !quote.payments.ready && a.totalPaise > 0 && (
                 <p className="co__msg is-warn" role="alert">
@@ -732,21 +798,25 @@ export default function CheckoutPage() {
                 </p>
               )}
 
-              <div className="co__act">
+              <Go total={total} hint={busy === "" && quote && !quote.owned ? why : ""}>
                 <button type="button" className="db db--solid db--lg" onClick={confirm} disabled={!canConfirm}>
-                  {busy === "order" ? "ऑर्डर बन रहा है…" : a && a.totalPaise === 0 ? "ऑर्डर पक्का कीजिए — मुफ़्त" : `ऑर्डर पक्का कीजिए · ${a ? inr(a.total) : ""}`}
+                  {busy === "order" ? "ऑर्डर बन रहा है…" : a && a.totalPaise === 0 ? "ऑर्डर पक्का कीजिए — मुफ़्त" : `ऑर्डर पक्का कीजिए · ${total}`}
                 </button>
-                <button type="button" className="lnk" onClick={() => setStep("cart")}>
+              </Go>
+              <p className="co__under">
+                <span>“पक्का कीजिए” दबाने पर आपकी रसीद बनती है और भुगतान का बटन खुलता है। इस चरण पर कोई पैसा नहीं कटता।</span>
+                <button type="button" className="lnk co__quiet" onClick={() => setStep("cart")}>
                   ← कार्ट पर लौटिए
                 </button>
-              </div>
-              <p className="co__small">“पक्का कीजिए” दबाने पर आपकी रसीद बनती है और भुगतान का बटन खुलता है। इस चरण पर कोई पैसा नहीं कटता।</p>
-            </Card>
+              </p>
+            </section>
           )}
+          {!wide && <Assure />}
         </div>
 
         <div className="co__side">
-          {quoting && !a ? <Loading label="हिसाब लगा रहे हैं…" /> : <Summary amounts={a} />}
+          {quoting && !a ? <Loading label="हिसाब लगा रहे हैं…" /> : <Summary amounts={a} cover={cover} wide={wide} />}
+          {wide && <Assure />}
         </div>
       </div>
     </>

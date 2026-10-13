@@ -1,10 +1,12 @@
 // src/sections/write/Hero.jsx
 // The front door is a book listing.
 //
-// Everything a reader weighs before opening a book is on the first screen,
+// Everything a reader weighs before buying a book is on the first screen,
 // with no scrolling and no splash in the way: the cover, the title, who
-// wrote it, what it is about (briefly), a line about the author, how long it
-// is, when it was published — and the Read button.
+// wrote it, its price and the way to buy it, what it is about (in one
+// breath), what readers said, how long it is and when it was published.
+// The longer answers — the story, its people, its author — each have their
+// own section further down, so none of them is repeated here.
 //
 // Layout is one grid with named areas, so the same markup becomes a
 // product-page on a desktop (cover left, details right) and a compact
@@ -14,7 +16,6 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Reveal, EASE } from "../../components/ui/motion";
-import Picture from "../../components/ui/Picture";
 import BuyBar from "../../shop/BuyBar";
 import { RatingChip } from "../../reviews/Reviews";
 import Price from "../../library/Price";
@@ -23,7 +24,7 @@ import HeroVoices from "../../reviews/HeroVoices";
 import BookShowcase from "../../library/BookShowcase";
 import { useCatalog } from "../../library/hooks";
 import { fmtDate, fmtMinutes } from "../../reader/util";
-import { BOOK, AUTHOR } from "../../data/books";
+import { BOOK } from "../../data/books";
 
 // Used until the catalogue arrives, so the cover never pops in late and the
 // page is complete on the very first paint.
@@ -110,19 +111,11 @@ export default function Hero({ readRef }) {
 
         {/* --------------------------------------- the rest of the listing */}
         <div className="bh__body">
-          {/* the premise and three lines from the book, as one passage: one card,
-              one reveal. The premise already ends on "दूसरा टिकट किसका है", so the
-              question is not repeated. All in the plain type of the premise. */}
+          {/* the premise, in the book's own words: it ends on the question the
+              book exists to answer */}
           <Reveal y={18} delay={0.16} duration={0.9}>
             <div className="bh__story">
               <p className="bh__tag hi">{BOOK.logline}</p>
-              <div className="bh__verse" role="group" aria-label="किताब की पंक्तियाँ">
-                {BOOK.highlight.lines.map((l) => (
-                  <p key={l} className="bh__tag hi">
-                    {l}
-                  </p>
-                ))}
-              </div>
             </div>
           </Reveal>
 
@@ -144,7 +137,10 @@ export default function Hero({ readRef }) {
           <Reveal y={18} delay={0.24} duration={0.9} className="bh__actions">
             <span className="bh__links">
               <a className="bh__ghost" href="#opening">
-                पहला पन्ना देखिए
+                पहला पन्ना पढ़िए
+              </a>
+              <a className="bh__ghost" href="#novel">
+                कहानी के बारे में
               </a>
               <Link className="bh__ghost" to={`/books/${BOOK.slug}#contents`}>
                 अनुक्रम
@@ -152,34 +148,6 @@ export default function Hero({ readRef }) {
             </span>
           </Reveal>
 
-          <Reveal y={22} delay={0.3} duration={0.95} className="bh__cards">
-            <article className="bh__card">
-              <h2 className="bh__cardT">उपन्यास के बारे में</h2>
-              <p className="hi">{BOOK.premise}</p>
-            </article>
-
-            <article className="bh__card bh__card--author">
-              <span className="bh__avatar">
-                <Picture
-                  name="vinay-avatar-sm"
-                  alt=""
-                  width="200"
-                  height="200"
-                  loading="eager"
-                  aria-hidden="true"
-                />
-              </span>
-              <div>
-                <h2 className="bh__cardT">लेखक के बारे में</h2>
-                <p className="hi">
-                  <b>{AUTHOR.name}</b> — {AUTHOR.brief}
-                </p>
-                <a className="bh__more" href="#author">
-                  पूरा परिचय
-                </a>
-              </div>
-            </article>
-          </Reveal>
         </div>
       </div>
     </section>

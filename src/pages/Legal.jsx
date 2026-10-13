@@ -57,6 +57,37 @@ export default function Legal({ doc }) {
             </section>
           ))}
 
+          <aside className="legal__officer" aria-label="Grievance Officer" id="grievance">
+            <h2 className="legal__h2">Grievance Officer · शिकायत अधिकारी</h2>
+            <dl>
+              <div>
+                <dt>Name</dt>
+                <dd>
+                  {LEGAL.officer}, {LEGAL.officerTitle}
+                </dd>
+              </div>
+              <div>
+                <dt>Address</dt>
+                <dd>{LEGAL.address}</dd>
+              </div>
+              <div>
+                <dt>E-mail</dt>
+                <dd>
+                  <a href={`mailto:${LEGAL.email}`}>{LEGAL.email}</a>
+                </dd>
+              </div>
+              <div>
+                <dt>Telephone</dt>
+                <dd>
+                  <a href={`tel:${LEGAL.phone.replace(/[^+\d]/g, "")}`}>{LEGAL.phone}</a>
+                </dd>
+              </div>
+            </dl>
+            <p className="legal__p">
+              Complaints are acknowledged within 48 hours and the Owner endeavours to resolve them within one month of receipt.
+            </p>
+          </aside>
+
           <nav className="legal__more" aria-label="Other policies">
             {Object.values(DOCS)
               .filter((x) => x.id !== doc)

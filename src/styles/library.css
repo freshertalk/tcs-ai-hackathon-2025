@@ -179,11 +179,6 @@
   font-size: 0.98rem;
 }
 
-/* ----------------------------------------------------------- shelf (home) */
-.shelf {
-  background: var(--paper);
-}
-
 /* ------------------------------------------------------------ book page */
 .bk {
   padding-top: calc(var(--nav-h) + clamp(24px, 5vw, 70px));
@@ -595,67 +590,6 @@
   color: var(--ink);
 }
 
-.bh__cards {
-  margin-top: clamp(24px, 3vw, 40px);
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
-  max-width: 820px;
-}
-.bh__card {
-  padding: 18px 20px;
-  border-radius: 18px;
-  border: 1px solid var(--line);
-  background: rgba(255, 255, 255, 0.045);
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
-}
-.bh__card p {
-  margin-top: 6px;
-  font-size: 0.95rem;
-  line-height: 1.85;
-  color: var(--ink-2);
-}
-.bh__card p b {
-  color: var(--ink);
-  font-weight: 700;
-}
-.bh__cardT {
-  font-family: var(--f-hi-body);
-  font-size: 0.78rem;
-  font-weight: 400;
-  letter-spacing: 0.03em;
-  color: var(--accent);
-}
-.bh__card--author {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 14px;
-  align-items: start;
-}
-.bh__avatar {
-  width: 52px;
-  height: 52px;
-  border-radius: 50%;
-  overflow: hidden;
-  box-shadow: 0 0 0 2px rgba(224, 176, 98, 0.55);
-}
-.bh__avatar img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-.bh__more {
-  display: inline-block;
-  margin-top: 6px;
-  font-family: var(--f-hi-body);
-  font-size: 0.86rem;
-  color: var(--accent);
-  text-decoration: underline;
-  text-underline-offset: 5px;
-  min-height: 32px;
-}
-
 /* a laptop screen is short: tighten the column so the cards still make the
    first screen, rather than dropping the button's neighbours below the fold */
 @media (min-width: 761px) and (max-height: 860px) {
@@ -680,28 +614,6 @@
   }
   .bh__read {
     min-height: 50px;
-  }
-  .bh__cards {
-    margin-top: 18px;
-  }
-  .bh__card {
-    padding: 12px 16px;
-  }
-  .bh__card p {
-    margin-top: 4px;
-    font-size: 0.88rem;
-    line-height: 1.7;
-  }
-  .bh__avatar {
-    width: 44px;
-    height: 44px;
-  }
-}
-
-/* the same listing on a phone: cover beside the title, details beneath */
-@media (max-width: 900px) {
-  .bh__cards {
-    grid-template-columns: 1fr;
   }
 }
 @media (max-width: 760px) {
@@ -762,9 +674,6 @@
   .bh__body > .bh__facts {
     order: 3;
   }
-  .bh__body > .bh__cards {
-    order: 4;
-  }
   .bh__actions {
     gap: 4px 20px;
     justify-content: center;
@@ -775,9 +684,6 @@
   }
   .bh__ghost {
     margin-inline: 4px;
-  }
-  .bh__card {
-    padding: 16px;
   }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -858,76 +764,6 @@
   .totop {
     bottom: calc(78px + env(safe-area-inset-bottom));
   }
-}
-
-/* ------------------------------------------------ nav: the novel as brand */
-.nav__cup {
-  display: grid;
-  place-items: center;
-  width: 30px;
-  flex: none;
-}
-.nav__name {
-  font-family: var(--f-hi);
-  font-weight: 700;
-  font-size: 1.04rem;
-  line-height: 1.25;
-  letter-spacing: 0;
-}
-.nav__brand .nav__name small {
-  font-family: var(--f-hi-body);
-  font-weight: 400;
-  font-size: 0.7rem;
-  letter-spacing: 0;
-  text-transform: none;
-  color: var(--ink-3);
-}
-.nav__switch--cta {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--on-accent);
-  font-family: var(--f-hi-body);
-  font-weight: 700;
-  padding: 8px 18px 8px 14px;
-}
-.nav__switch--cta:hover {
-  background: var(--accent-2);
-  border-color: var(--accent-2);
-  color: #fff;
-}
-
-.nav--dark:not(.is-stuck) .nav__brand,
-.nav--dark:not(.is-stuck) .nav__name {
-  color: #f4f0e9;
-}
-.nav--dark:not(.is-stuck) .nav__brand .nav__name small {
-  color: #e0b062;
-}
-.nav--dark:not(.is-stuck) .nav__link {
-  color: rgba(244, 240, 233, 0.78);
-}
-.nav--dark:not(.is-stuck) .nav__link:hover,
-.nav--dark:not(.is-stuck) .nav__link.is-active {
-  color: #fff;
-}
-.nav--dark:not(.is-stuck) .nav__link::after {
-  background: #e0b062;
-}
-.nav--dark:not(.is-stuck) .nav__switch--cta {
-  background: #e0b062;
-  border-color: #e0b062;
-  color: #1b1308;
-}
-.nav--dark:not(.is-stuck) .nav__switch--cta:hover {
-  background: #f08a5d;
-  border-color: #f08a5d;
-  color: #fff;
-}
-.nav--dark:not(.is-stuck) .nav__burger {
-  border-color: rgba(244, 240, 233, 0.35);
-}
-.nav--dark:not(.is-stuck) .nav__burger span {
-  background: #f4f0e9;
 }
 
 /* --------------------------------------------- about the novel (home) */
@@ -1177,57 +1013,6 @@
   color: #a9b3c8;
 }
 
-/* ------------------------------------------- both covers, laid out flat */
-.covers {
-  background: var(--paper-2);
-  padding-block: clamp(56px, 8vw, 120px);
-}
-.covers__head {
-  margin-bottom: clamp(30px, 4.5vw, 60px);
-}
-.covers__title {
-  margin-top: 14px;
-}
-.covers__pair {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: clamp(22px, 5vw, 80px);
-  justify-items: center;
-  max-width: 980px;
-  margin-inline: auto;
-}
-.covers__item {
-  width: 100%;
-  max-width: 440px;
-}
-.covers__face {
-  width: 100%;
-  aspect-ratio: 1819 / 2551;
-  border-radius: 3px 10px 10px 3px;
-}
-.covers__face .bcover {
-  height: 100%;
-}
-.covers__face--back {
-  border-radius: 10px 3px 3px 10px;
-}
-.covers__cap {
-  margin-top: 16px;
-  text-align: center;
-  font-family: var(--f-hi-body);
-  font-size: 0.9rem;
-  color: var(--ink-3);
-}
-@media (max-width: 760px) {
-  .covers__pair {
-    grid-template-columns: 1fr;
-    gap: 34px;
-  }
-  .covers__item {
-    max-width: min(86vw, 380px);
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .bshow__stage.has-peek .bshow__book {
     animation: none;
@@ -1237,13 +1022,6 @@
   }
 }
 
-/* ===================================================== social icons */
-.nav__end {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex: none;
-}
 .social {
   display: inline-flex;
   align-items: center;
@@ -1284,18 +1062,6 @@ a.social__a:focus-visible {
   width: 22px;
   height: 22px;
 }
-.nav--dark:not(.is-stuck) .social__a {
-  color: #f4f0e9;
-  border-color: rgba(244, 240, 233, 0.35);
-}
-.nav--dark:not(.is-stuck) a.social__a:hover {
-  background: #e0b062;
-  border-color: #e0b062;
-  color: #1b1308;
-}
-.menu__social {
-  margin-bottom: 4px;
-}
 .ct__follow {
   display: flex;
   align-items: center;
@@ -1308,9 +1074,6 @@ a.social__a:focus-visible {
   letter-spacing: 0;
 }
 @media (max-width: 360px) {
-  .nav__end {
-    gap: 8px;
-  }
   .social--sm .social__a {
     width: 32px;
     height: 32px;
@@ -1378,11 +1141,6 @@ a.social__a:focus-visible {
   box-shadow: inset 8px 0 12px -9px rgba(0, 0, 0, 0.8), 0 44px 70px -26px rgba(10, 20, 44, 0.65),
     0 14px 24px -12px rgba(10, 20, 44, 0.35), 0 0 0 1px rgba(10, 18, 40, 0.45);
 }
-.bh__card {
-  background: rgba(255, 255, 255, 0.72);
-  border-color: rgba(15, 26, 46, 0.12);
-  box-shadow: 0 18px 36px -26px rgba(15, 26, 46, 0.45);
-}
 .bh__read {
   box-shadow: 0 16px 36px -16px rgba(178, 67, 31, 0.6);
 }
@@ -1396,23 +1154,6 @@ a.social__a:focus-visible {
   color: var(--accent);
 }
 
-/* ------------------------------------------------ nav: a pair of kulhads */
-.nav__cup {
-  width: auto;
-  margin-right: 4px;
-}
-/* two cups, large enough to read as cups */
-.nav__cup svg {
-  display: block;
-  width: clamp(62px, 6.4vw, 90px);
-  height: auto;
-}
-.nav__name {
-  font-size: 1.32rem;
-}
-.nav__brand .nav__name small {
-  font-size: 0.86rem;
-}
 .social--sm .social__a {
   width: 38px;
   height: 38px;
@@ -1422,18 +1163,6 @@ a.social__a:focus-visible {
   height: 19px;
 }
 @media (max-width: 560px) {
-  .nav__cup svg {
-    width: 54px;
-  }
-  .nav__name {
-    font-size: 1.12rem;
-  }
-  .nav__brand {
-    gap: 6px;
-  }
-  .nav__end {
-    gap: 6px;
-  }
   .social--sm {
     gap: 5px;
   }
@@ -1444,244 +1173,6 @@ a.social__a:focus-visible {
   .social--sm .social__a svg {
     width: 17px;
     height: 17px;
-  }
-  .nav__burger {
-    width: 42px;
-    height: 42px;
-  }
-}
-@media (max-width: 380px) {
-  .nav__brand .nav__name small {
-    display: none;
-  }
-}
-
-/* ==========================================================================
-   The shelf: the novel stands on a plank, face out, with its spine beside it.
-   ========================================================================== */
-.shelf {
-  position: relative;
-  overflow: hidden;
-}
-.shelf__head {
-  max-width: 760px;
-}
-.shelf__title {
-  margin-top: 16px;
-}
-.shelf__lede {
-  margin-top: 18px;
-  max-width: 52ch;
-  font-size: calc(var(--fs-text) + 1px);
-  line-height: 1.9;
-  color: var(--ink-2);
-}
-.shelf__case {
-  position: relative;
-  margin-top: clamp(30px, 5vw, 56px);
-  padding: clamp(26px, 4.4vw, 60px) clamp(18px, 4vw, 60px) 0;
-  border-radius: 22px 22px 0 0;
-  background: radial-gradient(80% 110% at 24% 40%, rgba(255, 247, 226, 0.9), transparent 70%),
-    linear-gradient(180deg, #f7ead0 0%, #efdcb6 100%);
-  box-shadow: inset 0 0 0 1px rgba(80, 45, 15, 0.12), inset 0 40px 70px -50px rgba(80, 45, 15, 0.45);
-}
-.shelf__row {
-  --w: clamp(190px, 24vw, 290px);
-  --h: calc(var(--w) * 1.4025);
-  display: flex;
-  align-items: flex-end;
-  gap: clamp(14px, 3vw, 44px);
-}
-.shelf__feature {
-  position: relative;
-  flex: none;
-  width: var(--w);
-  display: block;
-  transform-origin: 0% 100%;
-  transform: perspective(1100px) rotateY(-9deg);
-  transition: transform 0.6s var(--ease);
-}
-.shelf__feature:hover,
-.shelf__feature:focus-visible {
-  transform: perspective(1100px) rotateY(-2deg) translateY(-6px);
-}
-.shelf__feature .bcover {
-  width: 100%;
-  height: auto;
-  border-radius: 3px 8px 8px 3px;
-  box-shadow: inset 7px 0 10px -8px rgba(0, 0, 0, 0.7), 0 30px 40px -22px rgba(50, 24, 6, 0.75),
-    0 0 0 1px rgba(10, 18, 40, 0.5);
-}
-.shelf__spine {
-  flex: none;
-  width: calc(var(--w) * 0.17);
-  height: var(--h);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 0;
-  border-radius: 3px 6px 6px 3px;
-  color: #f4f0e9;
-  background: linear-gradient(90deg, #060d1b 0%, #0f1d38 45%, #0a1530 100%);
-  box-shadow: inset 2px 0 0 rgba(255, 255, 255, 0.07), 0 30px 40px -24px rgba(50, 24, 6, 0.75),
-    0 0 0 1px rgba(10, 18, 40, 0.5);
-}
-.shelf__spineT,
-.shelf__spineA {
-  writing-mode: vertical-rl;
-  white-space: nowrap;
-}
-.shelf__spineT {
-  font-family: var(--f-hi);
-  font-weight: 700;
-  font-size: calc(var(--w) * 0.075);
-  letter-spacing: 0.04em;
-  color: #f4f0e9;
-}
-.shelf__spineA {
-  font-family: var(--f-hi-body);
-  font-size: calc(var(--w) * 0.048);
-  color: #e0b062;
-}
-
-.shelf__plaque {
-  flex: 1;
-  min-width: 0;
-  align-self: center;
-  padding: clamp(14px, 2vw, 26px);
-  margin-bottom: clamp(14px, 2vw, 30px);
-  border-radius: 16px;
-  background: rgba(255, 252, 244, 0.78);
-  border: 1px solid rgba(80, 45, 15, 0.16);
-  box-shadow: 0 22px 44px -30px rgba(80, 40, 10, 0.55);
-}
-.shelf__kicker {
-  font-family: var(--f-hi-body);
-  font-size: var(--fs-text);
-  color: var(--accent-2);
-}
-.shelf__book {
-  margin-top: 6px;
-  font-weight: 700;
-  font-size: clamp(1.7rem, 3.4vw, 2.6rem);
-  line-height: 1.3;
-  color: var(--ink);
-}
-.shelf__by {
-  margin-top: 2px;
-  font-size: var(--fs-text);
-  color: var(--ink-2);
-}
-.shelf__by span {
-  color: var(--ink-3);
-  margin-right: 6px;
-}
-.shelf__facts {
-  margin-top: 8px;
-  font-size: var(--fs-text);
-  color: var(--ink-3);
-}
-.shelf__go {
-  margin-top: 18px;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px 22px;
-}
-.shelf__link {
-  font-family: var(--f-hi-body);
-  font-size: var(--fs-text);
-  color: var(--accent);
-  text-decoration: underline;
-  text-underline-offset: 6px;
-  min-height: 44px;
-  display: inline-flex;
-  align-items: center;
-}
-.shelf__cups {
-  flex: none;
-  align-self: flex-end;
-  margin-bottom: 0;
-  padding-bottom: 2px;
-}
-
-/* the plank itself */
-.shelf__plank {
-  position: relative;
-  height: 24px;
-  margin-inline: calc(-1 * clamp(18px, 4vw, 60px));
-  border-radius: 0 0 10px 10px;
-  background: linear-gradient(180deg, #c58a52 0%, #9a6338 45%, #6e4122 100%);
-  box-shadow: 0 22px 30px -14px rgba(60, 30, 10, 0.55);
-}
-.shelf__plank::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 0;
-  height: 3px;
-  background: rgba(255, 236, 200, 0.55);
-}
-
-.shelf__perks {
-  list-style: none;
-  margin: clamp(40px, 6vw, 70px) 0 0;
-  padding: 0;
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 18px clamp(16px, 2.4vw, 34px);
-}
-.shelf__perks li {
-  padding-top: 14px;
-  border-top: 2px solid var(--accent-2);
-}
-.shelf__perks b {
-  display: block;
-  font-size: var(--fs-text);
-  font-weight: 700;
-  color: var(--ink);
-}
-.shelf__perks span {
-  display: block;
-  margin-top: 6px;
-  font-size: var(--fs-text);
-  line-height: 1.75;
-  color: var(--ink-2);
-}
-.shelf__more {
-  margin-top: 26px;
-}
-
-@media (max-width: 900px) {
-  .shelf__perks {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .shelf__cups {
-    display: none;
-  }
-}
-@media (max-width: 760px) {
-  .shelf__row {
-    --w: min(46vw, 210px);
-    flex-wrap: wrap;
-    row-gap: 18px;
-  }
-  .shelf__plaque {
-    flex: 1 1 100%;
-    order: 3;
-    margin-bottom: 18px;
-  }
-}
-@media (max-width: 480px) {
-  .shelf__perks {
-    grid-template-columns: 1fr;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .shelf__feature {
-    transition: none;
   }
 }
 
@@ -1900,21 +1391,6 @@ body.is-cover-open {
 .bshow__face {
   cursor: zoom-in;
 }
-.covers__face[role="button"] {
-  cursor: zoom-in;
-  transition: transform 0.4s var(--ease);
-}
-.covers__face[role="button"]:hover,
-.covers__face[role="button"]:focus-visible {
-  transform: translateY(-4px);
-}
-button.shelf__feature {
-  padding: 0;
-  border: 0;
-  background: none;
-  cursor: zoom-in;
-  text-align: left;
-}
 
 /* ------------------------------------------- supplied cover pictures */
 .bback-img {
@@ -1927,21 +1403,6 @@ button.shelf__feature {
 .cv__btn--ghost {
   padding: 0 14px;
   font-size: 0.9rem;
-}
-.shelf__spine--art {
-  width: calc(var(--h) * 0.0628);
-  padding: 0;
-  background: none;
-  border-radius: 0;
-  box-shadow: none;
-  overflow: visible;
-}
-.shelf__spine--art img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: fill;
-  box-shadow: 0 30px 40px -24px rgba(50, 24, 6, 0.75), 0 0 0 1px rgba(10, 18, 40, 0.5);
 }
 @media (max-width: 480px) {
   .cv__btn--ghost {
@@ -1995,17 +1456,12 @@ a.social__a--youtube:focus-visible {
   width: 40px;
   height: 40px;
 }
-.nav--dark:not(.is-stuck) .social__a {
-  color: #fff;
-  border: 0;
-}
 @media (max-width: 560px) {
   .social--sm .social__a {
     width: 34px;
     height: 34px;
   }
 }
-
 
 /* ==========================================================================
    पाठकों की राय — stars, the form, what readers said
@@ -2392,9 +1848,6 @@ a.social__a--youtube:focus-visible {
   font-size: var(--fs-text);
   font-weight: 700;
 }
-.shelf__price {
-  margin-top: 10px;
-}
 
 /* price and rating share a line, so the first screen keeps its cards */
 .bh__meta {
@@ -2432,15 +1885,6 @@ a.social__a--youtube:focus-visible {
   }
   .bh__read {
     min-height: 46px;
-  }
-  .bh__cards {
-    margin-top: 10px;
-  }
-  .bh__card {
-    padding: 10px 14px;
-  }
-  .bh__card p {
-    line-height: 1.6;
   }
 }
 
@@ -2750,19 +2194,6 @@ a.social__a--youtube:focus-visible {
   }
 }
 
-/* on a phone the account lives in the menu, not in the crowded bar */
-@media (max-width: 560px) {
-  .nav__acct {
-    display: none;
-  }
-}
-.menu__foot .acct {
-  width: 100%;
-  padding: 14px;
-  border-radius: 16px;
-  border: 1px solid var(--line, rgba(0, 0, 0, 0.12));
-}
-
 /* ------------------------------------------- the account icon (no words) */
 .acctb__btn {
   width: 38px;
@@ -2830,9 +2261,6 @@ a.social__a--youtube:focus-visible {
 }
 .acctb__out:hover {
   background: rgba(0, 0, 0, 0.06);
-}
-.menu__acct {
-  margin-bottom: 4px;
 }
 @media (max-width: 560px) {
   .acctb__btn {

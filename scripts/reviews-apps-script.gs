@@ -53,11 +53,11 @@ var MAX_COMMENTS = 40;
 // The edition of the legal documents (src/data/legal.js, LEGAL.version). A
 // reader's key is released only if their latest acceptance is for this
 // edition — change both together, and everyone is asked to accept again.
-var LEGAL_VERSION = "2026-10-12.5";
+var LEGAL_VERSION = "2026-10-13.1";
 
 // Bumped whenever this file changes in a way worth being able to see from outside:
 // open  <web-app URL>?check=1  in a browser to read it.
-var BUILD = "2026-10-12-shop-upi";
+var BUILD = "2026-10-13-legal";
 
 var SHEET_NAME = "Reviews";
 var CONSENT_SHEET = "Consent"; // the owner's permanent record of acceptance
@@ -457,7 +457,6 @@ function doPost(e) {
       if (action === "shop_verify") return shopVerify_(d, user);
       if (action === "shop_resume") return shopResume_(d, user);
       if (action === "shop_resend") return shopResend_(d, user);
-      if (action === "shop_claim") return shopClaim_(d, user);
       if (action === "shop_order") {
         // an order is a contract: the current edition of the documents must be on record
         if (String(d.legal || "") !== LEGAL_VERSION || !hasConsent_(user)) return json_({ ok: false, error: "consent" });
@@ -506,8 +505,6 @@ function doPost(e) {
     if (action === "orders_list") return ordersList_(d);
     if (action === "order_grant") return orderGrant_(d, user);
     if (action === "order_refund") return orderRefund_(d, user);
-    if (action === "order_confirm") return orderConfirm_(d, user);
-    if (action === "order_reject") return orderReject_(d, user);
     if (action === "team_list") return teamList_();
     if (action === "team_add") return teamSet_(d, user, true);
     if (action === "team_remove") return teamSet_(d, user, false);
@@ -1904,8 +1901,9 @@ var PAYWALL = true;
 var SELLER = {
   brand: "दो कुल्हड़ चाय",
   name: "विनय कुमार तिवारी",
-  address: "",
-  state: "", // as in the GST state list, e.g. "Delhi"
+  address: "Aurangabad, District Ghazipur, PIN 233001, Uttar Pradesh, India",
+  phone: "+91-9561520911", // printed on receipts; the seller's contact number
+  state: "Uttar Pradesh", // as in the GST state list, e.g. "Delhi"
   gstin: "", // 15 characters; leave empty if you are not registered
   email: ADMIN_EMAIL,
 };
@@ -1915,22 +1913,9 @@ var SELLER = {
 // If you are NOT registered for GST you may not charge it: set enabled to false
 // and receipts say that GST is not applicable. `sac` is the service code of an
 // e-book (confirm it with your accountant).
-var GST = { enabled: true, rate: 18, inclusive: true, sac: "998431" };
-
-// How payment is taken.
-//   "upi"       the reader pays YOUR UPI ID with Google Pay (or any UPI app),
-//               then writes down the 12-digit UPI transaction number. You see
-//               it in Admin ▸ Sales and press Confirm once the money is in your
-//               account — only then is the book opened and the receipt mailed.
-//               No gateway, no fee, no account to open.
-//   "razorpay"  automatic, through Razorpay (keys in Script properties).
-// Put your UPI ID below (or in the script property UPI_ID).
-var PAYMENT_PROVIDER = "upi";
-var UPI = {
-  vpa: "vinaytiwari.iist-2@okhdfcbank", // the UPI ID readers pay
-  name: "Vinay Kumar Tiwari", // shown in the UPI app when the reader pays (plain letters are safest)
-};
-var CLAIMS_MAX = 5; // wrong transaction numbers one order may be given
+// The author is not registered for GST, so none is charged or shown: receipts say
+// "GST: not applicable". If that changes, set enabled to true and fill SELLER.gstin.
+var GST = { enabled: false, rate: 18, inclusive: true, sac: "998431" };
 
 var ORDERS_SHEET = "Orders";
 var ENT_SHEET = "Entitlements";
@@ -1956,28 +1941,11 @@ function prop_(k) {
   return PropertiesService.getScriptProperties().getProperty(k) || "";
 }
 
-function provider_() {
-  return PAYMENT_PROVIDER === "razorpay" ? "razorpay" : "upi";
-}
-
-function upiId_() {
-  return String(prop_("UPI_ID") || UPI.vpa || "").trim();
-}
-
-function validVpa_(v) {
-  return /^[A-Za-z0-9._-]{2,64}@[A-Za-z][A-Za-z0-9.-]{1,30}$/.test(String(v || ""));
-}
-
-function razorpayKeys_() {
+function paymentsReady_() {
   return !!(prop_("RAZORPAY_KEY_ID") && prop_("RAZORPAY_KEY_SECRET"));
 }
 
-function paymentsReady_() {
-  return provider_() === "upi" ? validVpa_(upiId_()) : razorpayKeys_();
-}
-
 function paymentsMode_() {
-  if (provider_() === "upi") return paymentsReady_() ? "upi" : "";
   var id = prop_("RAZORPAY_KEY_ID");
   if (!id) return "";
   return id.indexOf("rzp_live_") === 0 ? "live" : "test";
@@ -2232,9 +2200,6 @@ function summaryOf_(o) {
     email: s.buyer.email,
     name: s.buyer.name,
     mailed: s.mailed || "",
-    utr: s.claim && s.claim.utr ? s.claim.utr : "",
-    claimedAt: s.claim && s.claim.at ? new Date(s.claim.at).toISOString() : "",
-    rejected: s.claim && s.claim.rejected ? s.claim.rejected : "",
   };
 }
 
@@ -2290,7 +2255,7 @@ function paymentLook_(p) {
   var method = String(p.method || "");
   var detail = "";
   if (method === "upi") {
-    detail = p.__detail || maskVpa_(p.vpa);
+    detail = maskVpa_(p.vpa);
     method = "UPI";
   } else if (method === "card") {
     var c = p.card || {};
@@ -2317,21 +2282,15 @@ function shopQuote_(d, user) {
   if (st === null) return json_({ ok: false, error: "invalid", why: "state" });
   if (d.code && !allow_("cc_" + user.sub, 30, 600)) return json_({ ok: false, error: "limited" });
   var q = quote_(slug, d.code, user, st);
-  // an order already paid and waiting for the owner: the page goes back to it
-  var waiting = "";
-  readOrders_().forEach(function (o) {
-    if (o.status === "pending" && o.sub === user.sub && o.snap.item.slug === slug) waiting = o.id;
-  });
   return json_({
     ok: true,
-    pendingOrder: waiting,
     slug: slug,
     title: PRICES[slug].title,
     amounts: q.amounts,
     coupon: q.coupon,
     owned: owns_(user, slug),
     team: isAdmin_(user),
-    payments: { ready: paymentsReady_(), mode: paymentsMode_(), provider: provider_() },
+    payments: { ready: paymentsReady_(), mode: paymentsMode_() },
     seller: { state: SELLER.state, gstin: !!SELLER.gstin },
     states: STATES,
   });
@@ -2354,6 +2313,7 @@ function snapshotFor_(id, user, slug, buyer, amounts, rzpOrderId) {
       state: SELLER.state,
       gstin: SELLER.gstin,
       email: SELLER.email,
+      phone: SELLER.phone,
     },
     item: {
       slug: slug,
@@ -2361,17 +2321,11 @@ function snapshotFor_(id, user, slug, buyer, amounts, rzpOrderId) {
       author: price.author,
       sac: GST.enabled ? GST.sac : "",
       qty: 1,
-      note: "ई-बुक · डिजिटल संस्करण · आजीवन पहुँच",
+      note: "ई-बुक · डिजिटल संस्करण",
     },
     amounts: amounts,
     payment: { method: "", detail: "", status: "" },
-    gateway: {
-      name: amounts.totalPaise > 0 ? (provider_() === "upi" ? "UPI" : "Razorpay") : "",
-      orderId: rzpOrderId || "",
-      paymentId: "",
-      mode: paymentsMode_(),
-    },
-    claim: null,
+    gateway: { name: amounts.totalPaise > 0 ? "Razorpay" : "", orderId: rzpOrderId || "", paymentId: "", mode: paymentsMode_() },
     accepted: LEGAL_VERSION,
     mailed: "",
   };
@@ -2402,20 +2356,12 @@ function shopOrder_(d, user) {
 
   if (a.totalPaise > 0 && !paymentsReady_()) return json_({ ok: false, error: "payments_off" });
 
-  // an order whose payment the owner has not yet confirmed: that is the order
-  var mine = readOrders_();
-  for (var p = mine.length - 1; p >= 0; p--) {
-    if (mine[p].status === "pending" && mine[p].sub === user.sub && mine[p].snap.item.slug === slug) {
-      return json_({ ok: true, order: publicSnap_(mine[p].snap), checkout: checkoutFor_(mine[p], user), pending: true });
-    }
-  }
-
   // the same order, still open: hand it back rather than leave a second one at the gateway
+  var mine = readOrders_();
   for (var i = mine.length - 1; i >= 0; i--) {
     var m = mine[i];
     if (
-      m.status === "created" && m.sub === user.sub && m.snap.item.slug === slug &&
-      (provider_() === "upi" ? m.snap.gateway.name === "UPI" : !!m.rzpOrder) &&
+      m.status === "created" && m.sub === user.sub && m.snap.item.slug === slug && m.rzpOrder &&
       m.snap.amounts.totalPaise === a.totalPaise && m.snap.amounts.coupon === a.coupon &&
       Date.now() - m.snap.createdAt < 25 * 60000
     ) {
@@ -2427,7 +2373,7 @@ function shopOrder_(d, user) {
 
   var id = newOrderId_();
   var rzpId = "";
-  if (a.totalPaise > 0 && provider_() === "razorpay") {
+  if (a.totalPaise > 0) {
     var made = rzp_("POST", "/orders", {
       amount: a.totalPaise,
       currency: "INR",
@@ -2453,41 +2399,9 @@ function shopOrder_(d, user) {
   return json_({ ok: true, order: publicSnap_(o.snap), checkout: checkoutFor_(o, user) });
 }
 
-/** A UPI payment link: opens Google Pay (or any UPI app) with the amount filled in. */
-function upiCheckoutFor_(s) {
-  var vpa = upiId_();
-  var amount = s.amounts.total.toFixed(2);
-  var note = "DoKulhadChai " + s.id;
-  var q =
-    "pa=" + encodeURIComponent(vpa) +
-    "&pn=" + encodeURIComponent(UPI.name || "Vinay Kumar Tiwari") +
-    "&am=" + amount +
-    "&cu=INR&tn=" + encodeURIComponent(note);
-  return {
-    provider: "upi",
-    mode: "upi",
-    receipt: s.id,
-    amount: s.amounts.totalPaise,
-    currency: "INR",
-    upi: {
-      vpa: vpa,
-      name: UPI.name,
-      amount: s.amounts.total,
-      note: note,
-      link: "upi://pay?" + q,
-      // Google Pay on Android and on iPhone; any other UPI app uses "link"
-      android: "intent://pay?" + q + "#Intent;scheme=upi;package=com.google.android.apps.nbu.paisa.user;end",
-      ios: "gpay://upi/pay?" + q,
-    },
-    claim: s.claim || null,
-  };
-}
-
 function checkoutFor_(o, user) {
   var s = o.snap;
-  if (s.gateway.name === "UPI") return upiCheckoutFor_(s);
   return {
-    provider: "razorpay",
     keyId: prop_("RAZORPAY_KEY_ID"),
     mode: paymentsMode_(),
     rzpOrderId: o.rzpOrder,
@@ -2686,90 +2600,8 @@ function shopReceipt_(d, user) {
   var out = { ok: true, order: publicSnap_(o.snap) };
   // an open order the buyer returns to (a reload, another device): everything the
   // payment window needs, so they are not asked for their details again
-  if ((o.status === "created" || o.status === "pending") && o.sub === user.sub && paymentsReady_()) {
-    if (o.snap.gateway.name === "UPI" || o.rzpOrder) out.checkout = checkoutFor_(o, user);
-  }
+  if (o.status === "created" && o.rzpOrder && o.sub === user.sub && paymentsReady_()) out.checkout = checkoutFor_(o, user);
   return json_(out);
-}
-
-/**
- * UPI: the reader has paid and writes down the 12-digit transaction number from
- * their app. Nothing is opened yet — the order waits for the owner's Confirm.
- */
-function shopClaim_(d, user) {
-  if (provider_() !== "upi") return json_({ ok: false, error: "invalid" });
-  if (!allow_("sc_" + user.sub, 10, 600)) return json_({ ok: false, error: "limited" });
-  var o = findOrder_(tidy_(d.orderId, 40));
-  if (!o || o.sub !== user.sub) return json_({ ok: false, error: "missing" });
-  if (o.status === "paid" || o.status === "free") return json_({ ok: true, order: publicSnap_(o.snap) });
-  if (o.status !== "created" || o.snap.gateway.name !== "UPI") return json_({ ok: false, error: "invalid" });
-  var utr = String(d.utr || "").replace(/\s+/g, "");
-  if (!/^\d{12}$/.test(utr)) return json_({ ok: false, error: "invalid", why: "utr" });
-  var attempts = (o.snap.claim && o.snap.claim.attempts) || 0;
-  if (attempts >= CLAIMS_MAX) return json_({ ok: false, error: "limited" });
-  // one transaction number settles one order
-  var all = readOrders_();
-  for (var i = 0; i < all.length; i++) {
-    if (all[i].id !== o.id && all[i].snap.claim && all[i].snap.claim.utr === utr && all[i].status !== "created") {
-      audit_(user, "order.utr-reused", o.id, "number already on " + all[i].id, false, d.ua);
-      return json_({ ok: false, error: "utr_used" });
-    }
-  }
-  o.snap.claim = { utr: utr, at: Date.now(), attempts: attempts + 1, rejected: "" };
-  o.snap.payment = { method: "UPI", detail: "UTR " + utr, status: "awaiting confirmation" };
-  o.status = "pending";
-  saveOrder_(o);
-  audit_(user, "order.claim", o.id, "₹" + o.snap.amounts.total + ", UTR " + utr, true, d.ua);
-  sendMail_(
-    ADMIN_EMAIL,
-    "पुष्टि चाहिए: ₹" + o.snap.amounts.total.toFixed(2) + " — " + o.snap.buyer.name,
-    "<p><b>" + esc_(o.snap.buyer.name) + "</b> (" + esc_(o.email) + ") ने ₹" + o.snap.amounts.total.toFixed(2) +
-      " का UPI भुगतान बताया है।</p><p>UPI लेन-देन संख्या: <b>" + esc_(utr) + "</b><br>ऑर्डर: " + esc_(o.id) +
-      "</p><p>अपने खाते में रकम देखकर <a href=\"" + SITE_URL + "/admin#sales\">Admin → Sales</a> में Confirm कीजिए।</p>",
-    "ऑर्डर " + o.id + "\n" + o.snap.buyer.name + " (" + o.email + ")\n₹" + o.snap.amounts.total.toFixed(2) + "\nUTR: " + utr +
-      "\n\n" + SITE_URL + "/admin#sales"
-  );
-  return json_({ ok: true, order: publicSnap_(o.snap), checkout: upiCheckoutFor_(o.snap) });
-}
-
-/** The owner has seen the money: open the book and send the receipt. */
-function orderConfirm_(d, user) {
-  var o = findOrder_(tidy_(d.orderId, 40));
-  if (!o) return json_({ ok: false, error: "missing" });
-  if (o.status === "paid") return json_({ ok: true, order: publicSnap_(o.snap) });
-  if (o.status !== "pending" || !o.snap.claim) return json_({ ok: false, error: "invalid" });
-  if (owns_({ sub: o.sub, email: o.email }, o.snap.item.slug)) {
-    // they already had the book (a copy given, or another order paid): flag it
-    o.status = "duplicate";
-    o.snap.payment.status = "duplicate — refund by hand";
-    saveOrder_(o);
-    audit_(user, "order.duplicate", o.id, "already owned; refund the UPI payment by hand", false, d.ua);
-    return json_({ ok: false, error: "duplicate" });
-  }
-  var done = completeOrder_(o, o.snap.claim.utr, "owner-confirm", user, d.ua, { method: "upi", __detail: "UTR " + o.snap.claim.utr });
-  return json_({ ok: true, order: publicSnap_(done.snap) });
-}
-
-/** The number does not match anything in the account: the reader may try again. */
-function orderReject_(d, user) {
-  var o = findOrder_(tidy_(d.orderId, 40));
-  if (!o) return json_({ ok: false, error: "missing" });
-  if (o.status !== "pending" || !o.snap.claim) return json_({ ok: false, error: "invalid" });
-  var why = clean_(d.reason, 140) || "यह लेन-देन संख्या हमारे खाते में नहीं मिली।";
-  o.snap.claim.rejected = why;
-  o.snap.payment = { method: "UPI", detail: "", status: "claim not confirmed" };
-  o.status = "created";
-  saveOrder_(o);
-  audit_(user, "order.reject", o.id, "UTR " + o.snap.claim.utr + ": " + why, true, d.ua);
-  sendMail_(
-    o.email,
-    o.snap.seller.brand + " — भुगतान की पुष्टि नहीं हो पाई (" + o.id + ")",
-    "<p>नमस्ते " + esc_(o.snap.buyer.name) + ",</p><p>आपके दिए UPI लेन-देन (" + esc_(o.snap.claim.utr) + ") की पुष्टि नहीं हो पाई: " + esc_(why) +
-      "</p><p>कृपया <a href=\"" + SITE_URL + "/checkout?order=" + encodeURIComponent(o.id) + "\">इस पन्ने</a> पर सही संख्या फिर से लिखिए, या इसी ई-मेल का उत्तर दीजिए।</p><p>— " + esc_(o.snap.seller.brand) + "</p>",
-    "नमस्ते " + o.snap.buyer.name + ",\n\nआपके दिए UPI लेन-देन (" + o.snap.claim.utr + ") की पुष्टि नहीं हो पाई: " + why +
-      "\nकृपया सही संख्या फिर से लिखिए: " + SITE_URL + "/checkout?order=" + o.id + "\n\n— " + o.snap.seller.brand
-  );
-  return json_({ ok: true });
 }
 
 function shopResend_(d, user) {
@@ -2800,7 +2632,6 @@ function ordersList_(d) {
     else if (o.status === "free") k.free++;
     else if (o.status === "refunded") k.refunded++;
     else if (o.status === "duplicate") k.duplicates = (k.duplicates || 0) + 1;
-    else if (o.status === "pending") k.pending = (k.pending || 0) + 1;
     else k.open++;
     if (o.status === "paid") {
       k.revenue += s.amounts.total;
@@ -2837,8 +2668,6 @@ function ordersList_(d) {
       gstin: !!SELLER.gstin,
       address: !!SELLER.address,
       mail: mailReady_(),
-      provider: provider_(),
-      upi: validVpa_(upiId_()),
     },
   });
 }
@@ -2999,7 +2828,7 @@ function receiptEmail_(s, kind) {
     : "—";
   var readUrl = SITE_URL + "/read/" + s.item.slug;
   var recUrl = SITE_URL + "/receipt/" + s.id;
-  var sellerLine = [s.seller.name, s.seller.address, s.seller.state ? s.seller.state : "", s.seller.gstin ? "GSTIN: " + s.seller.gstin : ""]
+  var sellerLine = [s.seller.name, s.seller.address, s.seller.phone ? "फ़ोन: " + s.seller.phone : "", s.seller.gstin ? "GSTIN: " + s.seller.gstin : ""]
     .filter(function (x) { return x; })
     .map(esc_)
     .join("<br>");
@@ -3014,7 +2843,7 @@ function receiptEmail_(s, kind) {
     (kind === "resend" ? "आपकी रसीद" : "भुगतान सफल रहा — धन्यवाद, " + esc_(s.buyer.name)) + "</h1>" +
     "<p style=\"margin:0;font-size:15px;line-height:1.7;color:#3a2a1f;\">" +
     (a.total > 0 ? "आपका भुगतान मिल गया है। " : "आपका ऑर्डर पूरा हो गया है। ") +
-    "<b>" + esc_(s.item.title) + "</b> अब आपके खाते (" + esc_(s.buyer.email) + ") में हमेशा के लिए खुल गई है — कोई और शुल्क नहीं।</p>" +
+    "<b>" + esc_(s.item.title) + "</b> अब आपके खाते (" + esc_(s.buyer.email) + ") में हमेशा के लिए खुल गई है — कोई और शुल्क नहीं। (पहुँच वेबसाइट की उपलब्धता के अधीन है।)</p>" +
     "<p style=\"margin:18px 0 6px;\"><a href=\"" + esc_(readUrl) + "\" style=\"display:inline-block;background:#1f1611;color:#fff;text-decoration:none;padding:12px 22px;border-radius:999px;font-size:15px;font-weight:600;\">किताब पढ़िए</a></p>" +
     "</td></tr>" +
     "<tr><td style=\"padding:14px 28px 4px;\">" +
@@ -3051,7 +2880,7 @@ function receiptEmail_(s, kind) {
     s.seller.brand,
     kind === "resend" ? "आपकी रसीद" : "भुगतान सफल रहा — धन्यवाद, " + s.buyer.name,
     "",
-    s.item.title + " अब आपके खाते (" + s.buyer.email + ") में हमेशा के लिए खुल गई है — कोई और शुल्क नहीं।",
+    s.item.title + " अब आपके खाते (" + s.buyer.email + ") में हमेशा के लिए खुल गई है — कोई और शुल्क नहीं। (पहुँच वेबसाइट की उपलब्धता के अधीन है।)",
     "पढ़िए: " + readUrl,
     "",
     receiptTitle_(s),
@@ -3097,7 +2926,8 @@ function sendMail_(to, subject, html, text) {
     return "sent";
   } catch (err) {
     console.error("mail failed: " + err);
-    return "failed";
+    // the account has not granted (or the manifest does not list) the mail scope
+    return /permission|authoriz/i.test(String(err)) ? "no-permission" : "failed";
   }
 }
 
@@ -3113,16 +2943,35 @@ function mailReceipt_(s, kind) {
  */
 function setupPayments() {
   var out = [];
-  out.push("INFO  payment provider: " + provider_());
-  if (provider_() === "upi") {
-    out.push((validVpa_(upiId_()) ? "OK    " : "FIX   ") + "your UPI ID is set (UPI.vpa in the script, or the script property UPI_ID)" + (upiId_() ? ": " + upiId_() : ""));
-  } else {
-    out.push((prop_("RAZORPAY_KEY_ID") ? "OK    " : "FIX   ") + "script property RAZORPAY_KEY_ID is set" + (paymentsMode_() ? " (" + paymentsMode_() + " mode)" : ""));
-    out.push((prop_("RAZORPAY_KEY_SECRET") ? "OK    " : "FIX   ") + "script property RAZORPAY_KEY_SECRET is set");
-    if (paymentsReady_()) {
-      var r = rzp_("GET", "/orders?count=1");
-      out.push((r.ok ? "OK    " : "FIX   ") + "Razorpay accepts these keys (HTTP " + r.status + ")");
-    }
+  // which permissions does this run actually hold? (asked of Google, not guessed)
+  var heldMail = null;
+  try {
+    var tok = ScriptApp.getOAuthToken();
+    var info = JSON.parse(
+      UrlFetchApp.fetch("https://oauth2.googleapis.com/tokeninfo?access_token=" + encodeURIComponent(tok), {
+        muteHttpExceptions: true,
+      }).getContentText()
+    );
+    var held = String(info.scope || "").split(" ").filter(function (x) {
+      return x;
+    });
+    heldMail = held.indexOf("https://www.googleapis.com/auth/script.send_mail") >= 0;
+    out.push(
+      "INFO  permissions held: " +
+        held
+          .map(function (x) {
+            return x.replace("https://www.googleapis.com/auth/", "");
+          })
+          .join(", ")
+    );
+  } catch (err) {
+    heldMail = null;
+  }
+  out.push((prop_("RAZORPAY_KEY_ID") ? "OK    " : "FIX   ") + "script property RAZORPAY_KEY_ID is set" + (paymentsMode_() ? " (" + paymentsMode_() + " mode)" : ""));
+  out.push((prop_("RAZORPAY_KEY_SECRET") ? "OK    " : "FIX   ") + "script property RAZORPAY_KEY_SECRET is set");
+  if (paymentsReady_()) {
+    var r = rzp_("GET", "/orders?count=1");
+    out.push((r.ok ? "OK    " : "FIX   ") + "Razorpay accepts these keys (HTTP " + r.status + ")");
   }
   out.push((SELLER.address ? "OK    " : "FIX   ") + "SELLER.address is filled in (it is printed on every receipt)");
   out.push(!GST.enabled || SELLER.gstin ? "OK    GSTIN / GST setting" : "FIX   GST is on but SELLER.gstin is empty — add your GSTIN, or set GST.enabled = false if you are not registered");
@@ -3130,13 +2979,23 @@ function setupPayments() {
     id: "KO-TEST", status: "paid", createdAt: Date.now(), paidAt: Date.now(), invoice: "KC/TEST/000000",
     buyer: { name: "Test", email: ADMIN_EMAIL, phone: "", state: SELLER.state },
     seller: { brand: SELLER.brand, name: SELLER.name, address: SELLER.address, state: SELLER.state, gstin: SELLER.gstin, email: SELLER.email },
-    item: { slug: Object.keys(PRICES)[0], title: PRICES[Object.keys(PRICES)[0]].title, author: PRICES[Object.keys(PRICES)[0]].author, sac: GST.sac, qty: 1, note: "ई-बुक · डिजिटल संस्करण · आजीवन पहुँच" },
+    item: { slug: Object.keys(PRICES)[0], title: PRICES[Object.keys(PRICES)[0]].title, author: PRICES[Object.keys(PRICES)[0]].author, sac: GST.sac, qty: 1, note: "ई-बुक · डिजिटल संस्करण" },
     amounts: amountsFor_(Object.keys(PRICES)[0], 0, "", SELLER.state),
     payment: { method: "UPI", detail: "te••••@upi", status: "captured" },
     gateway: { name: "Razorpay", orderId: "order_TEST", paymentId: "pay_TEST", mode: paymentsMode_() },
   };
   var res = mailReceipt_(test, "paid");
   out.push((res === "sent" ? "OK    " : "FIX   ") + "a test receipt was mailed to " + ADMIN_EMAIL + " (" + res + ")");
+  if (res === "no-permission") {
+    if (heldMail === false) {
+      out.push("      Google has NOT given this script the mail permission (send_mail is missing from the list above).");
+      out.push("      1. appsscript.json must list https://www.googleapis.com/auth/script.send_mail under oauthScopes, and be saved.");
+      out.push("      2. Google keeps the old consent. Open https://myaccount.google.com/permissions , find this project,");
+      out.push("         choose Remove access, then come back and Run setupPayments again: the full Allow screen appears.");
+    } else {
+      out.push("      The mail permission is held, yet sending was refused: run setupPayments once more after saving the project.");
+    }
+  }
   Logger.log("\n" + out.join("\n"));
 }
 
@@ -3240,7 +3099,6 @@ function health_() {
     paywall: PAYWALL,
     payments: paymentsReady_(),
     mode: paymentsMode_(),
-    provider: provider_(),
     gst: !!GST.enabled,
     gstin: !!SELLER.gstin,
     address: !!SELLER.address,

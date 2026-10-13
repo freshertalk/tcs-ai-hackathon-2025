@@ -659,13 +659,3 @@
   margin: 0;
   max-width: none;
 }
-.bh__verse {
-  display: grid;
-  gap: 4px;
-  margin-top: 14px;
-  padding-top: 14px;
-  border-top: 1px dashed rgba(31, 22, 17, 0.18);
-}
-.bh__verse .bh__tag {
-  line-height: 1.75;
-}

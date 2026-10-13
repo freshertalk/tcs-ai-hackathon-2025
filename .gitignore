@@ -25,3 +25,6 @@ yarn-error.log*
 # the reading key and the rows to paste into the Sheet — never commit these
 .book-keys.json
 book-keys-for-sheet.tsv
+
+# secrets: keys for local checks only (README, Selling the book)
+.env

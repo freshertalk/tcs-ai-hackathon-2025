@@ -20,12 +20,9 @@ import { AccessError, accessRequired, ensureAccess } from "../auth/access";
 import LoginScreen from "../auth/LoginScreen";
 import { contentUrl } from "../library/api";
 import { LEGAL } from "../data/legal";
-import { BOOK } from "../data/books";
-import { IconCart } from "../components/ui/icons";
-import { addToCart } from "../shop/store";
+import PurchaseGate from "../shop/PurchaseGate";
 import { resumePayment } from "../shop/api";
 import { loadMe } from "../account/me";
-import { inrShort } from "../shop/format";
 
 // why the collector would not vouch for a lapsed sign-in (see verifyLapsedGoogle_)
 const LAPSE = {
@@ -113,6 +110,14 @@ export default function ReadWall({ book, children }) {
     check();
   }, [check]);
 
+  // …and so does a refund: access.js raises this when the collector says the
+  // account no longer owns the book
+  useEffect(() => {
+    const lost = () => check();
+    window.addEventListener("vkt:access-lost", lost);
+    return () => window.removeEventListener("vkt:access-lost", lost);
+  }, [check]);
+
   // The book could not be opened for someone who is "signed in": that sign-in
   // cannot be verified. End it, once, and keep the reason for the screen.
   useEffect(() => {
@@ -144,40 +149,7 @@ export default function ReadWall({ book, children }) {
     );
   }
 
-  if (state === "purchase") {
-    return (
-      <div className="rd rd--scroll rdw" data-theme="paper">
-        <div className="rdw__card">
-          {book.coverSmall && (
-            <img className="rdw__cover" src={contentUrl(book.slug, book.coverSmall)} alt="" width="120" height="168" />
-          )}
-          <h1 className="rdw__t hi-d">{book.title}</h1>
-          <p className="rdw__by">{book.author}</p>
-          <p className="rdw__p hi">
-            यह किताब खरीदने के बाद आपके खाते में <b>हमेशा के लिए</b> खुल जाती है — एक बार का भुगतान, आगे कोई शुल्क नहीं।
-          </p>
-          <div className="rdw__buy">
-            {book.slug === BOOK.slug ? (
-              <p className="rdw__price">
-                <s>{inrShort(BOOK.price.mrp)}</s> <b>{inrShort(BOOK.price.selling)}</b>
-              </p>
-            ) : null}
-            <div className="rdw__act">
-              <Link className="rdw__go" to="/checkout?buy=1" onClick={() => addToCart(book.slug)}>
-                <IconCart size={18} /> अभी खरीदिए
-              </Link>
-              <Link className="rdw__go rdw__go--ghost" to={`/books/${book.slug}`}>
-                किताब के बारे में
-              </Link>
-            </div>
-          </div>
-          <p className="rdw__back">
-            <Link to="/">← मुख पृष्ठ</Link>
-          </p>
-        </div>
-      </div>
-    );
-  }
+  if (state === "purchase") return <PurchaseGate book={book} onRecheck={check} />;
 
   return (
     <div className="rd rd--scroll rdw" data-theme="paper">

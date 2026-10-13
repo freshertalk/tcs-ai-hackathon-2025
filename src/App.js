@@ -27,6 +27,8 @@ import "./styles/auth.css";
 import "./styles/reviews.css";
 import "./styles/dash.css";
 import "./styles/shop.css";
+import "./styles/nav.css";
+import "./styles/home.css";
 import "./styles/motion.css";
 import "./styles/typography.css"; // last: it sets the one text size
 

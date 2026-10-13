@@ -11,14 +11,14 @@ import { BOOK } from "../../data/books";
 
 export default function Themes() {
   return (
-    <section className="section section--alt" id="themes">
+    <section className="section section--alt th" id="themes">
       <div className="shell">
         <div className="sec-head">
           <div>
             <Reveal>
               <span className="eyebrow is-hi">विषय</span>
             </Reveal>
-            <h2 className="h-display h-hi title-lg">
+            <h2 className="h-display h-hi title-md">
               <MaskLine>यह किताब</MaskLine>
               <MaskLine delay={0.08}>
                 <span className="ital">असल में किस बारे में है</span>
@@ -26,7 +26,7 @@ export default function Themes() {
             </h2>
           </div>
           <Reveal delay={0.16}>
-            <p className="sec-head__note hi">{BOOK.closing}</p>
+            <p className="sec-head__note hi">छह बातें, जिनके इर्द-गिर्द यह कहानी घूमती है।</p>
           </Reveal>
         </div>
 

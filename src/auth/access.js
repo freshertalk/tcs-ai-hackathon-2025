@@ -31,13 +31,17 @@ export class AccessError extends Error {
 const keys = new Map(); // `${slug}:${version}` -> Promise<CryptoKey>
 const skey = (b) => `vkt.bk.${b.slug}.${b.version}`;
 
-/* the key as kept on this device: { k, e: account, l: edition of the documents } */
+// a key kept on the device is asked about again (quietly) after this long, so a
+// refunded or withdrawn copy does not stay readable for ever
+const RECHECK_MS = 12 * 3600 * 1000;
+
+/* the key as kept on this device: { k, e: account, l: edition, t: when it was last vouched for } */
 function heldKey(book) {
   const u = currentUser();
   if (!u) return null;
   try {
     const r = JSON.parse(localStorage.getItem(skey(book)));
-    if (r && r.k && r.e === u.email && r.l === LEGAL.version) return r.k;
+    if (r && r.k && r.e === u.email && r.l === LEGAL.version) return { k: r.k, t: Number(r.t) || 0 };
   } catch {
     /* nothing held */
   }
@@ -48,7 +52,7 @@ function holdKey(book, hex) {
   const u = currentUser();
   if (!u) return;
   try {
-    localStorage.setItem(skey(book), JSON.stringify({ k: hex, e: u.email, l: LEGAL.version }));
+    localStorage.setItem(skey(book), JSON.stringify({ k: hex, e: u.email, l: LEGAL.version, t: Date.now() }));
   } catch {
     /* held in memory only */
   }
@@ -139,16 +143,32 @@ async function fetchKey(book) {
   }
 }
 
+/** Ask the collector again whether this account still owns the book. */
+function recheck(book) {
+  fetchKey(book)
+    .then((hex) => holdKey(book, hex))
+    .catch((e) => {
+      if (e instanceof AccessError && e.code === "purchase") {
+        forgetKeys();
+        window.dispatchEvent(new CustomEvent("vkt:access-lost"));
+      }
+      // any other answer (offline, a sign-in to renew): the held key stands
+    });
+}
+
 /** The AES key for this edition, fetched once per session. */
 export function ensureAccess(book) {
   const id = `${book.slug}:${book.version}`;
   if (keys.has(id)) return keys.get(id);
 
   const p = (async () => {
-    let hex = heldKey(book);
+    const held = heldKey(book);
+    let hex = held && held.k;
     if (!hex) {
       hex = await fetchKey(book);
       holdKey(book, hex);
+    } else if (Date.now() - held.t > RECHECK_MS) {
+      recheck(book); // the book opens now; the answer, if it is "no", takes it away
     }
     return crypto.subtle.importKey("raw", hexToBytes(hex), "AES-GCM", false, ["decrypt"]);
   })();

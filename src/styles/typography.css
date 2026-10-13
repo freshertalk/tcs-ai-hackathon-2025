@@ -31,15 +31,7 @@ body {
 .btn,
 .btn--sm,
 .btn--lg,
-.nav__link,
-.nav__switch,
-.menu__foot,
-.novel__roman,
 .novel__logline,
-.novel__fact--quote p,
-.novel__fact-attrib,
-.novel__fact dd,
-.novel__fact dd.h,
 .cast__line,
 .op__p,
 .op__p--hi,
@@ -87,13 +79,9 @@ body {
 .bh__facts dd,
 .bh__read,
 .bh__ghost,
-.bh__card p,
-.bh__cardT,
-.bh__more,
 .sread__text b,
 .sread__text small,
-.bshow__tabs button,
-.covers__cap {
+.bshow__tabs button {
   font-size: var(--fs-text);
 }
 /* a laptop screen is short: the listing keeps its cards above the fold at 16 */

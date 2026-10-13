@@ -53,7 +53,6 @@ export function receiptLines(order) {
 
 export const STATUS = {
   created: { label: "भुगतान बाकी", tone: "warn" },
-  pending: { label: "पुष्टि की प्रतीक्षा", tone: "warn" },
   paid: { label: "भुगतान सफल", tone: "ok" },
   free: { label: "मुफ़्त · कूपन से", tone: "ok" },
   refunded: { label: "रिफ़ंड हुआ", tone: "muted" },

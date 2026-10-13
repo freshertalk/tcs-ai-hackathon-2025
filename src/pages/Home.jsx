@@ -1,5 +1,19 @@
 // src/pages/Home.jsx
-// The front page: the author, the novel, and a way straight into reading it.
+// The front page, in the order a reader decides in:
+//
+//   1. the book and how to get it          (Hero, then the moving strip)
+//   2. what it is about, and who is in it  (Novel — which ends on the epigraphs
+//                                           that stand before page one)
+//   3. page one itself                     (Opening)
+//   4. how it sounds                       (Lines)
+//   5. what it is really about             (Themes)
+//   6. what readers said                   (Reviews)
+//   7. who wrote it                        (Author)
+//   8. the invitation, once more           (Teaser)
+//   9. how to write to the author          (Contact)
+//
+// The book is shown once, at the top; nothing below repeats its cover or its
+// price except the closing invitation.
 import React, { useEffect, useRef } from "react";
 
 import Nav from "../components/site/Nav";
@@ -10,8 +24,6 @@ import Marquee from "../components/site/Marquee";
 
 import Hero from "../sections/write/Hero";
 import StickyRead from "../sections/write/StickyRead";
-import Shelf from "../sections/write/Shelf";
-import Covers from "../sections/write/Covers";
 import Novel from "../sections/write/Novel";
 import Opening from "../sections/write/Opening";
 import Lines from "../sections/write/Lines";
@@ -55,7 +67,7 @@ export default function Home() {
   }, []);
 
   return (
-    <div data-theme="write">
+    <div data-theme="write" className="home">
       <Seo page="home" book={entry} />
       <Nav
         links={LINKS}
@@ -68,15 +80,13 @@ export default function Home() {
       <main>
         <Hero readRef={readRef} />
         <Marquee items={TICKER} baseVelocity={12} />
-        <Shelf />
-        <Covers />
-        <Opening />
         <Novel />
+        <Opening />
         <Lines />
         <Themes />
-        <Teaser />
         <Reviews />
         <Author />
+        <Teaser />
         <Contact />
       </main>
 

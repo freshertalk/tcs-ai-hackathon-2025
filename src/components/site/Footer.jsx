@@ -37,6 +37,9 @@ export default function Footer({ note }) {
             Cookie settings
           </button>
           {/* plain <a>, not <Link>: a static file must not be routed by React */}
+          <a className="tlink" href="tel:+919561520911">
+            Grievance Officer: +91-9561520911
+          </a>
           <a className="tlink" href="/sitemap.xml">
             Sitemap
           </a>

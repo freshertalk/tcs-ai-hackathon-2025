@@ -1,32 +1,23 @@
 // src/sections/write/Novel.jsx
-// About the novel — the fuller version of what the hero says in a breath:
-// the book in a paragraph, the four people on the train, and the three lines
-// that stand before page one.
+// About the novel — what the hero says in a breath, said in full: the night
+// the book begins on, the four people on the train, and the three lines that
+// stand before page one (the first page itself follows this section).
+//
+// The book's length, language and date are in the hero's facts row, so they
+// are not repeated here.
 
 import React from "react";
 import { motion } from "framer-motion";
 import { Reveal, MaskLine, Stagger, riseItem } from "../../components/ui/motion";
 import { BOOK } from "../../data/books";
-import { useCatalog } from "../../library/hooks";
-import { fmtDate } from "../../reader/util";
 
 export default function Novel() {
-  const { data } = useCatalog();
-  const entry = data && data.books.find((b) => b.slug === BOOK.slug);
-
-  // the date is the publisher's single source of truth (public/ebooks/books.json)
-  const facts = BOOK.facts.map((f) =>
-    f.k === "स्थिति" && entry
-      ? { k: "प्रकाशन", v: fmtDate(entry.published), hi: false }
-      : f
-  );
-
   return (
     <>
       <section className="section novel" id="novel">
         <div className="shell">
           <div className="novel__about">
-            <div>
+            <div className="novel__lead">
               <Reveal>
                 <span className="eyebrow is-hi">उपन्यास के बारे में</span>
               </Reveal>
@@ -36,32 +27,25 @@ export default function Novel() {
                   <span className="ital">ग्यारह साल।</span>
                 </MaskLine>
               </h2>
+              <Reveal delay={0.14}>
+                <p className="novel__route hi">{BOOK.route}</p>
+              </Reveal>
             </div>
 
             <div>
               <Reveal delay={0.1}>
-                <p className="novel__logline">{BOOK.logline}</p>
+                <p className="novel__logline">{BOOK.premise}</p>
               </Reveal>
               <Reveal delay={0.16}>
                 <p className="novel__premise">{BOOK.closing}</p>
-              </Reveal>
-              <Reveal delay={0.22} className="novel__facts" as="dl">
-                {facts.map((f) => (
-                  <div className="novel__fact" key={f.k}>
-                    <dt className="is-hi">{f.k}</dt>
-                    <dd className={f.hi ? "h" : ""}>{f.v || <span className="novel__blank" aria-label="अभी उपलब्ध नहीं">—</span>}</dd>
-                  </div>
-                ))}
               </Reveal>
             </div>
           </div>
 
           {/* ------------------------------------------------------- cast */}
-          <Reveal style={{ marginTop: "clamp(56px, 7vw, 100px)" }}>
+          <Reveal className="novel__castHead">
             <span className="eyebrow is-hi">किरदार</span>
-            <h3 className="h-display title-md" style={{ marginTop: 14 }}>
-              चार लोग, एक डिब्बा
-            </h3>
+            <h3 className="h-display h-hi title-md">चार लोग, एक डिब्बा</h3>
           </Reveal>
 
           <Stagger className="cast" stagger={0.08}>
