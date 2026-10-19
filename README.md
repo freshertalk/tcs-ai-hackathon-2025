@@ -28,7 +28,7 @@ src/
 │  ├─ About.jsx               the person; by day / by night
 │  ├─ Journey.jsx             the path from Ghazipur to Noida
 │  ├─ Stack.jsx · Experience.jsx · Projects.jsx · Hub.jsx
-│  ├─ Writer.jsx              "लेखक के बारे में" — the Hindi bio (warm band)
+│  ├─ Writer.jsx              "एक लेखक के रूप में विनय" — the Hindi bio (warm band)
 │  ├─ Credentials.jsx · Contact.jsx
 ├─ components/
 │  ├─ ui/motion.jsx           Reveal · MaskLine · SplitWords · Magnetic ·

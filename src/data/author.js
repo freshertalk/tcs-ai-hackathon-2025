@@ -1,13 +1,13 @@
 // src/data/author.js
 // ---------------------------------------------------------------------------
 // The writer's side of the profile. The Hindi text is the author's own
-// "लेखक के बारे में" page, carried over word for word — edit it here, never
+// "लेखक के बारे में" page (book back matter), carried over word for word — edit it here, never
 // in the component.
 // ---------------------------------------------------------------------------
 
 export const AUTHOR = {
   kicker: "लेखक",
-  heading: "लेखक के बारे में",
+  heading: "एक लेखक के रूप में विनय",
   name: "विनय कुमार तिवारी",
   nameRoman: "Vinay Kumar Tiwari",
 
