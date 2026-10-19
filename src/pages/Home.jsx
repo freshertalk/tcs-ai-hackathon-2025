@@ -19,6 +19,7 @@ import Projects from "../sections/Projects";
 import Hub from "../sections/Hub";
 import Writer from "../sections/Writer";
 import Credentials from "../sections/Credentials";
+import Faq from "../sections/Faq";
 import Contact from "../sections/Contact";
 
 import { PROFILE } from "../data/profile";
@@ -58,6 +59,9 @@ export default function Home() {
   return (
     <div data-theme="tech">
       <Seo page="home" />
+      <a className="skip" href="#main">
+        Skip to content
+      </a>
       <Nav
         links={LINKS}
         kicker="Engineer & Author"
@@ -65,7 +69,7 @@ export default function Home() {
         contact={{ email: PROFILE.email, phone: PROFILE.phone }}
       />
 
-      <main>
+      <main id="main">
         <Hero />
         <Marquee items={TICKER} baseVelocity={22} />
         <About />
@@ -76,6 +80,7 @@ export default function Home() {
         <Hub />
         <Writer />
         <Credentials />
+        <Faq />
         <Assistant />
         <Contact />
       </main>

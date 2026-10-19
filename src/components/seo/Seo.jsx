@@ -48,7 +48,9 @@ export default function Seo({ page }) {
       <meta property="og:image" content={image} />
       <meta property="og:image:width" content="1200" />
       <meta property="og:image:height" content="630" />
-      <meta property="og:image:alt" content="Vinay Kumar Tiwari — Engineer and Author" />
+      <meta property="og:image:secure_url" content={image} />
+      <meta property="og:image:type" content="image/jpeg" />
+      <meta property="og:image:alt" content={SITE.ogImageAlt} />
       <meta property="og:locale" content={p.lang === "hi" ? SITE.localeAlt : SITE.locale} />
       <meta
         property="og:locale:alternate"
@@ -62,7 +64,7 @@ export default function Seo({ page }) {
       <meta name="twitter:title" content={p.title} />
       <meta name="twitter:description" content={p.description} />
       <meta name="twitter:image" content={image} />
-      <meta name="twitter:image:alt" content={SITE.name} />
+      <meta name="twitter:image:alt" content={SITE.ogImageAlt} />
 
       <meta name="author" content="Vinay Kumar Tiwari" />
 

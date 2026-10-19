@@ -3056,8 +3056,6 @@ h4 {
   line-height: 2;
   color: var(--ink-2);
   margin-bottom: 1.1em;
-  text-align: justify;
-  hyphens: auto;
 }
 .writer__p--lead {
   font-size: clamp(1.18rem, 1.6vw, 1.42rem);
@@ -3155,7 +3153,6 @@ h4 {
   padding: 9px 4px;
   font-size: 0.95rem;
   color: var(--ink);
-  overflow-wrap: anywhere;
   transition: color 0.3s var(--ease);
 }
 .writer__links a:hover {
@@ -3182,9 +3179,6 @@ h4 {
   }
   .writer__side {
     position: static;
-  }
-  .writer__p {
-    text-align: left;
   }
 }
 
@@ -3694,8 +3688,7 @@ h4 {
   gap: 14px 18px;
 }
 .ct__mail {
-  font-size: clamp(1.25rem, 3.6vw, 2.8rem);
-  overflow-wrap: anywhere;
+  font-size: clamp(1.1rem, 3.6vw, 2.8rem);
 }
 .ct .h-display {
   margin-bottom: 0;
@@ -3798,8 +3791,8 @@ h4 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 12px 14px;
   }
-  .ct__v {
-    overflow-wrap: anywhere;
+  .ct__wide {
+    grid-column: 1 / -1;
   }
   .foot {
     gap: 6px;
@@ -3846,5 +3839,127 @@ h4 {
   }
   .pj__d {
     display: none;
+  }
+}
+
+/* =========================================================================
+   JUSTIFIED BODY COPY
+   Paragraphs are justified edge to edge. Words are never split: no
+   hyphenation, no mid-word wrapping — the lines stretch their spaces instead.
+   Headings, labels, chips and one-line items stay as they are.
+   ========================================================================= */
+.hero__blurb,
+.lead,
+#about p,
+.halves__cell p,
+.hub__intro,
+.track__d,
+.aud__d,
+.why__li span,
+.xp__co-b,
+.xp__pt span,
+.path__what,
+.cred__li > span,
+.pj__detail p,
+.sec-head__note,
+.writer__p,
+.ai__bubble,
+.faq__a {
+  text-align: justify;
+  text-justify: inter-word;
+  hyphens: none;
+  -webkit-hyphens: none;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+/* skip link — first tab stop, visible only when focused */
+.skip {
+  position: fixed;
+  left: 12px;
+  top: -60px;
+  z-index: 20000;
+  padding: 10px 16px;
+  border-radius: 10px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 0.85rem;
+  transition: top 0.2s var(--ease);
+}
+.skip:focus {
+  top: 12px;
+}
+
+/* quick answers */
+.faq__list {
+  border-top: 1px solid var(--line-2);
+}
+.faq__item {
+  border-bottom: 1px solid var(--line);
+}
+.faq__q {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 13px 2px;
+  cursor: pointer;
+  font-family: var(--f-display);
+  font-size: clamp(1rem, 1.5vw, 1.2rem);
+  line-height: 1.35;
+}
+.faq__q::-webkit-details-marker {
+  display: none;
+}
+.faq__q:focus-visible {
+  outline: 2px solid var(--accent-2);
+  outline-offset: 2px;
+}
+.faq__q i {
+  position: relative;
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--line-2);
+  border-radius: 50%;
+  transition: background 0.3s var(--ease), border-color 0.3s var(--ease);
+}
+.faq__q i::before,
+.faq__q i::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 10px;
+  height: 1.5px;
+  margin: -0.75px 0 0 -5px;
+  background: var(--ink-2);
+  transition: transform 0.3s var(--ease), background 0.3s var(--ease);
+}
+.faq__q i::after {
+  transform: rotate(90deg);
+}
+.faq__item[open] .faq__q i {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.faq__item[open] .faq__q i::before,
+.faq__item[open] .faq__q i::after {
+  background: var(--on-accent);
+}
+.faq__item[open] .faq__q i::after {
+  transform: rotate(0deg);
+}
+.faq__a {
+  padding: 0 2px 16px;
+  max-width: 78ch;
+  color: var(--ink-2);
+  font-size: 0.94rem;
+  line-height: 1.7;
+}
+@media (max-width: 640px) {
+  .faq__q {
+    padding-block: 11px;
   }
 }

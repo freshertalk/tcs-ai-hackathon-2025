@@ -1,6 +1,6 @@
 // src/data/experience.js
-// Sourced from the current résumé. Client naming follows the résumé:
-// named where the résumé names them, descriptive where it does not.
+// Client naming: named where the client can be named, descriptive where it
+// cannot.
 
 const EXPERIENCE = [
   {

@@ -24,8 +24,8 @@ export default function Projects() {
           </div>
           <Reveal delay={0.16}>
             <p className="sec-head__note">
-              Tap any row for the detail. Client names follow what the résumé
-              can name — descriptive where it cannot.
+              Tap any row for the detail. Clients are named where they can be
+              named — described where they cannot.
             </p>
           </Reveal>
         </div>

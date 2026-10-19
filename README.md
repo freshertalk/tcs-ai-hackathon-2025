@@ -29,7 +29,7 @@ src/
 │  ├─ Journey.jsx             the path from Ghazipur to Noida
 │  ├─ Stack.jsx · Experience.jsx · Projects.jsx · Hub.jsx
 │  ├─ Writer.jsx              "एक लेखक के रूप में विनय" — the Hindi bio (warm band)
-│  ├─ Credentials.jsx · Contact.jsx
+│  ├─ Credentials.jsx · Faq.jsx · Contact.jsx
 ├─ components/
 │  ├─ ui/motion.jsx           Reveal · MaskLine · SplitWords · Magnetic ·
 │  │                          Counter · Parallax · Tilt
@@ -39,6 +39,18 @@ src/
 └─ data/                      profile · author · experience · projects ·
                               certs · awards · hub · seo   ← edit content here
 ```
+
+## SEO and link previews
+
+- `src/data/seo.js` holds every title, description, keyword and JSON-LD entity;
+  `components/seo/Seo.jsx` renders them as meta tags. `public/index.html` carries
+  the same tags statically for crawlers that never run JavaScript.
+- `npm run build` prerenders the page to static HTML and **writes
+  `build/sitemap.xml`** from the route list in `scripts/prerender.js`
+  (`lastmod` = date of the last commit touching `src/` or `public/`).
+- The link-preview card (WhatsApp, LinkedIn, X, Facebook) is
+  `public/og-image.jpg`, 1200×630: portrait, name, the opening line and the
+  Hindi motto. Regenerate it if the photo or tagline changes.
 
 ## Editing content
 

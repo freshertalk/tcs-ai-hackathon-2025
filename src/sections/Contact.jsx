@@ -70,7 +70,7 @@ export default function Contact() {
               </a>
             </div>
           </Reveal>
-          <Reveal y={18} delay={0.18}>
+          <Reveal y={18} delay={0.18} className="ct__wide">
             <div className="ct__k">Author enquiries</div>
             <div className="ct__v">
               <a href={`mailto:${AUTHOR.connect.email}`}>{AUTHOR.connect.email}</a>

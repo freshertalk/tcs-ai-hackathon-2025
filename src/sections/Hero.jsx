@@ -148,16 +148,6 @@ export default function Hero() {
                   The writer
                 </a>
               </Magnetic>
-              <Magnetic>
-                <a
-                  className="btn btn--lg"
-                  href={`${process.env.PUBLIC_URL}/Vinay-Kumar-Tiwari-Resume.docx`}
-                  download
-                >
-                  Resume
-                  <Arrow />
-                </a>
-              </Magnetic>
             </Reveal>
           </div>
 
