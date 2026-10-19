@@ -18,10 +18,10 @@ import { PROFILE, YEARS } from "../data/profile";
 import { AUTHOR } from "../data/author";
 
 const STATS = [
-  { to: YEARS, suffix: "+", label: "Years shipping enterprise software" },
-  { to: 9, suffix: "", label: "Concurrent SAP initiatives led" },
-  { to: 12, suffix: "+", label: "Enterprise programmes delivered" },
-  { to: 2, suffix: "", label: "SAP certifications held" },
+  { to: YEARS, suffix: "+", label: "Years of experience" },
+  { to: 9, suffix: "", label: "Initiatives led" },
+  { to: 12, suffix: "+", label: "Programmes delivered" },
+  { to: 2, suffix: "", label: "SAP certifications" },
 ];
 
 export default function Hero() {
@@ -132,7 +132,7 @@ export default function Hero() {
                     scrollToId("work", 62);
                   }}
                 >
-                  See the work
+                  My work
                   <Arrow />
                 </a>
               </Magnetic>

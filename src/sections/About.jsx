@@ -10,11 +10,13 @@ export default function About() {
     <section className="section section--alt" id="about">
       <div className="shell">
         <div className="about__grid">
-          <Parallax distance={28}>
-            <Reveal y={30} amount={0.15}>
-              <SapCanvas />
-            </Reveal>
-          </Parallax>
+          <div className="about__viz">
+            <Parallax distance={28}>
+              <Reveal y={30} amount={0.15}>
+                <SapCanvas />
+              </Reveal>
+            </Parallax>
+          </div>
 
           <div>
             <Reveal>

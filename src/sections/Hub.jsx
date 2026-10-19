@@ -81,17 +81,6 @@ export default function Hub() {
                   <Arrow />
                 </a>
               </Magnetic>
-              <Magnetic>
-                <a
-                  className="btn btn--lg"
-                  href={HUB.cta.secondary.href}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  {HUB.cta.secondary.label}
-                  <Arrow />
-                </a>
-              </Magnetic>
             </Reveal>
           </div>
 
@@ -151,11 +140,9 @@ export default function Hub() {
         </Stagger>
 
         {/* ------------------------------------------------------ tracks */}
-        <Reveal style={{ marginTop: "clamp(46px, 6vw, 84px)" }}>
-          <h3 className="h-display title-md">
-            What you will find inside
-          </h3>
-          <p className="sec-head__note" style={{ marginTop: 10 }}>
+        <Reveal className="hub__tracksHead">
+          <h3 className="h-display title-md">What you will find inside</h3>
+          <p className="sec-head__note">
             Six learning tracks, each written from something that actually
             shipped.
           </p>
@@ -214,29 +201,6 @@ export default function Hub() {
             </p>
           </Reveal>
         </div>
-
-        {/* --------------------------------------------------- closing CTA */}
-        <Reveal className="hub__cta" y={40}>
-          <div>
-            <h3>Come read it. It is free, and it is written for you.</h3>
-            <p>
-              No paywall, no sign-up, no ads. Just the walkthroughs I wish
-              existed when I started on SAP BTP.
-            </p>
-          </div>
-          <Magnetic>
-            <a
-              className="btn btn--lg"
-              href={HUB.url}
-              target="_blank"
-              rel="noreferrer"
-              data-cursor="Open"
-            >
-              {HUB.urlLabel}
-              <Arrow />
-            </a>
-          </Magnetic>
-        </Reveal>
       </div>
     </section>
   );

@@ -103,7 +103,6 @@ export const HUB = {
   // Calls to action
   cta: {
     primary: { label: "Open BTP Learning Hub", href: "https://btplearninghub.com" },
-    secondary: { label: "vinaytiwari.org", href: "https://vinaytiwari.org" },
   },
 
   // Mock browser chrome content for the visual
