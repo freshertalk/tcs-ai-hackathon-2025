@@ -93,8 +93,3 @@ To swap the photo, replace these files keeping the same names and dimensions.
 - Grain, heavy shadows and the hero portrait are dropped on small screens and
   under `prefers-reduced-data`.
 - Safe-area insets are respected for notched devices.
-
-## Previous version
-
-The earlier MUI portfolio is preserved at
-`src/components/TCSinterviewAssistantAI.jsx` (no longer imported).
