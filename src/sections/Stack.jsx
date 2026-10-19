@@ -1,4 +1,4 @@
-// src/sections/tech/Stack.jsx
+// src/sections/Stack.jsx
 import React from "react";
 import { motion } from "framer-motion";
 import {
@@ -6,8 +6,8 @@ import {
   MaskLine,
   Stagger,
   riseItem,
-} from "../../components/ui/motion";
-import { SKILLS, SKILL_GROUPS } from "../../data/profile";
+} from "../components/ui/motion";
+import { SKILLS, SKILL_GROUPS } from "../data/profile";
 
 export default function Stack() {
   return (

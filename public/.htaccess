@@ -26,10 +26,12 @@
 
 # --- SPA fallback ------------------------------------------------------------
 # Real files and directories win; everything else falls back to index.html so
-# /technical and /writings work on a hard refresh.
+# any path works on a hard refresh (unknown paths are sent to / by the app).
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /
+  # retired pages
+  RewriteRule ^(technical|writings)/?$ / [R=301,L]
   RewriteCond %{REQUEST_FILENAME} -f [OR]
   RewriteCond %{REQUEST_FILENAME} -d
   RewriteRule ^ - [L]

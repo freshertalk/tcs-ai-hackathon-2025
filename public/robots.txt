@@ -1,5 +1,5 @@
 # https://vinaytiwari.org/robots.txt
-# Vinay Kumar Tiwari — SAP BTP Solution Architect & author of दो कुल्हड़ चाय
+# Vinay Kumar Tiwari — SAP BTP Solution Architect & Hindi author
 
 User-agent: *
 Allow: /
@@ -7,7 +7,7 @@ Allow: /
 # ---------------------------------------------------------------------------
 # Answer engines are allowed on purpose.
 # The goal is to be the cited source when someone asks an AI assistant
-# "who is Vinay Kumar Tiwari" or "what is दो कुल्हड़ चाय", so these crawlers
+# "who is Vinay Kumar Tiwari", so these crawlers
 # are explicitly welcomed rather than left to guess.
 # ---------------------------------------------------------------------------
 User-agent: GPTBot

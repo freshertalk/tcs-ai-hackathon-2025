@@ -1,7 +1,7 @@
 /* eslint-disable no-console */
 // scripts/prerender.js
 // ---------------------------------------------------------------------------
-// Turns the CRA single-page bundle into three real, crawlable HTML documents.
+// Turns the CRA single-page bundle into a real, crawlable HTML document.
 //
 // Why this exists
 // ---------------
@@ -11,12 +11,8 @@
 // PerplexityBot, OAI-SearchBot, CCBot) generally do NOT execute JavaScript at
 // all. To them an unrendered SPA is a blank page.
 //
-// So after the build we render each route to static HTML with the same React
-// tree the browser uses, inject it into build/index.html, and write:
-//
-//   build/index.html            →  /
-//   build/technical/index.html  →  /technical
-//   build/writings/index.html   →  /writings
+// So after the build we render the route to static HTML with the same React
+// tree the browser uses and inject it into build/index.html  →  /
 //
 // React still hydrates on top, so behaviour is unchanged for real visitors.
 //
@@ -32,11 +28,7 @@ const ROOT = path.resolve(__dirname, "..");
 const BUILD = path.join(ROOT, "build");
 const SRC = path.join(ROOT, "src");
 
-const ROUTES = [
-  { url: "/", out: "index.html", lang: "en" },
-  { url: "/technical", out: path.join("technical", "index.html"), lang: "en" },
-  { url: "/writings", out: path.join("writings", "index.html"), lang: "hi" },
-];
+const ROUTES = [{ url: "/", out: "index.html", lang: "en" }];
 
 /* ------------------------------------------------ compile src/ for node */
 function installRequireHooks() {
@@ -129,7 +121,7 @@ function main() {
       const { head, body } = splitHeadAndBody(rendered);
 
       const html = template
-        // /writings is Hindi, the rest English — React cannot hoist this one
+        // React cannot hoist the <html lang> attribute, so set it here
         .replace(/<html([^>]*)\slang="[^"]*"/i, `<html$1 lang="${route.lang}"`)
         .replace("</head>", `${head}\n  </head>`)
         .replace('<div id="root"></div>', `<div id="root">${body}</div>`);

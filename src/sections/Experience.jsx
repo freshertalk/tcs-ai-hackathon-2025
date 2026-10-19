@@ -1,8 +1,8 @@
-// src/sections/tech/Experience.jsx
+// src/sections/Experience.jsx
 import React from "react";
-import { Reveal, MaskLine, Counter } from "../../components/ui/motion";
-import { EXPERIENCE } from "../../data/experience";
-import { YEARS } from "../../data/profile";
+import { Reveal, MaskLine, Counter } from "../components/ui/motion";
+import { EXPERIENCE } from "../data/experience";
+import { YEARS } from "../data/profile";
 
 export default function Experience() {
   return (

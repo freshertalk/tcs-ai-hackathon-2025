@@ -1,4 +1,4 @@
-// src/sections/tech/Hub.jsx
+// src/sections/Hub.jsx
 // BTP Learning Hub — Vinay's own technical website, given its own stage.
 // All copy comes from src/data/hub.js.
 
@@ -13,8 +13,8 @@ import {
   riseItem,
   Tilt,
   Arrow,
-} from "../../components/ui/motion";
-import { HUB } from "../../data/hub";
+} from "../components/ui/motion";
+import { HUB } from "../data/hub";
 
 export default function Hub() {
   return (

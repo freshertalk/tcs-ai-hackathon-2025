@@ -11,7 +11,7 @@ import { EXPERIENCE, INITIATIVE } from "../../data/experience";
 import { PROJECTS } from "../../data/projects";
 import { CERTS } from "../../data/certs";
 import { AWARDS } from "../../data/awards";
-import { BOOK, AUTHOR } from "../../data/books";
+import { AUTHOR } from "../../data/author";
 import { HUB } from "../../data/hub";
 import { Reveal, MaskLine, EASE } from "../ui/motion";
 
@@ -61,24 +61,16 @@ const KB = [
   },
   {
     k: [
-      "book", "novel", "kulhad", "chai", "story", "plot", "synopsis",
-      "prachi", "vivaan",
-      "train", "promise", "twelfth", "do kulhad chai", "किताब", "उपन्यास",
-      "कहानी", "अंश", "कुल्हड़", "चाय", "दो कुल्हड़ चाय",
+      "write", "writing", "writer", "author", "hindi", "लेखक", "novel",
+      "book", "kulhad", "chai", "fiction", "stories", "story", "literature",
+      "do kulhad chai", "किताब", "उपन्यास", "कहानी", "दो कुल्हड़ चाय",
+      "instagram",
     ],
-    // Deliberately spoiler-free: the later chapters are not described here.
-    a: `${BOOK.title} (${BOOK.roman}) is a completed Hindi novel spanning ${BOOK.span}. ${BOOK.logline} Vivaan is in seat 36; Prachi is in seat 37. They talk all night, drink two kulhads of tea, and ask each other's names last. A year and a half later they meet again and make one rule: the twelfth of every month, the same train, the same two seats — and if one of them cannot come, the other still goes. What that promise costs them is the rest of the book. ${BOOK.closing}`,
+    a: `${PROFILE.name.split(" ")[0]} writes Hindi fiction at night. ${AUTHOR.gloss} His debut novel is ${AUTHOR.novel.title} (${AUTHOR.novel.roman}), at ${AUTHOR.novel.hrefLabel}. Reach the author at ${AUTHOR.connect.email} or on Instagram ${AUTHOR.connect.instagramLabel}. In his own words: "${AUTHOR.motto}" (${AUTHOR.mottoGloss})`,
   },
   {
-    k: [
-      "spoiler", "spoilers", "reveal", "ending", "end", "ends", "finish",
-      "conclusion", "chapter", "chapters", "excerpt", "climax",
-    ],
-    a: `No spoilers here — the later chapters are not published on this site. ${BOOK.premise}`,
-  },
-  {
-    k: ["write", "writing", "writer", "author", "hindi", "लेखक"],
-    a: `${AUTHOR.nameRoman} writes in Hindi. ${AUTHOR.lines[1]} ${AUTHOR.lines[3]} His debut novel is ${BOOK.title} (${BOOK.roman}). "${AUTHOR.motto}"`,
+    k: ["ghazipur", "noida", "hometown", "native", "origin", "from", "grew up", "born", "personal", "person", "hobbies", "bhojpuri", "languages", "language"],
+    a: `Raised in Ghazipur, Uttar Pradesh; lives and works in Noida. Languages: English (professional), हिन्दी (native) and Bhojpuri. The distance between Ghazipur and Noida is, he says, about the distance between his days and his nights — engineering by day, writing by night.`,
   },
   {
     k: ["contact", "email", "reach", "hire", "phone", "linkedin", "available", "mobile", "number", "location", "based"],
@@ -91,15 +83,15 @@ const KB = [
 ];
 
 const SUGGESTIONS = [
-  "What's the novel about?",
+  "Who is Vinay?",
+  "Tell me about your writing",
   "Summarise your SAP experience",
   "Which certifications do you hold?",
   "What is BTP Learning Hub?",
-  "What's your core stack?",
   "How do I reach you?",
 ];
 
-const FALLBACK = `I answer from this portfolio's own data — try asking about the novel दो कुल्हड़ चाय, the SAP/BTP stack, project history, BTP Learning Hub, certifications, or how to get in touch.`;
+const FALLBACK = `I answer from this portfolio's own data — try asking about the person, the writing, the SAP/BTP stack, project history, BTP Learning Hub, certifications, or how to get in touch.`;
 
 /* -------------------------------------------------------------- retrieval
    Plain substring matching was wrong in two ways:
@@ -257,7 +249,7 @@ export default function Assistant() {
   const [log, setLog] = useState([
     {
       who: "bot",
-      text: `Hi — I'm ${PROFILE.name.split(" ")[0]}'s portfolio assistant. Ask me about the engineering, or about the novel.`,
+      text: `Hi — I'm ${PROFILE.name.split(" ")[0]}'s portfolio assistant. Ask me about the engineering, or about the writing.`,
       done: true,
     },
   ]);
@@ -399,7 +391,7 @@ export default function Assistant() {
                 className="ai__input"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder="Ask about the stack, the projects, or the novel…"
+                placeholder="Ask about the stack, the projects, or the writing…"
                 aria-label="Ask the assistant"
               />
               <button className="btn btn--solid" type="submit">

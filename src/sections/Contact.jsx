@@ -1,9 +1,9 @@
-// src/sections/tech/Contact.jsx
+// src/sections/Contact.jsx
 import React from "react";
-import { Link } from "react-router-dom";
-import { Reveal, MaskLine, Magnetic, Arrow } from "../../components/ui/motion";
-import Picture from "../../components/ui/Picture";
-import { PROFILE } from "../../data/profile";
+import { Reveal, MaskLine, Magnetic, Arrow } from "../components/ui/motion";
+import Picture from "../components/ui/Picture";
+import { PROFILE } from "../data/profile";
+import { AUTHOR } from "../data/author";
 
 export default function Contact() {
   return (
@@ -71,14 +71,20 @@ export default function Contact() {
             </div>
           </Reveal>
           <Reveal y={18} delay={0.18}>
-            <div className="ct__k">Website</div>
+            <div className="ct__k">Author enquiries</div>
             <div className="ct__v">
-              <a href={PROFILE.website} target="_blank" rel="noreferrer">
-                vinaytiwari.org
-              </a>
+              <a href={`mailto:${AUTHOR.connect.email}`}>{AUTHOR.connect.email}</a>
             </div>
           </Reveal>
           <Reveal y={18} delay={0.24}>
+            <div className="ct__k">Instagram</div>
+            <div className="ct__v">
+              <a href={AUTHOR.connect.instagram} target="_blank" rel="noreferrer">
+                {AUTHOR.connect.instagramLabel}
+              </a>
+            </div>
+          </Reveal>
+          <Reveal y={18} delay={0.3}>
             <div className="ct__k">Based in</div>
             <div className="ct__v">{PROFILE.location}</div>
           </Reveal>
@@ -95,10 +101,14 @@ export default function Contact() {
             </a>
           </Magnetic>
           <Magnetic>
-            <Link className="btn" to="/writings" data-cursor="पढ़िए">
-              Read the novel instead
+            <a
+              className="btn"
+              href={`mailto:${AUTHOR.connect.email}`}
+              data-cursor="पढ़िए"
+            >
+              Write to the author
               <Arrow />
-            </Link>
+            </a>
           </Magnetic>
         </Reveal>
       </div>

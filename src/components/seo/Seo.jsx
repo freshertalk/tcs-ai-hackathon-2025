@@ -37,15 +37,10 @@ export default function Seo({ page }) {
       />
       <meta name="googlebot" content="index, follow, max-snippet:-1, max-image-preview:large" />
 
-      {/*
-        No hreflang. It is only for equivalent pages in different languages;
-        /technical (English) and /writings (Hindi) are different content, so
-        annotating them would produce "no return tag" errors in Search Console
-        for no gain. <html lang> above carries the language signal instead.
-      */}
+      {/* No hreflang: there is one page, so there is nothing to pair it with. */}
 
       {/* Open Graph */}
-      <meta property="og:type" content={page === "writings" ? "book" : "profile"} />
+      <meta property="og:type" content="profile" />
       <meta property="og:site_name" content={SITE.name} />
       <meta property="og:title" content={p.title} />
       <meta property="og:description" content={p.description} />
@@ -53,18 +48,14 @@ export default function Seo({ page }) {
       <meta property="og:image" content={image} />
       <meta property="og:image:width" content="1200" />
       <meta property="og:image:height" content="630" />
-      <meta property="og:image:alt" content={SITE.name} />
+      <meta property="og:image:alt" content="Vinay Kumar Tiwari — Engineer and Author" />
       <meta property="og:locale" content={p.lang === "hi" ? SITE.localeAlt : SITE.locale} />
       <meta
         property="og:locale:alternate"
         content={p.lang === "hi" ? SITE.locale : SITE.localeAlt}
       />
-      {page !== "writings" && (
-        <>
-          <meta property="profile:first_name" content="Vinay" />
-          <meta property="profile:last_name" content="Tiwari" />
-        </>
-      )}
+      <meta property="profile:first_name" content="Vinay" />
+      <meta property="profile:last_name" content="Tiwari" />
 
       {/* Twitter / X */}
       <meta name="twitter:card" content="summary_large_image" />

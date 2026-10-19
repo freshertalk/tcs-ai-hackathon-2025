@@ -26,6 +26,8 @@ const PROFILE = {
   linkedin: "https://www.linkedin.com/in/vinay-tiwari-sap",
   website: "https://vinaytiwari.org",
   learningHub: "https://btplearninghub.com",
+  instagram: "https://www.instagram.com/_vinaytiwari/",
+  authorEmail: "author.vinaytiwari1@gmail.com",
   summary:
     "SAP BTP Solution Architect and SAP Certified Professional designing and delivering enterprise-grade cloud applications across manufacturing, procurement, finance, sales, commercial and healthcare — with AI-assisted engineering woven into how the work actually gets shipped",
   longSummary:
@@ -106,5 +108,45 @@ const LANGUAGES = [
   { name: "हिन्दी", level: "Native" },
 ];
 
-export { PROFILE, SKILLS, SKILL_GROUPS, EDUCATION, LANGUAGES };
+/* The path so far, oldest first. Kept in step with EDUCATION and
+   data/experience.js — it is the same story, told as a line. */
+const JOURNEY = [
+  {
+    when: "Early years",
+    place: "Ghazipur, Uttar Pradesh",
+    what: "Born and raised here; the place his stories, and his Bhojpuri, still come from.",
+  },
+  {
+    when: "2010 — 2014",
+    place: "RGPV, Bhopal",
+    what: "B.E. in Electronics & Communication Engineering.",
+  },
+  {
+    when: "2015",
+    place: "C-DAC, Pune",
+    what: "PG-DAC in Advanced Computing — the turn from circuits to software.",
+  },
+  {
+    when: "2015 — 2019",
+    place: "Bengaluru",
+    what: "Wipro, Mindtree and Cognizant: enterprise Java, microservices, telecom, IoT and cybersecurity.",
+  },
+  {
+    when: "2020 — 2022",
+    place: "IBM India",
+    what: "SAP UI5 and Fiori — the first years on the SAP platform.",
+  },
+  {
+    when: "2022 — 2026",
+    place: "Tata Consultancy Services",
+    what: "SAP BTP team lead; Fiori/UI5 delivery for a global MedTech platform.",
+  },
+  {
+    when: "2026 — now",
+    place: "IBM India · Noida",
+    what: "Solution architecture across nine SAP initiatives, plus BTP Learning Hub and the writing.",
+  },
+];
+
+export { PROFILE, SKILLS, SKILL_GROUPS, EDUCATION, LANGUAGES, JOURNEY };
 export default PROFILE;

@@ -1,8 +1,8 @@
-// src/sections/tech/Projects.jsx
+// src/sections/Projects.jsx
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Reveal, MaskLine, Arrow, EASE } from "../../components/ui/motion";
-import { PROJECTS } from "../../data/projects";
+import { Reveal, MaskLine, Arrow, EASE } from "../components/ui/motion";
+import { PROJECTS } from "../data/projects";
 
 export default function Projects() {
   const [open, setOpen] = useState(null);

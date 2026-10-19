@@ -1,7 +1,7 @@
 // src/data/hub.js
 // ---------------------------------------------------------------------------
 // BTP Learning Hub — Vinay's own technical website.
-// This is the content for the dedicated showcase section on the Technical page.
+// This is the content for the dedicated showcase section on the home page.
 // Everything here is editable copy; change it without touching any component.
 // ---------------------------------------------------------------------------
 

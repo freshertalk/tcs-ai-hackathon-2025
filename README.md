@@ -1,8 +1,9 @@
 # Vinay Kumar Tiwari — Engineer & Author
 
-A single-page, motion-led portfolio covering two bodies of work: eleven years
-of enterprise engineering (SAP BTP · CAPM · Fiori/UI5 · HANA Cloud · GenAI) and
-the Hindi novel **दो कुल्हड़ चाय**.
+A single-page, motion-led personal site: who Vinay is (an engineer from
+Ghazipur, working in Noida), eleven years of enterprise engineering
+(SAP BTP · CAPM · Fiori/UI5 · HANA Cloud · GenAI), and the Hindi writing he
+does at night. `/technical` and `/writings` no longer exist — both redirect to `/`.
 
 Current role: **Package Consultant — SAP BTP, IBM India Pvt. Ltd.**
 
@@ -18,35 +19,33 @@ npm run build    # production bundle in /build
 
 ```
 src/
-├─ App.js                     page composition + preloader gate
+├─ App.js                     routes (just "/") + preloader + smooth scroll
+├─ pages/Home.jsx             the page: sections in order, nav links, ticker
 ├─ styles/site.css            design tokens & all component styles
 ├─ hooks/useSmoothScroll.js   dependency-free inertial scroll (Lenis-style)
+├─ sections/                  one file per block of the page, top to bottom
+│  ├─ Hero.jsx                name, role line, stats, portrait
+│  ├─ About.jsx               the person; by day / by night
+│  ├─ Journey.jsx             the path from Ghazipur to Noida
+│  ├─ Stack.jsx · Experience.jsx · Projects.jsx · Hub.jsx
+│  ├─ Writer.jsx              "लेखक के बारे में" — the Hindi bio (warm band)
+│  ├─ Credentials.jsx · Contact.jsx
 ├─ components/
 │  ├─ ui/motion.jsx           Reveal · MaskLine · SplitWords · Magnetic ·
 │  │                          Counter · Parallax · Tilt
-│  └─ site/
-│     ├─ Preloader.jsx        counter + curtain wipe
-│     ├─ Cursor.jsx           dot + lagging ring with contextual labels
-│     ├─ Nav.jsx              sticky nav, scroll progress, full-screen menu
-│     ├─ Hero.jsx             parallax layers, masked line reveal, counters
-│     ├─ Intro.jsx            portrait with duotone wash + 3D tilt, short bio
-│     ├─ Marquee.jsx          velocity-reactive infinite ticker
-│     ├─ Kulhad.jsx           animated clay-cup + steam SVG
-│     ├─ Book.jsx             cover (3D tilt) + pinned horizontal synopsis
-│     ├─ Craft.jsx            skills, certifications, awards, education
-│     ├─ Work.jsx             sticky aside + scroll-linked experience list
-│     ├─ Projects.jsx         expandable project rows
-│     ├─ Assistant.jsx        in-browser retrieval assistant
-│     └─ Contact.jsx          magnetic email CTA + footer
-└─ data/                      profile · experience · projects · certs ·
-                              awards · books   ← edit content here
+│  ├─ seo/Seo.jsx             title, meta, JSON-LD for the page
+│  └─ site/                   Nav · Footer · Preloader · Cursor · Marquee ·
+│                             Assistant (in-browser retrieval) · Kulhad · …
+└─ data/                      profile · author · experience · projects ·
+                              certs · awards · hub · seo   ← edit content here
 ```
 
 ## Editing content
 
-Everything readable lives in `src/data/`. The novel — title, logline, the
-eight synopsis beats, themes — is in `src/data/books.js`. Nothing in
-`components/` needs to change to update copy.
+Everything readable lives in `src/data/`. The Hindi author bio, the motto and
+the author's contact links are in `src/data/author.js`; the path from Ghazipur
+to Noida is `JOURNEY` in `src/data/profile.js`. Nothing in `components/` or
+`sections/` needs to change to update copy.
 
 ## Images
 
@@ -91,8 +90,6 @@ To swap the photo, replace these files keeping the same names and dimensions.
   after a tap; `:active` gives press feedback instead.
 - Tap targets are ≥42px under `@media (pointer: coarse)`; the assistant input
   is pinned to 16px on small screens so iOS doesn't zoom on focus.
-- The pinned horizontal synopsis becomes a native snap-scrolling swipe rail
-  below 860px — a long scroll-pin reads as a frozen page on a phone.
 - Grain, heavy shadows and the hero portrait are dropped on small screens and
   under `prefers-reduced-data`.
 - Safe-area insets are respected for notched devices.

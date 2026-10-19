@@ -2,8 +2,9 @@
   Engineer & Author: Vinay Kumar Tiwari (विनय कुमार तिवारी)
   Role: SAP BTP Solution Architect
   Also: Founder, BTP Learning Hub — btplearninghub.com
-  Also: Author, दो कुल्हड़ चाय (Do Kulhad Chai) — a Hindi novel
+  Also: Hindi author — debut novel दो कुल्हड़ चाय (Do Kulhad Chai)
   Contact: vinay.tiwari.sap [at] gmail.com
+  Author contact: author.vinaytiwari1 [at] gmail.com
   From: Ghazipur, Uttar Pradesh, India
   Location: Noida, India
 
@@ -11,4 +12,4 @@
   Language: English / हिन्दी
   Standards: HTML5, CSS3, Schema.org JSON-LD
   Components: React, framer-motion
-  Prerendered: yes — static HTML per route, for crawlers and answer engines
+  Prerendered: yes — static HTML, for crawlers and answer engines

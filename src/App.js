@@ -7,9 +7,7 @@ import useSmoothScroll from "./hooks/useSmoothScroll";
 import Preloader from "./components/site/Preloader";
 import Cursor from "./components/site/Cursor";
 
-import Gate from "./pages/Gate";
-import Technical from "./pages/Technical";
-import Writings from "./pages/Writings";
+import Home from "./pages/Home";
 
 import "./styles/site.css";
 
@@ -76,7 +74,7 @@ export default function App() {
       {loading && (
         <Preloader
           onDone={() => setLoading(false)}
-          word="दो कुल्हड़ चाय"
+          word="विनय कुमार तिवारी"
           sub="Engineer &amp; Author"
         />
       )}
@@ -90,9 +88,8 @@ export default function App() {
           transition={{ duration: 0.4, ease: EASE }}
         >
           <Routes location={location}>
-            <Route path="/" element={<Gate />} />
-            <Route path="/technical" element={<Technical />} />
-            <Route path="/writings" element={<Writings />} />
+            <Route path="/" element={<Home />} />
+            {/* /technical and /writings are retired — everything is on / now */}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </motion.div>

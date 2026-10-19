@@ -1,4 +1,6 @@
-// src/pages/Technical.jsx
+// src/pages/Home.jsx
+// The whole site is this one page: the person first, then the engineering,
+// then the writing, then how to reach him.
 import React, { useEffect } from "react";
 
 import Nav from "../components/site/Nav";
@@ -8,14 +10,16 @@ import Seo from "../components/seo/Seo";
 import Marquee from "../components/site/Marquee";
 import Assistant from "../components/site/Assistant";
 
-import Hero from "../sections/tech/Hero";
-import About from "../sections/tech/About";
-import Stack from "../sections/tech/Stack";
-import Experience from "../sections/tech/Experience";
-import Projects from "../sections/tech/Projects";
-import Hub from "../sections/tech/Hub";
-import Credentials from "../sections/tech/Credentials";
-import Contact from "../sections/tech/Contact";
+import Hero from "../sections/Hero";
+import About from "../sections/About";
+import Journey from "../sections/Journey";
+import Stack from "../sections/Stack";
+import Experience from "../sections/Experience";
+import Projects from "../sections/Projects";
+import Hub from "../sections/Hub";
+import Writer from "../sections/Writer";
+import Credentials from "../sections/Credentials";
+import Contact from "../sections/Contact";
 
 import { PROFILE } from "../data/profile";
 
@@ -27,9 +31,9 @@ const LINKS = [
   { id: "work", label: "Experience" },
   { id: "projects", label: "Projects" },
   { id: "hub", label: "Learning Hub" },
+  { id: "writer", label: "Writing" },
   { id: "credentials", label: "Credentials" },
   { id: "assistant", label: "Ask AI" },
-  { id: "contact", label: "Contact" },
 ];
 
 const TICKER = [
@@ -37,15 +41,14 @@ const TICKER = [
   { text: "CAPM" },
   { text: "Fiori / UI5" },
   { text: "HANA Cloud" },
-  { text: "Event Mesh" },
-  { text: "Integration Suite" },
-  { text: "Node.js" },
-  { text: "Agentic AI", hl: true },
   { text: "Clean Core" },
+  { text: "Agentic AI", hl: true },
   { text: "BTP Learning Hub", hl: true },
+  { text: "ग़ाज़ीपुर → नोएडा" },
+  { text: "हिन्दी लेखक", hl: true },
 ];
 
-export default function Technical() {
+export default function Home() {
   useEffect(() => {
     document
       .querySelector('meta[name="theme-color"]')
@@ -54,11 +57,11 @@ export default function Technical() {
 
   return (
     <div data-theme="tech">
-      <Seo page="technical" />
+      <Seo page="home" />
       <Nav
         links={LINKS}
-        kicker="Technical portfolio"
-        switchTo={{ href: "/writings", label: "Writings" }}
+        kicker="Engineer & Author"
+        cta={{ id: "contact", label: "Contact" }}
         contact={{ email: PROFILE.email, phone: PROFILE.phone }}
       />
 
@@ -66,16 +69,18 @@ export default function Technical() {
         <Hero />
         <Marquee items={TICKER} baseVelocity={22} />
         <About />
+        <Journey />
         <Stack />
         <Experience />
         <Projects />
         <Hub />
+        <Writer />
         <Credentials />
         <Assistant />
         <Contact />
       </main>
 
-      <Footer switchTo={{ href: "/writings", label: "Writings" }} />
+      <Footer />
       <ScrollTop />
     </div>
   );

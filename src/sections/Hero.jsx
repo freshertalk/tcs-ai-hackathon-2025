@@ -1,4 +1,4 @@
-// src/sections/tech/Hero.jsx
+// src/sections/Hero.jsx
 // Two real grid columns — copy on the left, portrait on the right — so no
 // text ever ends up sitting on top of the photograph.
 
@@ -11,10 +11,11 @@ import {
   Magnetic,
   Arrow,
   Reveal,
-} from "../../components/ui/motion";
-import Picture from "../../components/ui/Picture";
-import { scrollToId } from "../../hooks/useSmoothScroll";
-import { PROFILE, YEARS } from "../../data/profile";
+} from "../components/ui/motion";
+import Picture from "../components/ui/Picture";
+import { scrollToId } from "../hooks/useSmoothScroll";
+import { PROFILE, YEARS } from "../data/profile";
+import { AUTHOR } from "../data/author";
 
 const STATS = [
   { to: YEARS, suffix: "+", label: "Years shipping enterprise software" },
@@ -56,14 +57,13 @@ export default function Hero() {
               </Reveal>
             </div>
 
-            {/* On phones the portrait sits beside the title, so "Architect"
-                drops to its own line to make room. */}
+            {/* On phones the portrait sits beside the name instead of in its
+                own column. */}
             <div className="thero__row">
               <h1 className="hero__title">
-                <MaskLine delay={0.06}>SAP BTP</MaskLine>
+                <MaskLine delay={0.06}>Vinay Kumar</MaskLine>
                 <MaskLine delay={0.15}>
-                  Solution{" "}
-                  <span className="amp thero__word">Architect</span>
+                  <span className="amp thero__word">Tiwari</span>
                 </MaskLine>
               </h1>
 
@@ -77,7 +77,7 @@ export default function Hero() {
                   name="vinay-portrait"
                   smallName="vinay-portrait-sm"
                   sizes="180px"
-                  alt="Vinay Kumar Tiwari, SAP BTP Solution Architect"
+                  alt="Vinay Kumar Tiwari — SAP BTP Solution Architect and Hindi author"
                   width="1000"
                   height="1250"
                   loading="eager"
@@ -85,13 +85,29 @@ export default function Hero() {
               </motion.div>
             </div>
 
+            <Reveal y={14} delay={0.24}>
+              <p className="hero__role">
+                <span>SAP BTP Solution Architect</span>
+                <i aria-hidden="true" />
+                <span>Hindi author</span>
+                <i aria-hidden="true" />
+                <span>Founder, BTP Learning Hub</span>
+              </p>
+            </Reveal>
+
             <p className="hero__blurb">
               <SplitWords
-                text="Cloud-native SAP applications for manufacturing, healthcare, aerospace, finance and supply chain — designed on Clean Core, delivered with AI in the loop."
-                stagger={0.026}
+                text="Raised in Ghazipur, working from Noida. By day I architect cloud-native SAP systems where every mistake is caught; by night I write Hindi fiction about the ones where nothing can be put right."
+                stagger={0.022}
                 delay={0.3}
               />
             </p>
+
+            <Reveal y={14} delay={0.36}>
+              <p className="hero__motto" lang="hi">
+                {AUTHOR.motto}
+              </p>
+            </Reveal>
 
             <div className="hero__stats">
               {STATS.map((s, i) => (
@@ -110,18 +126,6 @@ export default function Hero() {
               <Magnetic>
                 <a
                   className="btn btn--solid btn--lg"
-                  href="https://btplearninghub.com"
-                  target="_blank"
-                  rel="noreferrer"
-                  data-cursor="Open"
-                >
-                  Visit BTP Learning Hub
-                  <Arrow />
-                </a>
-              </Magnetic>
-              <Magnetic>
-                <a
-                  className="btn btn--lg"
                   href="#work"
                   onClick={(e) => {
                     e.preventDefault();
@@ -129,6 +133,19 @@ export default function Hero() {
                   }}
                 >
                   See the work
+                  <Arrow />
+                </a>
+              </Magnetic>
+              <Magnetic>
+                <a
+                  className="btn btn--lg"
+                  href="#writer"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    scrollToId("writer", 62);
+                  }}
+                >
+                  The writer
                 </a>
               </Magnetic>
               <Magnetic>
@@ -155,14 +172,14 @@ export default function Hero() {
               name="vinay-portrait"
               smallName="vinay-portrait-sm"
               sizes="(max-width: 1100px) 0px, 400px"
-              alt="Vinay Kumar Tiwari, SAP BTP Solution Architect"
+              alt="Vinay Kumar Tiwari — SAP BTP Solution Architect and Hindi author"
               width="1000"
               height="1250"
               loading="eager"
               fetchPriority="high"
             />
             <span className="hero__portraitTag">
-              {PROFILE.location.split("|")[0].trim()}
+              Ghazipur → Noida
             </span>
           </motion.div>
         </div>

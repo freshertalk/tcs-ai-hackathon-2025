@@ -1,5 +1,5 @@
 // src/components/site/Kulhad.jsx
-// The clay cup + rising steam. Used in the preloader, hero and book cover.
+// The clay cup + rising steam. Used in the preloader and the writer section.
 
 import React from "react";
 import { motion } from "framer-motion";

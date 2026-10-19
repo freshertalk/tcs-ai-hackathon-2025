@@ -1,9 +1,9 @@
-// src/sections/tech/Credentials.jsx
+// src/sections/Credentials.jsx
 import React from "react";
-import { Reveal, MaskLine } from "../../components/ui/motion";
-import { CERTS } from "../../data/certs";
-import { AWARDS } from "../../data/awards";
-import { EDUCATION } from "../../data/profile";
+import { Reveal, MaskLine } from "../components/ui/motion";
+import { CERTS } from "../data/certs";
+import { AWARDS } from "../data/awards";
+import { EDUCATION } from "../data/profile";
 
 export default function Credentials() {
   return (

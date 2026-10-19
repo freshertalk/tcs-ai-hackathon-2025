@@ -8,8 +8,8 @@ import { EASE } from "../ui/motion";
 
 export default function Preloader({
   onDone,
-  word = "दो कुल्हड़ चाय",
-  sub = "Vinay Kumar Tiwari",
+  word = "विनय कुमार तिवारी",
+  sub = "Engineer & Author",
   mark = true,
 }) {
   const [count, setCount] = useState(0);
