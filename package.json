@@ -36,6 +36,7 @@
     "eject": "react-scripts eject"
   },
   "devDependencies": {
+    "eslint-plugin-jest": "^29.17.0",
     "sucrase": "^3.35.0"
   },
   "eslintConfig": {
