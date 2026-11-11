@@ -112,7 +112,7 @@ function PublicSite() {
 export default function App() {
   const { pathname } = useLocation();
 
-  // /vinay-personal-tasks/* is a different application: none of the public
+  // /me/* is a different application: none of the public
   // site's motion, preloader or analytics runs there.
   if (isAdminPath(pathname)) {
     return (

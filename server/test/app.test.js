@@ -37,7 +37,7 @@ function fakeGoogle(overrides = {}) {
 async function boot(opts = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "vpt-"));
   const env = { SETUP_TOKEN: "setup-token-123", ...(opts.env || {}) };
-  const made = createApp({ dataDir: dir, buildDir: path.join(dir, "no-build"), env, google: opts.google || fakeGoogle() });
+  const made = createApp({ dataDir: dir, buildDir: opts.buildDir || path.join(dir, "no-build"), env, google: opts.google || fakeGoogle() });
   const server = await new Promise((res) => {
     const s = made.app.listen(0, "127.0.0.1", () => res(s));
   });
@@ -179,7 +179,7 @@ test("only the superadmin and listed admins can sign in", async (t) => {
   assert.equal(stranger.session, "", "no session cookie for a stranger");
 
   const boss = await s.login(SUPERADMIN_EMAIL);
-  assert.equal(boss.cb.headers.location, "/vinay-personal-tasks");
+  assert.equal(boss.cb.headers.location, "/me");
   const me = await s.request("GET", "/api/auth/status", { cookie: boss.session });
   assert.equal(me.json.user.role, "superadmin");
   assert.equal(me.json.user.email, SUPERADMIN_EMAIL);
@@ -328,4 +328,29 @@ test("API and admin pages are marked noindex and uncached", async (t) => {
   assert.equal(r.headers["x-frame-options"], "DENY");
   const miss = await s.request("GET", "/api/nope");
   assert.equal(miss.status, 404);
+});
+
+test("the admin path matches whole segments only: /me yes, /media and /menu no", async (t) => {
+  const { isAdminPath } = require("../config");
+  for (const p of ["/me", "/me/", "/me/google", "/me/admins"]) assert.equal(isAdminPath(p), true, p);
+  for (const p of ["/", "/media", "/menu", "/me.png", "/meet", "/mee", "/api/me"]) assert.equal(isAdminPath(p), false, p);
+
+  // and the server really serves the bare shell only to the private area
+  const build = fs.mkdtempSync(path.join(os.tmpdir(), "vpt-build-"));
+  fs.writeFileSync(path.join(build, "index.html"), "<html>PUBLIC SITE</html>");
+  fs.writeFileSync(path.join(build, "admin.html"), "<html>ADMIN SHELL</html>");
+  const s = await boot({ buildDir: build });
+  t.after(s.close);
+
+  for (const p of ["/me", "/me/google", "/me/personal-access"]) {
+    const r = await s.request("GET", p);
+    assert.match(r.text, /ADMIN SHELL/, p);
+    assert.match(r.headers["x-robots-tag"], /noindex/, p);
+    assert.equal(r.headers["cache-control"], "no-store", p);
+  }
+  for (const p of ["/", "/media", "/menu", "/something-else"]) {
+    const r = await s.request("GET", p);
+    assert.match(r.text, /PUBLIC SITE/, p);
+    assert.equal(r.headers["x-robots-tag"], undefined, `${p} must stay indexable`);
+  }
 });

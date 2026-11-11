@@ -43,7 +43,7 @@ src/
                               certs · awards · seo   ← edit content here
 ```
 
-## Private admin area — `/vinay-personal-tasks`
+## Private admin area — `/me`
 
 A login-protected control room that is **not linked from the public site**, is served
 `noindex`, and loads none of the public site's code. It needs the small Node server in
@@ -69,7 +69,7 @@ npm start                # site on http://localhost:3000 — /api is proxied to 
 ```
 
 **First-time setup.** On first start the server prints a one-time *setup token*. Open
-`/vinay-personal-tasks`, paste the token with your Google **Client ID** and **Client Secret**
+`/me`, paste the token with your Google **Client ID** and **Client Secret**
 (Google Cloud Console → Credentials → OAuth client → *Web application*; add the redirect URI
 shown on that screen, e.g. `http://localhost:3000/api/auth/google/callback`). After that,
 Client ID / Secret / Google Analytics ID are all changed from the dashboard — no restart.

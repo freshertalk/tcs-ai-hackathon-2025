@@ -99,7 +99,7 @@ export default function AnalyticsSettings() {
               </li>
               <li>
                 <b>This private area</b> — no analytics script is loaded on{" "}
-                <code>/vinay-personal-tasks</code>.
+                <code>/me</code>.
               </li>
               <li>
                 <b>Signed-in admins</b> — when you are signed in and browse the live site, your visits

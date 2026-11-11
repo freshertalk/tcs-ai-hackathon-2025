@@ -11,7 +11,7 @@ const { SUPERADMIN_EMAIL, ADMIN_BASE } = require("./config");
 const PORT = Number(process.env.PORT) || 5000;
 const { app, setupToken } = createApp();
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`\nAPI ready on http://localhost:${PORT}`);
   console.log(`Admin area: ${ADMIN_BASE}   (superadmin: ${SUPERADMIN_EMAIL})`);
   if (setupToken) {
@@ -22,4 +22,20 @@ app.listen(PORT, () => {
         `\n\n     ${setupToken}\n`
     );
   }
+});
+
+server.on("error", (err) => {
+  if (err.code === "EADDRINUSE") {
+    console.error(
+      [
+        "",
+        `Port ${PORT} is already in use — the API server is probably already running.`,
+        "Close that terminal first, or start this one on another port:  PORT=5001 npm run server",
+        "",
+      ].join("\n")
+    );
+  } else {
+    console.error(err);
+  }
+  process.exit(1);
 });

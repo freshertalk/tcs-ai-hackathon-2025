@@ -1,4 +1,5 @@
 import { isLocalEnvironment, loadAnalytics } from "./loadAnalytics";
+import { isAdminPath } from "../admin/paths";
 
 const realLocation = window.location;
 const realEnv = process.env.NODE_ENV;
@@ -53,7 +54,7 @@ test("never loads on a local run, even in a production build", async () => {
 });
 
 test("never loads in the private area", async () => {
-  pretendToBeAt("https://www.vinaytiwari.org/vinay-personal-tasks");
+  pretendToBeAt("https://www.vinaytiwari.org/me");
   mockConfig({ ga: "G-ABCD1234" });
   await loadAnalytics();
   expect(global.fetch).not.toHaveBeenCalled();
@@ -92,4 +93,16 @@ test("loads only once", async () => {
   await loadAnalytics();
   await loadAnalytics();
   expect(document.querySelectorAll("script")).toHaveLength(1);
+});
+
+test("the private area is /me and /me/..., not anything that merely starts with /me", () => {
+  ["/me", "/me/", "/me/google"].forEach((p) => expect(isAdminPath(p)).toBe(true));
+  ["/", "/media", "/menu", "/me.png", "/meet"].forEach((p) => expect(isAdminPath(p)).toBe(false));
+});
+
+test("analytics still loads on a public path that starts with /me", async () => {
+  pretendToBeAt("https://www.vinaytiwari.org/media");
+  mockConfig({ ga: "G-ABCD1234" });
+  await loadAnalytics();
+  expect(document.querySelector('script[src*="googletagmanager.com"]')).not.toBeNull();
 });

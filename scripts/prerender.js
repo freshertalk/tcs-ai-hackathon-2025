@@ -103,7 +103,7 @@ function stripConflicting(template) {
 
 /* ------------------------------------------------------- admin shell */
 // The private area is served from its own bare HTML file. Without it, a visit
-// to /vinay-personal-tasks would flash the public homepage's markup (and wear
+// to /me would flash the public homepage's markup (and wear
 // its title and search-engine tags) before the admin app mounted.
 function writeAdminShell(template) {
   const html = template

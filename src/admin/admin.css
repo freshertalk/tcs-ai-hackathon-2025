@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Private area (/vinay-personal-tasks). Uses the site's colour tokens
+   Private area (/me). Uses the site's colour tokens
    (data-theme="tech") but its own class names, all prefixed adm-.
    Mobile first: one column, 44px touch targets, no horizontal scroll.
    ========================================================================== */
@@ -227,6 +227,9 @@
   font-size: 1.15rem;
   margin-bottom: 10px;
 }
+.adm-center .adm-card {
+  margin-top: 0;
+}
 .adm-card--login {
   width: min(100%, 440px);
   margin: 0;
@@ -249,6 +252,9 @@
 }
 .adm-card--place .adm-lead {
   margin-inline: auto;
+}
+.adm-center .adm-card p + p {
+  margin-top: 14px;
 }
 .adm-card--place p + p {
   margin-top: 14px;

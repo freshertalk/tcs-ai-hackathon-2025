@@ -1,5 +1,5 @@
 "use strict";
-// The API behind /vinay-personal-tasks, plus static hosting of the built site.
+// The API behind /me, plus static hosting of the built site.
 //
 // Roles
 //   superadmin  SUPERADMIN_EMAIL. Everything an admin can do, plus add/remove admins.
@@ -22,6 +22,7 @@ const {
 } = require("./crypto");
 const {
   ADMIN_BASE,
+  isAdminPath,
   SUPERADMIN_EMAIL,
   EMAIL_RE,
   GA_RE,
@@ -182,7 +183,7 @@ function createApp(opts = {}) {
 
   // the private area and the API: never cached, never indexed, never framed
   app.use((req, res, next) => {
-    if (req.path.startsWith(ADMIN_BASE) || req.path.startsWith("/api/")) {
+    if (isAdminPath(req.path) || req.path.startsWith("/api/")) {
       res.set({
         "Cache-Control": "no-store",
         "X-Robots-Tag": "noindex, nofollow, noarchive",
@@ -460,7 +461,7 @@ function createApp(opts = {}) {
     // path is the single-page app, which sends unknown URLs to "/"
     const adminFile = path.join(buildDir, "admin.html");
     app.get("*", (req, res) =>
-      res.sendFile(req.path.startsWith(ADMIN_BASE) && fs.existsSync(adminFile) ? adminFile : indexFile)
+      res.sendFile(isAdminPath(req.path) && fs.existsSync(adminFile) ? adminFile : indexFile)
     );
   } else {
     app.get("/", (req, res) =>

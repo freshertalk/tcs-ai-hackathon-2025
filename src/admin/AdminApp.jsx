@@ -1,5 +1,5 @@
 // src/admin/AdminApp.jsx
-// The private area at /vinay-personal-tasks. A separate application from the
+// The private area at /me. A separate application from the
 // public site: its own bundle, its own styles, no preloader or analytics.
 //
 // Who gets what (the server enforces all of it again — this only decides what
@@ -57,10 +57,20 @@ function Gate({ superOnly = false, children }) {
     return (
       <main className="adm-center">
         <section className="adm-card">
-          <h1>Server not reachable</h1>
+          <h1>Can&rsquo;t reach the API server</h1>
           <p className="adm-lead">
-            The private area needs the API server. Start it with <code>npm run server</code> (and keep{" "}
-            <code>npm start</code> running for development), then reload.
+            The private area talks to a small API server. For development, the easiest way to run
+            everything is <code>npm run dev</code> — it starts the API and the site together.
+          </p>
+          <p className="adm-small">
+            Already running them separately? Check that <code>npm run server</code> is up, and{" "}
+            <b>restart <code>npm start</code></b> if you started it before the proxy was added
+            (it only reads <code>src/setupProxy.js</code> at startup).
+          </p>
+          <p>
+            <button type="button" className="adm-btn adm-btn--solid" onClick={auth.reload}>
+              Try again
+            </button>
           </p>
         </section>
       </main>

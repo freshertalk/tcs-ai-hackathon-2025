@@ -4,7 +4,11 @@
 
 // Where the admin area lives. The front end uses the same string
 // (src/admin/paths.js) — change both together.
-const ADMIN_BASE = "/vinay-personal-tasks";
+const ADMIN_BASE = "/me";
+
+// Whole-segment match: "/me" and "/me/anything" are the private area, but
+// "/media", "/menu" or "/me.png" are not. A bare startsWith("/me") would catch them.
+const isAdminPath = (p) => p === ADMIN_BASE || String(p).startsWith(`${ADMIN_BASE}/`);
 
 // The one account that can always sign in and is the only one allowed to add or
 // remove other admins. It cannot be removed from the admin list because it is
@@ -24,6 +28,7 @@ const CLIENT_SECRET_RE = /^[^\s]{8,200}$/;
 
 module.exports = {
   ADMIN_BASE,
+  isAdminPath,
   SUPERADMIN_EMAIL,
   EMAIL_RE,
   GA_RE,

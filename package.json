@@ -36,7 +36,8 @@
     "eject": "react-scripts eject",
     "server": "node server/index.js",
     "server:install": "npm install --prefix server",
-    "server:test": "npm test --prefix server"
+    "server:test": "npm test --prefix server",
+    "dev": "node scripts/dev.js"
   },
   "devDependencies": {
     "eslint-plugin-jest": "^29.17.0",
