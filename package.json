@@ -33,10 +33,14 @@
     "build": "react-scripts build && npm run prerender",
     "prerender": "node scripts/prerender.js",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "server": "node server/index.js",
+    "server:install": "npm install --prefix server",
+    "server:test": "npm test --prefix server"
   },
   "devDependencies": {
     "eslint-plugin-jest": "^29.17.0",
+    "http-proxy-middleware": "^2.0.11",
     "sucrase": "^3.35.0"
   },
   "eslintConfig": {

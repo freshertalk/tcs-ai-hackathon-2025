@@ -21,3 +21,7 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# private-area server: its data (settings, encrypted secret, keys) and its modules
+/server/data/
+/server/node_modules/

@@ -19,7 +19,10 @@ npm run build    # production bundle in /build
 
 ```
 src/
-├─ App.js                     routes (just "/") + preloader + smooth scroll
+├─ App.js                     public site ("/") or the private area, never both
+├─ admin/                     the private area: login, dashboard, settings screens
+├─ analytics/                 Google Analytics loader (skips local runs and admins)
+├─ setupProxy.js              dev only: forwards /api to the Node server
 ├─ pages/Home.jsx             the page: sections in order, nav links, ticker
 ├─ styles/site.css            design tokens & all component styles
 ├─ hooks/useSmoothScroll.js   dependency-free inertial scroll (Lenis-style)
@@ -39,6 +42,62 @@ src/
 └─ data/                      profile · author · experience · projects ·
                               certs · awards · seo   ← edit content here
 ```
+
+## Private admin area — `/vinay-personal-tasks`
+
+A login-protected control room that is **not linked from the public site**, is served
+`noindex`, and loads none of the public site's code. It needs the small Node server in
+`server/` (a static-only host cannot run it; the public site still works there).
+
+**Who can do what**
+
+| | Superadmin | Admin |
+| --- | --- | --- |
+| Sign in with Google | `vinaytiwari.iist@gmail.com` (fixed, always allowed) | Anyone the superadmin adds |
+| Google sign-in settings, Analytics ID, dashboard | yes | yes |
+| Add / remove admin users | **yes** | no |
+
+Having a Google account is not enough: only these addresses can sign in, and removing an
+admin ends their session immediately.
+
+**Run it locally (two terminals)**
+
+```bash
+npm run server:install   # once: installs server/ dependencies
+npm run server           # API on http://localhost:5000
+npm start                # site on http://localhost:3000 — /api is proxied to :5000
+```
+
+**First-time setup.** On first start the server prints a one-time *setup token*. Open
+`/vinay-personal-tasks`, paste the token with your Google **Client ID** and **Client Secret**
+(Google Cloud Console → Credentials → OAuth client → *Web application*; add the redirect URI
+shown on that screen, e.g. `http://localhost:3000/api/auth/google/callback`). After that,
+Client ID / Secret / Google Analytics ID are all changed from the dashboard — no restart.
+
+**Production.** `npm run build`, then run `node server/index.js` behind HTTPS. One process
+serves the API and the built site. Register `https://<your-domain>/api/auth/google/callback`
+as a redirect URI too.
+
+| Environment variable | Purpose |
+| --- | --- |
+| `PORT` | Server port (default 5000) |
+| `PUBLIC_ORIGIN` | e.g. `https://vinaytiwari.org` — pins the redirect URI instead of reading the `Host` header |
+| `TRUST_PROXY` | `true` when behind a reverse proxy, so HTTPS and client IPs are read correctly |
+| `SUPERADMIN_EMAIL` | Override the superadmin address |
+| `SETUP_TOKEN` | Fix the first-run token instead of a random one |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Optional bootstrap; values saved in the dashboard take priority |
+| `SETTINGS_KEY`, `SESSION_SECRET` | Optional 32-byte keys (hex/base64); otherwise generated into `server/data/` |
+
+**Data.** Everything lives in `server/data/` (git-ignored): `db.json` (settings, admin list;
+the Client Secret is stored AES-256-GCM encrypted), plus the two key files. Back that folder
+up; losing `settings.key` means re-entering the Client Secret.
+
+**Analytics.** The GA4 ID is set in the dashboard and fetched at runtime. It is never loaded
+on a local run (`localhost`, `127.0.0.1`, LAN addresses, `npm start`), in the admin area, or
+for a signed-in admin browsing the live site.
+
+**Tests.** `npm run server:test` (API, roles, sessions, secret handling) and
+`CI=true npm test -- --watchAll=false` (analytics loader).
 
 ## SEO and link previews
 

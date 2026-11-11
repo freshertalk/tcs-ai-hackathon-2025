@@ -1,5 +1,5 @@
 // src/App.js
-import React, { useEffect, useLayoutEffect, useState } from "react";
+import React, { lazy, Suspense, useEffect, useLayoutEffect, useState } from "react";
 import { Routes, Route, useLocation, Navigate } from "react-router-dom";
 import { MotionConfig, AnimatePresence, motion } from "framer-motion";
 
@@ -8,8 +8,14 @@ import Preloader from "./components/site/Preloader";
 import Cursor from "./components/site/Cursor";
 
 import Home from "./pages/Home";
+import { isAdminPath } from "./admin/paths";
+import { loadAnalytics } from "./analytics/loadAnalytics";
 
 import "./styles/site.css";
+
+// The private area is its own bundle: visitors to the public site never
+// download it.
+const AdminApp = lazy(() => import("./admin/AdminApp"));
 
 const EASE = [0.16, 1, 0.3, 1];
 
@@ -48,11 +54,16 @@ function ScrollTop() {
   return null;
 }
 
-export default function App() {
+/** The public site: preloader, cursor, smooth scroll, one page. */
+function PublicSite() {
   const [loading, setLoading] = useState(true);
   const location = useLocation();
 
   useSmoothScroll(!loading);
+
+  useEffect(() => {
+    loadAnalytics();
+  }, []);
 
   useEffect(() => {
     if (loading) {
@@ -96,4 +107,19 @@ export default function App() {
       </AnimatePresence>
     </MotionConfig>
   );
+}
+
+export default function App() {
+  const { pathname } = useLocation();
+
+  // /vinay-personal-tasks/* is a different application: none of the public
+  // site's motion, preloader or analytics runs there.
+  if (isAdminPath(pathname)) {
+    return (
+      <Suspense fallback={null}>
+        <AdminApp />
+      </Suspense>
+    );
+  }
+  return <PublicSite />;
 }

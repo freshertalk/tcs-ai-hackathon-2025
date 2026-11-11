@@ -101,6 +101,23 @@ function stripConflicting(template) {
     .replace(/<script type="application\/ld\+json">[\s\S]*?<\/script>\s*/gi, "");
 }
 
+/* ------------------------------------------------------- admin shell */
+// The private area is served from its own bare HTML file. Without it, a visit
+// to /vinay-personal-tasks would flash the public homepage's markup (and wear
+// its title and search-engine tags) before the admin app mounted.
+function writeAdminShell(template) {
+  const html = template
+    .replace(
+      "</head>",
+      `  <title>Control room</title>
+    <meta name="robots" content="noindex, nofollow, noarchive" />
+  </head>`
+    )
+    .replace(/<noscript>[\s\S]*?<\/noscript>/i, "<noscript>This private area needs JavaScript.</noscript>");
+  fs.writeFileSync(path.join(BUILD, "admin.html"), html, "utf8");
+  console.log("[prerender] admin.html → bare shell for the private area");
+}
+
 /* ------------------------------------------------------------- sitemap */
 // lastmod is the date of the last commit that touched the site itself — not
 // the build date — so it only moves when the content does. Search engines
@@ -212,6 +229,7 @@ function main() {
   }
   console.log(`[prerender] ${ok}/${ROUTES.length} routes written as static HTML`);
   writeSitemap(ROUTES);
+  writeAdminShell(template);
 }
 
 try {
