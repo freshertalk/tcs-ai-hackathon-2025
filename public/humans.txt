@@ -1,7 +1,6 @@
 /* TEAM */
   Engineer & Author: Vinay Kumar Tiwari (विनय कुमार तिवारी)
   Role: SAP BTP Solution Architect
-  Also: Founder, BTP Learning Hub — btplearninghub.com
   Also: Hindi author — debut novel दो कुल्हड़ चाय (Do Kulhad Chai)
   Contact: vinay.tiwari.sap [at] gmail.com
   Author contact: author.vinaytiwari1 [at] gmail.com

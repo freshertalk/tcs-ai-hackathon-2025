@@ -27,7 +27,7 @@ src/
 │  ├─ Hero.jsx                name, role line, stats, portrait
 │  ├─ About.jsx               the person; by day / by night
 │  ├─ Journey.jsx             the path from Ghazipur to Noida
-│  ├─ Stack.jsx · Experience.jsx · Projects.jsx · Hub.jsx
+│  ├─ Stack.jsx · Experience.jsx · Projects.jsx
 │  ├─ Writer.jsx              "एक लेखक के रूप में विनय" — the Hindi bio (warm band)
 │  ├─ Credentials.jsx · Faq.jsx · Contact.jsx
 ├─ components/
@@ -37,7 +37,7 @@ src/
 │  └─ site/                   Nav · Footer · Preloader · Cursor · Marquee ·
 │                             Assistant (in-browser retrieval) · Kulhad · …
 └─ data/                      profile · author · experience · projects ·
-                              certs · awards · hub · seo   ← edit content here
+                              certs · awards · seo   ← edit content here
 ```
 
 ## SEO and link previews

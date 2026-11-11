@@ -8,14 +8,6 @@ const PROJECTS = [
     tags: ["SAP BTP", "CAPM", "Fiori/UI5", "Event Mesh", "Integration Suite"],
   },
   {
-    year: 2026,
-    name: "BTP Learning Hub",
-    badge: "Personal initiative",
-    desc: "A MERN-stack platform publishing SAP BTP, CAPM and AI-assisted development learning content",
-    tags: ["React", "Node.js", "Express", "MongoDB"],
-    href: "https://btplearninghub.com",
-  },
-  {
     year: 2024,
     name: "Global MedTech transformation platform",
     badge: "Healthcare",

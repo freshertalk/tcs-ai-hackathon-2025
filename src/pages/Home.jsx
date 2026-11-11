@@ -16,7 +16,6 @@ import Journey from "../sections/Journey";
 import Stack from "../sections/Stack";
 import Experience from "../sections/Experience";
 import Projects from "../sections/Projects";
-import Hub from "../sections/Hub";
 import Writer from "../sections/Writer";
 import Credentials from "../sections/Credentials";
 import Faq from "../sections/Faq";
@@ -31,7 +30,6 @@ const LINKS = [
   { id: "stack", label: "Stack" },
   { id: "work", label: "Experience" },
   { id: "projects", label: "Projects" },
-  { id: "hub", label: "Learning Hub" },
   { id: "writer", label: "Writing" },
   { id: "credentials", label: "Credentials" },
   { id: "assistant", label: "Ask AI" },
@@ -44,7 +42,6 @@ const TICKER = [
   { text: "HANA Cloud" },
   { text: "Clean Core" },
   { text: "Agentic AI", hl: true },
-  { text: "BTP Learning Hub", hl: true },
   { text: "ग़ाज़ीपुर → नोएडा" },
   { text: "हिन्दी लेखक", hl: true },
 ];
@@ -77,7 +74,6 @@ export default function Home() {
         <Stack />
         <Experience />
         <Projects />
-        <Hub />
         <Writer />
         <Credentials />
         <Faq />

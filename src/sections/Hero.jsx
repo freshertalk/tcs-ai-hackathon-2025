@@ -90,8 +90,6 @@ export default function Hero() {
                 <span>SAP BTP Solution Architect</span>
                 <i aria-hidden="true" />
                 <span>Hindi author</span>
-                <i aria-hidden="true" />
-                <span>Founder, BTP Learning Hub</span>
               </p>
             </Reveal>
 

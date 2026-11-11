@@ -25,7 +25,6 @@ const PROFILE = {
   email: "vinay.tiwari.sap@gmail.com",
   linkedin: "https://www.linkedin.com/in/vinay-tiwari-sap",
   website: "https://vinaytiwari.org",
-  learningHub: "https://btplearninghub.com",
   instagram: "https://www.instagram.com/_vinaytiwari/",
   authorEmail: "author.vinaytiwari1@gmail.com",
   summary:
@@ -144,7 +143,7 @@ const JOURNEY = [
   {
     when: "2026 — now",
     place: "IBM India · Noida",
-    what: "Solution architecture across nine SAP initiatives, plus BTP Learning Hub and the writing.",
+    what: "Solution architecture across nine SAP initiatives, plus the writing.",
   },
 ];
 

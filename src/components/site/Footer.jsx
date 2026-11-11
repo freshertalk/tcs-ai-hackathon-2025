@@ -23,14 +23,6 @@ export default function Footer({ note }) {
           </a>
           <a
             className="tlink"
-            href="https://btplearninghub.com"
-            target="_blank"
-            rel="noreferrer"
-          >
-            btplearninghub.com
-          </a>
-          <a
-            className="tlink"
             href={PROFILE.linkedin}
             target="_blank"
             rel="noreferrer"

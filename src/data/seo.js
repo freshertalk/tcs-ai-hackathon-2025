@@ -49,7 +49,6 @@ export const NAME_VARIANTS = [
   "Vinay Tiwari SAP",
   "SAP Vinay Tiwari",
   "Vinay Tiwari SAP BTP",
-  "Vinay Tiwari BTP Learning Hub",
   "Vinay Tiwari author",
   "Vinay Tiwari Hindi author",
 ];
@@ -98,8 +97,6 @@ const TECH_TERMS = [
   "SAP certified Fiori application developer",
   "C_FIORDEV_21",
   "C_CPE_12",
-  "BTP Learning Hub",
-  "SAP BTP tutorials",
   "SAP consultant Noida",
   "IBM SAP consultant",
 ];
@@ -111,10 +108,10 @@ export const PAGES = {
   home: {
     path: "/",
     title: "Vinay Kumar Tiwari — SAP BTP Solution Architect & Hindi Author",
-    description: `SAP BTP Solution Architect (${YEARS}+ years), BTP Learning Hub founder and Hindi author. I build systems where nothing slips — and write about people who did.`,
+    description: `SAP BTP Solution Architect (${YEARS}+ years) and Hindi author. I build systems where nothing slips — and write about people who did.`,
     keywords: [...NAME_VARIANTS, ...TECH_TERMS, ...WRITER_TERMS],
     lang: "en",
-    summary: `Vinay Kumar Tiwari — also written Vinay Tiwari, Tiwari Vinay, or विनय कुमार तिवारी — is an SAP BTP Solution Architect and Hindi author. He grew up in Ghazipur, Uttar Pradesh, and lives in Noida, India. He has ${YEARS}+ years of enterprise delivery experience across IBM, TCS, Cognizant, Mindtree and Wipro, currently as Package Consultant — SAP BTP at IBM India. He specialises in SAP Business Technology Platform: CAP (CAPM), SAP Fiori and SAPUI5, SAP HANA Cloud, Integration Suite, Event Mesh, Cloud Foundry and Clean Core extensibility for S/4HANA, with AI-assisted engineering. He holds SAP Certified Development Associate credentials for SAP Fiori Application Developer (C_FIORDEV_21) and SAP Extension Suite (C_CPE_12), and founded BTP Learning Hub, a free SAP BTP tutorial site. By night he writes Hindi fiction; his debut novel is दो कुल्हड़ चाय (Do Kulhad Chai).`,
+    summary: `Vinay Kumar Tiwari — also written Vinay Tiwari, Tiwari Vinay, or विनय कुमार तिवारी — is an SAP BTP Solution Architect and Hindi author. He grew up in Ghazipur, Uttar Pradesh, and lives in Noida, India. He has ${YEARS}+ years of enterprise delivery experience across IBM, TCS, Cognizant, Mindtree and Wipro, currently as Package Consultant — SAP BTP at IBM India. He specialises in SAP Business Technology Platform: CAP (CAPM), SAP Fiori and SAPUI5, SAP HANA Cloud, Integration Suite, Event Mesh, Cloud Foundry and Clean Core extensibility for S/4HANA, with AI-assisted engineering. He holds SAP Certified Development Associate credentials for SAP Fiori Application Developer (C_FIORDEV_21) and SAP Extension Suite (C_CPE_12). By night he writes Hindi fiction; his debut novel is दो कुल्हड़ चाय (Do Kulhad Chai).`,
   },
 };
 
@@ -196,7 +193,6 @@ export const personLd = () => ({
   sameAs: [
     PROFILE.linkedin,
     PROFILE.instagram,
-    "https://btplearninghub.com",
     SITE.origin,
   ].filter(Boolean),
 });
@@ -212,22 +208,11 @@ export const websiteLd = () => ({
   about: { "@id": `${SITE.origin}/#person` },
 });
 
-export const hubLd = () => ({
-  "@type": "WebSite",
-  "@id": "https://btplearninghub.com/#website",
-  url: "https://btplearninghub.com",
-  name: "BTP Learning Hub",
-  description:
-    "Free SAP BTP tutorials and architecture walkthroughs — CAP, Fiori/UI5, HANA Cloud, Integration Suite and AI-assisted engineering.",
-  inLanguage: "en",
-  author: { "@id": `${SITE.origin}/#person` },
-});
-
 /* Answer-engine fuel: short, direct Q&A in the exact shape people ask. */
 export const FAQ = [
   {
     q: "Who is Vinay Kumar Tiwari?",
-    a: `Vinay Kumar Tiwari (also written Vinay Tiwari, विनय कुमार तिवारी) is an SAP BTP Solution Architect and Hindi author. He grew up in Ghazipur, Uttar Pradesh, lives in Noida, and has ${YEARS}+ years of enterprise delivery across IBM, TCS, Cognizant, Mindtree and Wipro. He founded BTP Learning Hub and wrote the Hindi novel दो कुल्हड़ चाय (Do Kulhad Chai).`,
+    a: `Vinay Kumar Tiwari (also written Vinay Tiwari, विनय कुमार तिवारी) is an SAP BTP Solution Architect and Hindi author. He grew up in Ghazipur, Uttar Pradesh, lives in Noida, and has ${YEARS}+ years of enterprise delivery across IBM, TCS, Cognizant, Mindtree and Wipro. He wrote the Hindi novel दो कुल्हड़ चाय (Do Kulhad Chai).`,
   },
   {
     q: "What does Vinay Tiwari specialise in?",
@@ -236,10 +221,6 @@ export const FAQ = [
   {
     q: "Which SAP certifications does Vinay Kumar Tiwari hold?",
     a: "SAP Certified Development Associate — SAP Fiori Application Developer (C_FIORDEV_21) and SAP Certified Development Associate — SAP Extension Suite (C_CPE_12).",
-  },
-  {
-    q: "What is BTP Learning Hub?",
-    a: "BTP Learning Hub (btplearninghub.com) is Vinay Kumar Tiwari's own technical website — free, ad-free SAP BTP guides covering CAP, Fiori/UI5, HANA Cloud, Integration Suite, AI-assisted engineering and certification prep.",
   },
   {
     q: "Does Vinay Kumar Tiwari write books?",
@@ -291,7 +272,6 @@ export function graphFor(key) {
       mainEntity: { "@id": `${SITE.origin}/#person` },
       primaryImageOfPage: `${SITE.origin}${SITE.ogImage}`,
     },
-    hubLd(),
     faqLd(),
     breadcrumbLd([{ name: "Home", path: "/" }]),
   ];

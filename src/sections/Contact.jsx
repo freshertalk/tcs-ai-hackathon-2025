@@ -62,21 +62,13 @@ export default function Contact() {
               </a>
             </div>
           </Reveal>
-          <Reveal y={18} delay={0.12}>
-            <div className="ct__k">Learning Hub</div>
-            <div className="ct__v">
-              <a href={PROFILE.learningHub} target="_blank" rel="noreferrer">
-                btplearninghub.com
-              </a>
-            </div>
-          </Reveal>
-          <Reveal y={18} delay={0.18} className="ct__wide">
+          <Reveal y={18} delay={0.12} className="ct__wide">
             <div className="ct__k">Author enquiries</div>
             <div className="ct__v">
               <a href={`mailto:${AUTHOR.connect.email}`}>{AUTHOR.connect.email}</a>
             </div>
           </Reveal>
-          <Reveal y={18} delay={0.24}>
+          <Reveal y={18} delay={0.18}>
             <div className="ct__k">Instagram</div>
             <div className="ct__v">
               <a href={AUTHOR.connect.instagram} target="_blank" rel="noreferrer">
@@ -84,7 +76,7 @@ export default function Contact() {
               </a>
             </div>
           </Reveal>
-          <Reveal y={18} delay={0.3}>
+          <Reveal y={18} delay={0.24}>
             <div className="ct__k">Based in</div>
             <div className="ct__v">{PROFILE.location}</div>
           </Reveal>

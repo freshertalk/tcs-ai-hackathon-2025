@@ -7,12 +7,11 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { PROFILE, SKILLS, EDUCATION, YEARS } from "../../data/profile";
-import { EXPERIENCE, INITIATIVE } from "../../data/experience";
+import { EXPERIENCE } from "../../data/experience";
 import { PROJECTS } from "../../data/projects";
 import { CERTS } from "../../data/certs";
 import { AWARDS } from "../../data/awards";
 import { AUTHOR } from "../../data/author";
-import { HUB } from "../../data/hub";
 import { Reveal, MaskLine, EASE } from "../ui/motion";
 
 /* ---------------------------------------------------------------- data */
@@ -36,16 +35,6 @@ const KB = [
   {
     k: ["project", "built", "portfolio", "delivered", "shipped", "medtech", "clients", "amount of work"],
     a: `Selected work: ${PROJECTS.slice(0, 5).map((p) => `${p.name} (${p.year}, ${p.badge})`).join("; ")} — plus earlier Java and microservices builds in telecom, IoT, infrastructure and cybersecurity.`,
-  },
-  {
-    k: ["learning hub", "btp learning", "blog", "teach", "community", "side project", "initiative", "website", "own site", "tutorial", "course"],
-    a: `${HUB.name} (${HUB.urlLabel}) — my own technical website. ${HUB.tagline} ${HUB.intro} Six learning tracks: ${HUB.tracks
-      .map((t) => t.t)
-      .join(", ")}. Built solo on ${HUB.stack.join(", ")} — ${INITIATIVE.role}, ${INITIATIVE.period}. Free to read, no sign-up: ${HUB.url}`,
-  },
-  {
-    k: ["what can i learn", "tracks", "topics", "syllabus", "curriculum", "capm tutorial", "cap tutorial"],
-    a: HUB.tracks.map((t) => `${t.n} ${t.t} — ${t.d}`).join(" "),
   },
   {
     k: ["cert", "certification", "certified", "sap certified", "credential"],
@@ -87,11 +76,10 @@ const SUGGESTIONS = [
   "Tell me about your writing",
   "Summarise your SAP experience",
   "Which certifications do you hold?",
-  "What is BTP Learning Hub?",
   "How do I reach you?",
 ];
 
-const FALLBACK = `I answer from this portfolio's own data — try asking about the person, the writing, the SAP/BTP stack, project history, BTP Learning Hub, certifications, or how to get in touch.`;
+const FALLBACK = `I answer from this portfolio's own data — try asking about the person, the writing, the SAP/BTP stack, project history, certifications, or how to get in touch.`;
 
 /* -------------------------------------------------------------- retrieval
    Plain substring matching was wrong in two ways:

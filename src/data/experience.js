@@ -186,18 +186,5 @@ const EXPERIENCE = [
   },
 ];
 
-const INITIATIVE = {
-  name: "BTP Learning Hub",
-  role: "Founder & Developer",
-  period: "Feb 2026 — Present",
-  url: "https://btplearninghub.com",
-  points: [
-    "A knowledge-sharing platform on SAP BTP, CAPM, Fiori/UI5, AI-assisted development and enterprise architecture",
-    "Built end-to-end on the MERN stack — React, Node.js, Express and MongoDB",
-    "Publishing blogs, tutorials and training content for the SAP developer community",
-  ],
-  tags: ["React", "Node.js", "Express", "MongoDB"],
-};
-
-export { EXPERIENCE, INITIATIVE };
+export { EXPERIENCE };
 export default EXPERIENCE;
