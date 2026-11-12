@@ -27,6 +27,7 @@ const demo = require("./demo");
 const { buildVerdict } = require("./verdict");
 const { buildTape, fastRead, barStart } = require("./intraday");
 const { FlowEngine } = require("./flow");
+const { replayDayAsync, combine, DEFAULT_COST_PCT } = require("./replay");
 const { KiteTicker } = require("./ticker");
 const { Universe } = require("./universe");
 const { buildContext: buildMarketContext, contextKeys } = require("./context");
@@ -109,6 +110,7 @@ class MarketService {
     this.flow = new FlowEngine();
     this._focus = new Map(); // token → how many pages have it in focus
     this._minAt = new Map(); // symbol → { at, day, bars, today }: 1-minute bars
+    this._replayAt = new Map(); // symbol|cost → { at, out }: the day replayed
     if (this.ticker) {
       this.ticker.on("tick", (t) => {
         if (this._focus.has(t.token)) this.flow.update(t.token, t, t.at);
@@ -680,6 +682,94 @@ class MarketService {
     tape.step = step;
     tape.forming = isToday && this._forming(bars, step);
     return { available: true, at: new Date(this.now()).toISOString(), step, tape, fast: step === 1 ? fastRead(bars, { last: live ? live.last : null }) : null };
+  }
+
+  /* ------------------------------------------------------------- day replay */
+
+  /**
+   * The latest session replayed through the live call, for one symbol (see replay.js):
+   * every call it would have made at a 5-minute close, and how each one ended.
+   */
+  async replay(symbol, { costPct } = {}) {
+    if (!SYMBOL_RE.test(symbol)) throw new MarketError("That is not a valid symbol.", "invalid");
+    if (this.mode() !== "kite") return { available: false, symbol, reason: "The replay needs intraday bars, which come with the Zerodha connection." };
+    const asked = Number(costPct);
+    const cost = costPct !== undefined && costPct !== null && costPct !== "" && Number.isFinite(asked) ? Math.max(0, Math.min(1, asked)) : DEFAULT_COST_PCT;
+    const now = this.now();
+    const key = `${symbol}|${cost}`;
+    const hit = this._replayAt.get(key);
+    // a minute while the day is still being written; ten once it is final
+    if (hit && hit.day === istDate(now) && now - hit.at < (isMarketHours(now) ? 60000 : 600000)) return hit.out;
+
+    const rec = await this._recentBars(symbol);
+    const dateOf = (b) => String(b.t).slice(0, 10);
+    let bars = rec.today;
+    let prior = rec.prior;
+    if (!bars.length) {
+      // before today's first trade: the last session there is
+      const lastDate = prior.length ? dateOf(prior[prior.length - 1]) : "";
+      bars = prior.filter((b) => dateOf(b) === lastDate);
+      prior = prior.filter((b) => dateOf(b) < lastDate);
+    }
+    if (!bars.length) return { available: false, symbol, reason: "Zerodha returned no 5-minute bars for this symbol." };
+    const date = dateOf(bars[0]);
+    const isToday = date === istDate(now);
+
+    // the daily picture as it stood BEFORE that session: nothing the day itself decided is used
+    const d = await this.daily(symbol);
+    const before = d.candles.filter((c) => c.t < date);
+    const index = symbol === INDEX_SYMBOL ? null : await this.index();
+    const analysis = analyze(before, { index: index ? { ...index, candles: index.candles.filter((c) => c.t < date) } : null, inProgress: false, chartBars: 1 });
+    // the price band is only known for today, from the quote
+    let circuit = null;
+    if (isToday) {
+      try {
+        const q = (await this.quotes([symbol])).quotes[symbol];
+        if (q && isNum(q.upperCircuit) && isNum(q.lowerCircuit)) circuit = { upper: q.upperCircuit, lower: q.lowerCircuit };
+      } catch (_) {
+        circuit = null;
+      }
+    }
+    const out = { symbol, source: d.source, stale: d.stale, today: isToday, ...(await replayDayAsync({ analysis, candles: before, bars, prior, circuit, costPct: cost })) };
+    if (this._replayAt.size > 80) this._replayAt.clear();
+    this._replayAt.set(key, { at: now, day: istDate(now), out });
+    return out;
+  }
+
+  /** The watchlist's day in one table: each stock replayed, and every call as one running total. */
+  async scorecard({ costPct } = {}) {
+    if (this.mode() !== "kite") return { available: false, reason: "The day's scorecard replays intraday bars, which come with the Zerodha connection." };
+    const all = this.watchlist();
+    const symbols = all.slice(0, 15);
+    if (symbols.length === 0) return { available: false, reason: "The watchlist is empty. Add the stocks you follow and their day is replayed here." };
+    const rows = [];
+    for (const s of symbols) {
+      try {
+        rows.push(await this.replay(s, { costPct }));
+      } catch (err) {
+        // one stock that cannot be replayed does not sink the rest
+        rows.push({ symbol: s, available: false, reason: err instanceof KiteError ? `Zerodha said: ${err.message}` : err.message });
+      }
+    }
+    const ok = rows.filter((r) => r.available);
+    if (ok.length === 0) return { available: false, reason: rows[0].reason || "None of the watchlist could be replayed.", rows };
+    // the session most of the list traded in (a stock that did not trade today shows an older one, and is left out of the totals)
+    const date = ok.map((r) => r.date).sort().pop();
+    const same = rows.map((r) => (r.available && r.date !== date ? { ...r, available: false, reason: `No trades on ${date}; its last session was ${r.date}.` } : r));
+    const { totals, curve } = combine(same);
+    const first = ok.find((r) => r.date === date);
+    return {
+      available: true,
+      at: new Date(this.now()).toISOString(),
+      date,
+      today: date === istDate(this.now()),
+      complete: same.filter((r) => r.available).every((r) => r.day.complete),
+      costPct: first.costPct,
+      rows: same,
+      totals,
+      curve,
+      skipped: all.length - symbols.length, // stocks beyond the first fifteen are not replayed
+    };
   }
 
   /* ---------------------------------------------------------------- screener */

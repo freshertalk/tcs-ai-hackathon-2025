@@ -67,6 +67,18 @@ function mountAi(app, { ai, requireAdmin, limiter }) {
 
   app.post("/api/admin/ai/news/:symbol", requireAdmin, limiter(20, 60 * 60 * 1000), wrap(async (req) => ({ news: await ai.news(symbolOf(req), { refresh: Boolean((req.body || {}).refresh) }), fresh: true, configured: true })));
 
+  // the day debrief: stored ones are free to read; writing one replays the watchlist and spends tokens
+  app.get("/api/admin/ai/debrief", requireAdmin, wrap(async () => ai.debrief.list()));
+
+  app.post("/api/admin/ai/debrief", requireAdmin, limiter(12, 60 * 60 * 1000), wrap(async (req) => {
+    const b = req.body || {};
+    const debrief = await ai.debrief.build({ refresh: Boolean(b.refresh), costPct: b.cost });
+    return { debrief, ...ai.debrief.list() };
+  }));
+
+  // a suggested lesson goes into the trading-skills file only when it is accepted here
+  app.post("/api/admin/ai/debrief/:id/lesson", requireAdmin, wrap(async (req) => ai.debrief.addLesson(String(req.params.id || ""), Number((req.body || {}).index))));
+
   app.get("/api/admin/ai/skills", requireAdmin, wrap(async () => ({ text: ai.playbook.read(), lessons: ai.playbook.lessons().length })));
 
   app.put("/api/admin/ai/skills", requireAdmin, wrap(async (req) => {

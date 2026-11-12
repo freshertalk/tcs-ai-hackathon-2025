@@ -5,10 +5,12 @@ import WorldClock from "./WorldClock";
 import HolidayCalendar from "./HolidayCalendar";
 import Analyzer from "./analyzer/Analyzer";
 import Screener from "./analyzer/Screener";
+import Debrief from "./analyzer/Debrief";
 
 const VIEWS = [
   { id: "analyzer", label: "Trading desk" },
   { id: "screener", label: "Screener" },
+  { id: "debrief", label: "Day debrief" },
   { id: "calendar", label: "World clock & holidays" },
 ];
 
@@ -20,8 +22,8 @@ const VIEWS = [
 export default function StockReport() {
   const [params, setParams] = useSearchParams();
   const asked = params.get("view");
-  const view = asked === "calendar" || asked === "screener" ? asked : "analyzer";
-  // a stock picked in the screener opens on the trading desk
+  const view = asked === "calendar" || asked === "screener" || asked === "debrief" ? asked : "analyzer";
+  // a stock picked in the screener or the debrief opens on the trading desk
   const openStock = (symbol) => {
     const next = new URLSearchParams(params);
     next.delete("view");
@@ -52,6 +54,8 @@ export default function StockReport() {
         <Analyzer />
       ) : view === "screener" ? (
         <Screener onOpen={openStock} />
+      ) : view === "debrief" ? (
+        <Debrief onOpen={openStock} />
       ) : (
         <>
           <WorldClock />

@@ -11,6 +11,8 @@
 //   6. ("Live co-pilot", copilot.js) gives a short second reading of the stock that is
 //      open, when the page asks for one — bounded by a minimum gap and a daily limit
 //   7. ("Why is it moving?") checks the news on one company by web search
+//   8. ("Day debrief", debrief.js) reads back the day's scorecard — the rule engine replayed
+//      over the session by arithmetic — as a short review
 //
 // It reads and writes analysis only. There is no order, basket or broker call in
 // this folder, and the only outside host it talks to is Anthropic's API.
@@ -23,6 +25,7 @@ const { AiClient, AiError, MODELS, DEFAULT_MODEL } = require("./client");
 const { Playbook } = require("./playbook");
 const { Journal, scorePlan, summarize, SWING_MAX_BARS } = require("./journal");
 const { Copilot } = require("./copilot");
+const { Debrief } = require("./debrief");
 const { barStart } = require("../market/intraday");
 
 const IST = 5.5 * 3600 * 1000;
@@ -289,6 +292,7 @@ class AiService {
     this.journal = new Journal({ dir: this.dir });
     this._recent = new Map(); // symbol|horizon → { at, result }: a double click does not pay twice
     this.copilot = new Copilot(this);
+    this.debrief = new Debrief(this);
   }
 
   /* ------------------------------------------------------------ settings */

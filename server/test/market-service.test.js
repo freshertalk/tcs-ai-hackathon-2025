@@ -1195,3 +1195,98 @@ test("verdict: the 1-minute read rides along with the live call, and the chart i
   assert.ok((await m.nameOf("INFY")).length > 0);
   assert.equal(await m.nameOf("NOSUCHSYMBOL"), "");
 });
+
+/* ----------------------------------------------------- day replay, scorecard */
+
+test("day replay and scorecard: the watchlist's session replayed through the live call, by arithmetic", async (t) => {
+  const s = await boot();
+  t.after(s.close);
+  assert.equal((await s.request("GET", "/api/admin/market/scorecard")).status, 401);
+  assert.equal((await s.request("GET", "/api/admin/market/replay/INFY")).status, 401);
+  // without Zerodha there are no intraday bars to replay, and it says so
+  let r = await s.request("GET", "/api/admin/market/scorecard", { cookie: s.admin });
+  assert.equal(r.status, 200);
+  assert.equal(r.json.available, false);
+  assert.match(r.json.reason, /Zerodha/);
+  assert.equal((await s.request("GET", "/api/admin/market/replay/INFY", { cookie: s.admin })).json.available, false);
+
+  await s.connectKite();
+  await s.request("PUT", "/api/admin/market/watchlist", { cookie: s.admin, body: { symbols: [] } });
+  assert.match((await s.request("GET", "/api/admin/market/scorecard", { cookie: s.admin })).json.reason, /watchlist is empty/);
+  await s.request("PUT", "/api/admin/market/watchlist", { cookie: s.admin, body: { symbols: ["INFY", "M&M"] } });
+
+  // one stock
+  r = await s.request("GET", "/api/admin/market/replay/M%26M", { cookie: s.admin });
+  assert.equal(r.status, 200, r.text);
+  const one = r.json;
+  assert.equal(one.available, true);
+  assert.equal(one.symbol, "M&M");
+  assert.equal(one.date, "2026-11-12");
+  assert.equal(one.today, true);
+  assert.equal(one.costPct, 0.1);
+  assert.equal(one.steps.length, 12, "twelve 5-minute bars have printed by 10:15");
+  assert.deepEqual([one.steps[0].t, one.steps[11].t], ["09:20", "10:15"]);
+  assert.equal(one.day.complete, false);
+  assert.equal(one.day.bars, 12);
+  assert.ok(one.day.prevClose > 0 && one.day.open > 0);
+  for (const tr of one.trades) assert.ok(tr.side === "long" ? tr.stop < tr.entry : tr.stop > tr.entry);
+  // the daily picture is the one from BEFORE the session: today's own bar is not used
+  const quoted = (await s.request("GET", "/api/admin/market/quotes?symbols=M%26M", { cookie: s.admin })).json.quotes["M&M"];
+  assert.equal(one.day.prevClose, Math.round(quoted.prevClose * 100) / 100, "measured from yesterday's close, as the exchange quotes it");
+
+  // a different cost assumption is honoured and bounded
+  const dear = (await s.request("GET", "/api/admin/market/replay/M%26M?cost=0.3", { cookie: s.admin })).json;
+  assert.equal(dear.costPct, 0.3);
+  assert.deepEqual(dear.steps, one.steps);
+  assert.equal((await s.request("GET", "/api/admin/market/replay/M%26M?cost=50", { cookie: s.admin })).json.costPct, 1);
+  assert.equal((await s.request("GET", "/api/admin/market/replay/M%26M?cost=abc", { cookie: s.admin })).json.costPct, 0.1);
+  assert.equal((await s.request("GET", "/api/admin/market/replay/bad%20symbol!", { cookie: s.admin })).status, 400);
+
+  // the whole watchlist
+  const before = s.kite.log.length;
+  r = await s.request("GET", "/api/admin/market/scorecard", { cookie: s.admin });
+  assert.equal(r.status, 200, r.text);
+  const card = r.json;
+  assert.equal(card.available, true);
+  assert.equal(card.date, "2026-11-12");
+  assert.equal(card.today, true);
+  assert.equal(card.complete, false);
+  assert.deepEqual(card.rows.map((x) => [x.symbol, x.available]), [["INFY", true], ["M&M", true]]);
+  assert.equal(card.totals.stocks, 2);
+  assert.equal(card.skipped, 0);
+  assert.equal(card.totals.calls, card.rows.reduce((a, x) => a + x.summary.calls, 0));
+  assert.equal(card.curve.length, card.rows.reduce((a, x) => a + x.summary.finished, 0));
+  // asked again inside a minute: nothing is fetched from Zerodha again
+  const mid = s.kite.log.length;
+  assert.ok(mid > before, "INFY's bars had to be fetched once");
+  await s.request("GET", "/api/admin/market/scorecard", { cookie: s.admin });
+  assert.equal(s.kite.log.length, mid);
+
+  // a stock Zerodha does not know does not sink the others
+  await s.request("PUT", "/api/admin/market/watchlist", { cookie: s.admin, body: { symbols: ["INFY", "NOSUCH"] } });
+  const mixed = (await s.request("GET", "/api/admin/market/scorecard", { cookie: s.admin })).json;
+  assert.equal(mixed.available, true);
+  assert.deepEqual(mixed.rows.map((x) => [x.symbol, x.available]), [["INFY", true], ["NOSUCH", false]]);
+  assert.ok(mixed.rows[1].reason.length > 0);
+  assert.equal(mixed.totals.stocks, 1);
+
+  // only read-only Zerodha routes were used for all of this
+  for (const l of s.kite.log) assert.match(l.path, /^\/(session\/token|quote|instruments\/NSE|instruments\/historical\/\d+\/(day|5minute|minute))$/, l.path);
+});
+
+test("the weekly grouping is remembered between readings and still gives the same weeks", () => {
+  const { toWeekly, weekStart } = require("../market/longterm");
+  assert.equal(weekStart("2026-11-12"), "2026-11-09", "a Thursday belongs to the week of its Monday");
+  assert.equal(weekStart("2026-11-09"), "2026-11-09");
+  assert.equal(weekStart("2026-11-15"), "2026-11-09", "Sunday closes the week");
+  assert.equal(weekStart("2026-11-16T09:15:00+0530"), "2026-11-16");
+  assert.equal(weekStart("2026-11-12"), "2026-11-09", "asked twice, answered the same");
+  const days = ["2026-11-09", "2026-11-10", "2026-11-13", "2026-11-16", "2026-11-17"].map((t, i) => ({ t, o: 10 + i, h: 12 + i, l: 9 + i, c: 11 + i, v: 100 }));
+  const wk = toWeekly(days);
+  assert.deepEqual(wk, [
+    { t: "2026-11-09", o: 10, h: 14, l: 9, c: 13, v: 300 },
+    { t: "2026-11-16", o: 13, h: 16, l: 12, c: 15, v: 200 },
+  ]);
+  assert.deepEqual(toWeekly(days), wk);
+  assert.throws(() => weekStart("not a date"));
+});

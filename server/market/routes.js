@@ -178,6 +178,10 @@ function mountMarket(app, deps) {
 
   app.get("/api/admin/market/verdict/:symbol", requireAdmin, wrap(async (req) => market.verdict(symbolOf(req))));
 
+  // the day replayed through the live call: one stock, or the whole watchlist as a scorecard
+  app.get("/api/admin/market/replay/:symbol", requireAdmin, wrap(async (req) => market.replay(symbolOf(req), { costPct: req.query.cost })));
+  app.get("/api/admin/market/scorecard", requireAdmin, wrap(async (req) => market.scorecard({ costPct: req.query.cost })));
+
   // the intraday tape for the chart: ?interval=1 (1-minute, with a quick read of it) or 5
   app.get("/api/admin/market/tape/:symbol", requireAdmin, wrap(async (req) => market.tape(symbolOf(req), req.query.interval)));
 

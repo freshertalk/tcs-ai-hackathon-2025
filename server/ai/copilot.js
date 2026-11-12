@@ -130,9 +130,51 @@ class Copilot {
     if (!s || typeof s !== "object") s = {};
     const t = s.tally && typeof s.tally === "object" ? s.tally : {};
     const tally = { right: t.right || 0, wrong: t.wrong || 0, flat: t.flat || 0, since: t.since || today };
-    // a new day starts a new count; yesterday's readings are history, the running tally stays
-    if (s.day !== today) return { day: today, count: 0, inputTokens: 0, outputTokens: 0, reads: {}, tally };
-    return { day: today, count: s.count || 0, inputTokens: s.inputTokens || 0, outputTokens: s.outputTokens || 0, reads: s.reads && typeof s.reads === "object" ? s.reads : {}, tally };
+    const reads = s.reads && typeof s.reads === "object" ? s.reads : {};
+    const prev = s.prev && typeof s.prev === "object" && s.prev.day ? s.prev : null;
+    // a new day starts a new count and the running tally stays; the last day that had readings
+    // is kept beside it, so that session can still be debriefed the next morning
+    if (s.day !== today) {
+      const had = s.day && Object.keys(reads).length > 0;
+      return { day: today, count: 0, inputTokens: 0, outputTokens: 0, reads: {}, tally, prev: had ? { day: s.day, count: s.count || 0, reads } : prev };
+    }
+    return { day: today, count: s.count || 0, inputTokens: s.inputTokens || 0, outputTokens: s.outputTokens || 0, reads, tally, prev };
+  }
+
+  /**
+   * One session's readings, flattened and in time order — for the end-of-day debrief.
+   * @returns null when the co-pilot was not used in that session
+   */
+  dayRecord(date) {
+    const state = this._load();
+    const day = state.day === date ? state : state.prev && state.prev.day === date ? state.prev : null;
+    if (!day) return null;
+    const all = Object.values(day.reads).flat();
+    if (all.length === 0) return null;
+    all.sort((a, b) => (a.at < b.at ? -1 : 1));
+    const scored = all.filter((r) => r.outcome && ["right", "wrong", "flat"].includes(r.outcome.status));
+    const n = (status) => scored.filter((r) => r.outcome.status === status).length;
+    return {
+      readings: all.length,
+      scored: scored.length,
+      right: n("right"),
+      wrong: n("wrong"),
+      flat: n("flat"),
+      unclear: all.filter((r) => r.bias === "unclear").length,
+      howScored: `right when the price ${SCORE_AFTER_MIN} minutes later had moved its way by at least ${FLAT_PCT}%`,
+      list: all.slice(-40).map((r) => ({
+        time: r.time,
+        symbol: r.symbol,
+        why: r.reason,
+        engineCall: r.engine ? r.engine.state : null,
+        bias: r.bias,
+        confidence: r.confidence,
+        agreedWithEngine: r.agrees,
+        price: r.price,
+        outcome: r.outcome ? r.outcome.status : r.bias === "unclear" ? "not scored (unclear)" : "not scored",
+        movePct: r.outcome && typeof r.outcome.movePct === "number" ? r.outcome.movePct : null,
+      })),
+    };
   }
 
   _save(state) {

@@ -196,7 +196,7 @@ export default function AiSettings() {
             <h2>What it does, and what it does not</h2>
             <ul className="adm-list">
               <li>
-                <b>Only on request.</b> A call is made when you press “Build strategy”, “Score &amp; learn”, “Check the news” or “Ask now” on the{" "}
+                <b>Only on request.</b> A call is made when you press “Build strategy”, “Score &amp; learn”, “Check the news”, “Ask now” or “Write the debrief” on the{" "}
                 <a href={adminPath("/stock-report")}>trading desk</a>. The live co-pilot is the one thing that asks by itself — only for the stock you have open, only
                 while its switch is on and the page is in front of you, and only inside the limits above. Nothing runs on the server in the background, so
                 nothing is spent while you are away. Each result shows the tokens it used.

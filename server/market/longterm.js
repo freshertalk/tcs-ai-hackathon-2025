@@ -14,11 +14,22 @@ const r1 = (x) => (num(x) ? Math.round(x * 10) / 10 : null);
 const fx = (x) => (num(x) ? x.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "—");
 const pct = (a, b) => (num(a) && num(b) && b !== 0 ? ((a - b) / b) * 100 : null);
 
+// A date's week never changes, and the same few thousand dates are asked for on every
+// reading of every stock — so each one is worked out once and remembered.
+const weekKeys = new Map();
+
 /** Monday (UTC) of the week a date falls in — the key for weekly bars. */
 function weekStart(iso) {
-  const d = new Date(`${String(iso).slice(0, 10)}T00:00:00Z`);
-  const back = (d.getUTCDay() + 6) % 7;
-  return new Date(d.getTime() - back * 86400000).toISOString().slice(0, 10);
+  const day = String(iso).slice(0, 10);
+  let key = weekKeys.get(day);
+  if (key === undefined) {
+    const d = new Date(`${day}T00:00:00Z`);
+    const back = (d.getUTCDay() + 6) % 7;
+    key = new Date(d.getTime() - back * 86400000).toISOString().slice(0, 10);
+    if (weekKeys.size > 50000) weekKeys.clear();
+    weekKeys.set(day, key);
+  }
+  return key;
 }
 
 /** Daily bars → weekly bars (open of the first day, close of the last, high/low extremes). */

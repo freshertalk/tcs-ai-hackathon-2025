@@ -325,6 +325,30 @@ feature works unchanged. Code: `server/ai/` (official `@anthropic-ai/sdk`).
   is scheduled — put into a fixed shape with its sources. Only the symbol, the company's name and
   today's change are sent. For six hours the strategist and the co-pilot are shown its summary,
   labelled as web-search material that can be stale or wrong.
+- **Day debrief** (the "Day debrief" view of the Stock Report; `server/market/replay.js`,
+  `server/ai/debrief.js`, `Debrief.jsx`). Two layers, and the first needs no AI:
+  - **The scorecard — arithmetic only.** For up to 15 watchlist stocks the live call is *replayed*
+    over the session's 5-minute bars: at each bar's close the engine is asked for its call with only
+    what was known then (bars so far, a quote built from them, the daily picture as of the previous
+    close). Each change to "in play" opens one imaginary trade at that close — stop first (a bar
+    that touches both stop and target counts as a stop; a gap through the stop fills at the open),
+    then the 1R target, otherwise out at the open of the 3:15 PM bar; one trade at a time per stock.
+    Results are in **R** (multiples of the risk taken), before and after an assumed round-trip cost
+    (0.1% of the position's value by default; 0 / 0.05 / 0.1 / 0.2% on the page). The page shows
+    the day's totals, a running-total line of every finished call, a bar per stock, and for each
+    stock its price with the side the engine was on and every call in a table. A test proves the
+    replay never looks ahead: replaying the morning alone gives exactly the morning of the full day.
+    `GET /api/admin/market/scorecard`, `GET /api/admin/market/replay/:symbol`.
+  - **The written debrief — on request, with a key.** The model is shown only those numbers, plus
+    the co-pilot's scored readings and the strategist's plans from the same session, and writes
+    what worked, what did not, a note per stock, what to have in mind at the next open, and at most
+    three lessons. **A lesson is saved to the trading-skills file only when you press "Add" on
+    it.** One debrief is kept per session (the last 30); yesterday's can still be written the next
+    morning.
+  - **What it is not.** Not a record of trades taken. The live call is read every two seconds and
+    also weighs the market's direction, the tick stream and the order book; the replay reads it
+    every five minutes without them, so the two can differ. Real fills slip, the cost is an
+    assumption, and one day proves nothing either way.
 - **What it is not.** It has no order, basket or portfolio code (a test fails if any appears in
   `server/ai/`), and nothing in that folder runs on a timer. Beyond the two web-search summaries it
   cannot see news or results. No model and no method is profitable on every trade — the track
@@ -350,7 +374,8 @@ for a signed-in admin browsing the live site.
 
 **Tests.** `npm run server:test` (API, roles, sessions, secret handling, indicators, setups, backtester, desk verdict, the live
 call, streaming and market depth, order flow, the screener, the Kite data layer, and the AI strategist, co-pilot and news check
-against a fake Anthropic API) and `CI=true npm test -- --watchAll=false` (analytics loader, tripwires, chart axis, co-pilot triggers).
+against a fake Anthropic API, and the day replay and debrief) and `CI=true npm test -- --watchAll=false` (analytics loader, tripwires, chart
+axis, co-pilot triggers, debrief chart arithmetic).
 
 ## SEO and link previews
 

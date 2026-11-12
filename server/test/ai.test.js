@@ -17,6 +17,7 @@ const { Playbook, SEED, MAX_LESSONS, LESSONS_HEAD } = require("../ai/playbook");
 const { analyze } = require("../market/analyze");
 const { buildVerdict } = require("../market/verdict");
 const { buildTape, fastRead } = require("../market/intraday");
+const { replayDay, combine } = require("../market/replay");
 
 const KEY = "sk-ant-api03-TESTONLYtestonlyTESTONLY1234567890abcd"; // not a real key
 const at = (hhmm, date = "2026-11-12") => Date.parse(`${date}T${hhmm}:00+05:30`);
@@ -199,8 +200,15 @@ function stubMarket(clock) {
   m.analysis = async (symbol) => ({ symbol, source: "kite", barInProgress: false, ...analyze(candles, { chartBars: 60 }) });
   m.backtestAll = async () => ({ rows: [] });
   m.daily = async () => ({ candles: [...candles, ...m.dailyAfter] });
-  // the newer parts of the market service the co-pilot and the news check use
+  // the newer parts of the market service the co-pilot, the news check and the debrief use
   m.pc = pc;
+  m.candles = candles;
+  m.card = null; // set to a scorecard to give the debrief a day to read
+  m.scorecard = async (opts = {}) => {
+    m.calls.push(`scorecard ${opts.costPct === undefined ? "default" : opts.costPct}`);
+    return m.card || { available: false, reason: "The watchlist is empty. Add the stocks you follow and their day is replayed here." };
+  };
+  m.context = async () => ({ available: true, tide: { score: 40, label: "Rising", summary: "Nifty is up 0.4% and above its open." }, nifty: { changePct: 0.4, fromOpenPct: 0.2 }, vix: { last: 13.2, changePct: -1.1 }, items: [], sectors: [], notes: [] });
   m.minute = null; // set to 1-minute bars to give the co-pilot a tape
   m.tape = async (symbol, interval) => {
     m.calls.push(`tape ${symbol} ${interval}`);
@@ -1055,4 +1063,173 @@ test("company news: a web search on one company — shaped, stored, reused for h
   const old = await get();
   assert.equal(old.fresh, false);
   assert.equal(old.news.tone, "neutral");
+});
+
+/* ------------------------------------------------------------- day debrief */
+
+/** A scorecard for one real replay (the engine run over a made-up full session) and one stock with no bars. */
+function cardFor(market) {
+  const a = analyze(market.candles, { chartBars: 1 });
+  const atr = a.levels.atr.value;
+  const prices = [];
+  for (let i = 0; i < 75; i += 1) {
+    const trend = i < 6 ? 0.1 * Math.sin(i) : i < 30 ? 0.035 * (i - 6) : i < 42 ? 0.84 - 0.06 * (i - 30) : 0.12 + 0.03 * (i - 42);
+    prices.push(market.pc * (1.002 + (trend * atr) / market.pc));
+  }
+  const rep = replayDay({ analysis: a, candles: market.candles, bars: tape(prices), prior: [] });
+  const rows = [{ symbol: "SBIN", source: "kite", stale: false, today: true, ...rep }, { symbol: "DEAD", available: false, reason: "Zerodha returned no 5-minute bars for this symbol." }];
+  return { available: true, at: "2026-11-12T10:15:00.000Z", date: "2026-11-12", today: true, complete: true, costPct: 0.1, rows, ...combine(rows) };
+}
+const debriefJson = (extra = {}) => ({
+  headline: "Three calls on one stock; costs took most of a small gross gain.",
+  summary: "The replayed engine made three calls on SBIN. Before costs they added up to a small gain; after the assumed 0.1% a round trip, to a loss.",
+  what_worked: ["The 10:10 long reached its 1R target within half an hour."],
+  what_did_not: ["The 9:45 short against the daily trend was stopped within fifteen minutes."],
+  by_stock: [{ symbol: "sbin", note: "Three calls; the tight stops made costs a large share of the risk." }, { symbol: "TSLA", note: "Not on the desk." }],
+  copilot_note: "One reading, not yet scored.",
+  lessons: ["Skip a call whose stop is closer than three times the assumed cost.", "Do not short in the first half hour against the daily trend.", "Third.", "Fourth — one too many."],
+  watch_tomorrow: ["SBIN: today's high and the VWAP at the close."],
+  caveat: "A replay at 5-minute closes is not what was seen live, and one day proves nothing.",
+  ...extra,
+});
+
+test("day debrief: the scorecard is read back by the model — only arithmetic goes in, lessons are saved only when accepted", async (t) => {
+  const s = await boot();
+  t.after(s.close);
+  const post = (body = {}) => s.request("POST", "/api/admin/ai/debrief", { cookie: s.admin, body });
+  for (const [m, p] of [["GET", "/api/admin/ai/debrief"], ["POST", "/api/admin/ai/debrief"], ["POST", "/api/admin/ai/debrief/abc/lesson"]]) {
+    assert.equal((await s.request(m, p, { body: m === "GET" ? undefined : {} })).status, 401, `${m} ${p}`);
+  }
+  // no key: stored debriefs can be listed (none yet), nothing is replayed, nothing is spent
+  assert.deepEqual((await s.request("GET", "/api/admin/ai/debrief", { cookie: s.admin })).json, { configured: false, debriefs: [] });
+  let r = await post();
+  assert.equal(r.status, 409);
+  assert.equal(r.json.error, "not_configured");
+  assert.equal(s.market.calls.length, 0);
+
+  await s.request("PUT", "/api/admin/ai/settings", { cookie: s.admin, body: { apiKey: KEY } });
+  // nothing to debrief: said plainly, and no request is made
+  r = await post();
+  assert.equal(r.status, 409);
+  assert.equal(r.json.error, "no_data");
+  assert.match(r.json.message, /watchlist is empty/);
+  assert.equal(s.claude.requests.length, 0);
+
+  // a session with a co-pilot reading and a strategist plan in it
+  s.market.card = cardFor(s.market);
+  const rep = s.market.card.rows[0];
+  assert.ok(rep.summary.calls >= 2, "the made-up session produces calls");
+  s.claude.queue.push({ json: liveJson() });
+  await s.request("POST", "/api/admin/ai/live/SBIN", { cookie: s.admin, body: { reason: "manual" } });
+  s.claude.queue.push({ json: strategyJson([{ horizon: "intraday", action: "no_trade", entry_type: "none", entry: null, stop: null, targets: [], rationale: "r", invalidation: "i" }]) });
+  await s.request("POST", "/api/admin/ai/strategy/SBIN", { cookie: s.admin, body: { horizon: "intraday" } });
+  assert.equal(s.claude.requests.length, 2);
+
+  s.claude.queue.push({ json: debriefJson(), usage: { input_tokens: 5200, output_tokens: 700 } });
+  r = await post();
+  assert.equal(r.status, 200, r.text);
+  const d = r.json.debrief;
+  assert.equal(d.day, "2026-11-12");
+  assert.equal(d.complete, true);
+  assert.equal(d.headline, debriefJson().headline);
+  assert.deepEqual(d.worked, debriefJson().what_worked);
+  assert.deepEqual(d.didNot, debriefJson().what_did_not);
+  assert.deepEqual(d.byStock, [{ symbol: "SBIN", note: "Three calls; the tight stops made costs a large share of the risk." }], "a note on a stock that was not in the facts is dropped");
+  assert.deepEqual(d.lessons.map((x) => x.added), [false, false, false], "at most three lessons, none saved yet");
+  assert.equal(d.lessons[2].text, "Third.");
+  assert.deepEqual(d.totals, s.market.card.totals);
+  assert.equal(d.stocks, 1);
+  assert.equal(d.sawCopilot, true);
+  assert.equal(d.sawPlans, 1);
+  assert.deepEqual(d.usage, { inputTokens: 5200, outputTokens: 700, cacheReadTokens: 0 });
+  assert.equal(r.json.debriefs.length, 1);
+  assert.equal(r.json.configured, true);
+  assert.ok(!r.text.includes(KEY));
+  assert.ok(!/No lesson|Fourth/.test(JSON.stringify(d.lessons)));
+  assert.ok(!s.made.ai.playbook.read().includes("Skip a call"), "nothing is written to the skills file by the debrief itself");
+
+  // the request: its own instructions, a schema, medium effort — and only the facts
+  const q = s.claude.requests[2];
+  assert.equal(q.body.output_config.effort, "medium");
+  assert.equal(q.body.output_config.format.type, "json_schema");
+  assert.equal(q.body.max_tokens, 8000);
+  assert.equal(q.body.tools, undefined);
+  assert.match(q.body.system, /The replay is not a record of what the trader did/);
+  assert.match(q.body.system, /Never promise or imply a profit/);
+  assert.match(q.body.messages[0].content, /^Facts for the session of 2026-11-12:/);
+  const facts = JSON.parse(q.body.messages[0].content.split("\n\n")[1]);
+  assert.equal(facts.session, "2026-11-12");
+  assert.equal(facts.sessionComplete, true);
+  assert.equal(facts.assumedCostPctPerRoundTrip, 0.1);
+  assert.deepEqual(facts.totals, s.market.card.totals);
+  assert.equal(facts.stocks.length, 1);
+  assert.equal(facts.stocks[0].symbol, "SBIN");
+  assert.equal(facts.stocks[0].calls.length, rep.trades.length);
+  assert.deepEqual(Object.keys(facts.stocks[0].calls[0]), ["side", "at", "sessionPhase", "engineScore", "dailyTrend", "entry", "stop", "target", "riskPct", "endedAt", "exit", "how", "r", "costR", "netR"]);
+  assert.equal(facts.stocks[0].result.netR, rep.summary.netR);
+  assert.equal(facts.stocks[0].callChanges, rep.changes.length);
+  assert.equal(facts.everyFinishedCallInOrder.length, s.market.card.curve.length);
+  assert.deepEqual(facts.notReplayed, [{ symbol: "DEAD", why: "Zerodha returned no 5-minute bars for this symbol." }]);
+  assert.equal(facts.copilot.readings, 1);
+  assert.equal(facts.copilot.list[0].symbol, "SBIN");
+  assert.equal(facts.copilot.list[0].bias, "up");
+  assert.equal(facts.strategistPlans.length, 1);
+  assert.deepEqual([facts.strategistPlans[0].symbol, facts.strategistPlans[0].action, facts.strategistPlans[0].madeAt], ["SBIN", "no_trade", "10:32"]);
+  assert.equal(facts.marketAtTheTimeOfWriting.tide.score, 40);
+  assert.match(facts.howTheReplayWorks, /stop is checked first/);
+  assert.ok(!q.body.messages[0].content.includes(SUPERADMIN_EMAIL), "nothing personal is sent");
+
+  // pressed again within ten minutes: the stored debrief, no request; "refresh" writes a new one in its place
+  r = await post();
+  assert.equal(r.json.debrief.repeated, true);
+  assert.equal(r.json.debrief.id, d.id);
+  assert.equal(s.claude.requests.length, 3);
+  s.claude.queue.push({ json: debriefJson({ headline: "Second look.", lessons: "none", by_stock: "nope", what_worked: null }) });
+  r = await post({ refresh: true });
+  assert.equal(r.status, 200, r.text);
+  const d2 = r.json.debrief;
+  assert.equal(d2.headline, "Second look.");
+  assert.deepEqual([d2.lessons, d2.byStock, d2.worked], [[], [], []], "a malformed list becomes an empty one");
+  assert.notEqual(d2.id, d.id);
+  assert.equal(r.json.debriefs.length, 1, "one debrief per session");
+  assert.equal(s.claude.requests.length, 4);
+
+  // the cost assumption chosen on the page is the one the scorecard is asked for
+  assert.equal(s.market.calls.filter((c) => c.startsWith("scorecard")).pop(), "scorecard default");
+  await post({ cost: 0.2 });
+  assert.equal(s.market.calls.filter((c) => c.startsWith("scorecard")).pop(), "scorecard 0.2");
+  assert.equal(s.claude.requests.length, 4, "the stored debrief is reused: the stub's card did not change its cost");
+
+  // a refusal is reported and the stored debrief stays
+  s.claude.queue.push({ text: "", stop: "refusal" });
+  assert.equal((await post({ refresh: true })).status, 422);
+  assert.equal((await s.request("GET", "/api/admin/ai/debrief", { cookie: s.admin })).json.debriefs[0].id, d2.id);
+
+  // lessons: accepted one at a time, written once, dated with the session
+  s.claude.queue.push({ json: debriefJson() });
+  const d3 = (await post({ refresh: true })).json.debrief;
+  const lesson = (id, index) => s.request("POST", `/api/admin/ai/debrief/${id}/lesson`, { cookie: s.admin, body: { index } });
+  assert.equal((await lesson("nope", 0)).status, 404);
+  assert.equal((await lesson(d3.id, 7)).status, 400);
+  assert.equal((await lesson(d3.id, "x")).status, 400);
+  r = await lesson(d3.id, 1);
+  assert.equal(r.status, 200, r.text);
+  assert.deepEqual(r.json.debrief.lessons.map((x) => x.added), [false, true, false]);
+  assert.equal(r.json.lessons, 1);
+  assert.deepEqual(s.made.ai.playbook.lessons(), ["2026-11-12: Do not short in the first half hour against the daily trend."]);
+  r = await lesson(d3.id, 1);
+  assert.equal(r.json.lessons, 1, "pressing twice does not write it twice");
+  assert.equal((await s.request("GET", "/api/admin/ai/debrief", { cookie: s.admin })).json.debriefs[0].lessons[1].added, true);
+
+  // the next morning, before the open: yesterday's session can still be debriefed, co-pilot readings included
+  s.clock.ms += 20 * 3600 * 1000;
+  s.market.card = { ...s.market.card, today: false };
+  s.claude.queue.push({ json: debriefJson({ headline: "Morning after." }) });
+  r = await post({ refresh: true });
+  assert.equal(r.status, 200, r.text);
+  const late = JSON.parse(s.claude.requests[s.claude.requests.length - 1].body.messages[0].content.split("\n\n")[1]);
+  assert.equal(late.session, "2026-11-12");
+  assert.equal(late.copilot.readings, 1, "the last day's readings are kept for exactly this");
+  assert.equal(late.marketAtTheTimeOfWriting, null, "the market's direction now says nothing about yesterday");
+  assert.equal(r.json.debriefs.length, 1);
 });
