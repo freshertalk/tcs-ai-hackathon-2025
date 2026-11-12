@@ -37,7 +37,7 @@ function fakeGoogle(overrides = {}) {
 async function boot(opts = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "vpt-"));
   const env = { SETUP_TOKEN: "setup-token-123", ...(opts.env || {}) };
-  const made = createApp({ dataDir: dir, buildDir: opts.buildDir || path.join(dir, "no-build"), env, google: opts.google || fakeGoogle() });
+  const made = createApp({ dataDir: dir, buildDir: opts.buildDir || path.join(dir, "no-build"), env, google: opts.google || fakeGoogle(), holidayFetch: opts.holidayFetch || (async () => { throw new Error("no network in tests"); }) });
   const server = await new Promise((res) => {
     const s = made.app.listen(0, "127.0.0.1", () => res(s));
   });
@@ -353,4 +353,66 @@ test("the admin path matches whole segments only: /me yes, /media and /menu no",
     assert.match(r.text, /PUBLIC SITE/, p);
     assert.equal(r.headers["x-robots-tag"], undefined, `${p} must stay indexable`);
   }
+});
+
+/* ------------------------------------------------------ stock report API */
+
+const NASDAQ_PAGE = fs.readFileSync(path.join(__dirname, "fixtures", "nasdaqtrader-2026.html"), "utf8");
+
+test("holiday endpoints need a signed-in admin, and 'check now' needs the CSRF header", async (t) => {
+  const s = await boot();
+  t.after(s.close);
+  await s.configure();
+  assert.equal((await s.request("GET", "/api/admin/stock/holidays")).status, 401);
+  assert.equal((await s.request("POST", "/api/admin/stock/holidays/refresh")).status, 401);
+
+  const boss = (await s.login(SUPERADMIN_EMAIL)).session;
+  assert.equal((await s.request("POST", "/api/admin/stock/holidays/refresh", { cookie: boss, csrf: false })).status, 403);
+});
+
+test("'check now' fetches the official page once, stores it, and serves it to the page", async (t) => {
+  let fetches = 0;
+  const s = await boot({
+    holidayFetch: async (url) => {
+      fetches += 1;
+      assert.equal(url, "https://www.nasdaqtrader.com/trader.aspx?id=Calendar");
+      return { ok: true, status: 200, text: async () => NASDAQ_PAGE };
+    },
+  });
+  t.after(s.close);
+  await s.configure();
+  const boss = (await s.login(SUPERADMIN_EMAIL)).session;
+
+  let r = await s.request("GET", "/api/admin/stock/holidays", { cookie: boss });
+  assert.equal(r.status, 200);
+  assert.deepEqual(r.json.nasdaq.years, {}, "nothing fetched yet");
+  assert.equal(fetches, 0, "reading never triggers a fetch");
+
+  r = await s.request("POST", "/api/admin/stock/holidays/refresh", { cookie: boss });
+  assert.equal(r.status, 200);
+  assert.equal(r.json.nasdaq.years["2026"].entries.length, 12);
+  assert.equal(r.json.nasdaq.sourceName, "Nasdaq Trader");
+  assert.equal(r.json.nasdaq.lastError, "");
+
+  // an admin who is not the superadmin may use it too
+  await s.request("POST", "/api/admin/admins", { cookie: boss, body: { email: "helper@example.com" } });
+  const helper = (await s.login("helper@example.com")).session;
+  r = await s.request("POST", "/api/admin/stock/holidays/refresh", { cookie: helper });
+  assert.equal(r.status, 200);
+  assert.equal(r.json.throttled, true, "a second check within a minute is served from the stored copy");
+  assert.equal(fetches, 1, "the exchange was asked exactly once");
+
+  r = await s.request("GET", "/api/admin/stock/holidays", { cookie: helper });
+  assert.equal(r.json.nasdaq.years["2026"].entries[0].date, "2026-01-01");
+});
+
+test("when the exchange is unreachable the endpoint still answers, with the reason", async (t) => {
+  const s = await boot(); // default fake network always fails
+  t.after(s.close);
+  await s.configure();
+  const boss = (await s.login(SUPERADMIN_EMAIL)).session;
+  const r = await s.request("POST", "/api/admin/stock/holidays/refresh", { cookie: boss });
+  assert.equal(r.status, 200);
+  assert.match(r.json.nasdaq.lastError, /no network in tests/);
+  assert.deepEqual(r.json.nasdaq.years, {});
 });

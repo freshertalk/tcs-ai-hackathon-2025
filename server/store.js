@@ -14,6 +14,7 @@ const EMPTY = () => ({
   },
   admins: [], // { email, addedBy, addedAt }
   users: {}, // email -> { name, picture, lastLogin }
+  market: { watchlist: [], demo: false }, // the Analyzer's watchlist and demo switch
 });
 
 class Store {
@@ -32,6 +33,10 @@ class Store {
         settings: { ...base.settings, ...(raw.settings || {}) },
         admins: Array.isArray(raw.admins) ? raw.admins : [],
         users: raw.users && typeof raw.users === "object" ? raw.users : {},
+        market: {
+          watchlist: raw.market && Array.isArray(raw.market.watchlist) ? raw.market.watchlist : [],
+          demo: Boolean(raw.market && raw.market.demo),
+        },
       };
     } catch (err) {
       if (err.code !== "ENOENT") {

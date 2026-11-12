@@ -23,7 +23,9 @@ import Dashboard from "./Dashboard";
 import GoogleSettings from "./GoogleSettings";
 import AnalyticsSettings from "./AnalyticsSettings";
 import AdminUsers from "./AdminUsers";
+import AiSettings from "./AiSettings";
 import PersonalAccess from "./PersonalAccess";
+import StockReport from "./stock/StockReport";
 
 import "./admin.css";
 
@@ -118,6 +120,8 @@ export default function AdminApp() {
           <Route path={`${ADMIN_BASE}/google`} element={<Gate><GoogleSettings /></Gate>} />
           <Route path={`${ADMIN_BASE}/analytics`} element={<Gate><AnalyticsSettings /></Gate>} />
           <Route path={`${ADMIN_BASE}/admins`} element={<Gate superOnly><AdminUsers /></Gate>} />
+          <Route path={`${ADMIN_BASE}/ai`} element={<Gate><AiSettings /></Gate>} />
+          <Route path={`${ADMIN_BASE}/stock-report`} element={<Gate><StockReport /></Gate>} />
           <Route path={`${ADMIN_BASE}/personal-access`} element={<Gate><PersonalAccess /></Gate>} />
           <Route path="*" element={<Navigate to={ADMIN_BASE} replace />} />
         </Routes>

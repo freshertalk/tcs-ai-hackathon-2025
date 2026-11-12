@@ -9,9 +9,11 @@ const { createApp } = require("./app");
 const { SUPERADMIN_EMAIL, ADMIN_BASE } = require("./config");
 
 const PORT = Number(process.env.PORT) || 5000;
-const { app, setupToken } = createApp();
+const { app, setupToken, holidays } = createApp();
 
 const server = app.listen(PORT, () => {
+  // fetch the exchanges' official holiday data now, then every 6 hours
+  holidays.start();
   console.log(`\nAPI ready on http://localhost:${PORT}`);
   console.log(`Admin area: ${ADMIN_BASE}   (superadmin: ${SUPERADMIN_EMAIL})`);
   if (setupToken) {

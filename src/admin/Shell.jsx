@@ -9,7 +9,9 @@ import { adminPath } from "./paths";
  * `notice` renders ABOVE the header — the dashboard uses it for the
  * "personal setup" strip.
  */
-export default function Shell({ crumb, notice, children, narrow }) {
+export default function Shell({ crumb, notice, children, narrow, wide, fluid }) {
+  // fluid: use the whole window (the trading desk); wide: a roomier column
+  const wrap = fluid ? "adm-wrap adm-wrap--fluid" : wide ? "adm-wrap adm-wrap--wide" : "adm-wrap";
   const { user } = useAuth();
   const [busy, setBusy] = useState(false);
 
@@ -26,7 +28,7 @@ export default function Shell({ crumb, notice, children, narrow }) {
     <>
       {notice}
       <header className="adm-head">
-        <div className="adm-wrap adm-head__row">
+        <div className={`${wrap} adm-head__row`}>
           <nav className="adm-crumbs" aria-label="Breadcrumb">
             <Link to={adminPath()} className="adm-brand">
               Vinay&rsquo;s control room
@@ -63,8 +65,8 @@ export default function Shell({ crumb, notice, children, narrow }) {
           )}
         </div>
       </header>
-      <main className={`adm-wrap adm-main ${narrow ? "adm-main--narrow" : ""}`}>{children}</main>
-      <footer className="adm-foot adm-wrap">
+      <main className={`${wrap} adm-main ${narrow ? "adm-main--narrow" : ""} ${fluid ? "adm-main--fluid" : ""}`}>{children}</main>
+      <footer className={`adm-foot ${wrap}`}>
         Private area · not indexed · not for public use
       </footer>
     </>

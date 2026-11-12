@@ -30,6 +30,11 @@ const {
   CLIENT_SECRET_RE,
 } = require("./config");
 const defaultGoogle = require("./google");
+const { HolidayService } = require("./holidays/service");
+const { MarketService } = require("./market/service");
+const { mountMarket } = require("./market/routes");
+const { AiService } = require("./ai/service");
+const { mountAi } = require("./ai/routes");
 
 const SESSION_COOKIE = "vpt_session";
 const OAUTH_COOKIE = "vpt_oauth";
@@ -110,8 +115,42 @@ function createApp(opts = {}) {
   const makeGoogle = opts.google || defaultGoogle;
 
   const store = new Store(dataDir);
+  // exchange holiday data, kept in step with the exchange's own publication
+  const holidays = opts.holidays || new HolidayService({ dir: dataDir, fetchImpl: opts.holidayFetch });
   const settingsKey = loadKey(dataDir, "settings.key", env.SETTINGS_KEY);
   const sessionKey = loadKey(dataDir, "session.key", env.SESSION_SECRET);
+
+  // market data for the Analyzer (Zerodha Kite, read-only). Its API secret and
+  // daily token are encrypted with the same key as the Google client secret.
+  const market =
+    opts.market ||
+    new MarketService({
+      dir: dataDir,
+      store,
+      secrets: { encrypt: (t) => encrypt(t, settingsKey), decrypt: (b) => decrypt(b, settingsKey) },
+      fetchImpl: opts.marketFetch,
+      now: opts.now,
+      gaps: opts.marketGaps,
+      // a custom fetch means "not the real Zerodha" (tests, simulators): then the real
+      // WebSocket must not be used either, unless a stand-in is supplied
+      wsImpl: opts.marketWs !== undefined ? opts.marketWs : opts.marketFetch ? null : undefined,
+      tickerOptions: opts.tickerOptions,
+    });
+
+  // the AI strategist (Anthropic). Optional: without a key every other feature works as before.
+  const ai =
+    opts.ai ||
+    new AiService({
+      dir: dataDir,
+      store,
+      secrets: { encrypt: (t) => encrypt(t, settingsKey), decrypt: (b) => decrypt(b, settingsKey) },
+      market,
+      fetchImpl: opts.aiFetch,
+      now: opts.now,
+    });
+
+  // the live call mentions the latest world brief when it argues against a trade
+  if (market && typeof ai.worldSummary === "function") market.worldProvider = () => ai.worldSummary();
 
   /* --- Google credentials: the database wins, environment variables fill the gaps */
   function credentials() {
@@ -388,6 +427,16 @@ function createApp(opts = {}) {
     res.json({ ok: true, gaMeasurementId: id });
   });
 
+  /* ------------------------------------------------ stock report: holidays */
+  // The official copies the server has fetched, and when each source was last checked.
+  app.get("/api/admin/stock/holidays", requireAdmin, (req, res) => res.json(holidays.snapshot()));
+
+  // "Check now". Limited per client, and the service itself refuses to ask the
+  // exchange more than once a minute.
+  app.post("/api/admin/stock/holidays/refresh", requireAdmin, limiter(6, 10 * 60 * 1000), async (req, res) => {
+    res.json(await holidays.refresh());
+  });
+
   /* ------------------------------------------- superadmin: admin users */
   const adminRows = () => [
     {
@@ -439,6 +488,20 @@ function createApp(opts = {}) {
     res.json({ admins: adminRows() });
   });
 
+  /* ------------------------------------------- stock report: the AI strategist */
+  mountAi(app, { ai, requireAdmin, limiter });
+
+  /* ------------------------------------------- stock report: the analyzer */
+  mountMarket(app, {
+    market,
+    requireAdmin,
+    limiter,
+    currentUser,
+    origin,
+    adminBase: ADMIN_BASE,
+    helpers: { cookie, parseCookies, sign, verify, safeEqual, randomToken, sessionKey, isSecure },
+  });
+
   app.use("/api", (req, res) => res.status(404).json({ error: "not_found" }));
 
   /* --------------------------------------------- the built site, if any */
@@ -480,6 +543,9 @@ function createApp(opts = {}) {
   return {
     app,
     store,
+    holidays,
+    market,
+    ai,
     get setupToken() {
       return setupToken;
     },

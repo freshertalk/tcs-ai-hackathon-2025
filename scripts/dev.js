@@ -25,7 +25,9 @@ if (!fs.existsSync(path.join(root, "server", "node_modules"))) {
   if (r.status !== 0) process.exit(r.status || 1);
 }
 
-const api = spawn(process.execPath, [path.join(root, "server", "index.js")], {
+// --watch restarts the API whenever its code changes, so the page and the API can
+// never drift apart during development (data files are not watched).
+const api = spawn(process.execPath, ["--watch", "--watch-preserve-output", path.join(root, "server", "index.js")], {
   cwd: root,
   stdio: "inherit",
   env: { ...process.env, PORT: apiPort },
