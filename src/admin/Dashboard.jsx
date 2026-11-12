@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { api } from "./api";
 import { useAuth } from "./auth";
 import { adminPath } from "./paths";
 import Shell from "./Shell";
+import Welcome from "./Welcome";
 import { IconArrow, IconChart, IconClock, IconGlobe, IconKey, IconShield, IconUsers } from "./icons";
 
 /** The strip across the very top of the dashboard — and only the dashboard. */
@@ -35,9 +36,9 @@ function firstName(user) {
 }
 
 /** A large tile at the top of the dashboard. Both open in their own tab. */
-function Feature({ href, icon, kicker, title, text, tone }) {
+function Feature({ href, icon, kicker, title, text, tone, tip }) {
   return (
-    <a className={`dash-feature dash-feature--${tone}`} href={href} target="_blank" rel="noopener noreferrer">
+    <a className={`dash-feature dash-feature--${tone}`} href={href} target="_blank" rel="noopener noreferrer" data-tip={tip}>
       <span className="dash-feature__ico">{icon}</span>
       <span className="dash-feature__body">
         <span className="dash-feature__k">{kicker}</span>
@@ -52,7 +53,7 @@ function Feature({ href, icon, kicker, title, text, tone }) {
   );
 }
 
-function Tile({ to, href, external, icon, title, text, status }) {
+function Tile({ to, href, external, icon, title, text, status, tip }) {
   const inner = (
     <>
       <span className="adm-ico">{icon}</span>
@@ -69,12 +70,12 @@ function Tile({ to, href, external, icon, title, text, status }) {
     </>
   );
   return external ? (
-    <a className="adm-tile" href={href} target="_blank" rel="noopener noreferrer">
+    <a className="adm-tile" href={href} target="_blank" rel="noopener noreferrer" data-tip={tip}>
       {inner}
       <span className="adm-sr">(opens in a new tab)</span>
     </a>
   ) : (
-    <Link className="adm-tile" to={to}>
+    <Link className="adm-tile" to={to} data-tip={tip}>
       {inner}
     </Link>
   );
@@ -95,6 +96,17 @@ function Category({ title, text, children }) {
 export default function Dashboard() {
   const { user } = useAuth();
   const [s, setS] = useState(null);
+
+  // A fresh sign-in arrives as /me?welcome=1: show the welcome once, and drop the flag
+  // from the address so a refresh does not play it again.
+  const [params, setParams] = useSearchParams();
+  const [welcome, setWelcome] = useState(() => params.get("welcome") === "1");
+  useEffect(() => {
+    if (!params.has("welcome")) return;
+    const next = new URLSearchParams(params);
+    next.delete("welcome");
+    setParams(next, { replace: true });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // only feeds the status chips and tile badges; the dashboard works without it
   useEffect(() => {
@@ -121,6 +133,7 @@ export default function Dashboard() {
 
   return (
     <Shell notice={<Notice />}>
+      {welcome && <Welcome onDone={() => setWelcome(false)} />}
       <div className="dash">
         {/* ------------------------------------------------------------- hello */}
         <section className="dash-hello" aria-label="Welcome">
@@ -128,17 +141,22 @@ export default function Dashboard() {
             <p className="dash-hello__k">{greeting()}</p>
             <h1>Namaste, {firstName(user)}</h1>
             <p className="dash-hello__d">{today}</p>
+            <button type="button" className="dash-om" lang="hi" aria-label="Show the welcome again" data-tip="Show the welcome picture and play the mantra once more." onClick={() => setWelcome(true)}>
+              ॐ
+            </button>
           </div>
           <ul className="dash-chips" aria-label="Status">
-            <li className={s && s.googleSecretSet ? "is-on" : ""}>
+            <li className={s && s.googleSecretSet ? "is-on" : ""} data-tip="Whether Google sign-in has its Client ID and Client Secret. Without them nobody can sign in.">
               <i aria-hidden="true" />
               Google sign-in {s ? (s.googleSecretSet ? "connected" : "not set up") : "…"}
             </li>
-            <li className={s && s.gaMeasurementId ? "is-on" : ""}>
+            <li className={s && s.gaMeasurementId ? "is-on" : ""} data-tip="Whether Google Analytics is counting visits to the public website. Your own visits are never counted.">
               <i aria-hidden="true" />
               Analytics {s ? (s.gaMeasurementId ? "on" : "off") : "…"}
             </li>
-            <li className={`is-role is-${user.role}`}>{isSuper ? "Superadmin" : "Admin"}</li>
+            <li className={`is-role is-${user.role}`} data-tip="Your role here. A superadmin can also add and remove the admins.">
+              {isSuper ? "Superadmin" : "Admin"}
+            </li>
           </ul>
         </section>
 
@@ -151,6 +169,7 @@ export default function Dashboard() {
               icon={<IconShield />}
               kicker="Private"
               title="Vinay’s Personal Access"
+              tip="Opens the private page for Vinay and his family, in a new tab."
             />
             <p className="adm-note">
               <em>(not for public uses, only private access for Vinay and his family)</em>
@@ -164,6 +183,7 @@ export default function Dashboard() {
               kicker="Markets"
               title="Stock Report"
               text="Trading desk · world clock · market holidays"
+              tip="Opens the trading desk, the stock screener, the day debrief and the market clocks, in a new tab."
             />
           </div>
         </section>
@@ -182,6 +202,7 @@ export default function Dashboard() {
             icon={<IconKey />}
             title="Google sign-in"
             text="Client ID and Client Secret used by Login with Google."
+            tip="Enter or replace the Google credentials that the sign-in button uses."
             status={s && { on: s.googleSecretSet, label: s.googleSecretSet ? "Connected" : "Not set up" }}
           />
           {isSuper && (
@@ -190,6 +211,7 @@ export default function Dashboard() {
               icon={<IconUsers />}
               title="Admin users"
               text="Add or remove the people who can open this area. Superadmin only."
+              tip="Choose which Google accounts may sign in here."
             />
           )}
         </Category>
@@ -200,6 +222,7 @@ export default function Dashboard() {
             icon={<IconChart />}
             title="AI strategist"
             text="Anthropic API key and model. Builds a strategy on request; never places an order."
+            tip="Set the Anthropic API key, choose the model, and set the live co-pilot’s limits."
             status={ai && { on: ai.configured, label: ai.configured ? `On · ${(ai.models.find((m) => m.id === ai.model) || {}).name || ai.model}` : "Off — no key" }}
           />
         </Category>
@@ -213,6 +236,7 @@ export default function Dashboard() {
             icon={<IconChart />}
             title="Google Analytics"
             text="Set the GA4 measurement ID for the public site."
+            tip="Turn visit counting on or off for the public website."
             status={
               s && {
                 on: Boolean(s.gaMeasurementId),
@@ -229,6 +253,7 @@ export default function Dashboard() {
             icon={<IconGlobe />}
             title="Open the website"
             text="vinaytiwari.org in a new tab."
+            tip="See the public website as a visitor does."
           />
         </Category>
       </div>

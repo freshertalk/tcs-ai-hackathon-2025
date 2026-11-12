@@ -41,7 +41,7 @@ function IstClock() {
     const id = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(id);
   }, []);
-  return <time className="vd-clock">{now.toLocaleTimeString("en-GB", { timeZone: "Asia/Kolkata", hour12: false })} IST</time>;
+  return <time className="vd-clock" data-tip="The time in India. The trading day runs on it wherever you are.">{now.toLocaleTimeString("en-GB", { timeZone: "Asia/Kolkata", hour12: false })} IST</time>;
 }
 
 /** The trading day as a bar: where the clock is, and the times that change the rules. */
@@ -57,7 +57,12 @@ function SessionBar({ session }) {
   ];
   return (
     <div className="vd-session">
-      <div className="vd-session__bar" role="img" aria-label={`${session.elapsedPct}% of the trading day has passed`}>
+      <div
+        className="vd-session__bar"
+        role="img"
+        aria-label={`${session.elapsedPct}% of the trading day has passed`}
+        data-tip="The trading day, 9:15 AM to 3:30 PM. The marks are 9:30 (opening range set), 11:30 and 1:30 (the midday lull), 2:45 (last new entries) and 3:15 (square-off)."
+      >
         <span style={{ width: `${session.elapsedPct}%` }} />
         {marks.map(([x, label]) => (
           <i key={x} style={{ left: `${x}%` }} data-t={label} />
@@ -105,7 +110,7 @@ function LiveCall({ d, onSize, fallback }) {
             {d.headline}
           </p>
         </div>
-        <p className="vd-live__score">
+        <p className="vd-live__score" data-tip="The intraday score, from −100 (sellers in control) to +100 (buyers in control). “Tape” is the stock’s own action; “market” is the adjustment for the Nifty’s direction.">
           <b>{d.score > 0 ? `+${d.score}` : d.score}</b>
           <small>{d.marketAdj ? `tape ${plus(d.tapeScore)} · market ${plus(d.marketAdj)} · needs ±${d.threshold}` : `tape score · needs ±${d.threshold}`}</small>
         </p>

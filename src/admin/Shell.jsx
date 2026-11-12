@@ -3,6 +3,42 @@ import { Link } from "react-router-dom";
 import { api } from "./api";
 import { useAuth } from "./auth";
 import { adminPath } from "./paths";
+import { setTipsEnabled, useTipsEnabled } from "./help/TipLayer";
+
+const HINT_KEY = "vpt.tips.hint";
+
+/** Shown until dismissed: says that resting the pointer on things explains them. */
+function TipsHint({ wrap }) {
+  const on = useTipsEnabled();
+  const [seen, setSeen] = useState(() => {
+    try {
+      return window.localStorage.getItem(HINT_KEY) === "1";
+    } catch (_) {
+      return false;
+    }
+  });
+  if (seen || !on) return null;
+  const done = () => {
+    try {
+      window.localStorage.setItem(HINT_KEY, "1");
+    } catch (_) {
+      /* private mode — it will simply show again next time */
+    }
+    setSeen(true);
+  };
+  return (
+    <div className="adm-hintbar" role="note">
+      <div className={`${wrap} adm-hintbar__row`}>
+        <p>
+          <b>Help is built in.</b> Rest the pointer on any label, number or button to see what it means. On a phone, tap the label.
+        </p>
+        <button type="button" onClick={done}>
+          Got it
+        </button>
+      </div>
+    </div>
+  );
+}
 
 /**
  * The frame around every signed-in screen: header, breadcrumb, user chip.
@@ -14,6 +50,7 @@ export default function Shell({ crumb, notice, children, narrow, wide, fluid }) 
   const wrap = fluid ? "adm-wrap adm-wrap--fluid" : wide ? "adm-wrap adm-wrap--wide" : "adm-wrap";
   const { user } = useAuth();
   const [busy, setBusy] = useState(false);
+  const tips = useTipsEnabled();
 
   const logout = async () => {
     setBusy(true);
@@ -30,7 +67,7 @@ export default function Shell({ crumb, notice, children, narrow, wide, fluid }) 
       <header className="adm-head">
         <div className={`${wrap} adm-head__row`}>
           <nav className="adm-crumbs" aria-label="Breadcrumb">
-            <Link to={adminPath()} className="adm-brand">
+            <Link to={adminPath()} className="adm-brand" data-tip="Back to the dashboard.">
               Vinay&rsquo;s control room
             </Link>
             {crumb && (
@@ -65,9 +102,19 @@ export default function Shell({ crumb, notice, children, narrow, wide, fluid }) 
           )}
         </div>
       </header>
+      <TipsHint wrap={wrap} />
       <main className={`${wrap} adm-main ${narrow ? "adm-main--narrow" : ""} ${fluid ? "adm-main--fluid" : ""}`}>{children}</main>
       <footer className={`adm-foot ${wrap}`}>
-        Private area · not indexed · not for public use
+        <span>Private area · not indexed · not for public use</span>
+        <button
+          type="button"
+          className="adm-foot__tips"
+          aria-pressed={tips}
+          onClick={() => setTipsEnabled(!tips)}
+          data-tip="The explanations that appear when the pointer rests on a label or a button. Press to turn them off."
+        >
+          Hover help: {tips ? "on" : "off"}
+        </button>
       </footer>
     </>
   );

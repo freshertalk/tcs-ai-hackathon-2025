@@ -1335,3 +1335,294 @@
   background: #d99a00;
   box-shadow: 0 0 0 3px rgba(217, 154, 0, 0.2);
 }
+
+/* ------------------------------------------------------ welcome (after sign-in) */
+.wel {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: clamp(10px, 3vw, 32px);
+  overflow-y: auto;
+  background: radial-gradient(120% 80% at 50% 0%, rgba(255, 190, 90, 0.3), transparent 62%), rgba(14, 10, 6, 0.88);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  animation: wel-in 0.45s ease both;
+}
+.wel.is-leaving {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.35s ease;
+}
+@keyframes wel-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.wel__card {
+  width: min(960px, 100%);
+  margin: 0;
+  border-radius: 20px;
+  overflow: hidden;
+  background: #1c140a;
+  color: #fff6e6;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 205, 120, 0.4);
+  animation: wel-rise 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+@keyframes wel-rise {
+  from {
+    transform: translateY(14px) scale(0.985);
+  }
+  to {
+    transform: none;
+  }
+}
+/* the frame keeps the picture's shape while it loads, so nothing jumps */
+.wel__frame {
+  aspect-ratio: 1672 / 941;
+  background: linear-gradient(135deg, #3a2610, #7a4b12);
+}
+.wel__frame img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+.wel__frame.is-loaded img {
+  opacity: 1;
+}
+.wel__cap {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 20px;
+  padding: 14px clamp(14px, 3vw, 24px) 16px;
+}
+.adm .wel__mantra {
+  font-family: "Noto Sans Devanagari", "Nirmala UI", "Mangal", "Kohinoor Devanagari", system-ui, sans-serif;
+  font-size: clamp(1.35rem, 3.6vw, 1.95rem);
+  font-weight: 600;
+  line-height: 1.3;
+  color: #ffd98a;
+}
+.adm .wel__latin {
+  margin-top: 2px;
+  font-family: var(--f-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(255, 246, 230, 0.72);
+}
+.wel__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px 12px;
+  margin-left: auto;
+}
+.adm .wel__status {
+  min-height: 1.2em;
+  font-size: 0.8rem;
+  color: rgba(255, 246, 230, 0.78);
+}
+.wel__mute {
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid rgba(255, 246, 230, 0.35);
+  border-radius: 99px;
+  background: transparent;
+  color: #fff6e6;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+.wel__mute[aria-pressed="true"] {
+  border-style: dashed;
+  color: rgba(255, 246, 230, 0.7);
+}
+.wel__mute:hover,
+.wel__mute:focus-visible {
+  border-color: #ffd98a;
+}
+.adm .wel__enter {
+  min-width: 132px;
+  background: #ffd98a;
+  border-color: #ffd98a;
+  color: #2a1a05;
+  font-weight: 600;
+}
+.adm .wel__enter:hover {
+  background: #ffe6ae;
+  border-color: #ffe6ae;
+}
+.wel__mute:focus-visible,
+.adm .wel__enter:focus-visible {
+  outline: 2px solid #fff6e6;
+  outline-offset: 2px;
+}
+/* the small ॐ on the dashboard that shows the welcome again */
+.dash-om {
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  margin-top: 10px;
+  border: 1px solid var(--line-2);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--accent-2);
+  font-size: 1.05rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.dash-om:hover,
+.dash-om:focus-visible {
+  border-color: var(--accent-2);
+}
+@media (max-width: 560px) {
+  .wel__cap {
+    justify-content: center;
+    text-align: center;
+  }
+  .wel__actions {
+    width: 100%;
+    margin-left: 0;
+    justify-content: center;
+  }
+  .adm .wel__status {
+    width: 100%;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wel,
+  .wel__card {
+    animation: none;
+  }
+  .wel.is-leaving,
+  .wel__frame img {
+    transition: none;
+  }
+}
+
+/* ------------------------------------------------------------- hover help */
+/* one bubble for the whole private area (help/TipLayer.jsx) */
+.adm-tip {
+  position: fixed;
+  z-index: 1100;
+  left: 0;
+  top: 0;
+  max-width: min(320px, calc(100vw - 16px));
+  padding: 8px 11px;
+  border-radius: 10px;
+  background: #101620;
+  color: #f4f6f9;
+  font-family: var(--f-sans, inherit);
+  font-size: 0.8rem;
+  font-weight: 400;
+  line-height: 1.45;
+  letter-spacing: 0;
+  text-transform: none;
+  text-align: left;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.adm-tip.is-on {
+  opacity: 1;
+}
+.adm-tip::after {
+  content: "";
+  position: absolute;
+  left: var(--tip-arrow, 50%);
+  width: 10px;
+  height: 10px;
+  background: inherit;
+  transform: translateX(-50%) rotate(45deg);
+}
+.adm-tip[data-side="top"]::after {
+  bottom: -4px;
+}
+.adm-tip[data-side="bottom"]::after {
+  top: -4px;
+}
+/* on the dark desk the bubble is the light thing */
+.adm[data-desk="dark"] .adm-tip {
+  background: #e8edf3;
+  color: #0b0f14;
+}
+/* labels the glossary explains: a help cursor, and a dotted underline while pointed at */
+.adm :is(dt, th, h3, h4, h5, small, b, label, .vd-live__k, .ob__k, .db-filters__k)[data-tip-auto] {
+  cursor: help;
+}
+.adm :is(dt, th, label)[data-tip-auto] {
+  text-decoration: underline dotted transparent;
+  text-underline-offset: 3px;
+}
+.adm :is(dt, th, label)[data-tip-auto]:hover {
+  text-decoration-color: currentColor;
+}
+/* the strip that says the help exists, until it is dismissed */
+.adm-hintbar {
+  border-bottom: 1px solid var(--line);
+  background: var(--accent-soft);
+  color: var(--ink);
+}
+.adm-hintbar__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 16px;
+  padding-block: 8px;
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+.adm-hintbar button {
+  min-height: 32px;
+  padding: 0 14px;
+  border: 1px solid var(--line-2);
+  border-radius: 99px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+.adm-hintbar button:hover,
+.adm-hintbar button:focus-visible {
+  border-color: var(--accent);
+}
+.adm-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+.adm-foot__tips {
+  padding: 4px 10px;
+  border: 1px solid var(--line-2);
+  border-radius: 99px;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+.adm-foot__tips:hover,
+.adm-foot__tips:focus-visible {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+@media (prefers-reduced-motion: reduce) {
+  .adm-tip {
+    transition: none;
+  }
+}

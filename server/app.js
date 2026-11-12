@@ -347,7 +347,8 @@ function createApp(opts = {}) {
       )
     );
     res.append("Set-Cookie", clear);
-    res.redirect(ADMIN_BASE);
+    // "welcome" tells the dashboard this is a fresh sign-in (it shows its welcome once and drops the flag)
+    res.redirect(`${ADMIN_BASE}?welcome=1`);
   });
 
   app.post("/api/auth/logout", (req, res) => {
@@ -517,6 +518,10 @@ function createApp(opts = {}) {
         setHeaders(res, file) {
           const hashed = file.includes(`${path.sep}static${path.sep}`);
           res.set("Cache-Control", hashed ? "public, max-age=31536000, immutable" : "public, max-age=3600");
+          // The static-file library is older than the AVIF format and would send such a file as a
+          // nameless download — which a browser told not to guess types (nosniff, above) may refuse
+          // to draw as a picture.
+          if (/\.avif$/i.test(file)) res.set("Content-Type", "image/avif");
         },
       })
     );

@@ -179,7 +179,7 @@ test("only the superadmin and listed admins can sign in", async (t) => {
   assert.equal(stranger.session, "", "no session cookie for a stranger");
 
   const boss = await s.login(SUPERADMIN_EMAIL);
-  assert.equal(boss.cb.headers.location, "/me");
+  assert.equal(boss.cb.headers.location, "/me?welcome=1", "a fresh sign-in is marked, so the dashboard can show its welcome once");
   const me = await s.request("GET", "/api/auth/status", { cookie: boss.session });
   assert.equal(me.json.user.role, "superadmin");
   assert.equal(me.json.user.email, SUPERADMIN_EMAIL);
@@ -339,8 +339,16 @@ test("the admin path matches whole segments only: /me yes, /media and /menu no",
   const build = fs.mkdtempSync(path.join(os.tmpdir(), "vpt-build-"));
   fs.writeFileSync(path.join(build, "index.html"), "<html>PUBLIC SITE</html>");
   fs.writeFileSync(path.join(build, "admin.html"), "<html>ADMIN SHELL</html>");
+  fs.mkdirSync(path.join(build, "img"));
+  fs.writeFileSync(path.join(build, "img", "picture.avif"), "not really an image");
+  fs.writeFileSync(path.join(build, "img", "picture.jpg"), "not really an image");
   const s = await boot({ buildDir: build });
   t.after(s.close);
+
+  // pictures are labelled as pictures — AVIF too, which the static-file library does not know
+  assert.equal((await s.request("GET", "/img/picture.avif")).headers["content-type"], "image/avif");
+  assert.equal((await s.request("GET", "/img/picture.jpg")).headers["content-type"], "image/jpeg");
+  assert.equal((await s.request("GET", "/img/picture.avif")).headers["x-content-type-options"], "nosniff");
 
   for (const p of ["/me", "/me/google", "/me/personal-access"]) {
     const r = await s.request("GET", p);

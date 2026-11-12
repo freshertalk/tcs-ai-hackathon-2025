@@ -16,6 +16,7 @@ import { AuthContext, useAuth } from "./auth";
 import { ADMIN_BASE } from "./paths";
 import { Loading } from "./ui";
 import Shell from "./Shell";
+import TipLayer from "./help/TipLayer";
 
 import Login from "./Login";
 import Setup from "./Setup";
@@ -126,6 +127,8 @@ export default function AdminApp() {
           <Route path="*" element={<Navigate to={ADMIN_BASE} replace />} />
         </Routes>
       </AuthContext.Provider>
+      {/* hover help: one bubble for every label and button that has an explanation */}
+      <TipLayer />
     </div>
   );
 }

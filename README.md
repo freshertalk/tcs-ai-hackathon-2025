@@ -93,6 +93,38 @@ as a redirect URI too.
 the Client Secret is stored AES-256-GCM encrypted), plus the two key files. Back that folder
 up; losing `settings.key` means re-entering the Client Secret.
 
+**Welcome after sign-in.** A fresh sign-in lands on `/me?welcome=1`; the dashboard then shows the
+Shri Ram Darbar once (`src/admin/Welcome.jsx`), sounds the mantra "ॐ श्री गणेशाय नमः" one time, and
+drops the flag from the address so a refresh does not replay it. The small ॐ under the greeting
+shows it again; "Sound on / off" on the welcome is remembered.
+
+- **The picture.** The original (`assets-src/ShriRamDarbar.png`, 3.8 MB, kept as the master copy and
+  not deployed) was re-encoded with ffmpeg for the web: `public/img/shri-ram-darbar-960.avif`
+  (0.32 MB, ordinary screens), `…-1672.avif` (0.67 MB, high-density screens) and
+  `…-960.jpg` (a fallback for browsers without AVIF). AVIF at full colour resolution was chosen
+  because the picture is dense, saturated detail: WebP halves the colour resolution and visibly
+  softens it. Side-by-side crops were checked by eye; SSIM against the original is 0.98. The server
+  labels `.avif` as `image/avif` itself (the static-file library predates the format).
+- **The mantra.** If `public/audio/shri-ganeshay-namah.mp3` exists it is played (add your own
+  recording there — one you have the right to use). Otherwise the browser speaks it, in a Hindi
+  voice when the device has one (`src/admin/mantra.js`). Browsers refuse sound until the page has
+  been touched, and straight after the Google sign-in it has not been: the welcome then shows
+  "Play the mantra" and plays it from that one tap.
+
+**Hover help (the whole private area).** Rest the pointer on a label, a number or a button and a
+bubble says what it means; with the keyboard it appears on focus; on a phone, tap a label. One
+component does it everywhere (`src/admin/help/TipLayer.jsx`, mounted in `AdminApp.jsx`):
+
+- **The words** are in one file, `src/admin/help/glossary.js`: about 280 explanations for some 340
+  labels ("VWAP", "Range used", "Go live", "After costs", …). Labels are matched by their text as
+  the page draws, so a screen needs no markup to get help. A word with two meanings is told apart
+  by where it is (the third item of an entry is a CSS scope).
+- **To add or change help:** edit the glossary, or put `data-tip="…"` on any element (that always
+  wins). An existing `title="…"` is shown in the same bubble, and a symbol-only button (×) is
+  explained by its `aria-label`.
+- **Switching it off:** "Hover help: on / off" in the footer of every page, remembered on the
+  device. A one-time strip under the header says the help exists.
+
 **Stock Report — `/me/stock-report`.** Opens in its own tab from the dashboard (the session
 cookie is shared, so you stay signed in). It shows a world clock for India, USA (New York),
 Singapore, UK, Japan and China with each city's offset from a reference city (daylight saving

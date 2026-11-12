@@ -110,7 +110,7 @@ function WatchRow({ s, q, r, radar, selected, onSelect, onRemove, scanning }) {
   const flags = r && r.enoughData && (r.triggered.length > 0 || r.bearishToday.length > 0);
   return (
     <li className={selected ? "is-sel" : ""}>
-      <button type="button" className="wl__row" onClick={() => onSelect(s)} aria-current={selected ? "true" : undefined}>
+      <button type="button" className="wl__row" onClick={() => onSelect(s)} aria-current={selected ? "true" : undefined} data-tip="Open this stock on the desk.">
         <span className="wl__sym">
           <b>
             {s}

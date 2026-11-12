@@ -96,7 +96,7 @@ function Ticker({ symbol, meta, px: polledPx, chg: polledChg, chgPct: polledPct,
         <span className={`callchip is-${callTone(call)} ${callActive(call) ? "is-active" : ""}`}>{callLabel(call)}</span>
         <small>{call && call.available ? `${call.weakening ? "⚠ weakening · " : ""}${call.session.label} · score ${call.score > 0 ? "+" : ""}${call.score}` : "live call off"}</small>
       </div>
-      <div className={`sv__px is-${tone(chg)} ${flash ? `is-tick-${flash}` : ""}`}>
+      <div className={`sv__px is-${tone(chg)} ${flash ? `is-tick-${flash}` : ""}`} data-tip="The live price, and its change from yesterday’s close. It flashes green or red on each tick.">
         <b>{inr(px)}</b>
         <span>
           {signed(chg)} ({pct(chgPct)})

@@ -50,6 +50,7 @@ export default function WorldClock() {
               <button
                 type="button"
                 className={`wc__card ${isRef ? "is-ref" : ""}`}
+                data-tip={isRef ? "The reference city: the other clocks show their difference from this one." : "Make this the reference city. The other clocks will show their difference from it."}
                 aria-pressed={isRef}
                 onClick={() => setRefId(z.id)}
                 aria-label={`${z.label}, ${face.hm} ${face.meridiem}, ${isRef ? "reference city" : `${cmp.text} compared with ${ref.label}`}`}

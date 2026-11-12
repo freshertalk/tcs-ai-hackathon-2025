@@ -36,13 +36,17 @@ function Side({ rows, side, max }) {
   }
   return (
     <ol className={`ob__side ob__side--${side}`} aria-label={side === "bid" ? "Bids, best first" : "Offers, best first"}>
-      <li className="ob__row ob__row--head" aria-hidden="true">
-        <span className="ob__n">
+      <li className="ob__row ob__row--head">
+        <span className="ob__n" data-tip="How many separate orders are waiting at this price.">
           <span className="ob__long">Orders</span>
           <span className="ob__short">Ord</span>
         </span>
-        <span className="ob__q">Qty</span>
-        <b className="ob__p">{side === "bid" ? "Bid" : "Offer"}</b>
+        <span className="ob__q" data-tip="Shares waiting at this price.">
+          Qty
+        </span>
+        <b className="ob__p" data-tip={side === "bid" ? "A price buyers are waiting to pay. The top row is the best one — the highest." : "A price sellers are asking. The top row is the best one — the lowest."}>
+          {side === "bid" ? "Bid" : "Offer"}
+        </b>
       </li>
       {cells}
     </ol>
@@ -108,7 +112,11 @@ function Lean({ lean }) {
       <p className="ob__k">Next {lean.horizonSec} seconds · the desk’s own model</p>
       <p className="ob__leanhead">
         {head}
-        {verdict && <span className={`ob__chip ob__chip--${verdict.cls}`}>{verdict.text}</span>}
+        {verdict && (
+          <span className={`ob__chip ob__chip--${verdict.cls}`} data-tip="How the model’s 30-second calls have actually turned out today. Only “holding up” deserves any weight.">
+            {verdict.text}
+          </span>
+        )}
       </p>
       <p className="ob__sub">{sub}</p>
     </div>
@@ -140,7 +148,7 @@ export default function OrderBook({ symbol, streaming, marketHours }) {
         <i className={`ob__dot ${depth ? "is-on" : ""}`} aria-hidden="true" /> Order book · live
       </h4>
       {flow && isNum(flow.spread) && (
-        <span className="ob__spread">
+        <span className="ob__spread" data-tip="The gap between the best bid and the best offer. One tick is ₹0.05. A wide spread makes getting in and out dearer.">
           spread {inr(flow.spread)} · {flow.spreadTicks} tick{flow.spreadTicks === 1 ? "" : "s"}
         </span>
       )}
@@ -173,7 +181,7 @@ export default function OrderBook({ symbol, streaming, marketHours }) {
         <Side rows={depth.b} side="bid" max={max} />
         <Side rows={depth.a} side="ask" max={max} />
       </div>
-      <p className="ob__totals">
+      <p className="ob__totals" data-tip="Shares waiting in the five best levels on each side — and, after that, in the whole book.">
         <span>
           5 best: <b className="is-up">{num(sum(depth.b), 0)}</b> bid · <b className="is-down">{num(sum(depth.a), 0)}</b> offered
         </span>

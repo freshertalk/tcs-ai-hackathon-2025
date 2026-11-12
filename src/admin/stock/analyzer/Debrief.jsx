@@ -128,7 +128,7 @@ function Row({ row, max, open, onToggle, onOpen, cols }) {
     <>
       <tr className={`db-row ${open ? "is-open" : ""}`}>
         <th scope="row">
-          <button type="button" className="db-toggle" aria-expanded={open} onClick={onToggle}>
+          <button type="button" className="db-toggle" aria-expanded={open} onClick={onToggle} data-tip="Open or close this stock’s day: its price, the side the engine was on, and each call.">
             <i aria-hidden="true">{open ? "−" : "+"}</i>
             {row.symbol}
           </button>

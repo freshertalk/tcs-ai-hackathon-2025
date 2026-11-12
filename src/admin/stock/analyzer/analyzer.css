@@ -4408,3 +4408,18 @@
     transition: none;
   }
 }
+
+/* On a phone the live sub-line under the price ("streaming · last trade · bid · ask") is long.
+   Left alone it took the whole bar and squeezed the symbol into one letter per line: the
+   symbol keeps its own width, and the sub-line wraps instead. */
+@media (max-width: 640px) {
+  .sv__ticker {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .sv__tk-id {
+    max-width: 55vw;
+  }
+  .sv__px small {
+    text-align: right;
+  }
+}
