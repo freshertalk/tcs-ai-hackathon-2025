@@ -1,6 +1,6 @@
-// The welcome that opens once after signing in to /me: the Shri Ram Darbar, and the
-// mantra "ॐ श्री गणेशाय नमः" sounded one time. It closes by itself when the mantra
-// ends; "Enter" or Esc closes it at once.
+// The welcome that opens every time the dashboard (/me) does: the Shri Ram Darbar, and
+// the mantra "ॐ श्री गणेशाय नमः" sounded one time. It closes by itself a few seconds
+// after the mantra ends; "Enter" or Esc closes it at once.
 //
 // The picture is the original 3.8 MB PNG re-encoded for the web (AVIF at two sizes,
 // with a JPEG for old browsers): the browser downloads about 0.3 MB on an ordinary
@@ -28,7 +28,6 @@ export default function Welcome({ onDone }) {
   // "starting" | "playing" | "blocked" | "ended" | "silent"
   const [phase, setPhase] = useState("starting");
   const [leaving, setLeaving] = useState(false);
-  const [loaded, setLoaded] = useState(false);
   const player = useRef(null);
   const enter = useRef(null);
   const closing = useRef(false);
@@ -114,10 +113,10 @@ export default function Welcome({ onDone }) {
   return (
     <div className={`wel ${leaving ? "is-leaving" : ""}`} role="dialog" aria-modal="true" aria-label="Welcome" onClick={(e) => e.target === e.currentTarget && onEnter()}>
       <figure className="wel__card">
-        <div className={`wel__frame ${loaded ? "is-loaded" : ""}`}>
+        <div className="wel__frame">
           <picture>
             <source type="image/avif" srcSet={`${IMG}-960.avif 960w, ${IMG}-1672.avif 1672w`} sizes="(max-width: 1000px) 94vw, 960px" />
-            <img src={`${IMG}-960.jpg`} alt="Shri Ram Darbar" width="1672" height="941" decoding="async" fetchPriority="high" onLoad={() => setLoaded(true)} onError={() => setLoaded(true)} />
+            <img src={`${IMG}-960.jpg`} alt="Shri Ram Darbar" width="1672" height="941" decoding="async" fetchPriority="high" />
           </picture>
         </div>
         <figcaption className="wel__cap">
@@ -131,7 +130,7 @@ export default function Welcome({ onDone }) {
             <p className="wel__status" role="status">
               {status}
             </p>
-            <button type="button" className="wel__mute" aria-pressed={muted} onClick={toggleMute} data-tip={muted ? "Turn the mantra’s sound back on for the next sign-in." : "Stop the sound now and keep it off at the next sign-in. The picture still shows."}>
+            <button type="button" className="wel__mute" aria-pressed={muted} onClick={toggleMute} data-tip={muted ? "Turn the mantra’s sound back on. It plays now, and each time this page opens." : "Stop the sound now and keep it off each time this page opens. The picture still shows."}>
               {muted ? "Sound off" : "Sound on"}
             </button>
             <button type="button" className="adm-btn adm-btn--solid wel__enter" ref={enter} onClick={onEnter}>

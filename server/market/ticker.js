@@ -2,9 +2,10 @@
 // Live ticks from Zerodha's streaming WebSocket (the "KiteTicker" protocol).
 //
 // Market data only. This client subscribes to instruments and reads prices; the
-// only things it ever sends are subscribe / unsubscribe / mode requests, and it
-// ignores every text frame the server sends. It reconnects by itself, notices a
-// silent connection, and stops trying when Zerodha refuses the session.
+// only things it ever sends are subscribe / unsubscribe / mode requests. Text frames
+// from Zerodha (order updates, broker messages) are passed on untouched as "text"
+// events for whoever listens. It reconnects by itself, notices a silent connection,
+// and stops trying when Zerodha refuses the session.
 //
 // Wire format (https://kite.trade/docs/connect/v3/websocket/):
 //   message = int16 packet count, then for each packet: int16 length + bytes
@@ -322,7 +323,17 @@ class KiteTicker extends EventEmitter {
     ws.on("message", (data, isBinary) => {
       if (this.ws !== ws) return;
       this.lastMessageAt = this.now();
-      if (isBinary === false || !Buffer.isBuffer(data)) return; // text frames are not market data: ignored
+      if (isBinary === false || !Buffer.isBuffer(data)) {
+        // text frames are not market data: JSON notes such as {"type":"order","data":{…}}
+        let note = null;
+        try {
+          note = JSON.parse(String(data));
+        } catch (_) {
+          note = null;
+        }
+        if (note && typeof note.type === "string") this.emit("text", note);
+        return;
+      }
       for (const t of parseTicks(data)) {
         if (!this.refs.has(t.token)) continue;
         const merged = { ...(this.ticks.get(t.token) || {}), ...t, at: this.lastMessageAt };

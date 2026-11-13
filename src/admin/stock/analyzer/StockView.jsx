@@ -17,6 +17,7 @@ import useCopilot from "./useCopilot";
 import Copilot from "./Copilot";
 import OrderBook from "./OrderBook";
 import FastRead from "./FastRead";
+import { TradeButtons } from "../trade/TradeContext";
 
 const TABS = [
   { id: "overview", label: "Overview" },
@@ -102,6 +103,10 @@ function Ticker({ symbol, meta, px: polledPx, chg: polledChg, chgPct: polledPct,
           {signed(chg)} ({pct(chgPct)})
         </span>
         <small>{sub}</small>
+      </div>
+      {/* only drawn for the account owner; greyed out while the trading switch is off */}
+      <div className="sv__trade">
+        <TradeButtons symbol={symbol} exchange="NSE" />
       </div>
     </header>
   );

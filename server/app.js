@@ -35,6 +35,8 @@ const { MarketService } = require("./market/service");
 const { mountMarket } = require("./market/routes");
 const { AiService } = require("./ai/service");
 const { mountAi } = require("./ai/routes");
+const { TradingService } = require("./trading/service");
+const { mountTrading } = require("./trading/routes");
 
 const SESSION_COOKIE = "vpt_session";
 const OAUTH_COOKIE = "vpt_oauth";
@@ -147,6 +149,19 @@ function createApp(opts = {}) {
       market,
       fetchImpl: opts.aiFetch,
       now: opts.now,
+    });
+
+  // the account and trading (Zerodha). Reads always; writes only while its switch is on.
+  // Tests and simulators pass their own fetch: then orders go to the fake, never to Zerodha.
+  const trading =
+    opts.trading ||
+    new TradingService({
+      dir: dataDir,
+      store,
+      market,
+      fetchImpl: opts.tradingFetch || opts.marketFetch,
+      now: opts.now,
+      gapMs: opts.marketGaps ? 0 : undefined,
     });
 
   // the live call mentions the latest world brief when it argues against a trade
@@ -347,8 +362,7 @@ function createApp(opts = {}) {
       )
     );
     res.append("Set-Cookie", clear);
-    // "welcome" tells the dashboard this is a fresh sign-in (it shows its welcome once and drops the flag)
-    res.redirect(`${ADMIN_BASE}?welcome=1`);
+    res.redirect(ADMIN_BASE);
   });
 
   app.post("/api/auth/logout", (req, res) => {
@@ -491,6 +505,9 @@ function createApp(opts = {}) {
 
   /* ------------------------------------------- stock report: the AI strategist */
   mountAi(app, { ai, requireAdmin, limiter });
+
+  /* ------------------------------------------- stock report: the account and trading */
+  mountTrading(app, { trading, ai, requireSuper, limiter });
 
   /* ------------------------------------------- stock report: the analyzer */
   mountMarket(app, {

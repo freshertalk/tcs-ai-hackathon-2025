@@ -569,7 +569,7 @@ test("demo mode: made-up symbols only, clearly labelled, no Zerodha calls at all
 
 /* -------------------------------------------------- the read-only promise */
 
-test("READ-ONLY: the server only ever reads from Zerodha — it cannot place an order", async (t) => {
+test("READ-ONLY: the market module only ever reads from Zerodha — trading lives apart, in server/trading", async (t) => {
   const s = await boot();
   t.after(s.close);
   await s.connectKite();

@@ -4,8 +4,8 @@
 //   1. a recording, if one has been put at  public/audio/shri-ganeshay-namah.mp3
 //   2. otherwise the browser's own speech, in a Hindi voice when the device has one
 //
-// Browsers do not let a page make sound until the visitor has touched it. Straight
-// after the Google sign-in there has been no touch yet, so the first attempt is often
+// Browsers do not let a page make sound until the visitor has touched it. A page that
+// has only just been opened has not been touched yet, so the first attempt is often
 // refused; the welcome screen then asks for one tap and plays it from that.
 
 export const MANTRA = {

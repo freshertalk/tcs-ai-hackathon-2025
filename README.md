@@ -93,10 +93,12 @@ as a redirect URI too.
 the Client Secret is stored AES-256-GCM encrypted), plus the two key files. Back that folder
 up; losing `settings.key` means re-entering the Client Secret.
 
-**Welcome after sign-in.** A fresh sign-in lands on `/me?welcome=1`; the dashboard then shows the
-Shri Ram Darbar once (`src/admin/Welcome.jsx`), sounds the mantra "ॐ श्री गणेशाय नमः" one time, and
-drops the flag from the address so a refresh does not replay it. The small ॐ under the greeting
-shows it again; "Sound on / off" on the welcome is remembered.
+**Welcome on the dashboard.** Every time `/me` opens — after signing in, on a refresh, in a new tab,
+and on coming back to the dashboard from a settings page — it first shows the Shri Ram Darbar
+(`src/admin/Welcome.jsx`) and sounds the mantra "ॐ श्री गणेशाय नमः" one time. It closes by itself
+after about eight seconds, or at once with Enter or Esc. The small ॐ under the greeting shows it
+again without reloading; "Sound on / off" on the welcome is remembered. (It belongs to the
+dashboard only: the Stock Report and the settings pages open without it.)
 
 - **The picture.** The original (`assets-src/ShriRamDarbar.png`, 3.8 MB, kept as the master copy and
   not deployed) was re-encoded with ffmpeg for the web: `public/img/shri-ram-darbar-960.avif`
@@ -108,8 +110,8 @@ shows it again; "Sound on / off" on the welcome is remembered.
 - **The mantra.** If `public/audio/shri-ganeshay-namah.mp3` exists it is played (add your own
   recording there — one you have the right to use). Otherwise the browser speaks it, in a Hindi
   voice when the device has one (`src/admin/mantra.js`). Browsers refuse sound until the page has
-  been touched, and straight after the Google sign-in it has not been: the welcome then shows
-  "Play the mantra" and plays it from that one tap.
+  been touched, and a page that has just been opened has not been: the welcome then shows
+  "Play the mantra", stays until it is answered, and plays the mantra from that one tap.
 
 **Hover help (the whole private area).** Rest the pointer on a label, a number or a button and a
 bubble says what it means; with the keyboard it appears on focus; on a phone, tap a label. One
@@ -124,6 +126,24 @@ component does it everywhere (`src/admin/help/TipLayer.jsx`, mounted in `AdminAp
   explained by its `aria-label`.
 - **Switching it off:** "Hover help: on / off" in the footer of every page, remembered on the
   device. A one-time strip under the header says the help exists.
+
+**Type (the whole private area).** `/me` and every page under it use the typeface and the text
+sizes of Zerodha Kite's web app, read from its public stylesheet: Open Sans; 14px text; 12px labels,
+column heads and captions; 18px section titles; 24px page titles and prices; regular weight, with
+600 for emphasis; no letter-spacing; capitals only on small status tags (LONG, CLOSED, CONNECTED).
+Only the type follows Kite — the colours, the layout and the name stay this site's own.
+
+- **One ladder of sizes.** The steps are variables at the top of `src/admin/admin.css`: `--t-tag`
+  10.8px, `--t-small` 12, `--t-mid` 13, `--t-base` 14, `--t-lead` 16, `--t-title` 18, `--t-large`
+  24, `--t-xlarge` 32, `--t-xxlarge` 42. Text in `admin.css` and `analyzer.css` takes its size from
+  them, so changing a step changes every screen. The exceptions are deliberate: the mantra on the
+  welcome (Devanagari), chart labels drawn inside SVG (11px), and fields on touch screens (16px —
+  under that a phone zooms the page into the field).
+- **The font** is one more family on the Google Fonts link in `public/index.html`. The public page
+  does not use it, and a browser downloads a face's files only on a page that does. Real code (a
+  redirect address, the skills file) keeps the fixed-width face through `--f-code`.
+- **When adding a screen:** take sizes from the steps (`font-size: var(--t-small)`) and leave
+  `font-family`, `letter-spacing` and `text-transform` alone.
 
 **Stock Report — `/me/stock-report`.** Opens in its own tab from the dashboard (the session
 cookie is shared, so you stay signed in). It shows a world clock for India, USA (New York),
@@ -143,9 +163,10 @@ return/drawdown history.
   "Zerodha setup"; the redirect URL to register is `<your-origin>/api/admin/market/kite/callback`.
   Kite sessions end at 6 AM IST every day (exchange rule), so one "Log in to Kite" click is needed
   each trading morning.
-- **Read-only by construction.** The server calls only `/quote`, `/instruments` and
-  `/instruments/historical` — there is no order, GTT, portfolio or funds code, and a test fails if
-  any appears.
+- **The desk itself is read-only.** `server/market/` calls only `/quote`, `/instruments` and
+  `/instruments/historical` — no order, GTT, portfolio or funds code, and a test fails if any
+  appears. Trading lives apart, in `server/trading/`, behind its own switch (see *Positions &
+  orders* below).
 - **Fails safe, not silent.** Daily candles are cached in `server/data/market/`; if Kite is down or
   the token has expired the last good data is shown and labelled *Not live*. A split/bonus
   re-adjustment triggers a full re-download. Requests are throttled to Kite's limits.
@@ -400,14 +421,62 @@ feature works unchanged. Code: `server/ai/` (official `@anthropic-ai/sdk`).
   next year's list is missing. **Each December: compare with the exchange's list, add the new year to
   `INDIA`, and bump `INDIA_META.verifiedOn`.**
 
+**Positions & orders (the account owner only; `server/trading/`, `src/admin/stock/trade/`).** Your
+Zerodha account on this site, built as a fallback for days when the Kite app or website is down but
+Zerodha's API still answers: positions with live P&L, holdings, the order book and trades, funds and
+margins (all read always) — and, while the **trading switch** is ON, Buy / Sell (market, limit, SL,
+SL-M; MIS / CNC / NRML; AMO), modify and cancel, exit a position (all or part), sell holdings, and
+**Exit all positions** (optionally cancelling every pending order first). Order updates arrive live
+from Zerodha's stream; the page also re-reads the book every 5 seconds.
+
+- **The switch.** OFF by default. While it is off, every Buy, Sell, Exit, Modify and Cancel button
+  is greyed out — and the server refuses those requests (HTTP 423) whatever is sent. Only the
+  superadmin can turn it on; turning it on asks first. The other admins never see this view.
+- **Guard rails, on the server.** Every order needs an explicit confirmation and a fresh reference,
+  so a double click or a retried request cannot place it twice. Per-order limits on quantity and
+  value (set on the page) stop a fat finger; an order that only closes something you already hold
+  is never stopped by them. Market and SL-M orders always carry Zerodha's market protection.
+  "Exit all" needs EXIT ALL typed. Every switch change and every order — and Zerodha's refusals —
+  go to `server/data/trading/audit.jsonl`, shown under "Activity on this site".
+- **Only one file can send an order**: `server/trading/broker.js`. The market folder and the AI
+  folder cannot load it, and a test checks that.
+- **Before you rely on it.** Since 1 April 2026 Zerodha accepts API orders only from the **static
+  IP registered on your Kite Connect app** (SEBI's retail-algo rules; reads work from anywhere) — the
+  server must run on that IP. Selling delivery shares needs **DDPI** (or the day's CDSL TPIN
+  authorisation). The day's Kite login is still needed. It helps when the Kite app is down, not
+  when Zerodha's own order system is; then call Zerodha's dealing desk.
+- **AI position coach** (`server/ai/coach.js`, the Positions tab). On request, the model reads
+  your positions and holdings — quantity, average, live price, P&L, product, funds, open orders —
+  next to the desk's live call, levels and early warnings for each stock, and suggests hold /
+  tighten stop / trim / exit / wait with levels taken from the desk. It advises only: the trading
+  routes hand it the figures as plain data, it cannot reach the broker, and a stop on the wrong
+  side of the price is flagged and dropped.
+
+**Research — pre-market and post-market (`server/ai/research.js`, the "Research" view).** Pick
+stocks from the watchlist and a phase (mornings default to pre-market, afternoons to
+post-market). Each stock gets a data sheet from the desk — daily indicators (RSI, MACD, ADX,
+stochastic, Bollinger %B, Supertrend, relative volume), pivots and levels, the seven setups and
+their backtests on that stock, the weekly / daily / intraday verdict, the long-term view and the
+news check. With an Anthropic key the model writes a note per stock (bias, conviction, key levels,
+if-then scenarios for the session, long and short triggers, what cancels the idea, when to stand
+aside, a checklist for the open) and a summary across the list (clearest set-ups, ones to leave
+alone, the first 30 minutes). Optional: a fresh news check per stock and a fresh world brief. It
+runs as a job the page follows; reports are kept in `server/data/ai/research.json`. Without a key
+you get the data sheets alone.
+
+**Holiday lists show only what is to come.** Holidays already past are hidden (the summary says how
+many), past years are not offered, and when a year has no closures left the page points to the
+next one.
+
 **Analytics.** The GA4 ID is set in the dashboard and fetched at runtime. It is never loaded
 on a local run (`localhost`, `127.0.0.1`, LAN addresses, `npm start`), in the admin area, or
 for a signed-in admin browsing the live site.
 
 **Tests.** `npm run server:test` (API, roles, sessions, secret handling, indicators, setups, backtester, desk verdict, the live
 call, streaming and market depth, order flow, the screener, the Kite data layer, and the AI strategist, co-pilot and news check
-against a fake Anthropic API, and the day replay and debrief) and `CI=true npm test -- --watchAll=false` (analytics loader, tripwires, chart
-axis, co-pilot triggers, debrief chart arithmetic).
+against a fake Anthropic API, and the day replay and debrief, and trading: the switch, limits, double-click protection, exits, the audit log, and that only
+`server/trading/broker.js` can send an order; the position coach and research) and `CI=true npm test -- --watchAll=false`
+(analytics loader, tripwires, chart axis, co-pilot triggers, debrief chart arithmetic, P&L and order-ticket checks).
 
 ## SEO and link previews
 

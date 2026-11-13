@@ -5,11 +5,38 @@
    ========================================================================== */
 
 .adm {
+  /* Type. One face and one ladder of sizes for the whole private area, the ones the web
+     app of Zerodha Kite uses (read from its stylesheet): Open Sans, 14px text, 12px
+     labels, regular weight with 600 for emphasis, no letter-spacing, and capitals only on
+     small tags. Text here and in analyzer.css takes its size from these steps, so
+     changing a step changes every screen. */
+  --f-ui: "Open Sans", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --f-code: var(--f-mono); /* real code only: a redirect address, the skills file */
+  --t-tag: 0.675rem; /* 10.8px  tags, chips, badges */
+  --t-small: 0.75rem; /* 12px  labels, column heads, captions */
+  --t-mid: 0.8125rem; /* 13px  secondary text, dense rows */
+  --t-base: 0.875rem; /* 14px  everything else */
+  --t-lead: 1rem; /* 16px  figures and names that should stand out a little */
+  --t-title: 1.125rem; /* 18px  section titles */
+  --t-large: 1.5rem; /* 24px  page titles, the price, key figures */
+  --t-xlarge: 2rem; /* 32px  the clocks, the number of shares */
+  --t-xxlarge: 2.625rem; /* 42px  the one big number on a card */
+
   min-height: 100vh;
   background: var(--paper);
   color: var(--ink);
-  font-size: 0.96rem;
+  font-family: var(--f-ui);
+  font-size: var(--t-base);
+  font-weight: 400;
   line-height: 1.6;
+  letter-spacing: 0;
+  /* every digit the same width: prices line up in columns and do not jitter as they tick */
+  font-variant-numeric: tabular-nums;
+  /* Decoration may bleed past the page's edge (the dashboard's glow does, by 50px a side).
+     Clipped here it cannot widen the page: on a phone that would let the screen slide
+     sideways and push anything centred on it — the welcome — off to the right. "clip",
+     unlike "hidden", makes no scroll box, so sticky headers keep working. */
+  overflow-x: clip;
 }
 .adm *,
 .adm *::before,
@@ -19,18 +46,33 @@
 .adm h1,
 .adm h2,
 .adm h3 {
-  font-family: var(--f-display);
-  font-weight: 500;
-  letter-spacing: -0.02em;
+  font-weight: 400;
   line-height: 1.2;
   margin: 0;
+}
+/* Three resets, written with :where() so they weigh nothing and any class further down
+   still has the last word. The public site tightens its headings — here nothing is
+   tracked. Fields and buttons take the page's face instead of the system's. Bold is 600. */
+.adm :where(h1, h2, h3, h4, h5, h6) {
+  letter-spacing: 0;
+}
+.adm :where(button, input, select, textarea) {
+  font-family: inherit;
+  letter-spacing: inherit;
+}
+.adm :where(b, strong, th) {
+  font-weight: 600;
+}
+/* a <small> is a caption (12px) wherever it stands, not "a bit smaller than its parent" */
+.adm :where(small) {
+  font-size: var(--t-small);
 }
 .adm p {
   margin: 0;
 }
 .adm code {
-  font-family: var(--f-mono);
-  font-size: 0.82em;
+  font-family: var(--f-code);
+  font-size: 0.9em;
   padding: 2px 6px;
   border-radius: 6px;
   background: var(--accent-soft);
@@ -74,13 +116,13 @@
   border-radius: 99px;
   background: #4d3300;
   color: #fff1cf;
-  font-family: var(--f-mono);
-  font-size: 0.6rem;
-  letter-spacing: 0.14em;
+  font-size: var(--t-tag);
+  font-weight: 600;
+  letter-spacing: 0.5px;
   text-transform: uppercase;
 }
 .adm-notice p {
-  font-size: 0.9rem;
+  font-size: var(--t-base);
   line-height: 1.45;
 }
 
@@ -106,10 +148,8 @@
   min-width: 0;
 }
 .adm-brand {
-  font-family: var(--f-display);
-  font-size: 1.1rem;
+  font-size: var(--t-title);
   color: var(--ink);
-  letter-spacing: -0.02em;
 }
 .adm-user {
   display: flex;
@@ -139,13 +179,13 @@
 }
 .adm-user__id b {
   font-weight: 600;
-  font-size: 0.86rem;
+  font-size: var(--t-base);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .adm-user__id small {
-  font-size: 0.72rem;
+  font-size: var(--t-small);
   color: var(--ink-3);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -174,7 +214,7 @@
   max-width: 760px;
 }
 .adm-h1 {
-  font-size: clamp(1.6rem, 4vw, 2.2rem);
+  font-size: var(--t-large);
 }
 .adm-lead {
   margin-top: 10px;
@@ -182,29 +222,23 @@
   max-width: 62ch;
 }
 .adm-small {
-  font-size: 0.82rem;
+  font-size: var(--t-mid);
   color: var(--ink-3);
 }
 .adm-eyebrow {
-  font-family: var(--f-mono);
-  font-size: 0.64rem;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
+  font-size: var(--t-small);
   color: var(--accent-2);
   margin-bottom: 10px;
 }
 .adm-note {
   margin-top: 10px;
-  font-size: 0.78rem;
+  font-size: var(--t-small);
   font-style: italic;
   color: var(--ink-3);
 }
 .adm-foot {
   padding-block: 18px 28px;
-  font-family: var(--f-mono);
-  font-size: 0.6rem;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  font-size: var(--t-small);
   color: var(--ink-3);
 }
 .adm-center {
@@ -224,7 +258,7 @@
   box-shadow: var(--shadow);
 }
 .adm-card h2 {
-  font-size: 1.15rem;
+  font-size: var(--t-title);
   margin-bottom: 10px;
 }
 .adm-center .adm-card {
@@ -237,7 +271,7 @@
 }
 .adm-card--login h1,
 .adm-card--wide h1 {
-  font-size: clamp(1.6rem, 5vw, 2rem);
+  font-size: var(--t-large);
 }
 .adm-card--login .adm-lead {
   margin-inline: auto;
@@ -275,7 +309,7 @@
 .adm-field label {
   display: block;
   margin-bottom: 6px;
-  font-size: 0.84rem;
+  font-size: var(--t-base);
   font-weight: 600;
 }
 .adm-field input,
@@ -288,7 +322,7 @@
   background: var(--paper);
   color: var(--ink);
   font: inherit;
-  font-size: 16px; /* stops iOS zooming into the field */
+  font-size: var(--t-base);
 }
 .adm-field select:focus-visible {
   outline: 2px solid var(--accent);
@@ -301,7 +335,7 @@
 }
 .adm-hint {
   margin-top: 6px;
-  font-size: 0.78rem;
+  font-size: var(--t-small);
   color: var(--ink-3);
 }
 .adm-actions {
@@ -328,8 +362,8 @@
   background: var(--surface);
   color: var(--ink);
   font: inherit;
-  font-size: 0.9rem;
-  font-weight: 500;
+  font-size: var(--t-base);
+  font-weight: 400;
   cursor: pointer;
   transition: background 0.25s, border-color 0.25s, color 0.25s, transform 0.15s;
 }
@@ -373,7 +407,7 @@
 .adm-btn--sm {
   min-height: 36px;
   padding: 0 14px;
-  font-size: 0.8rem;
+  font-size: var(--t-mid);
 }
 .adm-google {
   display: flex;
@@ -387,8 +421,8 @@
   border-radius: 99px;
   background: #fff;
   color: #1f1f1f;
-  font-weight: 500;
-  font-size: 0.98rem;
+  font-weight: 400;
+  font-size: var(--t-lead);
   transition: box-shadow 0.25s, background 0.25s;
 }
 .adm-google:hover {
@@ -408,7 +442,7 @@
   margin-top: 14px;
   padding: 11px 14px;
   border-radius: 12px;
-  font-size: 0.88rem;
+  font-size: var(--t-base);
   border: 1px solid;
   text-align: left;
 }
@@ -448,7 +482,7 @@
   padding: 0;
   background: none;
   color: var(--ink);
-  font-size: 0.8rem;
+  font-size: var(--t-mid);
 }
 .adm-loading {
   display: flex;
@@ -491,7 +525,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  font-weight: 500;
+  font-weight: 400;
 }
 .adm-status i {
   width: 10px;
@@ -535,7 +569,7 @@
 }
 .adm-people small {
   color: var(--ink-3);
-  font-size: 0.76rem;
+  font-size: var(--t-small);
 }
 @media (max-width: 560px) {
   .adm-people li {
@@ -581,10 +615,7 @@
   align-items: center;
   gap: 16px;
   margin: clamp(30px, 5vw, 48px) 0 6px;
-  font-family: var(--f-mono);
-  font-size: 0.68rem;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
+  font-size: var(--t-small);
   color: var(--ink-3);
 }
 .adm-sep::before,
@@ -626,12 +657,11 @@
   flex: 1;
 }
 .adm-tile__t {
-  font-family: var(--f-display);
-  font-size: 1.08rem;
+  font-size: var(--t-lead);
   line-height: 1.25;
 }
 .adm-tile__d {
-  font-size: 0.84rem;
+  font-size: var(--t-base);
   color: var(--ink-2);
   line-height: 1.5;
 }
@@ -642,9 +672,9 @@
   border-radius: 99px;
   background: var(--surface-2);
   color: var(--ink-3);
-  font-family: var(--f-mono);
-  font-size: 0.6rem;
-  letter-spacing: 0.1em;
+  font-size: var(--t-tag);
+  font-weight: 600;
+  letter-spacing: 0.5px;
   text-transform: uppercase;
 }
 .adm-tile__s.is-on {
@@ -690,19 +720,16 @@
   margin-bottom: clamp(20px, 3vw, 32px);
 }
 .dash-hello__k {
-  font-family: var(--f-mono);
-  font-size: 0.64rem;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
+  font-size: var(--t-small);
   color: var(--accent-2);
 }
 .dash-hello h1 {
   margin-top: 6px;
-  font-size: clamp(1.9rem, 5vw, 3rem);
+  font-size: var(--t-large);
 }
 .dash-hello__d {
   margin-top: 6px;
-  font-size: 0.9rem;
+  font-size: var(--t-base);
   color: var(--ink-3);
 }
 .dash-chips {
@@ -721,7 +748,7 @@
   border: 1px solid var(--line-2);
   border-radius: 99px;
   background: var(--surface);
-  font-size: 0.78rem;
+  font-size: var(--t-small);
   color: var(--ink-2);
 }
 .dash-chips li i {
@@ -828,20 +855,15 @@
   flex: 1;
 }
 .dash-feature__k {
-  font-family: var(--f-mono);
-  font-size: 0.62rem;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
+  font-size: var(--t-small);
   opacity: 0.78;
 }
 .dash-feature__t {
-  font-family: var(--f-display);
-  font-size: clamp(1.35rem, 3.6vw, 1.8rem);
-  letter-spacing: -0.02em;
+  font-size: var(--t-title);
   line-height: 1.2;
 }
 .dash-feature__d {
-  font-size: 0.86rem;
+  font-size: var(--t-base);
   opacity: 0.85;
   line-height: 1.45;
 }
@@ -874,11 +896,11 @@
   border-top: 0;
 }
 .dash-cat header h3 {
-  font-size: 1.15rem;
+  font-size: var(--t-title);
 }
 .dash-cat header p {
   margin-top: 6px;
-  font-size: 0.84rem;
+  font-size: var(--t-base);
   line-height: 1.55;
   color: var(--ink-3);
 }
@@ -913,7 +935,7 @@
   border: 1px solid var(--line-2);
   border-radius: 99px;
   background: var(--surface);
-  font-size: 0.8rem;
+  font-size: var(--t-mid);
   transition: border-color 0.25s, color 0.25s;
 }
 .sr-jump a:hover {
@@ -939,11 +961,11 @@
   margin-bottom: 16px;
 }
 .sr-card__head h2 {
-  font-size: 1.3rem;
+  font-size: var(--t-title);
 }
 .sr-card__head p {
   margin-top: 4px;
-  font-size: 0.84rem;
+  font-size: var(--t-base);
   color: var(--ink-3);
 }
 .sr-two {
@@ -968,7 +990,7 @@
   min-height: 34px;
   padding: 0 14px;
   border-radius: 99px;
-  font-size: 0.8rem;
+  font-size: var(--t-mid);
   color: var(--ink-2);
 }
 .sr-seg button[aria-pressed="true"] {
@@ -983,7 +1005,7 @@
   background: var(--paper);
   color: var(--ink);
   font: inherit;
-  font-size: 0.9rem;
+  font-size: var(--t-base);
 }
 .sr-year select:focus-visible,
 .sr-seg button:focus-visible,
@@ -1014,10 +1036,10 @@
     padding: 12px;
   }
   .wc__time {
-    font-size: 1.55rem;
+    font-size: var(--t-large);
   }
   .wc__meta {
-    font-size: 0.56rem;
+    font-size: var(--t-tag);
   }
 }
 .wc__card {
@@ -1058,10 +1080,8 @@
   border-radius: 10px;
   background: var(--accent-soft);
   color: var(--accent);
-  font-family: var(--f-mono);
-  font-size: 0.66rem;
+  font-size: var(--t-tag);
   font-weight: 600;
-  letter-spacing: 0.06em;
 }
 .is-ref .wc__code {
   background: rgba(255, 255, 255, 0.18);
@@ -1071,11 +1091,11 @@
   display: grid;
   line-height: 1.2;
   font-weight: 600;
-  font-size: 0.95rem;
+  font-size: var(--t-base);
 }
 .wc__name small {
   font-weight: 400;
-  font-size: 0.72rem;
+  font-size: var(--t-small);
   color: var(--ink-3);
 }
 .is-ref .wc__name small,
@@ -1084,9 +1104,7 @@
   color: rgba(255, 255, 255, 0.75);
 }
 .wc__time {
-  font-family: var(--f-display);
-  font-size: clamp(1.9rem, 3.4vw, 2.3rem);
-  letter-spacing: -0.02em;
+  font-size: var(--t-xlarge);
   line-height: 1.1;
   font-variant-numeric: tabular-nums;
 }
@@ -1100,13 +1118,11 @@
   text-transform: uppercase;
 }
 .wc__date {
-  font-size: 0.82rem;
+  font-size: var(--t-mid);
   color: var(--ink-2);
 }
 .wc__meta {
-  font-family: var(--f-mono);
-  font-size: 0.62rem;
-  letter-spacing: 0.06em;
+  font-size: var(--t-small);
   color: var(--ink-3);
 }
 .wc__off {
@@ -1117,13 +1133,12 @@
   margin-top: 4px;
   padding-top: 8px;
   border-top: 1px dashed var(--line-2);
-  font-size: 0.78rem;
+  font-size: var(--t-small);
   color: var(--ink-3);
 }
 .wc__off b {
-  font-family: var(--f-display);
-  font-size: 1.1rem;
-  font-weight: 500;
+  font-size: var(--t-title);
+  font-weight: 400;
   color: var(--ink);
 }
 .wc__off.is-ahead b {
@@ -1135,10 +1150,7 @@
 .wc__off.is-ref {
   border-top-color: rgba(255, 255, 255, 0.3);
   color: rgba(255, 255, 255, 0.85);
-  font-family: var(--f-mono);
-  font-size: 0.64rem;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  font-size: var(--t-small);
 }
 
 /* holiday calendars */
@@ -1150,20 +1162,17 @@
   padding: 10px 14px;
   border-radius: 12px;
   background: var(--paper);
-  font-size: 0.82rem;
+  font-size: var(--t-mid);
   color: var(--ink-2);
 }
 .hc__next {
   color: var(--accent);
-  font-weight: 500;
+  font-weight: 400;
 }
 .hc__month h3 {
   margin: 16px 0 6px;
-  font-family: var(--f-mono);
-  font-size: 0.66rem;
-  font-weight: 500;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
+  font-size: var(--t-small);
+  font-weight: 600;
   color: var(--ink-3);
 }
 .hc__list {
@@ -1186,15 +1195,11 @@
   line-height: 1.15;
 }
 .hc__date b {
-  font-family: var(--f-display);
-  font-size: 1.25rem;
-  font-weight: 500;
+  font-size: var(--t-title);
+  font-weight: 400;
 }
 .hc__date span {
-  font-family: var(--f-mono);
-  font-size: 0.62rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: var(--t-small);
   color: var(--ink-3);
 }
 .hc__what {
@@ -1202,10 +1207,10 @@
   min-width: 0;
 }
 .hc__name {
-  font-weight: 500;
+  font-weight: 400;
 }
 .hc__what small {
-  font-size: 0.76rem;
+  font-size: var(--t-small);
   line-height: 1.4;
   color: var(--ink-3);
 }
@@ -1219,9 +1224,9 @@
   padding: 3px 9px;
   border-radius: 99px;
   font-style: normal;
-  font-family: var(--f-mono);
-  font-size: 0.58rem;
-  letter-spacing: 0.1em;
+  font-size: var(--t-tag);
+  font-weight: 600;
+  letter-spacing: 0.5px;
   text-transform: uppercase;
   white-space: nowrap;
 }
@@ -1256,7 +1261,7 @@
 }
 .hc__foot {
   margin-top: 18px;
-  font-size: 0.76rem;
+  font-size: var(--t-small);
   line-height: 1.55;
   color: var(--ink-3);
 }
@@ -1298,7 +1303,7 @@
   border-radius: 12px;
   border: 1px solid var(--line);
   background: var(--paper);
-  font-size: 0.8rem;
+  font-size: var(--t-mid);
   line-height: 1.5;
   color: var(--ink-2);
 }
@@ -1348,20 +1353,14 @@
   background: radial-gradient(120% 80% at 50% 0%, rgba(255, 190, 90, 0.3), transparent 62%), rgba(14, 10, 6, 0.88);
   -webkit-backdrop-filter: blur(6px);
   backdrop-filter: blur(6px);
-  animation: wel-in 0.45s ease both;
 }
+/* The welcome is visible the moment it exists. Nothing here fades IN: where animations do
+   not run (a tab that is not being drawn, some power-saving modes) a fade-in would leave an
+   invisible sheet over the page. Only leaving is animated, and that ends with its removal. */
 .wel.is-leaving {
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.35s ease;
-}
-@keyframes wel-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
 }
 .wel__card {
   width: min(960px, 100%);
@@ -1391,11 +1390,6 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-  opacity: 0;
-  transition: opacity 0.5s ease;
-}
-.wel__frame.is-loaded img {
-  opacity: 1;
 }
 .wel__cap {
   display: flex;
@@ -1414,10 +1408,7 @@
 }
 .adm .wel__latin {
   margin-top: 2px;
-  font-family: var(--f-mono);
-  font-size: 0.7rem;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
+  font-size: var(--t-small);
   color: rgba(255, 246, 230, 0.72);
 }
 .wel__actions {
@@ -1430,7 +1421,7 @@
 }
 .adm .wel__status {
   min-height: 1.2em;
-  font-size: 0.8rem;
+  font-size: var(--t-mid);
   color: rgba(255, 246, 230, 0.78);
 }
 .wel__mute {
@@ -1440,7 +1431,7 @@
   border-radius: 99px;
   background: transparent;
   color: #fff6e6;
-  font-size: 0.82rem;
+  font-size: var(--t-mid);
   cursor: pointer;
 }
 .wel__mute[aria-pressed="true"] {
@@ -1478,7 +1469,7 @@
   border-radius: 50%;
   background: var(--surface);
   color: var(--accent-2);
-  font-size: 1.05rem;
+  font-size: var(--t-lead);
   line-height: 1;
   cursor: pointer;
 }
@@ -1501,12 +1492,10 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .wel,
   .wel__card {
     animation: none;
   }
-  .wel.is-leaving,
-  .wel__frame img {
+  .wel.is-leaving {
     transition: none;
   }
 }
@@ -1523,8 +1512,8 @@
   border-radius: 10px;
   background: #101620;
   color: #f4f6f9;
-  font-family: var(--f-sans, inherit);
-  font-size: 0.8rem;
+  font-family: var(--f-ui);
+  font-size: var(--t-mid);
   font-weight: 400;
   line-height: 1.45;
   letter-spacing: 0;
@@ -1582,7 +1571,7 @@
   justify-content: space-between;
   gap: 6px 16px;
   padding-block: 8px;
-  font-size: 0.84rem;
+  font-size: var(--t-base);
   line-height: 1.45;
 }
 .adm-hintbar button {
@@ -1592,7 +1581,7 @@
   border-radius: 99px;
   background: var(--surface);
   color: var(--ink);
-  font-size: 0.8rem;
+  font-size: var(--t-mid);
   cursor: pointer;
 }
 .adm-hintbar button:hover,
@@ -1611,8 +1600,6 @@
   border: 1px solid var(--line-2);
   border-radius: 99px;
   font: inherit;
-  letter-spacing: inherit;
-  text-transform: inherit;
   color: var(--ink-2);
   cursor: pointer;
 }
@@ -1624,5 +1611,15 @@
 @media (prefers-reduced-motion: reduce) {
   .adm-tip {
     transition: none;
+  }
+}
+
+/* ------------------------------------------------- fields on touch screens
+   A phone zooms the whole page into a field whose text is under 16px. On touch screens
+   the fields keep 16px; with a mouse they take the 14px of everything else. */
+@media (pointer: coarse) {
+  .adm-field input,
+  .adm-field select {
+    font-size: 16px;
   }
 }

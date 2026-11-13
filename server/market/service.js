@@ -217,7 +217,7 @@ class MarketService {
     });
     this._client = null;
     this._syncTicker();
-    this.log.log(`[market] Kite connected for ${r.userId || "user"} (read-only use)`);
+    this.log.log(`[market] Kite connected for ${r.userId || "user"}`);
     return this.kiteState();
   }
 
@@ -248,19 +248,34 @@ class MarketService {
     return this._client;
   }
 
+  /**
+   * The day's Kite login (key + access token), or null when Zerodha is not connected.
+   * Used by the trading module in server/trading, which keeps its own client: this folder
+   * itself never sends anything but market-data reads.
+   */
+  kiteAuth() {
+    if (!this.kiteState().connected) return null;
+    return { apiKey: this._settings().kiteApiKey, accessToken: this._secret("kiteAccessTokenEnc") };
+  }
+
+  /** Zerodha refused the day's token: forget it everywhere so the page asks for a fresh login. */
+  forgetSession() {
+    this.store.update((d) => {
+      d.settings.kiteAccessTokenEnc = "";
+      d.settings.kiteLoginAt = "";
+      d.settings.kiteLastError = "The Kite session expired or was closed. Log in again.";
+    });
+    this._client = null;
+    this._syncTicker();
+  }
+
   /** Run a Kite call; if the day's token has died, forget it so the page asks for a fresh login. */
   async _call(fn) {
     try {
       return await fn(this._kite());
     } catch (err) {
       if (err instanceof KiteError && err.tokenExpired) {
-        this.store.update((d) => {
-          d.settings.kiteAccessTokenEnc = "";
-          d.settings.kiteLoginAt = "";
-          d.settings.kiteLastError = "The Kite session expired or was closed. Log in again.";
-        });
-        this._client = null;
-        this._syncTicker();
+        this.forgetSession();
         throw new MarketError("The Kite session has expired. Log in to Kite again.", "not_connected", 409);
       }
       throw err;

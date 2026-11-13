@@ -79,6 +79,14 @@ function mountAi(app, { ai, requireAdmin, limiter }) {
   // a suggested lesson goes into the trading-skills file only when it is accepted here
   app.post("/api/admin/ai/debrief/:id/lesson", requireAdmin, wrap(async (req) => ai.debrief.addLesson(String(req.params.id || ""), Number((req.body || {}).index))));
 
+  // pre- and post-market research: a job the page follows; stored reports are free to read
+  app.get("/api/admin/ai/research", requireAdmin, wrap(async () => ai.research.status()));
+  app.get("/api/admin/ai/research/:id", requireAdmin, wrap(async (req) => ai.research.report(String(req.params.id || ""))));
+  app.post("/api/admin/ai/research", requireAdmin, limiter(12, 60 * 60 * 1000), wrap(async (req) => {
+    const b = req.body || {};
+    return ai.research.start({ symbols: b.symbols, phase: b.phase, news: Boolean(b.news), world: Boolean(b.world), useAi: b.useAi !== false });
+  }));
+
   app.get("/api/admin/ai/skills", requireAdmin, wrap(async () => ({ text: ai.playbook.read(), lessons: ai.playbook.lessons().length })));
 
   app.put("/api/admin/ai/skills", requireAdmin, wrap(async (req) => {

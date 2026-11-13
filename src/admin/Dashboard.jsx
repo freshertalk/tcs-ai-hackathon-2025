@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { api } from "./api";
 import { useAuth } from "./auth";
 import { adminPath } from "./paths";
@@ -97,16 +97,9 @@ export default function Dashboard() {
   const { user } = useAuth();
   const [s, setS] = useState(null);
 
-  // A fresh sign-in arrives as /me?welcome=1: show the welcome once, and drop the flag
-  // from the address so a refresh does not play it again.
-  const [params, setParams] = useSearchParams();
-  const [welcome, setWelcome] = useState(() => params.get("welcome") === "1");
-  useEffect(() => {
-    if (!params.has("welcome")) return;
-    const next = new URLSearchParams(params);
-    next.delete("welcome");
-    setParams(next, { replace: true });
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // The welcome opens every time the dashboard does: after signing in, on a refresh, in a
+  // new tab, and on coming back here from a settings page. It closes by itself.
+  const [welcome, setWelcome] = useState(true);
 
   // only feeds the status chips and tile badges; the dashboard works without it
   useEffect(() => {

@@ -154,20 +154,21 @@ export default function HolidayCalendar({ market }) {
 
   const today = todayIn(m.tz);
   const thisYear = Number(today.slice(0, 4));
-  const years = useMemo(() => m.years(thisYear), [m, thisYear]);
+  // only what is still to come: past years are not offered, and days already gone are hidden
+  const years = useMemo(() => m.years(thisYear).filter((y) => y >= thisYear), [m, thisYear]);
 
   const entriesFor = (y, official) => (isNasdaq ? resolveNasdaq(y, official) : { entries: indiaHolidays(y), source: "manual", differences: [] });
+  const ahead = (list) => list.filter((e) => e.date >= today);
   const official = hook.data && hook.data.nasdaq;
 
-  // start on the current year if there is data for it, else the newest year that has data
-  const firstYear =
-    years.includes(thisYear) && entriesFor(thisYear, null).entries.length
-      ? thisYear
-      : years.filter((y) => entriesFor(y, null).entries.length).pop() || years[0];
+  // start on the current year while it has closures left, else the next year that has any
+  const firstYear = years.find((y) => ahead(entriesFor(y, null).entries).length) || years[0];
   const [year, setYear] = useState(firstYear);
 
   const view = useMemo(() => entriesFor(year, official), [year, official, isNasdaq]); // eslint-disable-line react-hooks/exhaustive-deps
-  const { entries } = view;
+  const allOfYear = view.entries;
+  const entries = useMemo(() => allOfYear.filter((e) => e.date >= today), [allOfYear, today]);
+  const gone = allOfYear.length - entries.length;
   const next = useMemo(() => nextClosure(entries, today), [entries, today]);
   const closures = weekdayClosures(entries);
   const weekendOnes = entries.filter((e) => e.kind === "closed" && isWeekend(e.date)).length;
@@ -202,16 +203,25 @@ export default function HolidayCalendar({ market }) {
       {isNasdaq ? <NasdaqSource view={view} hook={hook} year={year} /> : <IndiaSource today={today} />}
 
       {entries.length === 0 ? (
-        <p className="adm-alert adm-alert--info">{m.emptyText(year)}</p>
+        <p className="adm-alert adm-alert--info">
+          {allOfYear.length === 0
+            ? m.emptyText(year)
+            : `No more closures in ${year}.${years.includes(year + 1) ? " Pick the next year above to see what comes after." : ""}`}
+        </p>
       ) : (
         <>
           <div className="hc__summary">
             <span>
-              <b>{closures.length}</b> closed weekdays
+              <b>{closures.length}</b> closed weekday{closures.length === 1 ? "" : "s"} {year === thisYear ? "left" : "ahead"}
             </span>
             {weekendOnes > 0 && (
               <span>
                 <b>{weekendOnes}</b> more on weekends
+              </span>
+            )}
+            {gone > 0 && (
+              <span className="hc__gone" data-tip="Holidays earlier this year are hidden: only the ones still to come are listed.">
+                {gone} already passed, hidden
               </span>
             )}
             {year === thisYear && next && (
@@ -234,12 +244,11 @@ export default function HolidayCalendar({ market }) {
               <ul className="hc__list">
                 {g.rows.map((e) => {
                   const weekend = isWeekend(e.date);
-                  const past = year === thisYear && e.date < today;
                   const isNext = next && e.date === next.date && year === thisYear;
                   return (
                     <li
                       key={`${e.date}-${e.name}`}
-                      className={`hc__row hc__row--${e.kind} ${past ? "is-past" : ""} ${isNext ? "is-next" : ""}`}
+                      className={`hc__row hc__row--${e.kind} ${isNext ? "is-next" : ""}`}
                     >
                       <time dateTime={e.date} className="hc__date">
                         <b>{Number(e.date.slice(8))}</b>

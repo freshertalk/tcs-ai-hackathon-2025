@@ -179,7 +179,7 @@ test("only the superadmin and listed admins can sign in", async (t) => {
   assert.equal(stranger.session, "", "no session cookie for a stranger");
 
   const boss = await s.login(SUPERADMIN_EMAIL);
-  assert.equal(boss.cb.headers.location, "/me?welcome=1", "a fresh sign-in is marked, so the dashboard can show its welcome once");
+  assert.equal(boss.cb.headers.location, "/me");
   const me = await s.request("GET", "/api/auth/status", { cookie: boss.session });
   assert.equal(me.json.user.role, "superadmin");
   assert.equal(me.json.user.email, SUPERADMIN_EMAIL);

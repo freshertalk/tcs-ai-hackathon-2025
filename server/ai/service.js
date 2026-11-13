@@ -26,6 +26,8 @@ const { Playbook } = require("./playbook");
 const { Journal, scorePlan, summarize, SWING_MAX_BARS } = require("./journal");
 const { Copilot } = require("./copilot");
 const { Debrief } = require("./debrief");
+const { Coach } = require("./coach");
+const { Research } = require("./research");
 const { barStart } = require("../market/intraday");
 
 const IST = 5.5 * 3600 * 1000;
@@ -293,6 +295,8 @@ class AiService {
     this._recent = new Map(); // symbol|horizon → { at, result }: a double click does not pay twice
     this.copilot = new Copilot(this);
     this.debrief = new Debrief(this);
+    this.coach = new Coach(this);
+    this.research = new Research(this);
   }
 
   /* ------------------------------------------------------------ settings */
