@@ -34,6 +34,17 @@ export async function api(path, { method = "GET", body } = {}) {
     /* empty or non-JSON body */
   }
 
+  // A web page in answer to an API call means the request never reached the server program:
+  // the web server in front (or a static host) handed out the site's own page for it. Left
+  // alone this looked like "not signed in", and the sign-in link then landed on the home page.
+  const type = res.headers && typeof res.headers.get === "function" ? res.headers.get("content-type") || "" : "";
+  if (res.ok && data === null && type.toLowerCase().includes("text/html")) {
+    const err = new Error("The server is not answering at this address: requests to /api are coming back as the site's own page.");
+    err.status = 502;
+    err.code = "not_api";
+    throw err;
+  }
+
   if (!res.ok) {
     const err = new Error(
       (data && data.message) ||

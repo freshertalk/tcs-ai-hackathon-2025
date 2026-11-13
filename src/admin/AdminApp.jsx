@@ -57,19 +57,37 @@ function Gate({ superOnly = false, children }) {
 
   if (auth.loading) return <Loading label="Checking your session…" />;
   if (auth.error) {
+    // on the live site the cause is the hosting, not a forgotten dev command
+    const hosted = process.env.NODE_ENV === "production";
     return (
       <main className="adm-center">
         <section className="adm-card">
-          <h1>Can&rsquo;t reach the API server</h1>
-          <p className="adm-lead">
-            The private area talks to a small API server. For development, the easiest way to run
-            everything is <code>npm run dev</code> — it starts the API and the site together.
-          </p>
-          <p className="adm-small">
-            Already running them separately? Check that <code>npm run server</code> is up, and{" "}
-            <b>restart <code>npm start</code></b> if you started it before the proxy was added
-            (it only reads <code>src/setupProxy.js</code> at startup).
-          </p>
+          <h1>Can&rsquo;t reach the server</h1>
+          {hosted ? (
+            <>
+              <p className="adm-lead">
+                {auth.errorCode === "not_api"
+                  ? "This page loaded, but requests to /api are coming back as the site’s own page. The web server in front is handing out the site’s files for them instead of passing them to the app — so nobody can sign in."
+                  : "This page loaded, but the private area’s server did not answer. It may be restarting, or not running."}
+              </p>
+              <p className="adm-small">
+                For the owner, on the server: <code>stock-deploy --doctor</code> checks that the app is running and that
+                nginx passes <code>/api</code> and <code>/me</code> to it, and prints what to change.
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="adm-lead">
+                The private area talks to a small API server. For development, the easiest way to run
+                everything is <code>npm run dev</code> — it starts the API and the site together.
+              </p>
+              <p className="adm-small">
+                Already running them separately? Check that <code>npm run server</code> is up, and{" "}
+                <b>restart <code>npm start</code></b> if you started it before the proxy was added
+                (it only reads <code>src/setupProxy.js</code> at startup).
+              </p>
+            </>
+          )}
           <p>
             <button type="button" className="adm-btn adm-btn--solid" onClick={auth.reload}>
               Try again
@@ -102,8 +120,8 @@ export default function AdminApp() {
     try {
       const d = await api("/api/auth/status");
       setState({ loading: false, ...d });
-    } catch (_) {
-      setState({ loading: false, error: true });
+    } catch (e) {
+      setState({ loading: false, error: true, errorCode: (e && e.code) || "" });
     }
   }, []);
 

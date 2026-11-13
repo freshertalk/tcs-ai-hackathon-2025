@@ -121,9 +121,15 @@ holidays) stay as files, and so do the two encryption keys unless `SETTINGS_KEY`
    (change it in that file if the port is taken). The first start prints a one-time setup token
    (`pm2 logs vinaytiwari`); open `https://vinaytiwari.org/me` and paste it with the Google
    Client ID and Secret.
-5. nginx: point the domain at the process instead of the `build/` folder — see
-   `deploy/nginx.conf.example` (the live streams need `proxy_buffering off`). Then
-   `sudo nginx -t && sudo systemctl reload nginx`.
+5. nginx: pass `/api` and `/me` to the process (it can go on serving the built site itself).
+   `stock-deploy --nginx | sudo tee /etc/nginx/snippets/vinaytiwari-app.conf > /dev/null`, then add the
+   one line `include snippets/vinaytiwari-app.conf;` inside the site's HTTPS `server` block, above its
+   `location / {` line, and `sudo nginx -t && sudo systemctl reload nginx`. `deploy/nginx.conf.example`
+   shows it, and the alternative of sending everything through the app. **`stock-deploy --doctor`**
+   checks the whole chain — pm2, the app's port, and whether the public address reaches the app.
+   *If "Login with Google" lands on the home page, this step is missing:* nginx is answering
+   `/api/…` with the site's own page. The private area now says so itself ("Can't reach the
+   server") instead of showing a sign-in button that cannot work.
 6. Google Cloud console: add `https://vinaytiwari.org/api/auth/google/callback` as a redirect URI.
    Kite developer console: set the redirect URL to
    `https://vinaytiwari.org/api/admin/market/kite/callback` and register **this VPS's public IP**

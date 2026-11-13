@@ -4,6 +4,8 @@
 #   stock-deploy            pull the latest code from GitHub and deploy whatever changed
 #   stock-deploy --check    show what is waiting to be deployed; change nothing
 #   stock-deploy --force    reinstall, rebuild and restart even if nothing changed
+#   stock-deploy --doctor   check the wiring: pm2, the app's port, and whether the public address reaches the app
+#   stock-deploy --nginx    print the nginx rules that pass /api and /me to the app
 #   stock-deploy --help     this text
 #
 # What it does, in order, stopping at the first thing that fails:
@@ -44,8 +46,10 @@ main() {
     --check) mode="check" ;;
     --force) mode="force" ;;
     --install) mode="install" ;;
+    --doctor) mode="doctor" ;;
+    --nginx) mode="nginx" ;;
     -h | --help)
-      sed -n '2,20p' "$self" | sed 's/^# \{0,1\}//'
+      sed -n '2,22p' "$self" | sed 's/^# \{0,1\}//'
       return 0
       ;;
     *) die "unknown option '$1'. Try: stock-deploy --help" ;;
@@ -87,6 +91,158 @@ main() {
   for need in git node npm; do
     command -v "$need" > /dev/null || die "'$need' is not installed or not on the PATH."
   done
+
+  # ---- names and addresses come from the pm2 process file, so there is one place to change them
+  local app port origin host
+  read_config() {
+    app="$(node -p "require('./deploy/ecosystem.config.cjs').apps[0].name" 2> /dev/null || echo vinaytiwari)"
+    port="$(node -p "require('./deploy/ecosystem.config.cjs').apps[0].env.PORT" 2> /dev/null || echo 5100)"
+    origin="$(node -p "require('./deploy/ecosystem.config.cjs').apps[0].env.PUBLIC_ORIGIN" 2> /dev/null || echo "")"
+    host="${origin#*://}"
+    host="${host%%/*}"
+  }
+  read_config
+
+  # What answers at an address: "json" (the app), "html" (a page — so not the app), "down"
+  # (nothing answered) or "other". An API address that comes back as a page is the tell-tale of
+  # a web server handing out the site's files instead of passing the request to the app.
+  probe() {
+    node -e '
+      const u = process.argv[1];
+      const lib = u.startsWith("https:") ? require("https") : require("http");
+      const done = (x) => { console.log(x); process.exit(0); };
+      const req = lib.get(u, { timeout: 8000, headers: { accept: "application/json" } }, (r) => {
+        const t = String(r.headers["content-type"] || "");
+        r.resume();
+        done(/json/i.test(t) ? "json" : /html/i.test(t) ? "html" : "other");
+      });
+      req.on("timeout", () => { req.destroy(); done("down"); });
+      req.on("error", () => done("down"));
+    ' "$1" 2> /dev/null || echo down
+  }
+
+  # The lines nginx needs so that /api and /me reach the app while it goes on serving the
+  # site's files itself. Printed, never written: you decide where they go.
+  nginx_rules() {
+    sed "s/__PORT__/$port/g; s/__APP__/$app/g; s/__HOST__/${host:-your-domain}/g" << 'NGINX'
+# __HOST__ — the private area (/me) and everything under /api run in the Node app
+# (pm2: __APP__, port __PORT__). nginx keeps serving the site's own files.
+# Printed by:  stock-deploy --nginx
+#
+# Use: save this as /etc/nginx/snippets/__APP__-app.conf, then inside the site's
+# "server { … listen 443 ssl … }" block add, above its "location / {" line:
+#     include snippets/__APP__-app.conf;
+#
+# The proxy_pass lines have NO path after the port: the address is passed on unchanged.
+# (With a trailing slash nginx would strip "/api/" and the app would not recognise it.)
+
+location ^~ /api/ {
+    proxy_pass http://127.0.0.1:__PORT__;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header Connection "";
+    proxy_buffering off;      # live prices and order updates are streams: pass them on at once
+    proxy_read_timeout 1h;    # a stream stays open; research and AI answers can take minutes
+    client_max_body_size 8m;  # a tradebook CSV for the journal can be a few megabytes
+}
+location = /me {
+    proxy_pass http://127.0.0.1:__PORT__;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+location ^~ /me/ {
+    proxy_pass http://127.0.0.1:__PORT__;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+NGINX
+  }
+  if [ "$mode" = "nginx" ]; then
+    nginx_rules
+    return 0
+  fi
+
+  # What to do when the public address does not reach the app: said once, in one place.
+  nginx_help() {
+    local files
+    files="$(grep -Rls "$host" /etc/nginx/sites-enabled /etc/nginx/conf.d 2> /dev/null | tr '\n' ' ' || true)"
+    note "nginx is serving this site's files itself and answers /api with the site's own page,"
+    note "so nothing under /api (sign-in included) reaches the app. The fix is in nginx:"
+    note ""
+    note "  1. Write the pass-through rules:"
+    note "       stock-deploy --nginx | sudo tee /etc/nginx/snippets/${app}-app.conf > /dev/null"
+    note "  2. Open the site's nginx file${files:+ ($files)}:"
+    if [ -z "$files" ]; then note "       find it with:  sudo grep -Rl \"$host\" /etc/nginx/sites-enabled /etc/nginx/conf.d"; fi
+    note "     In the block that has \"listen 443\" and \"server_name $host\", add this line"
+    note "     just above its \"location / {\" line:"
+    note "       include snippets/${app}-app.conf;"
+    note "  3. sudo nginx -t && sudo systemctl reload nginx"
+    note "  4. stock-deploy --doctor"
+  }
+
+  # After a deploy: does the address people use actually reach the app?
+  public_check() {
+    [ -n "$origin" ] || return 0
+    case "$(probe "$origin/api/auth/status")" in
+      json) note "$origin reaches the app" ;;
+      html)
+        printf '\n%s    Careful: %s/api does NOT reach the app.%s\n' "$Y" "$origin" "$N"
+        note "Signing in will bounce to the home page until this is fixed. Run:  stock-deploy --doctor"
+        ;;
+      *) note "(could not check $origin from this machine; open it in a browser)" ;;
+    esac
+  }
+
+  # ---- stock-deploy --doctor: read-only checks, in the order a request travels backwards
+  if [ "$mode" = "doctor" ]; then
+    say "Checking how the site is wired up"
+    local bad=0 seen
+    if ! command -v pm2 > /dev/null; then
+      note "1. pm2 ................................ ${R}not installed${N}  (npm i -g pm2)"
+      bad=1
+    elif pm2 describe "$app" > /dev/null 2>&1; then
+      note "1. The app is registered with pm2 ..... ${G}yes${N} ($app)"
+    else
+      note "1. The app is registered with pm2 ..... ${R}NO${N}"
+      note "   Start it:  stock-deploy --force"
+      bad=1
+    fi
+    seen="$(probe "http://127.0.0.1:${port}/api/auth/status")"
+    if [ "$seen" = "json" ]; then
+      note "2. The app answers on port $port ....... ${G}yes${N}"
+    else
+      note "2. The app answers on port $port ....... ${R}NO${N} ($seen)"
+      note "   See why:  pm2 logs $app --lines 50"
+      bad=1
+    fi
+    if [ -z "$origin" ]; then
+      note "3. No public address is set in deploy/ecosystem.config.cjs: skipped."
+    else
+      seen="$(probe "$origin/api/auth/status")"
+      case "$seen" in
+        json) note "3. $origin/api reaches the app ... ${G}yes${N}" ;;
+        html)
+          note "3. $origin/api reaches the app ... ${R}NO${N}"
+          note ""
+          nginx_help
+          bad=1
+          ;;
+        *)
+          note "3. $origin/api ... ${Y}no answer from this machine${N} ($seen)"
+          note "   If the site opens in a browser, check there:  $origin/api/auth/status  should show JSON, not a page."
+          ;;
+      esac
+    fi
+    if [ "$bad" = 0 ]; then
+      printf '\n%s    Everything is wired up.%s\n' "$G" "$N"
+      return 0
+    fi
+    return 1
+  fi
 
   # ---- one deploy at a time
   local lock="$app_dir/.git/stock-deploy.lock"
@@ -196,10 +352,7 @@ main() {
   if [ ! -d server/node_modules ]; then api_pkgs=1; fi
   if [ "$api_pkgs" = 1 ]; then restart=1; fi
 
-  local app port origin
-  app="$(node -p "require('./deploy/ecosystem.config.cjs').apps[0].name" 2> /dev/null || echo vinaytiwari)"
-  port="$(node -p "require('./deploy/ecosystem.config.cjs').apps[0].env.PORT" 2> /dev/null || echo 5100)"
-  origin="$(node -p "require('./deploy/ecosystem.config.cjs').apps[0].env.PUBLIC_ORIGIN" 2> /dev/null || echo "")"
+  read_config
 
   if [ "$site_pkgs$api_pkgs$build$restart" = "0000" ]; then
     printf '%s\n' "$head" > "$record"
@@ -210,6 +363,7 @@ main() {
       note "This server already runs the latest code: $(git log -1 --format='%h %s' "$head")"
     fi
     note "To rebuild and restart anyway:  stock-deploy --force"
+    public_check
     return 0
   fi
 
@@ -284,6 +438,7 @@ main() {
   [ "$restart" = 1 ] && did+="server restarted · "
   note "${did}$((SECONDS - started)) seconds${origin:+ · $origin}"
   if [ "$restart" = 1 ]; then note "${Y}The Zerodha live stream reconnects by itself; an open terminal page may need a refresh.${N}"; fi
+  public_check
 }
 
 main "$@"; exit

@@ -1,43 +1,66 @@
-# nginx in front of the Node process (deploy/ecosystem.config.cjs). Node serves everything —
-# the public site from build/, the API under /api, the private area under /me — so nginx only
-# terminates HTTPS and forwards. Merge this into the existing server block for the domain
-# (keep your certificate lines), replacing the old "root …/build" static setup.
+# nginx in front of the Node process (deploy/ecosystem.config.cjs, pm2 app "vinaytiwari",
+# port 5100). Two ways to wire it; both work. Check either with:  stock-deploy --doctor
+#
+# THE SYMPTOM OF GETTING THIS WRONG: "Login with Google" lands on the home page. nginx is then
+# answering /api/… with the site's own index.html (a "try_files … /index.html" fallback), so
+# the request never reaches the app. Open https://your-domain/api/auth/status in a browser:
+# it must show a line of JSON, not the site.
+#
+# ---------------------------------------------------------------------------------------
+# A. Smallest change: nginx keeps serving the built site itself, and passes only /api and
+#    /me to the app. Nothing existing is removed.
+#
+#      stock-deploy --nginx | sudo tee /etc/nginx/snippets/vinaytiwari-app.conf > /dev/null
+#
+#    then ONE line inside the site's HTTPS server block, above its "location / {" line:
 
 server {
-    listen 443 ssl http2;
+    listen 443 ssl;
     server_name vinaytiwari.org www.vinaytiwari.org;
+    # ssl_certificate … ;  ssl_certificate_key … ;      (the lines Certbot wrote stay)
 
-    # ssl_certificate     /etc/letsencrypt/live/vinaytiwari.org/fullchain.pem;
-    # ssl_certificate_key /etc/letsencrypt/live/vinaytiwari.org/privkey.pem;
+    root /home/YOUR-USER/tcs-ai-hackathon-2025/build;   # as it is today
+    index index.html;
 
-    client_max_body_size 1m;
-
-    # live streams (prices, order updates): no buffering, long-lived
-    location ~ ^/api/admin/(market|trading)/stream {
-        proxy_pass http://127.0.0.1:5100;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header Connection "";
-        proxy_buffering off;
-        proxy_cache off;
-        proxy_read_timeout 1h;
-    }
+    include snippets/vinaytiwari-app.conf;              # <-- the one new line
 
     location / {
-        proxy_pass http://127.0.0.1:5100;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        # research and AI requests can take a few minutes
-        proxy_read_timeout 300s;
+        try_files $uri /index.html;                     # as it is today
     }
 }
 
-server {
-    listen 80;
-    server_name vinaytiwari.org www.vinaytiwari.org;
-    return 301 https://$host$request_uri;
-}
+#    sudo nginx -t && sudo systemctl reload nginx
+#
+#    Mind which block you edit: a site usually has two "server { … }" blocks, one for port
+#    80 and one for port 443. The line belongs in the 443 one.
+#
+# ---------------------------------------------------------------------------------------
+# B. Everything through the app: Node serves the site's files too (with long-lived caching
+#    for the hashed ones), so nginx only terminates HTTPS and forwards. Replaces the
+#    "root …/build" and "try_files" lines.
+#
+# server {
+#     listen 443 ssl;
+#     server_name vinaytiwari.org www.vinaytiwari.org;
+#     # ssl_certificate … ;  ssl_certificate_key … ;
+#
+#     location / {
+#         proxy_pass http://127.0.0.1:5100;            # no path after the port
+#         proxy_http_version 1.1;
+#         proxy_set_header Host $host;
+#         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+#         proxy_set_header X-Forwarded-Proto $scheme;
+#         proxy_set_header Connection "";
+#         proxy_buffering off;                          # the live streams must not be held back
+#         proxy_read_timeout 1h;
+#         client_max_body_size 8m;
+#     }
+# }
+#
+# Either way, plain HTTP goes to HTTPS:
+#
+# server {
+#     listen 80;
+#     server_name vinaytiwari.org www.vinaytiwari.org;
+#     return 301 https://$host$request_uri;
+# }

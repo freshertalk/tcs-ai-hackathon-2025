@@ -109,8 +109,35 @@ function PublicSite() {
   );
 }
 
+/**
+ * An address under /api belongs to the server program. If this page is what came back for
+ * one, the web server in front handed out the site's files instead of passing the request
+ * on — which is exactly how "Login with Google" used to end up on the home page. Say so.
+ */
+function ServerAddress() {
+  const box = { maxWidth: 560, margin: "18vh auto 0", padding: "0 20px", font: "16px/1.6 system-ui, sans-serif", color: "#1d2733" };
+  return (
+    <main style={box}>
+      <h1 style={{ fontSize: 22, margin: "0 0 10px" }}>This address belongs to the site’s server</h1>
+      <p>
+        Addresses under <code>/api</code> are answered by the server program, not by a page. You are seeing this
+        because the request did not reach it, so signing in cannot work at the moment.
+      </p>
+      <p style={{ fontSize: 14, color: "#5b6877" }}>
+        For the owner, on the server: <code>stock-deploy --doctor</code> shows whether the app is running and whether
+        nginx passes <code>/api</code> and <code>/me</code> to it.
+      </p>
+      <p>
+        <a href="/">Home</a> · <a href="/me">Private area</a>
+      </p>
+    </main>
+  );
+}
+
 export default function App() {
   const { pathname } = useLocation();
+
+  if (pathname.startsWith("/api/")) return <ServerAddress />;
 
   // /me/* is a different application: none of the public
   // site's motion, preloader or analytics runs there.
