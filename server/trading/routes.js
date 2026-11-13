@@ -6,6 +6,7 @@
 const { TradingError } = require("./service");
 const { KiteError } = require("../market/kite");
 const { AiError } = require("../ai/client");
+const express = require("express");
 
 function mountTrading(app, { trading, ai, requireSuper, limiter }) {
   const wrap = (fn) => async (req, res) => {
@@ -52,6 +53,68 @@ function mountTrading(app, { trading, ai, requireSuper, limiter }) {
     const account = await trading.summary();
     if (!account.positions && !account.holdings) throw new TradingError("Could not read the positions from Zerodha.", "no_data", 502);
     return { reading: await ai.coach.read(account, { holdings: (req.body || {}).holdings !== false }), ...ai.coach.list() };
+  }));
+
+  /* ---- risk guard */
+  app.get("/api/admin/trading/risk", requireSuper, wrap(async () => {
+    const st = trading.status();
+    if (!st.connected) return { config: st.risk, lock: st.riskLock, standing: null };
+    const s = await trading.riskStatus();
+    return { config: s.config, lock: s.lock, standing: s };
+  }));
+  app.put("/api/admin/trading/risk", requireSuper, wrap(async (req) => trading.setRisk(req.body || {}, by(req))));
+
+  /* ---- journal */
+  const DAY = 86400000;
+  const RANGES = { "1w": 7, "1m": 31, "3m": 92, "6m": 183, "1y": 366 };
+  const filtersOf = (q) => {
+    const now = Date.now();
+    let from = null;
+    if (RANGES[q.range]) from = now - RANGES[q.range] * DAY;
+    if (q.range === "ytd") from = Date.parse(`${new Date(now + 5.5 * 3600000).toISOString().slice(0, 4)}-01-01T00:00:00+05:30`);
+    const sym = String(q.symbol || "").toUpperCase();
+    return {
+      from,
+      symbol: /^[A-Z0-9&._-]{1,40}$/.test(sym) ? sym : "",
+      side: ["long", "short"].includes(q.side) ? q.side : "",
+      kind: ["intraday", "delivery"].includes(q.kind) ? q.kind : "",
+      setup: String(q.setup || "").slice(0, 60),
+    };
+  };
+  app.get("/api/admin/trading/journal", requireSuper, wrap(async (req) => trading.journalView(filtersOf(req.query || {}))));
+  app.post(
+    "/api/admin/trading/journal/import",
+    requireSuper,
+    express.text({ type: ["text/csv", "text/plain", "application/octet-stream"], limit: "8mb" }),
+    wrap(async (req) => {
+      const text = typeof req.body === "string" ? req.body : "";
+      if (!text.trim()) throw new TradingError("The file was empty.");
+      const r = trading.journal.importCsv(text);
+      if (r.error) throw new TradingError(r.error);
+      console.log(`[trading] journal import by ${req.user.email}: ${r.added} new of ${r.read} (${r.skipped} skipped)`);
+      return r;
+    })
+  );
+  app.put("/api/admin/trading/journal/tags", requireSuper, wrap(async (req) => {
+    const b = req.body || {};
+    if (!/^[A-Z]{2,4}:[A-Z0-9&._-]{1,40}:\d{10,14}$/.test(String(b.key || ""))) throw new TradingError("That is not a journal trade.");
+    return { tags: trading.journal.setTags(String(b.key), b) };
+  }));
+  app.post("/api/admin/trading/journal/excursions", requireSuper, limiter(20, 60 * 60 * 1000), wrap(async (req) => trading.excursions({ limit: Number((req.body || {}).limit) || 25 })));
+
+  /* ---- AI review of the journal (plain figures in; the AI never reaches the broker) */
+  app.get("/api/admin/trading/journal/reviews", requireSuper, wrap(async () => (ai && ai.journalReview ? ai.journalReview.list() : { configured: false, reviews: [] })));
+  app.post("/api/admin/trading/journal/review", requireSuper, limiter(20, 60 * 60 * 1000), wrap(async (req) => {
+    if (!ai || !ai.journalReview) throw new TradingError("The AI is not available on this server.", "not_configured", 409);
+    const f = filtersOf(req.body || {});
+    const view = trading.journal.view(f);
+    if (view.stats.trades < 5) throw new TradingError("The journal needs at least 5 closed trades in this range for a review.", "no_data", 409);
+    const trips = trading.journal.trips(f).filter((t) => !t.open);
+    return { review: await ai.journalReview.build({ stats: view.stats, trips, range: String((req.body || {}).range || "all") }), ...ai.journalReview.list() };
+  }));
+  app.post("/api/admin/trading/journal/review/:id/rule", requireSuper, wrap(async (req) => {
+    if (!ai || !ai.journalReview) throw new TradingError("The AI is not available on this server.", "not_configured", 409);
+    return ai.journalReview.addRule(String(req.params.id || ""), Number((req.body || {}).index));
   }));
 
   // order updates from Zerodha's stream, as they arrive

@@ -174,6 +174,11 @@ function mountMarket(app, deps) {
   });
 
   /* -------------------------------------------------------- one symbol */
+  // behaviour memory: a stock's measured habits over the past year, stored in the database
+  app.get("/api/admin/market/behaviour", requireAdmin, wrap(async () => ({ profiles: market.behaviourList() })));
+  app.post("/api/admin/market/behaviour/learn", requireAdmin, limiter(10, 10 * 60 * 1000), wrap(async () => market.learnWatchlist({ refresh: true })));
+  app.get("/api/admin/market/behaviour/:symbol", requireAdmin, wrap(async (req) => market.behaviour(symbolOf(req), { refresh: req.query.refresh === "1" })));
+
   app.get("/api/admin/market/analysis/:symbol", requireAdmin, wrap(async (req) => market.analysis(symbolOf(req), { chartBars: req.query.bars })));
 
   app.get("/api/admin/market/verdict/:symbol", requireAdmin, wrap(async (req) => market.verdict(symbolOf(req))));

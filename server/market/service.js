@@ -31,6 +31,7 @@ const { replayDayAsync, combine, DEFAULT_COST_PCT } = require("./replay");
 const { KiteTicker } = require("./ticker");
 const { Universe } = require("./universe");
 const { buildContext: buildMarketContext, contextKeys } = require("./context");
+const { buildProfile } = require("./profile");
 
 const DAY = 86400000;
 const IST = 5.5 * 3600 * 1000;
@@ -394,7 +395,21 @@ class MarketService {
    * Daily candles for a symbol.
    * @returns { candles, source, fetchedAt, stale, staleReason }
    */
-  async daily(symbol) {
+  /**
+   * Daily candles. Two callers asking for the same stock at once (the watchlist scan and the
+   * behaviour learner, say) share one read: two downloads would race to write the same cache
+   * file, and Windows refuses the second rename.
+   */
+  daily(symbol) {
+    if (!this._dailyBusy) this._dailyBusy = new Map();
+    const hit = this._dailyBusy.get(symbol);
+    if (hit) return hit;
+    const p = this._daily(symbol).finally(() => this._dailyBusy.delete(symbol));
+    this._dailyBusy.set(symbol, p);
+    return p;
+  }
+
+  async _daily(symbol) {
     if (!SYMBOL_RE.test(symbol)) throw new MarketError("That is not a valid symbol.", "invalid");
     const mode = this.mode();
 
@@ -666,6 +681,21 @@ class MarketService {
     if (this._minAt.size > 60) this._minAt.clear();
     this._minAt.set(symbol, rec);
     return rec;
+  }
+
+  /**
+   * 1-minute bars of an NSE stock between two times (Zerodha keeps about 60 days of them),
+   * as { t: ms, o, h, l, c, v } — for the journal's excursion analysis. Read-only.
+   */
+  async minuteBarsBetween(symbol, fromMs, toMs) {
+    const it = await this._instrument(symbol);
+    const bars = await this._call((k) => k.historical(it.t, "minute", new Date(fromMs), new Date(toMs)));
+    // Zerodha writes "2026-11-12T09:15:00+0530"; the colon in the offset is added so every engine parses it
+    const ms = (t) => {
+      const x = String(t).replace(" ", "T").replace(/([+-]\d{2})(\d{2})$/, "$1:$2");
+      return Date.parse(/[+-]\d{2}:\d{2}$|Z$/.test(x) ? x : `${x}+05:30`);
+    };
+    return bars.map((b) => ({ t: ms(b.t), o: b.o, h: b.h, l: b.l, c: b.c, v: b.v })).filter((b) => Number.isFinite(b.t));
   }
 
   /** The intraday tape for the chart, at 1-minute or 5-minute resolution, with a quick read of it. */
@@ -1047,7 +1077,74 @@ class MarketService {
   }
 
   /** One-line reading for every watchlist symbol. A failing symbol never sinks the rest. */
+  /* ------------------------------------------------------ behaviour memory */
+
+  /**
+   * How a stock has behaved over the past year of daily bars (server/market/profile.js),
+   * kept in the database ("market/behaviour.json"): the profile, rebuilt at most once a day,
+   * plus one snapshot per day so the record of the stock's behaviour grows over time.
+   * Additional to every existing reading — nothing else changes because of it.
+   */
+  async behaviour(symbol, { refresh = false } = {}) {
+    const docs = this.store.docs;
+    const today = istDate(this.now());
+    const all = (docs && docs.read("market/behaviour.json", {})) || {};
+    const hit = all[symbol];
+    if (hit && !refresh && hit.builtOn === today) return hit;
+    const d = await this.daily(symbol);
+    const p = buildProfile(symbol, d.candles.slice(-520));
+    const history = (hit && Array.isArray(hit.history) ? hit.history : []).filter((h) => h.d !== today);
+    if (p.available) {
+      history.push({ d: today, asOf: p.asOf, c: p.price.last, trend: p.trend.now, pos52Pct: p.price.pos52Pct, atrPct: p.volatility.atrPct, volRatio: p.volume.ratioNow, structure: p.structure.pattern });
+    }
+    const rec = { ...p, source: d.source, builtAt: new Date(this.now()).toISOString(), builtOn: today, history: history.slice(-250) };
+    if (docs) {
+      all[symbol] = rec;
+      const keys = Object.keys(all);
+      if (keys.length > 80) keys.sort((a, b) => (all[a].builtAt < all[b].builtAt ? -1 : 1)).slice(0, keys.length - 80).forEach((k) => delete all[k]);
+      docs.write("market/behaviour.json", all);
+    }
+    return rec;
+  }
+
+  /** The stored profiles in short form, for a list. */
+  behaviourList() {
+    const all = (this.store.docs && this.store.docs.read("market/behaviour.json", {})) || {};
+    return Object.values(all)
+      .filter((r) => r && r.available)
+      .map((r) => ({ symbol: r.symbol, builtAt: r.builtAt, asOf: r.asOf, trend: r.trend.now, structure: r.structure.pattern, pos52Pct: r.price.pos52Pct, atrPct: r.volatility.atrPct, regime: r.volatility.regime, snapshots: (r.history || []).length }));
+  }
+
+  /** Learn (or refresh) every watchlist stock, one after another. */
+  async learnWatchlist({ refresh = true } = {}) {
+    const out = [];
+    for (const s of this.watchlist()) {
+      try {
+        const r = await this.behaviour(s, { refresh });
+        out.push({ symbol: s, ok: Boolean(r.available), reason: r.available ? "" : r.reason });
+      } catch (err) {
+        out.push({ symbol: s, ok: false, reason: err.message });
+      }
+    }
+    return { learned: out };
+  }
+
+  /** Once a day, while the desk is in use: bring stale watchlist profiles up to date in the background. */
+  _learnStale() {
+    const today = istDate(this.now());
+    if (this._learnedOn === today || this._learning) return;
+    this._learning = this.learnWatchlist({ refresh: false })
+      .then(() => {
+        this._learnedOn = today;
+      })
+      .catch(() => {})
+      .finally(() => {
+        this._learning = null;
+      });
+  }
+
   async scan() {
+    if (this.mode() === "kite") this._learnStale();
     const symbols = this.watchlist();
     const index = await this.index();
     const rows = [];

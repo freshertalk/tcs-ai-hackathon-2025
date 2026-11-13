@@ -2,7 +2,7 @@
 // one workspace at a time beneath it — the Desk (watchlist, chart, live call, order book,
 // co-pilot, with your positions docked along the bottom), Positions & orders, Research,
 // Screener, Debrief and Calendar. Keyboard: / search, B / S buy or sell the open stock,
-// 1–6 workspaces, D dock, T theme, ? the list.
+// 1–7 workspaces, D dock, T theme, ? the list.
 //
 // Opens in its own tab from the dashboard; the session cookie is shared, so it is signed in.
 
@@ -13,8 +13,10 @@ import HolidayCalendar from "./HolidayCalendar";
 import Analyzer from "./analyzer/Analyzer";
 import Screener from "./analyzer/Screener";
 import Debrief from "./analyzer/Debrief";
+import ErrorBoundary from "./analyzer/ErrorBoundary";
 import Account from "./trade/Account";
 import Research from "./trade/Research";
+import Journal from "./trade/Journal";
 import { TradeProvider, useTrade } from "./trade/TradeContext";
 import { useDeskTheme } from "./analyzer/theme";
 import { useAuth } from "../auth";
@@ -25,6 +27,7 @@ import "./terminal/terminal.css";
 const VIEWS = [
   { id: "analyzer", label: "Desk", tip: "Watchlist, chart, the live call, order book and co-pilot for one stock, with your positions docked below." },
   { id: "account", label: "Positions", superOnly: true, tip: "Positions, holdings, orders, funds, the trading switch and the AI coach." },
+  { id: "journal", label: "Journal", superOnly: true, tip: "Every round trip you made: win rate, profit factor, expectancy, drawdown, P&L calendar, MAE/MFE, tags and an AI review." },
   { id: "research", label: "Research", tip: "Pre-market and post-market research for your watchlist." },
   { id: "screener", label: "Screener", tip: "Every NSE stock by RSI." },
   { id: "debrief", label: "Debrief", tip: "What the desk’s calls would have done today, replayed and scored." },
@@ -174,12 +177,16 @@ function Terminal() {
     <div className={`tm tm--${view} ${showDock ? `has-dock ${dock ? "dock-open" : ""}` : ""}`}>
       <TopBar views={views} view={view} onView={go} theme={theme} onTheme={toggleTheme} onHelp={() => setHelp(true)} />
       <main className="tm-work" id="tm-main">
+        {/* one failing workspace never blanks the terminal: the top bar and the others stay usable */}
+        <ErrorBoundary key={view} title={(views.find((v) => v.id === view) || {}).label}>
         {view === "analyzer" ? (
           <Analyzer />
         ) : (
           <div className="tm-page">
             {view === "account" ? (
               <Account />
+            ) : view === "journal" ? (
+              <Journal />
             ) : view === "research" ? (
               <Research onOpen={openStock} />
             ) : view === "screener" ? (
@@ -197,6 +204,7 @@ function Terminal() {
             )}
           </div>
         )}
+        </ErrorBoundary>
       </main>
       {showDock && <Dock open={dock} onToggle={toggleDock} />}
       {help && <ShortcutsDialog onClose={() => setHelp(false)} />}

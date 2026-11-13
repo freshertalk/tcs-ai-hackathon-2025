@@ -147,7 +147,7 @@ async function boot() {
     });
   let refN = 0;
   const ref = () => `test-ref-${Date.now()}-${(refN += 1)}`;
-  return { dir, kite, made, request, admin, login, connectKite, close, ref };
+  return { dir, kite, made, request, admin, login, connectKite, close, ref, port };
 }
 
 const on = (s) => s.request("PUT", "/api/admin/trading/switch", { cookie: s.admin, body: { on: true } });
@@ -453,4 +453,62 @@ test("the trading switch and limits survive a server restart", () => {
   const b = new TradingService({ dir, store: new Store(dir), market, log: quiet });
   assert.equal(b.status().enabled, true);
   assert.deepEqual(b.status().limits, { maxQty: 250, maxValue: 75000 });
+});
+
+/* ------------------------------------------------------------- risk guard */
+
+test("risk guard through the routes: a breach locks the day, blocks new risk, still lets you exit", async (t) => {
+  const s = await boot();
+  t.after(s.close);
+  await s.connectKite();
+  await on(s);
+  // today's mark-to-market: a ₹6,000 loss
+  s.kite.net[0].m2m = -6000;
+  s.kite.net[1].m2m = 0;
+  const set = await s.request("PUT", "/api/admin/trading/risk", { cookie: s.admin, body: { enabled: true, dailyLoss: 5000, maxOpen: 5 } });
+  assert.equal(set.status, 200);
+  const st = (await s.request("GET", "/api/admin/trading/risk", { cookie: s.admin })).json;
+  assert.equal(st.standing.locked, true);
+  assert.equal(st.lock.kind, "loss");
+  // a fresh buy is refused…
+  const buy = await s.request("POST", "/api/admin/trading/orders", { cookie: s.admin, body: { exchange: "NSE", symbol: "INFY", side: "BUY", type: "LIMIT", product: "MIS", quantity: 1, price: 1500, confirm: true, clientRef: s.ref() } });
+  assert.equal(buy.status, 423);
+  assert.equal(buy.json.error, "risk_locked");
+  // …an exit is not
+  const exit = await s.request("POST", "/api/admin/trading/exit", { cookie: s.admin, body: { exchange: "NSE", symbol: "TCS", product: "MIS", confirm: true, clientRef: s.ref() } });
+  assert.equal(exit.status, 200, JSON.stringify(exit.json));
+  // and selling part of the TCS long through the normal ticket counts as an exit too
+  const sell = await s.request("POST", "/api/admin/trading/orders", { cookie: s.admin, body: { exchange: "NSE", symbol: "TCS", side: "SELL", type: "MARKET", product: "MIS", quantity: 2, confirm: true, clientRef: s.ref() } });
+  assert.equal(sell.status, 200, JSON.stringify(sell.json));
+  // while locked the limits can tighten, not loosen
+  assert.equal((await s.request("PUT", "/api/admin/trading/risk", { cookie: s.admin, body: { enabled: true, dailyLoss: 8000, maxOpen: 5 } })).status, 409);
+  assert.equal((await s.request("PUT", "/api/admin/trading/risk", { cookie: s.admin, body: { enabled: false } })).status, 409);
+  assert.equal((await s.request("PUT", "/api/admin/trading/risk", { cookie: s.admin, body: { enabled: true, dailyLoss: 4000, maxOpen: 3 } })).status, 200);
+  const audit = (await s.request("GET", "/api/admin/trading/audit", { cookie: s.admin })).json.audit.map((a) => a.action);
+  assert.ok(audit.includes("risk-lock"));
+});
+
+test("journal through the routes: today's fills are captured, a Console CSV imports, trips can be tagged", async (t) => {
+  const s = await boot();
+  t.after(s.close);
+  await s.connectKite();
+  const v = (await s.request("GET", "/api/admin/trading/journal?range=all", { cookie: s.admin })).json;
+  assert.equal(v.fills, 1, "today's TCS fill from Zerodha");
+  assert.equal(v.stats.open, 1);
+  const csv = "symbol,exchange,trade_type,quantity,price,trade_id,order_id,order_execution_time\nRELIANCE,NSE,buy,5,1280,A1,O1,2026-11-03T09:20:00\nRELIANCE,NSE,sell,5,1290,A2,O2,2026-11-03T11:20:00\n";
+  // the request helper sends JSON; send the CSV as text with the same cookie and CSRF header
+  const res = await fetch(`http://127.0.0.1:${s.port}/api/admin/trading/journal/import`, { method: "POST", headers: { cookie: s.admin, "x-requested-with": "vpt", "content-type": "text/csv" }, body: csv });
+  const body = await res.json();
+  assert.equal(res.status, 200, JSON.stringify(body));
+  assert.equal(body.added, 2);
+  const after = (await s.request("GET", "/api/admin/trading/journal?range=all", { cookie: s.admin })).json;
+  const rel = after.trips.find((x) => x.symbol === "RELIANCE");
+  assert.equal(rel.pnl, 50);
+  assert.ok(rel.charges > 0 && rel.net < 50);
+  const tag = await s.request("PUT", "/api/admin/trading/journal/tags", { cookie: s.admin, body: { key: rel.key, setup: "Opening range", mistakes: ["Exited too early"] } });
+  assert.equal(tag.status, 200, JSON.stringify(tag.json));
+  assert.equal((await s.request("PUT", "/api/admin/trading/journal/tags", { cookie: s.admin, body: { key: "nonsense" } })).status, 400);
+  const tagged = (await s.request("GET", "/api/admin/trading/journal?range=all&setup=Opening%20range", { cookie: s.admin })).json;
+  assert.equal(tagged.stats.trades, 1);
+  assert.equal(tagged.stats.by.setup[0].key, "Opening range");
 });

@@ -186,13 +186,13 @@ Only the type follows Kite — the colours, the layout and the name stay this si
 
 **The trading terminal (the Stock Report's layout; `src/admin/stock/StockReport.jsx`,
 `src/admin/stock/terminal/`).** One screen, dark by default. A sticky top bar holds the workspaces —
-**Desk · Positions · Research · Screener · Debrief · Calendar** — and the state of everything: NSE
+**Desk · Positions · Journal · Research · Screener · Debrief · Calendar** — and the state of everything: NSE
 open or closed with the IST clock, the Zerodha connection, the trading switch, today's P&L, the
 theme, shortcuts and the account menu (hover help, sign out). On the Desk the watchlist, the stock
 and the verdict rail sit side by side (three columns from 1280 px), each scrolling on its own, and
 your positions are docked along the bottom (open or closed, remembered; not on phones, where
 Positions has its own tab). Keyboard: `/` search, `B` / `S` open the order ticket for the open
-stock (only while trading is on — nothing is sent without confirming), `1`–`6` workspaces, `D`
+stock (only while trading is on — nothing is sent without confirming), `1`–`7` workspaces, `D`
 dock, `T` theme, `?` the list, `Esc` close. Shortcuts never fire while typing in a field or with a
 dialog open (`terminal/shortcuts.js`, tested). The dashboard and settings pages share the same
 theme (one switch, `analyzer/theme.js`) and a slim sticky header.
@@ -503,6 +503,46 @@ from Zerodha's stream; the page also re-reads the book every 5 seconds.
   tighten stop / trim / exit / wait with levels taken from the desk. It advises only: the trading
   routes hand it the figures as plain data, it cannot reach the broker, and a stop on the wrong
   side of the price is flagged and dropped.
+
+**Behaviour memory and the AI decision (the "Behaviour & AI" tab on each stock;
+`server/market/profile.js`, `server/ai/decision.js`).** For each stock the server measures how it
+has behaved over the past year of daily bars: trend phases (by the 50-day average and its slope),
+swing structure, volatility against its own normal, gaps and their same-day fill rate, what
+followed big up and down days, how 20-day breakouts and breakdowns followed through, how it
+reacted at its 50-day average in uptrends, levels from clustered swings, weekday tendencies,
+volume on up versus down days, drawdowns, plain-language "habits" (only with enough samples), and
+a dated log of notable days. It is stored in the database (`market/behaviour.json`), rebuilt at
+most once a day with one snapshot per day, so the record grows; the watchlist refreshes itself
+once a day while the desk is in use, or on "Learn whole watchlist". **AI decision**: the model gets
+the full live brief (price, volume, 5- and 1-minute tape, indicators, levels, the rule engine, the
+market, news) AND the behaviour profile, and returns buy / sell (intraday short) / hold / wait /
+avoid with where it is heading, the evidence from each source, where they disagree, and — for buy
+or sell — entry, stop and targets that go through the strategist's mechanical checks. Decisions are
+stored with the price at the time (`ai/decisions.json`). This is additional: no existing reading
+changed. Concurrent reads of one stock's daily bars now share a single download.
+
+**Risk guard (Positions; `server/trading/risk.js`).** Prop-desk limits on your own account, enforced
+by the server: a **daily loss limit** (on today's mark-to-market), an optional **profit lock**, a
+cap on **orders a day** and on **open positions**. A breach **locks the day**: new trades are refused
+(HTTP 423) until the end of the IST day, while exits, sells of holdings, cancels and changes to
+orders that close a position always go through. While locked, limits can be tightened but not
+loosened or switched off. The top bar shows "Risk locked"; gauges on Positions show the room left.
+It never places an order by itself — there is no auto-liquidation (a deliberate choice: a closing
+order sent without you is a decision this tool does not take). Off by default.
+
+**Journal (the "Journal" workspace; `server/trading/journal.js`, `src/admin/stock/trade/Journal.jsx`).**
+Every fill is kept: today's come in from Zerodha by themselves whenever the account is read (its
+API only returns the current day), and history comes from a **Zerodha Console tradebook CSV**
+(Reports → Tradebook → download; repeats are ignored). Fills are paired into round trips, flat to
+flat (a fill that flips the position is split). Charges are **estimated** from Zerodha's published
+equity rates. It shows net P&L, win rate, profit factor, payoff, expectancy, max drawdown,
+streaks, green days, an equity curve and a P&L calendar, breakdowns by stock, hour of entry,
+weekday, side, intraday/delivery, setup tag and mistake tag (groups under 8 trades are greyed),
+**MAE / MFE** per trade from 1-minute bars (about the last 60 days) with the share of the best move
+kept, and tags (setup, mistakes, note, execution rating) on each trip. **AI review** (`server/ai/review.js`):
+the model reads the journal's figures (never the broker) and names where money is made and lost;
+rules it suggests go into the skills file only when added. Stored as `trading/journal.json` and
+`ai/reviews.json` (MongoDB or files, like every record).
 
 **Research — pre-market and post-market (`server/ai/research.js`, the "Research" view).** Pick
 stocks from the watchlist and a phase (mornings default to pre-market, afternoons to

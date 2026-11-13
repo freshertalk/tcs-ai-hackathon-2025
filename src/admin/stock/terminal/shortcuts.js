@@ -7,7 +7,7 @@ export const SHORTCUTS = [
   { keys: ["S"], action: "sell", text: "Sell the open stock (trading switch on)" },
   { keys: ["D"], action: "dock", text: "Show or hide the positions dock" },
   { keys: ["T"], action: "theme", text: "Dark or light theme" },
-  { keys: ["1", "…", "6"], action: "view", text: "Desk, Positions, Research, Screener, Debrief, Calendar" },
+  { keys: ["1", "…", "7"], action: "view", text: "Desk, Positions, Journal, Research, Screener, Debrief, Calendar" },
   { keys: ["?"], action: "help", text: "This list" },
   { keys: ["Esc"], action: "close", text: "Close a dialog or this list" },
 ];
@@ -29,7 +29,7 @@ export function keyAction(e) {
   const k = e.key;
   if (k === "/") return { action: "search" };
   if (k === "?") return { action: "help" };
-  if (/^[1-6]$/.test(k)) return { action: "view", view: Number(k) };
+  if (/^[1-9]$/.test(k)) return { action: "view", view: Number(k) };
   const l = k.length === 1 ? k.toLowerCase() : "";
   if (l === "b") return { action: "buy" };
   if (l === "s") return { action: "sell" };

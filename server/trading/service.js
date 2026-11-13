@@ -23,6 +23,8 @@ const path = require("path");
 const { FileDocs } = require("../docs");
 const { KiteError } = require("../market/kite");
 const { KiteBroker } = require("./broker");
+const risk = require("./risk");
+const { TradeJournal, excursion } = require("./journal");
 
 const EXCHANGES = ["NSE", "BSE", "NFO", "BFO", "MCX", "CDS", "BCD"];
 const CASH = new Set(["NSE", "BSE"]);
@@ -58,6 +60,7 @@ class TradingService {
   constructor({ dir, store, market, fetchImpl = globalThis.fetch, now = () => Date.now(), log = console, gapMs, docs }) {
     this.dir = path.join(dir, "trading");
     this.docs = docs || store.docs || new FileDocs(dir);
+    this.journal = new TradeJournal(this.docs);
     this.store = store;
     this.market = market;
     this.fetch = fetchImpl;
@@ -102,7 +105,64 @@ class TradingService {
       user: k.user,
       updates: this._updates.slice(0, 20),
       streaming: Boolean(this.market.ticker && this.market.ticker.isLive()),
+      // the risk guard's rules and today's lock, if any (the live standing needs Zerodha: riskStatus())
+      risk: this._risk(),
+      riskLock: this._riskLock(),
     };
+  }
+
+  /* ----------------------------------------------------------- risk guard */
+
+  _risk() {
+    return risk.cleanConfig({ ...risk.RISK_DEFAULTS, ...(this._state().risk || {}) });
+  }
+
+  _riskLock() {
+    const l = this._state().riskLock;
+    return l && l.day === risk.istDay(this.now()) ? l : null;
+  }
+
+  /** Where the account stands against the guard right now; locks the day on a breach. */
+  async riskStatus() {
+    const cfg = this._risk();
+    const [{ net }, orders] = await Promise.all([this.positions(), this.orders()]);
+    const dayPnl = net.reduce((a, p) => a + (Number.isFinite(p.m2m) ? p.m2m : p.pnl), 0);
+    const openSymbols = new Set(net.filter((p) => p.quantity !== 0).map((p) => `${p.exchange}:${p.symbol}`));
+    const ordersToday = orders.filter((o) => o.status === "COMPLETE").length;
+    const st = risk.standing({ cfg, lock: this._riskLock(), now: this.now(), dayPnl, ordersToday, openSymbols });
+    if (cfg.enabled && st.breach && !st.lock) {
+      const lock = { day: risk.istDay(this.now()), kind: st.breach.kind, reason: st.breach.reason, at: new Date(this.now()).toISOString() };
+      this.store.update((d) => {
+        d.trading = { ...this._state(), riskLock: lock };
+      });
+      this._audit("risk guard", "risk-lock", { dayPnl: Math.round(dayPnl) }, { ok: true, reason: lock.reason });
+      this.log.log(`[trading] risk guard locked the day: ${lock.reason}`);
+      st.lock = lock;
+    }
+    return { ...st, config: cfg, openSymbols: [...openSymbols] };
+  }
+
+  setRisk(input, by) {
+    const next = risk.cleanConfig(input || {});
+    const cur = this._risk();
+    if (this._riskLock() && risk.loosens(cur, next)) {
+      throw new TradingError("The day is locked by the risk guard: limits can be tightened now, but not loosened or switched off until tomorrow.", "risk_locked", 409);
+    }
+    this.store.update((d) => {
+      d.trading = { ...this._state(), risk: next };
+    });
+    this._audit(by, "risk-rules", next, { ok: true });
+    return this.status();
+  }
+
+  /** Throws when the guard refuses an order that would add risk. */
+  async _guard(order) {
+    const cfg = this._risk();
+    if (!cfg.enabled) return;
+    if (await this._reduces(order)) return; // getting out is never blocked
+    const st = await this.riskStatus();
+    const no = risk.refusal(st, cfg, { opening: true, symbol: `${order.exchange}:${order.symbol}`, openSymbols: new Set(st.openSymbols) });
+    if (no) throw new TradingError(no.message, no.code, 423);
   }
 
   setSwitch(on, by) {
@@ -206,7 +266,54 @@ class TradingService {
       })
     );
     out.status = this.status();
+    // Zerodha only ever returns today's trades: keep each one in the journal as it is seen
+    if (Array.isArray(out.trades)) {
+      try {
+        this.journal.ingestKite(out.trades);
+      } catch (err) {
+        this.log.error("[trading] journal:", err.message);
+      }
+    }
     return out;
+  }
+
+  /* --------------------------------------------------------------- journal */
+
+  /** The journal, with today's trades brought in first when Zerodha is connected. */
+  async journalView(filters) {
+    if (this.market.kiteAuth()) {
+      try {
+        this.journal.ingestKite(await this.trades());
+      } catch (_) {
+        /* the stored journal is still worth showing */
+      }
+    }
+    return this.journal.view(filters);
+  }
+
+  /**
+   * MAE / MFE for recent closed NSE round trips that do not have them yet, from 1-minute bars
+   * (Zerodha keeps about 60 days). Reads only.
+   */
+  async excursions({ limit = 25 } = {}) {
+    const since = this.now() - 58 * 86400000;
+    const candidates = this.journal.trips({}).filter((t) => !t.open && !t.exc && t.exchange === "NSE" && t.entryAt >= since);
+    const todo = candidates.slice(-Math.max(1, Math.min(60, limit)));
+    let done = 0;
+    const failed = [];
+    for (const t of todo) {
+      try {
+        const bars = await this.market.minuteBarsBetween(t.symbol, t.entryAt - 60000, t.exitAt + 60000);
+        const e = excursion(t, bars);
+        this.journal.setExcursion(t.key, e || { none: true });
+        done += 1;
+      } catch (err) {
+        // a symbol Zerodha does not know (renamed, delisted) will never measure: note it and move on
+        if (err && err.code === "unknown_symbol") this.journal.setExcursion(t.key, { none: true, reason: err.message });
+        failed.push(`${t.symbol}: ${err.message}`);
+      }
+    }
+    return { done, failed: [...new Set(failed)].slice(0, 5), left: candidates.length - todo.length };
   }
 
   /* --------------------------------------------------------------- writes */
@@ -326,6 +433,7 @@ class TradingService {
     if (!input || input.confirm !== true) throw new TradingError("The order was not confirmed.", "unconfirmed");
     const order = this._form(input);
     return this._once(input.clientRef, async () => {
+      await this._guard(order);
       await this._limits(order, num(input.refPrice) > 0 ? num(input.refPrice) : null);
       const r = await this._send(by, "place", { variety: order.variety, ...order.form }, () => this._client().place(order.variety, order.form));
       return { ...r, variety: order.variety };
@@ -358,6 +466,12 @@ class TradingService {
     }
     if (type === "MARKET" || type === "SL-M") form.market_protection = String(this._state().protection);
     if (!Object.keys(form).length) throw new TradingError("Nothing to change.");
+    // on a locked day an order may still be changed if it closes a position (a stop-loss, say)
+    if (this._risk().enabled && this._riskLock()) {
+      const o = (await this.orders()).find((x) => x.id === String(id));
+      const closes = o && (await this._reduces({ exchange: o.exchange, symbol: o.symbol, product: o.product, side: o.side, quantity: Number(form.quantity || o.pending || o.quantity) }));
+      if (!closes) throw new TradingError("Risk guard: the day is locked. Only orders that close a position can be changed until tomorrow.", "risk_locked", 423);
+    }
     return this._once(input.clientRef, () => this._send(by, "modify", { id, variety, ...form }, () => this._client().modify(variety, id, form)));
   }
 

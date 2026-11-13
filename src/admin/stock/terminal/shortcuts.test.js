@@ -10,7 +10,8 @@ test("single keys map to terminal actions", () => {
   expect(press("t")).toEqual({ action: "theme" });
   expect(press("?")).toEqual({ action: "help" });
   expect(press("3")).toEqual({ action: "view", view: 3 });
-  expect(press("7")).toBe(null);
+  expect(press("7")).toEqual({ action: "view", view: 7 });
+  expect(press("0")).toBe(null);
   expect(press("x")).toBe(null);
 });
 

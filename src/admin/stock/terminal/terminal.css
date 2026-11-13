@@ -177,6 +177,14 @@
     opacity: 0.35;
   }
 }
+.tm-pill--locked {
+  border-color: var(--down);
+  background: var(--down);
+  color: #fff;
+}
+.tm-pill--locked i {
+  background: #fff;
+}
 .tm-pnl.is-up b {
   color: var(--up);
 }
@@ -521,4 +529,104 @@
   .tm-pill--live i {
     animation: none;
   }
+}
+
+/* ==========================================================================
+   Enterprise polish: one density, one card, one table, everywhere in the terminal
+   ========================================================================== */
+.tm .an-card {
+  margin-top: 8px;
+  border: 1px solid var(--line);
+  box-shadow: none;
+}
+.tm .an-card__head {
+  gap: 8px 14px;
+}
+.tm .an-card__head p {
+  font-size: var(--t-mid);
+  color: var(--ink-3);
+  max-width: 96ch;
+}
+.tm .an-table th,
+.tm .an-table td {
+  padding: 6px 8px;
+  vertical-align: middle;
+}
+.tm .an-table thead th {
+  background: var(--surface);
+  font-weight: 600;
+  color: var(--ink-3);
+  font-size: var(--t-small);
+  border-bottom: 1px solid var(--line-2);
+}
+/* inside a scrolling table the column heads stay in view */
+.tm .bt__scroll .an-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.tm .an-table tbody tr:hover > * {
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+}
+.tm .sv__tabs button {
+  min-height: 32px;
+  padding: 0 12px;
+  font-size: var(--t-mid);
+}
+.tm .sv__ranges button {
+  min-height: 28px;
+  padding: 0 10px;
+  font-size: var(--t-small);
+}
+.tm .adm-btn--sm {
+  min-height: 30px;
+  padding: 0 12px;
+  font-size: var(--t-mid);
+}
+.tm :where(button, a, input, select, summary):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.tm .tr-tiles > div,
+.tm .rg-gauge,
+.tm .bh-stats > div {
+  border-radius: 8px;
+}
+.tm .tr-tiles dd {
+  font-size: var(--t-title);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+/* loading: a calm skeleton bar instead of a spinner in the middle of the screen */
+.tm .adm-loading {
+  min-height: 0;
+  justify-content: flex-start;
+  margin-top: 10px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: linear-gradient(90deg, var(--surface) 0%, var(--surface-2) 50%, var(--surface) 100%);
+  background-size: 200% 100%;
+  animation: tm-shimmer 1.4s linear infinite;
+  font-size: var(--t-mid);
+}
+@keyframes tm-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tm .adm-loading {
+    animation: none;
+  }
+}
+.tm .adm-alert {
+  border-radius: 8px;
+  font-size: var(--t-mid);
+}
+.tm .vd-note {
+  font-size: var(--t-small);
 }

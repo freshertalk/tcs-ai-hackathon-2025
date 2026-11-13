@@ -18,9 +18,11 @@ import Copilot from "./Copilot";
 import OrderBook from "./OrderBook";
 import FastRead from "./FastRead";
 import { TradeButtons } from "../trade/TradeContext";
+import Behaviour from "./Behaviour";
 
 const TABS = [
   { id: "overview", label: "Overview" },
+  { id: "behaviour", label: "Behaviour & AI" },
   { id: "setups", label: "Setups" },
   { id: "levels", label: "Levels" },
   { id: "indicators", label: "Indicators" },
@@ -358,6 +360,7 @@ export default function StockView({ symbol, quote, status, streaming = false, in
           {tab === "ai" && <AiPanel symbol={symbol} onSize={sizeThis} />}
           {tab === "backtest" && <BacktestPanel symbol={symbol} />}
           {tab === "history" && <History a={a} />}
+          {tab === "behaviour" && <Behaviour symbol={symbol} />}
         </div>
       </div>
     </div>

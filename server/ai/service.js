@@ -28,6 +28,8 @@ const { Debrief } = require("./debrief");
 const { FileDocs } = require("../docs");
 const { Coach } = require("./coach");
 const { Research } = require("./research");
+const { Review } = require("./review");
+const { Decision } = require("./decision");
 const { barStart } = require("../market/intraday");
 
 const IST = 5.5 * 3600 * 1000;
@@ -299,6 +301,8 @@ class AiService {
     this.debrief = new Debrief(this);
     this.coach = new Coach(this);
     this.research = new Research(this);
+    this.journalReview = new Review(this); // "review" is taken: the score-and-learn step below
+    this.decision = new Decision(this, checkPlan);
   }
 
   /* ------------------------------------------------------------ settings */

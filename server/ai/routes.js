@@ -87,6 +87,10 @@ function mountAi(app, { ai, requireAdmin, limiter }) {
     return ai.research.start({ symbols: b.symbols, phase: b.phase, news: Boolean(b.news), world: Boolean(b.world), useAi: b.useAi !== false });
   }));
 
+  // the AI decision: today's live brief weighed against the stock's stored behaviour profile
+  app.get("/api/admin/ai/decision/:symbol", requireAdmin, wrap(async (req) => ai.decision.list(symbolOf(req))));
+  app.post("/api/admin/ai/decision/:symbol", requireAdmin, limiter(40, 60 * 60 * 1000), wrap(async (req) => ({ decision: await ai.decision.decide(symbolOf(req)), ...ai.decision.list(symbolOf(req)) })));
+
   app.get("/api/admin/ai/skills", requireAdmin, wrap(async () => ({ text: ai.playbook.read(), lessons: ai.playbook.lessons().length })));
 
   app.put("/api/admin/ai/skills", requireAdmin, wrap(async (req) => {

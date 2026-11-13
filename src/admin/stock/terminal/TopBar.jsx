@@ -135,6 +135,12 @@ export default function TopBar({ views, view, onView, theme, onTheme, onHelp }) 
           <i aria-hidden="true" />
           {connected ? `Kite${kite.user ? ` · ${kite.user}` : ""}` : kite && kite.mode === "demo" ? "Demo data" : "Kite offline"}
         </button>
+        {trade && trade.status && trade.status.riskLock && (
+          <button type="button" className="tm-pill tm-pill--btn tm-pill--locked" onClick={() => onView("account")} data-tip={`Risk guard: ${trade.status.riskLock.reason} New trades are refused until tomorrow; exits still work.`}>
+            <i aria-hidden="true" />
+            Risk locked
+          </button>
+        )}
         {trade && (
           <button type="button" className={`tm-pill tm-pill--btn ${trade.enabled ? "tm-pill--live" : "tm-pill--off"}`} onClick={() => onView("account")} data-tip={trade.enabled ? "Trading is ON: Buy, Sell, Exit and Cancel send real orders. Open Positions to turn it off." : "Trading is OFF: Buy and Sell are disabled. Open Positions to turn it on."}>
             <i aria-hidden="true" />
