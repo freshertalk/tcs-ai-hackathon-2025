@@ -464,6 +464,13 @@ const ENTRIES = [
   [["Entry", "Stop", "Targets", "Reward : risk"], "The plan for this direction, taken from the stock's own levels.", ".dir"],
   [["Time zone converter"], "Pick a date and time in one zone and see it in another. Every zone in the world, with daylight saving."],
 
+  /* ---- the full chart */
+  [["Chart"], "The full chart: every interval from 1 minute to 1 month, live, with indicators, drawing tools, compare, patterns, pivots and a technical summary.", ".sv__chartbar"],
+  [["Patterns"], "Marks candlestick patterns on the chart: engulfing, hammer, shooting star, morning and evening star.", ".pc"],
+  [["Pivots"], "Classic floor pivots — P, R1 to R3 and S1 to S3 — from the previous session (or the previous bar on daily and longer charts).", ".pc"],
+  [["Auto", "Log", "%"], "The price scale: ordinary, logarithmic (equal moves in percent look equal), or percent from the first bar on screen.", ".pc"],
+  [["Moving averages", "Oscillators", "Summary"], "Each indicator votes buy, sell or neutral on the latest bar; the gauge shows the tally. A count of readings, not advice.", ".ts"],
+
   /* ---- price alerts and the palette */
   [["Price alerts"], "Be told when a stock reaches a level: a sound, a note on this page and, if you allow them, a browser notification. Kept in the database; checked while the terminal is open. An alert never trades."],
   [["Set alert"], "Save this alert. Leave the side on “reaches” and it is taken from the price now."],

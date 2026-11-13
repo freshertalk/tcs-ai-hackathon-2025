@@ -200,6 +200,9 @@ function mountMarket(app, deps) {
   app.get("/api/admin/market/scorecard", requireAdmin, wrap(async (req) => market.scorecard({ costPct: req.query.cost })));
 
   // the intraday tape for the chart: ?interval=1 (1-minute, with a quick read of it) or 5
+  // the chart: candles at any Kite interval (day, minute … 60minute)
+  app.get("/api/admin/market/candles/:symbol", requireAdmin, limiter(240, 60 * 1000), wrap(async (req) => market.candles(symbolOf(req), String(req.query.interval || "day"), { days: req.query.days })));
+
   app.get("/api/admin/market/tape/:symbol", requireAdmin, wrap(async (req) => market.tape(symbolOf(req), req.query.interval)));
 
   app.get("/api/admin/market/intraday/:symbol", requireAdmin, wrap(async (req) => market.intraday(symbolOf(req))));

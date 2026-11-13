@@ -19,6 +19,7 @@ import OrderBook from "./OrderBook";
 import FastRead from "./FastRead";
 import { TradeButtons } from "../trade/TradeContext";
 import Behaviour from "./Behaviour";
+import ProChart from "../chart/ProChart";
 import { callLabel as oddsLabel } from "../advisor/advisorMath";
 
 const TABS = [
@@ -46,7 +47,7 @@ const CHART_KEY = "vpt.desk.chart";
 const storedChart = () => {
   try {
     const m = window.localStorage.getItem(CHART_KEY);
-    return ["m1", "m5", "daily"].includes(m) ? m : null;
+    return ["pro", "m1", "m5", "daily"].includes(m) ? m : null;
   } catch (_) {
     return null;
   }
@@ -265,7 +266,7 @@ export default function StockView({ symbol, quote, status, streaming = false, in
   const pc = quote && isNum(quote.prevClose) ? quote.prevClose : a.price.prevClose;
   const pxChg = isNum(pc) && pc > 0 ? px - pc : chg;
   const pxChgPct = isNum(pc) && pc > 0 ? ((px - pc) / pc) * 100 : chgPct;
-  const wanted = chartMode || (tape && live && status.marketHours ? "m5" : "daily");
+  const wanted = chartMode || "pro";
   const mode = (wanted === "m1" && !live) || (wanted === "m5" && !tape) ? "daily" : wanted;
   const m1 = minute.data && minute.data.available ? minute.data : null;
 
@@ -364,6 +365,9 @@ export default function StockView({ symbol, quote, status, streaming = false, in
               <section className="an-card">
                 <div className="sv__chartbar">
                   <div className="sv__ranges" role="group" aria-label="Chart type">
+                    <button type="button" aria-pressed={mode === "pro"} onClick={() => pickChart("pro")} data-tip="The full chart: every interval from 1 minute to 1 month, live, with indicators, drawing tools, compare, patterns, pivots and a technical summary.">
+                      Chart
+                    </button>
                     <button type="button" aria-pressed={mode === "m1"} disabled={!live} onClick={() => pickChart("m1")}>
                       Intraday · 1 min
                     </button>
@@ -384,7 +388,9 @@ export default function StockView({ symbol, quote, status, streaming = false, in
                     </div>
                   )}
                 </div>
-                {mode === "m1" ? (
+                {mode === "pro" ? (
+                  <ProChart symbol={symbol} live={live} />
+                ) : mode === "m1" ? (
                   m1 ? (
                     <>
                       <IntradayChart tape={m1.tape} call={dayCall} last={px} fast={m1.fast} />

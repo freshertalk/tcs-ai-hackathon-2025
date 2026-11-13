@@ -213,6 +213,23 @@ or a price alert — `alert sbin 800`. Turning trading OFF is one command; turni
 deliberate act on the Positions page. The dashboard and settings pages share the same
 theme (one switch, `analyzer/theme.js`) and a slim sticky header.
 
+**The full chart (`src/admin/stock/chart/`, the Desk's first chart).** Drawn with TradingView's
+open-source Lightweight Charts library (`lightweight-charts` 5.1.0, Apache-2.0; its attribution logo
+stays on the chart). Real history from Kite at every interval it offers — 1, 3, 5, 10, 15, 30 and
+60 minutes and daily (`GET /api/admin/market/candles/:symbol?interval=`, asked for in the chunks
+Kite allows and cached briefly) — plus weekly and monthly bars built from the daily ones; the live
+price is folded into the last bar as it trades, and intraday history is re-read every minute.
+Seven chart types (candles, hollow candles, Heikin-Ashi, OHLC bars, line, area, baseline); twenty
+indicators — SMA/EMA/WMA, Bollinger Bands, VWAP and Supertrend on the price; RSI, MACD,
+Stochastic, CCI, Williams %R, ROC, ADX/DMI, ATR and OBV in panes of their own; volume — searchable
+in one menu; drawing tools (horizontal line, trend line, Fibonacci retracement, measure; undo and
+clear; kept per stock in this browser); compare with another stock or index on a percent scale;
+candlestick-pattern markers; classic pivot points; auto / log / percent scales; an OHLC-change-volume
+legend under the crosshair; a PNG screenshot and full screen; and a technical summary that tallies
+moving averages and oscillators into a gauge. The look follows the terminal's own theme, not
+Kite's branding; company financials (as some paid chart sites show) are not available from Zerodha
+and are not included. The earlier 1-minute, 5-minute and daily views remain one click away.
+
 **Sign-in page and dashboard (`src/admin/Login.jsx`, `Dashboard.jsx`, `hub.css`).** The sign-in page
 says, politely and in justified text, that this is Vinay Kumar Tiwari's personal workspace and not
 for visitors; no email address appears anywhere on it (nor in the signed-in headers). The dashboard

@@ -43,6 +43,19 @@ const ALERT_MAX = 60; // waiting at once
 const ALERT_KEEP = 40; // fired ones kept for the record
 const HOW = ["", "target", "stop", "time"];
 
+// The chart's intervals, as Kite names them. Kite answers at most `chunk` days of each per
+// request; `days` is how far back the chart reaches by default, `max` the most it may ask for.
+const CANDLE_INTERVALS = {
+  minute: { chunk: 60, days: 5, max: 60 },
+  "3minute": { chunk: 100, days: 15, max: 100 },
+  "5minute": { chunk: 100, days: 30, max: 200 },
+  "10minute": { chunk: 100, days: 45, max: 200 },
+  "15minute": { chunk: 200, days: 60, max: 400 },
+  "30minute": { chunk: 200, days: 120, max: 400 },
+  "60minute": { chunk: 400, days: 250, max: 800 },
+  day: { days: 3650 },
+};
+
 const DAY = 86400000;
 const IST = 5.5 * 3600 * 1000;
 const HISTORY_DAYS = 3650; // ~10 years of daily bars
@@ -795,6 +808,52 @@ class MarketService {
     tape.step = step;
     tape.forming = isToday && this._forming(bars, step);
     return { available: true, at: new Date(this.now()).toISOString(), step, tape, fast: step === 1 ? fastRead(bars, { last: live ? live.last : null }) : null };
+  }
+
+  /* ---------------------------------------------------------- the chart's candles */
+
+  /**
+   * Candles for the chart at any of Kite's intervals: day (the cached daily history, up to
+   * ten years) or minute … 60minute (asked of Kite in the chunks it allows, kept for 15 s
+   * while the market is open and 10 min after it). Weekly and monthly bars are built from
+   * the daily ones on the page. Read-only.
+   * @returns { symbol, interval, candles: [{ t, o, h, l, c, v }], source, stale, at }
+   */
+  async candles(symbol, interval = "day", { days } = {}) {
+    if (!SYMBOL_RE.test(symbol)) throw new MarketError("That is not a valid symbol.", "invalid");
+    const spec = CANDLE_INTERVALS[interval];
+    if (!spec) throw new MarketError(`Unknown interval. Use one of: ${Object.keys(CANDLE_INTERVALS).join(", ")}.`, "invalid");
+    const now = this.now();
+    if (interval === "day") {
+      const d = await this.daily(symbol);
+      return { symbol, interval, candles: d.candles, source: d.source, stale: Boolean(d.stale), at: new Date(now).toISOString() };
+    }
+    if (this.mode() !== "kite") throw new MarketError("Intraday candles need the Zerodha connection.", "not_connected", 409);
+    const want = Math.max(1, Math.min(spec.max, Math.round(Number(days) || spec.days)));
+    const key = `${symbol}|${interval}|${want}`;
+    if (!this._candleAt) this._candleAt = new Map();
+    const hit = this._candleAt.get(key);
+    if (hit && now - hit.at < (isMarketHours(now) ? 15000 : 600000)) return hit.out;
+    if (!this._candleBusy) this._candleBusy = new Map();
+    if (this._candleBusy.has(key)) return this._candleBusy.get(key);
+    const job = (async () => {
+      const it = await this._instrument(symbol);
+      const parts = [];
+      for (let end = now, left = want; left > 0; left -= spec.chunk) {
+        const span = Math.min(spec.chunk, left);
+        const start = end - span * DAY;
+        parts.unshift(await this._call((k) => k.historical(it.t, interval, new Date(start), new Date(end))));
+        end = start - 60000;
+      }
+      const seen = new Set();
+      const candles = parts.flat().filter((b) => (seen.has(b.t) ? false : (seen.add(b.t), true)));
+      const out = { symbol, interval, candles, source: "kite", stale: false, at: new Date(now).toISOString() };
+      if (this._candleAt.size > 120) this._candleAt.clear();
+      this._candleAt.set(key, { at: now, out });
+      return out;
+    })().finally(() => this._candleBusy.delete(key));
+    this._candleBusy.set(key, job);
+    return job;
   }
 
   /* ------------------------------------------------------------- day replay */
