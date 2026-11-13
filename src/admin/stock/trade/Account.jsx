@@ -571,7 +571,7 @@ export default function Account({ compact = false }) {
                     <p className="tr-empty">No positions today.</p>
                   ) : (
                     <div className="bt__scroll">
-                      <table className="an-table tr-table">
+                      <table className="an-table tr-table tr-table--pos">
                         <thead>
                           <tr>
                             <th scope="col">Product</th>
@@ -598,6 +598,8 @@ export default function Account({ compact = false }) {
                                 </td>
                                 <th scope="row">
                                   {p.symbol} <small>{p.exchange}</small>
+                                  {/* on a phone the product column is dropped and its tag rides here */}
+                                  <small className={`tr-prod tr-prod--${p.product} tr-prod--in`}>{p.product}</small>
                                 </th>
                                 <td className={`is-num is-${tone(p.quantity)}`}>{p.quantity}</td>
                                 <td className="is-num">{closed ? "—" : num(p.average)}</td>

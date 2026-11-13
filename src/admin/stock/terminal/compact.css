@@ -1,0 +1,1184 @@
+/* ==========================================================================
+   The compact, every-screen layer of the terminal. Loaded last.
+
+   1. Shell      one slim row on top at every width; on phones and tablets the
+                 workspaces move to a bar along the bottom edge
+   2. Density    one tighter rhythm for cards, tables, tiles and headings
+   3. Wide       pages use the whole screen: nothing is capped at a centre column
+   4. Narrow     tall stacks become one-row strips, long reference text folds
+   5. Touch      inputs that do not make a phone zoom, dialogs as bottom sheets
+
+   Sizes still come from the type steps in admin.css (--t-*).
+   ========================================================================== */
+
+/* ------------------------------------------------------------------ 1. shell */
+.tm {
+  --tm-top: 46px;
+  --tm-bnav: 0px;
+  --gap: 8px;
+}
+.tm.tm--bnav {
+  --tm-bnav: calc(54px + env(safe-area-inset-bottom, 0px));
+}
+.tm .tm-top {
+  position: sticky;
+  flex-wrap: nowrap;
+  gap: 4px 10px;
+  min-height: var(--tm-top);
+  padding: 0 10px;
+  padding-left: max(10px, env(safe-area-inset-left, 0px));
+  padding-right: max(10px, env(safe-area-inset-right, 0px));
+}
+.tm .tm-brand__mark {
+  width: 28px;
+  height: 28px;
+}
+.tm .tm-tabs {
+  flex: 0 1 auto;
+  /* a tab that does not fit is reachable by scrolling, and the fading edge says so */
+  -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 18px), transparent);
+  mask-image: linear-gradient(90deg, #000 calc(100% - 18px), transparent);
+  padding-right: 14px;
+}
+.tm .tm-tabs button {
+  padding: 0 11px;
+}
+.tm .tm-status {
+  gap: 5px;
+  min-width: 0;
+}
+.tm .tm-pill {
+  min-height: 28px;
+  padding: 0 9px;
+  gap: 5px;
+}
+.tm .tm-icon,
+.tm .tm-user__btn {
+  width: 30px;
+  height: 30px;
+}
+.tm .tm-cmd {
+  height: 30px;
+}
+/* a bar with less room keeps the facts and drops the words around them:
+   first the key hints and the name, then the words inside the pills */
+@media (max-width: 2099px) {
+  .tm .tm-brand__name,
+  .tm .tm-tabs kbd {
+    display: none;
+  }
+}
+@media (max-width: 1759px) {
+  .tm .tm-x {
+    display: none;
+  }
+}
+@media (max-width: 1279px) {
+  .tm .tm-tabs button {
+    padding: 0 8px;
+  }
+  .tm .tm-status .tm-icon[aria-label="Keyboard shortcuts"] {
+    display: none;
+  }
+}
+
+/* ---- phones and tablets: the bar along the bottom edge */
+.tm--bnav .tm-tabs {
+  display: none;
+}
+.tm--bnav .tm-cmd {
+  flex: 1 1 60px;
+  width: auto;
+  min-width: 34px;
+  padding: 0 10px;
+  justify-content: flex-start;
+}
+.tm--bnav .tm-cmd__text {
+  display: block;
+}
+.tm--bnav .tm-cmd kbd,
+.tm--bnav .tm-status .tm-icon[aria-label="Keyboard shortcuts"],
+.tm--bnav .tm-status .tm-icon[aria-label$="theme"] {
+  display: none;
+}
+.tm--bnav .tm-status {
+  flex: none;
+  flex-wrap: nowrap;
+  margin-left: 0;
+}
+.tm--bnav .tm-pill--clock,
+.tm--bnav .tm-pill--kite,
+.tm--bnav .tm-pill--locked,
+.tm--bnav .tm-pill--live,
+.tm--bnav .tm-pill--off,
+.tm--bnav .tm-pnl {
+  display: inline-flex;
+}
+@media (min-width: 600px) {
+  .tm--bnav .tm-cmd__text .tm-x {
+    display: inline;
+  }
+}
+@media (max-width: 599px) {
+  /* a phone: the market clock and the connection live under "More" */
+  .tm--bnav .tm-pill--clock,
+  .tm--bnav .tm-pill--kite {
+    display: none;
+  }
+  .tm--bnav .tm-cmd__text .tm-x {
+    display: none;
+  }
+}
+@media (max-width: 359px) {
+  .tm--bnav .tm-cmd {
+    flex: none;
+    width: 34px;
+    padding: 0;
+    justify-content: center;
+  }
+  .tm--bnav .tm-cmd__text {
+    display: none;
+  }
+  .tm--bnav .tm-status {
+    margin-left: auto;
+  }
+}
+.tm-bnav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 55;
+  display: flex;
+  align-items: stretch;
+  justify-content: space-around;
+  height: var(--tm-bnav);
+  padding: 0 max(4px, env(safe-area-inset-right, 0px)) env(safe-area-inset-bottom, 0px) max(4px, env(safe-area-inset-left, 0px));
+  border-top: 1px solid var(--line-2);
+  background: color-mix(in srgb, var(--surface) 96%, transparent);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+.tm-bnav button {
+  flex: 1 1 0;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 2px;
+  min-width: 0;
+  max-width: 132px;
+  padding: 0 2px;
+  border: 0;
+  border-top: 2px solid transparent;
+  background: none;
+  color: var(--ink-3);
+  font: inherit;
+  font-size: var(--t-tag);
+  line-height: 1.2;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+.tm-bnav button span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tm-bnav button[aria-current="page"],
+.tm-bnav button.is-on {
+  color: var(--accent);
+  border-top-color: var(--accent);
+  font-weight: 600;
+}
+.tm-bnav button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -3px;
+  border-radius: 8px;
+}
+.tm--bnav .tm-work {
+  padding-bottom: calc(var(--tm-bnav) + 12px);
+}
+/* notes that float over the page clear the bar */
+.tm--bnav ~ .tr-toast,
+.tm--bnav .tr-toast,
+.adm:has(.tm--bnav) .tr-toast,
+.adm:has(.tm--bnav) .tr-follow {
+  bottom: calc(var(--tm-bnav, 54px) + 62px);
+}
+.adm:has(.tm--bnav) .tr-follow {
+  left: 8px;
+  right: 8px;
+  max-width: none;
+}
+
+/* ---- the "More" sheet */
+.tm-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  display: grid;
+  align-items: end;
+  background: rgba(10, 14, 20, 0.5);
+}
+.tm-sheet__box {
+  display: grid;
+  gap: 12px;
+  max-height: 86vh;
+  overflow-y: auto;
+  padding: 8px 14px calc(14px + env(safe-area-inset-bottom, 0px));
+  border-radius: 16px 16px 0 0;
+  border-top: 1px solid var(--line-2);
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 -18px 50px rgba(0, 0, 0, 0.35);
+}
+.tm-sheet__grip {
+  justify-self: center;
+  width: 40px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--line-2);
+}
+.tm-sheet__views {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+}
+.tm-sheet__views button {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas: "ic name" "ic tip";
+  column-gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.tm-sheet__views button svg {
+  grid-area: ic;
+  color: var(--ink-2);
+}
+.tm-sheet__views button b {
+  grid-area: name;
+  font-size: var(--t-base);
+  font-weight: 600;
+}
+.tm-sheet__views button small {
+  grid-area: tip;
+  overflow: hidden;
+  font-size: var(--t-small);
+  color: var(--ink-3);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tm-sheet__views button[aria-current="page"] {
+  border-color: var(--accent);
+}
+.tm-sheet__views button[aria-current="page"] svg,
+.tm-sheet__views button[aria-current="page"] b {
+  color: var(--accent);
+}
+.tm-sheet__status {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.tm-sheet__status li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 42px;
+  padding: 6px 12px;
+  font-size: var(--t-mid);
+  color: var(--ink-2);
+}
+.tm-sheet__status li + li {
+  border-top: 1px solid var(--line);
+}
+.tm-sheet__status li span {
+  flex: 1;
+  min-width: 0;
+}
+.tm-sheet__status b {
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.tm-sheet__status i {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ink-3);
+}
+.tm-sheet__status i.is-ok {
+  background: var(--up-bright);
+}
+.tm-sheet__status i.is-warn {
+  background: var(--warn);
+}
+.tm-sheet__status i.is-live {
+  background: var(--down);
+}
+.tm-sheet__status button,
+.tm-sheet__acts button,
+.tm-sheet__acts a {
+  flex: none;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--line-2);
+  border-radius: 8px;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--t-mid);
+  cursor: pointer;
+}
+.tm-sheet__acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.tm-sheet__acts button,
+.tm-sheet__acts a {
+  flex: 1 1 100px;
+  display: inline-grid;
+  place-items: center;
+  min-height: 40px;
+  text-align: center;
+}
+
+/* ---------------------------------------------------------------- 2. density */
+.tm .tm-work {
+  padding: 8px 10px calc(var(--tm-dock) + var(--tm-bnav) + 12px);
+  padding-left: max(10px, env(safe-area-inset-left, 0px));
+  padding-right: max(10px, env(safe-area-inset-right, 0px));
+}
+.tm .an-card {
+  margin-top: var(--gap);
+  padding: 10px 12px;
+  border-radius: 8px;
+}
+.tm .an-card__head {
+  gap: 6px 12px;
+  margin-bottom: 8px;
+}
+.tm .an-card__head h3,
+.tm .rg__head h3 {
+  font-size: var(--t-base);
+  font-weight: 600;
+}
+/* a card's description: two lines, the rest on a click */
+.tm .an-card__head p,
+.tm .rg__head p,
+.tm .av-head p {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  margin-top: 2px;
+  font-size: var(--t-small);
+  line-height: 1.45;
+  cursor: pointer;
+}
+.tm .an-card__head p.is-open,
+.tm .rg__head p.is-open,
+.tm .tr-switchbar__main > p.is-open,
+.tm .av-head p.is-open,
+.tm .an__disc.is-open,
+.tm .tr-foot.is-open,
+.tm .vd__foot.is-open {
+  display: block;
+  -webkit-line-clamp: unset;
+}
+.tm .an-card h4 {
+  margin: 12px 0 6px;
+}
+.tm .an-table th,
+.tm .an-table td,
+.tm .tr-table th,
+.tm .tr-table td {
+  padding: 5px 8px;
+}
+.tm .tr {
+  gap: var(--gap);
+}
+.tm .tr-tiles {
+  gap: var(--gap);
+}
+.tm .tr-tiles > div,
+.tm .bh-stats > div {
+  padding: 8px 11px;
+  border-radius: 8px;
+}
+.tm .tr-tiles dd {
+  font-size: var(--t-title);
+}
+.tm .tr-switchbar {
+  padding: 8px 12px;
+  border-radius: 8px;
+  gap: 8px;
+}
+.tm .tr-switchbar__main > p {
+  font-size: var(--t-mid);
+}
+.tm .sv__tabs {
+  margin-bottom: 8px;
+}
+.tm .sv__stats {
+  margin: 8px 0;
+}
+.tm .an__grid {
+  gap: var(--gap);
+  margin-top: 6px;
+}
+.tm .sv--desk {
+  gap: var(--gap);
+}
+.tm .conn.is-on {
+  padding: 4px 10px;
+  border-radius: 8px;
+}
+.tm .mk {
+  margin-top: 6px;
+}
+/* the long footnotes: there when wanted, two lines when not */
+.tm .an__disc,
+.tm .tr-foot,
+.tm .vd__foot {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  cursor: pointer;
+}
+.tm .an__disc {
+  margin-top: 10px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: var(--t-small);
+  line-height: 1.5;
+}
+
+/* ------------------------------------------------------------------- 3. wide */
+.tm .tm-page {
+  max-width: none;
+}
+/* Positions: the switch beside the risk guard, the table beside the coach */
+@media (min-width: 1400px) {
+  .tm-page > .tr {
+    grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr);
+    align-items: start;
+  }
+  .tm-page > .tr > * {
+    grid-column: 1 / -1;
+  }
+  .tm-page > .tr > .tr-switchbar {
+    grid-column: 1;
+  }
+  .tm-page > .tr > .rg {
+    grid-column: 2;
+    margin-top: 0;
+    align-self: stretch;
+  }
+  .tm-page > .tr > .tr-card:has(+ .tr-coach) {
+    grid-column: 1;
+  }
+  .tm-page > .tr > .tr-coach {
+    grid-column: 2;
+  }
+  .tm-page > .tr > .tr-card,
+  .tm-page > .tr > .tr-coach {
+    margin-top: 0;
+  }
+}
+/* Journal: curve, calendar and the breakdowns share the width; the trade list gets the rest */
+@media (min-width: 1500px) {
+  .tm-page > .jr {
+    display: grid;
+    grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+    gap: var(--gap);
+    align-items: start;
+  }
+  .tm-page > .jr > * {
+    grid-column: 1 / -1;
+    margin-top: 0;
+  }
+  .tm-page > .jr > .jr-tripcard {
+    grid-column: 1;
+  }
+  .tm-page > .jr > .jr-bdcard {
+    grid-column: 2;
+    grid-row: span 2;
+  }
+  .tm-page > .jr > .jr-rev {
+    grid-column: 1;
+  }
+  .tm-page > .jr .jr-tiles {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}
+@media (min-width: 1900px) {
+  /* the Desk: a wider rail for the verdict, a wider watchlist */
+  .tm .an__grid {
+    grid-template-columns: clamp(280px, 15vw, 340px) minmax(0, 1fr);
+  }
+}
+
+/* ----------------------------------------------------------------- 4. narrow */
+@media (max-width: 900px) {
+  .tm .tm-work {
+    padding-left: max(8px, env(safe-area-inset-left, 0px));
+    padding-right: max(8px, env(safe-area-inset-right, 0px));
+  }
+  .tm .an-card__head p,
+  .tm .rg__head p,
+  .tm .av-head p {
+    -webkit-line-clamp: 1;
+  }
+  /* strips: one row that scrolls sideways instead of a stack that pushes the page down */
+  .tm .tr-tiles,
+  .tm .sv__stats,
+  .tm .jr-filters,
+  .tm .bh-stats {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 6px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
+  }
+  .tm .tr-tiles::-webkit-scrollbar,
+  .tm .sv__stats::-webkit-scrollbar,
+  .tm .jr-filters::-webkit-scrollbar,
+  .tm .bh-stats::-webkit-scrollbar {
+    display: none;
+  }
+  .tm .tr-tiles > div,
+  .tm .bh-stats > div {
+    flex: 0 0 auto;
+    min-width: 148px;
+    scroll-snap-align: start;
+  }
+  .tm .sv__stats {
+    border: 0;
+    border-radius: 0;
+    background: none;
+  }
+  .tm .sv__stats > div {
+    flex: 0 0 auto;
+    min-width: 104px;
+    padding: 6px 10px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--surface);
+    scroll-snap-align: start;
+  }
+  .tm .jr-filters > * {
+    flex: 0 0 auto;
+  }
+  /* the Desk */
+  .tm .conn.is-on .conn__row {
+    flex-wrap: nowrap;
+    gap: 8px;
+  }
+  .tm .conn.is-on .conn__text {
+    flex: 1 1 0;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .tm .conn.is-on .conn__actions {
+    flex: none;
+  }
+  .tm .mk {
+    padding: 6px 8px;
+  }
+  .tm .mk__row {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .tm .mk__chips {
+    order: 0;
+    flex: none;
+  }
+  .tm .mk__row > .adm-btn {
+    margin-left: 0;
+  }
+  .tm .mk__row::-webkit-scrollbar {
+    display: none;
+  }
+  .tm .mk__row > * {
+    flex: none;
+  }
+  .tm .mk__chips {
+    overflow: visible;
+  }
+  .tm .an__live {
+    display: none;
+  }
+  .tm .wl__head h2 {
+    display: none;
+  }
+  .tm .wl__head,
+  .tm .wl__order {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 6px;
+  }
+  .tm .wl__order {
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .tm .wl__order button,
+  .tm .wl__head button {
+    flex: none;
+    white-space: nowrap;
+  }
+  .tm .wl {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas: "head order" "search search" "list list";
+    align-items: center;
+    gap: 6px;
+    padding: 8px 10px;
+  }
+  .tm .wl__head {
+    grid-area: head;
+    margin: 0;
+  }
+  .tm .wl__order {
+    grid-area: order;
+    margin: 0;
+  }
+  .tm .wl > .wl__search {
+    grid-area: search;
+    margin: 0;
+  }
+  .tm .wl__list {
+    grid-area: list;
+    margin: 0;
+  }
+  /* the ticker: name and price on one line, the call and Buy / Sell on the next */
+  .tm .sv__ticker {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas: "id px px" "call call trade";
+    gap: 4px 10px;
+    margin: 0;
+    padding: 6px 10px;
+  }
+  .tm .sv__tk-id {
+    grid-area: id;
+  }
+  .tm .sv__px {
+    grid-area: px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: flex-end;
+    gap: 0 8px;
+  }
+  .tm .sv__px b {
+    font-size: var(--t-title);
+    font-weight: 600;
+  }
+  .tm .sv__tk-call {
+    grid-area: call;
+    grid-column: auto;
+    grid-row: auto;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
+    min-width: 0;
+  }
+  .tm .sv__tk-call small {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .tm .sv__trade {
+    grid-area: trade;
+    justify-self: end;
+  }
+  /* Positions */
+  .tm .tr-tabs__at {
+    display: none;
+  }
+  .tm .tr-tabs {
+    flex-wrap: nowrap;
+  }
+  /* the switch on its own line, then the two buttons side by side, then one line of words */
+  .tm .tr-switchbar__main {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+  .tm .tr-switchbar__actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 6px;
+    margin: 0;
+    order: 2;
+  }
+  .tm .tr-switchbar__actions > * {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .tm .rg__head {
+    flex-wrap: nowrap;
+    align-items: center;
+  }
+  .tm .rg__head > div {
+    min-width: 0;
+  }
+  .tm .tr-switchbar__main > p {
+    flex: 1 1 100%;
+    order: 3;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 1;
+    overflow: hidden;
+    font-size: var(--t-small);
+  }
+  .tm .tr-switchbar__actions {
+    margin-left: auto;
+  }
+  /* Journal: months and breakdowns become swipeable rows */
+  .tm .jr-cal,
+  .tm .jr-bds {
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .tm .jr-cal::-webkit-scrollbar,
+  .tm .jr-bds::-webkit-scrollbar {
+    display: none;
+  }
+  .tm .jr-cal > *,
+  .tm .jr-bds > * {
+    flex: 0 0 min(88%, 340px);
+    scroll-snap-align: start;
+  }
+  /* a wide table keeps its first column in view while the rest scrolls */
+  .tm .bt__scroll {
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* ------------------------------------------------------------------ 5. touch */
+@media (pointer: coarse) {
+  /* a phone zooms into any field whose text is under 16px, and does not zoom back */
+  .tm input,
+  .tm select,
+  .tm textarea,
+  .tr-modal input,
+  .tr-modal select,
+  .tr-modal textarea {
+    font-size: 16px;
+  }
+  .tm .adm-btn--sm,
+  .tm .tr-btn,
+  .tm .sv__tabs button {
+    min-height: 36px;
+  }
+}
+@media (max-width: 600px) {
+  /* dialogs rise from the bottom edge, where the thumb is */
+  .tr-modal:not(.tm-pal) {
+    place-items: end stretch;
+    padding: 0;
+  }
+  .tr-modal:not(.tm-pal) > * {
+    width: 100%;
+    max-height: 92vh;
+    border-radius: 16px 16px 0 0;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .tm-pal {
+    place-items: start stretch;
+    padding: 8px;
+    padding-top: max(8px, env(safe-area-inset-top, 0px));
+  }
+  .tm-pal__box {
+    width: 100%;
+    max-height: 80vh;
+  }
+  .tr-ticket__foot {
+    position: sticky;
+    bottom: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  /* bid and ask are in the order book; under the price they only pushed the page down */
+  .tm .sv__px small {
+    display: none;
+  }
+}
+
+/* ---- whenever the bottom bar is on (phones and tablets, upright or on their side) */
+/* the top bar's search opens any stock: the Desk's own search line would only repeat it */
+.tm--bnav .an__desk {
+  display: none;
+}
+.tm--bnav .conn.is-on .conn__row {
+  flex-wrap: nowrap;
+  gap: 8px;
+}
+.tm--bnav .conn.is-on .conn__text {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tm--bnav .conn.is-on .conn__actions {
+  flex: none;
+}
+/* the verdict's reference blocks and the order book fold under their titles */
+.tm--bnav .vd__grid > .vd-block {
+  padding-top: 0;
+  border-top: 1px solid var(--line);
+}
+.tm--bnav .vd__grid > .vd-block > h4,
+.tm--bnav .ob > .ob__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 40px;
+  margin: 0;
+  cursor: pointer;
+}
+.tm--bnav .vd__grid > .vd-block > h4::after,
+.tm--bnav .ob > .ob__top::after {
+  content: "＋";
+  flex: none;
+  color: var(--ink-3);
+  font-weight: 400;
+}
+.tm--bnav .vd__grid > .vd-block.is-open > h4::after,
+.tm--bnav .ob.is-open > .ob__top::after {
+  content: "－";
+}
+.tm--bnav .vd__grid > .vd-block:not(.is-open) > :not(h4),
+.tm--bnav .ob:not(.is-open) > :not(.ob__top) {
+  display: none;
+}
+.tm--bnav .vd__grid > .vd-block.is-open {
+  padding-bottom: 12px;
+}
+
+/* ---- tables on a narrow screen: the name stays put while the numbers scroll */
+.tr-table .tr-prod--in {
+  display: none;
+}
+@media (max-width: 900px) {
+  .tm .bt__scroll .tr-table tbody th[scope="row"],
+  .tm .bt__scroll .tr-table thead th:first-child,
+  .tm .bt__scroll .tr-table--pos thead th:nth-child(2) {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    background: var(--surface);
+    box-shadow: 1px 0 0 var(--line);
+  }
+  .tm .tr-table td,
+  .tm .tr-table th {
+    white-space: nowrap;
+  }
+  .tm .tr-table small {
+    white-space: nowrap;
+  }
+  /* positions: the product tag rides with the name, so its own column can go */
+  .tm .tr-table--pos thead th:first-child,
+  .tm .tr-table--pos tbody td:first-child {
+    display: none;
+  }
+  .tm .tr-table--pos .tr-prod--in {
+    display: inline-block;
+    margin-left: 4px;
+    vertical-align: 1px;
+  }
+  .tm .jr-more {
+    width: 100%;
+    margin-top: 8px;
+  }
+}
+
+/* ==========================================================================
+   Second pass: the Desk's header rows, very wide monitors, the calendar page.
+   ========================================================================== */
+
+/* ---- the Desk on a laptop or bigger: the connection line and the search share one row */
+@media (min-width: 1101px) {
+  .tm .an {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 6px 8px;
+    align-items: start;
+  }
+  .tm .an > * {
+    grid-column: 1 / -1;
+    margin-top: 0;
+    min-width: 0;
+  }
+  .tm .an:has(> .conn.is-on) > .conn.is-on {
+    grid-column: 1;
+    grid-row: 1;
+    align-self: stretch;
+    display: grid;
+    align-content: center;
+  }
+  .tm .an:has(> .conn.is-on) > .an__desk {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .tm .an:has(> .conn.is-on) > .an__desk .an__live {
+    display: none;
+  }
+  .tm .an .conn.is-on .conn__row {
+    flex-wrap: nowrap;
+  }
+  .tm .an .conn.is-on .conn__text {
+    flex: 1 1 0;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .tm .an .conn.is-on .conn__actions {
+    flex: none;
+  }
+}
+/* ---- very wide: the verdict rail grows, and its reference blocks sit two abreast */
+@media (min-width: 2200px) {
+  .tm .sv--desk {
+    grid-template-columns: minmax(0, 1fr) clamp(480px, 30vw, 820px);
+  }
+}
+@media (min-width: 1280px) {
+  .tm .sv--desk {
+    column-gap: var(--gap);
+  }
+}
+
+/* ---- Journal on a wide screen: the review sits under the breakdowns, beside the trade list */
+@media (min-width: 1500px) {
+  .tm-page > .jr > .jr-tripcard {
+    grid-row: span 2;
+  }
+  .tm-page > .jr > .jr-bdcard {
+    grid-row: auto;
+  }
+  .tm-page > .jr > .jr-rev {
+    grid-column: 2;
+  }
+}
+
+/* ---- Calendar: the clocks and the two holiday lists, as tight as the rest */
+.tm .sr-card {
+  margin-top: var(--gap);
+  padding: 10px 12px;
+  border-radius: 8px;
+  box-shadow: none;
+}
+.tm .tm-page > .sr-card:first-child {
+  margin-top: 0;
+}
+.tm .sr-two {
+  gap: var(--gap);
+  margin-top: var(--gap);
+}
+.tm .sr-two > .sr-card {
+  margin-top: 0;
+}
+@media (min-width: 1700px) {
+  .tm--calendar .tm-page {
+    display: grid;
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr) minmax(0, 1fr);
+    gap: var(--gap);
+    align-items: start;
+  }
+  .tm--calendar .tm-page > .sr-two {
+    display: contents;
+  }
+  .tm--calendar .tm-page .sr-card {
+    margin-top: 0;
+  }
+}
+
+/* ---- the Advisor's grade in the stock ticker */
+.sv__odds {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: none;
+  height: 24px;
+  padding: 0 4px 0 8px;
+  border: 1px solid var(--line-2);
+  border-radius: 6px;
+  background: var(--surface-2);
+  color: var(--ink-2);
+  font: inherit;
+  font-size: var(--t-small);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+.sv__odds:hover,
+.sv__odds:focus-visible {
+  border-color: var(--accent);
+  color: var(--ink);
+  outline: 0;
+}
+.sv__odds span {
+  color: var(--ink-3);
+}
+.sv__odds b {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  font-size: var(--t-tag);
+  font-weight: 600;
+}
+.sv__odds--none {
+  padding-right: 8px;
+}
+.sv__odds--A b {
+  background: var(--up);
+  color: var(--on-solid);
+}
+.sv__odds--B b {
+  background: var(--up-bg);
+  color: var(--up-ink);
+  box-shadow: inset 0 0 0 1px var(--up-line);
+}
+.sv__odds--C b {
+  background: var(--warn-bg);
+  color: var(--warn-ink);
+  box-shadow: inset 0 0 0 1px var(--warn-line);
+}
+/* it rides beside the stock's name; the line under them keeps to two lines */
+.tm .sv__tk-id {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 8px;
+  min-width: 0;
+}
+.tm .sv__tk-id .sv__sym {
+  white-space: nowrap;
+}
+.tm .sv__tk-id .sv__meta {
+  flex: 1 1 100%;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+@media (min-width: 641px) {
+  /* the live sub-line under the price wraps instead of taking the name's room */
+  .tm .sv__px small {
+    max-width: 210px;
+    white-space: normal;
+    text-align: right;
+  }
+}
+@media (max-width: 640px) {
+  .tm .sv__tk-id {
+    max-width: 60vw;
+  }
+  .tm .sv__tk-id .sv__meta {
+    display: none;
+  }
+  /* the ticket keeps quantity, price and trigger on one line */
+  .tr-ticket .tr-grid:not(.tr-grid--more) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+}
+@media (max-width: 640px) {
+  /* the grade speaks for itself: the word "Odds" gives its room to the live call */
+  .tm .sv__odds span {
+    display: none;
+  }
+}
+
+/* ---- a phone on its side: height is scarce, so the bottom bar puts each name beside its icon */
+@media (max-height: 480px) {
+  .tm.tm--bnav {
+    --tm-bnav: calc(40px + env(safe-area-inset-bottom, 0px));
+    --tm-top: 42px;
+  }
+  .tm-bnav button {
+    grid-auto-flow: column;
+    justify-content: center;
+    align-items: center;
+    gap: 6px;
+    font-size: var(--t-small);
+  }
+  .tm-bnav button svg {
+    width: 18px;
+    height: 18px;
+  }
+  .tm-sheet__box {
+    max-height: 94vh;
+  }
+}
+
+/* ---- the ticker where the Desk's middle column is at its narrowest (three columns on a
+   laptop): Buy / Sell go under the price, and the bid / ask line under it makes room */
+@media (min-width: 1101px) and (max-width: 1499px) {
+  .tm .sv__ticker {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-areas: "id call px" "id call trade";
+    align-items: center;
+  }
+  .tm .sv__tk-id {
+    grid-area: id;
+  }
+  .tm .sv__tk-call {
+    grid-area: call;
+  }
+  .tm .sv__px {
+    grid-area: px;
+  }
+  .tm .sv__trade {
+    grid-area: trade;
+    justify-self: end;
+  }
+  .tm .sv__px small {
+    display: none;
+  }
+}
+@media (max-width: 1699px) {
+  .tm .sv__tk-id .sv__meta {
+    -webkit-line-clamp: 1;
+  }
+}
+
+/* two notes at once on a phone (an order update and a price alert) stack instead of covering each other */
+.adm:has(.tm--bnav) .tm-alert-note {
+  bottom: calc(var(--tm-bnav, 54px) + 132px);
+}

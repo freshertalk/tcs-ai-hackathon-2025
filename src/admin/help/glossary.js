@@ -446,6 +446,12 @@ const ENTRIES = [
   [["Charges"], "Brokerage, taxes and exchange fees for this order, by Zerodha’s calculator.", ".tr-pre"],
   [["Place the stop…"], "Open the stop-loss order for the entry that just filled, as a ticket. Nothing is sent until you confirm it."],
 
+  /* ---- the terminal on a phone or tablet */
+  [["More"], "The rest of the workspaces, the market clock, the Zerodha connection and the theme.", ".tm-bnav"],
+  [["Connect"], "Go to the Desk to log in to Zerodha.", ".tm-sheet"],
+  [["Light theme", "Dark theme"], "Switch the whole terminal between dark and light.", ".tm-sheet"],
+  [["Open on the Desk"], "Open this stock on the Desk: chart, live call, order book."],
+
   /* ---- price alerts and the palette */
   [["Price alerts"], "Be told when a stock reaches a level: a sound, a note on this page and, if you allow them, a browser notification. Kept in the database; checked while the terminal is open. An alert never trades."],
   [["Set alert"], "Save this alert. Leave the side on “reaches” and it is taken from the price now."],
@@ -454,6 +460,7 @@ const ENTRIES = [
 ];
 
 const PATTERNS = [
+  [/^show (all \d+ round trips|only the latest \d+)$/, "The list opens on the latest trades. The figures above always cover every trade in the period."],
   [/^use [\d,]+ shares for /, "Set the quantity so that being stopped out loses about the risk you entered: the risk divided by the distance from the entry to the stop."],
   [/^order limits/, "A guard against a fat finger: an order above these is refused unless it only closes something you already hold."],
   [/^research \d+ stocks?$/, "Run the research for the stocks picked above."],

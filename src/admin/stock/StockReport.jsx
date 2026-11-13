@@ -5,6 +5,10 @@
 // Calendar. Keyboard: / search, B / S buy or sell the open stock, 1–8 workspaces, D dock,
 // T theme, ? the list.
 //
+// One layout, every screen: the same workspaces sit in the top bar on a laptop or monitor and
+// in a bar along the bottom edge on a phone or tablet (terminal/BottomNav.jsx); the sizes,
+// strips, folds and wide-screen arrangements are CSS (terminal/compact.css).
+//
 // Opens in its own tab from the dashboard; the session cookie is shared, so it is signed in.
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
@@ -26,7 +30,10 @@ import TopBar from "./terminal/TopBar";
 import { keyAction, SHORTCUTS } from "./terminal/shortcuts";
 import Palette from "./terminal/Palette";
 import { AlertsProvider } from "./terminal/AlertsContext";
+import BottomNav from "./terminal/BottomNav";
+import { BOTTOM_NAV, useMedia } from "./terminal/useMedia";
 import "./terminal/terminal.css";
+import "./terminal/compact.css";
 
 const VIEWS = [
   { id: "analyzer", label: "Desk", tip: "Watchlist, chart, the live call, order book and co-pilot for one stock, with your positions docked below." },
@@ -116,7 +123,9 @@ function Terminal() {
   const [palette, setPalette] = useState(false);
   const [alertsOpen, setAlertsOpen] = useState(false);
   const [dock, setDock] = useState(storedDock);
-  const showDock = view === "analyzer" && Boolean(trade);
+  // phones and tablets: the workspaces sit along the bottom edge, and there is no dock
+  const bottomNav = useMedia(BOTTOM_NAV);
+  const showDock = view === "analyzer" && Boolean(trade) && !bottomNav;
 
   const go = useCallback(
     (id) => {
@@ -208,8 +217,24 @@ function Terminal() {
     return list;
   }, [hasTrade, tradeOn, trade, toggleTheme, toggleDock, go]);
 
+  // One line until asked for more: a card's description and the long footnotes open on a
+  // click or a tap. On a phone or tablet the reference blocks of the verdict and the order
+  // book fold under their titles the same way.
+  const onFold = (e) => {
+    const t = e.target;
+    if (!t || !t.closest || t.closest("a, button, input, select, textarea, label")) return;
+    const note = t.closest(".an-card__head p, .rg__head p, .tr-switchbar__main > p, .an__disc, .tr-foot, .av-head p, .vd__foot");
+    if (note) {
+      note.classList.toggle("is-open");
+      return;
+    }
+    if (!bottomNav) return;
+    const title = t.closest(".vd-block > h4, .ob__top");
+    if (title) title.parentElement.classList.toggle("is-open");
+  };
+
   return (
-    <div className={`tm tm--${view} ${showDock ? `has-dock ${dock ? "dock-open" : ""}` : ""}`}>
+    <div className={`tm tm--${view} ${bottomNav ? "tm--bnav" : ""} ${showDock ? `has-dock ${dock ? "dock-open" : ""}` : ""}`} onClick={onFold}>
       <TopBar views={views} view={view} onView={go} theme={theme} onTheme={toggleTheme} onHelp={() => setHelp(true)} onPalette={() => setPalette(true)} symbol={params.get("s") || ""} alertsOpen={alertsOpen} onAlerts={setAlertsOpen} />
       <main className="tm-work" id="tm-main">
         {/* one failing workspace never blanks the terminal: the top bar and the others stay usable */}
@@ -244,6 +269,7 @@ function Terminal() {
         </ErrorBoundary>
       </main>
       {showDock && <Dock open={dock} onToggle={toggleDock} />}
+      {bottomNav && <BottomNav views={views} view={view} onView={go} theme={theme} onTheme={toggleTheme} onAlerts={() => setAlertsOpen(true)} />}
       {help && <ShortcutsDialog onClose={() => setHelp(false)} />}
       {palette && <Palette views={views} actions={actions} onView={go} onOpenStock={openStock} onClose={() => setPalette(false)} />}
     </div>

@@ -210,6 +210,30 @@ or a price alert — `alert sbin 800`. Turning trading OFF is one command; turni
 deliberate act on the Positions page. The dashboard and settings pages share the same
 theme (one switch, `analyzer/theme.js`) and a slim sticky header.
 
+**Compact on every screen (`terminal/compact.css`, `terminal/BottomNav.jsx`, `terminal/useMedia.js`).**
+One slim row on top at every width; nothing is capped at a centre column, so a 1920 or 2560 px
+monitor is used edge to edge.
+- **Phones and tablets (up to 1100 px):** the workspaces move to a bar along the bottom edge — the
+  first four on a phone with the rest under **More** (which also holds the market clock, the
+  Zerodha connection and the theme), all of them on a tablet. The top bar keeps the search, the
+  trading switch's state, the day's P&L, alerts and the account menu. Tall stacks become one-row
+  strips that scroll sideways (tiles, the day's stats, months, breakdowns); the verdict's reference
+  blocks and the order book fold under their titles; dialogs rise from the bottom edge; fields keep
+  16 px text so a phone does not zoom into them; a wide table keeps its name column in view. A phone
+  held sideways gets a shorter bar.
+- **Laptops:** all eight workspaces fit in the top bar without scrolling; the words inside the
+  status pills drop away before anything is clipped. On the Desk the connection line and the
+  search share one row.
+- **Wide monitors (1600 px and up):** the Advisor keeps its board on the left and the selected
+  stock's full reading open beside it (three columns from 2300 px); Positions puts the switch beside
+  the risk guard and the table beside the coach; the Journal puts the breakdowns and the review
+  beside the trade list; the Calendar's clocks and two holiday lists sit side by side.
+- **Advisor on a phone:** a card per stock instead of a table. Everywhere, the stock ticker carries
+  the Advisor's grade for the open stock ("Odds: Swing long · A"), which opens the full reading.
+- A card's description and the long footnotes show one or two lines and open on a click or tap;
+  the Journal lists the latest 25 round trips with a button for the rest (its figures always cover
+  every trade).
+
 **Stock Report — `/me/stock-report`.** Opens in its own tab from the dashboard (the session
 cookie is shared, so you stay signed in). It shows a world clock for India, USA (New York),
 Singapore, UK, Japan and China with each city's offset from a reference city (daylight saving

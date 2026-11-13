@@ -19,6 +19,7 @@ import OrderBook from "./OrderBook";
 import FastRead from "./FastRead";
 import { TradeButtons } from "../trade/TradeContext";
 import Behaviour from "./Behaviour";
+import { callLabel as oddsLabel } from "../advisor/advisorMath";
 
 const TABS = [
   { id: "overview", label: "Overview" },
@@ -69,7 +70,50 @@ function useWide() {
 }
 
 /** The bar that stays on screen: symbol, the live call, and the price — flashing on each tick. */
-function Ticker({ symbol, meta, px: polledPx, chg: polledChg, chgPct: polledPct, sub: polledSub, call }) {
+/**
+ * The Advisor's reading for the open stock, beside the live call: the best measured-odds
+ * call and its grade (A and B are backed by the forward test, C is not), or "no edge".
+ * It opens the full reading. A grade is a measured frequency, not a promise.
+ */
+function OddsChip({ symbol, onOpen }) {
+  const url = `/api/admin/market/edge/${encodeURIComponent(symbol)}`;
+  const [r, setR] = useState(() => peek(url, 10 * 60 * 1000));
+  useEffect(() => {
+    let alive = true;
+    setR(peek(url, 10 * 60 * 1000));
+    api(url)
+      .then((d) => alive && setR(d))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [url]);
+  if (!r || !r.available) return null;
+  const b = r.best;
+  return (
+    <button
+      type="button"
+      className={`sv__odds sv__odds--${b ? b.grade : "none"}`}
+      onClick={onOpen}
+      data-tip={
+        b
+          ? `Measured odds: ${oddsLabel(b.kind, b.side)}, grade ${b.grade} — ${b.winPct}% of ${b.n} similar days made money, ${b.expR > 0 ? "+" : ""}${b.expR}R on average after costs. ${b.grade === "C" ? "The forward test does not back it: treat it as noise." : "The forward test backs it."} Opens the full reading.`
+          : "Measured odds: the days most like today do not show a favourable result after costs. Opens the full reading."
+      }
+    >
+      <span>Odds</span>
+      {b ? (
+        <>
+          {oddsLabel(b.kind, b.side)} <b>{b.grade}</b>
+        </>
+      ) : (
+        "no edge"
+      )}
+    </button>
+  );
+}
+
+function Ticker({ symbol, meta, px: polledPx, chg: polledChg, chgPct: polledPct, sub: polledSub, call, odds = null }) {
   // the price reads the live stream directly: each tick lands here at once, without redrawing the page
   const tick = useTick(symbol);
   const streamed = Boolean(tick && isNum(tick.last));
@@ -93,6 +137,7 @@ function Ticker({ symbol, meta, px: polledPx, chg: polledChg, chgPct: polledPct,
     <header className="sv__ticker">
       <div className="sv__tk-id">
         <h2 className="sv__sym">{symbol}</h2>
+        {odds}
         <p className="sv__meta">{meta}</p>
       </div>
       <div className="sv__tk-call">
@@ -250,6 +295,15 @@ export default function StockView({ symbol, quote, status, streaming = false, in
         chg={pxChg}
         chgPct={pxChgPct}
         call={dayCall}
+        odds={
+          <OddsChip
+            symbol={symbol}
+            onOpen={() => {
+              setTab("behaviour");
+              if (top.current && top.current.scrollIntoView) top.current.scrollIntoView({ block: "start" });
+            }}
+          />
+        }
         sub={quote && quote.time ? `live · last trade ${String(quote.time).slice(11, 19) || quote.time}` : `close of ${day(a.asOf, { day: "numeric", month: "short" })}`}
         meta={
           <>

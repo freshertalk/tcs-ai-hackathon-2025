@@ -23,7 +23,7 @@ function istNow() {
   return { time: d.toISOString().slice(11, 19), state: open ? "open" : pre ? "pre-open" : "closed" };
 }
 
-function useClock() {
+export function useClock() {
   const [now, setNow] = useState(istNow);
   useEffect(() => {
     const id = setInterval(() => setNow(istNow()), 1000);
@@ -33,7 +33,7 @@ function useClock() {
 }
 
 /** Whether Zerodha is connected, re-read every minute (the session dies at 6 AM). */
-function useKite() {
+export function useKite() {
   const [k, setK] = useState(null);
   useEffect(() => {
     let alive = true;
@@ -127,40 +127,59 @@ export default function TopBar({ views, view, onView, theme, onTheme, onHelp, on
 
       <button type="button" className="tm-cmd" onClick={onPalette} data-tip="Search any stock, jump to a workspace, or type a command: “buy sbin 10” opens the order ticket, “alert infy 1500” sets a price alert. Nothing typed here is ever sent as an order without the ticket’s own confirmation.">
         <span aria-hidden="true">⌕</span>
-        <span className="tm-cmd__text">Search or command</span>
+        <span className="tm-cmd__text">
+          Search<span className="tm-x"> or command</span>
+        </span>
         <kbd>{mac ? "⌘" : "Ctrl"} K</kbd>
       </button>
 
       <div className="tm-status">
-        <span className={`tm-pill tm-pill--${clock.state}`} data-tip="NSE’s session by the clock (9:15 AM – 3:30 PM IST, Monday to Friday). Exchange holidays are listed under Calendar.">
+        <span className={`tm-pill tm-pill--clock tm-pill--${clock.state}`} data-tip="NSE’s session by the clock (9:15 AM – 3:30 PM IST, Monday to Friday). Exchange holidays are listed under Calendar.">
           <i aria-hidden="true" />
-          NSE {clock.state} · <b>{clock.time}</b> IST
+          <span className="tm-x">NSE </span>
+          {clock.state}
+          <span className="tm-x"> ·</span> <b>{clock.time}</b>
+          <span className="tm-x"> IST</span>
         </span>
         <button
           type="button"
-          className={`tm-pill tm-pill--btn ${connected ? "tm-pill--ok" : kite && kite.mode === "demo" ? "tm-pill--warn" : "tm-pill--off"}`}
+          className={`tm-pill tm-pill--btn tm-pill--kite ${connected ? "tm-pill--ok" : kite && kite.mode === "demo" ? "tm-pill--warn" : "tm-pill--off"}`}
           onClick={() => onView("analyzer")}
           data-tip={connected ? `Zerodha is connected${kite.expiresAt ? ` until ${new Date(kite.expiresAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}` : ""}. Live prices and the account come from it.` : "Zerodha is not connected. Open the Desk to log in to Kite (once each trading morning)."}
         >
           <i aria-hidden="true" />
-          {connected ? `Kite${kite.user ? ` · ${kite.user}` : ""}` : kite && kite.mode === "demo" ? "Demo data" : "Kite offline"}
+          {connected ? (
+            <>
+              Kite<span className="tm-x">{kite.user ? ` · ${kite.user}` : ""}</span>
+            </>
+          ) : kite && kite.mode === "demo" ? (
+            <>
+              Demo<span className="tm-x"> data</span>
+            </>
+          ) : (
+            <>
+              <span className="tm-x">Kite </span>offline
+            </>
+          )}
         </button>
         {trade && trade.status && trade.status.riskLock && (
           <button type="button" className="tm-pill tm-pill--btn tm-pill--locked" onClick={() => onView("account")} data-tip={`Risk guard: ${trade.status.riskLock.reason} New trades are refused until tomorrow; exits still work.`}>
             <i aria-hidden="true" />
-            Risk locked
+            <span className="tm-x">Risk </span>locked
           </button>
         )}
         {trade && (
           <button type="button" className={`tm-pill tm-pill--btn ${trade.enabled ? "tm-pill--live" : "tm-pill--off"}`} onClick={() => onView("account")} data-tip={trade.enabled ? "Trading is ON: Buy, Sell, Exit and Cancel send real orders. Open Positions to turn it off." : "Trading is OFF: Buy and Sell are disabled. Open Positions to turn it on."}>
             <i aria-hidden="true" />
-            Trading {trade.enabled ? "ON" : "OFF"}
+            <span className="tm-x">Trading </span>
+            {trade.enabled ? "ON" : "OFF"}
           </button>
         )}
         {trade && pulse && (
           <button type="button" className={`tm-pill tm-pill--btn tm-pnl ${pulse.pnl > 0 ? "is-up" : pulse.pnl < 0 ? "is-down" : ""}`} onClick={() => onView("account")} data-tip="Today’s P&L on all positions, open and closed, as Zerodha reports it (refreshed every 15 seconds).">
-            P&amp;L <b>{`${pulse.pnl > 0 ? "+" : pulse.pnl < 0 ? "−" : ""}₹${num(Math.abs(pulse.pnl))}`}</b>
-            <small>{pulse.open} open</small>
+            <span className="tm-x">P&amp;L </span>
+            <b>{`${pulse.pnl > 0 ? "+" : pulse.pnl < 0 ? "−" : ""}₹${num(Math.abs(pulse.pnl))}`}</b>
+            <small className="tm-x">{pulse.open} open</small>
           </button>
         )}
         {alerts && (

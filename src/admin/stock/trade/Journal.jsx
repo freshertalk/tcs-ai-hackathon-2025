@@ -5,7 +5,7 @@
 // and an AI review of it all. Today's fills come in from Zerodha by themselves; history comes
 // from a Zerodha Console tradebook CSV.
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../../api";
 import { Alert, Loading } from "../../ui";
 import { isNum, num, when } from "../analyzer/format";
@@ -69,15 +69,22 @@ function Equity({ curve }) {
   );
 }
 
+const TRIP_ROWS = 25;
+
 /* --------------------------------------------------------- P&L calendar */
 function Calendar({ days }) {
+  const box = useRef(null);
+  // on a phone the months are one row to swipe through: it opens on the newest
+  useEffect(() => {
+    if (box.current) box.current.scrollLeft = box.current.scrollWidth;
+  }, [days.length]);
   if (!days.length) return null;
   const byDay = new Map(days.map((d) => [d.key, d]));
   const max = Math.max(...days.map((d) => Math.abs(d.net)), 1);
   // the last six months that have trades
   const months = [...new Set(days.map((d) => d.key.slice(0, 7)))].slice(-6);
   return (
-    <div className="jr-cal">
+    <div className="jr-cal" ref={box}>
       {months.map((m) => {
         const [yy, mm] = m.split("-").map(Number);
         const first = new Date(Date.UTC(yy, mm - 1, 1));
@@ -314,6 +321,7 @@ export default function Journal() {
   const [setup, setSetup] = useState("");
   const [state, setState] = useState({ loading: true, data: null, error: "" });
   const [editing, setEditing] = useState("");
+  const [allTrips, setAllTrips] = useState(false); // the list opens on the latest few; the totals above always cover every trade
   const [msg, setMsg] = useState({ kind: "", text: "" });
   const [busy, setBusy] = useState("");
 
@@ -478,7 +486,7 @@ export default function Journal() {
             </section>
           </div>
 
-          <section className="an-card">
+          <section className="an-card jr-bdcard">
             <h3 className="jr-h">Where the money is made and lost</h3>
             <p className="vd-note">Groups with fewer than 8 trades are greyed: too few to trust.</p>
             <div className="jr-bds">
@@ -495,7 +503,7 @@ export default function Journal() {
       )}
 
       {d && d.trips.length > 0 && (
-        <section className="an-card">
+        <section className="an-card jr-tripcard">
           <h3 className="jr-h">Round trips ({d.trips.length}{d.trips.length === 500 ? ", newest 500" : ""})</h3>
           <div className="bt__scroll tr">
             <table className="an-table tr-table jr-trips">
@@ -523,7 +531,7 @@ export default function Journal() {
                 </tr>
               </thead>
               <tbody>
-                {d.trips.map((t) => (
+                {(allTrips ? d.trips : d.trips.slice(0, TRIP_ROWS)).map((t) => (
                   <React.Fragment key={t.key}>
                     <tr className={t.open ? "is-closed" : ""}>
                       <td>
@@ -585,6 +593,11 @@ export default function Journal() {
               </tbody>
             </table>
           </div>
+          {d.trips.length > TRIP_ROWS && (
+            <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm jr-more" onClick={() => setAllTrips((a) => !a)}>
+              {allTrips ? `Show only the latest ${TRIP_ROWS}` : `Show all ${d.trips.length} round trips`}
+            </button>
+          )}
           <p className="vd-note">Charges are estimated from Zerodha’s published equity rates (brokerage, STT, exchange and SEBI fees, GST, stamp duty, DP charge); your contract note is the truth. F&amp;O charges are not estimated.</p>
         </section>
       )}
