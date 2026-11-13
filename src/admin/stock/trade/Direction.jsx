@@ -98,7 +98,7 @@ export function AutoResearch({ canChange }) {
       <label className="tr-check" data-tip={`Runs by itself on weekdays at ${s.times.pre} (pre-market) and ${s.times.post} IST (post-market) for the watchlist, while Zerodha is connected. The report is waiting when you open this page.`}>
         <input type="checkbox" checked={s.enabled} disabled={!canChange} onChange={(e) => set({ enabled: e.target.checked })} /> Automatic at {s.times.pre} and {s.times.post} IST
       </label>
-      <label className="tr-check" data-tip="The automatic runs also check company news and world markets and have the AI write a note per stock. Uses Anthropic tokens twice a day.">
+      <label className="tr-check" data-tip="The automatic runs also check company news and world markets and have the AI write a note per stock. Uses your AI company's tokens twice a day.">
         <input type="checkbox" checked={s.withAi && s.aiConfigured} disabled={!canChange || !s.enabled || !s.aiConfigured} onChange={(e) => set({ withAi: e.target.checked })} /> with AI notes and news
       </label>
       {s.history[0] && (

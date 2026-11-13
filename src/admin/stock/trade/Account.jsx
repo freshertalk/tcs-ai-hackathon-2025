@@ -10,6 +10,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../../api";
 import { Alert, Loading } from "../../ui";
+import { useAiStatus } from "../../aiStatus";
 import { clock, inr, isNum, num, pct, tone, when } from "../analyzer/format";
 import { TickContext, useLiveTicks } from "../analyzer/liveTicks";
 import { useTrade, TradeButtons } from "./TradeContext";
@@ -335,7 +336,9 @@ function ExitAllDialog({ positions, openOrders, onClose, onDone }) {
 
 /* ------------------------------------------------------------ the coach */
 function CoachPanel({ canExit, onExit, positions }) {
-  const [state, setState] = useState({ configured: false, readings: [] });
+  const [state0, setState] = useState({ configured: false, readings: [] });
+  const aiNow = useAiStatus();
+  const state = { ...state0, configured: aiNow ? aiNow.configured : state0.configured };
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   useEffect(() => {
@@ -360,11 +363,11 @@ function CoachPanel({ canExit, onExit, positions }) {
           <h3>AI position coach</h3>
           <p>The model reads your positions and holdings — quantity, average, live price, P&amp;L, product, funds — next to the desk’s live call and levels for each stock, and says what it would do. It advises only; any order is yours to place.</p>
         </div>
-        <button type="button" className="adm-btn adm-btn--solid adm-btn--sm" onClick={ask} disabled={busy || !state.configured} data-tip="Ask the AI to read your book now. It uses your Anthropic API tokens, and runs only when you press it.">
+        <button type="button" className="adm-btn adm-btn--solid adm-btn--sm" onClick={ask} disabled={busy || !state.configured} data-tip="Ask the AI to read your book now. It uses your AI company's tokens, and runs only when you press it.">
           {busy ? "Reading your book…" : "Ask the coach"}
         </button>
       </header>
-      {!state.configured && <p className="adm-alert adm-alert--info">Add an Anthropic API key in the AI settings to use the coach.</p>}
+      {!state.configured && <p className="adm-alert adm-alert--info">Add an AI API key in the AI settings to use the coach.</p>}
       <Alert>{err}</Alert>
       {r && (
         <div className="tr-coach__out">

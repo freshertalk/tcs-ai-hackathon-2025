@@ -1,5 +1,5 @@
 // The Day debrief: what the rule engine's calls would have done today, stock by stock,
-// worked out by arithmetic — and, when an Anthropic key is set, read back by the model
+// worked out by arithmetic — and, when an AI key is set, read back by the model
 // as a short review with a few lessons you can accept or ignore.
 //
 // The scorecard needs no AI. It replays the live call over the session's 5-minute bars
@@ -11,6 +11,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../../api";
 import { adminPath } from "../../paths";
 import { Alert, Loading } from "../../ui";
+import { useAiStatus, modelName } from "../../aiStatus";
 import { day as dayText, inr, isNum, num, pct, tone, when } from "./format";
 import { fmtR, WHY } from "./debriefMath";
 import { NetBar, ReplayStrip, RunningTotal } from "./DebriefCharts";
@@ -176,8 +177,8 @@ function Row({ row, max, open, onToggle, onOpen, cols }) {
 }
 
 /** The model's reading of the day, with the lessons it suggests. */
-function Written({ d, models, onLesson, busy }) {
-  const model = (models.find((m) => m.id === d.model) || {}).name || d.model;
+function Written({ d, aiNow, onLesson, busy }) {
+  const model = modelName(aiNow, d.model);
   return (
     <div className="ai-out db-written">
       <p className="vd-headline">{d.headline}</p>
@@ -271,7 +272,9 @@ function Written({ d, models, onLesson, busy }) {
 export default function Debrief({ onOpen = null }) {
   const [cost, setCost] = useState("0.1");
   const [card, setCard] = useState({ loading: true, data: null, error: "" });
-  const [ai, setAi] = useState({ configured: false, debriefs: [], models: [] });
+  const [ai0, setAi] = useState({ configured: false, debriefs: [] });
+  const aiNow = useAiStatus();
+  const ai = { ...ai0, configured: aiNow ? aiNow.configured : ai0.configured };
   const [busy, setBusy] = useState("");
   const [aiError, setAiError] = useState("");
   const [open, setOpen] = useState(null); // { SYMBOL: true }; null until the first answer decides
@@ -293,8 +296,8 @@ export default function Debrief({ onOpen = null }) {
 
   useEffect(() => {
     let alive = true;
-    Promise.all([api("/api/admin/ai/debrief"), api("/api/admin/ai/status")])
-      .then(([d, s]) => alive && setAi({ configured: d.configured, debriefs: d.debriefs, models: s.models || [] }))
+    api("/api/admin/ai/debrief")
+      .then((d) => alive && setAi({ configured: d.configured, debriefs: d.debriefs }))
       .catch(() => {});
     return () => {
       alive = false;
@@ -476,7 +479,7 @@ export default function Debrief({ onOpen = null }) {
             <p>
               {ai.configured
                 ? "The model is shown the numbers above — plus the co-pilot’s scored readings and the strategist’s plans from the same session, if there were any — and writes a short review. It runs only when you press the button."
-                : "No Anthropic API key is set, so there is no written review. The scorecard above needs no AI and works without it."}
+                : "No AI API key is set, so there is no written review. The scorecard above needs no AI and works without it."}
             </p>
           </div>
           {ai.configured ? (
@@ -508,7 +511,7 @@ export default function Debrief({ onOpen = null }) {
         {busy !== "write" && shown && (
           <>
             {ok && !forThisDay && <p className="adm-alert adm-alert--info">This debrief is for {dayText(shown.day)}, not for the session shown above.</p>}
-            <Written d={shown} models={ai.models} onLesson={addLesson} busy={busy} />
+            <Written d={shown} aiNow={aiNow} onLesson={addLesson} busy={busy} />
           </>
         )}
         {busy !== "write" && !shown && ai.configured && <p className="vd-note">No debrief has been written yet.</p>}

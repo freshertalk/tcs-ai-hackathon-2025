@@ -229,6 +229,16 @@ legend under the crosshair; a PNG screenshot and full screen; and a technical su
 moving averages and oscillators into a gauge. The look follows the terminal's own theme, not
 Kite's branding; company financials (as some paid chart sites show) are not available from Zerodha
 and are not included. The earlier 1-minute, 5-minute and daily views remain one click away.
+Zoom with the floating **− / + / ⟲** buttons over the plot (or the + − 0 keys; the mouse wheel and
+pinch also work), anchored on the newest bar as on Kite. **↗ opens the chart in a tab of its own**
+(`/me/chart/SYMBOL`, `src/admin/stock/chart/ChartPage.jsx`): the same chart filling the window, with
+its own live price, a stock search, the light/dark switch and every tool. Patterns, pivots and the
+price scale sit under **View**; on a phone the intervals become one drop-down.
+**Licence:** Lightweight Charts is Apache-2.0 (free, including commercial use). It asks for
+TradingView's attribution notice and a link to tradingview.com on the page: the logo on the chart
+links there, and the notice ("TradingView Lightweight Charts™, Copyright © 2025 TradingView, Inc.")
+is printed under every chart. Its one dependency, `fancy-canvas`, is MIT. No map, map tiles or other
+paid data are used, and nothing of Kite's own chart (TradingView's licensed library) is copied.
 
 **Sign-in page and dashboard (`src/admin/Login.jsx`, `Dashboard.jsx`, `hub.css`).** The sign-in page
 says, politely and in justified text, that this is Vinay Kumar Tiwari's personal workspace and not
@@ -478,16 +488,34 @@ it:
   already says; it does not make the call. Nothing here can place or modify an order.
 
 **AI strategist (optional; the "AI strategist" tab on the desk, settings at `/me/ai`).** With an
-Anthropic API key set, Claude builds a strategy for the open stock **on request** — never on a
-timer, so nothing is spent in the background. Without a key the tab says it is off and every other
-feature works unchanged. Code: `server/ai/` (official `@anthropic-ai/sdk`).
+API key for any of six AI companies, the chosen model builds a strategy for the open stock **on
+request** — never on a timer, so nothing is spent in the background. Without a key the tab says it
+is off and every other feature works unchanged. Code: `server/ai/`.
 
-- **Key and model** are set at `/me/ai`. The key is encrypted with the same key as the other
-  secrets, is write-only (set / replace / remove; only a short hint is ever returned), and is used
-  for calls to Anthropic's API only. Models offered: Claude Opus 5.5 (default), Fable 5.2,
-  Sonnet 5.5, Haiku 5.5 — edit `MODELS` in `server/ai/client.js`. Requests use structured output
-  (`output_config.format`), adaptive thinking at `high` effort, and — where the model supports it —
-  Anthropic's server-side refusal fallback (`fallbacks: "default"`).
+- **Companies** (`server/ai/providers.js`): **Anthropic** (Claude, official `@anthropic-ai/sdk`),
+  **OpenAI** (GPT; chat completions with schema-held answers, web search through the Responses
+  API), **Google Gemini** (`generateContent`, JSON output, web search by Google Search grounding),
+  **DeepSeek**, **Moonshot AI** (Kimi) and **NVIDIA** (Nemotron, free trial endpoints at
+  build.nvidia.com) — the last three over their OpenAI-style chat APIs with the schema in the prompt
+  and the answer read leniently. At `/me/ai` pick the company, then one of its models; the list is
+  read live from the company with the saved key (**↻ Refresh models**, no tokens), so new model names
+  appear without code changes — the catalogue in `providers.js` is only the starting list.
+- **One key per company, kept.** Each company has its own encrypted key, chosen model and last
+  test (`settings.aiKeys`, `aiModels`, `aiTests`, `aiModelLists`; the older single Anthropic key is
+  read and moved over on the next save). Switching back to a company never asks for its key again —
+  only when its test fails. A new key is saved, tested, and its model list read in one step.
+- **Applies everywhere at once.** Every request builds its client from the settings at that moment,
+  so a change applies to the next request. The pages share one copy of the settings
+  (`src/admin/aiStatus.js`): a change is pushed to every open component and, through a
+  BroadcastChannel, to other open tabs — no refresh.
+- **Web search** (world brief, news check) runs on the company in use when it has search (Anthropic,
+  OpenAI, Gemini); with DeepSeek, Kimi or NVIDIA it borrows another company whose key is saved, and
+  says so on the settings page.
+
+- **Keys** are encrypted with the same key as the other secrets, are write-only (set / replace /
+  remove; only a short hint is ever returned) and go only to their own company. With Anthropic,
+  requests use structured output (`output_config.format`), adaptive thinking at `high` effort, and —
+  where the model supports it — Anthropic's server-side refusal fallback (`fallbacks: "default"`).
 - **What is sent:** one stock's market data from Zerodha (quote, today's 5-minute bars, the last
   30 daily bars, indicators, levels, circuit limits, the rule engine's reading on all three
   horizons, the seven backtests) plus the trading-skills file. Nothing personal.

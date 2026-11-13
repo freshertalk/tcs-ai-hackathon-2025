@@ -28,12 +28,17 @@ function mountAi(app, { ai, requireAdmin, limiter }) {
 
   app.put("/api/admin/ai/settings", requireAdmin, limiter(30, 15 * 60 * 1000), wrap(async (req) => {
     const b = req.body || {};
-    const out = ai.setSettings({ apiKey: b.apiKey, model: b.model, clear: Boolean(b.clear), live: b.live });
-    console.log(`[ai] settings changed by ${req.user.email}${b.apiKey ? " (new key)" : ""}${b.clear ? " (key removed)" : ""}`);
+    const out = ai.setSettings({ provider: b.provider ? String(b.provider) : undefined, apiKey: b.apiKey, model: b.model, clear: Boolean(b.clear), live: b.live, use: b.use });
+    // never the key itself; the company and model names only (safe characters, so no forged log lines)
+    const safe = (x) => String(x || "").replace(/[^A-Za-z0-9._/-]/g, "").slice(0, 80);
+    console.log(`[ai] settings changed: ${safe(out.provider)} / ${safe(out.model)}${b.apiKey ? " (new key)" : ""}${b.clear ? " (key removed)" : ""}`);
     return out;
   }));
 
-  app.post("/api/admin/ai/test", requireAdmin, limiter(10, 10 * 60 * 1000), wrap(async () => ai.test()));
+  app.post("/api/admin/ai/test", requireAdmin, limiter(10, 10 * 60 * 1000), wrap(async (req) => ai.test((req.body || {}).provider)));
+
+  // reads the models a company offers the saved key (no tokens are spent)
+  app.post("/api/admin/ai/models", requireAdmin, limiter(30, 10 * 60 * 1000), wrap(async (req) => ai.refreshModels((req.body || {}).provider)));
 
   // builds one strategy: the only route that reads the market AND calls the model
   app.post("/api/admin/ai/strategy/:symbol", requireAdmin, limiter(30, 60 * 60 * 1000), wrap(async (req) => ai.strategy(symbolOf(req), String((req.body || {}).horizon || "both"))));

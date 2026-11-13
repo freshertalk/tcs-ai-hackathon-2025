@@ -9,6 +9,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../../api";
+import { useAiStatus } from "../../aiStatus";
 import { enqueue, pump, readAgeMs } from "./copilotTriggers";
 
 const KEY = "vpt.desk.copilot";
@@ -45,6 +46,23 @@ export default function useCopilot(symbol, { day, log, events, active }) {
     r.current.fetchedAt = Date.now();
     setView(d);
   }, []);
+
+  // a company, model or key change made on the AI page: read the view again (no reset, no tokens)
+  const aiNow = useAiStatus();
+  const aiVer = aiNow ? `${aiNow.version}|${aiNow.provider}|${aiNow.model}|${aiNow.configured}` : "";
+  const seenVer = useRef("");
+  useEffect(() => {
+    if (!aiVer) return;
+    if (!seenVer.current) {
+      seenVer.current = aiVer;
+      return;
+    }
+    if (seenVer.current === aiVer) return;
+    seenVer.current = aiVer;
+    api(`/api/admin/ai/live/${enc(symbol)}`)
+      .then(take)
+      .catch(() => {});
+  }, [aiVer, symbol, take]);
 
   // what it has said so far about this stock — reading it costs nothing
   useEffect(() => {

@@ -173,7 +173,7 @@ class Research {
     const list2 = [...new Set(want)].slice(0, MAX_STOCKS);
     if (!list2.length) throw new AiError("Add stocks to the watchlist first, or pick some.", "invalid", 400);
     const withAi = Boolean(useAi) && this.ai.configured();
-    if (useAi && !this.ai.configured() && (news || world)) throw new AiError("News and the world brief need an Anthropic API key.", "not_configured", 409);
+    if (useAi && !this.ai.configured() && (news || world)) throw new AiError("News and the world brief need an AI API key. Add one in the AI settings.", "not_configured", 409);
     const p = phase === "post" ? "post" : phase === "pre" ? "pre" : this.defaultPhase();
     this.job = { id: crypto.randomBytes(6).toString("hex"), phase: p, symbols: list2, done: 0, current: "", step: "starting", startedAt: new Date(this.ai.now()).toISOString(), finishedAt: null, error: "", reportId: null, withAi, failures: [] };
     const job = this.job;

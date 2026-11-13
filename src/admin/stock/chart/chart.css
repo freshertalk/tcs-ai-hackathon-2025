@@ -1,10 +1,10 @@
 /* The full chart (ProChart) and its technical summary. Sizes from --t-*, colours from the desk. */
-.pc {
+.kc {
   display: grid;
   gap: 6px;
   min-width: 0;
 }
-.pc.is-full {
+.kc.is-full {
   position: fixed;
   inset: 0;
   z-index: 1000;
@@ -13,24 +13,24 @@
   background: var(--paper);
   overflow: auto;
 }
-.pc__bar {
+.kc__bar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 4px 6px;
 }
-.pc__iv {
+.kc__iv {
   display: inline-flex;
   padding: 2px;
   border: 1px solid var(--line);
   border-radius: 6px;
   background: var(--surface-2);
 }
-.pc__iv button,
-.pc__btn,
-.pc__icon {
+.kc__iv button,
+.kc__btn,
+.kc__icon {
   height: 26px;
-  padding: 0 8px;
+  padding: 0 7px;
   border: 0;
   border-radius: 4px;
   background: none;
@@ -40,33 +40,36 @@
   white-space: nowrap;
   cursor: pointer;
 }
-.pc__btn,
-.pc__icon {
+.kc__btn,
+.kc__icon {
   border: 1px solid var(--line);
   background: var(--surface-2);
   border-radius: 6px;
 }
-.pc__icon {
-  width: 30px;
+.kc__icon {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
   padding: 0;
+  text-decoration: none;
 }
-.pc__iv button:hover,
-.pc__btn:hover,
-.pc__icon:hover {
+.kc__iv button:hover,
+.kc__btn:hover,
+.kc__icon:hover {
   color: var(--ink);
 }
-.pc__iv button[aria-pressed="true"],
-.pc__btn[aria-pressed="true"] {
+.kc__iv button[aria-pressed="true"],
+.kc__btn[aria-pressed="true"] {
   background: var(--accent-soft);
   color: var(--ink);
   font-weight: 600;
 }
-.pc__iv button:disabled {
+.kc__iv button:disabled {
   opacity: 0.4;
   cursor: not-allowed;
 }
-.pc__sel {
-  height: 30px;
+.kc__sel {
+  height: 28px;
   padding: 0 6px;
   border: 1px solid var(--line);
   border-radius: 6px;
@@ -75,18 +78,21 @@
   font: inherit;
   font-size: var(--t-small);
 }
-.pc__sep {
+.kc__ivsel {
+  display: none;
+}
+.kc__sep {
   width: 1px;
   height: 20px;
   background: var(--line);
 }
-.pc__grow {
+.kc__grow {
   flex: 1;
 }
-.pc__menuwrap {
+.kc__menuwrap {
   position: relative;
 }
-.pc__menu {
+.kc__menu {
   position: absolute;
   z-index: 30;
   top: calc(100% + 4px);
@@ -102,12 +108,12 @@
   background: var(--surface);
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.3);
 }
-.pc__menu--sm {
+.kc__menu--sm {
   width: 240px;
 }
-.pc__menu input[type="search"],
-.pc__menu input:not([type]) ,
-.pc__menu input[name] {
+.kc__menu input[type="search"],
+.kc__menu input:not([type]) ,
+.kc__menu input[name] {
   height: 32px;
   padding: 0 8px;
   border: 1px solid var(--line-2);
@@ -117,13 +123,13 @@
   font: inherit;
   font-size: var(--t-mid);
 }
-.pc__menu b {
+.kc__menu b {
   display: block;
   margin: 2px 0 2px;
   font-size: var(--t-small);
   color: var(--ink-3);
 }
-.pc__menu label {
+.kc__menu label {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -131,12 +137,12 @@
   font-size: var(--t-mid);
   cursor: pointer;
 }
-.pc__menu footer {
+.kc__menu footer {
   display: flex;
   justify-content: space-between;
   gap: 8px;
 }
-.pc__menu footer button {
+.kc__menu footer button {
   height: 28px;
   padding: 0 10px;
   border: 1px solid var(--line-2);
@@ -147,20 +153,20 @@
   font-size: var(--t-small);
   cursor: pointer;
 }
-.pc__body {
+.kc__body {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   gap: 6px;
   min-height: 0;
 }
-.pc__tools {
+.kc__tools {
   display: grid;
   align-content: start;
   gap: 4px;
 }
-.pc__tools button {
-  width: 30px;
-  height: 30px;
+.kc__tools button {
+  width: 28px;
+  height: 28px;
   border: 1px solid var(--line);
   border-radius: 6px;
   background: var(--surface-2);
@@ -169,16 +175,16 @@
   font-size: var(--t-base);
   cursor: pointer;
 }
-.pc__tools button[aria-pressed="true"] {
+.kc__tools button[aria-pressed="true"] {
   border-color: var(--accent);
   background: var(--accent-soft);
   color: var(--ink);
 }
-.pc__tools button:disabled {
+.kc__tools button:disabled {
   opacity: 0.4;
   cursor: default;
 }
-.pc__plot {
+.kc__plot {
   position: relative;
   height: clamp(380px, 62vh, 760px);
   min-width: 0;
@@ -186,14 +192,60 @@
   border-radius: 8px;
   overflow: hidden;
 }
-.pc.is-full .pc__plot {
+.kc.is-full .kc__plot {
   height: 100%;
 }
-.pc__canvas {
+.kc__plot:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+/* zoom: floating over the plot, above the time axis, like Kite's */
+.kc__zoom {
+  position: absolute;
+  z-index: 4;
+  bottom: 34px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--line-2);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+  opacity: 0.35;
+  transition: opacity 0.15s;
+}
+.kc__plot:hover .kc__zoom,
+.kc__plot:focus-within .kc__zoom,
+.kc__zoom:hover {
+  opacity: 1;
+}
+@media (hover: none) {
+  .kc__zoom {
+    opacity: 0.9;
+  }
+}
+.kc__zoom button {
+  width: 30px;
+  height: 26px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--t-lead);
+  line-height: 1;
+  cursor: pointer;
+}
+.kc__zoom button:hover {
+  background: var(--accent-soft);
+}
+.kc__canvas {
   position: absolute;
   inset: 0;
 }
-.pc__legend {
+.kc__legend {
   position: absolute;
   z-index: 3;
   top: 6px;
@@ -207,29 +259,29 @@
   pointer-events: none;
   font-variant-numeric: tabular-nums;
 }
-.pc__legend b {
+.kc__legend b {
   color: var(--ink);
 }
-.pc__legend i {
+.kc__legend i {
   font-style: normal;
   color: var(--ink);
 }
-.pc__legend em {
+.kc__legend em {
   font-style: normal;
 }
-.pc__legend .is-up {
+.kc__legend .is-up {
   color: var(--up);
 }
-.pc__legend .is-down {
+.kc__legend .is-down {
   color: var(--down);
 }
-.pc__live {
+.kc__live {
   color: var(--up);
 }
-.pc__hint {
+.kc__hint {
   position: absolute;
   z-index: 3;
-  bottom: 30px;
+  bottom: 68px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -243,13 +295,13 @@
   color: var(--ink);
   white-space: nowrap;
 }
-.pc__hint button {
+.kc__hint button {
   border: 0;
   background: none;
   color: var(--ink-3);
   cursor: pointer;
 }
-.pc__msg {
+.kc__msg {
   position: absolute;
   inset: 0;
   display: grid;
@@ -258,10 +310,18 @@
   font-size: var(--t-mid);
   color: var(--ink-3);
 }
-.pc__msg.is-bad {
+.kc__msg.is-bad {
   color: var(--down);
 }
-.pc__note {
+.kc__credit {
+  margin: 0;
+  font-size: var(--t-tag);
+  color: var(--ink-3);
+}
+.kc__credit a {
+  color: inherit;
+}
+.kc__note {
   font-size: var(--t-small);
   color: var(--ink-3);
 }
@@ -336,26 +396,33 @@
 }
 
 @media (max-width: 760px) {
-  .pc__body {
+  .kc__ivsel {
+    display: inline-block;
+  }
+  .kc__ivbtns,
+  .kc__bar > .kc__sep {
+    display: none;
+  }
+  .kc__body {
     grid-template-columns: minmax(0, 1fr);
   }
-  .pc__tools {
+  .kc__tools {
     grid-auto-flow: column;
     justify-content: start;
     overflow-x: auto;
   }
-  .pc__plot {
+  .kc__plot {
     height: clamp(320px, 58vh, 560px);
   }
-  .pc__bar {
+  .kc__bar {
     flex-wrap: nowrap;
     overflow-x: auto;
     scrollbar-width: none;
   }
-  .pc__bar::-webkit-scrollbar {
+  .kc__bar::-webkit-scrollbar {
     display: none;
   }
-  .pc__menu {
+  .kc__menu {
     position: fixed;
     left: 8px;
     right: 8px;
@@ -366,7 +433,155 @@
   .ts__tables {
     grid-template-columns: 1fr;
   }
-  .pc__legend {
+  .kc__legend {
     right: 8px;
+  }
+}
+
+/* ---- the chart on a page of its own (/me/chart/SYMBOL) */
+.kp {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  height: 100vh;
+  height: 100dvh;
+  background: var(--paper);
+  color: var(--ink);
+}
+.kp__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+}
+.kp__back {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--ink-2);
+  text-decoration: none;
+}
+.kp__sym {
+  font-size: var(--t-title) !important;
+  font-weight: 600 !important;
+}
+.kp__px {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: var(--t-mid);
+  font-variant-numeric: tabular-nums;
+}
+.kp__px b {
+  font-size: var(--t-lead);
+}
+.kp__px .is-up {
+  color: var(--up);
+}
+.kp__px .is-down {
+  color: var(--down);
+}
+.kp__px i {
+  font-style: normal;
+  font-size: var(--t-small);
+}
+.kp__grow {
+  flex: 1;
+}
+.kp__search {
+  position: relative;
+}
+.kp__search input {
+  width: 200px;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--line-2);
+  border-radius: 6px;
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--t-mid);
+}
+.kp__results {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 4px);
+  right: 0;
+  width: min(320px, 90vw);
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  border: 1px solid var(--line-2);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.3);
+}
+.kp__results button {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--t-mid);
+  text-align: left;
+  cursor: pointer;
+}
+.kp__results button:hover {
+  background: var(--accent-soft);
+}
+.kp__results span {
+  overflow: hidden;
+  color: var(--ink-3);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.kp__state {
+  padding: 2px 8px;
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  font-size: var(--t-small);
+  color: var(--ink-3);
+}
+.kp__state.is-on {
+  border-color: color-mix(in srgb, var(--up) 50%, transparent);
+  color: var(--up);
+}
+.kp__main {
+  min-height: 0;
+  padding: 6px 8px 8px;
+  overflow: auto;
+}
+/* the plot fills the window under the header and toolbar; the technical summary sits below it */
+.kc--page .kc__plot {
+  height: calc(100vh - 96px);
+  height: calc(100dvh - 96px);
+  min-height: 360px;
+}
+.kc--page.is-full .kc__plot {
+  height: 100%;
+}
+@media (max-width: 760px) {
+  .kp__search {
+    order: 9;
+    width: 100%;
+  }
+  .kp__state,
+  .kp__px i {
+    display: none;
+  }
+  .kp__search input {
+    width: 100%;
+  }
+  .kc--page .kc__plot {
+    height: calc(100dvh - 170px);
   }
 }

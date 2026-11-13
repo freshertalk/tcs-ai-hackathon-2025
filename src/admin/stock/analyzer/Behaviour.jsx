@@ -5,6 +5,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { api, peek } from "../../api";
 import { Alert, Loading } from "../../ui";
+import { useAiStatus } from "../../aiStatus";
 import { inr, isNum, num, pct, when } from "./format";
 import EdgeCard from "../advisor/EdgeCard";
 
@@ -43,7 +44,9 @@ function Phases({ phases }) {
 }
 
 function DecisionCard({ symbol }) {
-  const [st, setSt] = useState({ configured: false, decisions: [] });
+  const [st0, setSt] = useState({ configured: false, decisions: [] });
+  const aiNow = useAiStatus(); // a company or key change elsewhere applies here at once
+  const st = { ...st0, configured: aiNow ? aiNow.configured : st0.configured };
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   useEffect(() => {
@@ -74,11 +77,11 @@ function DecisionCard({ symbol }) {
           <h3>AI decision</h3>
           <p>Today’s live price, volume, tape, indicators and levels, weighed against this stock’s habits from the past year and its measured odds. A plan’s prices are checked by arithmetic; nothing is ever placed as an order.</p>
         </div>
-        <button type="button" className="adm-btn adm-btn--solid adm-btn--sm" onClick={run} disabled={busy || !st.configured} data-tip="Ask for a decision now. It uses your Anthropic API tokens, and runs only when you press it.">
+        <button type="button" className="adm-btn adm-btn--solid adm-btn--sm" onClick={run} disabled={busy || !st.configured} data-tip="Ask for a decision now. It uses your AI company's tokens, and runs only when you press it.">
           {busy ? "Weighing today against its habits…" : d ? "Decide again" : "Get AI decision"}
         </button>
       </header>
-      {!st.configured && <p className="adm-alert adm-alert--info">Add an Anthropic API key in the AI settings for AI decisions. The behaviour profile below works without one.</p>}
+      {!st.configured && <p className="adm-alert adm-alert--info">Add an AI API key in the AI settings for AI decisions. The behaviour profile below works without one.</p>}
       <Alert>{err}</Alert>
       {d && (
         <div className="bh-dec__out">

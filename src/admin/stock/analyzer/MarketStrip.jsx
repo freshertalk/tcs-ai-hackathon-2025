@@ -6,6 +6,7 @@ import React, { useEffect, useState } from "react";
 import { api } from "../../api";
 import { adminPath } from "../../paths";
 import { Alert, Loading } from "../../ui";
+import { useAiStatus } from "../../aiStatus";
 import { useTick } from "./liveTicks";
 import { clock, isNum, num, pct, when } from "./format";
 
@@ -30,7 +31,9 @@ function Chip({ it }) {
 
 /** The world brief: read the stored one for free, or make a new one (a web search and tokens). */
 function WorldBrief() {
-  const [s, setS] = useState({ loading: true });
+  const [s0, setS] = useState({ loading: true });
+  const aiNow = useAiStatus();
+  const s = aiNow && !s0.loading ? { ...s0, configured: aiNow.configured } : s0;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -75,8 +78,8 @@ function WorldBrief() {
       {!b && (
         <p className="vd-note">
           {s.configured
-            ? "US, Asian and European markets, crude, the dollar, bond yields, FII/DII flows and today’s events — gathered by Claude with a web search, only when you press the button."
-            : "Zerodha does not carry overseas markets. With an Anthropic API key, Claude can gather them by web search on request. Everything else here works without it."}
+            ? "US, Asian and European markets, crude, the dollar, bond yields, FII/DII flows and today’s events — gathered by the AI with a web search, only when you press the button."
+            : "Zerodha does not carry overseas markets. With an Anthropic, OpenAI or Gemini API key, the AI can gather them by web search on request. Everything else here works without it."}
         </p>
       )}
       {b && (

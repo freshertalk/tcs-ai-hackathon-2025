@@ -15,12 +15,13 @@
 //      over the session by arithmetic — as a short review
 //
 // It reads and writes analysis only. There is no order, basket or broker call in
-// this folder, and the only outside host it talks to is Anthropic's API.
+// this folder, and the only outside hosts it talks to are the AI companies in providers.js.
 
 const path = require("path");
 const crypto = require("crypto");
 
-const { AiClient, AiError, MODELS, DEFAULT_MODEL } = require("./client");
+const { AiError } = require("./client");
+const { PROVIDERS, providerOf, DEFAULT_PROVIDER, SEARCH_ORDER, checkKey, makeClient } = require("./providers");
 const { Playbook } = require("./playbook");
 const { Journal, scorePlan, summarize, SWING_MAX_BARS } = require("./journal");
 const { Copilot } = require("./copilot");
@@ -34,7 +35,6 @@ const { barStart } = require("../market/intraday");
 
 const IST = 5.5 * 3600 * 1000;
 const TICK = 0.05;
-const KEY_RE = /^sk-ant-[A-Za-z0-9_-]{16,300}$/;
 const HORIZONS = ["intraday", "swing", "both"];
 const FINAL = new Set(["target", "stop", "expired", "not-triggered", "invalid"]);
 const MIN_TO_LEARN = 3;
@@ -306,9 +306,33 @@ class AiService {
   }
 
   /* ------------------------------------------------------------ settings */
+  //
+  // One company is in use at a time. Each company keeps its own encrypted key, its own chosen
+  // model, its last test and the model list last read from it — so switching back and forth never
+  // asks for a key again. Every request builds its client from these settings at the moment it is
+  // made, so a change here applies to the very next request everywhere.
+  // (Older records kept one Anthropic key in anthropicApiKeyEnc / aiModel / aiLastTest; they are
+  // still read, and moved into the per-company fields on the next save.)
 
-  _key() {
-    const blob = this.store.data.settings.anthropicApiKeyEnc;
+  _settings() {
+    return this.store.data.settings;
+  }
+
+  /** The company in use. */
+  _provider() {
+    const id = this._settings().aiProvider;
+    return providerOf(id) ? id : DEFAULT_PROVIDER;
+  }
+
+  _keyBlob(pid) {
+    const s = this._settings();
+    const keys = s.aiKeys && typeof s.aiKeys === "object" ? s.aiKeys : {};
+    if (keys[pid]) return keys[pid];
+    return pid === "anthropic" ? s.anthropicApiKeyEnc || "" : "";
+  }
+
+  _key(pid = this._provider()) {
+    const blob = this._keyBlob(pid);
     if (!blob) return "";
     try {
       return this.secrets.decrypt(blob);
@@ -317,73 +341,200 @@ class AiService {
     }
   }
 
+  /** The models offered for a company: the live list read from it when there is one, else the catalogue. */
+  modelsFor(pid) {
+    const p = providerOf(pid);
+    if (!p) return [];
+    const lists = this._settings().aiModelLists || {};
+    const live = lists[pid] && Array.isArray(lists[pid].models) ? lists[pid].models : [];
+    if (!live.length) return p.models.map((m) => ({ ...m }));
+    // the catalogue's notes stay on the models it knows; the rest come as the company names them
+    const known = new Map(p.models.map((m) => [m.id, m]));
+    const liveIds = new Set(live.map((m) => m.id));
+    return [...p.models.filter((m) => liveIds.has(m.id)).map((m) => ({ ...m })), ...live.filter((m) => !known.has(m.id)).map((m) => ({ id: m.id, name: m.name || m.id }))];
+  }
+
+  validModel(pid, id) {
+    if (!id || typeof id !== "string") return false;
+    const p = providerOf(pid);
+    if (!p) return false;
+    const lists = this._settings().aiModelLists || {};
+    const live = lists[pid] && Array.isArray(lists[pid].models) ? lists[pid].models : [];
+    return p.models.some((m) => m.id === id) || live.some((m) => m.id === id);
+  }
+
+  _modelOf(pid) {
+    const s = this._settings();
+    const chosen = (s.aiModels && s.aiModels[pid]) || (pid === "anthropic" ? s.aiModel : "");
+    if (this.validModel(pid, chosen)) return chosen;
+    const list = this.modelsFor(pid);
+    return list.length ? list[0].id : providerOf(pid).models[0].id;
+  }
+
   _model() {
-    const m = this.store.data.settings.aiModel;
-    return MODELS.some((x) => x.id === m) ? m : DEFAULT_MODEL;
+    return this._modelOf(this._provider());
+  }
+
+  _testOf(pid) {
+    const s = this._settings();
+    if (s.aiTests && s.aiTests[pid] !== undefined) return s.aiTests[pid] || null;
+    return pid === "anthropic" ? s.aiLastTest || null : null;
   }
 
   configured() {
     return Boolean(this._key());
   }
 
+  /** The company that answers web searches: the one in use if it can, else another with a saved key. */
+  _searchProvider() {
+    const pid = this._provider();
+    if (providerOf(pid).search && this._key(pid)) return pid;
+    return SEARCH_ORDER.find((id) => this._key(id)) || null;
+  }
+
   status() {
-    const key = this._key();
-    const s = this.store.data.settings;
+    const pid = this._provider();
+    const p = providerOf(pid);
+    const key = this._key(pid);
+    const lists = this._settings().aiModelLists || {};
+    const hint = (k) => (k ? `${k.slice(0, Math.min(10, Math.max(4, k.length - 8)))}…${k.slice(-4)}` : "");
+    const providers = PROVIDERS.map((x) => {
+      const k = this._key(x.id);
+      return {
+        id: x.id,
+        name: x.name,
+        family: x.family,
+        configured: Boolean(k),
+        keyHint: hint(k),
+        model: this._modelOf(x.id),
+        models: this.modelsFor(x.id),
+        listedAt: lists[x.id] ? lists[x.id].at : null,
+        lastTest: this._testOf(x.id),
+        search: x.search,
+        keyExample: x.keyExample,
+        console: x.console,
+        consoleUrl: x.consoleUrl,
+        steps: x.steps,
+      };
+    });
+    const model = this._modelOf(pid);
+    const names = {};
+    for (const x of providers) for (const m of x.models) names[m.id] = m.name;
+    const searchBy = this._searchProvider();
     return {
       configured: Boolean(key),
+      provider: pid,
+      providerName: p.name,
       // enough to recognise the key, never enough to use it
-      keyHint: key ? `${key.slice(0, 10)}…${key.slice(-4)}` : "",
-      model: this._model(),
-      models: MODELS,
-      lastTest: s.aiLastTest || null,
+      keyHint: hint(key),
+      model,
+      modelName: names[model] || model,
+      models: this.modelsFor(pid),
+      providers,
+      names,
+      searchBy,
+      searchByName: searchBy ? providerOf(searchBy).name : null,
+      lastTest: this._testOf(pid),
       stats: summarize(this.journal.all().filter((e) => e.source === "kite")),
       lessons: this.playbook.lessons().length,
       world: this.worldSummary(),
       live: this.copilot.summary(),
+      version: this._settings().aiVersion || 0,
     };
   }
 
-  setSettings({ apiKey, model, clear, live } = {}) {
+  /**
+   * @param provider  the company to change (and to switch to, unless use === false)
+   * @param apiKey    a new key for that company (it replaces only that company's key)
+   * @param model     a model of that company
+   * @param clear     remove that company's key
+   */
+  setSettings({ provider, apiKey, model, clear, live, use } = {}) {
+    const pid = provider ? String(provider) : this._provider();
+    if (!providerOf(pid)) throw new AiError("Unknown AI company.", "invalid", 400);
     const key = String(apiKey || "").trim();
-    if (key) {
-      if (key.startsWith("sk-ant-admin")) throw new AiError("That is an Admin API key. Create a normal API key in the Anthropic Console (API keys) and use that.", "invalid", 400);
-      if (!KEY_RE.test(key)) throw new AiError("That does not look like an Anthropic API key. It should start with \"sk-ant-\".", "invalid", 400);
-    }
-    if (model !== undefined && model !== null && model !== "" && !MODELS.some((m) => m.id === model)) throw new AiError("Unknown model.", "invalid", 400);
+    if (key) checkKey(pid, key);
+    if (model !== undefined && model !== null && model !== "" && !this.validModel(pid, model)) throw new AiError("Unknown model for this company. Press “Refresh models” to read its current list.", "invalid", 400);
     this.store.update((d) => {
+      const s = d.settings;
+      // move an older single-key record into the per-company fields
+      s.aiKeys = { ...(s.aiKeys || {}) };
+      s.aiModels = { ...(s.aiModels || {}) };
+      s.aiTests = { ...(s.aiTests || {}) };
+      if (s.anthropicApiKeyEnc && !s.aiKeys.anthropic) s.aiKeys.anthropic = s.anthropicApiKeyEnc;
+      if (s.aiModel && !s.aiModels.anthropic) s.aiModels.anthropic = s.aiModel;
+      if (s.aiLastTest !== undefined && s.aiTests.anthropic === undefined) s.aiTests.anthropic = s.aiLastTest;
+      delete s.anthropicApiKeyEnc;
+      delete s.aiModel;
+      delete s.aiLastTest;
       if (clear) {
-        d.settings.anthropicApiKeyEnc = "";
-        d.settings.aiLastTest = null;
+        delete s.aiKeys[pid];
+        s.aiTests[pid] = null;
       }
       if (key) {
-        d.settings.anthropicApiKeyEnc = this.secrets.encrypt(key);
-        d.settings.aiLastTest = null;
+        s.aiKeys[pid] = this.secrets.encrypt(key);
+        s.aiTests[pid] = null;
       }
-      if (model) d.settings.aiModel = model;
+      if (model) s.aiModels[pid] = model;
+      if (provider && use !== false) s.aiProvider = pid;
+      s.aiVersion = (s.aiVersion || 0) + 1; // pages compare this to know the choice changed
     });
     if (live && typeof live === "object") this.copilot.setSettings(live);
     return this.status();
   }
 
-  /** @param model  a model other than the strategist's (the co-pilot can be given a faster one) */
-  _client(model) {
-    const key = this._key();
-    if (!key) throw new AiError("The AI strategist is not set up. Add an Anthropic API key in the AI settings.", "not_configured", 409);
-    return new AiClient({ apiKey: key, model: model || this._model(), fetchImpl: this.fetch });
+  /** Read the models a company offers this key, and keep the list. */
+  async refreshModels(provider) {
+    const pid = provider ? String(provider) : this._provider();
+    const p = providerOf(pid);
+    if (!p) throw new AiError("Unknown AI company.", "invalid", 400);
+    const key = this._key(pid);
+    if (!key) throw new AiError(`Save ${p.name}'s API key first; the model list is read with it.`, "not_configured", 409);
+    const models = (await makeClient({ providerId: pid, apiKey: key, model: this._modelOf(pid), fetchImpl: this.fetch }).listModels()).slice(0, 300);
+    if (!models.length) throw new AiError(`${p.name} returned no models this key can use for text.`, "upstream", 502);
+    this.store.update((d) => {
+      d.settings.aiModelLists = { ...(d.settings.aiModelLists || {}), [pid]: { at: new Date(this.now()).toISOString(), models } };
+      d.settings.aiVersion = (d.settings.aiVersion || 0) + 1;
+    });
+    return this.status();
   }
 
-  async test() {
+  /**
+   * A client for the company in use.
+   * @param model  a model other than the strategist's (the co-pilot can be given a faster one)
+   */
+  _client(model) {
+    const pid = this._provider();
+    const key = this._key(pid);
+    if (!key) throw new AiError(`The AI strategist is not set up. Add ${providerOf(pid).name}'s API key in the AI settings.`, "not_configured", 409);
+    return makeClient({ providerId: pid, apiKey: key, model: model && this.validModel(pid, model) ? model : this._modelOf(pid), fetchImpl: this.fetch });
+  }
+
+  /** A client that can search the web: the company in use when it can, else one with a saved key that can. */
+  _searchClient() {
+    const pid = this._provider();
+    const by = this._searchProvider();
+    if (!this._key(pid)) return this._client(); // the usual "not set up" message
+    if (!by) throw new AiError(`${providerOf(pid).name} has no web search in its API. The world brief and the news check need Anthropic, OpenAI or Gemini — save a key for one of them in the AI settings (the strategist can stay on ${providerOf(pid).name}).`, "no_search", 409);
+    return by === pid ? this._client() : makeClient({ providerId: by, apiKey: this._key(by), model: this._modelOf(by), fetchImpl: this.fetch });
+  }
+
+  async test(provider) {
+    const pid = provider && providerOf(String(provider)) ? String(provider) : this._provider();
     let result;
     try {
-      const r = await this._client().ping();
+      const key = this._key(pid);
+      if (!key) throw new AiError(`No ${providerOf(pid).name} API key is saved.`, "not_configured", 409);
+      const r = await makeClient({ providerId: pid, apiKey: key, model: this._modelOf(pid), fetchImpl: this.fetch }).ping();
       result = { ok: true, at: new Date(this.now()).toISOString(), model: r.model, message: "The key works." };
     } catch (err) {
-      result = { ok: false, at: new Date(this.now()).toISOString(), model: this._model(), message: err.message, code: err.code };
+      result = { ok: false, at: new Date(this.now()).toISOString(), model: this._modelOf(pid), message: err.message, code: err.code };
     }
     this.store.update((d) => {
-      d.settings.aiLastTest = result;
+      d.settings.aiTests = { ...(d.settings.aiTests || {}), [pid]: result };
+      if (pid === "anthropic") delete d.settings.aiLastTest;
     });
-    return { ...this.status(), test: result };
+    return { ...this.status(), test: { ...result, provider: pid } };
   }
 
   /* ---------------------------------------------------------- world brief */
@@ -410,11 +561,12 @@ class AiService {
   async worldBrief({ refresh = false } = {}) {
     const have = this.world();
     if (have && !refresh && this.now() - Date.parse(have.at) < 30 * 60000) return { ...have, repeated: true };
+    const searcher = this._searchClient();
     const client = this._client();
     const ist = new Date(this.now() + IST);
     const stamp = `${ist.toISOString().slice(0, 10)} ${ist.toISOString().slice(11, 16)}`;
     const weekday = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][ist.getUTCDay()];
-    const found = await client.search({ system: WORLD_SYSTEM, user: `It is ${weekday} ${stamp} India time. Prepare the brief.` });
+    const found = await searcher.search({ system: WORLD_SYSTEM, user: `It is ${weekday} ${stamp} India time. Prepare the brief.` });
     const shaped = await client.ask({ system: WORLD_SHAPE_SYSTEM, user: `Brief:\n\n${found.text}`, schema: WORLD_SCHEMA, maxTokens: 6000, effort: "low" });
     const d = shaped.data;
     const str = (x, n) => String(x == null ? "" : x).slice(0, n);
@@ -471,6 +623,7 @@ class AiService {
   async news(symbol, { refresh = false } = {}) {
     const have = this.newsFor(symbol);
     if (have && !refresh && this.now() - Date.parse(have.at) < NEWS_REUSE_MS) return { ...have, repeated: true };
+    const searcher = this._searchClient();
     const client = this._client();
     let name = "";
     let move = null;
@@ -490,7 +643,7 @@ class AiService {
     const weekday = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][ist.getUTCDay()];
     const moving = move ? ` The share is at ${move.last}, ${move.changePct >= 0 ? "up" : "down"} ${Math.abs(move.changePct).toFixed(2)}% against the previous close.` : "";
     const who = name && name.toUpperCase() !== symbol ? `${name} (NSE symbol ${symbol})` : `the company with NSE symbol ${symbol}`;
-    const found = await client.search({ system: NEWS_SYSTEM, user: `Company: ${who}. It is ${weekday} ${stamp} India time.${moving} Check the news.`, maxUses: 5, maxTokens: 6000 });
+    const found = await searcher.search({ system: NEWS_SYSTEM, user: `Company: ${who}. It is ${weekday} ${stamp} India time.${moving} Check the news.`, maxUses: 5, maxTokens: 6000 });
     const shaped = await client.ask({ system: NEWS_SHAPE_SYSTEM, user: `Brief:\n\n${found.text}`, schema: NEWS_SCHEMA, maxTokens: 4000, effort: "low" });
     const d = shaped.data;
     const str = (x, n) => String(x == null ? "" : x).slice(0, n);
@@ -751,7 +904,7 @@ class AiService {
     const base = { scored, errors, newOutcomes: outcomes.length, stats, lessonsAdded: [], observation: "" };
 
     if (outcomes.length < MIN_TO_LEARN) return { ...base, learned: false, why: `Only ${outcomes.length} newly finished plan${outcomes.length === 1 ? "" : "s"} — at least ${MIN_TO_LEARN} are needed before drawing lessons, so one lucky or unlucky trade cannot rewrite the rules.` };
-    if (!this.configured()) return { ...base, learned: false, why: "Plans were scored. Add an Anthropic API key to turn results into lessons." };
+    if (!this.configured()) return { ...base, learned: false, why: "Plans were scored. Add an AI API key in the AI settings to turn results into lessons." };
 
     const user = `Lessons already in the skills file:\n${this.playbook.lessons().map((l) => `- ${l}`).join("\n") || "(none)"}\n\nOverall record so far: ${JSON.stringify(stats)}\n\nNewly scored outcomes (${outcomes.length}):\n${JSON.stringify(outcomes.slice(-40))}`;
     const answer = await this._client().ask({ system: LEARN_SYSTEM, user, schema: LEARN_SCHEMA, maxTokens: 8000, effort: "medium" });

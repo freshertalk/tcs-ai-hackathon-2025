@@ -8,6 +8,7 @@ import { api } from "./api";
 import { useAuth } from "./auth";
 import { adminPath } from "./paths";
 import Shell from "./Shell";
+import { useAiStatus } from "./aiStatus";
 import { IconArrow, IconChart, IconGlobe, IconKey, IconUsers } from "./icons";
 
 const WORKSPACES = [
@@ -131,10 +132,9 @@ function Setting({ to, href, external, icon, title, text, status, tip }) {
 export default function Dashboard() {
   const { user } = useAuth();
   const [s, setS] = useState(null);
-  const [ai, setAi] = useState(null);
+  const ai = useAiStatus();
   useEffect(() => {
     api("/api/admin/settings").then(setS).catch(() => {});
-    api("/api/admin/ai/status").then(setAi).catch(() => {});
   }, []);
   const isSuper = user.role === "superadmin";
   const today = new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
@@ -189,8 +189,8 @@ export default function Dashboard() {
               to={adminPath("/ai")}
               icon={<IconChart />}
               title="AI strategist"
-              text="Anthropic key and model; advice only."
-              tip="Set the Anthropic API key, choose the model, and set the live co-pilot’s limits."
+              text={ai && ai.configured ? `${ai.providerName} · ${ai.modelName}` : "Any AI company and model; advice only."}
+              tip="Choose the AI company (Anthropic, OpenAI, Gemini, DeepSeek, Kimi, NVIDIA) and model, save its key, and set the live co-pilot’s limits."
               status={ai && { on: ai.configured, label: ai.configured ? "On" : "Off" }}
             />
             <Setting

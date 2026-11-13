@@ -2,7 +2,7 @@
 //
 // Each stock gets a data sheet straight from the desk (indicators, levels, setups and their
 // backtests, the multi-time-frame verdict, the long-term view, the news check). With an
-// Anthropic key the model then writes a note per stock — bias, the levels that matter,
+// AI key the model then writes a note per stock — bias, the levels that matter,
 // if-then scenarios for the open, triggers and what would cancel the idea — and a summary
 // across the list. It is preparation, not orders.
 
@@ -11,6 +11,7 @@ import { AutoResearch, DirectionCard } from "./Direction";
 import { useAuth } from "../../auth";
 import { api } from "../../api";
 import { Alert, Loading } from "../../ui";
+import { useAiStatus } from "../../aiStatus";
 import { inr, isNum, num, pct, when } from "../analyzer/format";
 import "./trade.css";
 
@@ -194,7 +195,9 @@ function StockNote({ row, onOpen }) {
 
 export default function Research({ onOpen = null }) {
   const { user } = useAuth();
-  const [st, setSt] = useState(null);
+  const [st0, setSt] = useState(null);
+  const aiNow = useAiStatus();
+  const st = st0 && aiNow ? { ...st0, configured: aiNow.configured } : st0;
   const [error, setError] = useState("");
   const [phase, setPhase] = useState(null);
   const [picked, setPicked] = useState(null); // Set of symbols
@@ -276,7 +279,7 @@ export default function Research({ onOpen = null }) {
             <AutoResearch canChange={Boolean(user && user.role === "superadmin")} />
             <p>
               Prepare the next session for your watchlist. Each stock gets a data sheet from the desk — indicators, levels, the seven setups and their backtests on that stock, the weekly/daily/intraday verdict, the long-term view and the news check.
-              {st.configured ? " The AI then writes a note per stock and a summary across the list." : " Add an Anthropic API key in the AI settings to have the AI write a note per stock."}
+              {st.configured ? " The AI then writes a note per stock and a summary across the list." : " Add an AI API key in the AI settings to have the AI write a note per stock."}
             </p>
           </div>
         </header>
@@ -308,7 +311,7 @@ export default function Research({ onOpen = null }) {
           <label className="tr-check" data-tip="Gather a fresh world-markets brief first (US close, Asia, GIFT Nifty, crude, the rupee, events).">
             <input type="checkbox" checked={opts.world} disabled={!st.configured || !opts.useAi} onChange={(e) => setOpts((o) => ({ ...o, world: e.target.checked }))} /> Refresh world brief
           </label>
-          <button type="button" className="adm-btn adm-btn--solid" disabled={running || !picked || picked.size === 0} onClick={run} data-tip="Run the research now. With AI notes on it uses your Anthropic API tokens — about one request per stock, plus one for the summary.">
+          <button type="button" className="adm-btn adm-btn--solid" disabled={running || !picked || picked.size === 0} onClick={run} data-tip="Run the research now. With AI notes on it uses your AI company's tokens — about one request per stock, plus one for the summary.">
             {running ? "Researching…" : `Research ${picked ? picked.size : 0} stock${picked && picked.size === 1 ? "" : "s"}`}
           </button>
         </div>

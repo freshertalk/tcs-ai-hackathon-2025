@@ -18,7 +18,7 @@
 
 const crypto = require("crypto");
 
-const { AiError, MODELS } = require("./client");
+const { AiError } = require("./client");
 
 const IST = 5.5 * 3600 * 1000;
 const SCORE_AFTER_MIN = 10; // a bias is judged on the price this many minutes later
@@ -95,12 +95,13 @@ class Copilot {
       dailyCap: bounded(s.dailyCap, LIMITS.dailyCap, DEFAULTS.dailyCap),
       refreshMin: bounded(s.refreshMin, LIMITS.refreshMin, DEFAULTS.refreshMin),
       // "" means: the same model as the strategist
-      model: MODELS.some((m) => m.id === s.model) ? s.model : "",
+      // a model of another company (after a switch) also falls back to the strategist's
+      model: this.ai.validModel(this.ai._provider(), s.model) ? s.model : "",
     };
   }
 
   setSettings(patch = {}) {
-    if (patch.model !== undefined && patch.model !== "" && !MODELS.some((m) => m.id === patch.model)) throw new AiError("Unknown model.", "invalid", 400);
+    if (patch.model !== undefined && patch.model !== "" && !this.ai.validModel(this.ai._provider(), patch.model)) throw new AiError("Unknown model for the AI company in use.", "invalid", 400);
     for (const k of Object.keys(LIMITS)) {
       if (patch[k] === undefined) continue;
       const v = Number(patch[k]);

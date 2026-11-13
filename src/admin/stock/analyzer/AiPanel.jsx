@@ -1,4 +1,4 @@
-// The AI strategist tab. It asks Claude for a strategy for the open stock — only
+// The AI strategist tab. It asks the chosen AI model for a strategy for the open stock — only
 // when the button is pressed — shows the answer with every mechanical check that
 // was run on it, keeps a scored record of past plans, and holds the skills file
 // the model follows and adds lessons to.
@@ -10,6 +10,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { api } from "../../api";
 import { adminPath } from "../../paths";
 import { Alert, Loading } from "../../ui";
+import { useAiStatus, loadAiStatus, modelName as nameOf } from "../../aiStatus";
 import { inr, isNum, num, when } from "./format";
 
 const enc = encodeURIComponent;
@@ -101,8 +102,8 @@ function Plan({ p, onSize }) {
   );
 }
 
-function Strategy({ e, onSize, models }) {
-  const model = (models.find((m) => m.id === e.model) || {}).name || e.model;
+function Strategy({ e, onSize, aiNow }) {
+  const model = nameOf(aiNow, e.model);
   return (
     <div className="ai-out">
       <p className={`vd-stance vd-stance--${e.stance}`}>
@@ -216,7 +217,7 @@ const EXPLAINS = {
 const safeUrl = (u) => (/^https?:\/\//i.test(String(u || "")) ? u : null);
 
 /** "Why is it moving?" — a web search on the one company, on request. */
-function News({ symbol, models }) {
+function News({ symbol, aiNow }) {
   const [state, setState] = useState({ loading: true, news: null, fresh: false });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -336,7 +337,7 @@ function News({ symbol, models }) {
             </ul>
           </details>
           <p className="adm-small">
-            {(models.find((m) => m.id === n.model) || {}).name || n.model} · {n.usage.searches} web search{n.usage.searches === 1 ? "" : "es"} · {num(n.usage.inputTokens, 0)} tokens
+            {nameOf(aiNow, n.model)} · {n.usage.searches} web search{n.usage.searches === 1 ? "" : "es"} · {num(n.usage.inputTokens, 0)} tokens
             in, {num(n.usage.outputTokens, 0)} out · written by a language model from web pages. It can be stale, incomplete or wrong, and a headline is not a reason to trade: open
             the sources before relying on it.
           </p>
@@ -348,7 +349,7 @@ function News({ symbol, models }) {
 }
 
 export default function AiPanel({ symbol, onSize }) {
-  const [status, setStatus] = useState(null);
+  const status = useAiStatus(); // shared: a company or model change applies here at once
   const [error, setError] = useState("");
   const [horizon, setHorizon] = useState("both");
   const [busy, setBusy] = useState("");
@@ -372,9 +373,7 @@ export default function AiPanel({ symbol, onSize }) {
 
   useEffect(() => {
     let alive = true;
-    api("/api/admin/ai/status")
-      .then((d) => alive && setStatus(d))
-      .catch((e) => alive && setError(e.message));
+    loadAiStatus().catch((e) => alive && setError(e.message));
     loadJournal();
     return () => {
       alive = false;
@@ -401,7 +400,7 @@ export default function AiPanel({ symbol, onSize }) {
     try {
       setReview(await api("/api/admin/ai/review", { method: "POST" }));
       loadJournal();
-      api("/api/admin/ai/status").then(setStatus).catch(() => {});
+      loadAiStatus(true).catch(() => {});
       if (skills !== null) openSkills(true);
     } catch (e) {
       setError(e.message);
@@ -439,7 +438,7 @@ export default function AiPanel({ symbol, onSize }) {
           <div>
             <h3>AI strategist — off</h3>
             <p>
-              No Anthropic API key is set, so this tab is idle. Everything else on the desk — the live call, the charts, the setups, the backtests — works
+              No AI API key is set for the company in use, so this tab is idle. Everything else on the desk — the live call, the charts, the setups, the backtests — works
               without it.
             </p>
           </div>
@@ -448,7 +447,7 @@ export default function AiPanel({ symbol, onSize }) {
           </a>
         </header>
         <p className="vd-note">
-          With a key, Claude reads this stock’s live and historical Zerodha data and the desk’s skills file, and writes a strategy on request. Each plan is
+          With a key, the AI model (Anthropic, OpenAI, Gemini, DeepSeek, Kimi or NVIDIA Nemotron) reads this stock’s live and historical Zerodha data and the desk’s skills file, and writes a strategy on request. Each plan is
           checked mechanically, saved, and later scored against real prices; the results become lessons in the skills file. It never places an order.
         </p>
         <Record stats={journal.stats} />
@@ -456,7 +455,7 @@ export default function AiPanel({ symbol, onSize }) {
     );
   }
 
-  const modelName = (status.models.find((m) => m.id === status.model) || {}).name || status.model;
+  const modelName = `${status.providerName} · ${status.modelName || nameOf(status, status.model)}`;
   return (
     <>
       <section className="an-card">
@@ -483,11 +482,11 @@ export default function AiPanel({ symbol, onSize }) {
         </header>
         <Alert>{error}</Alert>
         {busy === "build" && <Loading label="Gathering the data and asking the model…" />}
-        {result && result.symbol === symbol && busy !== "build" && <Strategy e={result} onSize={onSize} models={status.models} />}
+        {result && result.symbol === symbol && busy !== "build" && <Strategy e={result} onSize={onSize} aiNow={status} />}
         {!result && busy !== "build" && <p className="vd-note">No strategy has been built for {symbol} yet.</p>}
       </section>
 
-      <News symbol={symbol} models={status.models} />
+      <News symbol={symbol} aiNow={status} />
 
       <section className="an-card">
         <header className="an-card__head">

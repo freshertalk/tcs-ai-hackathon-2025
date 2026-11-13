@@ -169,7 +169,7 @@ function createApp(opts = {}) {
       indexFetch: opts.indexFetch !== undefined ? opts.indexFetch : opts.marketFetch ? null : globalThis.fetch,
     });
 
-  // the AI strategist (Anthropic). Optional: without a key every other feature works as before.
+  // the AI strategist (Anthropic, OpenAI, Gemini, DeepSeek, Moonshot or NVIDIA). Optional: without a key every other feature works as before.
   const ai =
     opts.ai ||
     new AiService({

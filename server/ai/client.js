@@ -53,7 +53,8 @@ const usageOf = (m) => {
 class AiClient {
   constructor({ apiKey, model = DEFAULT_MODEL, fetchImpl }) {
     if (!apiKey) throw new AiError("No Anthropic API key is set.", "not_configured", 409);
-    this.model = MODELS.some((m) => m.id === model) ? model : DEFAULT_MODEL;
+    // the service checks the model against the list (the catalogue, or the live one read from Anthropic)
+    this.model = typeof model === "string" && model ? model : DEFAULT_MODEL;
     // maxRetries: the SDK retries 429 / 5xx / network errors itself; timeout is in milliseconds
     this.client = new Anthropic({ apiKey, maxRetries: 1, timeout: 240000, ...(fetchImpl ? { fetch: fetchImpl } : {}) });
   }
@@ -105,7 +106,7 @@ class AiClient {
   async search({ system, user, maxUses = 6, maxTokens = 8000, effort = "medium" }) {
     // the current tool version filters results before the model reads them; Haiku uses the basic one
     const tool = {
-      type: this.model === "claude-haiku-5-5" ? "web_search_20250305" : "web_search_20260209",
+      type: /haiku|claude-3|-4-[0-5]\b/.test(this.model) ? "web_search_20250305" : "web_search_20260209",
       name: "web_search",
       max_uses: maxUses,
       user_location: { type: "approximate", country: "IN", timezone: "Asia/Kolkata" },

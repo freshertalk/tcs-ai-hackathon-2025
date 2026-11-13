@@ -50,7 +50,7 @@ export default function Copilot({ symbol, co }) {
       <div className="cp cp--off">
         <p className="vd-live__k">AI co-pilot · off</p>
         <p className="vd-note">
-          No Anthropic API key is set, so there is no AI reading. Everything above works without it. <a href={adminPath("/ai")}>Set it up</a> to have a model read the live call, the
+          No AI API key is set, so there is no AI reading. Everything above works without it. <a href={adminPath("/ai")}>Set it up</a> to have a model read the live call, the
           1-minute tape and the order book with you.
         </p>
       </div>

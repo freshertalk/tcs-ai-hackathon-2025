@@ -19,6 +19,7 @@ import {
   PriceScaleMode,
 } from "lightweight-charts";
 import { api } from "../../api";
+import { adminPath } from "../../paths";
 import { useTick } from "../analyzer/liveTicks";
 import { CHART_TYPES, DEFAULT_STUDIES, FIB_LEVELS, STUDIES, studyOf, TOOLS } from "./config";
 import * as S from "./studies";
@@ -63,7 +64,11 @@ function palette(el) {
   return { bg: v("--surface", "#131a23"), ink: v("--ink-2", "#b3bdc9"), grid: v("--line", "rgba(255,255,255,0.08)"), up: v("--up", "#2ebd85"), down: v("--down", "#f6465d"), accent: v("--accent", "#6aaeee") };
 }
 
-export default function ProChart({ symbol, live = false, height = null }) {
+/**
+ * @param standalone  the chart is the whole page (opened in its own tab): it fills the window and
+ *                    has no "open in a new tab" button of its own
+ */
+export default function ProChart({ symbol, live = false, height = null, standalone = false }) {
   const prefs0 = useMemo(readPrefs, []);
   const [interval, setInterval_] = useState(prefs0.interval || "day");
   const [type, setType] = useState(prefs0.type || "candles");
@@ -112,7 +117,7 @@ export default function ProChart({ symbol, live = false, height = null }) {
       if (!quiet) setRaw((r) => ({ ...r, loading: true, error: "" }));
       try {
         const d = await api(`/api/admin/market/candles/${encodeURIComponent(symbol)}?interval=${iv.kite}`);
-        setRaw({ loading: false, bars: S.toBars(d.candles), error: "", symbol, stale: d.stale });
+        setRaw({ loading: false, bars: S.toBars(d.candles), error: "", symbol, kite: iv.kite, stale: d.stale });
       } catch (e) {
         setRaw((r) => ({ loading: false, bars: r.symbol === symbol ? r.bars : [], error: e.message, symbol }));
       }
@@ -163,6 +168,20 @@ export default function ProChart({ symbol, live = false, height = null }) {
     document.addEventListener("fullscreenchange", on);
     return () => document.removeEventListener("fullscreenchange", on);
   }, []);
+
+  // a menu closes on a click outside it or on Escape
+  useEffect(() => {
+    if (!menu) return undefined;
+    const off = (e) => {
+      if (e.type === "keydown" ? e.key === "Escape" : !(e.target.closest && e.target.closest(".kc__menuwrap"))) setMenu("");
+    };
+    document.addEventListener("mousedown", off);
+    document.addEventListener("keydown", off);
+    return () => {
+      document.removeEventListener("mousedown", off);
+      document.removeEventListener("keydown", off);
+    };
+  }, [menu]);
 
   /* --------------------------------------------------------- build the chart */
   const paneStudies = studies.filter((id) => (studyOf(id) || {}).kind === "pane");
@@ -333,10 +352,13 @@ export default function ProChart({ symbol, live = false, height = null }) {
   // new data, or a new tick: refill without rebuilding (the view stays where it is)
   const lastFit = useRef("");
   useEffect(() => {
-    const key = `${symbol}|${interval}|${type}`;
-    fill(shown, lastFit.current !== key);
-    if (shown.length) lastFit.current = key;
-  }, [shown, fill, symbol, interval, type]);
+    // fit once the bars of the interval asked for have arrived — not to the previous interval's
+    // bars that are still on screen while the new ones load
+    const ready = raw.symbol === symbol && raw.kite === iv.kite;
+    const key = `${symbol}|${iv.kite}|${iv.group || ""}|${type}`;
+    fill(shown, ready && lastFit.current !== key);
+    if (ready && shown.length) lastFit.current = key;
+  }, [shown, fill, symbol, type, raw.symbol, raw.kite, iv.kite, iv.group]);
 
   /* ------------------------------------------------------------ drawings */
   useEffect(() => {
@@ -397,6 +419,40 @@ export default function ProChart({ symbol, live = false, height = null }) {
   const prevBar = at ? shown[shown.indexOf(at) - 1] : null;
   const chg = at && prevBar ? at.close - prevBar.close : null;
 
+  const zoom = (factor) => {
+    const chart = chartRef.current;
+    if (!chart || !shown.length) return;
+    const ts = chart.timeScale();
+    const r = ts.getVisibleLogicalRange();
+    if (!r) return;
+    const width = r.to - r.from;
+    const next = Math.max(10, Math.min(shown.length + 20, width * factor));
+    ts.setVisibleLogicalRange({ from: r.to - next, to: r.to });
+  };
+  const resetView = () => {
+    const chart = chartRef.current;
+    if (!chart || !shown.length) return;
+    chart.timeScale().setVisibleLogicalRange({ from: Math.max(0, shown.length - (intraday ? 160 : 180)), to: shown.length + 5 });
+    chart.priceScale("right").applyOptions({ autoScale: true });
+  };
+  const onKey = (e) => {
+    if (e.target !== e.currentTarget) return;
+    if (e.key === "+" || e.key === "=") {
+      e.preventDefault();
+      zoom(0.7);
+    } else if (e.key === "-" || e.key === "_") {
+      e.preventDefault();
+      zoom(1 / 0.7);
+    } else if (e.key === "0") {
+      e.preventDefault();
+      resetView();
+    } else if (e.key === "Escape") {
+      setTool("cursor");
+      setPending(null);
+    }
+  };
+  const newTab = adminPath(`/chart/${encodeURIComponent(symbol)}`);
+
   const toggleStudy = (id) => setStudies((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
   const shot = () => {
     const chart = chartRef.current;
@@ -413,32 +469,39 @@ export default function ProChart({ symbol, live = false, height = null }) {
   };
   const filtered = STUDIES.filter((s) => !query || s.label.toLowerCase().includes(query.toLowerCase()));
   const groups = [...new Set(filtered.map((s) => s.group))];
-  const h = full ? "100%" : height || undefined;
+  const h = full ? "100%" : standalone ? undefined : height || undefined; // a page of its own sizes the plot in CSS
 
   return (
-    <section className={`pc ${full ? "is-full" : ""}`} ref={box} aria-label={`Chart of ${symbol}`}>
-      <div className="pc__bar" role="toolbar" aria-label="Chart controls">
-        <div className="pc__iv" role="group" aria-label="Interval">
+    <section className={`kc ${full ? "is-full" : ""} ${standalone ? "kc--page" : ""}`} ref={box} aria-label={`Chart of ${symbol}`}>
+      <div className="kc__bar" role="toolbar" aria-label="Chart controls">
+        <select className="kc__sel kc__ivsel" value={interval} onChange={(e) => setInterval_(e.target.value)} aria-label="Interval">
+          {S.INTERVALS.map((x) => (
+            <option key={x.id} value={x.id} disabled={!live && x.sec < 86400}>
+              {x.label}
+            </option>
+          ))}
+        </select>
+        <div className="kc__iv kc__ivbtns" role="group" aria-label="Interval">
           {S.INTERVALS.map((x) => (
             <button key={x.id} type="button" aria-pressed={interval === x.id} disabled={!live && x.sec < 86400} onClick={() => setInterval_(x.id)} data-tip={x.sec < 86400 && !live ? "Intraday intervals need the Zerodha connection." : undefined}>
               {x.label}
             </button>
           ))}
         </div>
-        <span className="pc__sep" />
-        <select className="pc__sel" value={type} onChange={(e) => setType(e.target.value)} aria-label="Chart type">
+        <span className="kc__sep" />
+        <select className="kc__sel" value={type} onChange={(e) => setType(e.target.value)} aria-label="Chart type">
           {CHART_TYPES.map((t) => (
             <option key={t.id} value={t.id}>
               {t.label}
             </option>
           ))}
         </select>
-        <div className="pc__menuwrap">
-          <button type="button" className="pc__btn" aria-expanded={menu === "ind"} onClick={() => setMenu(menu === "ind" ? "" : "ind")}>
+        <div className="kc__menuwrap">
+          <button type="button" className="kc__btn" aria-expanded={menu === "ind"} onClick={() => setMenu(menu === "ind" ? "" : "ind")}>
             ƒx Indicators{studies.length ? ` (${studies.length})` : ""}
           </button>
           {menu === "ind" && (
-            <div className="pc__menu" role="dialog" aria-label="Indicators">
+            <div className="kc__menu" role="dialog" aria-label="Indicators">
               <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search indicators" aria-label="Search indicators" />
               {groups.map((g) => (
                 <div key={g}>
@@ -463,13 +526,13 @@ export default function ProChart({ symbol, live = false, height = null }) {
             </div>
           )}
         </div>
-        <div className="pc__menuwrap">
-          <button type="button" className="pc__btn" aria-expanded={menu === "cmp"} onClick={() => setMenu(menu === "cmp" ? "" : "cmp")} data-tip="Compare with another stock or index on a percent scale.">
+        <div className="kc__menuwrap">
+          <button type="button" className="kc__btn" aria-expanded={menu === "cmp"} onClick={() => setMenu(menu === "cmp" ? "" : "cmp")} data-tip="Compare with another stock or index on a percent scale.">
             ⊕ Compare{compare.symbol ? `: ${compare.symbol}` : ""}
           </button>
           {menu === "cmp" && (
             <form
-              className="pc__menu pc__menu--sm"
+              className="kc__menu kc__menu--sm"
               onSubmit={(e) => {
                 e.preventDefault();
                 const v = new FormData(e.currentTarget).get("cmp");
@@ -490,38 +553,57 @@ export default function ProChart({ symbol, live = false, height = null }) {
             </form>
           )}
         </div>
-        <button type="button" className="pc__btn" aria-pressed={showPatterns} onClick={() => setShowPatterns((v) => !v)} data-tip="Mark candlestick patterns: engulfing, hammer, shooting star, morning and evening star, doji.">
-          Patterns
-        </button>
-        <button type="button" className="pc__btn" aria-pressed={showPivots} onClick={() => setShowPivots((v) => !v)} data-tip="Classic pivot points (P, R1–R3, S1–S3) from the previous session.">
-          Pivots
-        </button>
-        <span className="pc__sep" />
-        <div className="pc__iv" role="group" aria-label="Price scale">
-          {[
-            ["normal", "Auto"],
-            ["log", "Log"],
-            ["percent", "%"],
-          ].map(([id, l]) => (
-            <button key={id} type="button" aria-pressed={scale === id} onClick={() => setScale(id)}>
-              {l}
-            </button>
-          ))}
+        <div className="kc__menuwrap">
+          <button type="button" className="kc__btn" aria-expanded={menu === "view"} onClick={() => setMenu(menu === "view" ? "" : "view")} data-tip="Candlestick patterns, pivot points and the price scale.">
+            View{showPatterns || showPivots || scale !== "normal" ? " •" : ""}
+          </button>
+          {menu === "view" && (
+            <div className="kc__menu kc__menu--sm" role="dialog" aria-label="View">
+              <b>Marks</b>
+              <label data-tip="Mark candlestick patterns: engulfing, hammer, shooting star, morning and evening star.">
+                <input type="checkbox" checked={showPatterns} onChange={() => setShowPatterns((v) => !v)} /> Patterns
+              </label>
+              <label data-tip="Classic pivot points (P, R1–R3, S1–S3) from the previous session.">
+                <input type="checkbox" checked={showPivots} onChange={() => setShowPivots((v) => !v)} /> Pivots
+              </label>
+              <b>Price scale</b>
+              {[
+                ["normal", "Auto"],
+                ["log", "Log"],
+                ["percent", "%"],
+              ].map(([id, l]) => (
+                <label key={id}>
+                  <input type="radio" name="kc-scale" checked={scale === id} onChange={() => setScale(id)} /> {l === "%" ? "Percent (%)" : l === "Log" ? "Logarithmic (Log)" : "Auto"}
+                </label>
+              ))}
+              <footer>
+                <span />
+                <button type="button" onClick={() => setMenu("")}>
+                  Done
+                </button>
+              </footer>
+            </div>
+          )}
         </div>
-        <span className="pc__grow" />
-        <button type="button" className="pc__icon" onClick={() => chartRef.current && chartRef.current.timeScale().fitContent()} aria-label="Show all bars" data-tip="Zoom out to every bar loaded.">
+        <span className="kc__grow" />
+        <button type="button" className="kc__icon" onClick={() => chartRef.current && chartRef.current.timeScale().fitContent()} aria-label="Show all bars" data-tip="Zoom out to every bar loaded.">
           ⤢
         </button>
-        <button type="button" className="pc__icon" onClick={shot} aria-label="Save a picture of the chart" data-tip="Save the chart as a PNG picture.">
+        <button type="button" className="kc__icon" onClick={shot} aria-label="Save a picture of the chart" data-tip="Save the chart as a PNG picture.">
           📷
         </button>
-        <button type="button" className="pc__icon" onClick={goFull} aria-label={full ? "Leave full screen" : "Full screen"} data-tip="Full screen.">
+        <button type="button" className="kc__icon" onClick={goFull} aria-label={full ? "Leave full screen" : "Full screen"} data-tip="Full screen.">
           {full ? "⤡" : "⛶"}
         </button>
+        {!standalone && (
+          <a className="kc__icon" href={newTab} target="_blank" rel="noopener noreferrer" aria-label="Open this chart in a new tab" data-tip="Open this chart in a new tab, with every tool — like Kite's full chart.">
+            ↗
+          </a>
+        )}
       </div>
 
-      <div className="pc__body">
-        <div className="pc__tools" role="toolbar" aria-label="Drawing tools">
+      <div className="kc__body">
+        <div className="kc__tools" role="toolbar" aria-label="Drawing tools">
           {TOOLS.map((t) => (
             <button key={t.id} type="button" aria-pressed={tool === t.id} onClick={() => {
                 setTool(t.id);
@@ -538,8 +620,19 @@ export default function ProChart({ symbol, live = false, height = null }) {
             🗑
           </button>
         </div>
-        <div className="pc__plot" style={{ height: h }}>
-          <div className="pc__legend" aria-live="off">
+        <div className="kc__plot" style={{ height: h }} tabIndex={0} onKeyDown={onKey} aria-label={`${symbol} chart. Plus and minus zoom, 0 resets.`}>
+          <div className="kc__zoom" role="group" aria-label="Zoom">
+            <button type="button" onClick={() => zoom(1 / 0.7)} aria-label="Zoom out" data-tip="Zoom out (−)">
+              −
+            </button>
+            <button type="button" onClick={() => zoom(0.7)} aria-label="Zoom in" data-tip="Zoom in (+)">
+              +
+            </button>
+            <button type="button" onClick={resetView} aria-label="Reset the view" data-tip="Back to the latest bars, price scale on auto (0)">
+              ⟲
+            </button>
+          </div>
+          <div className="kc__legend" aria-live="off">
             <b>{symbol}</b>
             <span>{iv.label}</span>
             {at && (
@@ -562,10 +655,10 @@ export default function ProChart({ symbol, live = false, height = null }) {
                 </span>
               </>
             )}
-            {tick && live && <span className="pc__live">● live</span>}
+            {tick && live && <span className="kc__live">● live</span>}
           </div>
           {(pending || measure || compare.error || tool !== "cursor") && (
-            <div className="pc__hint">
+            <div className="kc__hint">
               {measure ? (
                 <>
                   {measure.change > 0 ? "▲" : "▼"} {fmt(Math.abs(measure.change))} ({measure.pct > 0 ? "+" : ""}
@@ -583,13 +676,21 @@ export default function ProChart({ symbol, live = false, height = null }) {
               )}
             </div>
           )}
-          <div className="pc__canvas" ref={holder} />
-          {raw.loading && !raw.bars.length && <p className="pc__msg">Loading the chart…</p>}
-          {raw.error && !raw.bars.length && <p className="pc__msg is-bad">{raw.error}</p>}
+          <div className="kc__canvas" ref={holder} />
+          {raw.loading && !raw.bars.length && <p className="kc__msg">Loading the chart…</p>}
+          {raw.error && !raw.bars.length && <p className="kc__msg is-bad">{raw.error}</p>}
         </div>
       </div>
       <TechSummary bars={bars} interval={iv.label} />
-      {paneStudies.length > 0 && <p className="pc__note">Indicator panes sit under the price; drag the line between panes to resize them.</p>}
+      {/* the attribution the library's Apache-2.0 licence asks for (its NOTICE file), beside the logo link on the chart */}
+      <p className="kc__credit">
+        Chart: TradingView Lightweight Charts™, Copyright © 2025 TradingView, Inc.{" "}
+        <a href="https://www.tradingview.com/" target="_blank" rel="noopener noreferrer">
+          tradingview.com
+        </a>{" "}
+        · Apache-2.0
+      </p>
+      {paneStudies.length > 0 && <p className="kc__note">Indicator panes sit under the price; drag the line between panes to resize them.</p>}
     </section>
   );
 }

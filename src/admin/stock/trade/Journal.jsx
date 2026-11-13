@@ -8,6 +8,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../../api";
 import { Alert, Loading } from "../../ui";
+import { useAiStatus } from "../../aiStatus";
 import { isNum, num, when } from "../analyzer/format";
 import "./trade.css";
 
@@ -222,7 +223,9 @@ function TagEditor({ trip, setups, mistakes, onSaved, onClose }) {
 
 /* ------------------------------------------------------------ AI review */
 function ReviewPanel({ range }) {
-  const [st, setSt] = useState({ configured: false, reviews: [] });
+  const [st0, setSt] = useState({ configured: false, reviews: [] });
+  const aiNow = useAiStatus();
+  const st = { ...st0, configured: aiNow ? aiNow.configured : st0.configured };
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   useEffect(() => {
@@ -255,11 +258,11 @@ function ReviewPanel({ range }) {
           <h3>AI review of your trading</h3>
           <p>The model reads this journal’s numbers — by stock, hour, weekday, side, setup and mistake, with MAE/MFE where measured — and names where your money is made and where it leaks, with the figures. Rules it suggests go into your skills file only if you add them.</p>
         </div>
-        <button type="button" className="adm-btn adm-btn--solid adm-btn--sm" onClick={run} disabled={busy || !st.configured} data-tip="Review the trades in the range shown. It uses your Anthropic API tokens, and runs only when you press it.">
+        <button type="button" className="adm-btn adm-btn--solid adm-btn--sm" onClick={run} disabled={busy || !st.configured} data-tip="Review the trades in the range shown. It uses your AI company's tokens, and runs only when you press it.">
           {busy ? "Reading your journal…" : "Review this range"}
         </button>
       </header>
-      {!st.configured && <p className="adm-alert adm-alert--info">Add an Anthropic API key in the AI settings to use the review.</p>}
+      {!st.configured && <p className="adm-alert adm-alert--info">Add an AI API key in the AI settings to use the review.</p>}
       <Alert>{err}</Alert>
       {r && (
         <div className="jr-rev__out">

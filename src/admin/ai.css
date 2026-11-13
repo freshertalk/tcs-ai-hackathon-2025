@@ -1,0 +1,271 @@
+/* The AI strategist's settings page (/me/ai). Sizes from --t-*, colours from the private area's tokens. */
+.ais {
+  display: grid;
+  gap: 14px;
+}
+.ais-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+.ais-lead {
+  margin-top: 4px !important;
+  max-width: 68ch;
+  font-size: var(--t-mid);
+  color: var(--ink-3);
+}
+.ais-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  padding: 6px 12px;
+  border: 1px solid var(--line-2);
+  border-radius: 99px;
+  background: var(--surface);
+  font-size: var(--t-mid);
+  color: var(--ink-2);
+  overflow-wrap: anywhere;
+}
+.ais-pill i {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ink-3);
+}
+.ais-pill.is-on i {
+  background: var(--up, #16a34a);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--up, #16a34a) 25%, transparent);
+}
+.ais-pill b {
+  color: var(--ink);
+}
+
+.ais-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+.ais-side {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+.ais-more {
+  grid-column: span 1;
+}
+.ais-card {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.ais-card h2 {
+  font-size: var(--t-base);
+  font-weight: 600;
+  color: var(--ink);
+}
+.ais-row2 {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
+  gap: 10px;
+}
+.ais-row3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.ais-field {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.ais-field > span {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: var(--t-small);
+  font-weight: 600;
+  color: var(--ink-2);
+}
+.ais-field select,
+.ais-field input {
+  width: 100%;
+  min-width: 0;
+  height: 38px;
+  padding: 0 10px;
+  border: 1px solid var(--line-2);
+  border-radius: 8px;
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--t-base);
+}
+.ais-field select:focus-visible,
+.ais-field input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.ais-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-size: var(--t-small);
+  font-weight: 400;
+  cursor: pointer;
+}
+.ais-link:disabled {
+  color: var(--ink-3);
+  cursor: default;
+}
+.ais-note {
+  font-size: var(--t-small);
+  color: var(--ink-3);
+  line-height: 1.5;
+}
+.ais-note b {
+  color: var(--ink);
+}
+.ais-free {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 0 6px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--up, #16a34a) 18%, transparent);
+  color: var(--up, #16a34a);
+  font-style: normal;
+  font-weight: 600;
+  font-size: var(--t-tag);
+  text-transform: uppercase;
+}
+
+.ais-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.ais-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  background: var(--paper);
+  color: var(--ink-3);
+  font: inherit;
+  font-size: var(--t-small);
+  cursor: pointer;
+}
+.ais-chip i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  border: 1px solid var(--ink-3);
+}
+.ais-chip.has-key {
+  color: var(--ink-2);
+}
+.ais-chip.has-key i {
+  border-color: var(--up, #16a34a);
+  background: var(--up, #16a34a);
+}
+.ais-chip.is-picked {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--ink);
+}
+.ais-chip small {
+  padding: 0 5px;
+  border-radius: 4px;
+  background: var(--accent);
+  color: var(--on-accent, #fff);
+  font-size: var(--t-tag);
+}
+.ais-chip:disabled {
+  cursor: progress;
+}
+
+.ais-key {
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+.ais-keyline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: var(--t-mid);
+}
+.ais-keyline .is-ok {
+  color: var(--up, #16a34a);
+}
+.ais-keyline .is-bad {
+  color: var(--down, #dc2626);
+}
+.ais-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.ais-keyform {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: end;
+  gap: 8px;
+}
+.ais-keyform .adm-btn {
+  height: 38px;
+}
+.ais-span {
+  grid-column: 1 / -1;
+}
+.ais-live .adm-btn {
+  justify-self: start;
+}
+.ais-more summary {
+  font-size: var(--t-base);
+  font-weight: 600;
+  color: var(--ink);
+  cursor: pointer;
+}
+.ais-more[open] summary {
+  margin-bottom: 4px;
+}
+.ais-more .adm-steps,
+.ais-more .adm-list {
+  margin: 0;
+  font-size: var(--t-mid);
+}
+
+@media (max-width: 900px) {
+  .ais-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 560px) {
+  .ais-row2 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .ais-keyform {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .ais-keyform .ais-field {
+    grid-column: 1 / -1;
+  }
+  .ais-card {
+    padding: 12px;
+  }
+}

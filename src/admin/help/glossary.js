@@ -45,7 +45,7 @@ const CIRCUIT = "The lowest and highest prices the exchange allows today. At a l
 const PIVOT_R = "A pivot resistance level, worked out from the last session’s high, low and close. Rallies often pause here.";
 const PIVOT_S = "A pivot support level, worked out from the last session’s high, low and close. Falls often pause here.";
 const EMA = "An exponential moving average: the average close of that many days, weighing recent days more. A trend line.";
-const TOKENS = "It uses your Anthropic API tokens, and runs only when you press it.";
+const TOKENS = "It uses your AI company's tokens, and runs only when you press it.";
 
 const ENTRIES = [
   /* ------------------------------------------------------------ everywhere */
@@ -264,8 +264,8 @@ const ENTRIES = [
   [["Below its peak now"], "How far the price is below the highest point in this history."],
   [["1 month", "3 months", "6 months", "1 year"], "The price change over that period."],
   [["Costs per round trip"], "Brokerage, taxes and slippage assumed for each buy and sell together. It is taken off every trade’s result."],
-  [["Set up the AI strategist", "Set up the AI"], "Opens the AI settings, where the Anthropic API key is entered."],
-  [["AI co-pilot · off"], "The co-pilot is a language model’s second reading of the live call. It is off because no Anthropic API key is set."],
+  [["Set up the AI strategist", "Set up the AI"], "Opens the AI settings, where the AI company, its model and its API key are chosen."],
+  [["AI co-pilot · off"], "The co-pilot is a language model’s second reading of the live call. It is off because no API key is set for the AI company in use."],
 
   /* ------------------------------------------------------------ position size */
   [["Position size"], "Work out how many shares to trade from the money you are prepared to lose.", ".an-card__head"],
@@ -359,7 +359,11 @@ const ENTRIES = [
   [["Year"], "Which year’s market holidays to show."],
 
   /* ---------------------------------------------------------------- settings */
-  [["Anthropic API key", "Replace the API key"], "The key from Anthropic’s developer console. It is stored encrypted on the server and never shown again."],
+  [["AI company"], "Which company's AI writes strategies, debriefs and briefs: Anthropic, OpenAI, Google Gemini, DeepSeek, Moonshot (Kimi) or NVIDIA (Nemotron). Each keeps its own saved key; a switch applies to every page at once.", ".ais"],
+  [["API key", "Save & use"], "The key from the chosen company's developer console. Stored encrypted on the server, never shown again; switching companies keeps it.", ".ais"],
+  [["↻ Refresh models", "Refresh models"], "Read the models this key can use from the company now, so the list stays current. Spends no tokens.", ".ais"],
+  [["Web search"], "Which company gathers the world brief and the news check. DeepSeek, Kimi and NVIDIA have no web search, so another saved company does it.", ".ais"],
+  [["Use"], "Switch every page to this company now (its key is already saved).", ".ais"],
   [["Save"], "Store these settings.", ".adm-form"],
   [["Client ID", "Google Client ID"], "The public name of your Google sign-in client. It ends in .apps.googleusercontent.com."],
   [["Client Secret", "Google Client Secret"], "The private half of the Google sign-in client. Stored encrypted; never shown again."],
@@ -369,7 +373,7 @@ const ENTRIES = [
   [["Test the key"], "Send one tiny request to check that the key and the model work."],
   [["Remove the key"], "Delete the stored API key. The AI features switch off; everything else keeps working."],
   [["Save the co-pilot's limits"], "Store these limits. The desk uses them from the next reading."],
-  [["Model"], "Which Claude model writes strategies, debriefs and briefs. More capable models cost more per request.", ".adm-form"],
+  [["Model"], "Which of the chosen company's models writes strategies, debriefs and briefs. A change is saved at once and used from the next request. More capable models cost more.", ".ais"],
   [["Model for the co-pilot"], "The model for live readings. A faster one answers sooner."],
   [["Shortest time between readings (seconds)"], "However much happens, the co-pilot does not read one stock more often than this."],
   [["Most readings in a day"], "A hard daily limit across all stocks. When it is reached the co-pilot stops until tomorrow."],
@@ -466,9 +470,11 @@ const ENTRIES = [
 
   /* ---- the full chart */
   [["Chart"], "The full chart: every interval from 1 minute to 1 month, live, with indicators, drawing tools, compare, patterns, pivots and a technical summary.", ".sv__chartbar"],
-  [["Patterns"], "Marks candlestick patterns on the chart: engulfing, hammer, shooting star, morning and evening star.", ".pc"],
-  [["Pivots"], "Classic floor pivots — P, R1 to R3 and S1 to S3 — from the previous session (or the previous bar on daily and longer charts).", ".pc"],
-  [["Auto", "Log", "%"], "The price scale: ordinary, logarithmic (equal moves in percent look equal), or percent from the first bar on screen.", ".pc"],
+  [["View"], "Candlestick patterns, pivot points and the price scale (auto, log, percent).", ".kc"],
+  [["Zoom", "Zoom in", "Zoom out"], "Zoom the chart in or out around the newest bar (keys + and −; 0 resets). The mouse wheel and pinch work too.", ".kc"],
+  [["Patterns"], "Marks candlestick patterns on the chart: engulfing, hammer, shooting star, morning and evening star.", ".kc"],
+  [["Pivots"], "Classic floor pivots — P, R1 to R3 and S1 to S3 — from the previous session (or the previous bar on daily and longer charts).", ".kc"],
+  [["Auto", "Log", "%"], "The price scale: ordinary, logarithmic (equal moves in percent look equal), or percent from the first bar on screen.", ".kc"],
   [["Moving averages", "Oscillators", "Summary"], "Each indicator votes buy, sell or neutral on the latest bar; the gauge shows the tally. A count of readings, not advice.", ".ts"],
 
   /* ---- price alerts and the palette */
