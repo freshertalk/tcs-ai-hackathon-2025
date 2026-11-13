@@ -1,0 +1,3 @@
+# shell scripts must keep Unix line endings wherever they are checked out:
+# a carriage return in the first line stops them from starting on the server
+*.sh text eol=lf

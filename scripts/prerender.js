@@ -29,7 +29,9 @@ const path = require("path");
 const Module = require("module");
 
 const ROOT = path.resolve(__dirname, "..");
-const BUILD = path.join(ROOT, "build");
+// BUILD_PATH is react-scripts' own setting: deploy/stock-deploy.sh builds into a spare folder
+// and swaps it in only when everything succeeded, so this step must write to the same place
+const BUILD = path.resolve(ROOT, process.env.BUILD_PATH || "build");
 const SRC = path.join(ROOT, "src");
 
 const ORIGIN = "https://vinaytiwari.org";

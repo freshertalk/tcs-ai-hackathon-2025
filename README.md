@@ -130,7 +130,16 @@ holidays) stay as files, and so do the two encryption keys unless `SETTINGS_KEY`
    as the app's static IP (Zerodha requires it for orders placed through the API).
 7. Back up the database (`mongodump --db stock-trading`) and `server/.env`; never commit either.
 
-Updating later: `git pull && npm ci && npm run server:install && npm run build && pm2 restart vinaytiwari`.
+**Updating later: one command, `stock-deploy`** (`deploy/stock-deploy.sh`). Set it up once on the
+VPS — `cd ~/tcs-ai-hackathon-2025 && git pull && bash deploy/stock-deploy.sh --install` — and from then
+on type `stock-deploy` from any folder. It pulls `main` from GitHub (fast-forward only: it never
+merges and never discards work done on the server), installs packages only where a package file
+changed, builds the site into a spare folder and swaps it in only if the build succeeded (a failed
+build leaves the running site as it was), restarts the pm2 process only when server code changed,
+and waits for it to answer. `stock-deploy --check` shows what is waiting without changing
+anything; `stock-deploy --force` reinstalls, rebuilds and restarts regardless. It never touches
+`server/.env`, the database or `server/data`. By hand, the same thing is
+`git pull && npm ci && npm run server:install && npm run build && pm2 restart vinaytiwari`.
 
 **Welcome on the dashboard.** Every time `/me` opens — after signing in, on a refresh, in a new tab,
 and on coming back to the dashboard from a settings page — it first shows the Shri Ram Darbar
