@@ -13,6 +13,8 @@ const { Decision, slimProfile } = require("../ai/decision");
 const { checkPlan } = require("../ai/service");
 const { FileDocs } = require("../docs");
 
+const DAY_MS = 86400000;
+
 /** Weekday bars from a price path: path(i) → close; opens gap by gapAt(i) percent. */
 function series(n, path, { gapAt = () => 0, vol = () => 100000 } = {}) {
   const out = [];
@@ -112,4 +114,40 @@ test("the decision weighs today against the stored habits, and its plan is check
   const wait = await new Decision(aiStub({ ...base, decision: "wait", entry: 0, stop: 0, targets: [] }), checkPlan).decide("INFY");
   assert.equal(wait.plan, null);
   assert.equal(slimProfile({ available: false, reason: "x" }).available, false);
+});
+
+/* ------------------------------------------------------------- speed guards */
+
+test("a slow Zerodha does not hold the page: today's saved bars are shown after 2.5 s at most", async () => {
+  const now = Date.parse("2026-11-12T05:00:00Z"); // 10:30 IST, market hours
+  const cache = { fetchedAt: new Date(now - 10 * 60000).toISOString(), fullAt: new Date(now - DAY_MS).toISOString(), candles: series(60, (k) => 100 + k) };
+  const m = Object.create(MarketService.prototype);
+  Object.assign(m, { now: () => now, mode: () => "kite", _readCache: () => cache });
+  // a refresh that takes 20 seconds
+  m._fetchDaily = () => new Promise((res) => setTimeout(() => res({ candles: [], source: "kite", fetchedAt: "fresh" }), 20000).unref());
+  // the server always has a listening socket keeping Node alive; a test has to hold it open itself
+  const hold = setInterval(() => {}, 500);
+  const t0 = Date.now();
+  const d = await m._daily("SBIN");
+  clearInterval(hold);
+  const took = Date.now() - t0;
+  assert.ok(took < 4000, `waited ${took} ms`);
+  assert.equal(d.fetchedAt, cache.fetchedAt, "the saved copy");
+  // a quick refresh is waited for, so a split or an outage still shows at once
+  const m2 = Object.create(MarketService.prototype);
+  Object.assign(m2, { now: () => now, mode: () => "kite", _readCache: () => cache, _fetchDaily: async () => ({ candles: [], source: "kite", fetchedAt: "fresh" }) });
+  assert.equal((await m2._daily("SBIN")).fetchedAt, "fresh");
+});
+
+test("the instrument list is downloaded once however many callers want it at the same moment", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "vpt-ins-"));
+  let calls = 0;
+  const list = Array.from({ length: 150 }, (_, i) => ({ s: `S${i}`, t: i, k: "EQ" }));
+  const m = Object.create(MarketService.prototype);
+  Object.assign(m, { dir, now: () => Date.parse("2026-11-12T05:00:00Z"), mode: () => "kite", _instruments: null, _call: async () => ((calls += 1), await new Promise((r) => setTimeout(r, 50)), list) });
+  const all = await Promise.all([m.instruments(), m.instruments(), m.instruments(), m.instruments()]);
+  assert.equal(calls, 1);
+  assert.ok(all.every((x) => x.length === 150));
+  assert.equal((await m.instruments()).length, 150);
+  assert.equal(calls, 1, "and kept for the rest of the day");
 });

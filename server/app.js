@@ -254,6 +254,16 @@ function createApp(opts = {}) {
 
   app.use(express.json({ limit: "10kb" }));
 
+  // a slow API answer is logged with its path, so a sluggish page can be traced to its cause
+  app.use("/api", (req, res, next) => {
+    const t0 = Date.now();
+    res.on("finish", () => {
+      const ms = Date.now() - t0;
+      if (ms >= 3000 && !/\/stream$/.test(req.path)) console.warn(`[slow] ${req.method} ${req.baseUrl}${req.path} took ${(ms / 1000).toFixed(1)} s (${res.statusCode})`);
+    });
+    next();
+  });
+
   // CSRF: a state-changing request must carry a header a cross-site form cannot
   // set, and, when the browser sends an Origin, it must be this site.
   app.use("/api", (req, res, next) => {

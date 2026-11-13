@@ -37,6 +37,7 @@ const DAY = 86400000;
 const IST = 5.5 * 3600 * 1000;
 const HISTORY_DAYS = 3650; // ~10 years of daily bars
 const CHUNK_DAYS = 1800; // per historical request
+const DAILY_WAIT_MS = 2500; // how long a page waits on a daily top-up before it is shown the saved copy
 const SYMBOL_RE = /^[A-Z0-9][A-Z0-9&._ -]{0,24}$/;
 const MAX_WATCHLIST = 40;
 const INDEX_SYMBOL = "NIFTY 50";
@@ -299,6 +300,15 @@ class MarketService {
     const cached = this._instruments;
     if (cached && cached.fetchedOn === today) return cached.list;
     if (this.mode() !== "kite") return cached ? cached.list : [];
+    // the list is several megabytes: everyone who needs it while it downloads waits for the one copy
+    if (this._instrumentsBusy) return this._instrumentsBusy;
+    this._instrumentsBusy = this._fetchInstruments(file, today, cached).finally(() => {
+      this._instrumentsBusy = null;
+    });
+    return this._instrumentsBusy;
+  }
+
+  async _fetchInstruments(file, today, cached) {
     try {
       const list = await this._call((k) => k.instruments("NSE"));
       if (list.length < 100) throw new Error("the instrument list looks incomplete");
@@ -430,7 +440,39 @@ class MarketService {
       if (cache) return served(cache, true, "Zerodha is not connected — showing the last downloaded data.");
       throw new MarketError("Zerodha is not connected, and there is no saved data for this symbol yet.", "not_connected", 409);
     }
+    // During market hours, with a copy saved earlier today, the refresh gets 2.5 seconds. It
+    // normally finishes well inside that (and a split or an outage shows at once); when
+    // Zerodha's queue is slow the page gets the saved copy now and the refresh carries on —
+    // the next read has it. The page never sits waiting on a top-up of bars it mostly has.
+    if (cache && isMarketHours(now) && cache.fetchedAt.slice(0, 10) === new Date(now).toISOString().slice(0, 10) && cache.candles.length >= 30) {
+      const job = this._refreshDaily(symbol, cache);
+      let timer;
+      const late = new Promise((res) => {
+        timer = setTimeout(() => res(null), DAILY_WAIT_MS);
+        if (timer.unref) timer.unref();
+      });
+      const done = await Promise.race([job, late]);
+      clearTimeout(timer);
+      return done || served(cache);
+    }
+    return this._fetchDaily(symbol, cache);
+  }
 
+  /** One background refresh per stock at a time; a failure leaves the saved copy in place. */
+  _refreshDaily(symbol, cache) {
+    if (!this._dailyRefresh) this._dailyRefresh = new Map();
+    if (this._dailyRefresh.has(symbol)) return this._dailyRefresh.get(symbol);
+    const p = this._fetchDaily(symbol, cache)
+      .catch(() => null)
+      .finally(() => this._dailyRefresh.delete(symbol));
+    this._dailyRefresh.set(symbol, p);
+    return p;
+  }
+
+  /** Download (top up, or rebuild) a stock's daily bars from Zerodha and save them. */
+  async _fetchDaily(symbol, cache) {
+    const now = this.now();
+    const served = (rec, stale = false, reason = "") => ({ candles: rec.candles, source: "kite", fetchedAt: rec.fetchedAt, stale, staleReason: reason });
     try {
       const it = await this._instrument(symbol);
       const fullDue = !cache || !cache.fullAt || now - Date.parse(cache.fullAt) > 7 * DAY || cache.candles.length < 30;
