@@ -4366,3 +4366,85 @@
     font-size: 16px;
   }
 }
+
+/* ---- the Debrief guide */
+.dbg > summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  list-style: none;
+  cursor: pointer;
+}
+.dbg > summary::-webkit-details-marker {
+  display: none;
+}
+.dbg > summary::before {
+  content: "▸";
+  color: var(--ink-3);
+}
+.dbg[open] > summary::before {
+  content: "▾";
+}
+.dbg > summary span {
+  font-size: var(--t-small);
+  color: var(--ink-3);
+}
+.dbg__lead {
+  margin: 10px 0;
+  font-size: var(--t-base);
+  line-height: 1.6;
+  text-align: justify;
+}
+.dbg__steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: dbg;
+}
+.dbg__steps li {
+  counter-increment: dbg;
+  position: relative;
+  padding: 10px 12px 10px 40px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: var(--t-mid);
+  line-height: 1.5;
+}
+.dbg__steps li::before {
+  content: counter(dbg);
+  position: absolute;
+  left: 12px;
+  top: 10px;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: var(--t-tag);
+  font-weight: 600;
+}
+.dbg__eg {
+  margin: 10px 0;
+  padding: 10px 12px;
+  border-left: 3px solid var(--up);
+  border-radius: 6px;
+  background: var(--up-bg);
+  font-size: var(--t-mid);
+}
+.dbg__use {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 8px 20px;
+  font-size: var(--t-mid);
+}
+.dbg__use ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+  color: var(--ink-2);
+}

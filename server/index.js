@@ -13,6 +13,9 @@ const { openDocs } = require("./docs");
 const { SUPERADMIN_EMAIL, ADMIN_BASE } = require("./config");
 
 const PORT = Number(process.env.PORT) || 5000;
+// in production the app listens on 127.0.0.1 only (deploy/ecosystem.config.cjs): the world
+// reaches it through nginx, so nobody can go round nginx or forge the forwarded address
+const HOST = process.env.HOST || undefined;
 
 async function main() {
   // MONGO_URI set → records live in MongoDB (database MONGO_DB, default "stock-trading");
@@ -26,7 +29,7 @@ async function main() {
   }
   const { app, setupToken, holidays } = createApp({ docs });
 
-  const server = app.listen(PORT, () => {
+  const server = app.listen(PORT, HOST, () => {
     // fetch the exchanges' official holiday data now, then every 6 hours
     holidays.start();
     console.log(`\nAPI ready on http://localhost:${PORT}`);

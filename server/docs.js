@@ -21,7 +21,7 @@ const fs = require("fs");
 const path = require("path");
 
 /** The records that live here, by name (a path under server/data/ for the file store). */
-const RECORDS = ["db.json", "ai/world.json", "ai/news.json", "ai/live.json", "ai/journal.json", "ai/debriefs.json", "ai/coach.json", "ai/research.json", "ai/trading-skills.md", "trading/journal.json", "ai/reviews.json", "market/behaviour.json", "ai/decisions.json", "market/edge.json", "market/signals.json", "market/alerts.json"];
+const RECORDS = ["db.json", "ai/world.json", "ai/news.json", "ai/live.json", "ai/journal.json", "ai/debriefs.json", "ai/coach.json", "ai/research.json", "ai/trading-skills.md", "trading/journal.json", "ai/reviews.json", "market/behaviour.json", "ai/decisions.json", "market/edge.json", "market/signals.json", "market/alerts.json", "research/auto.json"];
 const LOGS = { "trading/audit": "trading/audit.jsonl" };
 const LOG_KEEP = 2000; // entries of a log kept in memory (the database keeps them all)
 

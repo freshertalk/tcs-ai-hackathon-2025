@@ -181,6 +181,12 @@ class Universe {
     return { n: m.n, d: tail[tail.length - 1].t, c: tail.map((c) => r2(c.c)), to: r2(turnover), fund: m.fund || undefined, at: today };
   }
 
+  /** Only the stocks the screener covers (the Nifty 100), when the market service sets a list. */
+  _scope(members) {
+    const set = this.market.indexList ? this.market.indexList.symbols() : null;
+    return set ? members.filter((m) => set.has(m.s)) : members;
+  }
+
   /** Start (or report) the background download. It resumes where an interrupted run stopped. */
   start({ force = false } = {}) {
     if (this.job.running) return this.status();
@@ -201,7 +207,7 @@ class Universe {
 
   async _run(force) {
     const d = this._load();
-    const members = membersOf(await this.market.instruments());
+    const members = this._scope(membersOf(await this.market.instruments()));
     const job = this.job;
     job.total = members.length;
     const today = istDate(this.market.now());
@@ -289,7 +295,8 @@ class Universe {
    */
   async scan({ min = null, max = null, period = 14, minPrice = 0, minTurnover = 0, funds = false } = {}) {
     const d = this._load();
-    const all = Object.entries(d.symbols);
+    const set = this.market.indexList ? this.market.indexList.symbols() : null;
+    const all = Object.entries(d.symbols).filter(([s]) => !set || set.has(s));
     if (all.length === 0) return { ready: false, rows: [], matched: 0, status: this.status() };
 
     const quotes = await this._liveQuotes(all.map(([s]) => s));

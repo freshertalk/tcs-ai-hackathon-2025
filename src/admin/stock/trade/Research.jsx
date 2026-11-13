@@ -7,6 +7,8 @@
 // across the list. It is preparation, not orders.
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { AutoResearch, DirectionCard } from "./Direction";
+import { useAuth } from "../../auth";
 import { api } from "../../api";
 import { Alert, Loading } from "../../ui";
 import { inr, isNum, num, pct, when } from "../analyzer/format";
@@ -76,6 +78,7 @@ function StockNote({ row, onOpen }) {
         )}
       </header>
       {row.error && <p className="adm-alert">{row.error}</p>}
+      <DirectionCard d={row.direction} />
       {n && <p>{n.summary}</p>}
       {n && (
         <div className="rs-sec">
@@ -190,6 +193,7 @@ function StockNote({ row, onOpen }) {
 }
 
 export default function Research({ onOpen = null }) {
+  const { user } = useAuth();
   const [st, setSt] = useState(null);
   const [error, setError] = useState("");
   const [phase, setPhase] = useState(null);
@@ -269,6 +273,7 @@ export default function Research({ onOpen = null }) {
         <header className="an-card__head">
           <div>
             <h3>Research · pre-market and post-market</h3>
+            <AutoResearch canChange={Boolean(user && user.role === "superadmin")} />
             <p>
               Prepare the next session for your watchlist. Each stock gets a data sheet from the desk — indicators, levels, the seven setups and their backtests on that stock, the weekly/daily/intraday verdict, the long-term view and the news check.
               {st.configured ? " The AI then writes a note per stock and a summary across the list." : " Add an Anthropic API key in the AI settings to have the AI write a note per stock."}

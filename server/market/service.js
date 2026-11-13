@@ -30,6 +30,7 @@ const { FlowEngine } = require("./flow");
 const { replayDayAsync, combine, DEFAULT_COST_PCT } = require("./replay");
 const { KiteTicker } = require("./ticker");
 const { Universe } = require("./universe");
+const { IndexList } = require("./indexlist");
 const { buildContext: buildMarketContext, contextKeys } = require("./context");
 const { buildProfile } = require("./profile");
 const E = require("./edge");
@@ -113,7 +114,7 @@ class MarketService {
    * @param store    the app's Store (settings + watchlist live there)
    * @param secrets  { encrypt(text), decrypt(blob) } — API secret and token are stored encrypted
    */
-  constructor({ dir, store, secrets, fetchImpl = globalThis.fetch, now = () => Date.now(), log = console, gaps, wsImpl, tickerOptions }) {
+  constructor({ dir, store, secrets, fetchImpl = globalThis.fetch, now = () => Date.now(), log = console, gaps, wsImpl, tickerOptions, screenerIndex = "nifty100", indexFetch = null }) {
     this.dir = path.join(dir, "market");
     this.store = store;
     this.secrets = secrets;
@@ -142,7 +143,9 @@ class MarketService {
       });
     }
     this._ctx = null; // { at, data }: the market context, shared for a few seconds
-    this.universe = new Universe({ dir: this.dir, market: this }); // every NSE stock, for the screener
+    // the screener covers the Nifty 100 (NSE's 100 largest companies), read from NSE's own list
+    this.indexList = screenerIndex === "nifty100" ? new IndexList({ dir: this.dir, fetchImpl: indexFetch, now: this.now, log }) : null;
+    this.universe = new Universe({ dir: this.dir, market: this });
     this.worldProvider = null; // () => the latest AI world brief in short form, when the AI service is present
     fs.mkdirSync(path.join(this.dir, "candles"), { recursive: true });
     if (!this.store.data.market) this.store.update((d) => (d.market = { watchlist: [], demo: false }));
@@ -885,7 +888,7 @@ class MarketService {
   /* ---------------------------------------------------------------- screener */
 
   screenerStatus() {
-    return { ...this.universe.status(), connected: this.mode() === "kite" };
+    return { ...this.universe.status(), connected: this.mode() === "kite", scope: this.indexList ? this.indexList.status() : { index: "ALL", source: "all NSE stocks" } };
   }
 
   screenerStart(opts) {

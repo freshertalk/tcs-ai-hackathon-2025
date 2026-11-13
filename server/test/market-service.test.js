@@ -158,6 +158,7 @@ async function boot(extra = {}) {
       throw new Error("no network");
     },
     marketFetch: kite.fetch,
+    screenerIndex: "all", // the fake exchange lists made-up names; the Nifty 100 scope has its own test
     marketGaps: { quote: 0, historical: 0, other: 0 },
     now: () => clock.ms,
     ...extra,

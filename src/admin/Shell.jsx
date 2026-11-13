@@ -86,13 +86,12 @@ export default function Shell({ crumb, notice, children, narrow, wide, fluid }) 
                 <img src={user.picture} alt="" referrerPolicy="no-referrer" width="32" height="32" />
               ) : (
                 <span className="adm-user__ph" aria-hidden="true">
-                  {(user.name || user.email).slice(0, 1).toUpperCase()}
+                  {(user.name || "·").slice(0, 1).toUpperCase()}
                 </span>
               )}
               <span className="adm-user__id">
-                <b>{user.name || user.email}</b>
+                <b>{user.name || "Signed in"}</b>
                 <small>
-                  {user.email} ·{" "}
                   <span className={`adm-role adm-role--${user.role}`}>
                     {user.role === "superadmin" ? "Superadmin" : "Admin"}
                   </span>

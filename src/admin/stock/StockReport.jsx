@@ -15,6 +15,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import WorldClock from "./WorldClock";
 import HolidayCalendar from "./HolidayCalendar";
+import TimeConverter from "./TimeConverter";
 import Analyzer from "./analyzer/Analyzer";
 import Screener from "./analyzer/Screener";
 import Debrief from "./analyzer/Debrief";
@@ -41,8 +42,8 @@ const VIEWS = [
   { id: "account", label: "Positions", superOnly: true, tip: "Positions, holdings, orders, funds, the trading switch and the AI coach." },
   { id: "journal", label: "Journal", superOnly: true, tip: "Every round trip you made: win rate, profit factor, expectancy, drawdown, P&L calendar, MAE/MFE, tags and an AI review." },
   { id: "research", label: "Research", tip: "Pre-market and post-market research for your watchlist." },
-  { id: "screener", label: "Screener", tip: "Every NSE stock by RSI." },
-  { id: "debrief", label: "Debrief", tip: "What the desk’s calls would have done today, replayed and scored." },
+  { id: "screener", label: "Screener", tip: "The Nifty 100 — NSE’s 100 largest companies — by RSI." },
+  { id: "debrief", label: "Debrief", tip: "After the close: if you had followed every live call by fixed rules, what would today have made or lost? A report card for the desk’s signals — no real trades." },
   { id: "calendar", label: "Calendar", tip: "World clock and upcoming exchange holidays." },
 ];
 const DOCK_KEY = "vpt.terminal.dock";
@@ -258,6 +259,7 @@ function Terminal() {
             ) : (
               <>
                 <WorldClock />
+                <TimeConverter />
                 <div className="sr-two">
                   <HolidayCalendar market="india" />
                   <HolidayCalendar market="nasdaq" />

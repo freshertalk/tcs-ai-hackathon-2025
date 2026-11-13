@@ -1,25 +1,26 @@
+// The home of the private area: one glance at the market and the account, one large way into
+// the trading terminal (and straight into any of its workspaces), and the site's settings
+// in a compact grid below. Every link into the terminal opens it in its own tab.
+
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "./api";
 import { useAuth } from "./auth";
 import { adminPath } from "./paths";
 import Shell from "./Shell";
-import Welcome from "./Welcome";
-import { IconArrow, IconChart, IconClock, IconGlobe, IconKey, IconShield, IconUsers } from "./icons";
+import { IconArrow, IconChart, IconGlobe, IconKey, IconUsers } from "./icons";
 
-/** The strip across the very top of the dashboard — and only the dashboard. */
-function Notice() {
-  return (
-    <div className="adm-notice" role="note">
-      <div className="adm-wrap adm-notice__row">
-        <span className="adm-notice__tag">Private notice</span>
-        <p>
-          This is a very personal setup of <b>Vinay Kumar Tiwari</b> and is not at all for public use.
-        </p>
-      </div>
-    </div>
-  );
-}
+const WORKSPACES = [
+  { view: "", label: "Desk", text: "Chart, live call, order book" },
+  { view: "advisor", label: "Advisor", text: "Measured odds for the watchlist" },
+  { view: "account", label: "Positions", text: "Positions, orders, funds", superOnly: true },
+  { view: "journal", label: "Journal", text: "Every trade, scored", superOnly: true },
+  { view: "research", label: "Research", text: "Pre- and post-market" },
+  { view: "screener", label: "Screener", text: "NSE top 100 by RSI" },
+  { view: "debrief", label: "Debrief", text: "Today’s calls, replayed" },
+  { view: "calendar", label: "Calendar", text: "Holidays and time zones" },
+];
+const terminal = (view) => `${adminPath("/stock-report")}${view ? `?view=${view}` : ""}`;
 
 function greeting(date = new Date()) {
   const h = date.getHours();
@@ -29,226 +30,180 @@ function greeting(date = new Date()) {
   if (h < 22) return "Good evening";
   return "Good night";
 }
-
 function firstName(user) {
-  const raw = (user.name || user.email.split("@")[0] || "").trim().split(/[\s._-]+/)[0] || "there";
+  const raw = (user.name || "").trim().split(/\s+/)[0] || "there";
   return raw.charAt(0).toUpperCase() + raw.slice(1);
 }
 
-/** A large tile at the top of the dashboard. Both open in their own tab. */
-function Feature({ href, icon, kicker, title, text, tone, tip }) {
+/** NSE's session by the clock (holidays are on the Calendar). */
+function nseState(now = new Date()) {
+  const d = new Date(now.getTime() + now.getTimezoneOffset() * 60000 + 5.5 * 3600000);
+  const m = d.getHours() * 60 + d.getMinutes();
+  const wk = d.getDay() >= 1 && d.getDay() <= 5;
+  if (wk && m >= 555 && m < 930) return { id: "open", label: "NSE open" };
+  if (wk && m >= 540 && m < 555) return { id: "pre", label: "NSE pre-open" };
+  return { id: "closed", label: "NSE closed" };
+}
+
+const money = (x) => `${x > 0 ? "+" : x < 0 ? "−" : ""}₹${Math.abs(x).toLocaleString("en-IN", { maximumFractionDigits: 2, minimumFractionDigits: 2 })}`;
+
+function Pulse({ isSuper }) {
+  const [market, setMarket] = useState(null);
+  const [trade, setTrade] = useState(null);
+  const [pnl, setPnl] = useState(null);
+  const [board, setBoard] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    api("/api/admin/market/status").then((d) => alive && setMarket(d)).catch(() => {});
+    api("/api/admin/market/edge").then((d) => alive && setBoard(d)).catch(() => {});
+    if (isSuper) {
+      api("/api/admin/trading/status")
+        .then((d) => {
+          if (!alive) return;
+          setTrade(d);
+          if (d && d.connected)
+            api("/api/admin/trading/positions")
+              .then((p) => alive && setPnl((p.net || []).reduce((a, x) => a + (Number(x.pnl) || 0), 0)))
+              .catch(() => {});
+        })
+        .catch(() => {});
+    }
+    return () => {
+      alive = false;
+    };
+  }, [isSuper]);
+  const nse = nseState();
+  const kite = market && market.mode === "kite";
+  const counts = { A: 0, B: 0 };
+  if (board) for (const r of board.rows || []) if (r.available && r.best && counts[r.best.grade] !== undefined) counts[r.best.grade] += 1;
   return (
-    <a className={`dash-feature dash-feature--${tone}`} href={href} target="_blank" rel="noopener noreferrer" data-tip={tip}>
-      <span className="dash-feature__ico">{icon}</span>
-      <span className="dash-feature__body">
-        <span className="dash-feature__k">{kicker}</span>
-        <span className="dash-feature__t">{title}</span>
-        {text && <span className="dash-feature__d">{text}</span>}
-      </span>
-      <span className="dash-feature__go" aria-hidden="true">
-        <IconArrow />
-      </span>
-      <span className="adm-sr">(opens in a new tab)</span>
-    </a>
+    <ul className="hub-pulse" aria-label="Status">
+      <li className={`is-${nse.id === "open" ? "ok" : nse.id === "pre" ? "warn" : "off"}`}>
+        <i aria-hidden="true" />
+        {nse.label}
+      </li>
+      <li className={kite ? "is-ok" : market && market.mode === "demo" ? "is-warn" : "is-off"} data-tip="Whether Zerodha is connected for live prices. The session ends at 6 AM each day.">
+        <i aria-hidden="true" />
+        {market ? (kite ? "Zerodha connected" : market.mode === "demo" ? "Demo data" : "Zerodha not connected") : "Zerodha …"}
+      </li>
+      {isSuper && (
+        <li className={trade && trade.enabled ? "is-live" : "is-off"} data-tip="The master switch for orders from this site. It is changed on the Positions page.">
+          <i aria-hidden="true" />
+          Trading {trade ? (trade.enabled ? "ON" : "OFF") : "…"}
+        </li>
+      )}
+      {isSuper && pnl !== null && (
+        <li className={pnl > 0 ? "is-up" : pnl < 0 ? "is-down" : ""} data-tip="Today’s P&L on all positions, as Zerodha reports it.">
+          P&amp;L <b>{money(pnl)}</b>
+        </li>
+      )}
+      {board && (
+        <li data-tip="Watchlist stocks whose measured odds are favourable today and backed by the forward test (grade A or B).">
+          Advisor <b>{counts.A}</b> A · <b>{counts.B}</b> B
+        </li>
+      )}
+    </ul>
   );
 }
 
-function Tile({ to, href, external, icon, title, text, status, tip }) {
-  const inner = (
+function Setting({ to, href, external, icon, title, text, status, tip }) {
+  const body = (
     <>
-      <span className="adm-ico">{icon}</span>
-      <span className="adm-tile__body">
-        <span className="adm-tile__t">{title}</span>
-        <span className="adm-tile__d">{text}</span>
-        {status && <span className={`adm-tile__s ${status.on ? "is-on" : ""}`}>{status.label}</span>}
+      <span className="hub-set__ico">{icon}</span>
+      <span className="hub-set__body">
+        <b>{title}</b>
+        <small>{text}</small>
       </span>
-      {external && (
-        <span className="adm-tile__go" aria-hidden="true">
-          <IconArrow />
-        </span>
-      )}
+      {status && <span className={`hub-set__s ${status.on ? "is-on" : ""}`}>{status.label}</span>}
     </>
   );
   return external ? (
-    <a className="adm-tile" href={href} target="_blank" rel="noopener noreferrer" data-tip={tip}>
-      {inner}
-      <span className="adm-sr">(opens in a new tab)</span>
+    <a className="hub-set" href={href} target="_blank" rel="noopener noreferrer" data-tip={tip}>
+      {body}
     </a>
   ) : (
-    <Link className="adm-tile" to={to} data-tip={tip}>
-      {inner}
+    <Link className="hub-set" to={to} data-tip={tip}>
+      {body}
     </Link>
-  );
-}
-
-function Category({ title, text, children }) {
-  return (
-    <section className="dash-cat">
-      <header>
-        <h3>{title}</h3>
-        <p>{text}</p>
-      </header>
-      <div className="adm-tiles">{children}</div>
-    </section>
   );
 }
 
 export default function Dashboard() {
   const { user } = useAuth();
   const [s, setS] = useState(null);
-
-  // The welcome opens every time the dashboard does: after signing in, on a refresh, in a
-  // new tab, and on coming back here from a settings page. It closes by itself.
-  const [welcome, setWelcome] = useState(true);
-
-  // only feeds the status chips and tile badges; the dashboard works without it
-  useEffect(() => {
-    api("/api/admin/settings")
-      .then(setS)
-      .catch(() => {});
-  }, []);
-
-  // the AI strategist is optional; its badge shows whether a key is set
   const [ai, setAi] = useState(null);
   useEffect(() => {
-    api("/api/admin/ai/status")
-      .then(setAi)
-      .catch(() => {});
+    api("/api/admin/settings").then(setS).catch(() => {});
+    api("/api/admin/ai/status").then(setAi).catch(() => {});
   }, []);
-
   const isSuper = user.role === "superadmin";
-  const today = new Date().toLocaleDateString(undefined, {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+  const today = new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 
   return (
-    <Shell notice={<Notice />}>
-      {welcome && <Welcome onDone={() => setWelcome(false)} />}
-      <div className="dash">
-        {/* ------------------------------------------------------------- hello */}
-        <section className="dash-hello" aria-label="Welcome">
+    <Shell wide>
+      <div className="hub">
+        <header className="hub-head">
           <div>
-            <p className="dash-hello__k">{greeting()}</p>
-            <h1>Namaste, {firstName(user)}</h1>
-            <p className="dash-hello__d">{today}</p>
-            <button type="button" className="dash-om" lang="hi" aria-label="Show the welcome again" data-tip="Show the welcome picture and play the mantra once more." onClick={() => setWelcome(true)}>
-              ॐ
-            </button>
-          </div>
-          <ul className="dash-chips" aria-label="Status">
-            <li className={s && s.googleSecretSet ? "is-on" : ""} data-tip="Whether Google sign-in has its Client ID and Client Secret. Without them nobody can sign in.">
-              <i aria-hidden="true" />
-              Google sign-in {s ? (s.googleSecretSet ? "connected" : "not set up") : "…"}
-            </li>
-            <li className={s && s.gaMeasurementId ? "is-on" : ""} data-tip="Whether Google Analytics is counting visits to the public website. Your own visits are never counted.">
-              <i aria-hidden="true" />
-              Analytics {s ? (s.gaMeasurementId ? "on" : "off") : "…"}
-            </li>
-            <li className={`is-role is-${user.role}`} data-tip="Your role here. A superadmin can also add and remove the admins.">
-              {isSuper ? "Superadmin" : "Admin"}
-            </li>
-          </ul>
-        </section>
-
-        {/* --------------------------------------------------- top: quick access */}
-        <section className="dash-quick" aria-label="Quick access">
-          <div>
-            <Feature
-              tone="blue"
-              href={adminPath("/personal-access")}
-              icon={<IconShield />}
-              kicker="Private"
-              title="Vinay’s Personal Access"
-              tip="Opens the private page for Vinay and his family, in a new tab."
-            />
-            <p className="adm-note">
-              <em>(not for public uses, only private access for Vinay and his family)</em>
+            <p className="hub-head__k">
+              {greeting()} · {today}
             </p>
+            <h1>Namaste, {firstName(user)}</h1>
           </div>
-          <div>
-            <Feature
-              tone="night"
-              href={adminPath("/stock-report")}
-              icon={<IconClock />}
-              kicker="Markets"
-              title="Stock Report"
-              text="Trading terminal · positions · research · holidays"
-              tip="Opens the trading terminal in a new tab: the desk, your positions and orders, research, the screener, the day debrief and the market calendar."
-            />
-          </div>
+          <Pulse isSuper={isSuper} />
+        </header>
+
+        <section className="hub-hero" aria-labelledby="hub-sr">
+          <a className="hub-hero__main" href={terminal("")} target="_blank" rel="noopener noreferrer" data-tip="Open the trading terminal in a new tab.">
+            <span className="hub-hero__k">Markets · trading terminal</span>
+            <span className="hub-hero__t" id="hub-sr">
+              Stock Report
+            </span>
+            <span className="hub-hero__d">Live desk, measured odds, positions and orders, research, screener, debrief and the market calendar — in one terminal.</span>
+            <span className="hub-hero__go">
+              Open the terminal <IconArrow />
+            </span>
+          </a>
+          <nav className="hub-ws" aria-label="Open a workspace">
+            {WORKSPACES.filter((w) => !w.superOnly || isSuper).map((w) => (
+              <a key={w.label} href={terminal(w.view)} target="_blank" rel="noopener noreferrer">
+                <b>{w.label}</b>
+                <small>{w.text}</small>
+              </a>
+            ))}
+          </nav>
         </section>
 
-        {/* ------------------------------------------- bottom: website management */}
-        <div className="adm-sep" role="separator">
-          <span>Website management</span>
-        </div>
-
-        <Category
-          title="Access & security"
-          text="Decide who can sign in to this area, and how. Changes take effect on the next sign-in."
-        >
-          <Tile
-            to={adminPath("/google")}
-            icon={<IconKey />}
-            title="Google sign-in"
-            text="Client ID and Client Secret used by Login with Google."
-            tip="Enter or replace the Google credentials that the sign-in button uses."
-            status={s && { on: s.googleSecretSet, label: s.googleSecretSet ? "Connected" : "Not set up" }}
-          />
-          {isSuper && (
-            <Tile
-              to={adminPath("/admins")}
-              icon={<IconUsers />}
-              title="Admin users"
-              text="Add or remove the people who can open this area. Superadmin only."
-              tip="Choose which Google accounts may sign in here."
+        <section className="hub-sets" aria-labelledby="hub-sets-h">
+          <h2 id="hub-sets-h">Settings</h2>
+          <div className="hub-sets__grid">
+            <Setting
+              to={adminPath("/google")}
+              icon={<IconKey />}
+              title="Google sign-in"
+              text="The credentials behind the sign-in button."
+              tip="Enter or replace the Google credentials that the sign-in button uses."
+              status={s && { on: s.googleSecretSet, label: s.googleSecretSet ? "Connected" : "Not set up" }}
             />
-          )}
-        </Category>
-
-        <Category title="Trading desk" text="Optional extras for the Stock Report. The desk works without them.">
-          <Tile
-            to={adminPath("/ai")}
-            icon={<IconChart />}
-            title="AI strategist"
-            text="Anthropic API key and model. Builds a strategy on request; never places an order."
-            tip="Set the Anthropic API key, choose the model, and set the live co-pilot’s limits."
-            status={ai && { on: ai.configured, label: ai.configured ? `On · ${(ai.models.find((m) => m.id === ai.model) || {}).name || ai.model}` : "Off — no key" }}
-          />
-        </Category>
-
-        <Category
-          title="Analytics & tracking"
-          text="See how the public website is used. Local development and admin visits are never counted."
-        >
-          <Tile
-            to={adminPath("/analytics")}
-            icon={<IconChart />}
-            title="Google Analytics"
-            text="Set the GA4 measurement ID for the public site."
-            tip="Turn visit counting on or off for the public website."
-            status={
-              s && {
-                on: Boolean(s.gaMeasurementId),
-                label: s.gaMeasurementId ? `On · ${s.gaMeasurementId}` : "Off",
-              }
-            }
-          />
-        </Category>
-
-        <Category title="Public website" text="The site everyone else sees.">
-          <Tile
-            external
-            href="/"
-            icon={<IconGlobe />}
-            title="Open the website"
-            text="vinaytiwari.org in a new tab."
-            tip="See the public website as a visitor does."
-          />
-        </Category>
+            {isSuper && <Setting to={adminPath("/admins")} icon={<IconUsers />} title="Admin users" text="Who may sign in here." tip="Choose which Google accounts may sign in here. Superadmin only." />}
+            <Setting
+              to={adminPath("/ai")}
+              icon={<IconChart />}
+              title="AI strategist"
+              text="Anthropic key and model; advice only."
+              tip="Set the Anthropic API key, choose the model, and set the live co-pilot’s limits."
+              status={ai && { on: ai.configured, label: ai.configured ? "On" : "Off" }}
+            />
+            <Setting
+              to={adminPath("/analytics")}
+              icon={<IconChart />}
+              title="Google Analytics"
+              text="Visit counting on the public site."
+              tip="Turn visit counting on or off for the public website."
+              status={s && { on: Boolean(s.gaMeasurementId), label: s.gaMeasurementId ? "On" : "Off" }}
+            />
+            <Setting external href="/" icon={<IconGlobe />} title="Public website" text="vinaytiwari.org, as visitors see it." tip="See the public website as a visitor does." />
+          </div>
+        </section>
       </div>
     </Shell>
   );

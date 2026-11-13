@@ -73,15 +73,15 @@ function UserMenu() {
   return (
     <div className="tm-user" ref={box}>
       <button type="button" className="tm-user__btn" aria-expanded={open} aria-haspopup="menu" onClick={() => setOpen((o) => !o)} data-tip="Your account, hover help and sign out.">
-        {user.picture ? <img src={user.picture} alt="" referrerPolicy="no-referrer" width="28" height="28" /> : <span aria-hidden="true">{(user.name || user.email).slice(0, 1).toUpperCase()}</span>}
+        {user.picture ? <img src={user.picture} alt="" referrerPolicy="no-referrer" width="28" height="28" /> : <span aria-hidden="true">{(user.name || "·").slice(0, 1).toUpperCase()}</span>}
         <span className="adm-sr">Account menu</span>
       </button>
       {open && (
         <div className="tm-menu" role="menu">
           <p className="tm-menu__who">
-            <b>{user.name || user.email}</b>
+            <b>{user.name || "Signed in"}</b>
             <small>
-              {user.email} · {user.role === "superadmin" ? "Superadmin" : "Admin"}
+              {user.role === "superadmin" ? "Superadmin" : "Admin"}
             </small>
           </p>
           <Link role="menuitem" to={adminPath()} onClick={() => setOpen(false)}>

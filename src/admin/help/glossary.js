@@ -452,6 +452,18 @@ const ENTRIES = [
   [["Light theme", "Dark theme"], "Switch the whole terminal between dark and light.", ".tm-sheet"],
   [["Open on the Desk"], "Open this stock on the Desk: chart, live call, order book."],
 
+  /* ---- research: the direction */
+  [["Long-term owner"], "Is this a stock in a durable uptrend worth owning? Its 200-day line, the long-term checks, its place in the 52-week range and its drawdown.", ".dir"],
+  [["Trend follower"], "Is the swing trend up, and is it strong? The swing reading, the 20- and 50-day averages, and ADX.", ".dir"],
+  [["Momentum"], "Is buying pressure building or fading? RSI, MACD and the 20-day rate of change.", ".dir"],
+  [["Measured odds"], "Did days like today pay, tested forward? The Advisor's grade — the only lens tested on unseen data.", ".dir"],
+  [["Habits"], "How this stock usually behaves from here, from its own one-year record.", ".dir"],
+  [["Market backdrop"], "Whether the Nifty's tide is with the stock or against it.", ".dir"],
+  [["Risk"], "Whether it can be traded sensibly: volatility, liquidity and the room to the next level. It never picks a direction; it lowers the confidence.", ".dir"],
+  [["Value investor"], "Earnings, debt, cash flow and valuation. Not available: the data source does not provide company financials, and the desk does not guess them.", ".dir"],
+  [["Entry", "Stop", "Targets", "Reward : risk"], "The plan for this direction, taken from the stock's own levels.", ".dir"],
+  [["Time zone converter"], "Pick a date and time in one zone and see it in another. Every zone in the world, with daylight saving."],
+
   /* ---- price alerts and the palette */
   [["Price alerts"], "Be told when a stock reaches a level: a sound, a note on this page and, if you allow them, a browser notification. Kept in the database; checked while the terminal is open. An alert never trades."],
   [["Set alert"], "Save this alert. Leave the side on “reaches” and it is taken from the price now."],

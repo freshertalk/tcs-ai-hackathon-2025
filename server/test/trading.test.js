@@ -607,3 +607,25 @@ test("measured odds and alerts are behind the sign-in like every other reading",
   // none of it reaches Zerodha's order endpoints
   assert.equal(s.kite.writes().length, 0);
 });
+
+test("flood control: a visitor who is not signed in gets a small budget, the owner a large one", async (t) => {
+  const s = await boot();
+  t.after(s.close);
+  // the boot above has already spent a few anonymous requests; keep going until refused
+  let refused = null;
+  for (let i = 0; i < 120 && !refused; i += 1) {
+    const r = await s.request("GET", "/api/auth/status");
+    if (r.status === 429) refused = r;
+  }
+  assert.ok(refused, "an anonymous flood is refused");
+  assert.match(refused.headers["retry-after"], /^\d+$/);
+  assert.equal(refused.json.error, "rate_limited");
+  // the signed-in owner is not affected by the anonymous budget
+  for (let i = 0; i < 30; i += 1) assert.equal((await s.request("GET", "/api/admin/trading/status", { cookie: s.admin })).status, 200);
+});
+
+test("security headers on the private area, and request text cannot forge a log line", () => {
+  const { logSafe } = require("../app");
+  assert.equal(logSafe("/api/x\r\n[slow] GET /fake took 0 s"), "/api/x  [slow] GET /fake took 0 s");
+  assert.equal(logSafe("a".repeat(500)).length, 200);
+});

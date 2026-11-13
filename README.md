@@ -126,7 +126,9 @@ holidays) stay as files, and so do the two encryption keys unless `SETTINGS_KEY`
    one line `include snippets/vinaytiwari-app.conf;` inside the site's HTTPS `server` block, above its
    `location / {` line, and `sudo nginx -t && sudo systemctl reload nginx`. `deploy/nginx.conf.example`
    shows it, and the alternative of sending everything through the app. **`stock-deploy --doctor`**
-   checks the whole chain — pm2, the app's port, and whether the public address reaches the app.
+   checks the whole chain — pm2, the app's port, and whether the public address reaches the app —
+   and, when nginx is the missing link, prints the exact lines to copy for the site's own nginx
+   file (it keeps a copy of the file first, and says how to put it back).
    *If "Login with Google" lands on the home page, this step is missing:* nginx is answering
    `/api/…` with the site's own page. The private area now says so itself ("Can't reach the
    server") instead of showing a sign-in button that cannot work.
@@ -147,12 +149,7 @@ anything; `stock-deploy --force` reinstalls, rebuilds and restarts regardless. I
 `server/.env`, the database or `server/data`. By hand, the same thing is
 `git pull && npm ci && npm run server:install && npm run build && pm2 restart vinaytiwari`.
 
-**Welcome on the dashboard.** Every time `/me` opens — after signing in, on a refresh, in a new tab,
-and on coming back to the dashboard from a settings page — it first shows the Shri Ram Darbar
-(`src/admin/Welcome.jsx`) and sounds the mantra "ॐ श्री गणेशाय नमः" one time. It closes by itself
-after about eight seconds, or at once with Enter or Esc. The small ॐ under the greeting shows it
-again without reloading; "Sound on / off" on the welcome is remembered. (It belongs to the
-dashboard only: the Stock Report and the settings pages open without it.)
+**Welcome on the dashboard** was removed on 13 Nov 2026 at the owner's request (no picture, no audio).
 
 - **The picture.** The original (`assets-src/ShriRamDarbar.png`, 3.8 MB, kept as the master copy and
   not deployed) was re-encoded with ffmpeg for the web: `public/img/shri-ram-darbar-960.avif`
@@ -215,6 +212,43 @@ a typed trade — `buy sbin 10`, `sell infy 5 @ 1500` — which only ever opens 
 or a price alert — `alert sbin 800`. Turning trading OFF is one command; turning it ON stays a
 deliberate act on the Positions page. The dashboard and settings pages share the same
 theme (one switch, `analyzer/theme.js`) and a slim sticky header.
+
+**Sign-in page and dashboard (`src/admin/Login.jsx`, `Dashboard.jsx`, `hub.css`).** The sign-in page
+says, politely and in justified text, that this is Vinay Kumar Tiwari's personal workspace and not
+for visitors; no email address appears anywhere on it (nor in the signed-in headers). The dashboard
+opens straight away — the welcome picture and the mantra audio are gone — with a status line
+(NSE session, Zerodha, trading switch, today's P&L, Advisor A/B count), the **Stock Report** as one
+wide card with a direct link into each workspace, and the settings in a compact grid.
+
+**Research direction and automatic runs (`server/market/direction.js`, `server/research-auto.js`).**
+Every research report now gives each stock a **direction** — Buy / Watch for entry / No trade /
+Caution / Avoid — with a confidence, the plan (entry, stop, targets, reward-to-risk, what cancels it)
+and the lenses behind it, each with its evidence: long-term owner, trend follower, momentum,
+measured odds, habits, market backdrop and risk. A value-investor lens would need company
+financials, which Zerodha does not provide; it is shown as not available rather than guessed.
+Only the measured odds are tested forward, so without them a "Buy" is held to "Watch"; a first
+target under 1.5× the risk also holds it back. Research also **runs by itself** on weekdays at
+08:45 (pre-market) and 16:00 IST (post-market) while Zerodha is connected — data and direction at
+no cost, or with AI notes, company news and the world brief when switched on (that uses Anthropic
+tokens). It is a summary of evidence, not a forecast and not advice.
+
+**Screener = NSE top 100.** The screener covers the Nifty 100 only. Its list is read once a week
+from NSE's own published file (`nsearchives.nseindia.com/content/indices/ind_nifty100list.csv`,
+asked for with an honest User-Agent; `server/market/indexlist.js`), with a copy of 13 Nov 2026
+used until the first read.
+
+**Calendar.** A time zone converter with every zone the browser knows. BSE/NSE holidays stay
+hand-checked: NSE publishes them only through pages that refuse plainly-identified automated
+requests, and the terminal does not pretend to be a browser. NASDAQ holidays sync automatically.
+
+**Security.** Flood control on every `/api` request per visitor address (a small budget for anyone
+not signed in, `RATE_ANON_PER_MIN`, default 90; a large one for a signed-in session,
+`RATE_USER_PER_MIN`, default 1500), answered with 429 and Retry-After; nginx limits on top
+(`stock-deploy --nginx-limits`, a file for `/etc/nginx/conf.d`); HSTS, COOP and a tighter
+Permissions-Policy; the app listens on 127.0.0.1 only in production (`HOST` in the pm2 file), so
+nginx cannot be bypassed; request text is stripped of CR/LF and control characters before it is
+logged; the OAuth callback is rate-limited. A single server cannot absorb a large distributed
+attack by itself — a front service such as Cloudflare does that.
 
 **Compact on every screen (`terminal/compact.css`, `terminal/BottomNav.jsx`, `terminal/useMedia.js`).**
 One slim row on top at every width; nothing is capped at a centre column, so a 1920 or 2560 px

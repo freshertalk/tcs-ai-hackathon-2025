@@ -29,6 +29,7 @@ import PersonalAccess from "./PersonalAccess";
 import StockReport from "./stock/StockReport";
 
 import "./admin.css";
+import "./hub.css";
 
 /** Keep this area out of search results and out of the browser tab's public identity. */
 function useQuietHead() {

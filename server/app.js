@@ -36,6 +36,7 @@ const { MarketService } = require("./market/service");
 const { mountMarket } = require("./market/routes");
 const { AiService } = require("./ai/service");
 const { mountAi } = require("./ai/routes");
+const { ResearchAuto } = require("./research-auto");
 const { TradingService } = require("./trading/service");
 const { mountTrading } = require("./trading/routes");
 
@@ -107,6 +108,29 @@ function limiter(max, windowMs) {
   };
 }
 
+/**
+ * A fixed-window counter per client: cheap enough to sit in front of every request.
+ * Memory stays bounded (oldest windows are dropped), and the answer to an excess is 429
+ * with Retry-After — never a slow reply that would tie the server up.
+ */
+function budget(max, windowMs) {
+  const seen = new Map(); // key → { start, n }
+  return (key, now = Date.now()) => {
+    let w = seen.get(key);
+    if (!w || now - w.start >= windowMs) {
+      w = { start: now, n: 0 };
+      seen.delete(key);
+      seen.set(key, w);
+      if (seen.size > 20000) seen.delete(seen.keys().next().value);
+    }
+    w.n += 1;
+    return w.n <= max ? 0 : Math.ceil((w.start + windowMs - now) / 1000);
+  };
+}
+
+/** Text from a request, made safe for a log line: no CR/LF (log forging), no control characters. */
+const logSafe = (x) => String(x == null ? "" : x).replace(/[\u0000-\u001f\u007f]/g, " ").slice(0, 200);
+
 const normaliseEmail = (e) => String(e || "").trim().toLowerCase();
 
 /* ----------------------------------------------------------------- app */
@@ -140,6 +164,9 @@ function createApp(opts = {}) {
       // WebSocket must not be used either, unless a stand-in is supplied
       wsImpl: opts.marketWs !== undefined ? opts.marketWs : opts.marketFetch ? null : undefined,
       tickerOptions: opts.tickerOptions,
+      // the screener covers the Nifty 100; its list is re-read weekly from NSE (not from tests or simulators)
+      screenerIndex: opts.screenerIndex || "nifty100",
+      indexFetch: opts.indexFetch !== undefined ? opts.indexFetch : opts.marketFetch ? null : globalThis.fetch,
     });
 
   // the AI strategist (Anthropic). Optional: without a key every other feature works as before.
@@ -235,9 +262,28 @@ function createApp(opts = {}) {
     res.set({
       "X-Content-Type-Options": "nosniff",
       "Referrer-Policy": "strict-origin-when-cross-origin",
-      "Permissions-Policy": "geolocation=(), microphone=(), camera=()",
+      "Permissions-Policy": "geolocation=(), microphone=(), camera=(), payment=(), usb=()",
+      "Cross-Origin-Opener-Policy": "same-origin",
+      "X-DNS-Prefetch-Control": "off",
     });
+    // over HTTPS, the browser is told to use nothing else for a year
+    if (isSecure(req)) res.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
     next();
+  });
+
+  // Flood control in front of the API, per client address. Someone who is not signed in gets
+  // a small budget (enough to sign in, far too little to hammer the server); a signed-in
+  // session gets room for the live pages' polling. The long-lived streams count once.
+  // (Behind nginx, TRUST_PROXY makes req.ip the visitor's address, not nginx's.)
+  const anonBudget = budget(Number(env.RATE_ANON_PER_MIN) || 90, 60000);
+  const userBudget = budget(Number(env.RATE_USER_PER_MIN) || 1500, 60000);
+  app.use("/api", (req, res, next) => {
+    if (opts.rateLimit === false) return next();
+    const signedIn = Boolean(parseCookies(req.headers.cookie)[SESSION_COOKIE]) && Boolean(currentUser(req));
+    const wait = (signedIn ? userBudget : anonBudget)(`${signedIn ? "u" : "a"}:${req.ip || "?"}`);
+    if (!wait) return next();
+    res.set("Retry-After", String(wait));
+    res.status(429).json({ error: "rate_limited", message: "Too many requests. Please wait a moment." });
   });
 
   // the private area and the API: never cached, never indexed, never framed
@@ -259,7 +305,7 @@ function createApp(opts = {}) {
     const t0 = Date.now();
     res.on("finish", () => {
       const ms = Date.now() - t0;
-      if (ms >= 3000 && !/\/stream$/.test(req.path)) console.warn(`[slow] ${req.method} ${req.baseUrl}${req.path} took ${(ms / 1000).toFixed(1)} s (${res.statusCode})`);
+      if (ms >= 3000 && !/\/stream$/.test(req.path)) console.warn(`[slow] ${logSafe(req.method)} ${logSafe(req.baseUrl + req.path)} took ${(ms / 1000).toFixed(1)} s (${res.statusCode})`);
     });
     next();
   });
@@ -328,7 +374,7 @@ function createApp(opts = {}) {
     res.redirect(makeGoogle(c.id, c.secret, redirectUri(req)).authUrl({ state, nonce }));
   });
 
-  app.get("/api/auth/google/callback", async (req, res) => {
+  app.get("/api/auth/google/callback", limiter(30, 15 * 60 * 1000), async (req, res) => {
     const clear = cookie(OAUTH_COOKIE, "", { maxAge: 0, path: "/api/auth/google", secure: isSecure(req) });
     const fail = (code) => {
       res.append("Set-Cookie", clear);
@@ -521,6 +567,15 @@ function createApp(opts = {}) {
   /* ------------------------------------------- stock report: the AI strategist */
   mountAi(app, { ai, requireAdmin, limiter });
 
+  // research that runs by itself before the open and after the close (server/research-auto.js)
+  const researchAuto = new ResearchAuto({ ai, market, docs: store.docs, now: opts.now, log: opts.log || console });
+  if (opts.researchAuto !== false) researchAuto.start();
+  app.get("/api/admin/research/auto", requireAdmin, (req, res) => res.json(researchAuto.status()));
+  app.put("/api/admin/research/auto", requireSuper, (req, res) => {
+    const b = req.body || {};
+    res.json(researchAuto.set({ enabled: typeof b.enabled === "boolean" ? b.enabled : undefined, withAi: typeof b.withAi === "boolean" ? b.withAi : undefined }));
+  });
+
   /* ------------------------------------------- stock report: the account and trading */
   mountTrading(app, { trading, ai, requireSuper, limiter });
 
@@ -589,4 +644,6 @@ function createApp(opts = {}) {
   };
 }
 
-module.exports = { createApp, isLocalHost, SESSION_COOKIE };
+module.exports = {
+  budget,
+  logSafe, createApp, isLocalHost, SESSION_COOKIE };

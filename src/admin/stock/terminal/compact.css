@@ -932,7 +932,8 @@
 @media (min-width: 1101px) {
   .tm .an {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    /* the connection line takes what it needs; the search box keeps a sensible width */
+    grid-template-columns: minmax(0, 1fr) clamp(260px, 26vw, 420px);
     gap: 6px 8px;
     align-items: start;
   }
@@ -1181,4 +1182,176 @@
 /* two notes at once on a phone (an order update and a price alert) stack instead of covering each other */
 .adm:has(.tm--bnav) .tm-alert-note {
   bottom: calc(var(--tm-bnav, 54px) + 132px);
+}
+
+/* the connection line's buttons never wrap out of sight */
+@media (min-width: 1101px) {
+  .tm .an .conn.is-on .conn__actions {
+    flex-wrap: nowrap;
+  }
+  .tm .an .conn.is-on .conn__actions .adm-btn {
+    white-space: nowrap;
+  }
+  .tm .an:has(> .conn.is-on) > .an__desk .wl__search input {
+    min-height: 34px;
+    height: 34px;
+    font-size: var(--t-mid);
+  }
+}
+
+/* ---- the time zone converter */
+.tzc__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr) auto minmax(0, 1.3fr);
+  align-items: end;
+  gap: 8px;
+}
+.tzc__row label {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  font-size: var(--t-small);
+  color: var(--ink-3);
+}
+.tzc__row input,
+.tzc__row select {
+  width: 100%;
+  min-width: 0;
+  height: 36px;
+  padding: 0 8px;
+  border: 1px solid var(--line-2);
+  border-radius: 6px;
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--t-mid);
+  color-scheme: light dark;
+}
+.tzc__swap {
+  height: 36px;
+  width: 36px;
+  border: 1px solid var(--line-2);
+  border-radius: 6px;
+  background: var(--surface-2);
+  color: var(--ink);
+  font-size: var(--t-lead);
+  cursor: pointer;
+}
+.tzc__swap:hover {
+  border-color: var(--accent);
+}
+.tzc__out {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+.tzc__out p {
+  display: grid;
+  min-width: 0;
+}
+.tzc__out small {
+  overflow: hidden;
+  font-size: var(--t-small);
+  color: var(--ink-3);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tzc__out b {
+  font-size: var(--t-lead);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.tzc__out > span {
+  color: var(--ink-3);
+}
+.tzc__out em {
+  padding: 2px 8px;
+  border-radius: 99px;
+  background: var(--accent-soft);
+  font-style: normal;
+  font-size: var(--t-small);
+  white-space: nowrap;
+}
+.tzc__presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.tzc__presets button {
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  background: none;
+  color: var(--ink-2);
+  font: inherit;
+  font-size: var(--t-small);
+  cursor: pointer;
+}
+.tzc__presets button[aria-pressed="true"] {
+  border-color: var(--accent);
+  color: var(--ink);
+  background: var(--accent-soft);
+}
+@media (max-width: 760px) {
+  .tzc__row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .tzc__when {
+    grid-column: 1 / -1;
+  }
+  .tzc__row label.tzc__zone:last-of-type {
+    grid-column: 1 / -1;
+  }
+  .tzc__out {
+    grid-template-columns: 1fr;
+  }
+  .tzc__out > span {
+    display: none;
+  }
+  .tzc__out em {
+    justify-self: start;
+  }
+}
+/* the calendar page on a wide screen: clocks and converter on the left, the two holiday lists beside */
+@media (min-width: 1700px) {
+  .tm--calendar .tm-page {
+    grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .tm--calendar .tm-page > .tzc {
+    grid-column: 1;
+  }
+}
+@media (min-width: 1700px) {
+  .tm--calendar .tm-page > .sr-card:first-child {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .tm--calendar .tm-page > .tzc {
+    grid-row: 2;
+  }
+  .tm--calendar .tm-page > .sr-two > :first-child {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+  }
+  .tm--calendar .tm-page > .sr-two > :last-child {
+    grid-column: 3;
+    grid-row: 1 / span 2;
+  }
+}
+@media (min-width: 1101px) {
+  /* the line itself is a grid: its row must be allowed to be narrower than its text */
+  .tm .an .conn.is-on {
+    grid-template-columns: minmax(0, 1fr);
+    min-width: 0;
+  }
+  .tm .an .conn.is-on .conn__row {
+    min-width: 0;
+  }
 }

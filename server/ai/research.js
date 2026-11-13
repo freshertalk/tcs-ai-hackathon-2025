@@ -14,6 +14,7 @@
 
 const crypto = require("crypto");
 const { AiError } = require("./client");
+const { buildDirection } = require("../market/direction");
 
 const KEEP = 20;
 const MAX_STOCKS = 12;
@@ -195,9 +196,17 @@ class Research {
     }
     const stocks = [];
     const client = job.withAi ? ai._client() : null;
+    // the market's state, once for the whole job: one of the lenses of every direction
+    let tide = null;
+    try {
+      const c = await ai.market.context();
+      if (c && c.available) tide = { tide: c.tide };
+    } catch (_) {
+      tide = null;
+    }
     for (const symbol of job.symbols) {
       job.current = symbol;
-      const row = { symbol, available: false, sheet: null, note: null, error: "" };
+      const row = { symbol, available: false, sheet: null, direction: null, note: null, error: "" };
       try {
         if (news) {
           job.step = "news";
@@ -211,9 +220,16 @@ class Research {
         const { brief, verdict } = await ai.brief(symbol);
         row.available = true;
         row.sheet = sheet(brief, verdict);
+        // the direction: every lens weighed into one call (works without an AI key)
+        job.step = "direction";
+        const [edge, profile] = await Promise.all([
+          typeof ai.market.edge === "function" ? ai.market.edge(symbol).catch(() => null) : null,
+          typeof ai.market.behaviour === "function" ? ai.market.behaviour(symbol).catch(() => null) : null,
+        ]);
+        row.direction = buildDirection({ sheet: row.sheet, edge, profile, market: tide });
         if (client) {
           job.step = "analysis";
-          const user = `Trading-skills file:\n\n${ai.playbook.read()}\n\n---\n\n${job.phase === "pre" ? "PRE-MARKET" : "POST-MARKET"} research for ${symbol}. Data sheet:\n\n${JSON.stringify(brief)}\n\n---\n\nWrite the research note for ${symbol}.`;
+          const user = `Trading-skills file:\n\n${ai.playbook.read()}\n\n---\n\n${job.phase === "pre" ? "PRE-MARKET" : "POST-MARKET"} research for ${symbol}. Data sheet:\n\n${JSON.stringify(brief)}\n\n---\n\nThe desk's own multi-lens direction (arithmetic on the readings, including the forward-tested measured odds) — agree or disagree with it, and say why:\n\n${JSON.stringify(row.direction)}\n\n---\n\nWrite the research note for ${symbol}.`;
           const answer = await client.ask({ system: RESEARCH_SYSTEM, user, schema: RESEARCH_SCHEMA, effort: "medium", maxTokens: 12000 });
           const d = answer.data;
           const kl = d.key_levels || {};

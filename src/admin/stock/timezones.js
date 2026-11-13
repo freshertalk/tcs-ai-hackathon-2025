@@ -105,3 +105,51 @@ export function clockParts(tz, date = new Date(), hour12 = false) {
     date: new Intl.DateTimeFormat("en-GB", { timeZone: tz, weekday: "short", day: "numeric", month: "short" }).format(date),
   };
 }
+
+/* ------------------------------------------------------- the time zone converter */
+
+// Some browsers list a few zones under their old names (Asia/Calcutta, Asia/Katmandu,
+// Asia/Saigon …). The current names are added, so the ones people look for are always there.
+const MODERN = ["UTC", "Asia/Kolkata", "Asia/Kathmandu", "Asia/Ho_Chi_Minh", "Asia/Yangon", "Europe/Kyiv", "America/Nuuk", "Pacific/Kanton"];
+/** Old name → current name, for the zones a browser may still report by their old names. */
+export const ALIASES = { "Asia/Calcutta": "Asia/Kolkata", "Asia/Katmandu": "Asia/Kathmandu", "Asia/Saigon": "Asia/Ho_Chi_Minh", "Asia/Rangoon": "Asia/Yangon", "Europe/Kiev": "Europe/Kyiv", "America/Godthab": "America/Nuuk", "Pacific/Enderbury": "Pacific/Kanton" };
+export const currentZoneName = (tz) => ALIASES[tz] || tz;
+
+/** Every time zone the browser knows (IANA names), sorted, with UTC first. */
+export function allZones() {
+  let list = [];
+  try {
+    if (typeof Intl.supportedValuesOf === "function") list = Intl.supportedValuesOf("timeZone") || [];
+  } catch (_) {
+    list = [];
+  }
+  if (!list.length) list = ["Europe/Berlin", "Europe/Paris", "Asia/Dubai", "Asia/Hong_Kong", "Australia/Sydney", "America/Chicago", "America/Los_Angeles"];
+  const all = new Set([...list, ...MODERN, ...ZONES.map((z) => z.tz)]);
+  all.delete("UTC");
+  Object.keys(ALIASES).forEach((old) => all.delete(old));
+  return ["UTC", ...[...all].sort()];
+}
+
+/**
+ * The moment when a wall clock in `tz` shows `local` ("YYYY-MM-DDTHH:mm").
+ * Found by correcting for the zone's offset twice, which settles daylight-saving edges.
+ * @returns Date, or null for a bad input
+ */
+export function wallTimeToDate(local, tz) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(String(local || ""));
+  if (!m) return null;
+  const asUtc = Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]);
+  let t = asUtc - tzOffsetMinutes(tz, new Date(asUtc)) * 60000;
+  t = asUtc - tzOffsetMinutes(tz, new Date(t)) * 60000;
+  return new Date(t);
+}
+
+/** "YYYY-MM-DDTHH:mm" as the wall clock in `tz` shows it at `date`. */
+export function dateToWallTime(date, tz) {
+  const p = Object.fromEntries(
+    new Intl.DateTimeFormat("en-GB", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" })
+      .formatToParts(date)
+      .map((x) => [x.type, x.value])
+  );
+  return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}`;
+}

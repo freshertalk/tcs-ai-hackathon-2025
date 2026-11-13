@@ -15,6 +15,7 @@ module.exports = {
       env: {
         NODE_ENV: "production",
         PORT: "5100",
+        HOST: "127.0.0.1", // reachable only through nginx
         PUBLIC_ORIGIN: "https://vinaytiwari.org",
         TRUST_PROXY: "1", // nginx sits in front: trust its X-Forwarded-* headers
       },

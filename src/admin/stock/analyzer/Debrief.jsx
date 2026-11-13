@@ -15,6 +15,7 @@ import { day as dayText, inr, isNum, num, pct, tone, when } from "./format";
 import { fmtR, WHY } from "./debriefMath";
 import { NetBar, ReplayStrip, RunningTotal } from "./DebriefCharts";
 import "./analyzer.css";
+import DebriefGuide from "./DebriefGuide";
 
 const COSTS = [
   { v: "0", label: "None" },
@@ -341,6 +342,7 @@ export default function Debrief({ onOpen = null }) {
 
   return (
     <div className="db">
+      <DebriefGuide />
       <section className="an-card">
         <header className="an-card__head">
           <div>

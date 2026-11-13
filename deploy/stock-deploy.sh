@@ -6,6 +6,7 @@
 #   stock-deploy --force    reinstall, rebuild and restart even if nothing changed
 #   stock-deploy --doctor   check the wiring: pm2, the app's port, and whether the public address reaches the app
 #   stock-deploy --nginx    print the nginx rules that pass /api and /me to the app
+#   stock-deploy --nginx-limits  print nginx's flood limits (they go in /etc/nginx/conf.d)
 #   stock-deploy --help     this text
 #
 # What it does, in order, stopping at the first thing that fails:
@@ -48,8 +49,9 @@ main() {
     --install) mode="install" ;;
     --doctor) mode="doctor" ;;
     --nginx) mode="nginx" ;;
+    --nginx-limits) mode="limits" ;;
     -h | --help)
-      sed -n '2,22p' "$self" | sed 's/^# \{0,1\}//'
+      sed -n '2,23p' "$self" | sed 's/^# \{0,1\}//'
       return 0
       ;;
     *) die "unknown option '$1'. Try: stock-deploy --help" ;;
@@ -146,14 +148,18 @@ location ^~ /api/ {
     proxy_buffering off;      # live prices and order updates are streams: pass them on at once
     proxy_read_timeout 1h;    # a stream stays open; research and AI answers can take minutes
     client_max_body_size 8m;  # a tradebook CSV for the journal can be a few megabytes
+    limit_req zone=__APP___api burst=120 nodelay;   # flood limits: see stock-deploy --nginx-limits
+    limit_conn __APP___conn 60;
 }
 location = /me {
+    limit_req zone=__APP___pages burst=30 nodelay;
     proxy_pass http://127.0.0.1:__PORT__;
     proxy_set_header Host $host;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $scheme;
 }
 location ^~ /me/ {
+    limit_req zone=__APP___pages burst=30 nodelay;
     proxy_pass http://127.0.0.1:__PORT__;
     proxy_set_header Host $host;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -161,27 +167,96 @@ location ^~ /me/ {
 }
 NGINX
   }
+  # nginx's flood limits: per visitor address, requests a second and open connections. These
+  # lines belong in nginx's http section, which reads every file in /etc/nginx/conf.d.
+  nginx_limits() {
+    sed "s/__APP__/$app/g" << 'NGINX'
+# Flood limits for __APP__, per visitor address. Printed by:  stock-deploy --nginx-limits
+# Save as /etc/nginx/conf.d/__APP__-limits.conf (nginx reads that folder in its http section).
+limit_req_zone $binary_remote_addr zone=__APP___api:10m rate=20r/s;
+limit_req_zone $binary_remote_addr zone=__APP___pages:10m rate=5r/s;
+limit_conn_zone $binary_remote_addr zone=__APP___conn:10m;
+limit_req_status 429;
+limit_conn_status 429;
+NGINX
+  }
   if [ "$mode" = "nginx" ]; then
     nginx_rules
     return 0
   fi
+  if [ "$mode" = "limits" ]; then
+    nginx_limits
+    return 0
+  fi
 
-  # What to do when the public address does not reach the app: said once, in one place.
+  # What to do when the public address does not reach the app. It looks at how far the nginx
+  # side has got and prints only the lines still needed, ready to copy — no editor required.
   nginx_help() {
-    local files
-    files="$(grep -Rls "$host" /etc/nginx/sites-enabled /etc/nginx/conf.d 2> /dev/null | tr '\n' ' ' || true)"
+    local ngx="${STOCK_DEPLOY_NGINX_DIR:-/etc/nginx}"
+    local rules="$ngx/snippets/${app}-app.conf"
+    local files file="" name have_rules=0 have_line=0
+    files="$(grep -Rls "$host" "$ngx/sites-enabled" "$ngx/conf.d" 2> /dev/null || true)"
+    if [ -n "$files" ] && [ "$(printf '%s\n' "$files" | wc -l)" -eq 1 ]; then file="$files"; fi
+    if [ -s "$rules" ]; then have_rules=1; fi
+    if [ -n "$file" ] && grep -q "snippets/${app}-app.conf" "$file" 2> /dev/null; then have_line=1; fi
+
     note "nginx is serving this site's files itself and answers /api with the site's own page,"
-    note "so nothing under /api (sign-in included) reaches the app. The fix is in nginx:"
+    note "so nothing under /api (sign-in included) reaches the app. The app is fine. nginx needs"
+    note "two things: the pass-through rules, and one line in the site's file that switches them on."
     note ""
-    note "  1. Write the pass-through rules:"
-    note "       stock-deploy --nginx | sudo tee /etc/nginx/snippets/${app}-app.conf > /dev/null"
-    note "  2. Open the site's nginx file${files:+ ($files)}:"
-    if [ -z "$files" ]; then note "       find it with:  sudo grep -Rl \"$host\" /etc/nginx/sites-enabled /etc/nginx/conf.d"; fi
-    note "     In the block that has \"listen 443\" and \"server_name $host\", add this line"
-    note "     just above its \"location / {\" line:"
-    note "       include snippets/${app}-app.conf;"
-    note "  3. sudo nginx -t && sudo systemctl reload nginx"
-    note "  4. stock-deploy --doctor"
+    if [ "$have_rules" = 1 ]; then note "  the rules file ($rules) ...... ${G}there${N}"; else note "  the rules file ($rules) ...... ${R}missing${N}"; fi
+    if [ -z "$file" ]; then
+      note "  the site's nginx file ...... ${Y}not identified${N}"
+    elif [ "$have_line" = 1 ]; then
+      note "  the line in $file ...... ${G}there${N}"
+    else
+      note "  the line in $file ...... ${R}missing${N}"
+    fi
+    note ""
+
+    if [ -z "$file" ]; then
+      note "Find the file that holds this site:"
+      note "    sudo grep -Rl \"$host\" $ngx/sites-enabled $ngx/conf.d"
+      note "Write the rules:"
+      note "    sudo mkdir -p $ngx/snippets && stock-deploy --nginx | sudo tee $rules > /dev/null"
+      note "In that file, inside the block with \"listen 443\", add this line after the server_name line:"
+      note "    include snippets/${app}-app.conf;"
+      note "Then:"
+      note "    sudo nginx -t && sudo systemctl reload nginx"
+      note "    stock-deploy --doctor"
+      return 0
+    fi
+
+    name="$(basename "$file")"
+    # printed for sed exactly as it must be typed: the backslash keeps the line's indent
+    local add='/^[[:space:]]*server_name[[:space:]]/a\    include snippets/'"${app}"'-app.conf;'
+    if [ "$have_rules" = 1 ] && [ "$have_line" = 1 ]; then
+      note "Both are in place, so nginx has not taken them up yet (or its test fails). Run:"
+      note ""
+      note "    sudo nginx -t && sudo systemctl reload nginx"
+      note "    stock-deploy --doctor"
+      note ""
+      note "If that still says NO, another nginx file is answering for this address:"
+      note "    sudo nginx -T 2>/dev/null | grep -n \"server_name\|listen\""
+      return 0
+    fi
+    note "Copy these lines one at a time (the first asks for your sudo password):"
+    note ""
+    if [ "$have_rules" = 0 ]; then
+      note "    stock-deploy --nginx-limits | sudo tee $ngx/conf.d/${app}-limits.conf > /dev/null"
+      note "    sudo mkdir -p $ngx/snippets && stock-deploy --nginx | sudo tee $rules > /dev/null"
+    fi
+    if [ "$have_line" = 0 ]; then
+      note "    cp $file ~/$name.before && sudo sed -i --follow-symlinks '$add' $file"
+    fi
+    note "    sudo nginx -t && sudo systemctl reload nginx"
+    note "    stock-deploy --doctor"
+    note ""
+    if [ "$have_line" = 0 ]; then
+      note "If the nginx test prints an error instead of \"test is successful\", put the file back"
+      note "(nothing is reloaded when the test fails, so the site keeps running as it is):"
+      note "    sudo cp ~/$name.before $file"
+    fi
   }
 
   # After a deploy: does the address people use actually reach the app?

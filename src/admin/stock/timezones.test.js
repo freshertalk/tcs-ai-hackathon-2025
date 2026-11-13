@@ -106,3 +106,21 @@ describe("clock face", () => {
     expect(clockParts(tz("in"), new Date("2026-11-11T18:30:30Z")).hm).toBe("00:00");
   });
 });
+
+describe("the time zone converter", () => {
+  const { allZones, wallTimeToDate, dateToWallTime } = require("./timezones");
+  test("a wall time in one zone becomes the same moment in another, daylight saving included", () => {
+    const d = wallTimeToDate("2026-11-13T09:15", "Asia/Kolkata");
+    expect(d.toISOString()).toBe("2026-11-13T03:45:00.000Z");
+    expect(dateToWallTime(d, "America/New_York")).toBe("2026-11-12T22:45"); // EST, UTC−5
+    expect(dateToWallTime(wallTimeToDate("2026-07-01T09:15", "Asia/Kolkata"), "America/New_York")).toBe("2026-06-30T23:45"); // EDT, UTC−4
+    expect(dateToWallTime(wallTimeToDate("2026-11-13T09:15", "Asia/Kolkata"), "Asia/Kathmandu")).toBe("2026-11-13T09:30");
+    expect(wallTimeToDate("nonsense", "UTC")).toBeNull();
+  });
+  test("the list of zones is the browser's full list, with UTC", () => {
+    const z = allZones();
+    expect(z.length).toBeGreaterThan(10); // a browser lists ~400; the test runner may only have the short fallback
+    expect(z).toContain("UTC");
+    expect(z).toContain("Asia/Kolkata");
+  });
+});

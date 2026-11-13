@@ -1,15 +1,17 @@
+// The door to the private area. It says plainly, and politely, that this is a personal space;
+// no address or name of an account is shown, and having a Google account is not enough.
+
 import React from "react";
 import { useSearchParams } from "react-router-dom";
-import { Alert } from "./ui";
-import { IconGoogle } from "./icons";
+import { IconGoogle, IconShield } from "./icons";
 
 const ERRORS = {
-  denied: "Google sign-in was cancelled.",
-  state: "That sign-in attempt expired or did not match. Please try again.",
-  google: "Google could not complete the sign-in. Please try again.",
-  unverified: "That Google account's email address is not verified.",
-  unauthorized: "That Google account does not have access to this area.",
-  "not-configured": "Google sign-in has not been set up yet.",
+  denied: "The Google sign-in was cancelled. You may try again whenever you wish.",
+  state: "That sign-in attempt expired or did not match. Please try once more.",
+  google: "Google could not complete the sign-in. Please try once more.",
+  unverified: "That Google account does not have a verified email address.",
+  unauthorized: "Thank you for your interest — this account does not have access to this area.",
+  "not-configured": "Sign-in has not been set up yet.",
 };
 
 export default function Login() {
@@ -17,27 +19,41 @@ export default function Login() {
   const error = ERRORS[params.get("error")];
 
   return (
-    <main className="adm-center">
-      <section className="adm-card adm-card--login">
-        <p className="adm-eyebrow">Private area</p>
-        <h1>Vinay&rsquo;s control room</h1>
-        <p className="adm-lead">
-          This is a very personal setup and is not for public use. Sign in with an authorised
-          Google account to continue.
-        </p>
+    <main className="gate">
+      <section className="gate__panel" aria-labelledby="gate-title">
+        <span className="gate__badge" aria-hidden="true">
+          <IconShield />
+        </span>
+        <p className="gate__kicker">Private area</p>
+        <h1 id="gate-title">Vinay&rsquo;s control room</h1>
 
-        <Alert>{error}</Alert>
+        <div className="gate__notice" role="note">
+          <p>
+            Namaste, and thank you for visiting. This area is a personal workspace of <b>Vinay Kumar Tiwari</b>. It is
+            not a public service and is not intended for visitors.
+          </p>
+          <p>
+            If you have reached this page by chance, we kindly request that you do not attempt to enter. You are most
+            welcome on the public website instead.
+          </p>
+        </div>
+
+        {error && (
+          <p className="gate__error" role="alert">
+            {error}
+          </p>
+        )}
 
         {/* a normal link, not fetch(): the browser has to follow Google's redirects */}
-        <a className="adm-google" href="/api/auth/google/start">
+        <a className="gate__google" href="/api/auth/google/start">
           <IconGoogle />
-          <span>Login with Google</span>
+          <span>Sign in with Google</span>
         </a>
+        <p className="gate__fine">Only accounts authorised by the owner can sign in. Every attempt is checked by the server.</p>
 
-        <p className="adm-small">
-          Only the owner and the admins the owner has added can sign in. Having a Google account is
-          not enough.
-        </p>
+        <a className="gate__home" href="/">
+          ← Go to the public website
+        </a>
       </section>
     </main>
   );
