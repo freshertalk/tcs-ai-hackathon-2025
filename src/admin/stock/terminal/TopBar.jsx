@@ -10,6 +10,8 @@ import { adminPath } from "../../paths";
 import { setTipsEnabled, useTipsEnabled } from "../../help/TipLayer";
 import { useTrade } from "../trade/TradeContext";
 import { num } from "../analyzer/format";
+import { useAlerts } from "./AlertsContext";
+import AlertsPanel from "./AlertsPanel";
 
 const IST = 5.5 * 3600 * 1000;
 function istNow() {
@@ -97,7 +99,9 @@ function UserMenu() {
   );
 }
 
-export default function TopBar({ views, view, onView, theme, onTheme, onHelp }) {
+export default function TopBar({ views, view, onView, theme, onTheme, onHelp, onPalette, symbol, alertsOpen, onAlerts }) {
+  const alerts = useAlerts();
+  const mac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform || "");
   const clock = useClock();
   const kite = useKite();
   const trade = useTrade();
@@ -120,6 +124,12 @@ export default function TopBar({ views, view, onView, theme, onTheme, onHelp }) 
           </button>
         ))}
       </nav>
+
+      <button type="button" className="tm-cmd" onClick={onPalette} data-tip="Search any stock, jump to a workspace, or type a command: “buy sbin 10” opens the order ticket, “alert infy 1500” sets a price alert. Nothing typed here is ever sent as an order without the ticket’s own confirmation.">
+        <span aria-hidden="true">⌕</span>
+        <span className="tm-cmd__text">Search or command</span>
+        <kbd>{mac ? "⌘" : "Ctrl"} K</kbd>
+      </button>
 
       <div className="tm-status">
         <span className={`tm-pill tm-pill--${clock.state}`} data-tip="NSE’s session by the clock (9:15 AM – 3:30 PM IST, Monday to Friday). Exchange holidays are listed under Calendar.">
@@ -152,6 +162,18 @@ export default function TopBar({ views, view, onView, theme, onTheme, onHelp }) 
             P&amp;L <b>{`${pulse.pnl > 0 ? "+" : pulse.pnl < 0 ? "−" : ""}₹${num(Math.abs(pulse.pnl))}`}</b>
             <small>{pulse.open} open</small>
           </button>
+        )}
+        {alerts && (
+          <span className="tm-bell">
+            <button type="button" className={`tm-icon ${alerts.waiting.length ? "has-some" : ""}`} data-alerts-toggle aria-expanded={alertsOpen} aria-label={`Price alerts: ${alerts.waiting.length} waiting`} onClick={() => onAlerts(!alertsOpen)} data-tip="Price alerts: be told when a stock reaches a level. Kept in the database, checked while this terminal is open.">
+              <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M6 8a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8" />
+                <path d="M10 20a2 2 0 0 0 4 0" />
+              </svg>
+              {alerts.waiting.length > 0 && <b>{alerts.waiting.length}</b>}
+            </button>
+            {alertsOpen && <AlertsPanel symbol={symbol} onClose={() => onAlerts(false)} />}
+          </span>
         )}
         <button type="button" className="tm-icon" onClick={onTheme} aria-label={theme === "dark" ? "Light theme" : "Dark theme"} data-tip="Switch between dark and light. Shortcut: T.">
           {theme === "dark" ? "☀" : "☾"}

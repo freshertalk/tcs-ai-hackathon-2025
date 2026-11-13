@@ -9,7 +9,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { api } from "../../api";
+import { api, peek } from "../../api";
 import { Alert, Loading } from "../../ui";
 import ConnectPanel from "./ConnectPanel";
 import Watchlist, { SymbolSearch } from "./Watchlist";
@@ -29,15 +29,24 @@ export default function Analyzer() {
     const s = (params.get("s") || "").trim().toUpperCase();
     fromUrl.current = SYMBOL_RE.test(s) ? s : null;
   }
-  const [status, setStatus] = useState(null);
+  // coming back to the Desk: the last known connection state and watchlist are used at once,
+  // and corrected a moment later by the fresh read below
+  const [status, setStatus] = useState(() => peek("/api/admin/market/status"));
   const [error, setError] = useState("");
-  const [symbols, setSymbols] = useState([]);
+  const [symbols, setSymbols] = useState(() => {
+    const seenBefore = peek("/api/admin/market/status");
+    return seenBefore && Array.isArray(seenBefore.watchlist) ? seenBefore.watchlist : [];
+  });
   const [selected, setSelected] = useState(fromUrl.current);
   // a stock being looked at without being on the watchlist
   const [adhoc, setAdhoc] = useState(fromUrl.current);
   const [quotes, setQuotes] = useState({ quotes: {}, live: false, at: null });
   const [quoteError, setQuoteError] = useState("");
-  const [scan, setScan] = useState({ rows: null, loading: false });
+  // coming back to the Desk, the watchlist's last scan is on screen at once
+  const [scan, setScan] = useState(() => {
+    const seenBefore = peek("/api/admin/market/scan");
+    return { rows: seenBefore ? seenBefore.rows : null, loading: false };
+  });
   const [listError, setListError] = useState("");
 
   // the result of the Kite login round trip arrives as ?kite=connected | error
@@ -113,6 +122,13 @@ export default function Analyzer() {
     if (!symbols.includes(symbol)) setAdhoc(symbol);
     setSelected(symbol);
   };
+  // a stock opened from outside the Desk while it is on screen — the command palette, the
+  // Advisor, a link — arrives through the address bar
+  const urlSymbol = (params.get("s") || "").trim().toUpperCase();
+  useEffect(() => {
+    if (!status || !urlSymbol || urlSymbol === selected || !SYMBOL_RE.test(urlSymbol)) return;
+    pick(urlSymbol);
+  }, [urlSymbol]); // eslint-disable-line react-hooks/exhaustive-deps
   // the open stock's quote is polled too when it is not on the watchlist
   const extra = selected && !symbols.includes(selected) ? selected : "";
 

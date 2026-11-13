@@ -4,11 +4,18 @@
 //
 // It sends nothing while trading is switched off (the server refuses too). A fresh
 // reference goes with each ticket, so a double click or a retry cannot place it twice.
+//
+// Two things a broker's ticket does not do for you:
+//   • the exit plan — a stop, a target and the money you accept losing give the quantity, the
+//     rupees at risk and the reward-to-risk ratio before you buy. The stop is not sent with
+//     the order: once the entry fills, the terminal offers the stop-loss order to confirm.
+//   • the pre-trade check — the margin and the charges by Zerodha's own calculator, what is
+//     available, and whether your per-order limits and the risk guard would let it through.
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../../api";
 import { inr, isNum, num } from "../analyzer/format";
-import { CASH, describe, newRef, ticketProblem } from "./tradeMath";
+import { CASH, describe, newRef, planNumbers, sizeForRisk, ticketProblem } from "./tradeMath";
 
 const TYPES = [
   { id: "MARKET", label: "Market" },
@@ -32,6 +39,14 @@ export default function OrderTicket({ prefill, enabled, connected, limits, onClo
     variety: "regular",
     protection: "",
   }));
+  const given = prefill.plan || null;
+  const [plan, setPlan] = useState(() => ({
+    stop: given && isNum(given.stop) ? String(given.stop) : "",
+    target: given && isNum(given.target) ? String(given.target) : "",
+    risk: given && isNum(given.risk) ? String(given.risk) : "",
+  }));
+  const [planOpen, setPlanOpen] = useState(Boolean(given));
+  const [check, setCheck] = useState(null); // the pre-trade check, or null while there is none
   const [ltp, setLtp] = useState(isNum(prefill.ltp) ? prefill.ltp : null);
   const [step, setStep] = useState("edit"); // edit → confirm → sending
   const [error, setError] = useState("");
@@ -68,6 +83,38 @@ export default function OrderTicket({ prefill, enabled, connected, limits, onClo
   const overLimit = limits && ((value && value > limits.maxValue) || Number(t.quantity) > limits.maxQty);
   const blocked = !enabled ? "Trading is switched OFF. Turn it on in Positions & orders to place orders." : !connected ? "Zerodha is not connected. Log in to Kite on the Trading desk." : "";
   const words = useMemo(() => describe(t), [t]);
+  const pn = planOpen ? planNumbers({ side: t.side, entry: px, stop: plan.stop, target: plan.target, quantity: t.quantity }) : null;
+  const sized = planOpen ? sizeForRisk(plan.risk, px, plan.stop) : 0;
+  const planOut = planOpen && Number(plan.stop) > 0 && pn && !pn.problem ? { stop: Number(plan.stop), target: Number(plan.target) > 0 ? Number(plan.target) : null } : null;
+
+  // the pre-trade check, a moment after the ticket stops changing
+  const checkBody = useMemo(() => {
+    if (problem || !connected) return null;
+    const b = { exchange: t.exchange, symbol: t.symbol, side: t.side, product: t.product, type: t.type, quantity: Number(t.quantity), validity: t.validity, variety: t.variety };
+    if (t.type === "LIMIT" || t.type === "SL") b.price = t.price;
+    if (t.type === "SL" || t.type === "SL-M") b.trigger = t.trigger;
+    if (t.protection !== "") b.protection = t.protection;
+    return b;
+  }, [problem, connected, t]);
+  const ltpNow = useRef(ltp);
+  ltpNow.current = ltp;
+  useEffect(() => {
+    if (!checkBody) {
+      setCheck(null);
+      return undefined;
+    }
+    let alive = true;
+    const id = setTimeout(() => {
+      api("/api/admin/trading/preview", { method: "POST", body: { ...checkBody, refPrice: ltpNow.current || undefined } })
+        .then((d) => alive && setCheck(d))
+        .catch(() => alive && setCheck(null));
+    }, 350);
+    return () => {
+      alive = false;
+      clearTimeout(id);
+    };
+  }, [checkBody]);
+  const failed = check ? check.checks.filter((c) => !c.ok && c.id !== "switch") : [];
 
   const send = async () => {
     setStep("sending");
@@ -78,7 +125,7 @@ export default function OrderTicket({ prefill, enabled, connected, limits, onClo
       if (!(t.type === "SL" || t.type === "SL-M")) delete body.trigger;
       if (body.protection === "") delete body.protection;
       const r = await api("/api/admin/trading/orders", { method: "POST", body });
-      onPlaced(r, t);
+      onPlaced(r, t, planOut);
     } catch (e) {
       // a refused order may be corrected and sent again: it gets a new reference
       ref.current = newRef();
@@ -131,6 +178,7 @@ export default function OrderTicket({ prefill, enabled, connected, limits, onClo
 
         {step !== "confirm" ? (
           <div className="tr-ticket__body">
+            {prefill.note && <p className="tr-plan__src">{prefill.note}</p>}
             {!prefill.symbol && (
               <label className="tr-field tr-field--wide">
                 <span>Symbol</span>
@@ -190,7 +238,78 @@ export default function OrderTicket({ prefill, enabled, connected, limits, onClo
               </div>
             )}
 
-            {(problem || blocked || overLimit || error) && (
+            <button type="button" className="tr-more" aria-expanded={planOpen} onClick={() => setPlanOpen((p) => !p)} data-tip="Decide the exit before the entry: a stop, a target, and the money you accept losing. The ticket then shows the rupees at risk, the reward-to-risk ratio and the quantity that fits your risk.">
+              {planOpen ? "Hide the exit plan" : "Plan the exit: stop, target, size by risk"}
+            </button>
+            {planOpen && (
+              <div className="tr-plan">
+                {given && given.source && <p className="tr-plan__src">{given.source}</p>}
+                <div className="tr-grid">
+                  <label className="tr-field">
+                    <span>Stop</span>
+                    <input type="number" inputMode="decimal" min="0" step="0.05" value={plan.stop} onChange={(e) => setPlan((p) => ({ ...p, stop: e.target.value }))} />
+                  </label>
+                  <label className="tr-field">
+                    <span>Target</span>
+                    <input type="number" inputMode="decimal" min="0" step="0.05" value={plan.target} onChange={(e) => setPlan((p) => ({ ...p, target: e.target.value }))} />
+                  </label>
+                  <label className="tr-field">
+                    <span>Risk ₹</span>
+                    <input type="number" inputMode="numeric" min="0" step="100" value={plan.risk} onChange={(e) => setPlan((p) => ({ ...p, risk: e.target.value }))} />
+                  </label>
+                </div>
+                <div className="tr-plan__sum">
+                  {pn && pn.risk !== null ? (
+                    <span>
+                      If stopped <b className="is-down">−{inr(pn.risk)}</b>
+                    </span>
+                  ) : (
+                    <span>{isNum(px) ? "Enter a stop to see the money at risk." : "Waiting for a price."}</span>
+                  )}
+                  {pn && pn.reward !== null && (
+                    <span>
+                      At the target <b className="is-up">+{inr(pn.reward)}</b>
+                    </span>
+                  )}
+                  {pn && pn.rr !== null && (
+                    <span data-tip="How many rupees the target would make for each rupee the stop would lose.">
+                      Reward : risk <b>{pn.rr.toFixed(2)}</b>
+                    </span>
+                  )}
+                  {sized > 0 && String(sized) !== String(t.quantity) && (
+                    <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm" onClick={() => setT((x) => ({ ...x, quantity: String(sized) }))} data-tip="Set the quantity so that being stopped out loses about the risk you entered: the risk divided by the distance from the entry to the stop.">
+                      Use {num(sized, 0)} shares for {inr(Number(plan.risk), 0)}
+                    </button>
+                  )}
+                </div>
+                {pn && pn.problem && <p className="tr-note is-warn">{pn.problem}</p>}
+                <p className="vd-note">The stop and target are not sent with this order. When the entry fills, the terminal offers the stop-loss order for you to confirm.</p>
+              </div>
+            )}
+
+            {check && (check.margin !== null || check.available !== null) && (
+              <dl className="tr-pre" data-tip="The pre-trade check: Zerodha's own calculator for the margin this order blocks and the charges it costs, against what your account has available. Nothing is reserved by checking.">
+                <div>
+                  <dt>Margin needed</dt>
+                  <dd>{check.reduces ? "None — it closes what you hold" : check.margin !== null ? inr(check.margin) : "—"}</dd>
+                </div>
+                <div>
+                  <dt>Available</dt>
+                  <dd className={check.enough === false ? "is-down" : ""}>{check.available !== null ? inr(check.available) : "—"}</dd>
+                </div>
+                <div>
+                  <dt>Charges</dt>
+                  <dd>{check.charges ? inr(check.charges.total) : "—"}</dd>
+                </div>
+              </dl>
+            )}
+            {failed.map((c) => (
+              <p key={c.id} className="tr-note is-warn">
+                {c.text}
+              </p>
+            ))}
+
+            {(problem || blocked || (overLimit && !check) || error) && (
               <p className={`tr-note ${error || blocked ? "is-bad" : "is-warn"}`} role="alert">
                 {error || blocked || problem || `Over your per-order limit (${limits.maxQty} shares / ₹${num(limits.maxValue, 0)}). The server will refuse it unless it only closes an existing position.`}
               </p>
@@ -200,6 +319,29 @@ export default function OrderTicket({ prefill, enabled, connected, limits, onClo
           <div className="tr-ticket__body tr-confirm">
             <p className="tr-confirm__what">{words}</p>
             {value && <p>Approximate value: {inr(value)}</p>}
+            {check && check.margin !== null && (
+              <p>
+                {check.reduces ? "Closes or reduces what you hold" : `Margin needed ${inr(check.margin)}`}
+                {check.charges ? ` · charges about ${inr(check.charges.total)}` : ""}
+                {check.available !== null ? ` · available ${inr(check.available)}` : ""}
+              </p>
+            )}
+            {failed.map((c) => (
+              <p key={c.id} className="tr-note is-warn">
+                {c.text}
+              </p>
+            ))}
+            {planOut && pn && (
+              <p>
+                Your plan: stop {inr(planOut.stop)} — about <b className="is-down">−{inr(pn.risk)}</b> if it is hit
+                {planOut.target && pn.reward !== null ? (
+                  <>
+                    ; target {inr(planOut.target)} — about <b className="is-up">+{inr(pn.reward)}</b>
+                  </>
+                ) : null}
+                . The stop is offered as a separate order once this one fills.
+              </p>
+            )}
             <p className="tr-note is-warn">This sends a real order to your Zerodha account. Check the Orders tab afterwards: an order being accepted does not mean it was filled.</p>
           </div>
         )}

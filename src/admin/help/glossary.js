@@ -421,9 +421,40 @@ const ENTRIES = [
   [["Data sheet"], "The desk’s raw numbers for the stock: indicators, levels, setups, backtests and the multi-time-frame view.", ".rs"],
   [["AI notes"], "Have the AI write a research note per stock and a summary. Off, you get the data sheets only.", ".rs"],
   [["Open on desk"], "Open this stock on the trading desk.", ".rs"],
+
+  /* ---- Advisor: measured odds */
+  [["Advisor"], "Your watchlist read by measured odds: what followed the past days most like today, whether such calls held up when tested forward, and a plan sized for your risk."],
+  [["Measured odds"], "Frequencies from this stock’s own past: how the days most like today turned out, and whether calls like this held up when each was made from earlier data only. Not a forecast."],
+  [["Risk per trade"], "The money you accept losing if a trade hits its stop. Every quantity on the board is this amount divided by the distance to the stop."],
+  [["Does the method work on your watchlist?"], "The forward test of every stock on the board added together. One stock can look good by luck; a method that holds across many is harder to fake."],
+  [["Forward record"], "Every favourable call, written down the day it was made and scored later by the engine’s own rules. It starts empty, and hindsight cannot improve it."],
+  [["Latest calls"], "The most recent favourable readings and, once known, how each one ended in R."],
+  [["How to read this"], "The method in four steps: similar days, two fixed trades, the forward test that decides the grade, and sizing by risk."],
+  [["Swing"], "A trade held for up to ten sessions: in at the next open, stop 1.5 ATR away, target 2.25 ATR.", ".av-kind"],
+  [["Day"], "A trade for one session: in at the open, stop 0.6 ATR away, out at the close.", ".av-kind"],
+  [["The measured odds say"], "What the AI took from the measured odds and their forward test when it made this decision."],
+  [["After similar days"], "Where the stock went, close to close, after the days most like today. No stop, no target, no costs."],
+  [["Most similar days"], "The past days that looked most like today, and what a swing long taken the next morning did, in R after costs."],
+  [["Were its odds honest?"], "Over the forward test: when the similar days said a swing long would win this often, how often did it? Close numbers mean the odds can be believed."],
+
+  /* ---- the ticket's exit plan and pre-trade check */
+  [["Stop"], "The price at which you accept the trade is wrong and get out. It is not sent with the order: after the fill the terminal offers the stop-loss order to confirm.", ".tr-plan"],
+  [["Target"], "The price at which you plan to take the profit. Kept as your plan; not sent as an order.", ".tr-plan"],
+  [["Risk ₹"], "The money you accept losing on this trade. With a stop it gives the quantity that fits.", ".tr-plan"],
+  [["Margin needed"], "What Zerodha’s calculator says this order would block from your funds.", ".tr-pre"],
+  [["Available"], "The margin your account has free right now.", ".tr-pre"],
+  [["Charges"], "Brokerage, taxes and exchange fees for this order, by Zerodha’s calculator.", ".tr-pre"],
+  [["Place the stop…"], "Open the stop-loss order for the entry that just filled, as a ticket. Nothing is sent until you confirm it."],
+
+  /* ---- price alerts and the palette */
+  [["Price alerts"], "Be told when a stock reaches a level: a sound, a note on this page and, if you allow them, a browser notification. Kept in the database; checked while the terminal is open. An alert never trades."],
+  [["Set alert"], "Save this alert. Leave the side on “reaches” and it is taken from the price now."],
+  [["Fired"], "Alerts whose level was reached, with the time and the price seen.", ".tm-alerts"],
+  [["Allow notifications"], "Let this site show a browser notification when an alert fires, even when the tab is in the background."],
 ];
 
 const PATTERNS = [
+  [/^use [\d,]+ shares for /, "Set the quantity so that being stopped out loses about the risk you entered: the risk divided by the distance from the entry to the stop."],
   [/^order limits/, "A guard against a fat finger: an order above these is refused unless it only closes something you already hold."],
   [/^research \d+ stocks?$/, "Run the research for the stocks picked above."],
   [/^trading (on|off)$/, "The master switch for trading from this site. OFF: Buy, Sell, Exit, Modify and Cancel do nothing. ON: they send real orders to Zerodha."],

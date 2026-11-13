@@ -630,3 +630,447 @@
 .tm .vd-note {
   font-size: var(--t-small);
 }
+
+/* ==========================================================================
+   Command palette, price alerts, and the motion pass.
+   ========================================================================== */
+
+/* ---- the search / command button in the top bar */
+.tm-cmd {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 1 250px;
+  min-width: 0;
+  height: 32px;
+  padding: 0 8px 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--ink-3);
+  font: inherit;
+  font-size: var(--t-mid);
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+.tm-cmd:hover,
+.tm-cmd:focus-visible {
+  border-color: var(--accent);
+  color: var(--ink);
+  outline: 0;
+}
+.tm-cmd__text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tm-cmd kbd,
+.tm-pal kbd {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border: 1px solid var(--line-2);
+  border-radius: 4px;
+  font: inherit;
+  font-size: var(--t-tag);
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+
+/* ---- the palette */
+.tm-pal {
+  place-items: start center;
+  padding-top: min(16vh, 140px);
+}
+.tm-pal__box {
+  width: min(640px, 100%);
+  max-height: min(70vh, 560px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--line-2);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.42);
+}
+.tm-pal__in {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--line);
+  color: var(--ink-3);
+  font-size: var(--t-lead);
+}
+.tm-pal__in input {
+  flex: 1;
+  min-width: 0;
+  height: 50px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--t-lead);
+}
+.tm-pal__in input::placeholder {
+  color: var(--ink-3);
+  font-size: var(--t-base);
+}
+.tm-pal__list {
+  flex: 1;
+  margin: 0;
+  padding: 6px;
+  overflow-y: auto;
+  list-style: none;
+}
+.tm-pal__group {
+  padding: 8px 10px 4px;
+  font-size: var(--t-small);
+  color: var(--ink-3);
+}
+.tm-pal__list li[role="option"] {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: var(--t-base);
+  cursor: pointer;
+}
+.tm-pal__list li[role="option"] span {
+  display: grid;
+  min-width: 0;
+}
+.tm-pal__list li[role="option"] b {
+  font-weight: 600;
+}
+.tm-pal__list li[role="option"] small {
+  overflow: hidden;
+  font-size: var(--t-small);
+  color: var(--ink-3);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tm-pal__list li[aria-selected="true"] {
+  background: var(--accent-soft);
+}
+.tm-pal__list li.is-off {
+  cursor: not-allowed;
+}
+.tm-pal__list li.is-off b {
+  color: var(--ink-3);
+}
+.tm-pal__none {
+  padding: 18px 12px;
+  font-size: var(--t-mid);
+  color: var(--ink-3);
+}
+.tm-pal .tr-note {
+  margin: 0 12px 10px;
+}
+.tm-pal__foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  padding: 8px 14px;
+  border-top: 1px solid var(--line);
+  background: var(--surface-2);
+  font-size: var(--t-small);
+  color: var(--ink-3);
+}
+.tm-pal__foot span:last-child {
+  margin-left: auto;
+}
+.tm-pal__foot kbd {
+  margin-right: 3px;
+}
+
+/* ---- the alerts bell and its panel */
+.tm-bell {
+  position: relative;
+  display: inline-flex;
+}
+.tm-bell .tm-icon {
+  position: relative;
+}
+.tm-bell .tm-icon.has-some {
+  color: var(--warn-ink);
+  border-color: var(--warn-line);
+}
+.tm-bell .tm-icon b {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--warn);
+  color: #1a1300;
+  font-size: var(--t-tag);
+  font-weight: 600;
+  line-height: 16px;
+  text-align: center;
+}
+.tm-alerts {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  z-index: 70;
+  display: grid;
+  gap: 10px;
+  width: min(420px, calc(100vw - 24px));
+  max-height: min(70vh, 560px);
+  padding: 14px;
+  overflow-y: auto;
+  border: 1px solid var(--line-2);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.3);
+}
+.tm-alerts h3 {
+  font-size: var(--t-lead);
+  font-weight: 600;
+}
+.tm-alerts h4 {
+  font-size: var(--t-small);
+  font-weight: 600;
+  color: var(--ink-3);
+}
+.tm-alerts__form {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, 1fr);
+  gap: 6px;
+}
+.tm-alerts__form input,
+.tm-alerts__form select {
+  min-width: 0;
+  height: 34px;
+  padding: 0 8px;
+  border: 1px solid var(--line-2);
+  border-radius: 6px;
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--t-mid);
+}
+.tm-alerts__form input:focus-visible,
+.tm-alerts__form select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.tm-alerts__note {
+  grid-column: 1 / 3;
+}
+.tm-alerts__form .adm-btn {
+  height: 34px;
+}
+.tm-alerts__list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.tm-alerts__list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 10px;
+  align-items: center;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: var(--t-mid);
+  font-variant-numeric: tabular-nums;
+}
+.tm-alerts__list li span small {
+  display: block;
+  color: var(--ink-3);
+  font-size: var(--t-small);
+}
+.tm-alerts__list li > small {
+  color: var(--ink-3);
+  font-size: var(--t-small);
+  white-space: nowrap;
+}
+.tm-alerts__list.is-fired li {
+  color: var(--ink-2);
+}
+.tm-alerts__list button {
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--ink-3);
+  font-size: var(--t-lead);
+  line-height: 1;
+  cursor: pointer;
+}
+.tm-alerts__list button:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+.tm-alerts__none,
+.tm-alerts__foot {
+  font-size: var(--t-small);
+  line-height: 1.5;
+  color: var(--ink-3);
+}
+.tm-alerts__foot button {
+  margin-left: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  cursor: pointer;
+}
+.tm-alert-note {
+  bottom: 84px;
+}
+/* a crowded bar keeps the shortcut and drops the words; a narrow one keeps only the icon */
+@media (max-width: 1760px) {
+  .tm-cmd {
+    flex: none;
+  }
+  .tm-cmd__text {
+    display: none;
+  }
+}
+@media (max-width: 1180px) {
+  .tm-cmd {
+    width: 34px;
+    padding: 0;
+    justify-content: center;
+  }
+  .tm-cmd kbd {
+    display: none;
+  }
+}
+
+/* ---- motion: short, soft, and off for anyone who asked for less.
+   Nothing starts from invisible: a page that is drawn late is still readable at once. */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes tm-in {
+    from {
+      opacity: 0.55;
+      transform: translateY(5px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  @keyframes tm-pop {
+    from {
+      opacity: 0.55;
+      transform: translateY(6px) scale(0.985);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  @keyframes tm-veil {
+    from {
+      background-color: rgba(10, 14, 20, 0);
+    }
+  }
+  /* a workspace arriving */
+  .tm-work > * {
+    animation: tm-in 0.22s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  }
+  /* dialogs, the ticket, the palette, menus */
+  .tm ~ .tr-modal,
+  .tr-modal {
+    animation: tm-veil 0.18s ease both;
+  }
+  .tr-modal > * {
+    animation: tm-pop 0.2s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  }
+  .tm-menu,
+  .tm-alerts {
+    animation: tm-pop 0.16s ease both;
+    transform-origin: top right;
+  }
+  .tr-toast {
+    animation: tm-in 0.22s ease both;
+  }
+  /* the things you press answer softly instead of snapping */
+  .tm-tabs button,
+  .tm-pill,
+  .tm-icon,
+  .tm .adm-btn,
+  .tm .tr-btn,
+  .tm-dock__bar {
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+  }
+  .tm .tr-btn:active:not(:disabled),
+  .tm .adm-btn:active:not(:disabled) {
+    transform: translateY(1px);
+  }
+  .tm .an-card,
+  .tm .tr-table tbody tr,
+  .tm .an-table tbody tr {
+    transition: background-color 0.15s ease, border-color 0.2s ease;
+  }
+  .tm .tr-table tbody tr:hover,
+  .tm .an-table tbody tr:hover {
+    background-color: color-mix(in srgb, var(--surface-2) 70%, transparent);
+  }
+  /* tabs inside a stock: the panel under them arrives the same way */
+  .tm [role="tabpanel"] {
+    animation: tm-in 0.2s ease both;
+  }
+}
+.tm {
+  scrollbar-color: var(--line-2) transparent;
+}
+.tm ::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+.tm ::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 8px;
+  background: var(--line-2);
+  background-clip: content-box;
+}
+.tm ::-webkit-scrollbar-thumb:hover {
+  background: var(--ink-3);
+  background-clip: content-box;
+}
+.tm ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* phones and small tablets have no keyboard: the palette becomes a search bar across the first row */
+@media (max-width: 900px) {
+  .tm-cmd {
+    flex: 1 1 auto;
+    width: auto;
+    padding: 0 10px;
+    justify-content: flex-start;
+  }
+  .tm-cmd__text {
+    display: block;
+  }
+  .tm-cmd kbd {
+    display: none;
+  }
+  .tm-alerts {
+    position: fixed;
+    right: 8px;
+    left: 8px;
+    top: 56px;
+    width: auto;
+  }
+}

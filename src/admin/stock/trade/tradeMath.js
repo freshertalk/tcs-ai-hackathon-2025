@@ -86,3 +86,65 @@ export function describe(t) {
   const product = { CNC: "delivery (CNC)", MIS: "intraday (MIS)", NRML: "carry-forward (NRML)" }[t.product] || t.product;
   return `${t.side} ${t.quantity} ${t.symbol} on ${t.exchange} ${px}, ${product}${t.variety === "amo" ? ", after-market order" : ""}`;
 }
+
+/* ------------------------------------------------------------------ the plan */
+
+const round2 = (x) => Math.round(x * 100) / 100;
+
+/**
+ * The money side of a planned trade: what is lost if the stop is hit, what is gained at the
+ * target, and the ratio between them. Says so when a level is on the wrong side of the entry.
+ * @returns null without an entry price and a quantity, else
+ *          { riskPerShare, risk, reward, rr, problem }
+ */
+export function planNumbers({ side, entry, stop, target, quantity }) {
+  const e = Number(entry);
+  const q = Number(quantity);
+  if (!(e > 0) || !(q > 0)) return null;
+  const long = side === "BUY";
+  const s = Number(stop);
+  const t = Number(target);
+  const out = { riskPerShare: null, risk: null, reward: null, rr: null, problem: "" };
+  if (s > 0) {
+    const d = long ? e - s : s - e;
+    if (d <= 0) out.problem = long ? "For a buy, the stop belongs below the entry price." : "For a sell, the stop belongs above the entry price.";
+    else {
+      out.riskPerShare = round2(d);
+      out.risk = round2(d * q);
+    }
+  }
+  if (t > 0) {
+    const g = long ? t - e : e - t;
+    if (g <= 0) out.problem = out.problem || (long ? "For a buy, the target belongs above the entry price." : "For a sell, the target belongs below the entry price.");
+    else {
+      out.reward = round2(g * q);
+      if (out.riskPerShare) out.rr = round2(g / out.riskPerShare);
+    }
+  }
+  return out;
+}
+
+/** Shares for a chosen money risk: the risk divided by the distance from entry to stop, rounded down. */
+export function sizeForRisk(risk, entry, stop) {
+  const d = Math.abs(Number(entry) - Number(stop));
+  if (!(Number(risk) > 0) || !(d > 0) || !(Number(entry) > 0) || !(Number(stop) > 0)) return 0;
+  return Math.floor(Number(risk) / d + 1e-9);
+}
+
+/**
+ * The stop-loss order that protects a filled entry: the opposite side, same product and
+ * quantity, a stop-market order triggered at the stop. It is a ticket to confirm, never
+ * something sent by itself.
+ */
+export function stopTicket(entry, stop) {
+  if (!entry || !(Number(stop) > 0)) return null;
+  return {
+    symbol: entry.symbol,
+    exchange: entry.exchange || "NSE",
+    side: entry.side === "BUY" ? "SELL" : "BUY",
+    product: entry.product,
+    type: "SL-M",
+    quantity: Number(entry.quantity),
+    trigger: Number(stop),
+  };
+}

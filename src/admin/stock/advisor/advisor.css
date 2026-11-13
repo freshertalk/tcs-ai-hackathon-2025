@@ -1,0 +1,754 @@
+/* ==========================================================================
+   The Advisor: the measured-odds board, the odds card, the records.
+   Sizes come from the type steps in admin.css (--t-*); colours from the desk's
+   tokens. Grades: A solid green, B outlined green, C amber (unproven), none muted.
+   ========================================================================== */
+
+.av {
+  display: grid;
+  gap: 10px;
+}
+.av-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 10px 24px;
+}
+.av-head h2 {
+  font-size: var(--t-title);
+  font-weight: 600;
+}
+.av-head p {
+  margin-top: 2px;
+  max-width: 86ch;
+  font-size: var(--t-mid);
+  line-height: 1.5;
+  color: var(--ink-3);
+}
+.av-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px 14px;
+}
+.av-risk {
+  display: grid;
+  gap: 3px;
+  font-size: var(--t-small);
+  color: var(--ink-3);
+}
+.av-risk__in {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--line-2);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink-2);
+  font-size: var(--t-base);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.av-risk__in:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.av-risk__in input {
+  width: 8ch;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  -moz-appearance: textfield;
+}
+.av-risk__in input::-webkit-outer-spin-button,
+.av-risk__in input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.av-seg {
+  display: inline-flex;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+.av-seg button {
+  height: 28px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink-3);
+  font: inherit;
+  font-size: var(--t-mid);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.av-seg button:hover {
+  color: var(--ink);
+}
+.av-seg button[aria-checked="true"] {
+  background: var(--accent-soft);
+  color: var(--ink);
+  font-weight: 600;
+}
+.av-seg button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* ---- the count strip */
+.av-tally {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  align-items: center;
+  font-size: var(--t-mid);
+  color: var(--ink-3);
+}
+.av-tally__n {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  padding: 3px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+}
+.av-tally__n b {
+  color: var(--ink);
+  font-size: var(--t-base);
+  font-variant-numeric: tabular-nums;
+}
+.av-tally__n.is-a {
+  border-color: var(--up-line);
+  background: var(--up-bg);
+}
+.av-tally__n.is-a b,
+.av-tally__n.is-b b {
+  color: var(--up-ink);
+}
+.av-tally__n.is-b {
+  border-color: var(--up-line);
+}
+.av-tally__n.is-c b,
+.av-tally__n.is-w b {
+  color: var(--warn-ink);
+}
+.av-tally__n.is-c,
+.av-tally__n.is-w {
+  border-color: var(--warn-line);
+}
+.av-tally__busy {
+  padding-left: 4px;
+  color: var(--ink-3);
+}
+
+/* ---- grades */
+.av-grade {
+  display: inline-block;
+  padding: 1px 8px;
+  border: 1px solid var(--line-2);
+  border-radius: 4px;
+  font-size: var(--t-tag);
+  font-weight: 600;
+  line-height: 1.6;
+  color: var(--ink-3);
+  white-space: nowrap;
+  vertical-align: 1px;
+}
+.av-grade--A {
+  border-color: var(--up);
+  background: var(--up);
+  color: var(--on-solid);
+}
+.av-grade--B {
+  border-color: var(--up-line);
+  background: var(--up-bg);
+  color: var(--up-ink);
+}
+.av-grade--C {
+  border-color: var(--warn-line);
+  background: var(--warn-bg);
+  color: var(--warn-ink);
+}
+
+/* ---- the odds bar: share that won, the cautious bound (tick) and the halfway line */
+.av-bar {
+  position: relative;
+  display: block;
+  width: 100%;
+  max-width: 132px;
+  height: 4px;
+  margin-top: 5px;
+  border-radius: 2px;
+  background: var(--neutral-bar);
+}
+.av-bar i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 2px;
+  background: var(--ink-3);
+  transition: width 0.4s ease;
+}
+.av-bar.is-on i {
+  background: var(--up);
+}
+.av-bar b {
+  position: absolute;
+  top: -3px;
+  width: 2px;
+  height: 10px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background: var(--ink);
+}
+.av-bar u {
+  position: absolute;
+  top: -2px;
+  left: 50%;
+  width: 1px;
+  height: 8px;
+  background: var(--line-2);
+}
+
+/* ---- the board */
+.av-board {
+  padding: 0 !important;
+  overflow: hidden;
+}
+.av-scroll {
+  overflow-x: auto;
+}
+.av-table {
+  width: 100%;
+  min-width: 940px;
+  border-collapse: collapse;
+  font-size: var(--t-base);
+  font-variant-numeric: tabular-nums;
+}
+.av-table thead th {
+  position: sticky;
+  top: 0;
+  padding: 9px 10px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+  font-size: var(--t-small);
+  font-weight: 400;
+  color: var(--ink-3);
+  text-align: left;
+  white-space: nowrap;
+}
+.av-table thead th.is-num,
+.av-table td.is-num {
+  text-align: right;
+}
+.av-row > th,
+.av-row > td {
+  padding: 9px 10px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+  font-weight: 400;
+}
+.av-row {
+  transition: background 0.15s ease;
+}
+.av-row:hover {
+  background: var(--surface-2);
+}
+.av-row > th {
+  box-shadow: inset 3px 0 0 transparent;
+}
+.av-row--A > th {
+  box-shadow: inset 3px 0 0 var(--up);
+}
+.av-row--B > th {
+  box-shadow: inset 3px 0 0 var(--up-line);
+}
+.av-row--C > th {
+  box-shadow: inset 3px 0 0 var(--warn-line);
+}
+.av-row.is-open {
+  background: var(--surface-2);
+}
+.av-row.is-open > th,
+.av-row.is-open > td {
+  border-bottom-color: transparent;
+}
+.av-row small {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--t-small);
+  color: var(--ink-3);
+}
+.av-row td > b + small:not(.av-warn):not(.av-mute) {
+  display: inline;
+  margin-left: 2px;
+}
+.av-row td > small + small {
+  display: block;
+  margin-left: 0;
+}
+.av-sym {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.av-sym i {
+  width: 10px;
+  font-style: normal;
+  font-size: var(--t-small);
+  color: var(--ink-3);
+}
+.av-sym:hover {
+  color: var(--accent);
+}
+.av-sym:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 3px;
+}
+.av-px b {
+  margin-left: 4px;
+  font-weight: 400;
+}
+.av-long {
+  color: var(--buy);
+}
+.av-short {
+  color: var(--sell);
+}
+.av-mute {
+  color: var(--ink-3);
+}
+.av-row small.av-warn,
+.av-warn {
+  color: var(--warn-ink);
+}
+.av-levels {
+  white-space: nowrap;
+}
+.av-levels i {
+  font-style: normal;
+  color: var(--ink-3);
+}
+.av-levels b {
+  font-weight: 600;
+}
+.av-act {
+  white-space: nowrap;
+  text-align: right !important;
+}
+.av-act .tr-btn {
+  margin-left: 6px;
+  height: 28px;
+  padding: 0 12px;
+  font-size: var(--t-mid);
+}
+.av-row--idle > td {
+  color: var(--ink-3);
+  font-size: var(--t-mid);
+}
+.av-pending {
+  background: linear-gradient(90deg, transparent 0%, var(--surface-2) 50%, transparent 100%);
+  background-size: 200% 100%;
+  animation: av-shimmer 1.6s linear infinite;
+}
+.av-pending--block {
+  padding: 16px 14px;
+  font-size: var(--t-mid);
+  color: var(--ink-3);
+}
+@keyframes av-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+.av-empty {
+  padding: 18px 14px;
+  font-size: var(--t-mid);
+}
+.av-detail > td {
+  padding: 0;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-2);
+}
+
+/* ---- the odds card */
+.av-card--in {
+  padding: 4px 14px 14px 26px;
+  animation: av-open 0.22s ease both;
+}
+@keyframes av-open {
+  from {
+    opacity: 0.55;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.av-kinds {
+  display: grid;
+  gap: 12px;
+}
+.av-kind h4 {
+  margin: 10px 0 6px !important;
+  font-size: var(--t-base) !important;
+  font-weight: 600 !important;
+  color: var(--ink) !important;
+}
+.av-kind h4 small {
+  margin-left: 6px;
+  font-size: var(--t-small);
+  font-weight: 400;
+  color: var(--ink-3);
+}
+.av-sides {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.av-side {
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  min-width: 0;
+}
+.av-side--A {
+  border-color: var(--up-line);
+  box-shadow: inset 0 2px 0 var(--up);
+}
+.av-side--B {
+  border-color: var(--up-line);
+}
+.av-side--C {
+  border-color: var(--warn-line);
+}
+.av-side > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: var(--t-base);
+}
+.av-side dl {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+}
+.av-side dl > div {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr);
+  gap: 8px;
+  font-size: var(--t-mid);
+  line-height: 1.45;
+}
+.av-side dt {
+  color: var(--ink-3);
+}
+.av-side dd {
+  margin: 0;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+.av-side dd b {
+  color: var(--ink);
+}
+.av-side dd b.is-up {
+  color: var(--up);
+}
+.av-side dd b.is-down {
+  color: var(--down);
+}
+.av-side dd small {
+  font-size: var(--t-small);
+  color: var(--ink-3);
+}
+.av-why {
+  margin-top: 8px;
+  font-size: var(--t-small);
+  line-height: 1.5;
+  color: var(--ink-3);
+}
+.av-plan {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--line);
+  font-size: var(--t-mid);
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+.av-plan b {
+  color: var(--ink);
+}
+.av-plan .tr-btn {
+  margin-left: auto;
+  height: 28px;
+  padding: 0 14px;
+  font-size: var(--t-mid);
+}
+.av-plan .is-warn {
+  flex-basis: 100%;
+  color: var(--warn-ink);
+  font-size: var(--t-small);
+}
+.av-plan.is-gone > span:first-child {
+  text-decoration: line-through;
+  text-decoration-color: var(--ink-3);
+}
+.av-more {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px 22px;
+  margin-top: 12px;
+}
+.av-more h4 {
+  margin: 0 0 4px !important;
+}
+.av-fwd {
+  font-size: var(--t-mid);
+}
+.av-fwd th,
+.av-fwd td {
+  padding: 4px 6px;
+}
+.av-fwd td.is-num,
+.av-fwd th.is-num,
+.av-rec td.is-num,
+.av-rec th.is-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--ink);
+  font-size: inherit;
+}
+.av-fwd td.is-up,
+.av-rec td.is-up {
+  color: var(--up);
+}
+.av-fwd td.is-down,
+.av-rec td.is-down {
+  color: var(--down);
+}
+.av-fwd th small,
+.av-rec th small {
+  display: inline;
+  margin-left: 4px;
+}
+.av-analogs {
+  display: grid;
+  gap: 3px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--t-mid);
+}
+.av-analogs li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 3px 0;
+  border-bottom: 1px solid var(--line);
+  font-variant-numeric: tabular-nums;
+}
+.av-analogs time {
+  color: var(--ink-2);
+}
+
+/* ---- the two records */
+.av-two {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  align-items: start;
+}
+.av-two > .an-card {
+  margin-top: 0 !important;
+}
+.av-rec {
+  font-size: var(--t-mid);
+}
+.av-rec td:last-child {
+  font-size: inherit;
+}
+.av-verdict {
+  display: inline-block;
+  padding: 1px 8px;
+  border: 1px solid var(--line-2);
+  border-radius: 4px;
+  font-size: var(--t-tag);
+  font-weight: 600;
+  line-height: 1.6;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+.av-verdict--proven {
+  border-color: var(--up);
+  background: var(--up);
+  color: var(--on-solid);
+}
+.av-verdict--promising {
+  border-color: var(--up-line);
+  background: var(--up-bg);
+  color: var(--up-ink);
+}
+.av-verdict--loses {
+  border-color: var(--down-line);
+  background: var(--down-bg);
+  color: var(--down-ink);
+}
+.av-calls {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--t-mid);
+}
+.av-calls li {
+  display: grid;
+  grid-template-columns: 58px 96px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: baseline;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--line);
+  font-variant-numeric: tabular-nums;
+}
+.av-calls time {
+  color: var(--ink-3);
+}
+.av-calls span {
+  color: var(--ink-2);
+}
+.av-method ol {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 10px 22px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: av;
+  font-size: var(--t-mid);
+  line-height: 1.55;
+  color: var(--ink-2);
+}
+.av-method li {
+  counter-increment: av;
+  padding-left: 26px;
+  position: relative;
+}
+.av-method li::before {
+  content: counter(av);
+  position: absolute;
+  left: 0;
+  top: 1px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--ink);
+  font-size: var(--t-tag);
+  font-weight: 600;
+  line-height: 18px;
+  text-align: center;
+}
+.av-method b {
+  color: var(--ink);
+}
+
+@media (max-width: 900px) {
+  .av-sides,
+  .av-two {
+    grid-template-columns: 1fr;
+  }
+  .av-card--in {
+    padding-left: 12px;
+  }
+}
+@media (max-width: 560px) {
+  .av-side dl > div {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  .av-tools {
+    width: 100%;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .av-pending,
+  .av-card--in {
+    animation: none;
+  }
+  .av-bar i,
+  .av-row,
+  .av-seg button {
+    transition: none;
+  }
+}
+
+/* the measured-odds evidence inside the AI decision card */
+.bh-odds h4 {
+  margin: 10px 0 4px;
+  font-size: var(--t-small);
+  font-weight: 600;
+  color: var(--ink-3);
+}
+.bh-odds ul {
+  margin: 0;
+  padding-left: 18px;
+  font-size: var(--t-mid);
+  line-height: 1.5;
+  color: var(--ink-2);
+}
+
+/* ---- narrow screens: the board scrolls sideways, but an opened reading stays within the screen */
+.av-scroll {
+  container-type: inline-size;
+}
+.av-detail .av-card--in {
+  position: sticky;
+  left: 0;
+  max-width: calc(100vw - 18px);
+  max-width: 100cqw;
+}
+@media (max-width: 900px) {
+  .av-two > .an-card,
+  .av-more > div {
+    overflow-x: auto;
+  }
+  .av-rec th,
+  .av-rec td {
+    padding: 5px 5px !important;
+  }
+  .av-calls li {
+    grid-template-columns: 50px 84px minmax(0, 1fr) auto;
+    gap: 6px;
+  }
+  .av-plan .tr-btn {
+    margin-left: 0;
+  }
+}

@@ -42,3 +42,39 @@ test("the confirmation line names everything that matters", () => {
   expect(newRef()).not.toBe(newRef());
   expect(newRef().length).toBeGreaterThanOrEqual(8);
 });
+
+describe("planning the exit", () => {
+  const { planNumbers, sizeForRisk, stopTicket } = require("./tradeMath");
+
+  test("risk, reward and their ratio come from the entry, stop, target and quantity", () => {
+    expect(planNumbers({ side: "BUY", entry: 800, stop: 785, target: 822.5, quantity: 66 })).toEqual({ riskPerShare: 15, risk: 990, reward: 1485, rr: 1.5, problem: "" });
+    expect(planNumbers({ side: "SELL", entry: 500, stop: 504.8, target: 490, quantity: 100 })).toEqual({ riskPerShare: 4.8, risk: 480, reward: 1000, rr: 2.08, problem: "" });
+    // a stop alone, or a target alone
+    expect(planNumbers({ side: "BUY", entry: 100, stop: 98, target: "", quantity: 10 })).toEqual({ riskPerShare: 2, risk: 20, reward: null, rr: null, problem: "" });
+    expect(planNumbers({ side: "BUY", entry: 100, stop: "", target: 104, quantity: 10 }).reward).toBe(40);
+    expect(planNumbers({ side: "BUY", entry: "", stop: 98, target: 104, quantity: 10 })).toBeNull();
+    expect(planNumbers({ side: "BUY", entry: 100, stop: 98, target: 104, quantity: 0 })).toBeNull();
+  });
+
+  test("a level on the wrong side of the entry is named", () => {
+    expect(planNumbers({ side: "BUY", entry: 100, stop: 101, quantity: 5 }).problem).toMatch(/stop belongs below/);
+    expect(planNumbers({ side: "SELL", entry: 100, stop: 99, quantity: 5 }).problem).toMatch(/stop belongs above/);
+    expect(planNumbers({ side: "BUY", entry: 100, stop: 98, target: 99, quantity: 5 }).problem).toMatch(/target belongs above/);
+    expect(planNumbers({ side: "SELL", entry: 100, stop: 102, target: 101, quantity: 5 }).problem).toMatch(/target belongs below/);
+  });
+
+  test("the quantity for a money risk is rounded down", () => {
+    expect(sizeForRisk(1000, 800, 785)).toBe(66);
+    expect(sizeForRisk(1000, 500, 504.8)).toBe(208);
+    expect(sizeForRisk(1000, 800, 800)).toBe(0);
+    expect(sizeForRisk(0, 800, 785)).toBe(0);
+    expect(sizeForRisk(1000, "", 785)).toBe(0);
+  });
+
+  test("the protecting stop is the opposite side, same product and size, stop-market at the stop", () => {
+    expect(stopTicket({ symbol: "SBIN", exchange: "NSE", side: "BUY", product: "MIS", quantity: 66 }, 785)).toEqual({ symbol: "SBIN", exchange: "NSE", side: "SELL", product: "MIS", type: "SL-M", quantity: 66, trigger: 785 });
+    expect(stopTicket({ symbol: "SBIN", side: "SELL", product: "MIS", quantity: 10 }, 810).side).toBe("BUY");
+    expect(stopTicket({ symbol: "SBIN", side: "BUY", product: "MIS", quantity: 10 }, "")).toBeNull();
+    expect(stopTicket(null, 100)).toBeNull();
+  });
+});

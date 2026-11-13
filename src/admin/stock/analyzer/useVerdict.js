@@ -3,7 +3,7 @@
 // call changes (wait → long in play, and so on) and can sound an alert when it does.
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api } from "../../api";
+import { api, peek } from "../../api";
 
 const ALERT_KEY = "vpt.desk.alerts";
 const WORD = { long: "LONG in play", short: "SHORT in play", "wait-long": "WAIT · long side", "wait-short": "WAIT · short side", wait: "WAIT · no edge", "no-trade": "NO TRADE" };
@@ -68,7 +68,9 @@ export default function useVerdict(symbol, status) {
       if (quiet && inFlight.current) return () => {};
       inFlight.current = true;
       let alive = true;
-      if (!quiet) setState({ loading: true });
+      // coming back to a stock within a minute: its last verdict shows while the new one loads
+      const seenBefore = quiet ? null : peek(`/api/admin/market/verdict/${encodeURIComponent(symbol)}`, 60000);
+      if (!quiet) setState(seenBefore ? { loading: false, data: seenBefore } : { loading: true });
       api(`/api/admin/market/verdict/${encodeURIComponent(symbol)}`)
         .then((d) => {
           if (!alive) return;

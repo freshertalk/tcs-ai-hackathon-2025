@@ -14,6 +14,7 @@
 //   book      GET    /orders · GET /orders/:order_id (history) · GET /trades
 //   portfolio GET    /portfolio/holdings · GET /portfolio/positions
 //   funds     GET    /user/margins
+//   pre-trade POST   /margins/orders            (JSON; a calculation — places nothing)
 // Since 1 April 2026 Zerodha accepts API orders only from the static IP registered on the
 // Kite Connect app (SEBI's retail-algo rules); reads work from anywhere.
 
@@ -147,6 +148,23 @@ function shapeSegment(s) {
   };
 }
 
+/** Zerodha's own figure for what an order needs and costs. */
+function shapeMargin(m) {
+  const c = (m && m.charges) || {};
+  const g = c.gst || {};
+  return {
+    exchange: m.exchange,
+    symbol: m.tradingsymbol,
+    required: n(m.total),
+    var: n(m.var),
+    span: n(m.span),
+    exposure: n(m.exposure),
+    premium: n(m.option_premium),
+    leverage: n(m.leverage) || 1,
+    charges: { total: n(c.total), brokerage: n(c.brokerage), tax: n(c.transaction_tax), taxType: String(c.transaction_tax_type || ""), exchange: n(c.exchange_turnover_charge), sebi: n(c.sebi_turnover_charge), stampDuty: n(c.stamp_duty), gst: n(g.total) },
+  };
+}
+
 class KiteBroker {
   constructor({ apiKey, accessToken, fetchImpl = globalThis.fetch, gapMs = 110 }) {
     this.apiKey = apiKey;
@@ -156,7 +174,7 @@ class KiteBroker {
     this.throttle = new Throttle(gapMs);
   }
 
-  _req(method, p, form) {
+  _req(method, p, form, json) {
     return this.throttle.run(async () =>
       parse(
         await this.fetch(`${API}${p}`, {
@@ -164,9 +182,9 @@ class KiteBroker {
           headers: {
             "X-Kite-Version": "3",
             Authorization: `token ${this.apiKey}:${this.accessToken}`,
-            ...(form ? { "Content-Type": "application/x-www-form-urlencoded" } : {}),
+            ...(form ? { "Content-Type": "application/x-www-form-urlencoded" } : json ? { "Content-Type": "application/json" } : {}),
           },
-          body: form ? new URLSearchParams(form).toString() : undefined,
+          body: form ? new URLSearchParams(form).toString() : json ? JSON.stringify(json) : undefined,
           signal: AbortSignal.timeout(15000),
         })
       )
@@ -199,6 +217,14 @@ class KiteBroker {
     return ((await this._req("GET", "/trades")) || []).map(shapeTrade);
   }
 
+  /**
+   * What these orders would need in margin and cost in charges, by Zerodha's own calculator.
+   * A calculation only: nothing is placed, changed or reserved by this call.
+   */
+  async orderMargins(legs) {
+    return ((await this._req("POST", "/margins/orders", null, legs)) || []).map(shapeMargin);
+  }
+
   /** @param form  Kite's own parameter names, already checked by the trading service */
   async place(variety, form) {
     const d = await this._req("POST", `/orders/${encodeURIComponent(variety)}`, form);
@@ -216,4 +242,4 @@ class KiteBroker {
   }
 }
 
-module.exports = { KiteBroker, shapeOrder, shapePosition, shapeHolding, shapeTrade, shapeSegment };
+module.exports = { KiteBroker, shapeMargin, shapeOrder, shapePosition, shapeHolding, shapeTrade, shapeSegment };

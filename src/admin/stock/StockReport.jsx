@@ -1,12 +1,13 @@
 // The Stock Report as one trading terminal: a top bar with the state of everything, and
 // one workspace at a time beneath it — the Desk (watchlist, chart, live call, order book,
-// co-pilot, with your positions docked along the bottom), Positions & orders, Research,
-// Screener, Debrief and Calendar. Keyboard: / search, B / S buy or sell the open stock,
-// 1–7 workspaces, D dock, T theme, ? the list.
+// co-pilot, with your positions docked along the bottom), the Advisor (measured odds for
+// the whole watchlist), Positions & orders, Journal, Research, Screener, Debrief and
+// Calendar. Keyboard: / search, B / S buy or sell the open stock, 1–8 workspaces, D dock,
+// T theme, ? the list.
 //
 // Opens in its own tab from the dashboard; the session cookie is shared, so it is signed in.
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import WorldClock from "./WorldClock";
 import HolidayCalendar from "./HolidayCalendar";
@@ -17,15 +18,19 @@ import ErrorBoundary from "./analyzer/ErrorBoundary";
 import Account from "./trade/Account";
 import Research from "./trade/Research";
 import Journal from "./trade/Journal";
+import Advisor from "./advisor/Advisor";
 import { TradeProvider, useTrade } from "./trade/TradeContext";
 import { useDeskTheme } from "./analyzer/theme";
 import { useAuth } from "../auth";
 import TopBar from "./terminal/TopBar";
 import { keyAction, SHORTCUTS } from "./terminal/shortcuts";
+import Palette from "./terminal/Palette";
+import { AlertsProvider } from "./terminal/AlertsContext";
 import "./terminal/terminal.css";
 
 const VIEWS = [
   { id: "analyzer", label: "Desk", tip: "Watchlist, chart, the live call, order book and co-pilot for one stock, with your positions docked below." },
+  { id: "advisor", label: "Advisor", tip: "Your watchlist read by measured odds: what followed the days most like today, whether such calls held up when tested forward, and a plan sized for your risk." },
   { id: "account", label: "Positions", superOnly: true, tip: "Positions, holdings, orders, funds, the trading switch and the AI coach." },
   { id: "journal", label: "Journal", superOnly: true, tip: "Every round trip you made: win rate, profit factor, expectancy, drawdown, P&L calendar, MAE/MFE, tags and an AI review." },
   { id: "research", label: "Research", tip: "Pre-market and post-market research for your watchlist." },
@@ -108,6 +113,8 @@ function Terminal() {
   const view = views.some((v) => v.id === asked) ? asked : "analyzer";
   const [theme, toggleTheme] = useDeskTheme();
   const [help, setHelp] = useState(false);
+  const [palette, setPalette] = useState(false);
+  const [alertsOpen, setAlertsOpen] = useState(false);
   const [dock, setDock] = useState(storedDock);
   const showDock = view === "analyzer" && Boolean(trade);
 
@@ -145,10 +152,12 @@ function Terminal() {
       if (!a) return;
       if (a.action === "close") {
         setHelp(false);
+        setPalette(false);
         return;
       }
       e.preventDefault();
-      if (a.action === "help") setHelp(true);
+      if (a.action === "palette") setPalette((p) => !p);
+      else if (a.action === "help") setHelp(true);
       else if (a.action === "theme") toggleTheme();
       else if (a.action === "dock") showDock && toggleDock();
       else if (a.action === "view") views[a.view - 1] && go(views[a.view - 1].id);
@@ -173,9 +182,35 @@ function Terminal() {
     return () => document.removeEventListener("keydown", onKey);
   }, [views, view, go, params, trade, toggleTheme, toggleDock, showDock]);
 
+  // what the command palette can do besides opening a stock or a workspace
+  const tradeOn = Boolean(trade && trade.enabled);
+  const hasTrade = Boolean(trade);
+  const actions = useMemo(() => {
+    const list = [
+      { id: "a:alerts", label: "Price alerts", keywords: "bell notify level", run: () => setAlertsOpen(true) },
+      { id: "a:theme", label: "Dark or light theme", keywords: "appearance colours", kbd: "T", run: toggleTheme },
+      { id: "a:keys", label: "Keyboard shortcuts", keywords: "help keys", kbd: "?", run: () => setHelp(true) },
+    ];
+    if (hasTrade) {
+      list.push({
+        id: "a:dock",
+        label: "Show or hide the positions dock",
+        keywords: "positions orders dock",
+        kbd: "D",
+        run: () => {
+          go("analyzer");
+          toggleDock();
+        },
+      });
+      // the palette can switch trading OFF at once; switching it ON stays a deliberate act on its own page
+      list.push(tradeOn ? { id: "a:off", label: "Turn trading OFF", keywords: "switch stop halt kill", run: () => trade.setSwitch(false) } : { id: "a:switch", label: "Open the trading switch", keywords: "turn trading on", run: () => go("account") });
+    }
+    return list;
+  }, [hasTrade, tradeOn, trade, toggleTheme, toggleDock, go]);
+
   return (
     <div className={`tm tm--${view} ${showDock ? `has-dock ${dock ? "dock-open" : ""}` : ""}`}>
-      <TopBar views={views} view={view} onView={go} theme={theme} onTheme={toggleTheme} onHelp={() => setHelp(true)} />
+      <TopBar views={views} view={view} onView={go} theme={theme} onTheme={toggleTheme} onHelp={() => setHelp(true)} onPalette={() => setPalette(true)} symbol={params.get("s") || ""} alertsOpen={alertsOpen} onAlerts={setAlertsOpen} />
       <main className="tm-work" id="tm-main">
         {/* one failing workspace never blanks the terminal: the top bar and the others stay usable */}
         <ErrorBoundary key={view} title={(views.find((v) => v.id === view) || {}).label}>
@@ -183,7 +218,9 @@ function Terminal() {
           <Analyzer />
         ) : (
           <div className="tm-page">
-            {view === "account" ? (
+            {view === "advisor" ? (
+              <Advisor onOpen={openStock} />
+            ) : view === "account" ? (
               <Account />
             ) : view === "journal" ? (
               <Journal />
@@ -208,6 +245,7 @@ function Terminal() {
       </main>
       {showDock && <Dock open={dock} onToggle={toggleDock} />}
       {help && <ShortcutsDialog onClose={() => setHelp(false)} />}
+      {palette && <Palette views={views} actions={actions} onView={go} onOpenStock={openStock} onClose={() => setPalette(false)} />}
     </div>
   );
 }
@@ -215,7 +253,9 @@ function Terminal() {
 export default function StockReport() {
   return (
     <TradeProvider>
-      <Terminal />
+      <AlertsProvider>
+        <Terminal />
+      </AlertsProvider>
     </TradeProvider>
   );
 }

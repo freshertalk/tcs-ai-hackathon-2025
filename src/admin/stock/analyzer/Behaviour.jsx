@@ -3,9 +3,10 @@
 // against those habits. Additional to every other tab; it changes none of them.
 
 import React, { useCallback, useEffect, useState } from "react";
-import { api } from "../../api";
+import { api, peek } from "../../api";
 import { Alert, Loading } from "../../ui";
 import { inr, isNum, num, pct, when } from "./format";
+import EdgeCard from "../advisor/EdgeCard";
 
 const STATE = { uptrend: "Uptrend", downtrend: "Downtrend", sideways: "Sideways", unknown: "—" };
 const DEC = { buy: "Buy", sell: "Sell", hold: "Hold", wait: "Wait", avoid: "Avoid" };
@@ -71,7 +72,7 @@ function DecisionCard({ symbol }) {
       <header className="an-card__head">
         <div>
           <h3>AI decision</h3>
-          <p>Today’s live price, volume, tape, indicators and levels, weighed against this stock’s habits from the past year. A plan’s prices are checked by arithmetic; nothing is ever placed as an order.</p>
+          <p>Today’s live price, volume, tape, indicators and levels, weighed against this stock’s habits from the past year and its measured odds. A plan’s prices are checked by arithmetic; nothing is ever placed as an order.</p>
         </div>
         <button type="button" className="adm-btn adm-btn--solid adm-btn--sm" onClick={run} disabled={busy || !st.configured} data-tip="Ask for a decision now. It uses your Anthropic API tokens, and runs only when you press it.">
           {busy ? "Weighing today against its habits…" : d ? "Decide again" : "Get AI decision"}
@@ -131,6 +132,16 @@ function DecisionCard({ symbol }) {
               </ul>
             </div>
           </div>
+          {d.oddsEvidence && d.oddsEvidence.length > 0 && (
+            <div className="bh-odds">
+              <h4>The measured odds say</h4>
+              <ul>
+                {d.oddsEvidence.map((x) => (
+                  <li key={x}>{x}</li>
+                ))}
+              </ul>
+            </div>
+          )}
           {d.conflicts.length > 0 && (
             <p className="tr-note is-warn">
               <b>Where they disagree:</b> {d.conflicts.join(" ")}
@@ -166,7 +177,7 @@ function DecisionCard({ symbol }) {
 }
 
 export default function Behaviour({ symbol }) {
-  const [s, setS] = useState({ loading: true, p: null, error: "" });
+  const [s, setS] = useState(() => ({ loading: true, p: peek(`/api/admin/market/behaviour/${encodeURIComponent(symbol)}`, 30 * 60 * 1000), error: "" }));
   const [learn, setLearn] = useState("");
   const load = useCallback(
     (refresh = false) => {
@@ -192,7 +203,13 @@ export default function Behaviour({ symbol }) {
   const p = s.p;
   if (s.loading && !p) return <Loading label="Reading a year of daily bars…" />;
   if (!p) return <Alert>{s.error}</Alert>;
-  if (!p.available) return <p className="adm-alert adm-alert--info">{p.reason}</p>;
+  if (!p.available)
+    return (
+      <div className="bh">
+        <p className="adm-alert adm-alert--info">{p.reason}</p>
+        <EdgeCard symbol={symbol} />
+      </div>
+    );
   const c = p.price.changePct;
 
   return (
@@ -244,6 +261,8 @@ export default function Behaviour({ symbol }) {
           ))}
         </ul>
       </section>
+
+      <EdgeCard symbol={symbol} />
 
       <DecisionCard symbol={symbol} />
 

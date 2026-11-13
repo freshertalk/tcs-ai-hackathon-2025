@@ -186,15 +186,19 @@ Only the type follows Kite — the colours, the layout and the name stay this si
 
 **The trading terminal (the Stock Report's layout; `src/admin/stock/StockReport.jsx`,
 `src/admin/stock/terminal/`).** One screen, dark by default. A sticky top bar holds the workspaces —
-**Desk · Positions · Journal · Research · Screener · Debrief · Calendar** — and the state of everything: NSE
+**Desk · Advisor · Positions · Journal · Research · Screener · Debrief · Calendar** — and the state of everything: NSE
 open or closed with the IST clock, the Zerodha connection, the trading switch, today's P&L, the
 theme, shortcuts and the account menu (hover help, sign out). On the Desk the watchlist, the stock
 and the verdict rail sit side by side (three columns from 1280 px), each scrolling on its own, and
 your positions are docked along the bottom (open or closed, remembered; not on phones, where
 Positions has its own tab). Keyboard: `/` search, `B` / `S` open the order ticket for the open
-stock (only while trading is on — nothing is sent without confirming), `1`–`7` workspaces, `D`
+stock (only while trading is on — nothing is sent without confirming), `1`–`8` workspaces, `D`
 dock, `T` theme, `?` the list, `Esc` close. Shortcuts never fire while typing in a field or with a
-dialog open (`terminal/shortcuts.js`, tested). The dashboard and settings pages share the same
+dialog open (`terminal/shortcuts.js`, tested). **`Ctrl K` (`⌘ K`) opens the command palette**
+(`terminal/Palette.jsx`, `paletteMath.js`) from anywhere: a workspace or action, any NSE stock,
+a typed trade — `buy sbin 10`, `sell infy 5 @ 1500` — which only ever opens the order ticket,
+or a price alert — `alert sbin 800`. Turning trading OFF is one command; turning it ON stays a
+deliberate act on the Positions page. The dashboard and settings pages share the same
 theme (one switch, `analyzer/theme.js`) and a slim sticky header.
 
 **Stock Report — `/me/stock-report`.** Opens in its own tab from the dashboard (the session
@@ -503,6 +507,58 @@ from Zerodha's stream; the page also re-reads the book every 5 seconds.
   tighten stop / trim / exit / wait with levels taken from the desk. It advises only: the trading
   routes hand it the figures as plain data, it cannot reach the broker, and a stop on the wrong
   side of the price is flagged and dropped.
+
+**Advisor: measured odds (the "Advisor" workspace and the "Measured odds" card on each stock;
+`server/market/edge.js`, `src/admin/stock/advisor/`).** The engine answers one question per stock:
+*on the past days that looked most like today, what happened next — and when this method said
+"favourable" in the past, was it right?*
+1. Every completed daily bar is described by twelve numbers known at its close (distance from the
+   20- and 50-day averages in ATRs, the 50-day's slope, RSI, the 5-day move, place in the 20-day and
+   52-week ranges, volume against normal, volatility against its own year, where the bar closed,
+   the Nifty's trend, strength against the Nifty); the day reading adds the next morning's gap.
+2. Every past day has an outcome by fixed rules, after costs, in R (multiples of the risk).
+   **Swing**: in at the next open, stop 1.5 ATR, target 2.25 ATR, out after 10 sessions, a gap
+   through the stop fills at the open, stop and target in one bar counts as the stop, 0.25% costs.
+   **Day**: in at the open, stop 0.6 ATR, out at the close, 0.1% costs. Long and short are measured.
+3. Today's odds come from the 50 most similar past days (kept a few sessions apart): the share that
+   made money with a cautious lower bound, and the average result minus one standard error.
+4. **The walk-forward test decides.** The same question is asked for every past day using only what
+   was known before it, and each favourable call is traded on paper, one at a time. Grade **A** needs
+   40+ such trades with t ≥ 2.5 and a positive last two years; **B** 25+ with t ≥ 1.5; **C** means
+   today looks favourable but the test does not back it — treat as noise. Tests check that a
+   planted pattern is found, that pure noise yields nothing above C, and that no reading uses a bar
+   from its own future (`server/test/edge.test.js`).
+The Advisor ranks the watchlist by grade, shows the similar-day odds, the forward test, a plan priced
+at the latest price and the quantity for your **risk per trade**, and opens a pre-filled order ticket
+for A and B readings (a swing short is shown as a downside warning, not a trade). Two records keep it
+honest: the method **pooled across the watchlist**, and the **forward record** — every favourable
+call is written down the day it is made (`market/signals.json`) and scored later against real bars
+by the engine's own rules, so hindsight cannot improve it. Readings are stored
+(`market/edge.json`), good for one part of the trading day, and rebuilt in the background. The AI
+decision receives the odds as a third input, as past frequencies with sample sizes. It is
+arithmetic on past prices: a proven record can stop working, and nothing here is a probability of
+profit or advice.
+
+**Plan-aware order ticket and pre-trade check (`trade/OrderTicket.jsx`, `POST
+/api/admin/trading/preview`).** "Plan the exit" adds a stop, a target and the money you accept
+losing: the ticket shows the rupees at risk, the reward, their ratio, and the quantity that fits the
+risk. The stop is not sent with the entry; when the entry fills (seen on Zerodha's order stream) the
+terminal *offers* the stop-loss order as a ticket to confirm — it never sends one by itself. The
+pre-trade check shows the margin and charges from Zerodha's own calculator (`POST /margins/orders`,
+a calculation that places nothing), what is available, and whether the per-order limits and the
+risk guard would let the order through. It works with the trading switch OFF.
+
+**Price alerts (the bell in the top bar; `terminal/AlertsContext.jsx`).** "Tell me when SBIN reaches
+800". Alerts live in the database (`market/alerts.json`); the open terminal watches live ticks (or a
+15-second check when the stream is off) and reports a crossing to the server, so an alert fires once
+whichever tab saw it: a tone, a note, and a browser notification if allowed. An alert never trades.
+
+**One live connection, and screens that come back at once.** Every part of the page that wants live
+prices shares a single stream (`analyzer/liveTicks.js`); each used to open its own, and with the
+order stream that left few of the browser's ~6 connections per site for everything else. The last
+good answer to each market read is kept for the visit (`api.js` `peek`), so a stock or workspace
+you return to is drawn immediately and refreshed behind. If the site is served over HTTP/1.1,
+enabling HTTP/2 in nginx (`listen 443 ssl http2;`) removes the connection limit altogether.
 
 **Behaviour memory and the AI decision (the "Behaviour & AI" tab on each stock;
 `server/market/profile.js`, `server/ai/decision.js`).** For each stock the server measures how it

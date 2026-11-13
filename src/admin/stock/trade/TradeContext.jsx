@@ -8,6 +8,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import { api } from "../../api";
 import { useAuth } from "../../auth";
 import OrderTicket from "./OrderTicket";
+import { stopTicket } from "./tradeMath";
 import "./trade.css";
 
 const TradeContext = createContext(null);
@@ -23,6 +24,9 @@ export function TradeProvider({ children }) {
   const [version, setVersion] = useState(0); // goes up whenever the account may have changed
   const [toast, setToast] = useState(null);
   const [pulse, setPulse] = useState(null); // { pnl, open, at } — the day's positions, for the top bar
+  // an entry placed with a planned stop: once it fills, the stop-loss order is OFFERED here —
+  // a ticket to confirm, never an order sent by itself
+  const [follow, setFollow] = useState(null);
   const toastTimer = useRef(null);
 
   const say = useCallback((text, kind = "info") => {
@@ -84,6 +88,7 @@ export function TradeProvider({ children }) {
         const { update: u } = JSON.parse(e.data);
         if (!u) return;
         setVersion((v) => v + 1);
+        setFollow((f) => (f && u.id && f.orderId === u.id ? (u.status === "COMPLETE" ? { ...f, filled: true } : u.status === "REJECTED" || u.status === "CANCELLED" ? null : f) : f));
         if (["COMPLETE", "REJECTED", "CANCELLED"].includes(u.status)) {
           const what = `${u.side} ${u.quantity} ${u.symbol}`;
           say(u.status === "COMPLETE" ? `Filled: ${what}${u.average ? ` at ₹${u.average}` : ""}` : u.status === "REJECTED" ? `Rejected: ${what}${u.message ? ` — ${u.message}` : ""}` : `Cancelled: ${what}`, u.status === "COMPLETE" ? "ok" : u.status === "REJECTED" ? "error" : "info");
@@ -135,12 +140,44 @@ export function TradeProvider({ children }) {
           connected={value.connected}
           limits={status ? status.limits : null}
           onClose={() => setTicket(null)}
-          onPlaced={(r, t) => {
+          onPlaced={(r, t, plan) => {
             setTicket(null);
             setVersion((v) => v + 1);
             say(`Order sent to Zerodha: ${t.side} ${t.quantity} ${t.symbol} (order ${r.orderId}). Check the Orders tab for its status.`, "ok");
+            if (plan && plan.stop) setFollow({ orderId: String(r.orderId || ""), entry: { symbol: t.symbol, exchange: t.exchange, side: t.side, product: t.product, quantity: Number(t.quantity) }, stop: plan.stop, target: plan.target, filled: false });
           }}
         />
+      )}
+      {value && follow && !ticket && (
+        <div className="tr-follow" role="status" aria-live="polite">
+          <p>
+            <b>{follow.filled ? "Entry filled." : "Entry sent."}</b> Your plan has a stop at ₹{follow.stop}
+            {follow.target ? ` and a target at ₹${follow.target}` : ""}: {follow.entry.side === "BUY" ? "sell" : "buy"} {follow.entry.quantity} {follow.entry.symbol}, stop-market.
+            {!follow.filled && <small>Waiting for the fill — a stop placed before the entry fills can open a position the other way.</small>}
+          </p>
+          <span>
+            <button
+              type="button"
+              className="tr-btn tr-btn--exit"
+              disabled={!follow.filled}
+              onClick={() => {
+                setTicket({ ...stopTicket(follow.entry, follow.stop), note: `Stop-loss for your ${follow.entry.side === "BUY" ? "buy" : "sell"} of ${follow.entry.quantity} ${follow.entry.symbol}. A stop order lasts for today only.`, key: Date.now() });
+                setFollow(null);
+              }}
+              data-tip="Open the stop-loss order as a ticket. Nothing is sent until you confirm it."
+            >
+              Place the stop…
+            </button>
+            {!follow.filled && (
+              <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm" onClick={() => setFollow((f) => f && { ...f, filled: true })} data-tip="Use this if the Orders tab shows the entry as COMPLETE and this bar has not caught up.">
+                It has filled
+              </button>
+            )}
+            <button type="button" className="tr-follow__x" aria-label="Dismiss" onClick={() => setFollow(null)}>
+              ×
+            </button>
+          </span>
+        </div>
       )}
       {value && toast && (
         <div className={`tr-toast tr-toast--${toast.kind}`} role="status" aria-live="polite">

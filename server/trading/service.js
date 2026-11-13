@@ -428,6 +428,64 @@ class TradingService {
     }
   }
 
+  /**
+   * The pre-trade check: what this order would need in margin and cost in charges (Zerodha's
+   * own calculator), what is available, and whether the desk's own rules — the switch, the
+   * per-order limits, the risk guard — would let it through. Nothing is sent or reserved,
+   * and it works with the trading switch OFF. Each part that cannot be read says so.
+   */
+  async preview(input) {
+    const order = this._form(input || {});
+    const f = order.form;
+    const refPrice = num((input || {}).refPrice) > 0 ? num(input.refPrice) : null;
+    const out = { order: { exchange: order.exchange, symbol: order.symbol, side: order.side, product: order.product, type: f.order_type, quantity: order.quantity, variety: order.variety }, margin: null, charges: null, available: null, enough: null, value: null, reduces: false, checks: [] };
+    const px = order.price || refPrice;
+    if (px) out.value = round2(px * order.quantity);
+    const check = (id, ok, text) => out.checks.push({ id, ok, text });
+    const rs = (x) => `₹${Math.round(x).toLocaleString("en-IN")}`;
+
+    check("switch", this._state().enabled, this._state().enabled ? "The trading switch is on." : "The trading switch is OFF: this order would be refused until you turn it on.");
+    out.reduces = await this._reduces(order);
+    try {
+      const leg = { exchange: order.exchange, tradingsymbol: order.symbol, transaction_type: order.side, variety: order.variety, product: order.product, order_type: f.order_type, quantity: order.quantity, price: num(f.price) || 0, trigger_price: num(f.trigger_price) || 0 };
+      const [m] = await this._call((b) => b.orderMargins([leg]));
+      if (m) {
+        out.margin = round2(m.required);
+        out.leverage = m.leverage;
+        out.charges = { ...m.charges, total: round2(m.charges.total) };
+      }
+    } catch (err) {
+      out.marginNote = err instanceof TradingError ? err.message : `Zerodha's margin calculator did not answer (${err.message}).`;
+    }
+    try {
+      const funds = await this.funds();
+      const seg = order.exchange === "MCX" ? funds.commodity : funds.equity;
+      if (seg) out.available = round2(seg.net);
+    } catch (_) {
+      /* shown as unknown */
+    }
+    if (out.margin !== null && out.available !== null) {
+      out.enough = out.reduces || out.margin <= out.available;
+      check("funds", out.enough, out.enough ? (out.reduces ? "It closes or reduces what you hold." : `Margin needed ${rs(out.margin)} of ${rs(out.available)} available.`) : `Not enough margin: ${rs(out.margin)} needed, ${rs(out.available)} available.`);
+    }
+    try {
+      await this._limits(order, refPrice);
+      check("limits", true, "Inside your per-order limits.");
+    } catch (err) {
+      if (!(err instanceof TradingError)) throw err;
+      check("limits", false, err.message);
+    }
+    try {
+      await this._guard(order);
+      check("risk", true, this._risk().enabled ? "The risk guard allows it." : "The risk guard is switched off.");
+    } catch (err) {
+      if (!(err instanceof TradingError)) throw err;
+      check("risk", false, err.message);
+    }
+    out.ok = out.checks.every((c) => c.ok);
+    return out;
+  }
+
   async place(input, by) {
     this._requireOn();
     if (!input || input.confirm !== true) throw new TradingError("The order was not confirmed.", "unconfirmed");

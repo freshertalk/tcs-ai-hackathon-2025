@@ -66,6 +66,16 @@ function fakeKite() {
     }
     m = u.pathname.match(/^\/orders\/(regular|amo)\/(\w+)$/);
     if (m && (method === "PUT" || method === "DELETE")) return json(200, { status: "success", data: { order_id: m[2] } });
+    // the margin calculator: a JSON list in, one figure per order out — it places nothing
+    if (method === "POST" && u.pathname === "/margins/orders") {
+      if (k.marginsDown) return json(500, { status: "error", message: "calculator down", error_type: "GeneralException" });
+      const legs = JSON.parse(init.body);
+      k.marginLegs = legs;
+      return json(200, { status: "success", data: legs.map((l) => {
+        const total = l.quantity * (l.price || 1500) * (l.product === "MIS" ? 0.2 : 1);
+        return { type: "equity", tradingsymbol: l.tradingsymbol, exchange: l.exchange, var: total, span: 0, exposure: 0, option_premium: 0, leverage: l.product === "MIS" ? 5 : 1, charges: { transaction_tax: 1.5, transaction_tax_type: "stt", exchange_turnover_charge: 0.05, sebi_turnover_charge: 0.01, brokerage: 20, stamp_duty: 0.2, gst: { igst: 3.6, total: 3.6 }, total: 25.36 }, total };
+      }) });
+    }
     return json(400, { status: "error", message: "Route not found", error_type: "GeneralException" });
   };
   return k;
@@ -511,4 +521,89 @@ test("journal through the routes: today's fills are captured, a Console CSV impo
   const tagged = (await s.request("GET", "/api/admin/trading/journal?range=all&setup=Opening%20range", { cookie: s.admin })).json;
   assert.equal(tagged.stats.trades, 1);
   assert.equal(tagged.stats.by.setup[0].key, "Opening range");
+});
+
+test("the pre-trade check gives margin, charges and the desk's verdict, and places nothing", async (t) => {
+  const s = await boot();
+  t.after(s.close);
+  assert.equal((await s.request("POST", "/api/admin/trading/preview", { body: {} })).status, 401);
+  await s.connectKite();
+  const ask = (body) => s.request("POST", "/api/admin/trading/preview", { cookie: s.admin, body });
+
+  // the switch is off: the check still answers, and says the order would be refused
+  const off = await ask({ exchange: "NSE", symbol: "INFY", side: "BUY", type: "LIMIT", product: "CNC", quantity: 10, price: 1500 });
+  assert.equal(off.status, 200, JSON.stringify(off.json));
+  assert.equal(off.json.margin, 15000);
+  assert.equal(off.json.charges.total, 25.36);
+  assert.equal(off.json.charges.brokerage, 20);
+  assert.equal(off.json.available, 99725.05);
+  assert.equal(off.json.enough, true);
+  assert.equal(off.json.value, 15000);
+  assert.equal(off.json.ok, false);
+  assert.match(off.json.checks.find((c) => c.id === "switch").text, /OFF/);
+  assert.deepEqual(s.kite.marginLegs, [{ exchange: "NSE", tradingsymbol: "INFY", transaction_type: "BUY", variety: "regular", product: "CNC", order_type: "LIMIT", quantity: 10, price: 1500, trigger_price: 0 }]);
+
+  await on(s);
+  const fine = await ask({ exchange: "NSE", symbol: "INFY", side: "BUY", type: "LIMIT", product: "CNC", quantity: 10, price: 1500 });
+  assert.equal(fine.json.ok, true, JSON.stringify(fine.json.checks));
+  assert.deepEqual(fine.json.checks.map((c) => c.id), ["switch", "funds", "limits", "risk"]);
+
+  // more than the account has
+  const poor = await ask({ exchange: "NSE", symbol: "INFY", side: "BUY", type: "LIMIT", product: "CNC", quantity: 100, price: 1500 });
+  assert.equal(poor.json.enough, false);
+  assert.match(poor.json.checks.find((c) => c.id === "funds").text, /Not enough margin/);
+  assert.equal(poor.json.ok, false);
+
+  // above the per-order limit
+  const fat = await ask({ exchange: "NSE", symbol: "INFY", side: "BUY", type: "MARKET", product: "MIS", quantity: 6000, refPrice: 1500 });
+  assert.equal(fat.json.checks.find((c) => c.id === "limits").ok, false);
+  assert.equal(fat.json.value, 9000000);
+
+  // an order that only closes what is held is never short of funds
+  const exit = await ask({ exchange: "NSE", symbol: "TCS", side: "SELL", type: "MARKET", product: "MIS", quantity: 10, refPrice: 3960 });
+  assert.equal(exit.json.reduces, true);
+  assert.equal(exit.json.enough, true);
+
+  // a doubtful order is refused the same way the real one would be
+  const bad = await ask({ exchange: "NSE", symbol: "INFY", side: "BUY", type: "LIMIT", product: "CNC", quantity: 0, price: 1500 });
+  assert.equal(bad.status, 400);
+
+  // the calculator failing leaves the rest of the check standing
+  s.kite.marginsDown = true;
+  const blind = await ask({ exchange: "NSE", symbol: "INFY", side: "BUY", type: "LIMIT", product: "CNC", quantity: 10, price: 1500 });
+  assert.equal(blind.status, 200);
+  assert.equal(blind.json.margin, null);
+  assert.match(blind.json.marginNote, /did not answer/);
+  assert.ok(blind.json.checks.some((c) => c.id === "limits" && c.ok));
+
+  // nothing was placed, changed or cancelled by any of it
+  assert.ok(s.kite.writes().every((w) => w.path === "/margins/orders"), JSON.stringify(s.kite.writes().map((w) => w.path)));
+  assert.equal(s.kite.writes().length, 6);
+});
+
+test("measured odds and alerts are behind the sign-in like every other reading", async (t) => {
+  const s = await boot();
+  t.after(s.close);
+  for (const [m, p] of [["GET", "/api/admin/market/edge"], ["GET", "/api/admin/market/edge/INFY"], ["GET", "/api/admin/market/signals"], ["GET", "/api/admin/market/alerts"], ["POST", "/api/admin/market/alerts"], ["DELETE", "/api/admin/market/alerts/x"]]) {
+    assert.equal((await s.request(m, p, m === "POST" ? { body: {} } : {})).status, 401, `${m} ${p}`);
+  }
+  const board = await s.request("GET", "/api/admin/market/edge", { cookie: s.admin });
+  assert.equal(board.status, 200);
+  assert.ok(Array.isArray(board.json.rows));
+  assert.equal(board.json.proof.A.t, 2.5);
+  assert.deepEqual((await s.request("GET", "/api/admin/market/signals", { cookie: s.admin })).json.signals, []);
+  assert.equal((await s.request("GET", "/api/admin/market/edge/bad%20symbol!", { cookie: s.admin })).status, 400);
+
+  const made = await s.request("POST", "/api/admin/market/alerts", { cookie: s.admin, body: { symbol: "infy", price: 1600, dir: "above", note: "breakout" } });
+  assert.equal(made.status, 200, JSON.stringify(made.json));
+  assert.equal(made.json.alert.symbol, "INFY");
+  assert.equal(made.json.alert.by, SUPERADMIN_EMAIL);
+  const id = made.json.alert.id;
+  assert.equal((await s.request("POST", "/api/admin/market/alerts", { cookie: s.admin, body: { symbol: "INFY", price: -1, dir: "above" } })).status, 400);
+  const fired = await s.request("POST", `/api/admin/market/alerts/${id}/fired`, { cookie: s.admin, body: { price: 1600.5 } });
+  assert.equal(fired.json.first, true);
+  assert.equal((await s.request("GET", "/api/admin/market/alerts", { cookie: s.admin })).json.alerts[0].firedPrice, 1600.5);
+  assert.equal((await s.request("DELETE", `/api/admin/market/alerts/${id}`, { cookie: s.admin })).json.alerts.length, 0);
+  // none of it reaches Zerodha's order endpoints
+  assert.equal(s.kite.writes().length, 0);
 });

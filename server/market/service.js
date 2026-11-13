@@ -32,6 +32,15 @@ const { KiteTicker } = require("./ticker");
 const { Universe } = require("./universe");
 const { buildContext: buildMarketContext, contextKeys } = require("./context");
 const { buildProfile } = require("./profile");
+const E = require("./edge");
+
+const EDGE_DOC = "market/edge.json";
+const SIGNAL_DOC = "market/signals.json";
+const SIGNAL_KEEP = 4000;
+const ALERT_DOC = "market/alerts.json";
+const ALERT_MAX = 60; // waiting at once
+const ALERT_KEEP = 40; // fired ones kept for the record
+const HOW = ["", "target", "stop", "time"];
 
 const DAY = 86400000;
 const IST = 5.5 * 3600 * 1000;
@@ -67,6 +76,20 @@ function isMarketHours(ms) {
   const dow = d.getUTCDay();
   const mins = d.getUTCHours() * 60 + d.getUTCMinutes();
   return dow >= 1 && dow <= 5 && mins >= 9 * 60 && mins <= 16 * 60;
+}
+
+/**
+ * Which part of the trading day it is. A measured-odds reading is good for one of these:
+ * it changes when the session opens (the gap is known) and when it closes (a new bar).
+ */
+function sessionPhase(ms) {
+  const d = new Date(ms + IST);
+  const dow = d.getUTCDay();
+  const mins = d.getUTCHours() * 60 + d.getUTCMinutes();
+  const date = istDate(ms);
+  if (dow === 0 || dow === 6) return `${date}|closed`;
+  if (mins < 9 * 60 + 16) return `${date}|pre`;
+  return mins <= 16 * 60 ? `${date}|open` : `${date}|post`;
 }
 
 /** A Kite access token dies at 06:00 IST on the day after login. */
@@ -1185,8 +1208,309 @@ class MarketService {
       });
   }
 
+  /* ---------------------------------------------------------- measured odds */
+
+  /**
+   * The measured odds for one stock (server/market/edge.js): what followed the past days most
+   * like today, and how the same favourable calls did when each was made with earlier data
+   * only. Built from completed daily bars — today's forming bar is left out, and only its
+   * open is used, for the day reading. Kept in the database ("market/edge.json"), good for
+   * one part of the trading day. Additional to every other reading; nothing else changes.
+   */
+  edge(symbol, { refresh = false } = {}) {
+    if (!this._edgeBusy) this._edgeBusy = new Map();
+    const hit = this._edgeBusy.get(symbol);
+    if (hit) return hit;
+    const p = this._edge(symbol, refresh).finally(() => this._edgeBusy.delete(symbol));
+    this._edgeBusy.set(symbol, p);
+    return p;
+  }
+
+  async _edge(symbol, refresh) {
+    if (!SYMBOL_RE.test(symbol)) throw new MarketError("That is not a valid symbol.", "invalid");
+    const docs = this.store.docs;
+    const now = this.now();
+    const phase = sessionPhase(now);
+    const saved = ((docs && docs.read(EDGE_DOC, {})) || {})[symbol];
+    // during the session a reading made before the open was known is redone once it is
+    const awaitsOpen = saved && phase.endsWith("|open") && saved.available && saved.kinds.day.preOpen && now - Date.parse(saved.builtAt) > 120000;
+    if (saved && !refresh && saved.phase === phase && !awaitsOpen) return saved;
+
+    const d = await this.daily(symbol);
+    let bars = d.candles;
+    let forming = null;
+    if (this._inProgress(d)) {
+      forming = bars[bars.length - 1];
+      bars = bars.slice(0, -1);
+    }
+    const head = { symbol, source: d.source, stale: Boolean(d.stale), phase, builtAt: new Date(now).toISOString() };
+    let rec;
+    if (bars.length < E.WARMUP + 40) {
+      rec = { ...head, available: false, reason: `Measured odds need more than a year of daily bars; ${symbol} has ${bars.length}.` };
+    } else {
+      const model = await this._edgeModel(symbol, bars);
+      const tick = this._liveQuote(symbol);
+      const last = tick && isNum(tick.last) ? tick.last : forming ? forming.c : null;
+      const report = E.read(model, { open: forming ? forming.o : null, last });
+      rec = { ...head, ...report, last: isNum(last) ? Math.round(last * 100) / 100 : null };
+      if (d.source === "kite") this._trackSignals(symbol, model, rec);
+    }
+    if (docs) {
+      const all = docs.read(EDGE_DOC, {}) || {}; // read again: other stocks were written while this one was computed
+      all[symbol] = rec;
+      const keys = Object.keys(all);
+      if (keys.length > 80) keys.sort((a, b) => (all[a].builtAt < all[b].builtAt ? -1 : 1)).slice(0, keys.length - 80).forEach((k) => delete all[k]);
+      docs.write(EDGE_DOC, all);
+    }
+    return rec;
+  }
+
+  /** The learned model for a stock, kept in memory while its history is unchanged. */
+  async _edgeModel(symbol, bars) {
+    if (!this._edgeModels) this._edgeModels = new Map();
+    const lastBar = bars[bars.length - 1];
+    const key = `${bars.length}|${bars[0].t}|${lastBar.t}|${lastBar.c}`;
+    const hit = this._edgeModels.get(symbol);
+    if (hit && hit.key === key) return hit.model;
+    const index = symbol === INDEX_SYMBOL ? null : await this.index();
+    const model = await E.buildModelAsync(bars, index ? index.candles : null);
+    if (this._edgeModels.size >= 60) this._edgeModels.delete(this._edgeModels.keys().next().value);
+    this._edgeModels.set(symbol, { key, model });
+    return model;
+  }
+
+  _signalList() {
+    const a = this.store.docs && this.store.docs.read(SIGNAL_DOC, []);
+    return Array.isArray(a) ? a : [];
+  }
+
+  /**
+   * The forward record. Every favourable reading is written down once, on the day it is made,
+   * before anyone knows how it ends; later it is scored against the real bars by the same
+   * rules the engine learned from. Unlike a backtest, this cannot be flattered by hindsight.
+   * A swing reading is not logged again while an earlier one for that stock and side is open.
+   */
+  _trackSignals(symbol, model, rec) {
+    const docs = this.store.docs;
+    if (!docs) return;
+    const list = this._signalList();
+    const P = model.P;
+    const nowIso = new Date(this.now()).toISOString();
+    let changed = false;
+    for (const s of list) {
+      if (s.symbol !== symbol || isNum(s.r)) continue;
+      const i = P.dates.lastIndexOf(s.asOf);
+      if (i < 0) continue;
+      const x = E.outcome(E.KINDS[s.kind], s.side, P.o, P.h, P.l, P.c, P.n, i, P.atr[i]);
+      if (!isNum(x.r)) continue;
+      Object.assign(s, { r: Math.round(x.r * 100) / 100, exitDate: P.dates[x.exit], how: HOW[x.how], scoredAt: nowIso });
+      changed = true;
+    }
+    if (rec.available) {
+      for (const kind of Object.keys(E.KINDS)) {
+        const k = rec.kinds[kind];
+        if (E.KINDS[kind].usesGap && k.preOpen) continue; // the day reading is logged once its open is known
+        for (const side of E.SIDES) {
+          const x = k[side];
+          if (!x.grade) continue;
+          const id = `${symbol}|${kind}|${side}|${rec.asOf}`;
+          if (list.some((s) => s.id === id)) continue;
+          if (kind === "swing" && list.some((s) => s.symbol === symbol && s.kind === kind && s.side === side && !isNum(s.r))) continue;
+          list.unshift({ id, at: nowIso, symbol, kind, side, asOf: rec.asOf, grade: x.grade, n: x.live.n, winPct: x.live.winPct, expR: x.live.expR, entryRef: x.plan ? x.plan.entryRef : null, stop: x.plan ? x.plan.stop : null, target: x.plan ? x.plan.target : null });
+          changed = true;
+        }
+      }
+    }
+    if (changed) docs.write(SIGNAL_DOC, list.slice(0, SIGNAL_KEEP));
+  }
+
+  /** The forward record: what was called, and how the calls whose outcome is known turned out. */
+  signals({ symbol = "" } = {}) {
+    const all = this._signalList();
+    const mine = symbol ? all.filter((s) => s.symbol === symbol) : all;
+    const groups = {};
+    const add = (key, s) => {
+      const g = groups[key] || (groups[key] = { key, calls: 0, open: 0, scored: 0, wins: 0, sum: 0, sq: 0 });
+      g.calls += 1;
+      if (!isNum(s.r)) {
+        g.open += 1;
+        return;
+      }
+      g.scored += 1;
+      if (s.r > 0) g.wins += 1;
+      g.sum += s.r;
+      g.sq += s.r * s.r;
+    };
+    for (const s of mine) {
+      add(`grade ${s.grade}`, s);
+      add(`${s.kind} ${s.side}`, s);
+      add("all", s);
+    }
+    const summary = Object.values(groups).map((g) => {
+      const mean = g.scored ? g.sum / g.scored : null;
+      const sd = g.scored > 1 ? Math.sqrt(Math.max(0, g.sq / g.scored - mean * mean) * (g.scored / (g.scored - 1))) : 0;
+      return { key: g.key, calls: g.calls, open: g.open, scored: g.scored, winPct: g.scored ? Math.round((g.wins / g.scored) * 1000) / 10 : null, expR: g.scored ? Math.round(mean * 100) / 100 : null, t: sd > 0 ? Math.round((mean / (sd / Math.sqrt(g.scored))) * 100) / 100 : null };
+    });
+    return { since: mine.length ? mine[mine.length - 1].at : null, summary, signals: mine.slice(0, 200) };
+  }
+
+  /**
+   * The watchlist's readings side by side, from the database, plus the method's pooled
+   * walk-forward record across those stocks. Anything missing or out of date is rebuilt
+   * behind this call; the answer says how many are still being worked on.
+   */
+  edgeBoard() {
+    const docs = this.store.docs;
+    const all = (docs && docs.read(EDGE_DOC, {})) || {};
+    const now = this.now();
+    const phase = sessionPhase(now);
+    const list = this.watchlist();
+    if (!this._edgeErrors) this._edgeErrors = new Map();
+    const rows = list.map((symbol) => {
+      const r = all[symbol];
+      const err = this._edgeErrors.get(symbol);
+      if (!r) return { symbol, pending: !err, error: err ? err.message : undefined };
+      return { ...r, fresh: r.phase === phase, error: err ? err.message : undefined };
+    });
+    const stale = list.filter((s) => {
+      const err = this._edgeErrors.get(s);
+      if (err && now - err.at < 5 * 60 * 1000) return false;
+      return !all[s] || all[s].phase !== phase;
+    });
+    if (stale.length) this._edgeLearn(stale);
+    const pooled = {};
+    for (const kind of Object.keys(E.KINDS)) {
+      for (const side of E.SIDES) {
+        const g = { stocks: 0, trades: 0, wins: 0, sum: 0, sq: 0 };
+        for (const r of rows) {
+          const p = r.available ? r.kinds[kind][side].pool : null;
+          if (!p || !p.n) continue;
+          g.stocks += 1;
+          g.trades += p.n;
+          g.wins += p.wins || 0;
+          g.sum += p.sum;
+          g.sq += p.sq;
+        }
+        const mean = g.trades ? g.sum / g.trades : null;
+        const sd = g.trades > 1 ? Math.sqrt(Math.max(0, g.sq / g.trades - mean * mean) * (g.trades / (g.trades - 1))) : 0;
+        pooled[`${kind}.${side}`] = { kind, side, stocks: g.stocks, trades: g.trades, winPct: g.trades ? Math.round((g.wins / g.trades) * 1000) / 10 : null, expR: g.trades ? Math.round(mean * 100) / 100 : null, t: sd > 0 ? Math.round((mean / (sd / Math.sqrt(g.trades))) * 100) / 100 : null };
+      }
+    }
+    const queue = this._edgeQueue ? this._edgeQueue.length : 0;
+    return { rows, pooled, proof: E.PROOF, rules: E.KINDS, building: queue + (this._edgeNow ? 1 : 0), phase, at: new Date(now).toISOString() };
+  }
+
+  /* ------------------------------------------------------------ price alerts */
+
+  // A price alert is a note to yourself: "tell me when SBIN reaches 800". It is kept in the
+  // database so it survives a reload and shows on every device; the open page watches the
+  // price and reports the crossing here, so an alert fires once. Nothing is traded by it.
+
+  _alertList() {
+    const a = this.store.docs && this.store.docs.read(ALERT_DOC, []);
+    return Array.isArray(a) ? a : [];
+  }
+
+  alerts() {
+    return { alerts: this._alertList() };
+  }
+
+  /** @param input { symbol, price, dir?: "above" | "below", note? } — without dir, the side is taken from the price now */
+  async addAlert(input, by = "") {
+    const symbol = String((input && input.symbol) || "").trim().toUpperCase();
+    const price = Number(input && input.price);
+    if (!SYMBOL_RE.test(symbol)) throw new MarketError("That is not a valid symbol.", "invalid");
+    if (!(price > 0 && price < 1e7)) throw new MarketError("Enter the price to be told about.", "invalid");
+    let dir = input.dir === "above" || input.dir === "below" ? input.dir : "";
+    let from = null;
+    if (!dir) {
+      try {
+        const q = (await this.quotes([symbol])).quotes[symbol];
+        if (q && isNum(q.last)) from = q.last;
+      } catch (_) {
+        /* fall through to the last close */
+      }
+      if (from === null) {
+        const cache = this._readCache(symbol);
+        if (cache && cache.candles.length) from = cache.candles[cache.candles.length - 1].c;
+      }
+      if (from === null) throw new MarketError(`The price of ${symbol} could not be read just now. Say whether to alert above or below ${price}.`, "no_price", 409);
+      dir = price >= from ? "above" : "below";
+    }
+    const list = this._alertList();
+    if (list.filter((a) => !a.firedAt).length >= ALERT_MAX) throw new MarketError(`You have ${ALERT_MAX} alerts waiting. Remove one first.`, "too_many", 409);
+    if (list.some((a) => !a.firedAt && a.symbol === symbol && a.dir === dir && a.price === price)) throw new MarketError("That alert is already set.", "duplicate", 409);
+    const alert = { id: `${this.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`, symbol, dir, price: Math.round(price * 100) / 100, note: String((input && input.note) || "").trim().slice(0, 120), from: from === null ? null : Math.round(from * 100) / 100, createdAt: new Date(this.now()).toISOString(), by, firedAt: null, firedPrice: null };
+    this._saveAlerts([alert, ...list]);
+    return { alert, alerts: this._alertList() };
+  }
+
+  _saveAlerts(list) {
+    const waiting = list.filter((a) => !a.firedAt);
+    const fired = list.filter((a) => a.firedAt).sort((a, b) => (a.firedAt < b.firedAt ? 1 : -1)).slice(0, ALERT_KEEP);
+    this.store.docs.write(ALERT_DOC, [...waiting, ...fired]);
+  }
+
+  removeAlert(id) {
+    const list = this._alertList();
+    const next = list.filter((a) => a.id !== String(id));
+    if (next.length !== list.length) this._saveAlerts(next);
+    return { alerts: this._alertList() };
+  }
+
+  /** The page saw the price cross. Recorded once: a second report (another tab) changes nothing. */
+  fireAlert(id, price) {
+    const list = this._alertList();
+    const a = list.find((x) => x.id === String(id));
+    if (!a) throw new MarketError("That alert no longer exists.", "not_found", 404);
+    const first = !a.firedAt;
+    if (first) {
+      a.firedAt = new Date(this.now()).toISOString();
+      a.firedPrice = isNum(Number(price)) && Number(price) > 0 ? Math.round(Number(price) * 100) / 100 : null;
+      this._saveAlerts(list);
+    }
+    return { alert: a, first, alerts: this._alertList() };
+  }
+
+  /** Build the readings for these stocks one after another, in the background. */
+  _edgeLearn(symbols) {
+    if (!this._edgeQueue) this._edgeQueue = [];
+    if (!this._edgeErrors) this._edgeErrors = new Map();
+    for (const s of symbols) if (s !== this._edgeNow && !this._edgeQueue.includes(s)) this._edgeQueue.push(s);
+    if (this._edgeRunning) return this._edgeRunning;
+    this._edgeRunning = (async () => {
+      while (this._edgeQueue.length) {
+        const s = this._edgeQueue.shift();
+        this._edgeNow = s;
+        try {
+          await this.edge(s);
+          this._edgeErrors.delete(s);
+        } catch (err) {
+          this._edgeErrors.set(s, { at: this.now(), message: err.message });
+        }
+      }
+    })().finally(() => {
+      this._edgeNow = null;
+      this._edgeRunning = null;
+    });
+    return this._edgeRunning;
+  }
+
+  /** Once per part of the trading day, while the desk is in use: keep the watchlist's readings (and the forward record) current. */
+  _edgeStale() {
+    const phase = sessionPhase(this.now());
+    if (this._edgePhase === phase) return;
+    this._edgePhase = phase;
+    const all = (this.store.docs && this.store.docs.read(EDGE_DOC, {})) || {};
+    const stale = this.watchlist().filter((s) => !all[s] || all[s].phase !== phase);
+    if (stale.length) this._edgeLearn(stale).catch(() => {});
+  }
+
   async scan() {
-    if (this.mode() === "kite") this._learnStale();
+    if (this.mode() === "kite") {
+      this._learnStale();
+      this._edgeStale();
+    }
     const symbols = this.watchlist();
     const index = await this.index();
     const rows = [];

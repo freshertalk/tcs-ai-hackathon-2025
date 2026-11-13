@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { api } from "../../api";
+import { api, peek } from "../../api";
 import { Alert, Loading } from "../../ui";
 import { compact, day, inr, isNum, num, pct, signed, tone, when } from "./format";
 import { useTick } from "./liveTicks";
@@ -146,7 +146,9 @@ export default function StockView({ symbol, quote, status, streaming = false, in
   const load = useCallback(
     (quiet) => {
       let alive = true;
-      if (!quiet) setState({ loading: true });
+      // a stock that was open a moment ago is drawn at once from its last reading
+      const seenBefore = quiet ? null : peek(`/api/admin/market/analysis/${enc(symbol)}?bars=${bars}`);
+      if (!quiet) setState(seenBefore ? { loading: false, data: seenBefore } : { loading: true });
       api(`/api/admin/market/analysis/${enc(symbol)}?bars=${bars}`)
         .then((d) => alive && setState({ loading: false, data: d }))
         .catch((e) => alive && setState((s) => (quiet && s.data ? { ...s, refreshError: e.message } : { loading: false, error: e.message })));

@@ -1505,3 +1505,128 @@
   gap: 4px;
   font-size: var(--t-mid);
 }
+
+/* ---- the ticket's exit plan, the pre-trade check, and the stop offered after a fill */
+.tr-plan {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-2);
+  animation: tr-reveal 0.2s ease both;
+}
+@keyframes tr-reveal {
+  from {
+    opacity: 0.55;
+    transform: translateY(-3px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.tr-plan__src {
+  font-size: var(--t-small);
+  color: var(--ink-3);
+}
+.tr-plan__sum {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 16px;
+  font-size: var(--t-mid);
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+.tr-plan__sum b {
+  color: var(--ink);
+}
+.tr-plan__sum b.is-up {
+  color: var(--up);
+}
+.tr-plan__sum b.is-down {
+  color: var(--down);
+}
+.tr-plan__sum .adm-btn {
+  margin-left: auto;
+}
+.tr-pre {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.tr-pre dt {
+  font-size: var(--t-small);
+  color: var(--ink-3);
+}
+.tr-pre dd {
+  margin: 2px 0 0;
+  font-size: var(--t-base);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.tr-pre dd.is-down {
+  color: var(--down);
+}
+.tr-confirm b.is-up {
+  color: var(--up);
+}
+.tr-confirm b.is-down {
+  color: var(--down);
+}
+.tr-follow {
+  position: fixed;
+  left: 16px;
+  bottom: 16px;
+  z-index: 940;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  max-width: min(560px, calc(100vw - 32px));
+  padding: 12px 14px;
+  border: 1px solid var(--warn-line);
+  border-left: 4px solid var(--warn);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
+  font-size: var(--t-mid);
+  color: var(--ink-2);
+  animation: tr-reveal 0.25s ease both;
+}
+.tr-follow p {
+  flex: 1 1 280px;
+  line-height: 1.5;
+}
+.tr-follow p b {
+  color: var(--ink);
+}
+.tr-follow p small {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--t-small);
+  color: var(--ink-3);
+}
+.tr-follow > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.tr-follow__x {
+  border: 0;
+  background: none;
+  color: var(--ink-3);
+  font-size: var(--t-lead);
+  cursor: pointer;
+}
+@media (prefers-reduced-motion: reduce) {
+  .tr-plan,
+  .tr-follow {
+    animation: none;
+  }
+}

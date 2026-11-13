@@ -25,6 +25,20 @@ test("typing in a field, or holding a modifier, is never a command", () => {
   expect(press("Escape", { target: { tagName: "INPUT" } })).toEqual({ action: "close" });
 });
 
+test("Ctrl K opens the palette from anywhere, but not over another dialog", () => {
+  expect(press("k", { ctrlKey: true })).toEqual({ action: "palette" });
+  expect(press("K", { metaKey: true, target: { tagName: "INPUT" } })).toEqual({ action: "palette" });
+  expect(press("k", { ctrlKey: true, altKey: true })).toBe(null);
+  expect(press("k")).toBe(null);
+  const d = document.createElement("div");
+  d.setAttribute("aria-modal", "true");
+  document.body.appendChild(d);
+  expect(press("k", { ctrlKey: true })).toBe(null);
+  d.className = "tm-pal"; // the palette itself: the same keys close it
+  expect(press("k", { ctrlKey: true })).toEqual({ action: "palette" });
+  d.remove();
+});
+
 test("nothing global fires while a dialog is open", () => {
   const d = document.createElement("div");
   d.setAttribute("aria-modal", "true");

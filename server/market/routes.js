@@ -179,6 +179,18 @@ function mountMarket(app, deps) {
   app.post("/api/admin/market/behaviour/learn", requireAdmin, limiter(10, 10 * 60 * 1000), wrap(async () => market.learnWatchlist({ refresh: true })));
   app.get("/api/admin/market/behaviour/:symbol", requireAdmin, wrap(async (req) => market.behaviour(symbolOf(req), { refresh: req.query.refresh === "1" })));
 
+  // measured odds: what followed the past days most like today, the walk-forward record of the
+  // method on each stock, and the forward record of every favourable call made since
+  app.get("/api/admin/market/edge", requireAdmin, wrap(async () => market.edgeBoard()));
+  app.get("/api/admin/market/edge/:symbol", requireAdmin, limiter(120, 60 * 1000), wrap(async (req) => market.edge(symbolOf(req), { refresh: req.query.refresh === "1" })));
+  // price alerts: notes kept in the database; the open page watches the price and reports a crossing
+  app.get("/api/admin/market/alerts", requireAdmin, wrap(async () => market.alerts()));
+  app.post("/api/admin/market/alerts", requireAdmin, limiter(60, 60 * 1000), wrap(async (req) => market.addAlert(req.body || {}, req.user ? req.user.email : "")));
+  app.post("/api/admin/market/alerts/:id/fired", requireAdmin, wrap(async (req) => market.fireAlert(String(req.params.id).slice(0, 40), (req.body || {}).price)));
+  app.delete("/api/admin/market/alerts/:id", requireAdmin, wrap(async (req) => market.removeAlert(String(req.params.id).slice(0, 40))));
+
+  app.get("/api/admin/market/signals", requireAdmin, wrap(async (req) => market.signals({ symbol: String(req.query.symbol || "").toUpperCase().slice(0, 25) })));
+
   app.get("/api/admin/market/analysis/:symbol", requireAdmin, wrap(async (req) => market.analysis(symbolOf(req), { chartBars: req.query.bars })));
 
   app.get("/api/admin/market/verdict/:symbol", requireAdmin, wrap(async (req) => market.verdict(symbolOf(req))));

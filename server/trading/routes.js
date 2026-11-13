@@ -36,6 +36,10 @@ function mountTrading(app, { trading, ai, requireSuper, limiter }) {
   app.put("/api/admin/trading/switch", requireSuper, wrap(async (req) => trading.setSwitch(Boolean((req.body || {}).on), by(req))));
   app.put("/api/admin/trading/limits", requireSuper, wrap(async (req) => trading.setLimits(req.body || {}, by(req))));
 
+  // the pre-trade check: margin and charges by Zerodha's calculator, plus the desk's own rules.
+  // It places nothing, and answers with the switch off.
+  app.post("/api/admin/trading/preview", requireSuper, limiter(120, 60 * 1000), wrap(async (req) => trading.preview(req.body || {})));
+
   // writes: rate-limited well above what a person can click, well below a runaway loop
   const writes = limiter(60, 60 * 1000);
   app.post("/api/admin/trading/orders", requireSuper, writes, wrap(async (req) => trading.place(req.body || {}, by(req))));

@@ -1,6 +1,20 @@
 // Thin fetch wrapper for the private API. The X-Requested-With header is the
 // server's CSRF check: a cross-site form cannot send it.
 
+// The last good answer to each market read, kept for this visit. A screen that was open a
+// moment ago — a stock you come back to, a workspace you switch back to — is drawn at once
+// from here while the fresh answer is on its way, instead of starting from "Loading…".
+// Account and order data are never kept: those are always read fresh.
+const seen = new Map();
+const KEEP = 120;
+const keeps = (path) => path.startsWith("/api/admin/market/") && !path.includes("/search");
+
+/** The remembered answer to a read, or null when there is none or it is older than maxAgeMs. */
+export function peek(path, maxAgeMs = 5 * 60 * 1000) {
+  const hit = seen.get(path);
+  return hit && Date.now() - hit.at <= maxAgeMs ? hit.data : null;
+}
+
 export async function api(path, { method = "GET", body } = {}) {
   const res = await fetch(path, {
     method,
@@ -30,6 +44,11 @@ export async function api(path, { method = "GET", body } = {}) {
     err.status = res.status;
     err.code = data && data.error;
     throw err;
+  }
+  if (method === "GET" && data && keeps(path)) {
+    seen.delete(path);
+    if (seen.size >= KEEP) seen.delete(seen.keys().next().value);
+    seen.set(path, { at: Date.now(), data });
   }
   return data;
 }
