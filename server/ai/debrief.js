@@ -13,8 +13,6 @@
 // suggests are shown, not saved: one goes into the trading-skills file only when the
 // trader presses "add" on it.
 
-const fs = require("fs");
-const path = require("path");
 const crypto = require("crypto");
 
 const { AiError } = require("./client");
@@ -66,23 +64,17 @@ class Debrief {
   /** @param ai  the AiService: key, model, market service, journal, co-pilot and clock come from it */
   constructor(ai) {
     this.ai = ai;
-    this.file = path.join(ai.dir, "debriefs.json");
+    this.name = "ai/debriefs.json";
     this._busy = null; // the request in flight: a second press does not pay twice
   }
 
   _all() {
-    try {
-      const all = JSON.parse(fs.readFileSync(this.file, "utf8"));
-      return Array.isArray(all) ? all : [];
-    } catch (_) {
-      return [];
-    }
+    const all = this.ai.docs.read(this.name, []);
+    return Array.isArray(all) ? all : [];
   }
 
   _save(all) {
-    fs.mkdirSync(path.dirname(this.file), { recursive: true });
-    fs.writeFileSync(`${this.file}.tmp`, JSON.stringify(all.slice(-KEEP)));
-    fs.renameSync(`${this.file}.tmp`, this.file);
+    this.ai.docs.write(this.name, all.slice(-KEEP));
   }
 
   /** The stored debriefs, newest first. Reading them costs nothing. */

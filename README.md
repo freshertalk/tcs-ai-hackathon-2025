@@ -88,10 +88,49 @@ as a redirect URI too.
 | `SETUP_TOKEN` | Fix the first-run token instead of a random one |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Optional bootstrap; values saved in the dashboard take priority |
 | `SETTINGS_KEY`, `SESSION_SECRET` | Optional 32-byte keys (hex/base64); otherwise generated into `server/data/` |
+| `MONGO_URI`, `MONGO_DB` | Keep records in MongoDB (database default `stock-trading`) instead of files |
+
+Any of these can also go in `server/.env` (git-ignored; see `server/.env.example`), which the server reads at start.
 
 **Data.** Everything lives in `server/data/` (git-ignored): `db.json` (settings, admin list;
 the Client Secret is stored AES-256-GCM encrypted), plus the two key files. Back that folder
 up; losing `settings.key` means re-entering the Client Secret.
+
+**Where records live: MongoDB or files** (`server/docs.js`). With `MONGO_URI` set, the server keeps
+its records in MongoDB, database `MONGO_DB` (default `stock-trading`): collection `docs` holds
+settings and admins (secrets still encrypted), the watchlist, the trading switch and limits, the
+AI journal, skills file, world brief, news checks, co-pilot state, debriefs, coach readings and
+research reports; collection `logs` holds the trading audit log. Everything is read once at
+start-up and every change is written straight through, so the server must run as **one**
+process. On the first start against an empty database it imports whatever is in
+`server/data/`. Without `MONGO_URI` the same records are files in `server/data/`. Either way,
+caches that can be downloaded again (candles, the instrument list, the screener's data, exchange
+holidays) stay as files, and so do the two encryption keys unless `SETTINGS_KEY` and
+`SESSION_SECRET` are set — a key stored beside the secrets it protects would protect nothing.
+`npm run db:check` connects, writes and reads back a test record, and lists what is stored.
+
+**Deploying on the VPS (the folder the static site is served from today).** The steps, once:
+
+1. Node 20 or newer, and pm2 (`npm i -g pm2`).
+2. In the folder: `git pull`, then `npm ci` (the site), `npm run server:install` (the API), and
+   `npm run build`.
+3. `cp server/.env.example server/.env` and fill it in: `MONGO_URI` (the VPS's MongoDB),
+   `MONGO_DB=stock-trading`, and the two keys (the file says how to make them; keep a copy
+   somewhere safe). Then `npm run db:check`.
+4. `pm2 start deploy/ecosystem.config.cjs && pm2 save && pm2 startup` — one process on port 5100
+   (change it in that file if the port is taken). The first start prints a one-time setup token
+   (`pm2 logs vinaytiwari`); open `https://vinaytiwari.org/me` and paste it with the Google
+   Client ID and Secret.
+5. nginx: point the domain at the process instead of the `build/` folder — see
+   `deploy/nginx.conf.example` (the live streams need `proxy_buffering off`). Then
+   `sudo nginx -t && sudo systemctl reload nginx`.
+6. Google Cloud console: add `https://vinaytiwari.org/api/auth/google/callback` as a redirect URI.
+   Kite developer console: set the redirect URL to
+   `https://vinaytiwari.org/api/admin/market/kite/callback` and register **this VPS's public IP**
+   as the app's static IP (Zerodha requires it for orders placed through the API).
+7. Back up the database (`mongodump --db stock-trading`) and `server/.env`; never commit either.
+
+Updating later: `git pull && npm ci && npm run server:install && npm run build && pm2 restart vinaytiwari`.
 
 **Welcome on the dashboard.** Every time `/me` opens — after signing in, on a refresh, in a new tab,
 and on coming back to the dashboard from a settings page — it first shows the Shri Ram Darbar

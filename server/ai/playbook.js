@@ -7,8 +7,6 @@
 // every later answer. Lessons are appended only by the "Score & learn" step,
 // from outcomes that were scored mechanically against real prices.
 
-const fs = require("fs");
-const path = require("path");
 
 const MAX_CHARS = 24000;
 const MAX_LESSONS = 60;
@@ -74,38 +72,29 @@ ${LESSONS_HEAD}
 _None yet. Lessons appear here after plans have been scored against real prices._
 `;
 
+const NAME = "ai/trading-skills.md";
+
 class Playbook {
-  constructor({ dir }) {
-    this.file = path.join(dir, "trading-skills.md");
-    fs.mkdirSync(dir, { recursive: true });
+  /** @param docs  the record store (server/docs.js); the file is "ai/trading-skills.md" */
+  constructor({ docs }) {
+    this.docs = docs;
   }
 
   read() {
-    try {
-      const text = fs.readFileSync(this.file, "utf8");
-      if (text.trim()) return text;
-    } catch (_) {
-      /* first run */
-    }
-    return SEED;
+    const text = this.docs.read(NAME, "");
+    return typeof text === "string" && text.trim() ? text : SEED;
   }
 
   write(text) {
     const clean = String(text || "").replace(/\r\n/g, "\n").trim();
     if (!clean) throw new Error("The skills file cannot be empty. Use Reset to restore the starting rules.");
     if (clean.length > MAX_CHARS) throw new Error(`The skills file is limited to ${MAX_CHARS} characters (it is sent with every AI request).`);
-    const tmp = `${this.file}.${process.pid}.tmp`;
-    fs.writeFileSync(tmp, `${clean}\n`);
-    fs.renameSync(tmp, this.file);
+    this.docs.write(NAME, `${clean}\n`);
     return this.read();
   }
 
   reset() {
-    try {
-      fs.unlinkSync(this.file);
-    } catch (_) {
-      /* nothing to remove */
-    }
+    this.docs.remove(NAME);
     return this.read();
   }
 

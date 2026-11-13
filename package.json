@@ -37,6 +37,7 @@
     "server": "node server/index.js",
     "server:install": "npm install --prefix server",
     "server:test": "npm test --prefix server",
+    "db:check": "node server/db-check.js",
     "dev": "node scripts/dev.js"
   },
   "devDependencies": {

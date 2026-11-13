@@ -11,6 +11,7 @@ const path = require("path");
 const express = require("express");
 
 const { Store } = require("./store");
+const { FileDocs } = require("./docs");
 const {
   loadKey,
   encrypt,
@@ -116,7 +117,9 @@ function createApp(opts = {}) {
   const buildDir = opts.buildDir || path.join(__dirname, "..", "build");
   const makeGoogle = opts.google || defaultGoogle;
 
-  const store = new Store(dataDir);
+  // where records live: MongoDB when the caller opened it (server/index.js with MONGO_URI), files otherwise
+  const docs = opts.docs || new FileDocs(dataDir);
+  const store = new Store(dataDir, docs);
   // exchange holiday data, kept in step with the exchange's own publication
   const holidays = opts.holidays || new HolidayService({ dir: dataDir, fetchImpl: opts.holidayFetch });
   const settingsKey = loadKey(dataDir, "settings.key", env.SETTINGS_KEY);
@@ -147,6 +150,7 @@ function createApp(opts = {}) {
       store,
       secrets: { encrypt: (t) => encrypt(t, settingsKey), decrypt: (b) => decrypt(b, settingsKey) },
       market,
+      docs,
       fetchImpl: opts.aiFetch,
       now: opts.now,
     });
@@ -159,6 +163,7 @@ function createApp(opts = {}) {
       dir: dataDir,
       store,
       market,
+      docs,
       fetchImpl: opts.tradingFetch || opts.marketFetch,
       now: opts.now,
       gapMs: opts.marketGaps ? 0 : undefined,

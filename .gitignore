@@ -25,3 +25,4 @@ yarn-error.log*
 # private-area server: its data (settings, encrypted secret, keys) and its modules
 /server/data/
 /server/node_modules/
+/server/.env

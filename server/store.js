@@ -1,10 +1,9 @@
 "use strict";
-// A tiny JSON-file store. The data is a handful of rows (a few admins and
-// three settings), so a database would be more machinery than the job needs.
-// Writes are atomic: write a temp file, then rename over the real one.
+// The app's main record: settings (secrets encrypted), the admin list, users, the
+// watchlist and the trading switch. Held in memory and saved through the docs store
+// (server/docs.js) on every change — a file in server/data/ or a MongoDB document.
 
-const fs = require("fs");
-const path = require("path");
+const { FileDocs } = require("./docs");
 
 const EMPTY = () => ({
   settings: {
@@ -18,45 +17,36 @@ const EMPTY = () => ({
 });
 
 class Store {
-  constructor(dir) {
+  /**
+   * @param dir   server/data/ — used when no docs store is given
+   * @param docs  where to keep the record (server/docs.js)
+   */
+  constructor(dir, docs = null) {
     this.dir = dir;
-    this.file = path.join(dir, "db.json");
-    fs.mkdirSync(dir, { recursive: true });
-    this.data = this._read();
+    this.docs = docs || new FileDocs(dir);
+    this.data = this._shape(this.docs.read("db.json", null));
   }
 
-  _read() {
-    try {
-      const raw = JSON.parse(fs.readFileSync(this.file, "utf8"));
-      const base = EMPTY();
-      return {
-        settings: { ...base.settings, ...(raw.settings || {}) },
-        admins: Array.isArray(raw.admins) ? raw.admins : [],
-        users: raw.users && typeof raw.users === "object" ? raw.users : {},
-        market: {
-          watchlist: raw.market && Array.isArray(raw.market.watchlist) ? raw.market.watchlist : [],
-          demo: Boolean(raw.market && raw.market.demo),
-        },
-      };
-    } catch (err) {
-      if (err.code !== "ENOENT") {
-        // a corrupt file must never be silently replaced — keep a copy
-        try {
-          fs.copyFileSync(this.file, `${this.file}.corrupt-${Date.now()}`);
-        } catch (_) {
-          /* best effort */
-        }
-      }
-      return EMPTY();
-    }
+  _shape(raw) {
+    const base = EMPTY();
+    if (!raw || typeof raw !== "object") return base;
+    return {
+      settings: { ...base.settings, ...(raw.settings || {}) },
+      admins: Array.isArray(raw.admins) ? raw.admins : [],
+      users: raw.users && typeof raw.users === "object" ? raw.users : {},
+      market: {
+        watchlist: raw.market && Array.isArray(raw.market.watchlist) ? raw.market.watchlist : [],
+        demo: Boolean(raw.market && raw.market.demo),
+      },
+      // the trading switch and its limits: kept across restarts (the trading service fills in defaults)
+      ...(raw.trading && typeof raw.trading === "object" ? { trading: raw.trading } : {}),
+    };
   }
 
   /** Run a mutation, then persist. The callback edits `data` in place. */
   update(fn) {
     fn(this.data);
-    const tmp = `${this.file}.${process.pid}.tmp`;
-    fs.writeFileSync(tmp, JSON.stringify(this.data, null, 2), { mode: 0o600 });
-    fs.renameSync(tmp, this.file);
+    this.docs.write("db.json", this.data);
   }
 }
 

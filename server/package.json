@@ -6,6 +6,7 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
+    "db:check": "node db-check.js",
     "test": "node --test \"test/*.test.js\""
   },
   "engines": {
@@ -15,6 +16,7 @@
     "@anthropic-ai/sdk": "^1.8.0",
     "express": "^4.21.2",
     "google-auth-library": "^9.15.1",
+    "mongodb": "6.21.0",
     "ws": "^8.22.2"
   }
 }

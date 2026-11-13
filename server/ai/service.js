@@ -17,7 +17,6 @@
 // It reads and writes analysis only. There is no order, basket or broker call in
 // this folder, and the only outside host it talks to is Anthropic's API.
 
-const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
 
@@ -26,6 +25,7 @@ const { Playbook } = require("./playbook");
 const { Journal, scorePlan, summarize, SWING_MAX_BARS } = require("./journal");
 const { Copilot } = require("./copilot");
 const { Debrief } = require("./debrief");
+const { FileDocs } = require("../docs");
 const { Coach } = require("./coach");
 const { Research } = require("./research");
 const { barStart } = require("../market/intraday");
@@ -282,16 +282,18 @@ class AiService {
    * @param secrets  { encrypt(text), decrypt(blob) }
    * @param market   the MarketService — the only source of prices
    */
-  constructor({ dir, store, secrets, market, fetchImpl, now = () => Date.now(), log = console }) {
+  /** @param docs  the record store (server/docs.js); a file store under dir when not given */
+  constructor({ dir, store, secrets, market, fetchImpl, now = () => Date.now(), log = console, docs }) {
     this.dir = path.join(dir, "ai");
+    this.docs = docs || new FileDocs(dir);
     this.store = store;
     this.secrets = secrets;
     this.market = market;
     this.fetch = fetchImpl;
     this.now = now;
     this.log = log;
-    this.playbook = new Playbook({ dir: this.dir });
-    this.journal = new Journal({ dir: this.dir });
+    this.playbook = new Playbook({ docs: this.docs });
+    this.journal = new Journal({ docs: this.docs });
     this._recent = new Map(); // symbol|horizon → { at, result }: a double click does not pay twice
     this.copilot = new Copilot(this);
     this.debrief = new Debrief(this);
@@ -384,12 +386,8 @@ class AiService {
 
   /** The stored world brief, whatever its age, or null. */
   world() {
-    try {
-      const w = JSON.parse(fs.readFileSync(path.join(this.dir, "world.json"), "utf8"));
-      return w && w.at ? w : null;
-    } catch (_) {
-      return null;
-    }
+    const w = this.docs.read("ai/world.json", null);
+    return w && w.at ? w : null;
   }
 
   /** The brief in one line — only while it still describes today. */
@@ -434,26 +432,16 @@ class AiService {
         searches: found.usage.searches,
       },
     };
-    const file = path.join(this.dir, "world.json");
-    fs.writeFileSync(`${file}.tmp`, JSON.stringify(out));
-    fs.renameSync(`${file}.tmp`, file);
+    this.docs.write("ai/world.json", out);
     this.log.log(`[ai] world brief by ${out.model}: ${out.usage.searches} searches, ${out.usage.inputTokens} in / ${out.usage.outputTokens} out tokens`);
     return out;
   }
 
   /* ------------------------------------------------------- company news */
 
-  _newsFile() {
-    return path.join(this.dir, "news.json");
-  }
-
   _newsAll() {
-    try {
-      const all = JSON.parse(fs.readFileSync(this._newsFile(), "utf8"));
-      return all && typeof all === "object" && !Array.isArray(all) ? all : {};
-    } catch (_) {
-      return {};
-    }
+    const all = this.docs.read("ai/news.json", {});
+    return all && typeof all === "object" && !Array.isArray(all) ? all : {};
   }
 
   /** The stored news check for a symbol, whatever its age, or null. */
@@ -526,9 +514,7 @@ class AiService {
     all[symbol] = out;
     const keys = Object.keys(all);
     if (keys.length > NEWS_KEEP) keys.sort((a, b) => Date.parse(all[a].at) - Date.parse(all[b].at)).slice(0, keys.length - NEWS_KEEP).forEach((k) => delete all[k]);
-    fs.mkdirSync(this.dir, { recursive: true });
-    fs.writeFileSync(`${this._newsFile()}.tmp`, JSON.stringify(all));
-    fs.renameSync(`${this._newsFile()}.tmp`, this._newsFile());
+    this.docs.write("ai/news.json", all);
     this.log.log(`[ai] news check for ${symbol} by ${out.model}: ${out.usage.searches} searches, ${out.usage.inputTokens} in / ${out.usage.outputTokens} out tokens`);
     return out;
   }

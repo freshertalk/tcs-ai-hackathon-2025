@@ -6,8 +6,6 @@
 // what makes the track record honest, and it is the only material the model is
 // later allowed to learn from.
 
-const fs = require("fs");
-const path = require("path");
 
 const r2 = (x) => (Number.isFinite(x) ? Math.round(x * 100) / 100 : null);
 const MAX_ENTRIES = 400;
@@ -100,22 +98,15 @@ function entriesWon(entries) {
 }
 
 class Journal {
-  constructor({ dir }) {
-    this.file = path.join(dir, "journal.json");
-    fs.mkdirSync(dir, { recursive: true });
-    this.entries = [];
-    try {
-      const raw = JSON.parse(fs.readFileSync(this.file, "utf8"));
-      if (Array.isArray(raw)) this.entries = raw;
-    } catch (_) {
-      /* first run or unreadable: start empty */
-    }
+  /** @param docs  the record store (server/docs.js); the journal is "ai/journal.json" */
+  constructor({ docs }) {
+    this.docs = docs;
+    const raw = docs.read("ai/journal.json", []);
+    this.entries = Array.isArray(raw) ? raw : [];
   }
 
   _save() {
-    const tmp = `${this.file}.${process.pid}.tmp`;
-    fs.writeFileSync(tmp, JSON.stringify(this.entries));
-    fs.renameSync(tmp, this.file);
+    this.docs.write("ai/journal.json", this.entries);
   }
 
   add(entry) {

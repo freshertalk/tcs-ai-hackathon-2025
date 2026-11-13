@@ -16,6 +16,7 @@ const { TradingService } = require("../trading/service");
 const { Coach } = require("../ai/coach");
 const { Research } = require("../ai/research");
 const { SUPERADMIN_EMAIL } = require("../config");
+const { FileDocs, MongoDocs } = require("../docs");
 
 const API_KEY = "abcd1234efgh5678";
 const API_SECRET = "zyxw9876vuts5432";
@@ -398,6 +399,7 @@ function aiStub(answers) {
   return {
     asked,
     dir,
+    docs: new FileDocs(dir),
     now: () => Date.parse("2026-11-12T04:45:00Z"),
     log: { log() {}, error() {} },
     configured: () => true,
@@ -438,4 +440,17 @@ test("research without an AI key still produces a data sheet for each stock", as
   assert.equal(rep.stocks[0].sheet.indicators.rsi14, 55);
   assert.equal(rep.stocks[0].note, null);
   assert.equal(rep.model, null);
+});
+
+test("the trading switch and limits survive a server restart", () => {
+  const { Store } = require("../store");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "vpt-trade-r-"));
+  const market = { ticker: null, kiteState: () => ({ connected: false }), kiteAuth: () => null };
+  const quiet = { log() {}, error() {} };
+  const a = new TradingService({ dir, store: new Store(dir), market, log: quiet });
+  a.setSwitch(true, "me");
+  a.setLimits({ maxQty: 250, maxValue: 75000 }, "me");
+  const b = new TradingService({ dir, store: new Store(dir), market, log: quiet });
+  assert.equal(b.status().enabled, true);
+  assert.deepEqual(b.status().limits, { maxQty: 250, maxValue: 75000 });
 });

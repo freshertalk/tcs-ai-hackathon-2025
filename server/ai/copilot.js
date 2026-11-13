@@ -16,8 +16,6 @@
 // scored against the price ten minutes later, by arithmetic, and the record is
 // shown next to it.
 
-const fs = require("fs");
-const path = require("path");
 const crypto = require("crypto");
 
 const { AiError, MODELS } = require("./client");
@@ -84,7 +82,7 @@ class Copilot {
   /** @param ai  the AiService: the key, the model, the market service and the clock all come from it */
   constructor(ai) {
     this.ai = ai;
-    this.file = path.join(ai.dir, "live.json");
+    this.name = "ai/live.json";
     this._busy = new Map(); // symbol → the request in flight, so two tabs do not pay twice
   }
 
@@ -121,12 +119,7 @@ class Copilot {
 
   _load() {
     const today = istDate(this.ai.now());
-    let s = null;
-    try {
-      s = JSON.parse(fs.readFileSync(this.file, "utf8"));
-    } catch (_) {
-      s = null;
-    }
+    let s = this.ai.docs.read(this.name, null);
     if (!s || typeof s !== "object") s = {};
     const t = s.tally && typeof s.tally === "object" ? s.tally : {};
     const tally = { right: t.right || 0, wrong: t.wrong || 0, flat: t.flat || 0, since: t.since || today };
@@ -178,9 +171,7 @@ class Copilot {
   }
 
   _save(state) {
-    fs.mkdirSync(path.dirname(this.file), { recursive: true });
-    fs.writeFileSync(`${this.file}.tmp`, JSON.stringify(state));
-    fs.renameSync(`${this.file}.tmp`, this.file);
+    this.ai.docs.write(this.name, state);
   }
 
   /** What the day's use looks like — for the settings page and the card's footer. */

@@ -9,8 +9,6 @@
 // to the trader, who decides — and places any order by hand, with the trading switch on.
 // It runs only when asked; nothing here works by the clock.
 
-const fs = require("fs");
-const path = require("path");
 const crypto = require("crypto");
 const { AiError } = require("./client");
 
@@ -80,17 +78,13 @@ const COACH_SCHEMA = {
 class Coach {
   constructor(ai) {
     this.ai = ai;
-    this.file = path.join(ai.dir, "coach.json");
+    this.name = "ai/coach.json";
     this._busy = null;
   }
 
   _all() {
-    try {
-      const a = JSON.parse(fs.readFileSync(this.file, "utf8"));
-      return Array.isArray(a) ? a : [];
-    } catch (_) {
-      return [];
-    }
+    const a = this.ai.docs.read(this.name, []);
+    return Array.isArray(a) ? a : [];
   }
 
   list() {
@@ -197,8 +191,7 @@ class Coach {
         usage: answer.usage,
       };
       const all = [out, ...this._all()].slice(0, KEEP);
-      fs.mkdirSync(this.ai.dir, { recursive: true });
-      fs.writeFileSync(this.file, JSON.stringify(all, null, 2));
+      this.ai.docs.write(this.name, all);
       this.ai.log.log(`[ai] position coach by ${answer.model}: ${positions.length} positions, ${holdingRows.length} holdings — ${answer.usage.inputTokens} in / ${answer.usage.outputTokens} out tokens`);
       return out;
     })();

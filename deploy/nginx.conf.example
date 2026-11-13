@@ -1,0 +1,43 @@
+# nginx in front of the Node process (deploy/ecosystem.config.cjs). Node serves everything —
+# the public site from build/, the API under /api, the private area under /me — so nginx only
+# terminates HTTPS and forwards. Merge this into the existing server block for the domain
+# (keep your certificate lines), replacing the old "root …/build" static setup.
+
+server {
+    listen 443 ssl http2;
+    server_name vinaytiwari.org www.vinaytiwari.org;
+
+    # ssl_certificate     /etc/letsencrypt/live/vinaytiwari.org/fullchain.pem;
+    # ssl_certificate_key /etc/letsencrypt/live/vinaytiwari.org/privkey.pem;
+
+    client_max_body_size 1m;
+
+    # live streams (prices, order updates): no buffering, long-lived
+    location ~ ^/api/admin/(market|trading)/stream {
+        proxy_pass http://127.0.0.1:5100;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Connection "";
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_read_timeout 1h;
+    }
+
+    location / {
+        proxy_pass http://127.0.0.1:5100;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        # research and AI requests can take a few minutes
+        proxy_read_timeout 300s;
+    }
+}
+
+server {
+    listen 80;
+    server_name vinaytiwari.org www.vinaytiwari.org;
+    return 301 https://$host$request_uri;
+}

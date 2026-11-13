@@ -14,6 +14,7 @@ const { SUPERADMIN_EMAIL } = require("../config");
 const { checkPlan, AiService } = require("../ai/service");
 const { scorePlan, summarize } = require("../ai/journal");
 const { Playbook, SEED, MAX_LESSONS, LESSONS_HEAD } = require("../ai/playbook");
+const { FileDocs } = require("../docs");
 const { analyze } = require("../market/analyze");
 const { buildVerdict } = require("../market/verdict");
 const { buildTape, fastRead } = require("../market/intraday");
@@ -137,7 +138,7 @@ test("no_trade is a valid answer; a closed market turns an intraday plan into a 
 
 test("the skills file: seeded, editable, capped, and lessons never overwrite the rules", () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "vpt-pb-"));
-  const pb = new Playbook({ dir });
+  const pb = new Playbook({ docs: new FileDocs(dir) });
   assert.equal(pb.read(), SEED);
   assert.match(pb.read(), /No method wins every trade/);
   assert.deepEqual(pb.lessons(), []);

@@ -19,8 +19,8 @@
 // Nothing here runs by itself: no timer, no AI. The AI folder can read positions that the
 // routes hand it, but it has no way to reach this module.
 
-const fs = require("fs");
 const path = require("path");
+const { FileDocs } = require("../docs");
 const { KiteError } = require("../market/kite");
 const { KiteBroker } = require("./broker");
 
@@ -54,8 +54,10 @@ class TradingService {
   /**
    * @param market  the MarketService: the day's Kite login and the live ticker come from it
    */
-  constructor({ dir, store, market, fetchImpl = globalThis.fetch, now = () => Date.now(), log = console, gapMs }) {
+  /** @param docs  the record store (server/docs.js): the audit log is "trading/audit" */
+  constructor({ dir, store, market, fetchImpl = globalThis.fetch, now = () => Date.now(), log = console, gapMs, docs }) {
     this.dir = path.join(dir, "trading");
+    this.docs = docs || store.docs || new FileDocs(dir);
     this.store = store;
     this.market = market;
     this.fetch = fetchImpl;
@@ -67,7 +69,6 @@ class TradingService {
     this._refs = new Map(); // clientRef → { at, result | promise }
     this._updates = []; // the latest order updates from Zerodha's stream
     this._listeners = new Set();
-    fs.mkdirSync(this.dir, { recursive: true });
     if (!this.store.data.trading) this.store.update((d) => (d.trading = { enabled: false, changedAt: null, changedBy: "", ...DEFAULTS }));
     // order updates arrive on the market-data socket as text frames
     if (market && market.ticker) {
@@ -129,27 +130,15 @@ class TradingService {
   /* ----------------------------------------------------------- audit log */
 
   _audit(by, action, input, result) {
-    const line = JSON.stringify({ at: new Date(this.now()).toISOString(), by, action, input, result });
     try {
-      fs.appendFileSync(path.join(this.dir, "audit.jsonl"), `${line}\n`);
+      this.docs.append("trading/audit", { at: new Date(this.now()).toISOString(), by, action, input, result });
     } catch (err) {
       this.log.error("[trading] could not write the audit log:", err.message);
     }
   }
 
   audit(limit = 100) {
-    try {
-      const lines = fs.readFileSync(path.join(this.dir, "audit.jsonl"), "utf8").trim().split("\n").filter(Boolean);
-      return lines.slice(-limit).reverse().map((l) => {
-        try {
-          return JSON.parse(l);
-        } catch (_) {
-          return null;
-        }
-      }).filter(Boolean);
-    } catch (_) {
-      return [];
-    }
+    return this.docs.tail("trading/audit", limit).reverse();
   }
 
   /* -------------------------------------------------------------- broker */

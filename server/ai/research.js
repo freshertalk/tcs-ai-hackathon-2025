@@ -12,8 +12,6 @@
 // It runs when asked, as a job the page follows; nothing here works by the clock. The
 // notes are preparation, not orders: they never claim a probability or a profit.
 
-const fs = require("fs");
-const path = require("path");
 const crypto = require("crypto");
 const { AiError } = require("./client");
 
@@ -136,17 +134,13 @@ function sheet(b, v) {
 class Research {
   constructor(ai) {
     this.ai = ai;
-    this.file = path.join(ai.dir, "research.json");
+    this.name = "ai/research.json";
     this.job = null; // { id, phase, symbols, done, current, startedAt, finishedAt, error, reportId }
   }
 
   _all() {
-    try {
-      const a = JSON.parse(fs.readFileSync(this.file, "utf8"));
-      return Array.isArray(a) ? a : [];
-    } catch (_) {
-      return [];
-    }
+    const a = this.ai.docs.read(this.name, []);
+    return Array.isArray(a) ? a : [];
   }
 
   /** The phase that fits the clock (IST): mornings prepare the day ("pre"), afternoons and evenings review it ("post"). */
@@ -273,8 +267,7 @@ class Research {
     }
     const report = { id: job.id, at: new Date(ai.now()).toISOString(), phase: job.phase, model: job.withAi ? job.model || null : null, summary, stocks, failures: job.failures };
     const all = [report, ...this._all()].slice(0, KEEP);
-    fs.mkdirSync(ai.dir, { recursive: true });
-    fs.writeFileSync(this.file, JSON.stringify(all, null, 2));
+    ai.docs.write(this.name, all);
     job.reportId = report.id;
     job.step = "done";
     job.current = "";
