@@ -269,3 +269,11 @@
     padding: 12px;
   }
 }
+.ais-free--chip {
+  margin: 0 0 0 2px;
+}
+.ais-field optgroup {
+  font-style: normal;
+  font-weight: 600;
+  color: var(--ink-3);
+}

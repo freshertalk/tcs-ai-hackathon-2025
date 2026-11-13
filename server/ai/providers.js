@@ -14,6 +14,27 @@
 // Nothing here runs on a timer, and the API key is passed in per call and never logged.
 
 const { AiClient, AiError, MODELS: ANTHROPIC_MODELS } = require("./client");
+const { enforce } = require("./contract");
+
+// what every NVIDIA-hosted (free) company shares: the endpoint, the key and how answers are read
+const NVIDIA_FREE = {
+  kind: "compat",
+  free: true,
+  base: "https://integrate.api.nvidia.com/v1",
+  json: "prompt", // the schema in the prompt; the answer is read leniently (thinking tags, code fences)
+  tokensField: "max_tokens",
+  maxOut: 16000, // reasoning models spend part of this thinking
+  search: false,
+  keyPrefix: "nvapi-",
+  keyExample: "nvapi-…",
+  console: "build.nvidia.com",
+  consoleUrl: "https://build.nvidia.com/settings/api-keys",
+  steps: [
+    "Sign in at build.nvidia.com (NVIDIA's developer program; joining is free).",
+    "Open any model page (for example Nemotron 3 Super) and choose Get API Key.",
+    "Paste the key (it starts with nvapi-) here. The same key serves every FREE company in the list. Hosted use is a free trial under NVIDIA's API Trial Terms, with rate limits NVIDIA can change.",
+  ],
+};
 
 const PROVIDERS = [
   {
@@ -106,26 +127,50 @@ const PROVIDERS = [
     steps: ["Sign in at platform.kimi.ai (Moonshot AI's developer platform).", "Recharge the balance.", "Create a key under API keys and paste it here."],
     models: [{ id: "kimi-k3", name: "Kimi K3", note: "Moonshot's flagship" }],
   },
+  /* ---- FREE: models hosted by NVIDIA at build.nvidia.com, all on one nvapi- key ----
+     Every one of these calls integrate.api.nvidia.com only, with the NVIDIA key, and nothing
+     else: while one of them is in use no paid company's key is ever borrowed (not even for web
+     search), so the app itself never runs up a bill. NVIDIA runs them as a free trial under its
+     API Trial Terms, with rate limits it can change; at the limit it answers with an error. */
   {
     id: "nvidia",
     name: "NVIDIA",
     family: "Nemotron",
-    kind: "compat",
-    base: "https://integrate.api.nvidia.com/v1",
-    json: "prompt", // the schema in the prompt; the answer is read leniently
-    tokensField: "max_tokens",
-    maxOut: 8000,
-    search: false,
-    keyPrefix: "nvapi-",
-    keyExample: "nvapi-…",
-    console: "build.nvidia.com",
-    consoleUrl: "https://build.nvidia.com/settings/api-keys",
-    steps: ["Sign in at build.nvidia.com (NVIDIA's developer program; free).", "Open a model such as Nemotron 3 Super and choose Get API Key.", "Paste the key (it starts with nvapi-) here. Hosted use is a free trial under NVIDIA's API Trial Terms, with rate limits."],
+    ...NVIDIA_FREE,
     models: [
       { id: "nvidia/nemotron-3-super-120b-a12b", name: "Nemotron 3 Super 120B", note: "Free trial endpoint; strong reasoning", free: true },
       { id: "nvidia/nemotron-3-ultra-550b-a55b", name: "Nemotron 3 Ultra 550B", note: "Largest Nemotron; free trial endpoint", free: true },
       { id: "nvidia/nvidia-nemotron-nano-9b-v2", name: "Nemotron Nano 9B v2", note: "Small and fast; free trial endpoint", free: true },
+      { id: "nvidia/nemotron-3.5-super-vl-120b-a12b", name: "Nemotron 3.5 Super VL 120B", note: "Newest Super, reads text and images; free trial endpoint", free: true },
     ],
+    match: (id) => id.startsWith("nvidia/"),
+  },
+  {
+    id: "nv-mistral",
+    name: "Mistral AI",
+    family: "Mistral Large",
+    ...NVIDIA_FREE,
+    keyOf: "nvidia",
+    models: [{ id: "mistralai/mistral-large-4-1t-a52b", name: "Mistral Large 4", note: "Mistral's largest model, hosted by NVIDIA; free trial endpoint", free: true }],
+    match: (id) => id.startsWith("mistralai/"),
+  },
+  {
+    id: "nv-deepseek",
+    name: "DeepSeek",
+    family: "via NVIDIA",
+    ...NVIDIA_FREE,
+    keyOf: "nvidia",
+    models: [{ id: "deepseek-ai/deepseek-v4.1-flash", name: "DeepSeek V4.1 Flash", note: "Reasoning model, hosted by NVIDIA; free trial endpoint", free: true }],
+    match: (id) => id.startsWith("deepseek-ai/"),
+  },
+  {
+    id: "nv-gemma",
+    name: "Google Gemma",
+    family: "Gemma",
+    ...NVIDIA_FREE,
+    keyOf: "nvidia",
+    models: [{ id: "google/gemma-4-31b-it", name: "Gemma 4 31B IT", note: "Google's open model, hosted by NVIDIA; free trial endpoint", free: true }],
+    match: (id) => id.startsWith("google/gemma"),
   },
 ];
 
@@ -141,7 +186,8 @@ function checkKey(providerId, key) {
   const an = (name) => `${/^([AEIO]|N[A-Z])/.test(name) ? "an" : "a"} ${name}`; // "an NVIDIA", "an OpenAI"
   if (!/^[A-Za-z0-9_\-.]{20,400}$/.test(key)) throw new AiError(`That does not look like ${an(p.name)} API key.`, "invalid", 400);
   const looks = key.startsWith("sk-ant-") ? "anthropic" : key.startsWith("nvapi-") ? "nvidia" : key.startsWith("AIza") ? "gemini" : null;
-  if (looks && looks !== p.id) throw new AiError(`That looks like ${an(providerOf(looks).name)} key, not ${an(p.name)} one. Pick ${providerOf(looks).name} as the company, or paste the ${p.name} key.`, "invalid", 400);
+  const owner = p.keyOf || p.id; // the free companies all use NVIDIA's key
+  if (looks && looks !== owner) throw new AiError(`That looks like ${an(providerOf(looks).name)} key, not ${an(p.name)} one. Pick ${providerOf(looks).name} as the company, or paste the ${p.name} key.`, "invalid", 400);
   if (p.id === "anthropic") {
     if (key.startsWith("sk-ant-admin")) throw new AiError("That is an Admin API key. Create a normal API key in the Anthropic Console (API keys) and use that.", "invalid", 400);
     if (!/^sk-ant-[A-Za-z0-9_-]{16,300}$/.test(key)) throw new AiError("That does not look like an Anthropic API key. It should start with \"sk-ant-\".", "invalid", 400);
@@ -315,7 +361,9 @@ class CompatClient {
   async listModels() {
     const r = await call(this.p, this.fetch, `${this.p.base}/models`, { method: "GET", headers: this._auth(), timeoutMs: 30000 });
     const ids = (Array.isArray(r.data) ? r.data : []).map((m) => m && m.id).filter((id) => typeof id === "string");
-    return pickChatModels(this.p.id, ids).map((id) => ({ id, name: id }));
+    // NVIDIA lists every model it hosts on one key: each free company keeps only its own publisher's
+    const mine = this.p.match ? ids.filter((id) => this.p.match(id)) : ids;
+    return pickChatModels(this.p.free ? "nvidia" : this.p.id, mine).map((id) => ({ id, name: id }));
   }
 }
 
@@ -445,7 +493,9 @@ function makeClient({ providerId, apiKey, model, fetchImpl }) {
   }
   const c = p.kind === "gemini" ? new GeminiClient({ provider: p, apiKey, model, fetchImpl }) : new CompatClient({ provider: p, apiKey, model, fetchImpl });
   c.provider = p.id;
-  return c;
+  // Anthropic holds answers to the schema itself; every other company's answer is checked against
+  // the same schema here (contract.js), so all models meet one contract
+  return enforce(c, { held: false, AiError });
 }
 
 module.exports = { PROVIDERS, providerOf, DEFAULT_PROVIDER, SEARCH_ORDER, checkKey, makeClient, readJson, pickChatModels };

@@ -1234,3 +1234,70 @@ test("day debrief: the scorecard is read back by the model — only arithmetic g
   assert.equal(late.marketAtTheTimeOfWriting, null, "the market's direction now says nothing about yesterday");
   assert.equal(r.json.debriefs.length, 1);
 });
+
+/* ------------------------------------------------- one logic, every model */
+
+test("every AI company gets the same instructions, the same brief and the same checks", async (t) => {
+  const s = await boot();
+  t.after(s.close);
+  const { SYSTEM } = require("../ai/service");
+  const { PROVIDERS } = require("../ai/providers");
+  const L = s.market.last;
+  const A = s.market.atr;
+  const r5 = (x) => Math.round(x * 20) / 20;
+  const answer = JSON.stringify(
+    strategyJson([
+      { horizon: "intraday", action: "long", entry_type: "at_market", entry: L, stop: r5(L - 0.5 * A), targets: [r5(L + 0.6 * A)], rationale: "Trend day.", invalidation: "Back under VWAP." },
+      { horizon: "swing", action: "long", entry_type: "breakout", entry: r5(L + 0.2 * A), stop: r5(L + 1.5 * A), targets: [r5(L + 3 * A)], rationale: "x", invalidation: "y" },
+    ])
+  );
+  // every company, faked: each answers the same plan in its own wire format, and we keep what it was sent
+  const seen = [];
+  s.made.ai.fetch = async (url, init) => {
+    const u = String(url);
+    const body = JSON.parse(init.body);
+    const ok = (o) => new Response(JSON.stringify(o), { status: 200, headers: { "content-type": "application/json" } });
+    if (u.includes("api.anthropic.com")) {
+      seen.push({ system: body.system, user: body.messages[0].content });
+      return ok({ id: "m", type: "message", role: "assistant", model: body.model, content: [{ type: "text", text: answer }], stop_reason: "end_turn", stop_sequence: null, usage: { input_tokens: 1, output_tokens: 1 } });
+    }
+    if (u.includes(":generateContent")) {
+      seen.push({ system: body.systemInstruction.parts[0].text, user: body.contents[0].parts[0].text });
+      return ok({ candidates: [{ content: { parts: [{ text: answer }] }, finishReason: "STOP" }], usageMetadata: { promptTokenCount: 1, candidatesTokenCount: 1 } });
+    }
+    seen.push({ system: body.messages[0].content, user: body.messages[1].content });
+    return ok({ model: body.model, choices: [{ message: { role: "assistant", content: answer }, finish_reason: "stop" }], usage: { prompt_tokens: 1, completion_tokens: 1 } });
+  };
+  const keys = { anthropic: KEY, openai: "sk-proj-TESTONLYtestonlyTESTONLY1234567890", gemini: "AIzaTESTONLYtestonlyTESTONLY12345678", deepseek: "sk-TESTONLYtestonlyTESTONLY1234567890ab", moonshot: "sk-TESTONLYmoonshotTESTONLY1234567890ab", nvidia: "nvapi-TESTONLYtestonlyTESTONLY1234567890" };
+  const results = [];
+  for (const p of PROVIDERS) {
+    const put = await s.request("PUT", "/api/admin/ai/settings", { cookie: s.admin, body: { provider: p.id, ...(keys[p.id] ? { apiKey: keys[p.id] } : {}) } });
+    assert.equal(put.status, 200, put.text);
+    s.made.ai._recent.clear(); // ask afresh for each company
+    const r = await s.request("POST", "/api/admin/ai/strategy/SBIN", { cookie: s.admin, body: { horizon: "both" } });
+    assert.equal(r.status, 200, `${p.id}: ${r.text}`);
+    assert.equal(r.json.provider, p.id);
+    results.push(r.json);
+  }
+  assert.equal(seen.length, PROVIDERS.length);
+  for (const [i, x] of seen.entries()) {
+    assert.ok(x.system.startsWith(SYSTEM), `${PROVIDERS[i].id} gets the same analysis rules`);
+    // the brief's record of earlier plans grows as each company answers; everything else is identical
+    const norm = (u) => {
+      const [head, rest] = u.split("Brief for SBIN:\n\n");
+      const [json, tail] = rest.split("\n\n---");
+      const b = JSON.parse(json);
+      delete b.yourEarlierPlansHere;
+      return [head, JSON.stringify(b), tail].join("|");
+    };
+    assert.equal(norm(x.user), norm(seen[0].user), `${PROVIDERS[i].id} gets the same brief and trading-skills file`);
+  }
+  // the same answer is judged the same way whoever wrote it
+  for (const r of results) {
+    assert.deepEqual(r.plans.map((p) => p.checkStatus), ["passed", "rejected"]);
+    assert.deepEqual(r.plans.map((p) => p.checks.map((c) => c.ok)), results[0].plans.map((p) => p.checks.map((c) => c.ok)));
+  }
+  // and the record keeps them apart, one row per model, scored by the same arithmetic
+  const st = (await s.request("GET", "/api/admin/ai/status", { cookie: s.admin })).json;
+  assert.equal(st.byModel.length, new Set(results.map((r) => r.model)).size);
+});

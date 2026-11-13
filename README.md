@@ -495,8 +495,7 @@ is off and every other feature works unchanged. Code: `server/ai/`.
 - **Companies** (`server/ai/providers.js`): **Anthropic** (Claude, official `@anthropic-ai/sdk`),
   **OpenAI** (GPT; chat completions with schema-held answers, web search through the Responses
   API), **Google Gemini** (`generateContent`, JSON output, web search by Google Search grounding),
-  **DeepSeek**, **Moonshot AI** (Kimi) and **NVIDIA** (Nemotron, free trial endpoints at
-  build.nvidia.com) — the last three over their OpenAI-style chat APIs with the schema in the prompt
+  **DeepSeek**, **Moonshot AI** (Kimi) and the FREE NVIDIA-hosted group below — the last three over their OpenAI-style chat APIs with the schema in the prompt
   and the answer read leniently. At `/me/ai` pick the company, then one of its models; the list is
   read live from the company with the saved key (**↻ Refresh models**, no tokens), so new model names
   appear without code changes — the catalogue in `providers.js` is only the starting list.
@@ -508,9 +507,24 @@ is off and every other feature works unchanged. Code: `server/ai/`.
   so a change applies to the next request. The pages share one copy of the settings
   (`src/admin/aiStatus.js`): a change is pushed to every open component and, through a
   BroadcastChannel, to other open tabs — no refresh.
+- **One logic for every model.** The company only changes who answers. Every feature sends the
+  same instructions, the same trading-skills file and the same market brief, with the same JSON
+  schema; Anthropic holds its answer to the schema, every other company's answer is checked against
+  it (`server/ai/contract.js`: one correction request, then a clear failure, never a malformed plan).
+  Then the same arithmetic checks (`checkPlan`) and the same scoring on real prices apply to all. The
+  record is also kept **by model** ("By model" on the strategist tab), so models are compared on
+  their finished plans, not on claims. A test sends one plan through all nine companies and checks
+  that each got identical instructions and brief and that the plan was judged identically.
+- **FREE group** (its own section of the company drop-down): models NVIDIA hosts at build.nvidia.com,
+  all on one `nvapi-` key — NVIDIA Nemotron (3 Super 120B, 3 Ultra 550B, Nano 9B v2, 3.5 Super VL
+  120B), Mistral AI (Mistral Large 4), DeepSeek (V4.1 Flash) and Google Gemma (4 31B IT). Saving the
+  key once enables all four; removing it removes it for all four. These requests go only to
+  `integrate.api.nvidia.com`, and while a free model is in use the app never borrows a paid
+  company's key — not even for web search — so the app cannot run up a bill. NVIDIA runs them as a
+  free trial under its API Trial Terms, with rate limits it can change.
 - **Web search** (world brief, news check) runs on the company in use when it has search (Anthropic,
-  OpenAI, Gemini); with DeepSeek, Kimi or NVIDIA it borrows another company whose key is saved, and
-  says so on the settings page.
+  OpenAI, Gemini); with paid DeepSeek or Kimi it borrows another paid company whose key is saved, and
+  says so on the settings page. With a FREE model it is off.
 
 - **Keys** are encrypted with the same key as the other secrets, are write-only (set / replace /
   remove; only a short hint is ever returned) and go only to their own company. With Anthropic,

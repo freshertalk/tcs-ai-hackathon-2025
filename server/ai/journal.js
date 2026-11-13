@@ -130,4 +130,21 @@ class Journal {
   }
 }
 
-module.exports = { Journal, scorePlan, summarize, SWING_MAX_BARS };
+/**
+ * The same record, split by the model that wrote each plan. Models change; the yardstick does not:
+ * every plan, whoever wrote it, is scored by the same arithmetic on the prices that followed.
+ */
+function summarizeByModel(entries) {
+  const groups = new Map();
+  for (const e of entries) {
+    const k = e.model || "unknown";
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(e);
+  }
+  return [...groups]
+    .map(([model, list]) => ({ model, provider: list[list.length - 1].provider || (/^claude/.test(model) ? "anthropic" : null), ...summarize(list) }))
+    .filter((r) => r.total > 0)
+    .sort((a, b) => b.resolved - a.resolved || b.total - a.total);
+}
+
+module.exports = { Journal, scorePlan, summarize, summarizeByModel, SWING_MAX_BARS };

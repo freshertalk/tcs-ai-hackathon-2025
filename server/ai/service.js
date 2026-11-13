@@ -23,7 +23,7 @@ const crypto = require("crypto");
 const { AiError } = require("./client");
 const { PROVIDERS, providerOf, DEFAULT_PROVIDER, SEARCH_ORDER, checkKey, makeClient } = require("./providers");
 const { Playbook } = require("./playbook");
-const { Journal, scorePlan, summarize, SWING_MAX_BARS } = require("./journal");
+const { Journal, scorePlan, summarize, summarizeByModel, SWING_MAX_BARS } = require("./journal");
 const { Copilot } = require("./copilot");
 const { Debrief } = require("./debrief");
 const { FileDocs } = require("../docs");
@@ -324,9 +324,16 @@ class AiService {
     return providerOf(id) ? id : DEFAULT_PROVIDER;
   }
 
+  /** Whose key a company uses: its own, or NVIDIA's for the free NVIDIA-hosted companies. */
+  _keyOwner(pid) {
+    const p = providerOf(pid);
+    return (p && p.keyOf) || pid;
+  }
+
   _keyBlob(pid) {
     const s = this._settings();
     const keys = s.aiKeys && typeof s.aiKeys === "object" ? s.aiKeys : {};
+    pid = this._keyOwner(pid);
     if (keys[pid]) return keys[pid];
     return pid === "anthropic" ? s.anthropicApiKeyEnc || "" : "";
   }
@@ -388,6 +395,8 @@ class AiService {
   /** The company that answers web searches: the one in use if it can, else another with a saved key. */
   _searchProvider() {
     const pid = this._provider();
+    // a free model never borrows a paid company's key — not even for web search — so nothing is billed
+    if (providerOf(pid).free) return null;
     if (providerOf(pid).search && this._key(pid)) return pid;
     return SEARCH_ORDER.find((id) => this._key(id)) || null;
   }
@@ -411,6 +420,8 @@ class AiService {
         listedAt: lists[x.id] ? lists[x.id].at : null,
         lastTest: this._testOf(x.id),
         search: x.search,
+        free: Boolean(x.free),
+        keyOf: x.keyOf || null, // the free companies share NVIDIA's key
         keyExample: x.keyExample,
         console: x.console,
         consoleUrl: x.consoleUrl,
@@ -425,6 +436,7 @@ class AiService {
       configured: Boolean(key),
       provider: pid,
       providerName: p.name,
+      free: Boolean(p.free),
       // enough to recognise the key, never enough to use it
       keyHint: hint(key),
       model,
@@ -436,6 +448,7 @@ class AiService {
       searchByName: searchBy ? providerOf(searchBy).name : null,
       lastTest: this._testOf(pid),
       stats: summarize(this.journal.all().filter((e) => e.source === "kite")),
+      byModel: summarizeByModel(this.journal.all().filter((e) => e.source === "kite")),
       lessons: this.playbook.lessons().length,
       world: this.worldSummary(),
       live: this.copilot.summary(),
@@ -467,13 +480,15 @@ class AiService {
       delete s.anthropicApiKeyEnc;
       delete s.aiModel;
       delete s.aiLastTest;
+      const owner = this._keyOwner(pid);
+      const sharing = PROVIDERS.filter((x) => (x.keyOf || x.id) === owner).map((x) => x.id);
       if (clear) {
-        delete s.aiKeys[pid];
-        s.aiTests[pid] = null;
+        delete s.aiKeys[owner];
+        sharing.forEach((id) => (s.aiTests[id] = null));
       }
       if (key) {
-        s.aiKeys[pid] = this.secrets.encrypt(key);
-        s.aiTests[pid] = null;
+        s.aiKeys[owner] = this.secrets.encrypt(key);
+        sharing.forEach((id) => (s.aiTests[id] = null));
       }
       if (model) s.aiModels[pid] = model;
       if (provider && use !== false) s.aiProvider = pid;
@@ -515,6 +530,7 @@ class AiService {
     const pid = this._provider();
     const by = this._searchProvider();
     if (!this._key(pid)) return this._client(); // the usual "not set up" message
+    if (!by && providerOf(pid).free) throw new AiError("The free NVIDIA-hosted models have no web search, and while one is in use the app never borrows a paid company's key, so nothing is billed. The world brief and the news check need Anthropic, OpenAI or Gemini picked as the company.", "no_search", 409);
     if (!by) throw new AiError(`${providerOf(pid).name} has no web search in its API. The world brief and the news check need Anthropic, OpenAI or Gemini — save a key for one of them in the AI settings (the strategist can stay on ${providerOf(pid).name}).`, "no_search", 409);
     return by === pid ? this._client() : makeClient({ providerId: by, apiKey: this._key(by), model: this._modelOf(by), fetchImpl: this.fetch });
   }
@@ -803,6 +819,7 @@ class AiService {
       symbol,
       source: verdict.source,
       horizon: h,
+      provider: this._provider(),
       model: answer.model,
       servedBy: answer.servedBy,
       stance: ["bullish", "bearish", "neutral"].includes(d.stance) ? d.stance : "neutral",

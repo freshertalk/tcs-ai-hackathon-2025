@@ -169,6 +169,48 @@ function Strategy({ e, onSize, aiNow }) {
   );
 }
 
+/** The record per model: every plan scored by the same arithmetic, whichever company wrote it. */
+function ByModel({ rows, aiNow }) {
+  if (!rows || rows.length === 0) return null;
+  return (
+    <>
+      <h4>By model</h4>
+      <div className="bt__scroll">
+        <table className="an-table bt__table">
+          <thead>
+            <tr>
+              <th scope="col">Model</th>
+              <th scope="col" className="is-num">Plans</th>
+              <th scope="col" className="is-num">Finished</th>
+              <th scope="col" className="is-num">Won</th>
+              <th scope="col" className="is-num">Average</th>
+              <th scope="col" className="is-num">Total</th>
+              <th scope="col" className="is-num">Rejected</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.model}>
+                <th scope="row">{nameOf(aiNow, r.model)}</th>
+                <td className="is-num">{r.total}</td>
+                <td className="is-num">{r.resolved}</td>
+                <td className="is-num">{r.resolved ? `${r.winRatePct}%` : "—"}</td>
+                <td className="is-num">{r.resolved ? rText(r.avgR) : "—"}</td>
+                <td className="is-num">{r.resolved ? rText(r.sumR) : "—"}</td>
+                <td className="is-num">{r.rejected}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="vd-note">
+        Every model gets the same brief, the same trading-skills file and the same checks, and its plans are scored by the same arithmetic on the prices that followed. Compare models
+        here once each has at least thirty finished plans; fewer than that is luck as much as skill.
+      </p>
+    </>
+  );
+}
+
 function Record({ stats }) {
   if (!stats || stats.total === 0) return <p className="vd-note">No plans yet. Each plan is saved here and scored later against what price actually did.</p>;
   return (
@@ -522,6 +564,7 @@ export default function AiPanel({ symbol, onSize }) {
         <Record stats={journal.stats} />
         <h4>All stocks</h4>
         <Record stats={status.stats} />
+        <ByModel rows={status.byModel} aiNow={status} />
 
         {journal.entries.length > 0 && (
           <>

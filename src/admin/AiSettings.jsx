@@ -160,12 +160,20 @@ export default function AiSettings() {
                 <label className="ais-field">
                   <span>AI company</span>
                   <select id="ai-company" value={co.id} onChange={(e) => chooseCompany(e.target.value)} disabled={Boolean(busy)}>
-                    {s.providers.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name}
-                        {p.name.includes(p.family) ? "" : ` (${p.family})`}
-                        {p.configured ? " — key saved" : ""}
-                      </option>
+                    {[
+                      ["Paid — billed by each company", s.providers.filter((p) => !p.free)],
+                      ["FREE — hosted by NVIDIA, one nvapi- key", s.providers.filter((p) => p.free)],
+                    ].map(([label, list]) => (
+                      <optgroup key={label} label={label}>
+                        {list.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.free ? "FREE · " : ""}
+                            {p.name}
+                            {p.name.includes(p.family) ? "" : ` (${p.family})`}
+                            {p.configured ? " — key saved" : ""}
+                          </option>
+                        ))}
+                      </optgroup>
                     ))}
                   </select>
                 </label>
@@ -196,6 +204,8 @@ export default function AiSettings() {
                   <button key={p.id} type="button" role="listitem" className={`ais-chip ${p.id === co.id ? "is-picked" : ""} ${p.configured ? "has-key" : ""} ${s.provider === p.id && s.configured ? "is-used" : ""}`} onClick={() => chooseCompany(p.id)} disabled={Boolean(busy)} data-tip={p.configured ? `${p.name}: key saved${p.lastTest ? (p.lastTest.ok ? ", last test worked" : ", last test failed") : ""}.` : `${p.name}: no key saved yet.`}>
                     <i aria-hidden="true" />
                     {p.name}
+                    {p.keyOf ? " (NVIDIA)" : ""}
+                    {p.free && <em className="ais-free ais-free--chip">Free</em>}
                     {s.provider === p.id && s.configured && <small>in use</small>}
                   </button>
                 ))}
@@ -224,7 +234,7 @@ export default function AiSettings() {
                         type="button"
                         className="adm-btn adm-btn--danger adm-btn--sm"
                         disabled={Boolean(busy)}
-                        onClick={() => run("clear", () => put({ provider: co.id, clear: true, use: false }), `${co.name}'s key was removed.${s.provider === co.id ? " The AI is off until a key is added or another company is picked." : ""}`)}
+                        onClick={() => run("clear", () => put({ provider: co.id, clear: true, use: false }), `${co.free ? "The NVIDIA key (used by every FREE company) was removed." : `${co.name}'s key was removed.`}${s.provider === co.id ? " The AI is off until a key is added or another company is picked." : ""}`)}
                       >
                         Remove
                       </button>
@@ -234,7 +244,7 @@ export default function AiSettings() {
                 {showKey && (
                   <form className="ais-keyform" onSubmit={saveKey}>
                     <label className="ais-field">
-                      <span>{co.configured ? `New ${co.name} API key` : `${co.name} API key`}</span>
+                      <span>{co.free ? `${co.configured ? "New " : ""}NVIDIA API key — shared by every FREE company` : co.configured ? `New ${co.name} API key` : `${co.name} API key`}</span>
                       <input id="ai-key" type="password" value={key} onChange={(e) => setKey(e.target.value)} placeholder={co.keyExample} spellCheck="false" autoComplete="off" />
                     </label>
                     <button className="adm-btn adm-btn--solid" disabled={Boolean(busy) || !key.trim()}>
@@ -266,10 +276,14 @@ export default function AiSettings() {
                       The world brief and the news check search the web with <b>{s.searchByName}</b>
                       {s.searchBy !== s.provider && s.configured ? `, because ${s.providerName} has none in its API` : ""}.
                     </>
+                  ) : s.configured && s.free ? (
+                    <>
+                      <b>Off while a FREE model is in use.</b> The NVIDIA-hosted models have no web search, and the app never borrows a paid company&rsquo;s key for them, so nothing is billed. Pick Anthropic, OpenAI or Gemini for the world brief and news check.
+                    </>
                   ) : s.configured ? (
                     <>{s.providerName} has no web search in its API. Save an Anthropic, OpenAI or Gemini key too and the world brief and news check will use it; the strategist stays on {s.providerName}.</>
                   ) : (
-                    "Anthropic, OpenAI and Gemini can search the web; DeepSeek, Kimi and NVIDIA cannot."
+                    "Anthropic, OpenAI and Gemini can search the web; DeepSeek, Kimi and the FREE NVIDIA-hosted models cannot."
                   )}
                 </p>
               </section>
@@ -315,7 +329,7 @@ export default function AiSettings() {
             </aside>
 
             <details className="ais-card ais-more">
-              <summary>Getting {co.name === "Moonshot AI" ? "a Moonshot (Kimi)" : /^[AEIO]|^N[A-Z]/.test(co.name) ? `an ${co.name}` : `a ${co.name}`} key</summary>
+              <summary>Getting {co.free ? "the free NVIDIA" : co.name === "Moonshot AI" ? "a Moonshot (Kimi)" : /^[AEIO]|^N[A-Z]/.test(co.name) ? `an ${co.name}` : `a ${co.name}`} key</summary>
               <ol className="adm-steps">
                 {co.steps.map((t) => (
                   <li key={t}>{t}</li>
@@ -325,7 +339,7 @@ export default function AiSettings() {
                 <a href={co.consoleUrl} target="_blank" rel="noopener noreferrer">
                   Open {co.console} ↗
                 </a>{" "}
-                Pay-as-you-go companies bill per token; set a spend limit in their console.
+                {co.free ? "Free trial under NVIDIA's API Trial Terms. These requests go only to NVIDIA, with the NVIDIA key; when the trial's rate limit is reached the request fails with a clear message, and the app never switches to a paid company by itself." : "Pay-as-you-go companies bill per token; set a spend limit in their console."}
               </p>
             </details>
 
