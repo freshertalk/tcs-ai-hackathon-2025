@@ -1446,7 +1446,7 @@
 .sv--desk .sv__rail {
   margin-top: 0;
 }
-@media (min-width: 1500px) {
+@media (min-width: 1280px) {
   .sv--desk {
     grid-template-columns: minmax(0, 1fr) clamp(390px, 25vw, 480px);
     grid-template-areas: "top rail" "body rail";
@@ -1827,7 +1827,7 @@
   border: 1px solid var(--line);
   border-radius: 10px;
 }
-@media (min-width: 1500px) {
+@media (min-width: 1280px) {
   .vd-ladder__scroll {
     max-height: none;
   }
@@ -2456,7 +2456,7 @@
     background: var(--down-line);
   }
 }
-@media (min-width: 1500px) {
+@media (min-width: 1280px) {
   .sv--desk {
     grid-template-areas: "tick rail" "top rail" "body rail";
     grid-template-rows: auto auto 1fr;

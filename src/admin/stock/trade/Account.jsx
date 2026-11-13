@@ -424,7 +424,10 @@ function CoachPanel({ canExit, onExit, positions }) {
 }
 
 /* ------------------------------------------------------------- the view */
-export default function Account() {
+/**
+ * @param compact  the Desk's dock: the tables only — no switch bar, tiles, coach or activity log
+ */
+export default function Account({ compact = false }) {
   const trade = useTrade();
   const [tab, setTabState] = useState(storedTab);
   const [state, setState] = useState({ loading: true, data: null, error: "" });
@@ -501,8 +504,8 @@ export default function Account() {
 
   return (
     <TickContext.Provider value={live.store}>
-      <div className="tr">
-        <SwitchBar trade={trade} status={status} onExitAll={() => setDialog({ kind: "exit-all" })} />
+      <div className={`tr ${compact ? "tr--compact" : ""}`}>
+        {!compact && <SwitchBar trade={trade} status={status} onExitAll={() => setDialog({ kind: "exit-all" })} />}
 
         {state.loading && !d && <Loading label="Reading your account from Zerodha…" />}
         {state.error && (
@@ -514,6 +517,7 @@ export default function Account() {
 
         {d && (
           <>
+            {!compact && (
             <dl className="tr-tiles">
               <div className={`is-${tone(tot.posPnl)}`} data-tip="Today’s profit or loss on all positions, open and closed, at live prices where the stream has them.">
                 <dt>Positions P&amp;L</dt>
@@ -540,6 +544,7 @@ export default function Account() {
                 <small>{d.funds && d.funds.equity ? `used ${money(d.funds.equity.used.debits)}` : d.errors.funds || ""}</small>
               </div>
             </dl>
+            )}
 
             <div className="sv__tabs tr-tabs" role="tablist" aria-label="Account sections">
               {TABS.map((x) => (
@@ -620,7 +625,7 @@ export default function Account() {
                     </div>
                   )}
                 </section>
-                <CoachPanel positions={positions} canExit={canTrade} onExit={(p) => setDialog({ kind: "exit", item: p, last: liveOf(p) ?? p.last })} />
+                {!compact && <CoachPanel positions={positions} canExit={canTrade} onExit={(p) => setDialog({ kind: "exit", item: p, last: liveOf(p) ?? p.last })} />}
               </>
             )}
 
@@ -872,6 +877,7 @@ export default function Account() {
               </section>
             )}
 
+            {!compact && (
             <details className="tr-audit" onToggle={(e) => e.currentTarget.open && api("/api/admin/trading/audit").then((x) => setAudit(x.audit)).catch(() => setAudit([]))}>
               <summary>
                 <b>Activity on this site</b> — every switch change and every order sent from here
@@ -890,12 +896,15 @@ export default function Account() {
                 </ul>
               )}
             </details>
+            )}
           </>
         )}
 
+        {!compact && (
         <p className="vd-note tr-foot">
           Orders from here go through Zerodha’s Kite Connect API: they help when the Kite app or website is down, not when Zerodha’s own order system is. Zerodha accepts API orders only from the static IP registered on your Kite Connect app. If the API is down too, call Zerodha’s dealing desk to square off.
         </p>
+        )}
       </div>
 
       {dialog && dialog.kind === "exit" && <ExitDialog pos={dialog.item} last={dialog.last} onClose={() => setDialog(null)} onDone={done} />}

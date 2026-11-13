@@ -25,8 +25,7 @@ export default class ErrorBoundary extends React.Component {
       <section className="an-card" role="alert">
         <h2 className="sv__sym">{this.props.title || "This panel could not be shown"}</h2>
         <p className="adm-alert adm-alert--error">
-          Something went wrong while drawing this panel ({String(this.state.error.message || this.state.error)}). Nothing was sent to your broker — this
-          tool cannot place orders.
+          Something went wrong while drawing this panel ({String(this.state.error.message || this.state.error)}). Nothing was sent to your broker: drawing a panel never places an order.
         </p>
         <p className="adm-small">
           If the site was just updated, the API server may still be running older code: stop <code>npm run dev</code>, start it again, then reload.

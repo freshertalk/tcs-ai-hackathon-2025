@@ -184,6 +184,19 @@ Only the type follows Kite — the colours, the layout and the name stay this si
 - **When adding a screen:** take sizes from the steps (`font-size: var(--t-small)`) and leave
   `font-family`, `letter-spacing` and `text-transform` alone.
 
+**The trading terminal (the Stock Report's layout; `src/admin/stock/StockReport.jsx`,
+`src/admin/stock/terminal/`).** One screen, dark by default. A sticky top bar holds the workspaces —
+**Desk · Positions · Research · Screener · Debrief · Calendar** — and the state of everything: NSE
+open or closed with the IST clock, the Zerodha connection, the trading switch, today's P&L, the
+theme, shortcuts and the account menu (hover help, sign out). On the Desk the watchlist, the stock
+and the verdict rail sit side by side (three columns from 1280 px), each scrolling on its own, and
+your positions are docked along the bottom (open or closed, remembered; not on phones, where
+Positions has its own tab). Keyboard: `/` search, `B` / `S` open the order ticket for the open
+stock (only while trading is on — nothing is sent without confirming), `1`–`6` workspaces, `D`
+dock, `T` theme, `?` the list, `Esc` close. Shortcuts never fire while typing in a field or with a
+dialog open (`terminal/shortcuts.js`, tested). The dashboard and settings pages share the same
+theme (one switch, `analyzer/theme.js`) and a slim sticky header.
+
 **Stock Report — `/me/stock-report`.** Opens in its own tab from the dashboard (the session
 cookie is shared, so you stay signed in). It shows a world clock for India, USA (New York),
 Singapore, UK, Japan and China with each city's offset from a reference city (daylight saving

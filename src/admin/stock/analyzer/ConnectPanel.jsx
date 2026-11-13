@@ -45,8 +45,7 @@ export default function ConnectPanel({ status, flash, onStatus, startOpen }) {
           {status.mode === "kite" && (
             <>
               <b>Live data from Zerodha</b>
-              {k.user ? ` · ${k.user}` : ""}. Read-only — this tool cannot place orders. The session ends by itself at {when(k.expiresAt)}; log in again
-              after that.
+              {k.user ? ` · ${k.user}` : ""}. Until {when(k.expiresAt)}; log in again after that. Orders are placed only from Positions, with the trading switch on.
             </>
           )}
           {status.mode === "demo" && (

@@ -128,8 +128,14 @@
 
 /* ------------------------------------------------------------- header */
 .adm-head {
-  background: var(--surface);
+  /* slim and sticky, like the trading terminal's top bar */
+  position: sticky;
+  top: 0;
+  z-index: 60;
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
   border-bottom: 1px solid var(--line);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
 }
 .adm-head__row {
   display: flex;

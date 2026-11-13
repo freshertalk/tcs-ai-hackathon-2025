@@ -1,0 +1,524 @@
+/* ==========================================================================
+   The trading terminal (/me/stock-report): one screen, dense, dark by default.
+   A sticky top bar, one workspace beneath it, and on the Desk a dock of positions
+   along the bottom. Panes (watchlist, verdict rail) scroll on their own so the
+   chart never moves out of view.
+   ========================================================================== */
+
+.tm {
+  --tm-top: 52px;
+  --tm-dock: 0px;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--paper);
+}
+.tm.has-dock {
+  --tm-dock: 40px;
+}
+.tm.has-dock.dock-open {
+  --tm-dock: min(290px, 34vh);
+}
+.adm[data-desk="dark"] .tm {
+  --paper: #0a0e13;
+}
+
+/* ---------------------------------------------------------------- top bar */
+.tm-top {
+  position: sticky;
+  top: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 8px 16px;
+  min-height: var(--tm-top);
+  padding: 0 14px;
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  border-bottom: 1px solid var(--line);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+.tm-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  color: var(--ink);
+  font-weight: 600;
+  font-size: var(--t-base);
+}
+.tm-brand__mark {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: var(--t-small);
+}
+.tm-tabs {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  align-self: stretch;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.tm-tabs::-webkit-scrollbar {
+  display: none;
+}
+.tm-tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--ink-2);
+  font: inherit;
+  font-size: var(--t-base);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.tm-tabs button:hover {
+  color: var(--ink);
+}
+.tm-tabs button[aria-selected="true"] {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+  font-weight: 600;
+}
+.tm-tabs button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.tm-tabs kbd,
+.tm-keys kbd {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border: 1px solid var(--line-2);
+  border-radius: 4px;
+  font: inherit;
+  font-size: var(--t-tag);
+  color: var(--ink-3);
+}
+.tm-tabs button[aria-selected="true"] kbd {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.tm-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  flex: none;
+}
+.tm-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  background: var(--surface-2);
+  color: var(--ink-2);
+  font: inherit;
+  font-size: var(--t-small);
+  white-space: nowrap;
+}
+.tm-pill b {
+  color: var(--ink);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.tm-pill small {
+  color: var(--ink-3);
+  font-size: var(--t-small);
+}
+.tm-pill i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ink-3);
+}
+.tm-pill--btn {
+  cursor: pointer;
+}
+.tm-pill--btn:hover {
+  border-color: var(--accent);
+}
+.tm-pill--open i,
+.tm-pill--ok i {
+  background: var(--up-bright);
+  box-shadow: 0 0 0 3px var(--up-bg);
+}
+.tm-pill--pre-open i,
+.tm-pill--warn i {
+  background: var(--warn);
+}
+.tm-pill--live {
+  border-color: var(--down-line);
+  background: var(--down-bg);
+  color: var(--down-ink);
+}
+.tm-pill--live i {
+  background: var(--down);
+  animation: tm-blink 1.6s infinite;
+}
+@keyframes tm-blink {
+  50% {
+    opacity: 0.35;
+  }
+}
+.tm-pnl.is-up b {
+  color: var(--up);
+}
+.tm-pnl.is-down b {
+  color: var(--down);
+}
+.tm-icon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--ink-2);
+  font: inherit;
+  font-size: var(--t-base);
+  cursor: pointer;
+}
+.tm-icon:hover,
+.tm-icon:focus-visible {
+  border-color: var(--accent);
+  color: var(--ink);
+}
+.tm-user {
+  position: relative;
+}
+.tm-user__btn {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--on-accent);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  overflow: hidden;
+}
+.tm-user__btn img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.tm-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  z-index: 70;
+  display: grid;
+  min-width: 240px;
+  padding: 6px;
+  border: 1px solid var(--line-2);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.3);
+}
+.tm-menu__who {
+  display: grid;
+  padding: 8px 10px 10px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 4px;
+}
+.tm-menu__who small {
+  color: var(--ink-3);
+  font-size: var(--t-small);
+}
+.tm-menu a,
+.tm-menu button {
+  display: block;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--t-base);
+  text-align: left;
+  cursor: pointer;
+}
+.tm-menu a:hover,
+.tm-menu button:hover,
+.tm-menu a:focus-visible,
+.tm-menu button:focus-visible {
+  background: var(--surface-2);
+}
+
+/* -------------------------------------------------------------- workspace */
+.tm-work {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 14px calc(var(--tm-dock) + 14px);
+}
+.tm-page {
+  max-width: 1440px;
+  margin: 0 auto;
+}
+.tm .an-card {
+  margin-top: 10px;
+  padding: 12px 14px;
+  border-radius: 10px;
+}
+.tm .an-card__head h3 {
+  font-size: var(--t-lead);
+  font-weight: 600;
+}
+
+/* ---- the connection strip: one slim line once Zerodha is connected */
+.tm .conn.is-on {
+  padding: 6px 12px;
+  border-radius: 10px;
+}
+.tm .conn.is-on .conn__text {
+  font-size: var(--t-small);
+}
+.tm .conn.is-on .adm-btn--sm {
+  min-height: 28px;
+}
+
+/* ---- the Desk: watchlist | stock | verdict rail, each scrolling on its own */
+.tm .an__desk {
+  margin-top: 0;
+}
+.tm .an__desk .wl__search input {
+  min-height: 38px;
+}
+.tm .an__grid {
+  gap: 10px;
+  margin-top: 8px;
+}
+@media (min-width: 1001px) {
+  .tm .an__grid {
+    grid-template-columns: clamp(240px, 16vw, 290px) minmax(0, 1fr);
+  }
+}
+@media (min-width: 1001px) {
+  .tm .an__grid > div:first-child {
+    position: sticky;
+    top: calc(var(--tm-top) + 8px);
+    align-self: start;
+  }
+  .tm .wl {
+    margin-top: 0;
+    max-height: calc(100vh - var(--tm-top) - var(--tm-dock) - 18px);
+  }
+}
+.tm .sv__ticker {
+  top: calc(var(--tm-top) + 4px);
+}
+@media (min-width: 1280px) {
+  .tm .sv--desk .sv__rail {
+    top: calc(var(--tm-top) + 8px);
+    max-height: calc(100vh - var(--tm-top) - var(--tm-dock) - 18px);
+  }
+}
+.tm .sv--desk {
+  gap: 10px;
+}
+.tm .an__disc {
+  margin-top: 14px;
+  font-size: var(--t-small);
+}
+.tm .an__main > .an-card:first-child,
+.tm .sv > .an-card:first-child {
+  margin-top: 0;
+}
+
+/* ---------------------------------------------------------------- the dock */
+.tm-dock {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  height: var(--tm-dock);
+  background: var(--surface);
+  border-top: 1px solid var(--line-2);
+  box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.18);
+}
+.tm-dock__bar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px 16px;
+  height: 40px;
+  padding: 0 14px;
+  border: 0;
+  background: none;
+  color: var(--ink-2);
+  font: inherit;
+  font-size: var(--t-small);
+  text-align: left;
+  cursor: pointer;
+}
+.tm-dock__bar b {
+  color: var(--ink);
+  font-size: var(--t-base);
+}
+.tm-dock__bar .is-up {
+  color: var(--up);
+  font-weight: 600;
+}
+.tm-dock__bar .is-down {
+  color: var(--down);
+  font-weight: 600;
+}
+.tm-dock__chev {
+  color: var(--ink-3);
+}
+.tm-dock__sw {
+  margin-left: auto;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: var(--surface-2);
+  font-weight: 600;
+}
+.tm-dock__sw.is-on {
+  background: var(--down);
+  color: #fff;
+}
+.tm-dock__bar:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.tm-dock__body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 0 14px 10px;
+}
+.tr--compact {
+  gap: 6px;
+}
+.tr--compact .an-card {
+  margin-top: 4px;
+  padding: 6px 10px;
+}
+.tr--compact .tr-tabs {
+  margin-bottom: 4px;
+}
+.tr--compact .tr-tabs button {
+  min-height: 30px;
+  padding: 0 12px;
+}
+.tr--compact .an-table th,
+.tr--compact .an-table td {
+  padding-top: 5px;
+  padding-bottom: 5px;
+}
+
+/* ------------------------------------------------------------ shortcuts list */
+.tm-keys dl {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+.tm-keys dl > div {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  align-items: center;
+  gap: 10px;
+}
+.tm-keys dt {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+.tm-keys dd {
+  margin: 0;
+}
+
+/* --------------------------------------------------------------- narrower */
+@media (max-width: 1100px) {
+  .tm-brand__name {
+    display: none;
+  }
+  .tm-tabs kbd {
+    display: none;
+  }
+}
+@media (max-width: 900px) {
+  .tm-top {
+    flex-wrap: wrap;
+    padding: 6px 10px 0;
+  }
+  .tm-status {
+    order: 2;
+    margin-left: auto;
+  }
+  .tm-tabs {
+    order: 3;
+    flex-basis: 100%;
+    min-height: 40px;
+  }
+  .tm-pill--open,
+  .tm-pill--closed,
+  .tm-pill--pre-open {
+    display: none;
+  }
+  .tm {
+    --tm-top: 0px; /* the bar wraps to two rows: panes stop being sticky beneath it */
+  }
+  .tm-top {
+    position: static;
+  }
+}
+@media (max-width: 560px) {
+  .tm-work {
+    padding: 8px 8px calc(var(--tm-dock) + 12px);
+  }
+  .tm-status .tm-pill--btn:not(.tm-pnl):not(.tm-pill--live):not(.tm-pill--off) {
+    display: none;
+  }
+}
+/* phones and small tablets: no dock (Positions has its own tab) and no shortcut button (no keyboard) */
+@media (max-width: 760px) {
+  .tm.has-dock,
+  .tm.has-dock.dock-open {
+    --tm-dock: 0px;
+  }
+  .tm-dock,
+  .tm-status .tm-icon[aria-label="Keyboard shortcuts"] {
+    display: none;
+  }
+  .tm-status {
+    gap: 4px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+  .tm-pill {
+    min-height: 28px;
+    padding: 0 8px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tm-pill--live i {
+    animation: none;
+  }
+}

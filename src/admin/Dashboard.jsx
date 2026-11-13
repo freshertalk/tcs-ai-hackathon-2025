@@ -175,8 +175,8 @@ export default function Dashboard() {
               icon={<IconClock />}
               kicker="Markets"
               title="Stock Report"
-              text="Trading desk · world clock · market holidays"
-              tip="Opens the trading desk, the stock screener, the day debrief and the market clocks, in a new tab."
+              text="Trading terminal · positions · research · holidays"
+              tip="Opens the trading terminal in a new tab: the desk, your positions and orders, research, the screener, the day debrief and the market calendar."
             />
           </div>
         </section>

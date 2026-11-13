@@ -22,6 +22,7 @@ export function TradeProvider({ children }) {
   const [ticket, setTicket] = useState(null); // the prefill of the open ticket, or null
   const [version, setVersion] = useState(0); // goes up whenever the account may have changed
   const [toast, setToast] = useState(null);
+  const [pulse, setPulse] = useState(null); // { pnl, open, at } — the day's positions, for the top bar
   const toastTimer = useRef(null);
 
   const say = useCallback((text, kind = "info") => {
@@ -47,6 +48,32 @@ export function TradeProvider({ children }) {
     const id = setInterval(refresh, 20000);
     return () => clearInterval(id);
   }, [allowed, refresh]);
+
+  // the day's P&L for the terminal's top bar: one light read every 15 s while connected and in view
+  const connectedNow = Boolean(status && status.connected);
+  useEffect(() => {
+    if (!allowed || !connectedNow) {
+      setPulse(null);
+      return undefined;
+    }
+    let alive = true;
+    const read = () => {
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+      api("/api/admin/trading/positions")
+        .then((d) => {
+          if (!alive) return;
+          const net = (d && d.net) || [];
+          setPulse({ pnl: net.reduce((a, p) => a + (Number(p.pnl) || 0), 0), open: net.filter((p) => p.quantity !== 0).length, at: Date.now() });
+        })
+        .catch(() => alive && setPulse(null));
+    };
+    read();
+    const id = setInterval(read, 15000);
+    return () => {
+      alive = false;
+      clearInterval(id);
+    };
+  }, [allowed, connectedNow, version]);
 
   // order updates, straight from Zerodha's stream
   useEffect(() => {
@@ -90,10 +117,11 @@ export function TradeProvider({ children }) {
             version,
             bump: () => setVersion((v) => v + 1),
             say,
+            pulse,
             openTicket: (prefill) => setTicket({ ...prefill, key: Date.now() }),
           }
         : null,
-    [allowed, status, refresh, setSwitch, version, say]
+    [allowed, status, refresh, setSwitch, version, say, pulse]
   );
 
   return (

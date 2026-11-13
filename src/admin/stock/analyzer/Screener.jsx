@@ -8,7 +8,6 @@ import React, { useCallback, useEffect, useState } from "react";
 import { api } from "../../api";
 import { Alert, Loading } from "../../ui";
 import { clock, compact, day, inr, isNum, num, pct, when } from "./format";
-import { useDeskTheme } from "./theme";
 import "./analyzer.css";
 
 const CONDITIONS = [
@@ -70,7 +69,6 @@ function Progress({ job }) {
 }
 
 export default function Screener({ onOpen }) {
-  const [theme, toggleTheme] = useDeskTheme();
   const [status, setStatus] = useState(null);
   const [statusError, setStatusError] = useState("");
   const [cond, setCond] = useState("about");
@@ -158,9 +156,6 @@ export default function Screener({ onOpen }) {
               stock to open it on the trading desk.
             </p>
           </div>
-          <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm" onClick={toggleTheme} aria-pressed={theme === "dark"}>
-            {theme === "dark" ? "Light theme" : "Dark theme"}
-          </button>
         </header>
 
         {!status && !statusError && <Loading label="Checking the stock list…" />}

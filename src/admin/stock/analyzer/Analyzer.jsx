@@ -4,7 +4,7 @@
 // rule-based setups, levels, a position-size calculator, backtests and history;
 // and beside it the desk verdict (direction, plans, circuit limits, every level).
 //
-// It reads the market; it never places an order. Everything it shows is
+// The desk reads the market; orders go only through the order ticket (trading switch on). Everything it shows is
 // arithmetic on prices — a second opinion, not advice.
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -17,7 +17,6 @@ import StockView from "./StockView";
 import ErrorBoundary from "./ErrorBoundary";
 import MarketStrip from "./MarketStrip";
 import { TickContext, useLiveTicks } from "./liveTicks";
-import { useDeskTheme } from "./theme";
 import { clock } from "./format";
 import "./analyzer.css";
 
@@ -40,7 +39,6 @@ export default function Analyzer() {
   const [quoteError, setQuoteError] = useState("");
   const [scan, setScan] = useState({ rows: null, loading: false });
   const [listError, setListError] = useState("");
-  const [theme, toggleTheme] = useDeskTheme();
 
   // the result of the Kite login round trip arrives as ?kite=connected | error
   const flash = useRef(null);
@@ -216,9 +214,6 @@ export default function Analyzer() {
             placeholder={mode === "demo" ? "Analyze a demo series — type DEMO" : "Analyze any NSE stock — type a name or symbol, then Enter"}
             onPick={pick}
           />
-          <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm an__theme" onClick={toggleTheme} aria-pressed={theme === "dark"}>
-            {theme === "dark" ? "Light theme" : "Dark theme"}
-          </button>
           <p className="an__live" role="status">
             {mode === "kite" ? (
               <>

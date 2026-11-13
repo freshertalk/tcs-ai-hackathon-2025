@@ -51,7 +51,7 @@ const storedChart = () => {
 
 // On a wide screen the verdict sits in its own column beside the chart. On
 // anything narrower it becomes the first tab, so nothing is pushed out of reach.
-const WIDE = "(min-width: 1500px)";
+const WIDE = "(min-width: 1280px)";
 function useWide() {
   const can = typeof window !== "undefined" && typeof window.matchMedia === "function";
   const [wide, setWide] = useState(() => (can ? window.matchMedia(WIDE).matches : true));

@@ -4,6 +4,7 @@ import { api } from "./api";
 import { useAuth } from "./auth";
 import { adminPath } from "./paths";
 import { setTipsEnabled, useTipsEnabled } from "./help/TipLayer";
+import { useDeskTheme } from "./stock/analyzer/theme";
 
 const HINT_KEY = "vpt.tips.hint";
 
@@ -51,6 +52,8 @@ export default function Shell({ crumb, notice, children, narrow, wide, fluid }) 
   const { user } = useAuth();
   const [busy, setBusy] = useState(false);
   const tips = useTipsEnabled();
+  // the same dark / light choice as the trading terminal, on every page of the private area
+  const [theme, toggleTheme] = useDeskTheme();
 
   const logout = async () => {
     setBusy(true);
@@ -95,6 +98,9 @@ export default function Shell({ crumb, notice, children, narrow, wide, fluid }) 
                   </span>
                 </small>
               </span>
+              <button type="button" className="tm-icon" onClick={toggleTheme} aria-label={theme === "dark" ? "Light theme" : "Dark theme"} data-tip="Switch between dark and light, here and in the trading terminal.">
+                {theme === "dark" ? "☀" : "☾"}
+              </button>
               <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm" onClick={logout} disabled={busy}>
                 Sign out
               </button>

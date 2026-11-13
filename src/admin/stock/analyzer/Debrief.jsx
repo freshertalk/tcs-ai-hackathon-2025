@@ -12,7 +12,6 @@ import { api } from "../../api";
 import { adminPath } from "../../paths";
 import { Alert, Loading } from "../../ui";
 import { day as dayText, inr, isNum, num, pct, tone, when } from "./format";
-import { useDeskTheme } from "./theme";
 import { fmtR, WHY } from "./debriefMath";
 import { NetBar, ReplayStrip, RunningTotal } from "./DebriefCharts";
 import "./analyzer.css";
@@ -269,7 +268,6 @@ function Written({ d, models, onLesson, busy }) {
 }
 
 export default function Debrief({ onOpen = null }) {
-  const [theme, toggleTheme] = useDeskTheme();
   const [cost, setCost] = useState("0.1");
   const [card, setCard] = useState({ loading: true, data: null, error: "" });
   const [ai, setAi] = useState({ configured: false, debriefs: [], models: [] });
@@ -352,9 +350,6 @@ export default function Debrief({ onOpen = null }) {
               <b>not a record of trades you took</b> — it shows what following each “in play” call mechanically would have added up to, before and after costs.
             </p>
           </div>
-          <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm" onClick={toggleTheme} aria-pressed={theme === "dark"}>
-            {theme === "dark" ? "Light theme" : "Dark theme"}
-          </button>
         </header>
 
         <div className="db-filters">
