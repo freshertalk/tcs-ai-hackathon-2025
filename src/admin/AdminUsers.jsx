@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { api } from "./api";
 import Shell from "./Shell";
 import { Alert, Field, Loading } from "./ui";
+import { useDialog } from "./dialog/DialogProvider";
 
 const when = (iso) =>
   iso
@@ -10,6 +11,7 @@ const when = (iso) =>
 
 /** Superadmin only (the route guard and the server both enforce it). */
 export default function AdminUsers() {
+  const ask = useDialog();
   const [rows, setRows] = useState(null);
   const [email, setEmail] = useState("");
   const [msg, setMsg] = useState({ kind: "", text: "" });
@@ -37,7 +39,21 @@ export default function AdminUsers() {
   };
 
   const remove = async (row) => {
-    if (!window.confirm(`Remove ${row.email}? They lose access immediately.`)) return;
+    const yes = await ask({
+      tone: "danger",
+      title: "Remove this admin?",
+      body: (
+        <>
+          <p>
+            <b>{row.email}</b> will no longer be able to sign in to the private area.
+          </p>
+          <p>If they are signed in right now, their access ends at once. You can add them again at any time.</p>
+        </>
+      ),
+      confirmText: "Remove access",
+      cancelText: "Keep them",
+    });
+    if (!yes) return;
     setBusy(true);
     setMsg({ kind: "", text: "" });
     try {

@@ -7,6 +7,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { api } from "../../api";
 import { Alert, Loading } from "../../ui";
 import { inr, isNum, num, when } from "../analyzer/format";
+import { useDialog } from "../../dialog/DialogProvider";
 import "./paper.css";
 
 const rText = (r) => (isNum(r) ? `${r > 0 ? "+" : ""}${num(r, 2)}R` : "—");
@@ -106,6 +107,7 @@ function DayBars({ days }) {
 }
 
 export default function Paper() {
+  const ask = useDialog();
   const [s, setS] = useState(null);
   const [err, setErr] = useState("");
   const [msg, setMsg] = useState({ kind: "", text: "" });
@@ -201,7 +203,22 @@ export default function Paper() {
             type="button"
             className="adm-btn adm-btn--ghost adm-btn--sm"
             disabled={Boolean(busy)}
-            onClick={() => window.confirm("Clear every paper trade and finding? Settings stay, and real trading is not touched.") && act("reset", "/api/admin/paper/reset", { method: "POST" }, "Paper record cleared.")}
+            onClick={async () => {
+              const yes = await ask({
+                tone: "danger",
+                title: "Clear the paper record?",
+                body: (
+                  <>
+                    <p>This removes every paper trade — live and on history — and the findings worked out from them.</p>
+                    <p>Your paper account settings stay as they are, and real trading is not affected in any way.</p>
+                  </>
+                ),
+                note: "The findings already written into the trading-skills file stay until the next paper test rewrites them.",
+                confirmText: "Clear the record",
+                cancelText: "Keep it",
+              });
+              if (yes) act("reset", "/api/admin/paper/reset", { method: "POST" }, "Paper record cleared.");
+            }}
           >
             Clear paper record
           </button>

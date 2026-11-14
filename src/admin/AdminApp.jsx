@@ -17,6 +17,7 @@ import { ADMIN_BASE } from "./paths";
 import { Loading } from "./ui";
 import Shell from "./Shell";
 import TipLayer from "./help/TipLayer";
+import { DialogProvider } from "./dialog/DialogProvider";
 
 import Login from "./Login";
 import Setup from "./Setup";
@@ -136,6 +137,7 @@ export default function AdminApp() {
   return (
     <div data-theme="tech" className="adm">
       <AuthContext.Provider value={value}>
+        <DialogProvider>
         <Routes>
           <Route path={ADMIN_BASE} element={<Gate><Dashboard /></Gate>} />
           <Route path={`${ADMIN_BASE}/google`} element={<Gate><GoogleSettings /></Gate>} />
@@ -147,6 +149,7 @@ export default function AdminApp() {
           <Route path={`${ADMIN_BASE}/personal-access`} element={<Gate><PersonalAccess /></Gate>} />
           <Route path="*" element={<Navigate to={ADMIN_BASE} replace />} />
         </Routes>
+        </DialogProvider>
       </AuthContext.Provider>
       {/* hover help: one bubble for every label and button that has an explanation */}
       <TipLayer />

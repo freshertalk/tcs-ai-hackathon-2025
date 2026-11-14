@@ -1,0 +1,209 @@
+/* The site's confirmation dialog (DialogProvider.jsx). Colours from the private area's tokens. */
+.vd-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: color-mix(in srgb, #05080d 55%, transparent);
+  backdrop-filter: blur(6px) saturate(120%);
+  -webkit-backdrop-filter: blur(6px) saturate(120%);
+  animation: vd-fade 0.16s ease-out both;
+}
+.vd-box {
+  --vd-tone: var(--accent);
+  width: min(460px, 100%);
+  display: grid;
+  gap: 18px;
+  padding: 22px 22px 18px;
+  border: 1px solid var(--line-2);
+  border-radius: 16px;
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 30px 80px rgba(0, 0, 0, 0.45);
+  animation: vd-rise 0.22s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.vd-box--danger {
+  --vd-tone: var(--down, #e5484d);
+}
+.vd-box--ok {
+  --vd-tone: var(--up, #2ebd85);
+}
+.vd-top {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+.vd-icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--vd-tone) 15%, transparent);
+  color: var(--vd-tone);
+}
+.vd-icon svg {
+  width: 22px;
+  height: 22px;
+}
+.vd-text h2 {
+  margin: 2px 0 6px !important;
+  font-size: var(--t-title) !important;
+  font-weight: 600 !important;
+  line-height: 1.3 !important;
+  color: var(--ink);
+}
+.vd-body {
+  font-size: var(--t-base);
+  line-height: 1.55;
+  color: var(--ink-2);
+}
+.vd-body p {
+  margin: 0 0 6px;
+}
+.vd-body p:last-child {
+  margin-bottom: 0;
+}
+.vd-body ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}
+.vd-note-line {
+  margin: -6px 0 0 !important;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--surface-2, rgba(255, 255, 255, 0.04));
+  font-size: var(--t-small);
+  color: var(--ink-3);
+}
+.vd-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.vd-btn {
+  min-width: 96px;
+  height: 38px;
+  padding: 0 16px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  font: inherit;
+  font-size: var(--t-base);
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background 0.12s,
+    border-color 0.12s,
+    transform 0.06s;
+}
+.vd-btn:active {
+  transform: translateY(1px);
+}
+.vd-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.vd-btn--ghost {
+  border-color: var(--line-2);
+  background: transparent;
+  color: var(--ink);
+}
+.vd-btn--ghost:hover {
+  background: var(--surface-2, rgba(255, 255, 255, 0.05));
+}
+.vd-btn--solid {
+  background: var(--accent);
+  color: var(--on-accent, #06121f);
+}
+.vd-btn--solid:hover {
+  filter: brightness(1.06);
+}
+.vd-btn--danger {
+  background: var(--down, #e5484d);
+  color: #fff;
+}
+.vd-btn--danger:hover {
+  filter: brightness(1.08);
+}
+@keyframes vd-fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes vd-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+}
+@media (max-width: 560px) {
+  .vd-overlay {
+    place-items: end stretch;
+    padding: 0;
+  }
+  .vd-box {
+    width: 100%;
+    padding: 20px 18px calc(16px + env(safe-area-inset-bottom, 0px));
+    border-radius: 18px 18px 0 0;
+    animation-name: vd-sheet;
+  }
+  .vd-actions {
+    flex-direction: column-reverse;
+  }
+  .vd-btn {
+    width: 100%;
+    height: 44px;
+  }
+}
+@keyframes vd-sheet {
+  from {
+    transform: translateY(100%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .vd-overlay,
+  .vd-box {
+    animation: none;
+  }
+}
+
+/* ---- the same finish for the site's other dialogs (order ticket, exit, shortcuts) */
+.tr-modal {
+  backdrop-filter: blur(6px) saturate(120%);
+  -webkit-backdrop-filter: blur(6px) saturate(120%);
+  background: color-mix(in srgb, #05080d 55%, transparent) !important;
+  animation: vd-fade 0.16s ease-out both;
+}
+.tr-modal > .tr-dialog,
+.tr-modal > .tr-ticket {
+  border: 1px solid var(--line-2);
+  border-radius: 16px !important;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45) !important;
+  animation: vd-rise 0.22s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.tr-modal > .tr-dialog {
+  padding: 22px !important;
+}
+.tr-modal > .tr-dialog h3 {
+  font-weight: 600;
+}
+/* on a phone these already rise from the bottom edge (terminal/compact.css); they slide in from there */
+@media (max-width: 760px) {
+  .tr-modal:not(.tm-pal) > .tr-dialog,
+  .tr-modal:not(.tm-pal) > .tr-ticket {
+    border-radius: 18px 18px 0 0 !important;
+    animation-name: vd-sheet;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tr-modal,
+  .tr-modal > .tr-dialog,
+  .tr-modal > .tr-ticket {
+    animation: none;
+  }
+}
