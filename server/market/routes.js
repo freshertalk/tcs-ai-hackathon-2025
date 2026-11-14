@@ -124,6 +124,9 @@ function mountMarket(app, deps) {
 
   app.post("/api/admin/market/screener/stop", requireAdmin, wrap(async () => market.screenerStop()));
 
+  // top gainers / losers, RSI, VWAP and the day's range for any NSE index in the catalogue (?index=nifty50) — live, or the last session
+  app.get("/api/admin/market/screener/board", requireAdmin, limiter(240, 60 * 1000), wrap(async (req) => market.screenerBoard(req.query)));
+
   app.get("/api/admin/market/screener/rsi", requireAdmin, limiter(120, 60 * 1000), wrap(async (req) => market.screenerRsi(req.query)));
 
   app.get("/api/admin/market/context", requireAdmin, wrap(async () => market.context()));

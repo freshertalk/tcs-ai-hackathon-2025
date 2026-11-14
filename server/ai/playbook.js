@@ -110,6 +110,27 @@ class Playbook {
       .map((l) => l.slice(2));
   }
 
+  /**
+   * Replace (or add) one named section, just above the lessons. Used for findings that are
+   * rewritten as a whole each time (paper trading), so they never pile up.
+   */
+  setSection(head, body) {
+    const text = this.read();
+    const block = `${head}\n${String(body || "").trim()}`;
+    const at = text.indexOf(head);
+    let next;
+    if (at >= 0) {
+      // the section runs to the next "## " heading
+      const rest = text.slice(at + head.length);
+      const m = rest.search(/\n## /);
+      next = `${text.slice(0, at)}${block}${m >= 0 ? `\n${rest.slice(m)}` : "\n"}`;
+    } else {
+      const i = text.indexOf(LESSONS_HEAD);
+      next = i >= 0 ? `${text.slice(0, i).trimEnd()}\n\n${block}\n\n${text.slice(i)}` : `${text.trimEnd()}\n\n${block}\n`;
+    }
+    return this.write(next);
+  }
+
   /** Add dated lessons, keeping only the newest MAX_LESSONS. Everything above the lessons section is untouched. */
   appendLessons(lessons, date) {
     const fresh = (lessons || []).map((l) => String(l || "").replace(/\s+/g, " ").trim()).filter(Boolean).map((l) => `${date}: ${l.slice(0, 400)}`);

@@ -1,4 +1,4 @@
-// The screener: every Nifty 100 stock (NSE's 100 largest companies) whose RSI is where you ask, right now.
+// The screener: the market board for any NSE index, and every Nifty 500 stock whose RSI is where you ask, right now.
 //
 // "Right now" means the daily RSI with the live price as the newest bar: each
 // stock's last year of daily closes (downloaded once, kept up to date from the
@@ -9,6 +9,7 @@ import { api } from "../../api";
 import { Alert, Loading } from "../../ui";
 import { clock, compact, day, inr, isNum, num, pct, when } from "./format";
 import "./analyzer.css";
+import MarketBoard from "./MarketBoard";
 
 const CONDITIONS = [
   { id: "about", label: "about (± 2)" },
@@ -147,12 +148,13 @@ export default function Screener({ onOpen }) {
 
   return (
     <div className="scr">
+      <MarketBoard onOpen={onOpen} />
       <section className="an-card">
         <header className="an-card__head">
           <div>
-            <h3>Screener · NSE top 100 by RSI</h3>
+            <h3>RSI search · NIFTY 500</h3>
             <p>
-              Type an RSI value and search: the list is every Nifty 100 stock whose RSI is there <b>right now</b> — the daily RSI, with each stock’s live price as the newest bar. Select a
+              Type an RSI value and search: the list is every Nifty 500 stock whose RSI is there <b>right now</b> — the daily RSI, with each stock’s live price as the newest bar. Select a
               stock to open it on the trading desk.
             </p>
           </div>
@@ -176,7 +178,7 @@ export default function Screener({ onOpen }) {
               <p className="scr__have">
                 <span>
                   <b>{num(status.symbols - status.funds, 0)} stocks</b>
-                  {status.scope && status.scope.index === "NIFTY 100" ? ` of the Nifty 100 (list from ${status.scope.source === "NSE" ? `NSE, ${day(status.scope.fetchedAt)}` : `a copy of ${day(status.scope.asOf)}`})` : ""} · daily closes to {day(status.through)} · {status.syncedAt ? `downloaded ${when(status.syncedAt)}` : "download not finished"}
+                  {status.scope && status.scope.index ? ` · RSI search over the ${status.scope.index} (list from ${status.scope.source === "NSE" ? `NSE, ${day(status.scope.fetchedAt)}` : `a copy of ${day(status.scope.asOf)}`})` : ""} · daily closes to {day(status.through)} · {status.syncedAt ? `downloaded ${when(status.syncedAt)}` : "download not finished"}
                 </span>
                 <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm" onClick={() => act("/api/admin/market/screener/sync", { force: true })} disabled={!status.connected}>
                   Download again
@@ -190,11 +192,11 @@ export default function Screener({ onOpen }) {
             ) : (
               <div className="scr__first">
                 <p>
-                  <b>One-time setup.</b> To know each stock’s RSI, the server first downloads about a year of daily prices for the 100 stocks of the Nifty 100. Zerodha allows
-                  three requests a second, so this takes <b>under a minute</b>, once. After that the list keeps itself up to date and a search takes a few seconds.
+                  <b>One-time setup.</b> To know each stock’s RSI, the server first downloads about a year of daily prices for the Nifty 500 and every index on the board (about 500
+                  stocks). Zerodha allows three requests a second, so this takes <b>about three minutes</b>, once — you can leave the page. After that the list keeps itself up to date and a search takes a few seconds.
                 </p>
                 <button type="button" className="adm-btn adm-btn--solid" onClick={() => act("/api/admin/market/screener/sync")} disabled={!status.connected}>
-                  Download the Nifty 100
+                  Download the Nifty 500
                 </button>
               </div>
             )}
@@ -251,7 +253,7 @@ export default function Screener({ onOpen }) {
             <input type="checkbox" checked={funds} onChange={(e) => setFunds(e.target.checked)} /> Include ETFs and liquid funds
           </label>
           <button className="adm-btn adm-btn--solid" disabled={busy || !status || !status.ready}>
-            {busy ? "Searching the Nifty 100…" : "Search"}
+            {busy ? "Searching the Nifty 500…" : "Search"}
           </button>
         </form>
         <div className="scr__presets" role="group" aria-label="Common searches">
@@ -264,7 +266,7 @@ export default function Screener({ onOpen }) {
         <Alert>{error}</Alert>
       </section>
 
-      {busy && !result && <Loading label="Fetching live prices for the Nifty 100 and working out each RSI…" />}
+      {busy && !result && <Loading label="Fetching live prices for the Nifty 500 and working out each RSI…" />}
 
       {result && result.ready === false && <p className="adm-alert adm-alert--info">The stock list has not been downloaded yet — use the button above first.</p>}
 
@@ -366,7 +368,7 @@ export default function Screener({ onOpen }) {
             <b>Daily RSI, live.</b> Wilder’s RSI on daily closes, with the price at this moment standing in for today’s close. It moves through the day as the price does.
           </li>
           <li>
-            <b>The Nifty 100.</b> NSE’s 100 largest companies, as NSE publishes the index. The list is re-read from NSE’s own file once a week, so the screener follows the index changes each March and September.
+            <b>The Nifty 500 and NSE’s indices.</b> The RSI search covers the Nifty 500; the board above shows any index NSE publishes a list for (NIFTY 50, BANK, FINANCIAL SERVICES, MIDCAP SELECT, NEXT 50, the broad and the sector indices). Each list is re-read from NSE’s own file once a week, so the screener follows index changes.
           </li>
           <li>
             <b>Not the 5-minute RSI.</b> An intraday RSI for the whole exchange would need intraday bars for every stock at once, which Zerodha’s API cannot supply at this speed. The

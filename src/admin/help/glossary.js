@@ -468,6 +468,19 @@ const ENTRIES = [
   [["Entry", "Stop", "Targets", "Reward : risk"], "The plan for this direction, taken from the stock's own levels.", ".dir"],
   [["Time zone converter"], "Pick a date and time in one zone and see it in another. Every zone in the world, with daylight saving."],
 
+  /* ---- paper trading and the market board */
+  [["Paper trading", "Paper"], "The desk's live call followed with play money — in today's market, on past sessions, and in an auto mode. No order is ever sent from it, and it is separate from real trading, which works as before.", ".pp"],
+  [["Auto mode ON", "Auto mode OFF"], "Paper-trades the live market every five minutes and re-tests the setup on history after each close, by itself. It has no effect on real trading.", ".pp"],
+  [["Paper-trade today now"], "Read today's 5-minute closes now and turn the live calls into paper trades.", ".pp"],
+  [["Clear paper record"], "Forget every paper trade and finding. Settings stay.", ".pp"],
+  [["Setup"], "A fingerprint of the rules that decide every call and the cost assumed. Paper counts are kept per setup, so a change to the engine starts a new count.", ".pp"],
+  [["Top gainers", "Top losers"], "The stocks of the chosen index up or down the most today, by % change against the previous close.", ".mb"],
+  [["Most active"], "The most rupees traded today: volume × VWAP.", ".mb"],
+  [["Volume surge", "× usual"], "Today's value traded against the stock's 20-day average day; 2× means twice the usual by now.", ".mb"],
+  [["RSI overbought", "RSI oversold"], "Daily RSI at or above 70, or at or below 30, with today's price as the newest bar. A description of how far price has run, not a signal.", ".mb"],
+  [["Above VWAP", "Below VWAP", "vs VWAP"], "Where the price stands against the day's volume-weighted average price.", ".mb"],
+  [["Near 52-wk high", "Near 52-wk low"], "Within 3% of the 52-week high or low (daily closes plus today's range).", ".mb"],
+
   /* ---- the full chart */
   [["Chart"], "The full chart: every interval from 1 minute to 1 month, live, with indicators, drawing tools, compare, patterns, pivots and a technical summary.", ".sv__chartbar"],
   [["View"], "Candlestick patterns, pivot points and the price scale (auto, log, percent).", ".kc"],

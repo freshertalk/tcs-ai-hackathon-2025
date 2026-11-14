@@ -1,0 +1,193 @@
+/* Paper trading. Sizes from --t-*, colours from the desk. */
+.pp {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.pp h3 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.pp-badge {
+  padding: 1px 8px;
+  border-radius: 99px;
+  background: color-mix(in srgb, var(--up) 18%, transparent);
+  color: var(--up);
+  font-size: var(--t-tag);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.pp-head .an-card__head {
+  align-items: flex-start;
+}
+.pp-switch {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border: 1px solid var(--line-2);
+  border-radius: 99px;
+  background: var(--surface-2);
+  font-size: var(--t-mid);
+  font-weight: 600;
+  cursor: pointer;
+}
+.pp-switch input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--up);
+}
+.pp-switch.is-on {
+  border-color: var(--up);
+  color: var(--up);
+}
+.pp-flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0;
+}
+.pp-flag {
+  padding: 2px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-size: var(--t-small);
+  color: var(--ink-3);
+}
+.pp-flag.is-safe {
+  border-color: color-mix(in srgb, var(--up) 45%, transparent);
+  color: var(--up);
+  font-weight: 600;
+}
+.pp-flag.is-warn {
+  color: var(--warn, #d29922);
+}
+.pp-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+  gap: 6px;
+  margin: 8px 0;
+}
+.pp-tiles > div {
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+.pp-tiles dt {
+  font-size: var(--t-small);
+  color: var(--ink-3);
+}
+.pp-tiles dd {
+  margin: 0;
+  font-size: var(--t-lead);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.pp .is-up {
+  color: var(--up);
+}
+.pp .is-down {
+  color: var(--down);
+}
+.pp-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.pp-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 300px);
+  gap: 12px;
+  align-items: start;
+}
+.pp-set {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+}
+.pp-set label {
+  display: grid;
+  gap: 3px;
+}
+.pp-set label span {
+  font-size: var(--t-small);
+  color: var(--ink-3);
+}
+.pp-set input {
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--line-2);
+  border-radius: 6px;
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--t-mid);
+}
+.pp-set .adm-btn {
+  justify-self: start;
+}
+.pp-table td,
+.pp-table th {
+  white-space: nowrap;
+}
+.pp-days {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 70px;
+  margin: 6px 0 10px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.pp-day {
+  display: flex;
+  flex: 1;
+  align-items: flex-end;
+  min-width: 3px;
+  height: 100%;
+}
+.pp-day i {
+  width: 100%;
+  border-radius: 2px 2px 0 0;
+  background: var(--up);
+}
+.pp-day.is-down i {
+  background: var(--down);
+}
+.pp-findings {
+  margin: 6px 0 10px;
+  padding-left: 18px;
+  font-size: var(--t-mid);
+}
+.pp-findings li {
+  margin: 3px 0;
+}
+.pp-more summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.pp-log {
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--t-small);
+}
+.pp-log time {
+  color: var(--ink-3);
+}
+@media (max-width: 900px) {
+  .pp-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .pp-head .an-card__head {
+    flex-direction: column;
+  }
+}

@@ -18,6 +18,7 @@ import HolidayCalendar from "./HolidayCalendar";
 import TimeConverter from "./TimeConverter";
 import Analyzer from "./analyzer/Analyzer";
 import Screener from "./analyzer/Screener";
+import Paper from "./paper/Paper";
 import Debrief from "./analyzer/Debrief";
 import ErrorBoundary from "./analyzer/ErrorBoundary";
 import Account from "./trade/Account";
@@ -42,7 +43,8 @@ const VIEWS = [
   { id: "account", label: "Positions", superOnly: true, tip: "Positions, holdings, orders, funds, the trading switch and the AI coach." },
   { id: "journal", label: "Journal", superOnly: true, tip: "Every round trip you made: win rate, profit factor, expectancy, drawdown, P&L calendar, MAE/MFE, tags and an AI review." },
   { id: "research", label: "Research", tip: "Pre-market and post-market research for your watchlist." },
-  { id: "screener", label: "Screener", tip: "The Nifty 100 — NSE’s 100 largest companies — by RSI." },
+  { id: "screener", label: "Screener", tip: "Any NSE index — NIFTY 50, BANK, NEXT 50, broad and sector indices: top gainers and losers, RSI, VWAP, volume and the 52-week range, live; RSI search over the Nifty 500." },
+  { id: "paper", label: "Paper", tip: "Paper trading: the desk’s live call followed with play money — in today’s market, on past sessions, and in an auto mode. No real orders; separate from real trading." },
   { id: "debrief", label: "Debrief", tip: "After the close: if you had followed every live call by fixed rules, what would today have made or lost? A report card for the desk’s signals — no real trades." },
   { id: "calendar", label: "Calendar", tip: "World clock and upcoming exchange holidays." },
 ];
@@ -254,6 +256,8 @@ function Terminal() {
               <Research onOpen={openStock} />
             ) : view === "screener" ? (
               <Screener onOpen={openStock} />
+            ) : view === "paper" ? (
+              <Paper />
             ) : view === "debrief" ? (
               <Debrief onOpen={openStock} />
             ) : (

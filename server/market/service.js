@@ -127,7 +127,7 @@ class MarketService {
    * @param store    the app's Store (settings + watchlist live there)
    * @param secrets  { encrypt(text), decrypt(blob) } — API secret and token are stored encrypted
    */
-  constructor({ dir, store, secrets, fetchImpl = globalThis.fetch, now = () => Date.now(), log = console, gaps, wsImpl, tickerOptions, screenerIndex = "nifty100", indexFetch = null }) {
+  constructor({ dir, store, secrets, fetchImpl = globalThis.fetch, now = () => Date.now(), log = console, gaps, wsImpl, tickerOptions, screenerIndex = "nse", indexFetch = null }) {
     this.dir = path.join(dir, "market");
     this.store = store;
     this.secrets = secrets;
@@ -156,8 +156,9 @@ class MarketService {
       });
     }
     this._ctx = null; // { at, data }: the market context, shared for a few seconds
-    // the screener covers the Nifty 100 (NSE's 100 largest companies), read from NSE's own list
-    this.indexList = screenerIndex === "nifty100" ? new IndexList({ dir: this.dir, fetchImpl: indexFetch, now: this.now, log }) : null;
+    // the screener's NSE index lists (indexlist.js): the board shows any of them, the RSI search the Nifty 500
+    // "all" (tests with a made-up exchange): every NSE stock and no index lists
+    this.indexList = screenerIndex === "all" ? null : new IndexList({ dir: this.dir, fetchImpl: indexFetch, now: this.now, log });
     this.universe = new Universe({ dir: this.dir, market: this });
     this.worldProvider = null; // () => the latest AI world brief in short form, when the AI service is present
     fs.mkdirSync(path.join(this.dir, "candles"), { recursive: true });
@@ -908,6 +909,45 @@ class MarketService {
     return out;
   }
 
+  /**
+   * Many past sessions of one symbol replayed through the live call — the same engine and the
+   * same rules as replay(), one session at a time, each judged only on what was known before it.
+   * Used by paper trading on history. Finished sessions only (today joins once it has closed).
+   * @returns { symbol, available, sessions: [{ date, trades, summary }] }
+   */
+  async replayHistory(symbol, { sessions = 20, costPct } = {}) {
+    if (!SYMBOL_RE.test(symbol)) throw new MarketError("That is not a valid symbol.", "invalid");
+    if (this.mode() !== "kite") return { available: false, symbol, reason: "Paper trading on history replays 5-minute bars, which come with the Zerodha connection." };
+    const want = Math.max(1, Math.min(60, Math.round(Number(sessions) || 20)));
+    const asked = Number(costPct);
+    const cost = costPct !== undefined && costPct !== null && costPct !== "" && Number.isFinite(asked) ? Math.max(0, Math.min(1, asked)) : DEFAULT_COST_PCT;
+    const now = this.now();
+    const today = istDate(now);
+    // about 1.6 calendar days per session, plus room for the warm-up session before the first
+    const bars = (await this.candles(symbol, "5minute", { days: Math.min(200, Math.ceil(want * 1.6) + 7) })).candles;
+    const byDate = new Map();
+    for (const b of bars) {
+      const d = String(b.t).slice(0, 10);
+      if (!byDate.has(d)) byDate.set(d, []);
+      byDate.get(d).push(b);
+    }
+    const finished = (d) => d < today || (!isMarketHours(now) && String((byDate.get(d) || []).slice(-1)[0]?.t || "").slice(11, 16) >= "15:25");
+    const dates = [...byDate.keys()].sort().filter(finished);
+    const daily = await this.daily(symbol);
+    const index = symbol === INDEX_SYMBOL ? null : await this.index();
+    const out = [];
+    for (const date of dates.slice(-want)) {
+      const at = dates.indexOf(date);
+      const prior = at > 0 ? (byDate.get(dates[at - 1]) || []).slice(-150) : [];
+      const before = daily.candles.filter((c) => c.t < date);
+      if (before.length < 30) continue;
+      const analysis = analyze(before, { index: index ? { ...index, candles: index.candles.filter((c) => c.t < date) } : null, inProgress: false, chartBars: 1 });
+      const r = await replayDayAsync({ analysis, candles: before, bars: byDate.get(date), prior, circuit: null, costPct: cost });
+      if (r.available) out.push({ date, trades: r.trades, summary: r.summary });
+    }
+    return { symbol, available: out.length > 0, reason: out.length ? "" : "No finished session could be replayed.", costPct: cost, sessions: out };
+  }
+
   /** The watchlist's day in one table: each stock replayed, and every call as one running total. */
   async scorecard({ costPct } = {}) {
     if (this.mode() !== "kite") return { available: false, reason: "The day's scorecard replays intraday bars, which come with the Zerodha connection." };
@@ -962,6 +1002,21 @@ class MarketService {
   screenerStop() {
     this.universe.stop();
     return this.screenerStatus();
+  }
+
+  /** The market board: top gainers and losers, RSI, VWAP and more for any NSE index (universe.js). */
+  async screenerBoard(params = {}) {
+    if (this.mode() !== "kite") throw new MarketError("The market board needs the Zerodha connection: every price comes from it.", "not_connected", 409);
+    const p = Math.round(Number(params.period) || 14);
+    if (!(p >= 2 && p <= 50)) throw new MarketError("The RSI period must be between 2 and 50.", "invalid");
+    try {
+      const index = String(params.index || "nifty50").toLowerCase();
+      if (this.indexList && !this.indexList.has(index)) throw new MarketError("Unknown index.", "invalid");
+      return await this.universe.board({ period: p, live: isMarketHours(this.now()), index });
+    } catch (err) {
+      if (err instanceof MarketError || err instanceof KiteError) throw err;
+      throw new MarketError(err && err.message ? err.message : "The market board could not be read.", "screener_failed", 502);
+    }
   }
 
   /** Every NSE stock whose RSI is inside the asked range at this moment. */

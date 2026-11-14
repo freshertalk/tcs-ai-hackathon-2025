@@ -8,7 +8,7 @@ export const SHORTCUTS = [
   { keys: ["S"], action: "sell", text: "Sell the open stock (trading switch on)" },
   { keys: ["D"], action: "dock", text: "Show or hide the positions dock" },
   { keys: ["T"], action: "theme", text: "Dark or light theme" },
-  { keys: ["1", "…", "8"], action: "view", text: "Desk, Advisor, Positions, Journal, Research, Screener, Debrief, Calendar" },
+  { keys: ["1", "…", "9"], action: "view", text: "Desk, Advisor, Positions, Journal, Research, Screener, Paper, Debrief, Calendar" },
   { keys: ["?"], action: "help", text: "This list" },
   { keys: ["Esc"], action: "close", text: "Close a dialog or this list" },
 ];

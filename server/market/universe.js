@@ -181,9 +181,13 @@ class Universe {
     return { n: m.n, d: tail[tail.length - 1].t, c: tail.map((c) => r2(c.c)), to: r2(turnover), fund: m.fund || undefined, at: today };
   }
 
-  /** Only the stocks the screener covers (the Nifty 100), when the market service sets a list. */
+  /**
+   * Only the stocks the screener covers, when the market service sets a list: every stock in any
+   * index the board offers (the Nifty 500 and the sector indices) — so the RSI search over the
+   * Nifty 500 and every board row have their history.
+   */
   _scope(members) {
-    const set = this.market.indexList ? this.market.indexList.symbols() : null;
+    const set = this.market.indexList ? this.market.indexList.allSymbols() : null;
     return set ? members.filter((m) => set.has(m.s)) : members;
   }
 
@@ -249,17 +253,21 @@ class Universe {
     job.finishedAt = new Date(this.market.now()).toISOString();
   }
 
-  /** Quotes for every stock in the universe, in batches, shared for 20 seconds. */
-  async _liveQuotes(symbols) {
+  /** Quotes for a list of stocks (plus the Nifty and any extra names), in batches, shared for 20 seconds per list. */
+  async _liveQuotes(symbols, extra = []) {
     const now = this.market.now();
-    if (this._quotes && now - this._quotes.at < 20000) return this._quotes.map;
-    const keys = ["NSE:NIFTY 50", ...symbols.map((s) => `NSE:${s}`)];
+    const keys = [...new Set(["NSE:NIFTY 50", ...extra.map((s) => `NSE:${s}`), ...symbols.map((s) => `NSE:${s}`)])];
+    const id = keys.join(",");
+    if (!this._quotes || typeof this._quotes.get !== "function") this._quotes = new Map();
+    const hit = this._quotes.get(id);
+    if (hit && now - hit.at < 20000) return hit.map;
     const map = {};
     for (let i = 0; i < keys.length; i += BATCH) {
       const part = await this.market._call((k) => k.quotes(keys.slice(i, i + BATCH)));
       for (const [k, v] of Object.entries(part)) map[k.replace(/^NSE:/, "")] = v;
     }
-    this._quotes = { at: now, map };
+    if (this._quotes.size > 30) this._quotes.clear();
+    this._quotes.set(id, { at: now, map });
     return map;
   }
 
@@ -287,6 +295,107 @@ class Universe {
       .finally(() => {
         this._healing = false;
       });
+  }
+
+  /**
+   * The market board: one index's stocks (NIFTY 50, BANK, NEXT 50, …), with its price, the day's
+   * range and volume, VWAP, RSI and 52-week range — live while the market trades, the last
+   * session's figures when it is closed. Works before the history download too (RSI and the
+   * 52-week range then read "—").
+   * @param live  the market is open now (the caller knows the clock)
+   */
+  async board({ period = 14, live = false, index = "nifty50" } = {}) {
+    const d = this._load();
+    const lists = this.market.indexList;
+    const names = new Map();
+    let symbols;
+    let meta = null;
+    if (lists) {
+      meta = lists.meta(index) || lists.meta("nifty50");
+      symbols = lists.list(meta.id);
+    } else symbols = Object.keys(d.symbols);
+    try {
+      for (const m of membersOf(await this.market.instruments())) names.set(m.s, m.n);
+    } catch (_) {
+      /* names are a nicety */
+    }
+    if (!symbols.length) return { ready: false, rows: [], status: this.status() };
+    const quotes = await this._liveQuotes(symbols, meta ? meta.kite : []);
+    let cal = null;
+    try {
+      const nifty = await this.market.daily("NIFTY 50");
+      cal = calendarFrom(nifty.candles, quotes["NIFTY 50"], istDate(this.market.now()));
+    } catch (_) {
+      cal = null;
+    }
+    const rows = [];
+    let quoted = 0;
+    for (const s of symbols) {
+      const q = quotes[s];
+      if (!q || !num(q.last) || q.last <= 0) continue;
+      quoted += 1;
+      const rec = d.symbols[s];
+      let rsi = null;
+      let hi52 = null;
+      let lo52 = null;
+      if (rec && cal) {
+        const r = resolveSeries(rec, q, cal);
+        if (!r.stale) {
+          const x = rsiNow(r.base, q.last, r.live, period);
+          if (x) rsi = { now: r1(x.now), prev: r1(x.prev) };
+          const closes = r.base.slice(-250);
+          hi52 = Math.max(...closes, num(q.high) ? q.high : -Infinity, q.last);
+          lo52 = Math.min(...closes, num(q.low) && q.low > 0 ? q.low : Infinity, q.last);
+        }
+      }
+      const vwap = num(q.avgPrice) && q.avgPrice > 0 ? q.avgPrice : null;
+      const turnoverCr = num(q.volume) && vwap ? (q.volume * vwap) / 1e7 : null;
+      rows.push({
+        symbol: s,
+        name: (rec && rec.n) || names.get(s) || "",
+        last: r2(q.last),
+        prevClose: r2(q.prevClose),
+        change: r2(q.change),
+        changePct: r2(q.changePct),
+        open: r2(q.open),
+        high: r2(q.high),
+        low: r2(q.low),
+        volume: q.volume ?? null,
+        vwap: r2(vwap),
+        vsVwapPct: vwap ? r2(((q.last - vwap) / vwap) * 100) : null,
+        rsi: rsi ? rsi.now : null,
+        rsiPrev: rsi ? rsi.prev : null,
+        turnoverCr: r2(turnoverCr),
+        // today's value traded against the stock's 20-day average: 2 means twice the usual
+        relTurnover: turnoverCr && rec && rec.to > 0 ? r2(turnoverCr / rec.to) : null,
+        high52: r2(hi52),
+        low52: r2(lo52),
+        fromHigh52Pct: hi52 ? r2(((q.last - hi52) / hi52) * 100) : null,
+        fromLow52Pct: lo52 ? r2(((q.last - lo52) / lo52) * 100) : null,
+        upperCircuit: r2(q.upperCircuit),
+        lowerCircuit: r2(q.lowerCircuit),
+        time: q.time || null,
+      });
+    }
+    const up = rows.filter((r) => r.changePct > 0).length;
+    const down = rows.filter((r) => r.changePct < 0).length;
+    return {
+      ready: true,
+      at: new Date(this.market.now()).toISOString(),
+      live,
+      session: cal ? (cal.after ? istDate(this.market.now()) : cal.d0) : null,
+      period,
+      covered: symbols.length,
+      quoted,
+      withRsi: rows.filter((r) => r.rsi !== null).length,
+      breadth: { advances: up, declines: down, unchanged: rows.length - up - down },
+      nifty: quotes["NIFTY 50"] ? { last: r2(quotes["NIFTY 50"].last), changePct: r2(quotes["NIFTY 50"].changePct) } : null,
+      // the index itself, as the first row of NSE's table
+      index: meta ? indexRow(meta, quotes) : null,
+      indices: lists ? lists.catalog() : [],
+      rows,
+      status: this.status(),
+    };
   }
 
   /**
@@ -368,6 +477,14 @@ class Universe {
       status: this.status(),
     };
   }
+}
+
+/** The index's own row: its quote under whichever name Zerodha lists it. */
+function indexRow(meta, quotes) {
+  const q = meta.kite.map((k) => quotes[k]).find((x) => x && num(x.last) && x.last > 0);
+  const base = { id: meta.id, name: meta.name };
+  if (!q) return { ...base, available: false };
+  return { ...base, available: true, last: r2(q.last), open: r2(q.open), high: r2(q.high), low: r2(q.low), prevClose: r2(q.prevClose), change: r2(q.change), changePct: r2(q.changePct), time: q.time || null };
 }
 
 module.exports = { Universe, membersOf, calendarFrom, resolveSeries, rsiNow, KEEP };

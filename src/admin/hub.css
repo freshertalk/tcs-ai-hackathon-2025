@@ -423,3 +423,47 @@
     transition: none;
   }
 }
+
+/* ---------------------------------------------------- paper trading card */
+.hub-paper > a {
+  display: grid;
+  gap: 6px;
+  padding: 18px 20px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, #2ebd85 35%, transparent);
+  background:
+    repeating-linear-gradient(135deg, rgba(46, 189, 133, 0.06) 0 10px, transparent 10px 20px),
+    linear-gradient(135deg, #0d2419, #0b1622 60%, #10233a);
+  color: #f2f6fa;
+  text-decoration: none;
+}
+.hub-paper__t {
+  font-size: var(--t-large);
+  font-weight: 600;
+  line-height: 1.15;
+}
+.hub-paper__stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  font-size: var(--t-mid);
+  color: rgba(242, 246, 250, 0.8);
+}
+.hub-paper__stats b {
+  color: #fff;
+}
+.hub-paper__auto {
+  padding: 0 8px;
+  border-radius: 99px;
+  border: 1px solid rgba(242, 246, 250, 0.35);
+  font-weight: 600;
+}
+.hub-paper__auto.is-on {
+  border-color: #2ebd85;
+  color: #2ebd85;
+}
+@media (max-width: 560px) {
+  .hub-paper > a {
+    padding: 14px;
+  }
+}

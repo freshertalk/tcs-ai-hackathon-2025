@@ -1052,6 +1052,40 @@ test("screener: RSI for every stock at this moment, filtered — checked against
   assert.equal((await s.request("GET", "/api/admin/market/screener/rsi?max=30")).status, 401);
 });
 
+test("screener: the market board — gainers, losers, RSI, VWAP and the day's range for every stock", async (t) => {
+  const s = await boot();
+  t.after(s.close);
+  assert.equal((await s.request("GET", "/api/admin/market/screener/board", { cookie: s.admin })).status, 409, "needs Zerodha");
+  await s.connectKite();
+  // before the history download: prices are there, RSI is not yet
+  let b = (await s.request("GET", "/api/admin/market/screener/board", { cookie: s.admin })).json;
+  assert.equal(b.ready, false, "the test exchange has no fixed index list, so the board waits for the download");
+  await syncUniverse(s);
+  b = (await s.request("GET", "/api/admin/market/screener/board", { cookie: s.admin })).json;
+  assert.equal(b.ready, true);
+  assert.equal(b.live, true);
+  assert.equal(b.session, s.kite.today, "the market is trading: today's session");
+  const mm = b.rows.find((r) => r.symbol === "M&M");
+  const scan = (await s.request("GET", "/api/admin/market/screener/rsi?min=0&max=100", { cookie: s.admin })).json.rows.find((r) => r.symbol === "M&M");
+  assert.equal(mm.rsi, scan.rsi, "the same RSI as the RSI search");
+  assert.equal(mm.name, "MAHINDRA & MAHINDRA, LTD");
+  const pc = mm.prevClose;
+  assert.ok(Math.abs(mm.vwap - pc * 1.006) < 0.011, "VWAP is the exchange's average traded price");
+  assert.ok(mm.vsVwapPct > 0.5 && mm.vsVwapPct < 0.7);
+  assert.ok(Math.abs(mm.changePct - 1.2) < 0.02);
+  assert.equal(mm.volume, 300000);
+  assert.ok(mm.high52 >= mm.last && mm.low52 <= mm.last);
+  assert.ok(mm.relTurnover > 0);
+  // a stock with a quote that disagrees with its history still shows its price, with no RSI
+  const infy = b.rows.find((r) => r.symbol === "INFY");
+  assert.equal(infy.last, 1512.5);
+  assert.equal(infy.vwap, 1508.2);
+  assert.equal(infy.rsi, null);
+  assert.deepEqual(b.breadth, { advances: b.rows.filter((r) => r.changePct > 0).length, declines: b.rows.filter((r) => r.changePct < 0).length, unchanged: b.rows.filter((r) => !(r.changePct > 0) && !(r.changePct < 0)).length });
+  assert.equal((await s.request("GET", "/api/admin/market/screener/board?period=1", { cookie: s.admin })).status, 400);
+  assert.equal((await s.request("GET", "/api/admin/market/screener/board")).status, 401);
+});
+
 test("screener: a series one session behind rolls forward from the quote, with no download", async (t) => {
   const s = await boot();
   t.after(s.close);

@@ -17,7 +17,8 @@ const WORKSPACES = [
   { view: "account", label: "Positions", text: "Positions, orders, funds", superOnly: true },
   { view: "journal", label: "Journal", text: "Every trade, scored", superOnly: true },
   { view: "research", label: "Research", text: "Pre- and post-market" },
-  { view: "screener", label: "Screener", text: "NSE top 100 by RSI" },
+  { view: "screener", label: "Screener", text: "Top gainers, losers, RSI" },
+  { view: "paper", label: "Paper trading", text: "Play money, live and history" },
   { view: "debrief", label: "Debrief", text: "Today’s calls, replayed" },
   { view: "calendar", label: "Calendar", text: "Holidays and time zones" },
 ];
@@ -129,6 +130,47 @@ function Setting({ to, href, external, icon, title, text, status, tip }) {
   );
 }
 
+/** Paper trading at a glance: the auto switch's state and how the current setup has done on paper. */
+function PaperCard() {
+  const [p, setP] = useState(null);
+  useEffect(() => {
+    api("/api/admin/paper")
+      .then((d) => setP(d && d.tested ? d : null))
+      .catch(() => {});
+  }, []);
+  const t = p && p.tested;
+  const rupees = (x) => (typeof x === "number" ? `${x < 0 ? "−" : x > 0 ? "+" : ""}₹${Math.abs(Math.round(x)).toLocaleString("en-IN")}` : "—");
+  return (
+    <section className="hub-paper" aria-labelledby="hub-paper-h">
+      <a href={terminal("paper")} target="_blank" rel="noopener noreferrer" data-tip="Open paper trading in a new tab.">
+        <span className="hub-hero__k">Stock Report · play money only</span>
+        <span className="hub-paper__t" id="hub-paper-h">
+          Paper Trading Testing
+        </span>
+        <span className="hub-hero__d">
+          The desk’s own live call followed with paper money — in today’s market, on past sessions, and in an auto mode that tests the setup by itself. It never places a real order and is separate from real trading; strong
+          findings go into the AI’s trading-skills file.
+        </span>
+        <span className="hub-paper__stats">
+          <span className={`hub-paper__auto ${p && p.auto ? "is-on" : ""}`}>Auto mode {p ? (p.auto ? "ON" : "OFF") : "…"}</span>
+          <span>
+            <b>{t ? t.total.toLocaleString("en-IN") : "—"}</b> paper trades on this setup
+          </span>
+          <span>
+            Live net <b>{t ? rupees(t.live.pnl) : "—"}</b>
+          </span>
+          <span>
+            History <b>{t && t.history.finished ? `${t.history.winPct}% won` : "—"}</b>
+          </span>
+        </span>
+        <span className="hub-hero__go">
+          Open paper trading <IconArrow />
+        </span>
+      </a>
+    </section>
+  );
+}
+
 export default function Dashboard() {
   const { user } = useAuth();
   const [s, setS] = useState(null);
@@ -172,6 +214,8 @@ export default function Dashboard() {
             ))}
           </nav>
         </section>
+
+        <PaperCard />
 
         <section className="hub-sets" aria-labelledby="hub-sets-h">
           <h2 id="hub-sets-h">Settings</h2>

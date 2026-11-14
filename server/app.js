@@ -32,11 +32,12 @@ const {
 } = require("./config");
 const defaultGoogle = require("./google");
 const { HolidayService } = require("./holidays/service");
-const { MarketService } = require("./market/service");
+const { MarketService, MarketError } = require("./market/service");
 const { mountMarket } = require("./market/routes");
 const { AiService } = require("./ai/service");
 const { mountAi } = require("./ai/routes");
 const { ResearchAuto } = require("./research-auto");
+const { PaperService, PaperError } = require("./paper/service");
 const { TradingService } = require("./trading/service");
 const { mountTrading } = require("./trading/routes");
 
@@ -164,8 +165,8 @@ function createApp(opts = {}) {
       // WebSocket must not be used either, unless a stand-in is supplied
       wsImpl: opts.marketWs !== undefined ? opts.marketWs : opts.marketFetch ? null : undefined,
       tickerOptions: opts.tickerOptions,
-      // the screener covers the Nifty 100; its list is re-read weekly from NSE (not from tests or simulators)
-      screenerIndex: opts.screenerIndex || "nifty100",
+      // the screener: NSE index lists (RSI search over the Nifty 500), re-read weekly from NSE (not from tests or simulators)
+      screenerIndex: opts.screenerIndex || "nse",
       indexFetch: opts.indexFetch !== undefined ? opts.indexFetch : opts.marketFetch ? null : globalThis.fetch,
     });
 
@@ -570,6 +571,31 @@ function createApp(opts = {}) {
   // research that runs by itself before the open and after the close (server/research-auto.js)
   const researchAuto = new ResearchAuto({ ai, market, docs: store.docs, now: opts.now, log: opts.log || console });
   if (opts.researchAuto !== false) researchAuto.start();
+  // paper trading: the live call followed with play money. A separate system: it reads prices only,
+  // and is not connected to the trading service or its switch in any way.
+  const paper = opts.paper || new PaperService({ market, playbook: ai.playbook, docs: store.docs, now: opts.now, log: opts.log || console });
+  if (opts.paperAuto !== false) paper.start();
+  const paperWrap = (fn) => async (req, res) => {
+    try {
+      res.json(await fn(req));
+    } catch (err) {
+      if (err instanceof PaperError || err instanceof MarketError) return res.status(err.status || 400).json({ error: err.code, message: err.message });
+      res.status(500).json({ error: "paper_failed", message: err && err.message ? err.message : "Paper trading failed." });
+    }
+  };
+  app.get("/api/admin/paper", requireAdmin, paperWrap(async () => paper.status()));
+  app.put("/api/admin/paper/settings", requireAdmin, paperWrap(async (req) => {
+    const b = req.body || {};
+    return paper.setSettings({ capital: b.capital, riskPct: b.riskPct, costPct: b.costPct, sessions: b.sessions }, b.symbols);
+  }));
+  app.put("/api/admin/paper/auto", requireAdmin, paperWrap(async (req) => paper.setAuto(Boolean((req.body || {}).on))));
+  app.post("/api/admin/paper/history", requireAdmin, limiter(20, 60 * 60 * 1000), paperWrap(async () => paper.startHistory({ by: "manual" })));
+  app.post("/api/admin/paper/live", requireAdmin, limiter(60, 60 * 60 * 1000), paperWrap(async () => {
+    await paper.liveStep({ force: true });
+    return paper.status();
+  }));
+  app.post("/api/admin/paper/reset", requireAdmin, paperWrap(async () => paper.reset()));
+
   app.get("/api/admin/research/auto", requireAdmin, (req, res) => res.json(researchAuto.status()));
   app.put("/api/admin/research/auto", requireSuper, (req, res) => {
     const b = req.body || {};

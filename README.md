@@ -259,6 +259,50 @@ target under 1.5× the risk also holds it back. Research also **runs by itself**
 no cost, or with AI notes, company news and the world brief when switched on (that uses Anthropic
 tokens). It is a summary of evidence, not a forecast and not advice.
 
+**Paper trading (the "Paper" workspace; card on `/me`; `server/paper/`).** The desk's own live call
+followed with play money — never real money. Rules are the Debrief's day replay (`server/market/replay.js`):
+a fresh "Long / Short — in play" call at a 5-minute close is entered at that close with the call's stop
+and first target, and closed on the opposite call or at the 3:15 PM square-off; size comes from a paper
+capital and a risk per trade (₹10 lakh and 1% to start), results after an assumed cost per round trip.
+- **Live market:** today's calls for up to 15 stocks (the watchlist, or a list typed on the page), as
+  they happen; open trades marked to the latest 5-minute close.
+- **History:** the same engine over the last N finished sessions (`market.replayHistory`), each session
+  judged only on what was known before it; totals, per stock, per session.
+- **Auto mode:** switched on, it paper-trades the market every five minutes in market hours, makes the
+  day final after the close and then re-tests the setup on history — every weekday, by itself. The
+  counts are kept per **setup** (a fingerprint of the rule files and the cost), so a deploy that changes
+  the engine starts a fresh count.
+- **Separate from real trading:** paper trading never places an order and is not connected to the
+  trading service or its switch in any way — it reads prices only. Real Buy and Sell on the desk work
+  exactly as before, whether auto mode is on or off. Nothing in `server/paper/` can reach the broker
+  or the trading service (a test checks).
+- **Learning:** finished paper trades are split a few fixed ways (long/short, with/against the daily
+  trend, entry time); a slice becomes a finding only with 30+ trades and |t| ≥ 2. Findings are written
+  into the trading-skills file as their own section ("Paper-test findings"), rewritten after each test —
+  never piled up — so every AI answer reads the latest measured evidence. Paper results leave out
+  slippage and partial fills; they are evidence, not a promise.
+
+**Market board (top of the Screener).** Any NSE index, chosen from a drop-down grouped as NSE groups
+them — indices eligible in derivatives (NIFTY 50, NIFTY BANK, NIFTY FINANCIAL SERVICES, NIFTY MIDCAP
+SELECT, NIFTY NEXT 50), broad market (NIFTY 100 / 200 / 500, MIDCAP 100 / 150, SMALLCAP 100 / 250) and
+sectoral (auto, consumer durables, energy, FMCG, healthcare, IT, media, metal, oil & gas, pharma,
+private bank, PSU bank, realty). Each list is NSE's published constituents file
+(`server/market/indexlist.js`, re-read weekly; copies of 14 Nov 2026 in `index-snapshots.json`). NIFTY
+INDIA FPI 150 is not offered: NSE publishes no constituents file for it. The table follows NSE's live
+equity market page — the index's own row on top, then symbol, open, high, low, previous close, LTP,
+change, % change, volume, value, 52-week high and low — plus RSI, VWAP, "× usual" and the day range. The
+**RSI search** below covers the **Nifty 500**; the history download covers the Nifty 500 and every
+index on the board (about 500 stocks, about three minutes once). Like NSE's top gainers / losers page, it is live while
+the market trades (refreshed every 15 s) and the last session's figures when it is closed: LTP, change,
+% change, previous close, open, high, low, day range, volume, value traded, "× usual" (today's value
+against the 20-day average day), VWAP (the exchange's average traded price) and distance from it, daily
+RSI with today's price as the newest bar (with its direction since yesterday), and the 52-week range.
+Boards: top gainers, top losers, most active, volume surge, RSI overbought (≥ 70), RSI oversold (≤ 30),
+above / below VWAP, near the 52-week high / low, all 100; any column sorts, a filter box narrows it, a
+row opens the stock on the desk. Market breadth (advances / declines) and the Nifty sit on top.
+`GET /api/admin/market/screener/board`. RSI and the 52-week range need the screener's one-time history
+download (under a minute); prices work before it.
+
 **Screener = NSE top 100.** The screener covers the Nifty 100 only. Its list is read once a week
 from NSE's own published file (`nsearchives.nseindia.com/content/indices/ind_nifty100list.csv`,
 asked for with an honest User-Agent; `server/market/indexlist.js`), with a copy of 13 Nov 2026
