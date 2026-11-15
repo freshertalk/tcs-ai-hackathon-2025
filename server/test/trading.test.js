@@ -645,3 +645,66 @@ test("the pre-trade check adds nudges — the breakeven after charges — and st
   assert.ok(r.json.nudges.every((n) => n.level === "info" || n.level === "warn"));
   assert.ok(s.kite.writes().every((w) => w.path === "/margins/orders"), "nothing but the margin calculator was asked");
 });
+
+test("tradebook upload in parts: .xlsx and .csv read into the journal, the files kept as they came", async (t) => {
+  const s = await boot();
+  t.after(s.close);
+  const { makeXlsx } = require("./helpers/xlsx-maker");
+  const base = `http://127.0.0.1:${s.port}`;
+  const H = { cookie: s.admin, "x-requested-with": "vpt" };
+  const upload = async (name, buf, partSize = null) => {
+    const st = await s.request("POST", "/api/admin/trading/journal/upload", { cookie: s.admin, body: { name, size: buf.length } });
+    assert.equal(st.status, 200, JSON.stringify(st.json));
+    const size = partSize || st.json.partSize;
+    for (let i = 0, k = 0; i < buf.length; i += size, k += 1) {
+      const r = await fetch(`${base}/api/admin/trading/journal/upload/${st.json.id}/${k}`, { method: "PUT", headers: { ...H, "content-type": "application/octet-stream" }, body: buf.subarray(i, i + size) });
+      assert.equal(r.status, 200, await r.text());
+    }
+    return s.request("POST", `/api/admin/trading/journal/upload/${st.json.id}/finish`, { cookie: s.admin, body: {} });
+  };
+  const head = ["Symbol", "ISIN", "Trade Date", "Exchange", "Segment", "Series", "Trade Type", "Auction", "Quantity", "Price", "Trade ID", "Order ID", "Order Execution Time"];
+  const rows = [["Tradebook for Equity"], [], head];
+  for (let d = 1; d <= 20; d += 1) {
+    const day = `2025-05-${String(d).padStart(2, "0")}`;
+    rows.push(["ITC", "INE154A01025", day, "NSE", "EQ", "EQ", "buy", "false", 100, 400, `TX${d}a`, `OX${d}a`, `${day}T09:40:00`]);
+    rows.push(["ITC", "INE154A01025", day, "NSE", "EQ", "EQ", "sell", "false", 100, 402, `TX${d}b`, `OX${d}b`, `${day}T13:10:00`]);
+  }
+  const xlsx = makeXlsx(rows);
+  // in small parts, to go through the joining
+  const a = await upload("tradebook-EQ-2025.xlsx", xlsx, 700);
+  assert.equal(a.status, 200, JSON.stringify(a.json));
+  assert.deepEqual([a.json.kind, a.json.added, a.json.read, a.json.duplicate], ["xlsx", 40, 40, false]);
+  assert.match(a.json.file.id, /^[a-f0-9]{16}$/);
+  // the same file again: nothing new, kept once
+  const again = await upload("copy.xlsx", xlsx);
+  assert.deepEqual([again.json.added, again.json.duplicate], [0, true]);
+  // a CSV too
+  const csv = `${head.join(",")}\nTCS,INE467B01029,2025-06-02,NSE,EQ,EQ,buy,false,2,3900,TC1,OC1,2025-06-02T10:00:00\nTCS,INE467B01029,2025-06-02,NSE,EQ,EQ,sell,false,2,3950,TC2,OC2,2025-06-02T14:00:00\n`;
+  const c = await upload("tradebook-EQ-jun.csv", Buffer.from(csv));
+  assert.deepEqual([c.json.kind, c.json.added], ["csv", 2]);
+  // the journal has them, each counted once
+  const fy = (await s.request("GET", "/api/admin/trading/journal?period=fy-2025", { cookie: s.admin })).json;
+  assert.equal(fy.stats.trades, 21);
+  // the kept files: listed, downloadable byte for byte, readable again, and deletable (the trades stay)
+  const list = (await s.request("GET", "/api/admin/trading/journal/files", { cookie: s.admin })).json;
+  assert.equal(list.files.length, 2);
+  const dl = await fetch(`${base}/api/admin/trading/journal/files/${a.json.file.id}`, { headers: H });
+  assert.equal(dl.status, 200);
+  assert.ok(Buffer.from(await dl.arrayBuffer()).equals(xlsx), "the original bytes");
+  assert.match(dl.headers.get("content-disposition"), /tradebook-EQ-2025\.xlsx/);
+  const re = await s.request("POST", `/api/admin/trading/journal/files/${a.json.file.id}/reimport`, { cookie: s.admin, body: {} });
+  assert.deepEqual([re.status, re.json.added, re.json.read], [200, 0, 40]);
+  const del = await s.request("DELETE", `/api/admin/trading/journal/files/${c.json.file.id}`, { cookie: s.admin });
+  assert.deepEqual([del.json.removed, del.json.files.length], [true, 1]);
+  assert.equal((await s.request("GET", "/api/admin/trading/journal?period=fy-2025", { cookie: s.admin })).json.stats.trades, 21, "deleting the kept file leaves its trades");
+  // refusals: wrong type, too big, out of order, not a tradebook, not the owner
+  assert.equal((await s.request("POST", "/api/admin/trading/journal/upload", { cookie: s.admin, body: { name: "x.pdf", size: 10 } })).status, 400);
+  assert.equal((await s.request("POST", "/api/admin/trading/journal/upload", { cookie: s.admin, body: { name: "x.csv", size: 99 * 1024 * 1024 } })).status, 400);
+  const st = (await s.request("POST", "/api/admin/trading/journal/upload", { cookie: s.admin, body: { name: "bad.csv", size: 12 } })).json;
+  assert.equal((await fetch(`${base}/api/admin/trading/journal/upload/${st.id}/1`, { method: "PUT", headers: H, body: Buffer.from("123456789012") })).status, 400);
+  await fetch(`${base}/api/admin/trading/journal/upload/${st.id}/0`, { method: "PUT", headers: H, body: Buffer.from("name,age\nA,3") });
+  const bad = await s.request("POST", `/api/admin/trading/journal/upload/${st.id}/finish`, { cookie: s.admin, body: {} });
+  assert.equal(bad.status, 400);
+  assert.match(bad.json.message, /does not look like a Zerodha Console tradebook/);
+  assert.equal((await s.request("GET", "/api/admin/trading/journal/files")).status, 401);
+});

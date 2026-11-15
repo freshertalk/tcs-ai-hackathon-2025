@@ -174,3 +174,26 @@ test("without MONGO_URI the server keeps using files", async () => {
   const d = await openDocs({ env: {}, dir: tmp("vpt-docs-o-"), log: quiet });
   assert.equal(d.kind, "files");
 });
+
+test("big lists are kept one record per item: in a file, and in MongoDB read once at start", async () => {
+  const dir = tmp("vpt-items-");
+  const f = new FileDocs(dir);
+  f.putItems("journal_fills", [{ id: "a", v: 1 }, { id: "b", v: 2 }]);
+  f.putItems("journal_fills", [{ id: "a", v: 3 }]);
+  assert.deepEqual(f.items("journal_fills").sort((x, y) => (x.id < y.id ? -1 : 1)), [{ id: "a", v: 3 }, { id: "b", v: 2 }]);
+  f.removeItems("journal_fills", ["b"]);
+  assert.deepEqual(f.items("journal_fills"), [{ id: "a", v: 3 }]);
+  const fake = fakeDb();
+  const m = new MongoDocs({ db: fake.db, log: quiet });
+  await m.load();
+  m.putItems("journal_fills", [{ id: "x1", qty: 5 }, { id: "x2", qty: 7 }]);
+  assert.equal(m.items("journal_fills").length, 2, "in memory at once");
+  await m.flush();
+  assert.equal(fake.rows("journal_fills").length, 2, "and one document each in the database");
+  const again = new MongoDocs({ db: fake.db, log: quiet });
+  await again.load();
+  assert.deepEqual(again.items("journal_fills").map((x) => [x.id, x.qty]).sort(), [["x1", 5], ["x2", 7]]);
+  m.removeItems("journal_fills", ["x1"]);
+  await m.flush();
+  assert.equal(m.items("journal_fills").length, 1);
+});

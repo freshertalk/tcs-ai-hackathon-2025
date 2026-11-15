@@ -2207,3 +2207,133 @@
     min-width: 42px;
   }
 }
+/* uploading tradebooks (UploadPanel in JournalPeriods.jsx) */
+.jp-up {
+  display: grid;
+  gap: 10px;
+}
+.jp-drop {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  padding: 22px 16px;
+  border: 2px dashed color-mix(in srgb, var(--accent) 45%, var(--line));
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--accent) 5%, var(--surface));
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+}
+.jp-drop:hover,
+.jp-drop.is-drag {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+}
+.jp-drop.is-drag {
+  transform: scale(1.01);
+}
+.jp-drop.is-busy {
+  cursor: progress;
+  opacity: 0.8;
+}
+.jp-drop input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: inherit;
+}
+.jp-drop__ic {
+  font-size: 1.6rem;
+  line-height: 1;
+  color: var(--accent);
+}
+.jp-drop small {
+  color: var(--ink-3);
+}
+.jp-queue {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.jp-queue li {
+  display: grid;
+  gap: 4px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--ink-3);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.jp-queue li.is-done {
+  border-left-color: var(--up);
+}
+.jp-queue li.is-error {
+  border-left-color: var(--down);
+}
+.jp-queue li.is-uploading,
+.jp-queue li.is-reading {
+  border-left-color: var(--accent);
+}
+.jp-queue__top {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 10px;
+  font-size: var(--t-mid);
+}
+.jp-queue__top b {
+  overflow-wrap: anywhere;
+}
+.jp-queue__top small,
+.jp-queue__res {
+  color: var(--ink-2);
+}
+.jp-queue__err {
+  color: var(--down);
+}
+.jp-bar__p {
+  display: block;
+  height: 6px;
+  border-radius: 99px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.jp-bar__p i {
+  display: block;
+  height: 100%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 50%, #fff));
+  transition: width 0.25s ease;
+}
+.jp-queue li.is-reading .jp-bar__p i {
+  animation: jp-pulse 1s ease-in-out infinite;
+}
+@keyframes jp-pulse {
+  50% {
+    opacity: 0.55;
+  }
+}
+.jp-files summary {
+  cursor: pointer;
+  font-size: var(--t-mid);
+  font-weight: 600;
+  color: var(--ink-2);
+  padding: 4px 0;
+}
+.jp-files__act {
+  white-space: nowrap;
+}
+.jp-files__act .adm-btn + .adm-btn {
+  margin-left: 4px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .jp-drop,
+  .jp-bar__p i,
+  .jp-queue li.is-reading .jp-bar__p i {
+    transition: none;
+    animation: none;
+  }
+}

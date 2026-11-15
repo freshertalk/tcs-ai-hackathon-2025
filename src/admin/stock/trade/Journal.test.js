@@ -46,6 +46,9 @@ test("profit and loss for every period and every financial year, from Zerodha on
   expect(screen.getByText(/Kite API gives only the/)).toBeTruthy();
   expect(screen.getByText(/2 fills typed in by hand/)).toBeTruthy();
   expect(screen.getByText(/Gaps: weekdays with nothing on record/)).toBeTruthy();
+  expect(screen.getByText(/Drop tradebook files here/)).toBeTruthy();
+  expect(screen.getByText(/\.xlsx or \.csv from Zerodha Console/)).toBeTruthy();
+  expect(mockCalls.some(([u]) => u === "/api/admin/trading/journal/files")).toBe(true);
   expect(screen.getByText("Every month since the start")).toBeTruthy();
 });
 

@@ -4,9 +4,10 @@
 // comes from (automatic capture from Kite, Console tradebook imports, gaps), and CSV downloads of
 // everything for your own analysis. Nothing here is typed in: every figure comes from Zerodha's fills.
 
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../../api";
 import { Alert } from "../../ui";
+import { useDialog } from "../../dialog/DialogProvider";
 import { isNum, num } from "../analyzer/format";
 
 export const sMoney = (x) => (isNum(x) ? `${x > 0 ? "+" : x < 0 ? "−" : ""}₹${num(Math.abs(x))}` : "—");
@@ -555,8 +556,196 @@ export function DayTable({ days, label }) {
   );
 }
 
+/* ------------------------------------------- uploading tradebooks (.xlsx and .csv), and the kept files */
+const SIZE = (b) => (b >= 1048576 ? `${(b / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(b / 1024))} KB`);
+const STATE = { waiting: "Waiting", uploading: "Uploading", reading: "Reading the trades", done: "Done", error: "Not imported" };
+
+export function UploadPanel({ onDone }) {
+  const ask = useDialog();
+  const [queue, setQueue] = useState([]);
+  const [files, setFiles] = useState(null);
+  const [store, setStore] = useState("");
+  const [drag, setDrag] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const loadFiles = useCallback(
+    () =>
+      api("/api/admin/trading/journal/files")
+        .then((d) => {
+          setFiles(Array.isArray(d && d.files) ? d.files : []);
+          setStore((d && d.store) || "");
+        })
+        .catch(() => setFiles([])),
+    []
+  );
+  useEffect(() => {
+    loadFiles();
+  }, [loadFiles]);
+
+  const send = async (list) => {
+    setErr("");
+    const ok = list.filter((f) => /\.(csv|xlsx|txt)$/i.test(f.name));
+    if (ok.length < list.length) setErr(`${list.length - ok.length} file${list.length - ok.length === 1 ? " was" : "s were"} left out: only .csv and .xlsx tradebooks can be imported.`);
+    if (!ok.length) return;
+    const stamp = Date.now();
+    const items = ok.map((f, i) => ({ key: `${stamp}-${i}`, file: f, name: f.name, size: f.size, pct: 0, state: "waiting" }));
+    setQueue((q) => [...items.map(({ file, ...x }) => x), ...q].slice(0, 40));
+    setBusy(true);
+    for (const it of items) {
+      const upd = (patch) => setQueue((q) => q.map((x) => (x.key === it.key ? { ...x, ...patch } : x)));
+      try {
+        upd({ state: "uploading" });
+        const st = await api("/api/admin/trading/journal/upload", { method: "POST", body: { name: it.name, size: it.size } });
+        for (let i = 0, k = 0; i < it.size; i += st.partSize, k += 1) {
+          const blob = it.file.slice(i, i + st.partSize);
+          const res = await fetch(`/api/admin/trading/journal/upload/${st.id}/${k}`, { method: "PUT", credentials: "same-origin", headers: { "X-Requested-With": "vpt", "Content-Type": "application/octet-stream", Accept: "application/json" }, body: blob });
+          if (!res.ok) {
+            const d = await res.json().catch(() => null);
+            throw new Error((d && d.message) || `The upload failed (${res.status}).`);
+          }
+          upd({ pct: Math.round(((i + blob.size) / it.size) * 100) });
+        }
+        upd({ state: "reading", pct: 100 });
+        const r = await api(`/api/admin/trading/journal/upload/${st.id}/finish`, { method: "POST", body: {} });
+        upd({ state: "done", result: r });
+      } catch (e) {
+        upd({ state: "error", error: e.message });
+      }
+    }
+    setBusy(false);
+    loadFiles();
+    onDone();
+  };
+  const again = async (f) => {
+    setErr("");
+    try {
+      const r = await api(`/api/admin/trading/journal/files/${f.id}/reimport`, { method: "POST", body: {} });
+      setQueue((q) => [{ key: `re-${Date.now()}`, name: `${f.name} (read again)`, size: f.size, pct: 100, state: "done", result: r }, ...q]);
+      onDone();
+    } catch (e) {
+      setErr(e.message);
+    }
+  };
+  const drop = async (f) => {
+    const yes = await ask({ tone: "danger", title: "Delete the kept copy of this file?", body: `“${f.name}” is deleted from the database. Its trades stay in the journal.`, confirmText: "Delete the copy", cancelText: "Keep it" });
+    if (!yes) return;
+    try {
+      const d = await api(`/api/admin/trading/journal/files/${f.id}`, { method: "DELETE" });
+      setFiles(d.files || []);
+    } catch (e) {
+      setErr(e.message);
+    }
+  };
+
+  return (
+    <div className="jp-up">
+      <label
+        className={`jp-drop ${drag ? "is-drag" : ""} ${busy ? "is-busy" : ""}`}
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDrag(true);
+        }}
+        onDragLeave={() => setDrag(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDrag(false);
+          if (!busy) send([...(e.dataTransfer.files || [])]);
+        }}
+      >
+        <input type="file" accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" multiple disabled={busy} onChange={(e) => {
+          send([...(e.target.files || [])]);
+          e.target.value = "";
+        }} />
+        <span className="jp-drop__ic" aria-hidden="true">⇪</span>
+        <b>{busy ? "Importing…" : "Drop tradebook files here, or click to choose"}</b>
+        <small>.xlsx or .csv from Zerodha Console · many at once · up to 15 MB each · repeats are ignored</small>
+      </label>
+      <Alert>{err}</Alert>
+      {queue.length > 0 && (
+        <ul className="jp-queue">
+          {queue.map((q) => (
+            <li key={q.key} className={`is-${q.state}`}>
+              <div className="jp-queue__top">
+                <b>{q.name}</b>
+                <small>
+                  {SIZE(q.size)} · {STATE[q.state]}
+                </small>
+              </div>
+              {(q.state === "uploading" || q.state === "reading") && (
+                <span className="jp-bar__p" role="progressbar" aria-valuenow={q.pct} aria-valuemin={0} aria-valuemax={100} aria-label={`${q.name}: ${q.pct}%`}>
+                  <i style={{ width: `${q.pct}%` }} />
+                </span>
+              )}
+              {q.state === "done" && q.result && (
+                <small className="jp-queue__res">
+                  {q.result.added.toLocaleString("en-IN")} new of {q.result.read.toLocaleString("en-IN")} trades{q.result.skipped ? ` · ${q.result.skipped} row${q.result.skipped === 1 ? "" : "s"} skipped` : ""}
+                  {q.result.fromDay ? ` · ${dayLabel(q.result.fromDay)} – ${dayLabel(q.result.toDay)}` : ""}
+                  {q.result.segments && q.result.segments.length ? ` · ${q.result.segments.join(", ")}` : ""}
+                  {q.result.duplicate ? " · this file was already kept" : ""}
+                </small>
+              )}
+              {q.state === "error" && <small className="jp-queue__err">{q.error}</small>}
+            </li>
+          ))}
+        </ul>
+      )}
+      {files && files.length > 0 && (
+        <details className="jp-files" open={files.length <= 6}>
+          <summary>
+            Uploaded files kept in the database ({files.length}){store ? ` — ${store}` : ""}
+          </summary>
+          <div className="bt__scroll">
+            <table className="an-table jp-table">
+              <thead>
+                <tr>
+                  <th scope="col">File</th>
+                  <th scope="col">Uploaded</th>
+                  <th scope="col" className="is-num">
+                    Trades (new)
+                  </th>
+                  <th scope="col">Dates in it</th>
+                  <th scope="col">
+                    <span className="adm-sr">Actions</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {files.map((f) => (
+                  <tr key={f.id}>
+                    <th scope="row">
+                      {f.name}
+                      <small>
+                        {f.type.toUpperCase()} · {SIZE(f.size)}
+                        {f.result && f.result.segments && f.result.segments.length ? ` · ${f.result.segments.join(", ")}` : ""}
+                      </small>
+                    </th>
+                    <td>{new Date(f.at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</td>
+                    <td className="is-num">{f.result ? `${f.result.read.toLocaleString("en-IN")} (${f.result.added.toLocaleString("en-IN")})` : "—"}</td>
+                    <td>{f.result && f.result.fromDay ? `${dayLabel(f.result.fromDay)} – ${dayLabel(f.result.toDay)}` : "—"}</td>
+                    <td className="jp-files__act">
+                      <a className="adm-btn adm-btn--ghost adm-btn--sm" href={`/api/admin/trading/journal/files/${f.id}`} download={f.name}>
+                        Download
+                      </a>
+                      <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm" onClick={() => again(f)} data-tip="Read the kept file again: only trades the journal lacks are added.">
+                        Read again
+                      </button>
+                      <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm" onClick={() => drop(f)} data-tip="Delete the kept copy (its trades stay in the journal).">
+                        Delete copy
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </details>
+      )}
+    </div>
+  );
+}
+
 /* ------------------------------------------------------ where the history comes from */
-export function Sources({ per, ignoredManual, onImport, importing, onChanged, msg }) {
+export function Sources({ per, ignoredManual, onChanged }) {
   const [since, setSince] = useState(per.accountSince || "");
   const [busy, setBusy] = useState("");
   const [err, setErr] = useState("");
@@ -604,23 +793,9 @@ export function Sources({ per, ignoredManual, onImport, importing, onChanged, ms
         <div>
           <h4>Before that, from Zerodha Console (once)</h4>
           <p>
-            For everything since your account opened: on <b>console.zerodha.com</b> go to Reports → Tradebook, choose Equity, pick one financial year (1 April to 31 March) and download the CSV. Do it for each year, then drop all the files here at once. Repeats are ignored, so importing again is safe.
+            For everything since your account opened: on <b>console.zerodha.com</b> go to Reports → Tradebook, pick the segment (Equity — and F&amp;O, Currency or Commodity if you traded them), choose one financial year (1 April to 31 March) and download it as <b>XLSX or CSV</b>. Do it for every year, then upload all the files below at once.
           </p>
-          <label className="adm-btn adm-btn--solid adm-btn--sm jr-file">
-            {importing ? "Importing…" : "Import Console tradebook files"}
-            <input type="file" accept=".csv,text/csv" multiple onChange={(e) => onImport([...(e.target.files || [])])} disabled={importing} />
-          </label>
-          <Alert kind={msg.kind === "ok" ? "ok" : "error"}>{msg.text}</Alert>
-          {per.sources.imports.length > 0 && (
-            <ul className="jp-imports">
-              {per.sources.imports.slice(0, 8).map((i, k) => (
-                <li key={k}>
-                  {new Date(i.at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}: {i.added} new of {i.total}
-                  {i.fromDay ? ` · trades ${dayLabel(i.fromDay)} – ${dayLabel(i.toDay)}` : ""}
-                </li>
-              ))}
-            </ul>
-          )}
+          <p className="vd-note">Each file is kept in the database exactly as it came (download it or read it again any time), and every trade in it is saved with all its columns — symbol, ISIN, segment, series, trade and order IDs, date and time, quantity and price.</p>
         </div>
         <div>
           <h4>Since when</h4>
@@ -651,6 +826,10 @@ export function Sources({ per, ignoredManual, onImport, importing, onChanged, ms
           </p>
         </div>
       </div>
+      <UploadPanel onDone={onChanged} />
+      <p className="vd-note">
+        Trades on record: <b>{(per.sources.kite + per.sources.console).toLocaleString("en-IN")}</b> fills ({per.sources.kite.toLocaleString("en-IN")} read from Kite, {per.sources.console.toLocaleString("en-IN")} from uploaded files){per.sources.segments && per.sources.segments.length ? ` · segments ${per.sources.segments.join(", ")}` : ""}{per.sources.store ? ` · kept in ${per.sources.store}, one record per trade` : ""}. F&amp;O, currency and commodity trades are counted in the P&amp;L; their charges are not estimated.
+      </p>
       {per.gaps.length > 0 && (
         <div className="jp-gaps">
           <h4>Gaps: weekdays with nothing on record</h4>

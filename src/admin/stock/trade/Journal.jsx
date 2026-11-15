@@ -388,7 +388,6 @@ export default function Journal() {
   const [per, setPer] = useState(null);
   const [editing, setEditing] = useState("");
   const [allTrips, setAllTrips] = useState(false); // the list opens on the latest few; the totals above always cover every trade
-  const [msg, setMsg] = useState({ kind: "", text: "" }); // imports (shown where the import is)
   const [hmsg, setHmsg] = useState({ kind: "", text: "" }); // MAE / MFE (shown at the top)
   const [busy, setBusy] = useState("");
   const top = useRef(null);
@@ -426,32 +425,6 @@ export default function Journal() {
     if (top.current && top.current.scrollIntoView) top.current.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
-  const importCsv = async (files) => {
-    if (!files || !files.length) return;
-    setBusy("import");
-    setMsg({ kind: "", text: "" });
-    let added = 0;
-    let read = 0;
-    let skipped = 0;
-    const failed = [];
-    for (const file of files) {
-      try {
-        const text = await file.text();
-        const res = await fetch("/api/admin/trading/journal/import", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "text/csv", "X-Requested-With": "vpt", Accept: "application/json" }, body: text });
-        const d = await res.json().catch(() => null);
-        if (!res.ok) throw new Error((d && d.message) || `Import failed (${res.status}).`);
-        added += d.added;
-        read += d.read;
-        skipped += d.skipped;
-      } catch (e) {
-        failed.push(`${file.name}: ${e.message}`);
-      }
-    }
-    setMsg({ kind: failed.length && !read ? "error" : "ok", text: `${files.length} file${files.length === 1 ? "" : "s"}: ${added} new fill${added === 1 ? "" : "s"} of ${read} read${skipped ? ` · ${skipped} row${skipped === 1 ? "" : "s"} skipped` : ""}.${failed.length ? ` Not imported — ${failed.join("; ")}` : ""}` });
-    setBusy("");
-    load();
-    loadPer();
-  };
   const measure = async () => {
     setBusy("exc");
     setHmsg({ kind: "", text: "" });
@@ -764,10 +737,16 @@ export default function Journal() {
         </section>
       )}
 
-      {per && <Sources per={per} ignoredManual={d ? d.ignoredManual || 0 : 0} onImport={importCsv} importing={busy === "import"} msg={msg} onChanged={() => {
-        load();
-        loadPer();
-      }} />}
+      {per && (
+        <Sources
+          per={per}
+          ignoredManual={d ? d.ignoredManual || 0 : 0}
+          onChanged={() => {
+            load();
+            loadPer();
+          }}
+        />
+      )}
 
       <ReviewPanel sel={sel} label={label} />
     </div>

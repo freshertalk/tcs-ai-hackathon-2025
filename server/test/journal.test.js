@@ -221,7 +221,7 @@ test("hand-typed fills of an earlier version are kept in the record but never co
   assert.equal(j.trips().length, 0);
   const v = j.view();
   assert.deepEqual([v.fills, v.ignoredManual, v.firstAt], [0, 2, null]);
-  assert.equal(Object.keys(docs.read("trading/journal.json").fills).length, 2, "nothing was deleted");
+  assert.equal(docs.items("journal_fills").filter((f) => f.source === "manual").length, 2, "nothing was deleted (kept with the other fills)");
   assert.equal(typeof j.addManual, "undefined", "there is no way to type a trade in any more");
 });
 
@@ -272,4 +272,67 @@ test("the automatic capture reads today's trades from Kite on weekdays, marks th
     throw new Error("Zerodha session expired");
   };
   assert.match((await cap.tick()).error, /expired/);
+});
+
+/* ------------------------------------------- tradebook files: .xlsx and .csv, every column kept */
+
+const { readTradebook } = require("../trading/journal");
+const { makeXlsx } = require("./helpers/xlsx-maker");
+const { readXlsx } = require("../trading/xlsx");
+
+const CONSOLE_HEAD = ["Symbol", "ISIN", "Trade Date", "Exchange", "Segment", "Series", "Trade Type", "Auction", "Quantity", "Price", "Trade ID", "Order ID", "Order Execution Time"];
+
+test("a Console tradebook .xlsx is read: title rows skipped, Excel dates, every column kept", () => {
+  const buf = makeXlsx([
+    ["Client ID", "AB1234"],
+    ["Tradebook for Equity from 2025-04-01 to 2026-03-31"],
+    [],
+    CONSOLE_HEAD,
+    ["SBIN", "INE062A01020", "2025-06-10", "NSE", "EQ", "EQ", "buy", "false", 10, 800.5, "T1001", "O9001", "2025-06-10T09:31:05"],
+    ["SBIN", "INE062A01020", "2025-06-10", "NSE", "EQ", "EQ", "sell", "false", 10, "805.25", "T1002", "O9002", 45818.5625], // an Excel date number: 13:30 IST
+    ["NIFTY25JUN24500CE", "", "2025-06-11", "NSE", "FO", "", "buy", "false", 75, 120, "T2001", "O9101", "2025-06-11T10:00:00"],
+    ["", "", "", "", "", "", "", "", "", "", "", "", ""],
+    ["junk", "", "", "", "", "", "hold", "", 0, 0, "", "", ""],
+  ]);
+  assert.equal(readXlsx(buf)[0].name, "Equity");
+  const r = readTradebook(buf, { file: "abcdef0123456789" });
+  assert.equal(r.kind, "xlsx");
+  assert.equal(r.error, "");
+  assert.equal(r.fills.length, 3);
+  assert.equal(r.skipped, 1, "the junk row is counted, the empty one ignored");
+  const [b, sOut, fo] = r.fills;
+  assert.deepEqual([b.id, b.symbol, b.side, b.qty, b.price, b.isin, b.segment, b.series, b.tradeDate, b.file, b.source], ["k:NSE:T1001", "SBIN", "BUY", 10, 800.5, "INE062A01020", "EQ", "EQ", "2025-06-10", "abcdef0123456789", "console"]);
+  assert.equal(new Date(sOut.at + 5.5 * 3600000).toISOString().slice(0, 16), "2025-06-10T13:30");
+  assert.equal(fo.exchange, "NFO", "F&O trades are kept apart from equity (no equity charges on them)");
+  assert.deepEqual(r.segments.sort(), ["NFO", "NSE"]);
+  assert.deepEqual([r.fromDay, r.toDay], ["2025-06-10", "2025-06-11"]);
+});
+
+test("CSV tradebooks in other shapes: semicolons, day-first dates, a time with its own date column, UTF-16", () => {
+  const semi = "symbol;trade_date;exchange;trade_type;quantity;price;trade_id;order_id;order_execution_time\nINFY;10-06-2025;NSE;BUY;5;1500;X1;Y1;10-06-2025 09:40\nINFY;10-06-2025;NSE;SELL;5;1510;X2;Y2;10-06-2025 14:05:30\n";
+  const r = readTradebook(Buffer.from(semi));
+  assert.deepEqual([r.kind, r.fills.length, r.fromDay], ["csv", 2, "2025-06-10"]);
+  assert.equal(new Date(r.fills[1].at + 5.5 * 3600000).toISOString().slice(11, 19), "14:05:30");
+  const split = "symbol,trade_date,trade_type,quantity,price,trade_id,trade_time\nTCS,2025-07-01,buy,1,3900,Z1,09:20:00\n";
+  assert.equal(new Date(readTradebook(Buffer.from(split)).fills[0].at + 5.5 * 3600000).toISOString().slice(0, 19), "2025-07-01T09:20:00");
+  const u16 = Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from("symbol\ttrade_type\tquantity\tprice\ttrade_id\torder_execution_time\nITC\tbuy\t10\t400\tU1\t2025-07-02T10:00:00\n", "utf16le")]);
+  assert.equal(readTradebook(u16).fills[0].symbol, "ITC");
+  assert.match(readTradebook(Buffer.from("name,age\nA,3\n")).error, /does not look like a Zerodha Console tradebook/);
+  assert.match(readTradebook(Buffer.from([0x50, 0x4b, 0x03, 0x04, 1, 2, 3])).error, /not an \.xlsx|damaged/);
+});
+
+test("fills live one record each; the old journal record is moved out once; a Kite trade and its Console row are one", () => {
+  const docs = new FileDocs(fs.mkdtempSync(path.join(os.tmpdir(), "vpt-jf-")));
+  docs.write("trading/journal.json", { fills: { "k:NSE:T1": { id: "k:NSE:T1", exchange: "NSE", symbol: "SBIN", side: "BUY", qty: 10, price: 800, at: at("2025-06-10T09:31:00"), source: "kite" } }, tags: {} });
+  const j = new TradeJournal(docs);
+  assert.equal(j.view().fills, 1);
+  assert.equal(docs.read("trading/journal.json").fills, undefined, "moved out of the journal record");
+  assert.equal(docs.items("journal_fills").length, 1);
+  // the same trade again from a Console file: not counted twice
+  const csv = `${CONSOLE_HEAD.join(",")}\nSBIN,INE062A01020,2025-06-10,NSE,EQ,EQ,buy,false,10,800,T1,O1,2025-06-10T09:31:00\nSBIN,INE062A01020,2025-06-10,NSE,EQ,EQ,sell,false,10,806,T2,O2,2025-06-10T13:00:00\n`;
+  const r = j.importFile(Buffer.from(csv), { name: "fy25.csv", file: "1111222233334444" });
+  assert.deepEqual([r.added, r.read], [1, 2]);
+  assert.equal(j.trips()[0].pnl, 60);
+  const imp = j.view().imports[0];
+  assert.deepEqual([imp.name, imp.kind, imp.file, imp.added], ["fy25.csv", "csv", "1111222233334444", 1]);
 });

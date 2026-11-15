@@ -302,7 +302,15 @@ capture or import range) and saved views. `analytics(filters)` adds month-by-mon
 (`saveView`/`removeView`, in the journal record) and daily snapshots (`trading/pnl-snapshots.json`: latest in full plus one
 compact row per period per day, 800 days, written only on change). Routes (superadmin): `GET /api/admin/trading/journal?period=&from=&to=&kind=&side=&setup=`,
 `GET …/journal/periods`, `POST …/journal/capture`, `GET …/journal/snapshots`, `PUT …/journal/account-since`,
-`POST|DELETE …/journal/views[/:id]`, `POST …/journal/import`. The page: period chips + past-FY select + custom range + saved
+`POST|DELETE …/journal/views[/:id]`, `POST …/journal/import`. **Tradebook files** (`server/trading/xlsx.js`: a dependency-free
+.xlsx reader on node:zlib; `readTradebook`/`fromRows` in journal.js: header row found in the first 40 rows, Excel serial dates,
+day-first dates, ; or tab separators, UTF-16, segments → NFO/BFO/CDS/MCX, ISIN/segment/series/auction/tradeDate/file kept on each
+fill) are uploaded in 2 MB parts (`POST …/journal/upload` → `PUT …/upload/:id/:index` → `POST …/upload/:id/finish`) and kept as
+they came by `server/trading/uploads.js` (MongoDB collection `journal_files`, or `data/journal-files/`; id = SHA-256 of the
+bytes): `GET …/journal/files`, `GET …/files/:id` (download), `POST …/files/:id/reimport`, `DELETE …/files/:id`. Fills now live
+one record each (`docs.items/putItems/removeItems` in `server/docs.js`; MongoDB collection `journal_fills`, read once at start)
+because a single MongoDB record caps at 16 MB; the old in-record fills migrate once; up to 300,000 fills; round trips are memoised
+until something changes. The page: period chips + past-FY select + custom range + saved
 views, the period table, an FY bar chart, a month heatmap (FY × Apr–Mar), month-by-month and day-by-day tables, CSV downloads
 (periods, months, days, trades, snapshot history), and "Where the history comes from". The P&L calendar shows the period's
 months (from the first with a trade, up to 12) and Profit / loss, Taxes and Brokerage + taxes per day.

@@ -7,6 +7,10 @@
 //   write(name, value)     store a value (replaces it)
 //   append(name, entry)    add an entry to a log;  tail(name, n) → the last n, newest last
 //   flush()                resolves once every write has reached its store
+//   items(name) / putItems(name, list) / removeItems(name, ids)
+//                          big lists kept ONE RECORD PER ITEM (each item has an "id"): the trade
+//                          journal's fills. A single MongoDB record cannot exceed 16 MB, and years of
+//                          trades would. Items are read once at start and served from memory too.
 //
 // FileDocs keeps each record as a file under server/data/ (the default, and what tests use).
 // MongoDocs keeps them in MongoDB: everything is read once at start-up, served from memory,
@@ -23,6 +27,8 @@ const path = require("path");
 /** The records that live here, by name (a path under server/data/ for the file store). */
 const RECORDS = ["db.json", "ai/world.json", "ai/news.json", "ai/live.json", "ai/journal.json", "ai/debriefs.json", "ai/coach.json", "ai/research.json", "ai/trading-skills.md", "trading/journal.json", "ai/reviews.json", "market/behaviour.json", "ai/decisions.json", "market/edge.json", "market/signals.json", "market/alerts.json", "research/auto.json"];
 const LOGS = { "trading/audit": "trading/audit.jsonl" };
+/** Lists kept one record per item (a collection of its own in MongoDB, one file otherwise). */
+const COLLECTIONS = ["journal_fills"];
 const LOG_KEEP = 2000; // entries of a log kept in memory (the database keeps them all)
 
 const isText = (name) => name.endsWith(".md");
@@ -101,6 +107,29 @@ class FileDocs {
     }
   }
 
+  _itemsPath(name) {
+    return `collections/${name}.json`;
+  }
+
+  items(name) {
+    const v = this.read(this._itemsPath(name), null);
+    return v && typeof v === "object" ? Object.values(v) : [];
+  }
+
+  putItems(name, list) {
+    if (!list || !list.length) return;
+    const v = this.read(this._itemsPath(name), null) || {};
+    for (const it of list) if (it && it.id) v[it.id] = it;
+    this.write(this._itemsPath(name), v);
+  }
+
+  removeItems(name, ids) {
+    const v = this.read(this._itemsPath(name), null);
+    if (!v) return;
+    for (const id of ids || []) delete v[id];
+    this.write(this._itemsPath(name), v);
+  }
+
   flush() {
     return Promise.resolve();
   }
@@ -125,6 +154,7 @@ class MongoDocs {
     this.logs = db.collection("logs"); // { log: name, at, v }
     this._cache = new Map();
     this._tails = new Map();
+    this._items = new Map(); // collection name → Map(id → item), read at start
     this._chain = new Map(); // name → the last write in flight: writes to one record stay in order
     this._pending = new Set();
     this.lastError = "";
@@ -142,6 +172,13 @@ class MongoDocs {
 
   async load() {
     for (const d of await this.docs.find({}).toArray()) this._cache.set(d._id, d.v);
+    for (const name of COLLECTIONS) {
+      const rows = await this.db.collection(name).find({}).toArray();
+      this._items.set(name, new Map(rows.map((r) => {
+        const { _id, ...rest } = r;
+        return [String(_id), { ...rest, id: rest.id || String(_id) }];
+      })));
+    }
     for (const name of Object.keys(LOGS)) {
       const rows = await this.logs.find({ log: name }).sort({ at: -1, _id: -1 }).limit(LOG_KEEP).toArray();
       this._tails.set(name, rows.reverse().map((r) => r.v));
@@ -217,6 +254,38 @@ class MongoDocs {
     return clone((this._tails.get(name) || []).slice(-n));
   }
 
+  /** Every item of a collection, from memory (the objects themselves: read them, do not change them). */
+  items(name) {
+    return [...(this._items.get(name) || new Map()).values()];
+  }
+
+  /** Add or replace items (by id): in memory at once, and in the database in batches of 1,000, in order. */
+  putItems(name, list) {
+    if (!list || !list.length) return;
+    let m = this._items.get(name);
+    if (!m) {
+      m = new Map();
+      this._items.set(name, m);
+    }
+    const clean = list.filter((it) => it && it.id).map(clone);
+    for (const it of clean) m.set(String(it.id), it);
+    const col = this.db.collection(name);
+    for (let i = 0; i < clean.length; i += 1000) {
+      const chunk = clean.slice(i, i + 1000);
+      this._queue(`col:${name}`, async () => {
+        if (typeof col.bulkWrite === "function") await col.bulkWrite(chunk.map((it) => ({ replaceOne: { filter: { _id: String(it.id) }, replacement: { ...it, _id: String(it.id) }, upsert: true } })), { ordered: false });
+        else for (const it of chunk) await col.updateOne({ _id: String(it.id) }, { $set: it }, { upsert: true });
+      });
+    }
+  }
+
+  removeItems(name, ids) {
+    const m = this._items.get(name);
+    const list = (ids || []).map(String);
+    if (m) for (const id of list) m.delete(id);
+    if (list.length) this._queue(`col:${name}`, () => this.db.collection(name).deleteMany({ _id: { $in: list } }));
+  }
+
   async flush() {
     while (this._pending.size) await Promise.all([...this._pending]);
   }
@@ -235,4 +304,4 @@ async function openDocs({ env = process.env, dir, log = console } = {}) {
   return docs;
 }
 
-module.exports = { FileDocs, MongoDocs, openDocs, RECORDS, LOGS };
+module.exports = { FileDocs, MongoDocs, openDocs, RECORDS, LOGS, COLLECTIONS };

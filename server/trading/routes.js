@@ -8,13 +8,14 @@ const { KiteError } = require("../market/kite");
 const { AiError } = require("../ai/client");
 const express = require("express");
 const { periodRange } = require("./journal");
+const { JournalFiles, UploadError } = require("./uploads");
 
 function mountTrading(app, { trading, ai, requireSuper, limiter, capture = null }) {
   const wrap = (fn) => async (req, res) => {
     try {
       res.json(await fn(req, res));
     } catch (err) {
-      if (err instanceof TradingError) return res.status(err.status).json({ error: err.code, message: err.message });
+      if (err instanceof TradingError || err instanceof UploadError) return res.status(err.status).json({ error: err.code, message: err.message });
       if (err instanceof AiError) return res.status(err.status || 400).json({ error: err.code, message: err.message });
       if (err instanceof KiteError) return res.status(502).json({ error: "kite_error", message: `Zerodha said: ${err.message}` });
       const timeout = err && (err.name === "TimeoutError" || err.name === "AbortError");
@@ -126,6 +127,45 @@ function mountTrading(app, { trading, ai, requireSuper, limiter, capture = null 
     return r;
   }));
   app.delete("/api/admin/trading/journal/views/:id", requireSuper, wrap(async (req) => trading.journal.removeView(String(req.params.id || "").slice(0, 20))));
+  /* ---- tradebook files (.csv or .xlsx from Zerodha Console): uploaded in parts, read, and kept as they came */
+  const files = new JournalFiles(trading.journal.docs, { now: nowMs });
+  const fileName = (n) => String(n || "tradebook").replace(/[^A-Za-z0-9 ._()-]/g, "_").slice(0, 100);
+  app.post("/api/admin/trading/journal/upload", requireSuper, limiter(60, 10 * 60 * 1000), wrap(async (req) => files.start(req.body || {})));
+  app.put("/api/admin/trading/journal/upload/:id/:index", requireSuper, limiter(400, 10 * 60 * 1000), express.raw({ type: () => true, limit: "3mb" }), wrap(async (req) => files.part(String(req.params.id), Number(req.params.index), req.body)));
+  app.post("/api/admin/trading/journal/upload/:id/finish", requireSuper, limiter(60, 10 * 60 * 1000), wrap(async (req) => {
+    const { name, buf } = files.take(String(req.params.id));
+    const id = require("node:crypto").createHash("sha256").update(buf).digest("hex").slice(0, 16);
+    const r = trading.journal.importFile(buf, { name, file: id });
+    if (r.error) throw new TradingError(`${name}: ${r.error}`);
+    const kept = await files.keep({ name, buf, result: { added: r.added, read: r.read, skipped: r.skipped, kind: r.kind, segments: r.segments, fromDay: r.fromDay, toDay: r.toDay } });
+    trading.journal.snapshot(nowMs());
+    console.log(`[trading] journal upload by ${req.user.email}: ${name} (${r.kind}) — ${r.added} new of ${r.read}${kept.duplicate ? ", file already kept" : ""}`);
+    return { ...r, name, file: kept.meta, duplicate: kept.duplicate };
+  }));
+  app.get("/api/admin/trading/journal/files", requireSuper, wrap(async () => ({ files: await files.list(), store: files.col ? "MongoDB (collection journal_files)" : "server files (data/journal-files)" })));
+  app.get("/api/admin/trading/journal/files/:id", requireSuper, async (req, res) => {
+    try {
+      const f = await files.get(String(req.params.id));
+      if (!f) return res.status(404).json({ error: "not_found", message: "That file is not kept any more." });
+      res.setHeader("Content-Type", f.meta.type === "xlsx" ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" : "text/csv; charset=utf-8");
+      res.setHeader("Content-Disposition", `attachment; filename="${fileName(f.meta.name)}"`);
+      res.setHeader("Cache-Control", "no-store");
+      return res.send(f.buf);
+    } catch (err) {
+      return res.status(500).json({ error: "failed", message: err.message });
+    }
+  });
+  // read a kept file again (repeats are ignored, so only trades the journal lacks are added)
+  app.post("/api/admin/trading/journal/files/:id/reimport", requireSuper, limiter(30, 10 * 60 * 1000), wrap(async (req) => {
+    const f = await files.get(String(req.params.id));
+    if (!f) throw new TradingError("That file is not kept any more.", "not_found", 404);
+    const r = trading.journal.importFile(f.buf, { name: f.meta.name, file: f.meta.id });
+    if (r.error) throw new TradingError(r.error);
+    trading.journal.snapshot(nowMs());
+    return { ...r, name: f.meta.name };
+  }));
+  app.delete("/api/admin/trading/journal/files/:id", requireSuper, wrap(async (req) => ({ removed: await files.remove(String(req.params.id)), files: await files.list() })));
+  // the earlier one-request import of a CSV (still works for small files)
   app.post(
     "/api/admin/trading/journal/import",
     requireSuper,

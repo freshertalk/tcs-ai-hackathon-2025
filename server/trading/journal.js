@@ -22,10 +22,12 @@
 // Pure functions plus a small store; no timers, no orders.
 
 const crypto = require("node:crypto");
+const { readXlsx } = require("./xlsx");
 
 const IST = 5.5 * 3600 * 1000;
 const NAME = "trading/journal.json";
-const MAX_FILLS = 60000;
+const FILLS = "journal_fills"; // one record per fill (docs.js items): years of trades would outgrow one record
+const MAX_FILLS = 300000;
 const r2 = (x) => Math.round(x * 100) / 100;
 const istIso = (ms) => new Date(ms + IST).toISOString();
 
@@ -47,13 +49,18 @@ function fromKite(t) {
   return { id: `k:${t.exchange}:${t.id}`, orderId: t.orderId || "", exchange: t.exchange, symbol: t.symbol, side: t.side === "SELL" ? "SELL" : "BUY", qty: t.quantity, price: t.price, at, product: t.product || "", source: "kite" };
 }
 
-/** A minimal CSV reader (quoted fields, commas inside quotes). */
+/** A minimal CSV reader (quoted fields, separators inside quotes; comma, semicolon or tab). */
 function csvRows(text) {
   const rows = [];
   let row = [];
   let cur = "";
   let q = false;
   const s = String(text || "").replace(/^﻿/, "");
+  // the separator of the table itself: the line with the column names, else the first line
+  const lines = s.split(/\r?\n/).slice(0, 40);
+  const first = (lines.find((l) => /symbol/i.test(l)) || lines.find((l) => l.trim()) || "").replace(/"[^"]*"/g, "");
+  const count = (ch) => first.split(ch).length - 1;
+  const sep = count("\t") > count(",") && count("\t") > count(";") ? "\t" : count(";") > count(",") ? ";" : ",";
   for (let i = 0; i < s.length; i += 1) {
     const ch = s[i];
     if (q) {
@@ -63,7 +70,7 @@ function csvRows(text) {
       } else if (ch === '"') q = false;
       else cur += ch;
     } else if (ch === '"') q = true;
-    else if (ch === ",") {
+    else if (ch === sep) {
       row.push(cur);
       cur = "";
     } else if (ch === "\n" || ch === "\r") {
@@ -82,36 +89,132 @@ function csvRows(text) {
 }
 
 /**
- * Zerodha Console tradebook CSV → fills. Columns used (by name, any order):
- * symbol, exchange, trade_type (buy/sell), quantity, price, trade_id, order_id,
- * order_execution_time (or trade_date). Unknown rows are counted, not guessed.
+ * A date / time cell from a tradebook → ms. Zerodha writes "2026-11-12T09:30:01" or
+ * "2026-11-12 09:30:01" (IST); a spreadsheet may hold an Excel date number (45607.396) or a
+ * day-first "12-11-2026 09:30" / "12/11/2026". The date column fills in a time without a date.
  */
-function fromConsoleCsv(text) {
-  const rows = csvRows(text);
-  if (rows.length < 2) return { fills: [], skipped: 0, error: "The file has no trades in it." };
-  const head = rows[0].map((h) => h.trim().toLowerCase().replace(/\s+/g, "_"));
+function parseWhen(time, date) {
+  const cell = (v) => String(v === undefined || v === null ? "" : v).trim();
+  const one = (v) => {
+    const t = cell(v);
+    if (!t) return NaN;
+    if (/^\d{4,6}(\.\d+)?$/.test(t) && Number(t) > 20000 && Number(t) < 80000) {
+      // an Excel date number: days since 30 Dec 1899, as wall-clock time (IST here)
+      const wall = new Date(Date.UTC(1899, 11, 30) + Math.round(Number(t) * 86400) * 1000).toISOString().slice(0, 19);
+      return parseTime(wall);
+    }
+    const dm = /^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?$/.exec(t);
+    if (dm) {
+      const [, d, m, y, hh, mm, ss] = dm;
+      const iso = `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+      return hh ? parseTime(`${iso} ${hh.padStart(2, "0")}:${mm}:${ss || "00"}`) : parseTime(iso);
+    }
+    return parseTime(t.replace(/\.\d+$/, "").replace(/Z$/, ""));
+  };
+  const tm = cell(time);
+  if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(tm)) {
+    const d0 = one(date);
+    return Number.isFinite(d0) ? parseTime(`${istIso(d0).slice(0, 10)} ${tm.length === 5 ? `${tm}:00` : tm.padStart(8, "0")}`) : NaN;
+  }
+  const a = one(tm);
+  return Number.isFinite(a) ? a : one(date);
+}
+
+/** A tradebook's segment → the exchange code the journal uses (equity stays NSE / BSE). */
+function exchangeOf(exchange, segment) {
+  const ex = String(exchange || "").trim().toUpperCase() || "NSE";
+  const seg = String(segment || "").trim().toUpperCase().replace(/[^A-Z&]/g, "");
+  if (["NFO", "BFO", "CDS", "BCD", "MCX", "NCO"].includes(ex)) return ex;
+  if (["FO", "F&O", "FNO", "DERIVATIVES", "NFO"].includes(seg)) return ex === "BSE" ? "BFO" : "NFO";
+  if (["CD", "CDS", "CURRENCY"].includes(seg)) return ex === "BSE" ? "BCD" : "CDS";
+  if (["COM", "MCX", "COMMODITY", "COMMODITIES"].includes(seg) || ex === "MCX") return "MCX";
+  return ex;
+}
+
+const normHead = (h) => String(h || "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+
+/**
+ * Tradebook rows (from a CSV or a spreadsheet) → fills. The header row is found among the first 40
+ * rows (Console's .xlsx has a few title rows above it). Columns are matched by name in any order:
+ * symbol, trade type, quantity and price are needed; trade id, order id, exchange, segment, series,
+ * ISIN, product, auction, trade date and execution time are kept when present. Rows that cannot be
+ * read are counted, not guessed. @returns { fills, skipped, error, segments, fromDay, toDay, rows }
+ */
+function fromRows(rows, { file = "" } = {}) {
+  const hi = rows.slice(0, 40).findIndex((r) => {
+    const h = r.map(normHead);
+    return h.some((x) => x === "symbol" || x === "tradingsymbol") && h.some((x) => ["trade_type", "type", "transaction_type", "buy_sell"].includes(x)) && h.some((x) => ["quantity", "qty"].includes(x));
+  });
+  if (hi < 0) return { fills: [], skipped: Math.max(0, rows.length - 1), error: "This does not look like a Zerodha Console tradebook: it needs symbol, trade type, quantity and price columns.", segments: [], rows: 0 };
+  const head = rows[hi].map(normHead);
   const col = (...names) => names.map((n) => head.indexOf(n)).find((i) => i >= 0);
-  const c = { symbol: col("symbol", "tradingsymbol"), exchange: col("exchange"), side: col("trade_type", "type", "transaction_type"), qty: col("quantity", "qty"), price: col("price", "trade_price"), id: col("trade_id"), order: col("order_id"), time: col("order_execution_time", "trade_time", "execution_time"), date: col("trade_date", "date"), segment: col("segment"), product: col("product") };
-  if ([c.symbol, c.side, c.qty, c.price].some((i) => i === undefined)) return { fills: [], skipped: rows.length - 1, error: "This does not look like a Zerodha Console tradebook (it needs symbol, trade_type, quantity and price columns)." };
+  const c = { symbol: col("symbol", "tradingsymbol"), exchange: col("exchange"), side: col("trade_type", "type", "transaction_type", "buy_sell"), qty: col("quantity", "qty"), price: col("price", "trade_price", "average_price"), id: col("trade_id"), order: col("order_id"), time: col("order_execution_time", "trade_time", "execution_time", "time"), date: col("trade_date", "date"), segment: col("segment"), product: col("product"), series: col("series"), isin: col("isin"), auction: col("auction") };
+  if (c.price === undefined) return { fills: [], skipped: rows.length - hi - 1, error: "The tradebook has no price column.", segments: [], rows: 0 };
   const fills = [];
   let skipped = 0;
-  rows.slice(1).forEach((r, i) => {
-    const get = (k) => (c[k] === undefined ? "" : String(r[c[k]] || "").trim());
-    const side = get("side").toUpperCase();
+  const segs = new Set();
+  rows.slice(hi + 1).forEach((r, i) => {
+    if (!r || !r.some((x) => String(x || "").trim())) return; // an empty line
+    const get = (k) => (c[k] === undefined ? "" : String(r[c[k]] === undefined || r[c[k]] === null ? "" : r[c[k]]).trim());
+    const side = get("side").toUpperCase().replace(/^B$/, "BUY").replace(/^S$/, "SELL");
     // a spreadsheet re-save may add thousands separators: "1,510.00"
-    const qty = Number(get("qty").replace(/,/g, ""));
+    const qty = Math.abs(Number(get("qty").replace(/,/g, "")));
     const price = Number(get("price").replace(/,/g, ""));
-    const at = parseTime(get("time") || get("date"));
+    const at = parseWhen(get("time"), get("date"));
     const symbol = get("symbol").toUpperCase();
-    const exchange = (get("exchange") || "NSE").toUpperCase();
+    const segment = get("segment").toUpperCase();
+    const exchange = exchangeOf(get("exchange"), segment);
     if (!symbol || !["BUY", "SELL"].includes(side) || !(qty > 0) || !(price > 0) || !Number.isFinite(at)) {
       skipped += 1;
       return;
     }
-    const tid = get("id") || `${get("order")}-${i}`;
-    fills.push({ id: `k:${exchange}:${tid}`, orderId: get("order"), exchange, symbol, side, qty, price, at, product: get("product").toUpperCase(), source: "console" });
+    segs.add(exchange);
+    const tid = get("id").replace(/\.0$/, "") || `${get("order").replace(/\.0$/, "")}-${i}`;
+    const f = { id: `k:${exchange}:${tid}`, orderId: get("order").replace(/\.0$/, ""), exchange, symbol, side, qty, price, at, product: get("product").toUpperCase(), source: "console" };
+    // everything else the tradebook says is kept with the fill
+    if (segment) f.segment = segment;
+    if (get("series")) f.series = get("series").toUpperCase();
+    if (get("isin")) f.isin = get("isin").toUpperCase();
+    if (/^(true|yes|y|1)$/i.test(get("auction"))) f.auction = true;
+    if (get("date")) f.tradeDate = istIso(parseWhen("", get("date")) || at).slice(0, 10);
+    if (file) f.file = file;
+    fills.push(f);
   });
-  return { fills, skipped, error: "" };
+  const ats = fills.map((f) => f.at);
+  return { fills, skipped, error: fills.length || !skipped ? "" : "No trade could be read from the file.", segments: [...segs], fromDay: ats.length ? istIso(Math.min(...ats)).slice(0, 10) : null, toDay: ats.length ? istIso(Math.max(...ats)).slice(0, 10) : null, rows: fills.length + skipped };
+}
+
+/** Zerodha Console tradebook CSV → fills (see fromRows). */
+function fromConsoleCsv(text, opts) {
+  const rows = csvRows(text);
+  if (rows.length < 2) return { fills: [], skipped: 0, error: "The file has no trades in it.", segments: [], rows: 0 };
+  return fromRows(rows, opts);
+}
+
+/**
+ * Any tradebook file — .xlsx (Excel) or .csv — as bytes. The first sheet with a tradebook header
+ * is read. @returns fromRows' result plus { kind: "xlsx" | "csv", sheet }
+ */
+function readTradebook(buf, opts = {}) {
+  const b = Buffer.isBuffer(buf) ? buf : Buffer.from(String(buf || ""), "utf8");
+  if (b.length >= 4 && b.readUInt32LE(0) === 0x04034b50) {
+    let sheets;
+    try {
+      sheets = readXlsx(b);
+    } catch (err) {
+      return { fills: [], skipped: 0, error: err.message, segments: [], rows: 0, kind: "xlsx" };
+    }
+    let firstErr = null;
+    for (const sh of sheets) {
+      const r = fromRows(sh.rows, opts);
+      if (r.fills.length) return { ...r, kind: "xlsx", sheet: sh.name };
+      if (!firstErr) firstErr = r;
+    }
+    return { ...(firstErr || { fills: [], skipped: 0, error: "The spreadsheet has no sheets.", segments: [], rows: 0 }), kind: "xlsx" };
+  }
+  // text: UTF-8, or UTF-16 as Excel's "Unicode text" saves it
+  const text = b[0] === 0xff && b[1] === 0xfe ? b.subarray(2).toString("utf16le") : b.toString("utf8");
+  return { ...fromConsoleCsv(text, opts), kind: "csv" };
 }
 
 /* ---------------------------------------------------------------- periods */
@@ -522,40 +625,78 @@ const MISTAKES = ["Chased the entry", "No stop", "Moved the stop", "Exited too e
 class TradeJournal {
   constructor(docs) {
     this.docs = docs;
+    this._ver = 0; // bumped on every change: the round trips are worked out again only then
+    this._memo = null;
+    this._migrated = false;
+  }
+
+  /** Fills live one record each when the store can (docs.js items); a plain store keeps them in the record. */
+  _itemMode() {
+    return typeof this.docs.items === "function" && typeof this.docs.putItems === "function";
+  }
+
+  /** The first version kept every fill inside the journal record: move them out, once. */
+  _migrate() {
+    if (this._migrated || !this._itemMode()) return;
+    this._migrated = true;
+    const d = this.docs.read(NAME, null);
+    if (d && d.fills && Object.keys(d.fills).length) {
+      this.docs.putItems(FILLS, Object.values(d.fills));
+      const { fills, ...rest } = d;
+      this.docs.write(NAME, rest);
+      this._ver += 1;
+    }
+  }
+
+  /** Every fill (read them, do not change them). */
+  _fillsList() {
+    if (!this._itemMode()) {
+      const d = this.docs.read(NAME, null);
+      return Object.values((d && d.fills) || {});
+    }
+    this._migrate();
+    return this.docs.items(FILLS);
   }
 
   _load() {
     const d = this.docs.read(NAME, null);
-    return { fills: (d && d.fills) || {}, tags: (d && d.tags) || {}, excursions: (d && d.excursions) || {}, imports: (d && d.imports) || [], captured: (d && d.captured) || {}, accountSince: (d && d.accountSince) || "", views: (d && d.views) || [] };
+    this._migrate();
+    const out = { tags: (d && d.tags) || {}, excursions: (d && d.excursions) || {}, imports: (d && d.imports) || [], captured: (d && d.captured) || {}, accountSince: (d && d.accountSince) || "", views: (d && d.views) || [] };
+    if (!this._itemMode()) out.fills = (d && d.fills) || {};
+    return out;
   }
 
   _save(d) {
-    const ids = Object.keys(d.fills);
-    if (ids.length > MAX_FILLS) {
-      const keep = ids.sort((a, b) => d.fills[b].at - d.fills[a].at).slice(0, MAX_FILLS);
-      d.fills = Object.fromEntries(keep.map((k) => [k, d.fills[k]]));
-    }
+    this._ver += 1;
     this.docs.write(NAME, d);
   }
 
-  /** Adds fills it has not seen. @returns how many were new */
-  add(fills, source) {
-    const d = this._load();
-    let added = 0;
+  /**
+   * Adds the fills it has not seen (by id: a trade from Kite and the same trade in a Console file are
+   * one). @param meta for an import: { name, kind, file, segments, skipped } @returns how many were new
+   */
+  add(fills, source, meta = null) {
+    const have = new Set(this._fillsList().map((f) => f.id));
+    const fresh = [];
     for (const f of fills) {
-      if (!f || d.fills[f.id]) continue;
-      d.fills[f.id] = f;
-      added += 1;
+      if (!f || !f.id || have.has(f.id)) continue;
+      have.add(f.id);
+      fresh.push(f);
     }
-    if (added || source === "console") {
-      if (source === "console") {
-        // the dates the file covers (its first and last trade): shown under "Where the history comes from"
-        const ats = fills.filter(Boolean).map((f) => f.at);
-        d.imports = [{ at: Date.now(), added, total: fills.length, fromDay: ats.length ? istDay(Math.min(...ats)) : null, toDay: ats.length ? istDay(Math.max(...ats)) : null }, ...d.imports].slice(0, 60);
-      }
-      this._save(d);
+    if (have.size > MAX_FILLS) throw new Error(`The journal can hold ${MAX_FILLS.toLocaleString("en-IN")} fills; this would go past it.`);
+    const d = this._load();
+    if (fresh.length) {
+      if (this._itemMode()) this.docs.putItems(FILLS, fresh);
+      else for (const f of fresh) d.fills[f.id] = f;
+      this._ver += 1;
     }
-    return added;
+    if (source === "console") {
+      // what the file held and the dates it covers: shown under "Where the history comes from"
+      const ats = fills.filter(Boolean).map((f) => f.at);
+      d.imports = [{ at: Date.now(), added: fresh.length, total: fills.length, fromDay: ats.length ? istDay(Math.min(...ats)) : null, toDay: ats.length ? istDay(Math.max(...ats)) : null, ...(meta || {}) }, ...d.imports].slice(0, 120);
+    }
+    if (source === "console" || (fresh.length && !this._itemMode())) this._save(d);
+    return fresh.length;
   }
 
   /** A day Kite's trades were read (the server's automatic capture, or a page read): proof the day is complete. */
@@ -585,10 +726,15 @@ class TradeJournal {
   }
 
   importCsv(text) {
-    const r = fromConsoleCsv(text);
-    if (r.error) return { added: 0, read: 0, skipped: r.skipped, error: r.error };
-    const added = this.add(r.fills, "console");
-    return { added, read: r.fills.length, skipped: r.skipped, error: "" };
+    return this.importFile(Buffer.from(String(text || ""), "utf8"), { name: "tradebook.csv" });
+  }
+
+  /** A tradebook file (.xlsx or .csv bytes) → the journal. @returns { added, read, skipped, error, kind, segments, fromDay, toDay } */
+  importFile(buf, { name = "", file = "" } = {}) {
+    const r = readTradebook(buf, { file });
+    if (r.error && !r.fills.length) return { added: 0, read: 0, skipped: r.skipped, error: r.error, kind: r.kind };
+    const added = this.add(r.fills, "console", { name: String(name).slice(0, 120), kind: r.kind, file, segments: r.segments, skipped: r.skipped, sheet: r.sheet || undefined });
+    return { added, read: r.fills.length, skipped: r.skipped, error: "", kind: r.kind, segments: r.segments, fromDay: r.fromDay, toDay: r.toDay, sheet: r.sheet || null };
   }
 
   /* ------------------------------------------------- your saved analytics views */
@@ -648,16 +794,24 @@ class TradeJournal {
     this._save(d);
   }
 
+  /** The round trips with their charges, worked out again only after a change. */
+  _baseTrips() {
+    const list = this._fillsList();
+    if (this._memo && this._memo.ver === this._ver && this._memo.n === list.length) return this._memo.trips;
+    // only Zerodha's own fills (Kite and Console imports); hand-typed ones of an earlier version are not counted
+    const trips = roundTrips(list.filter((f) => f.source !== "manual")).map((t) => {
+      const c = t.open ? 0 : charges(t);
+      return { ...t, charges: c, brokerage: t.open ? 0 : r2(chargeParts(t).brokerage), net: r2(t.pnl - c) };
+    });
+    this._memo = { ver: this._ver, n: list.length, trips };
+    return trips;
+  }
+
   /** Round trips with charges, tags and excursions attached, filtered. */
   trips({ from = null, to = null, symbol = "", side = "", kind = "", setup = "" } = {}) {
     const d = this._load();
-    // only Zerodha's own fills (Kite and Console imports); hand-typed ones of an earlier version are not counted
-    return roundTrips(Object.values(d.fills).filter((f) => f.source !== "manual"))
-      .map((t) => {
-        const c = t.open ? 0 : charges(t);
-        const brokerage = t.open ? 0 : r2(chargeParts(t).brokerage);
-        return { ...t, charges: c, brokerage, net: r2(t.pnl - c), tags: d.tags[t.key] || null, exc: d.excursions[t.key] || null };
-      })
+    return this._baseTrips()
+      .map((t) => ({ ...t, tags: d.tags[t.key] || null, exc: d.excursions[t.key] || null }))
       // a closed trade counts on the day it was closed (as in Zerodha's P&L); an open one by its entry
       .filter((t) => {
         const at = t.open ? t.entryAt : t.exitAt;
@@ -668,7 +822,7 @@ class TradeJournal {
 
   /** The first trade on record (ms), from Zerodha's fills only, or null. */
   firstAt() {
-    const at = Object.values(this._load().fills).reduce((a, f) => (f.source === "manual" ? a : Math.min(a, f.at)), Infinity);
+    const at = this._fillsList().reduce((a, f) => (f.source === "manual" ? a : Math.min(a, f.at)), Infinity);
     return Number.isFinite(at) ? at : null;
   }
 
@@ -676,7 +830,7 @@ class TradeJournal {
     const d = this._load();
     const trips = this.trips(filters);
     const setups = [...new Set(Object.values(d.tags).map((t) => t.setup).filter(Boolean))].sort();
-    const all = Object.values(d.fills);
+    const all = this._fillsList();
     return {
       stats: stats(trips),
       trips: trips.slice(-500).reverse(),
@@ -732,8 +886,10 @@ class TradeJournal {
       fys: fys.filter(Boolean),
       all: row("all"),
       sources: {
-        kite: Object.values(d.fills).filter((f) => f.source === "kite").length,
-        console: Object.values(d.fills).filter((f) => f.source === "console").length,
+        kite: this._fillsList().filter((f) => f.source === "kite").length,
+        console: this._fillsList().filter((f) => f.source === "console").length,
+        segments: [...new Set(this._fillsList().map((f) => f.exchange))].sort(),
+        store: this._itemMode() ? (this.docs.kind === "mongodb" ? "MongoDB (collection journal_fills)" : "files (collections/journal_fills.json)") : "the journal record",
         imports: d.imports.slice(0, 20),
         capturedDays: capturedDays.length,
         lastCaptured: capturedDays.length ? { day: capturedDays[capturedDays.length - 1], ...d.captured[capturedDays[capturedDays.length - 1]] } : null,
@@ -782,4 +938,4 @@ class TradeJournal {
   }
 }
 
-module.exports = { TradeJournal, roundTrips, charges, chargeParts, stats, summarize, byMonth, excursion, fromConsoleCsv, fromKite, parseTime, csvRows, periodRange, fyOf, fyLabel, istDay, MISTAKES, NAME };
+module.exports = { TradeJournal, roundTrips, charges, chargeParts, stats, summarize, byMonth, excursion, fromConsoleCsv, fromRows, readTradebook, parseWhen, exchangeOf, fromKite, parseTime, csvRows, periodRange, fyOf, fyLabel, istDay, MISTAKES, NAME, FILLS, MAX_FILLS };
