@@ -6,9 +6,9 @@
 //                server (server/data/media) and served only to signed-in people, with browser
 //                caching, so after the first play it costs no internet at all.
 //   - "url":     a direct link to an audio file (https).
-//   - "youtube": a YouTube video, played through YouTube's own embedded player, as YouTube's terms
-//                allow. Its audio is never downloaded or extracted — that would break YouTube's
-//                terms and the recording's copyright.
+//   - "youtube": a YouTube video, kept as a link only. The page plays audio in the background with
+//                no video, and YouTube's terms allow neither its sound without its player nor
+//                downloading it — so its audio is never downloaded or extracted.
 // The page decides when to play (browsers allow sound only after the first tap or key press).
 // Changing the source is for the superadmin; anyone signed in can play, pause and set the volume
 // on their own device.
@@ -24,7 +24,7 @@ const MAX_FILE = 40 * 1024 * 1024; // 40 MB: a long bhajan at high quality
 const MAX_PART = 2.5 * 1024 * 1024; // each upload part stays under the proxy's body limit
 const DEFAULTS = {
   source: { kind: "youtube", videoId: DEFAULT_VIDEO, label: "Shri Hanuman Chalisa", url: `https://www.youtube.com/watch?v=${DEFAULT_VIDEO}` },
-  volume: 0.15, // soft, in the background
+  volume: 0.05, // very soft, in the background
   autoplay: true,
 };
 

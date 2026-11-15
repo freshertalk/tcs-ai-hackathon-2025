@@ -606,7 +606,8 @@ class Ensemble {
     } else if (lead && lead.search) {
       this._step(job, "web", `Web research by ${lead.name}`, "running");
       try {
-        const lc = makeClient({ providerId: lead.provider, apiKey: ai._key(lead.provider), model: lead.model, fetchImpl: ai.fetch, timeoutMs: 150000 });
+        const spec = { providerId: lead.provider, apiKey: ai._key(lead.provider), model: lead.model, timeoutMs: 150000 };
+        const lc = ai.engine ? ai.engine.client(spec) : makeClient({ ...spec, fetchImpl: ai.fetch });
         const via = { searcher: lc, shaper: lc };
         const [n, w] = await Promise.allSettled([ai.news(symbol, { via }), ai.worldBrief({ via })]);
         web.used = true;
@@ -636,8 +637,9 @@ class Ensemble {
           job.analysts[i].status = "reading";
           const t0 = Date.now();
           try {
-            const raw = makeClient({ providerId: a.provider, apiKey: ai._key(a.provider), model: a.model, fetchImpl: ai.fetch, timeoutMs: (a.lead ? Math.max(sec, 120) : sec) * 1000, repair: false });
-            const client = ai.brains ? ai.brains.wrap(raw) : raw; // the owner's brains for AI Live / AI Research
+            const spec = { providerId: a.provider, apiKey: ai._key(a.provider), model: a.model, timeoutMs: (a.lead ? Math.max(sec, 120) : sec) * 1000, repair: false };
+            // through the AI Engine: the owner's brains for AI Live / AI Research, and the shared lane
+            const client = ai.engine ? ai.engine.client(spec) : ai.brains ? ai.brains.wrap(makeClient({ ...spec, fetchImpl: ai.fetch })) : makeClient({ ...spec, fetchImpl: ai.fetch });
             const r = await client.ask({ system, user, schema, maxTokens: 3500, effort: "low" });
             const v = { ...cleanVote(r.data), id: a.id, name: a.name, company: a.company, free: a.free, lead: Boolean(a.lead), usage: r.usage, ms: Date.now() - t0 };
             votes.push(v);

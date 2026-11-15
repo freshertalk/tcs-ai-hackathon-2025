@@ -43,6 +43,8 @@ const { mountAnalysis } = require("./analysis/routes");
 const { Temple, mountTemple } = require("./temple");
 const { Notifier, mountNotify } = require("./notify");
 const { AlertWatch } = require("./alert-watch");
+const { WhatsAppService, mountWhatsApp } = require("./whatsapp");
+const { buildHealth } = require("./health");
 const { chargeParts } = require("./trading/journal");
 const { TradingService } = require("./trading/service");
 const { mountTrading } = require("./trading/routes");
@@ -367,6 +369,29 @@ function createApp(opts = {}) {
       });
     }
     next();
+  });
+
+  // WhatsApp Cloud API webhook (server/whatsapp.js): Meta calls it with every message to the bot.
+  // It needs the raw body for the signature check, so it sits before the JSON parser and the CSRF
+  // rule (Meta cannot send our header). A wrong signature is refused; only the owner's number is
+  // ever answered.
+  let whatsappRef = null;
+  const waLimit = limiter(120, 60 * 1000);
+  app.get("/api/whatsapp/webhook", waLimit, (req, res) => {
+    const c = whatsappRef ? whatsappRef.verify(req.query || {}) : null;
+    if (!c) return res.status(403).type("text/plain").send("forbidden");
+    res.type("text/plain").send(c);
+  });
+  app.post("/api/whatsapp/webhook", waLimit, express.raw({ type: () => true, limit: "512kb" }), (req, res) => {
+    if (!whatsappRef || !Buffer.isBuffer(req.body) || !whatsappRef.signed(req.body, req.get("x-hub-signature-256"))) return res.status(401).end();
+    let body;
+    try {
+      body = JSON.parse(req.body.toString("utf8"));
+    } catch (_) {
+      return res.status(400).end();
+    }
+    res.status(200).end(); // Meta wants a quick 200; the reply goes out as a new message
+    whatsappRef.receive(body).catch((err) => console.warn(`[whatsapp] ${logSafe(err && err.message)}`));
   });
 
   app.use(express.json({ limit: "10kb" }));
@@ -707,6 +732,74 @@ ${s.trades || 0} trades, ${s.wins || 0} won · process score ${d.score === null 
     origin,
     adminBase: ADMIN_BASE,
     helpers: { cookie, parseCookies, sign, verify, safeEqual, randomToken, sessionKey, isSecure },
+  });
+
+  /* ------------------------------------------------ WhatsApp Trading (server/whatsapp.js) */
+  const whatsapp = opts.whatsapp || new WhatsAppService({ docs, secrets: { encrypt: (t) => encrypt(t, settingsKey), decrypt: (b) => decrypt(b, settingsKey) }, fetchImpl: opts.whatsappFetch || globalThis.fetch, now: opts.now, log: opts.log || console, market, trading, ai, analysis });
+  whatsappRef = whatsapp;
+  mountWhatsApp(app, { whatsapp, requireSuper, limiter });
+  if (opts.whatsappAuto !== false) whatsapp.start();
+  // price alerts, the risk-guard lock and the 3:45 PM report go to WhatsApp as well as Telegram
+  notifier.also = (text, kind) => (kind === "alerts" || kind === "risk" || kind === "dayReport" ? whatsapp.send(text, { kind }) : null);
+
+  /* ------------------------------------------------ TradeAI (server/ai/tradeai.js) */
+  // the chat reads the account through these read-only functions (the AI folder cannot load the broker)
+  ai.tradeai.account = {
+    positions: async () => (await trading.positions()).net,
+    funds: () => trading.funds(),
+    history: async () => {
+      const days = analysis.list({}).slice(0, 31);
+      const sum = (f) => days.reduce((s, d) => s + (f(d.summary || {}) || 0), 0);
+      let journal = null;
+      try {
+        const st = trading.journal.view({ from: (opts.now ? opts.now() : Date.now()) - 92 * 86400000 }).stats;
+        journal = { trades: st.trades, winRate: st.winRate, net: st.net, profitFactor: st.profitFactor, expectancy: st.expectancy, maxDrawdown: st.maxDrawdown, byHour: (st.by.hour || []).slice(0, 8), mistakes: (st.by.mistake || []).slice(0, 6) };
+      } catch (_) {
+        journal = null;
+      }
+      return { last30: { days: days.length, net: sum((s) => s.net), profit: sum((s) => s.grossProfit), loss: sum((s) => s.grossLoss), charges: sum((s) => s.charges && s.charges.total), trades: sum((s) => s.trades) }, recentDays: days.slice(0, 7).map((d) => ({ date: d.date, net: d.summary && d.summary.net, trades: d.summary && d.summary.trades, score: d.score })), journal3m: journal };
+    },
+    // for the suggested questions: orders still waiting, and today's closed round trips
+    orders: async () => (await trading.orders()).filter((o) => /^(OPEN|TRIGGER PENDING|AMO REQ RECEIVED)$/.test(o.status)).map((o) => ({ symbol: o.symbol, side: o.side, quantity: o.quantity, price: o.price || o.trigger || 0, type: o.type })),
+    today: async () => {
+      const now = opts.now ? opts.now() : Date.now();
+      const dayStart = Date.parse(`${new Date(now + 5.5 * 3600000).toISOString().slice(0, 10)}T00:00:00+05:30`);
+      return trading.journal.trips({ from: dayStart }).filter((t) => !t.open).map((t) => ({ symbol: t.symbol, side: t.side, net: t.net, exitAt: t.exitAt }));
+    },
+  };
+  const taWrap = (fn) => async (req, res) => {
+    try {
+      res.json(await fn(req));
+    } catch (err) {
+      res.status(err.status || 400).json({ error: err.code || "tradeai_failed", message: err.message || "TradeAI failed." });
+    }
+  };
+  const who = (req) => (req.user && req.user.email) || "";
+  app.post("/api/admin/tradeai/ask", requireAdmin, limiter(30, 10 * 60 * 1000), taWrap(async (req) => {
+    const b = req.body || {};
+    const text = String(b.text || "").trim();
+    if (!text) throw Object.assign(new Error("Ask a question."), { status: 400 });
+    const from = Number.isInteger(b.from) ? b.from : null; // edit / retry: go back to this question first
+    return ai.tradeai.start({ conv: b.conv ? String(b.conv) : null, text, owner: who(req), isOwner: req.user.role === "superadmin", from });
+  }));
+  app.get("/api/admin/tradeai/job/:id", requireAdmin, limiter(600, 60 * 1000), taWrap(async (req) => ai.tradeai.job(String(req.params.id), who(req))));
+  app.post("/api/admin/tradeai/job/:id/stop", requireAdmin, limiter(60, 60 * 1000), taWrap(async (req) => ai.tradeai.cancel(String(req.params.id), who(req))));
+  // the questions you are most likely to ask now (positions, orders, today's trades, movers, alerts)
+  app.get("/api/admin/tradeai/suggest", requireAdmin, limiter(60, 60 * 1000), taWrap(async (req) => ai.tradeai.suggest({ isOwner: req.user.role === "superadmin" })));
+  // every chat is its own record in the database; deleting one deletes it there
+  app.get("/api/admin/tradeai/convs", requireAdmin, limiter(240, 60 * 1000), taWrap(async (req) => ai.tradeai.list(who(req), { q: String(req.query.q || "") })));
+  app.get("/api/admin/tradeai/convs/:id", requireAdmin, limiter(240, 60 * 1000), taWrap(async (req) => ai.tradeai.get(String(req.params.id), who(req))));
+  app.put("/api/admin/tradeai/convs/:id", requireAdmin, limiter(60, 60 * 1000), taWrap(async (req) => ai.tradeai.rename(String(req.params.id), who(req), (req.body || {}).title)));
+  app.put("/api/admin/tradeai/convs/:id/pin", requireAdmin, limiter(60, 60 * 1000), taWrap(async (req) => ai.tradeai.pin(String(req.params.id), who(req), (req.body || {}).pinned)));
+  app.delete("/api/admin/tradeai/convs/:id", requireAdmin, limiter(60, 60 * 1000), taWrap(async (req) => ai.tradeai.remove(String(req.params.id), who(req))));
+
+  /* ------------------------------------------------ site health (server/health.js) */
+  app.get("/api/admin/health", requireAdmin, limiter(60, 60 * 1000), async (req, res) => {
+    try {
+      res.json(await buildHealth({ now: opts.now, docs, dataDir, market, ai, trading, analysis, paper, researchAuto, notifier, alertWatch, whatsapp, temple, holidays, googleConfigured: () => credentials().source !== "none" }, { secure: isSecure(req), host: req.get("host") || "" }));
+    } catch (err) {
+      res.status(500).json({ error: "health_failed", message: err.message });
+    }
   });
 
   app.use("/api", (req, res) => res.status(404).json({ error: "not_found" }));

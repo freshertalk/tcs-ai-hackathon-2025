@@ -431,6 +431,8 @@
 .hub-paper > a {
   display: grid;
   gap: 6px;
+  justify-items: center; /* everything in the middle of the card */
+  text-align: center;
   padding: 18px 20px;
   border-radius: 10px;
   border: 1px solid color-mix(in srgb, #2ebd85 35%, transparent);
@@ -448,6 +450,7 @@
 .hub-paper__stats {
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
   gap: 6px 14px;
   font-size: var(--t-mid);
   color: rgba(242, 246, 250, 0.8);
@@ -468,5 +471,87 @@
 @media (max-width: 560px) {
   .hub-paper > a {
     padding: 14px;
+  }
+}
+
+/* ---------------------------------------------------- the TradeAI card */
+.hub-tai > a {
+  display: grid;
+  gap: 6px;
+  justify-items: center;
+  text-align: center;
+  padding: 18px 20px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, #d9a93a 40%, transparent);
+  background:
+    radial-gradient(90% 140% at 50% 0%, rgba(217, 169, 58, 0.18), transparent 60%),
+    linear-gradient(135deg, #1d1406, #0b1622 60%, #1a1430);
+  color: #f2f6fa;
+  text-decoration: none;
+}
+.hub-tai__d {
+  max-width: 70ch;
+  font-size: var(--t-mid);
+  color: rgba(242, 246, 250, 0.82);
+  line-height: 1.5;
+}
+@media (max-width: 560px) {
+  .hub-tai > a {
+    padding: 14px;
+  }
+}
+.hub-tai__chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+}
+.hub-tai__chips span {
+  padding: 1px 10px;
+  border-radius: 99px;
+  border: 1px solid rgba(217, 169, 58, 0.45);
+  background: rgba(217, 169, 58, 0.1);
+  font-size: var(--t-small);
+  color: #f3d58c;
+}
+
+/* ---------------------------------------------- TradeAI + paper trading, side by side */
+.hub-duo {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  align-items: stretch;
+}
+.hub-duo > section {
+  display: flex;
+  min-width: 0;
+}
+.hub-duo > section > a {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.hub-duo > section > a:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.28);
+}
+.hub-duo .hub-hero__go {
+  margin-top: auto; /* both buttons on one line, at the foot of the cards */
+}
+.hub-duo .hub-hero__d,
+.hub-duo .hub-tai__d {
+  max-width: 60ch;
+}
+@media (max-width: 899px) {
+  .hub-duo {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hub-duo > section > a {
+    transition: none;
   }
 }

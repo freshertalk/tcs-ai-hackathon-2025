@@ -5,6 +5,8 @@
 //     and placing each one (superadmin only).
 //   - Real instructions: what every feature actually sends the AI now, brains included (superadmin).
 //   - Skills file: the core rules every strategist / research / decision request reads (superadmin).
+//   - Live engine: the one engine every feature uses — what is asking the models right now, the
+//     shared lanes, and today's calls per feature (every admin).
 //   - Word: the whole page as a .docx.
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
@@ -408,6 +410,157 @@ function Skills({ engine, onSaved }) {
   );
 }
 
+/* -------------------------------------------------------------------------- live engine */
+
+const fmtTok = (n) => (n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(1)}k` : String(n || 0));
+
+function LiveEngine() {
+  const [d, setD] = useState(null);
+  const [err, setErr] = useState("");
+  useEffect(() => {
+    let alive = true;
+    const read = () => {
+      if (document.visibilityState === "hidden") return;
+      api("/api/admin/ai/engine/live")
+        .then((x) => {
+          if (!alive || !x || !Array.isArray(x.running)) return;
+          setD(x);
+          setErr("");
+        })
+        .catch((e) => alive && setErr(e.message));
+    };
+    read();
+    const id = setInterval(read, 3000);
+    return () => {
+      alive = false;
+      clearInterval(id);
+    };
+  }, []);
+  if (!d) return err ? <Alert>{err}</Alert> : <Loading label="Reading the engine…" />;
+  const used = d.today.features.filter((f) => f.calls > 0);
+  const idle = d.today.features.filter((f) => f.calls === 0);
+  return (
+    <div className="eng-live">
+      <section className="eng-card eng-live__hero">
+        <div className="eng-live__core" aria-hidden="true">
+          <span />
+          <span />
+          <span />
+        </div>
+        <div>
+          <h3>One engine, every feature</h3>
+          <p className="eng-dim">
+            Every AI feature — strategist, co-pilot, decision, research, coach, reviews, debrief, AI Live / AI Research, TradeAI, WhatsApp and the brains team — reaches the models through this one engine. Each request carries the same brains and trading-skills rules, and requests that share a key queue fairly, so many features can use the free models at the same time.
+          </p>
+          <div className="eng-live__chips">
+            <span>
+              <b>{d.core.brainsOn}</b> of {d.core.brains} brains on
+            </span>
+            <span>
+              Skills file <b>{fmtTok(d.core.skillsChars)}</b> characters
+            </span>
+            <span>
+              Free models <b>{d.core.lanes.nvidia}</b> at a time · others <b>{d.core.lanes.other}</b>
+            </span>
+            <span>
+              <b>{d.running.length}</b> running now
+            </span>
+          </div>
+        </div>
+      </section>
+
+      <section className="eng-card" aria-live="polite">
+        <h3>Running now</h3>
+        {d.running.length === 0 ? (
+          <p className="eng-dim">Nothing is asking the models at this moment. Use TradeAI, AI Live or any AI button and watch it appear here.</p>
+        ) : (
+          <ul className="eng-live__run">
+            {d.running.map((r, i) => (
+              <li key={i} className={r.waiting ? "is-wait" : ""}>
+                <span className="eng-live__dot" />
+                <b>{r.name}</b>
+                <span>{r.model}</span>
+                <small>{r.waiting ? `waiting for a free lane · ${r.sec}s` : `${r.kind === "search" ? "searching" : "thinking"} · ${r.sec}s`}</small>
+              </li>
+            ))}
+          </ul>
+        )}
+        {d.lanes.length > 0 && (
+          <div className="eng-live__lanes">
+            {d.lanes.map((l) => (
+              <div key={l.lane}>
+                <span>{l.lane === "nvidia" ? "Free NVIDIA models" : l.lane}</span>
+                <span className="eng-live__bar" role="img" aria-label={`${l.busy} of ${l.limit} in use, ${l.waiting} waiting`}>
+                  <i style={{ width: `${Math.min(100, (l.busy / l.limit) * 100)}%` }} />
+                </span>
+                <small>
+                  {l.busy}/{l.limit}
+                  {l.waiting ? ` · ${l.waiting} waiting` : ""}
+                </small>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="eng-card">
+        <h3>Today ({d.today.date || "no calls yet"})</h3>
+        <div className="eng-live__tablewrap">
+          <table className="eng-live__table">
+            <thead>
+              <tr>
+                <th>Feature</th>
+                <th>Brains</th>
+                <th>Calls</th>
+                <th>Failed</th>
+                <th>Avg time</th>
+                <th>Tokens in / out</th>
+                <th>Models</th>
+                <th>Last</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[...used, ...idle].map((f) => (
+                <tr key={f.id} className={f.calls ? "" : "is-idle"}>
+                  <td>
+                    <b>{f.name}</b>
+                  </td>
+                  <td>{f.brains}</td>
+                  <td>{f.calls}</td>
+                  <td className={f.failed ? "is-bad" : ""}>{f.failed}</td>
+                  <td>{f.avgSec !== null ? `${f.avgSec}s` : "—"}</td>
+                  <td>{f.calls ? `${fmtTok(f.input)} / ${fmtTok(f.output)}` : "—"}</td>
+                  <td className="eng-live__models">{Object.entries(f.models).map(([m, n]) => `${m} ×${n}`).join(", ") || "—"}</td>
+                  <td>{when(f.last) || "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      {d.recent.length > 0 && (
+        <section className="eng-card">
+          <h3>Last calls</h3>
+          <ul className="eng-live__recent">
+            {d.recent.slice(0, 20).map((r, i) => (
+              <li key={i} className={r.ok ? "" : "is-bad"}>
+                <span>{r.ok ? "✓" : "✕"}</span>
+                <b>{r.name}</b>
+                <span>{r.model}</span>
+                <small>
+                  {(r.ms / 1000).toFixed(1)}s{r.waitMs > 300 ? ` (waited ${(r.waitMs / 1000).toFixed(1)}s)` : ""} · {when(r.at)}
+                  {r.error ? ` · ${r.error}` : ""}
+                </small>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+    </div>
+  );
+}
+
 /* --------------------------------------------------------------------------------- page */
 
 export default function AiEngine() {
@@ -461,6 +614,7 @@ export default function AiEngine() {
 
   const tabs = [
     { id: "doc", label: "How the AI works" },
+    { id: "live", label: "Live engine" },
     ...(isSuper
       ? [
           { id: "brains", label: `Brains${brains ? ` (${brains.brains.length})` : ""}` },
@@ -496,6 +650,7 @@ export default function AiEngine() {
           onWord={word}
         />
       )}
+      {tab === "live" && <LiveEngine />}
       {tab === "brains" && isSuper && <Brains data={brains} setData={setBrainsAndReload} />}
       {tab === "ins" && isSuper && <Instructions engine={engine} />}
       {tab === "skills" && isSuper && <Skills engine={engine} onSaved={load} />}

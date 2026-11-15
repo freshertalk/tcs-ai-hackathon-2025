@@ -12,6 +12,8 @@ import { useAiStatus } from "./aiStatus";
 import Darshan from "./Darshan";
 import TempleCard from "./temple/TempleCard";
 import NotifyCard from "./NotifyCard";
+import WhatsAppCard from "./WhatsAppCard";
+import HealthCard from "./HealthCard";
 import { IconArrow, IconChart, IconKey, IconUsers } from "./icons";
 
 const WORKSPACES = [
@@ -226,7 +228,29 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <PaperCard />
+        {/* TradeAI and paper trading side by side (one under the other on a phone) */}
+        <div className="hub-duo">
+          <section className="hub-tai" aria-labelledby="hub-tai-h">
+            <a href={adminPath("/tradeai")} target="_blank" rel="noopener noreferrer" data-tip="Open TradeAI in a new tab.">
+              <span className="hub-hero__k">AI · your trading analyst</span>
+              <span className="hub-paper__t" id="hub-tai-h">
+                TradeAI
+              </span>
+              <span className="hub-tai__d">Ask anything about the market, a stock, your open positions or your results. It reads the desk’s live calls, levels, patterns, habits and your history, and answers in plain English with tables, forecasts and actions — a mixture of the free AI models that never goes down.</span>
+              <span className="hub-tai__chips" aria-hidden="true">
+                <span>Your positions</span>
+                <span>Live calls</span>
+                <span>Forecasts</span>
+                <span>Chats saved</span>
+              </span>
+              <span className="hub-hero__go">
+                Open TradeAI <IconArrow />
+              </span>
+            </a>
+          </section>
+
+          <PaperCard />
+        </div>
 
         <section className="hub-sets" aria-labelledby="hub-sets-h">
           <h2 id="hub-sets-h">Settings</h2>
@@ -249,6 +273,8 @@ export default function Dashboard() {
               status={ai && { on: ai.configured, label: ai.configured ? "On" : "Off" }}
             />
           </div>
+          <HealthCard />
+          {isSuper && <WhatsAppCard />}
           {isSuper && <NotifyCard />}
           <TempleCard />
         </section>

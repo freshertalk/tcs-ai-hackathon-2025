@@ -5,7 +5,7 @@ import React, { useState } from "react";
 import { api } from "../api";
 import { useAuth } from "../auth";
 import { Alert } from "../ui";
-import { useTemple, stateText, pct, VERSES } from "./Temple";
+import { useTemple, stateText, pct, VERSES, DEFAULT_VOLUME } from "./Temple";
 
 const PART = 2 * 1024 * 1024;
 const hex16 = () => Array.from(window.crypto.getRandomValues(new Uint8Array(8)), (b) => b.toString(16).padStart(2, "0")).join("");
@@ -15,7 +15,7 @@ function Change({ t }) {
   const s = t.settings;
   const [link, setLink] = useState("");
   const [label, setLabel] = useState("");
-  const [vol, setVol] = useState(Math.round((s ? s.volume : 0.15) * 100));
+  const [vol, setVol] = useState(Math.round((s && Number.isFinite(s.volume) ? s.volume : DEFAULT_VOLUME) * 100));
   const [auto, setAuto] = useState(s ? s.autoplay : true);
   const [busy, setBusy] = useState("");
   const [prog, setProg] = useState(0);
@@ -87,7 +87,7 @@ function Change({ t }) {
         </section>
         <section>
           <h4>Or a link</h4>
-          <p className="mdr-dim">A direct https link to an audio file, or a YouTube link. A YouTube video plays through YouTube’s own player (it streams from YouTube and must stay visible while it plays); its audio is never downloaded or copied.</p>
+          <p className="mdr-dim">A direct https link to an audio file (it plays in the background). A YouTube link is kept only as a link: YouTube’s rules do not allow its sound to be played without its video, or to be downloaded.</p>
           <label className="mdr-field">
             <span>Link</span>
             <input value={link} onChange={(e) => setLink(e.target.value)} placeholder="https://www.youtube.com/watch?v=… or https://…/bhajan.mp3" inputMode="url" />
@@ -133,7 +133,7 @@ export default function TempleCard() {
   const src = s.source || {};
   const playing = t.state === "playing";
   const isSuper = Boolean(user && user.role === "superadmin");
-  const kindText = src.kind === "file" ? `uploaded file · ${mb(src.size || 0)} · plays from this server` : src.kind === "url" ? "audio link" : "YouTube · through YouTube’s own player";
+  const kindText = src.kind === "file" ? `uploaded file · ${mb(src.size || 0)} · plays from this server, in the background` : src.kind === "url" ? "audio link · plays in the background" : "YouTube link · cannot play as background audio";
   return (
     <section className={`mdr ${playing ? "is-on" : ""}`} aria-labelledby="mdr-h">
       <div className="mdr__top">
@@ -147,9 +147,9 @@ export default function TempleCard() {
           <p className="mdr-dim">{kindText}</p>
         </div>
         <div className="mdr__ctl">
-          {t.state === "closed" ? (
-            <button type="button" className="adm-btn adm-btn--solid adm-btn--sm" onClick={t.open}>
-              Open the player
+          {!t.playable ? null : t.state === "closed" ? (
+            <button type="button" className="adm-btn adm-btn--solid adm-btn--sm" onClick={t.play}>
+              Play again
             </button>
           ) : (
             <>
@@ -162,8 +162,8 @@ export default function TempleCard() {
               <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm" onClick={t.volUp} aria-label="Volume up" disabled={t.volume >= 1}>
                 +
               </button>
-              <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm" onClick={t.close}>
-                Close
+              <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm" onClick={t.close} data-tip="Stop it for this visit.">
+                Stop
               </button>
             </>
           )}
@@ -174,7 +174,16 @@ export default function TempleCard() {
       </p>
       {t.error && <p className="mdr__err">{t.error}</p>}
       {s.missing && <p className="mdr__err">The uploaded file is missing from this server, so the default is playing. Upload it again.</p>}
-      {src.kind === "youtube" && <p className="mdr-dim">To hear it on every page without streaming from YouTube, upload the audio file below{isSuper ? "" : " (the superadmin can do this)"}.</p>}
+      {src.kind === "youtube" && (
+        <p className="mdr__note">
+          <b>To hear it softly in the background on every page, upload the Chalisa as an audio file</b> (MP3 or M4A — a recording you own or may use){isSuper ? " under “Change the audio” below" : " (the superadmin can do this)"}. It is kept on this server and played from there: no video, no window, and after the first play no internet. YouTube itself does not allow its sound to be played without its video, so the video link{" "}
+          <a href={src.url} target="_blank" rel="noopener noreferrer">
+            opens on YouTube
+          </a>{" "}
+          instead.
+        </p>
+      )}
+      <p className="mdr-dim">The ॐ button in the header of every page plays or pauses it.</p>
       {isSuper && <Change t={t} />}
     </section>
   );

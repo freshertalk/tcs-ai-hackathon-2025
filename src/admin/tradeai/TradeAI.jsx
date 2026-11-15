@@ -1,0 +1,922 @@
+// TradeAI — the agentic chat about your trading, on its own page (opened from the /me card in a new
+// tab), laid out like a modern AI chat: your chats on the left (saved in the database, grouped by
+// day, searchable, pinnable, renamable), one calm column of conversation, and a composer at the foot.
+//
+// Each question is planned, the desk's data is gathered (positions, P&L history, live calls, levels,
+// patterns, habits, odds, outlook, the market, news when asked) and a mixture of the free AI models
+// answers through the AI Engine, merged by the strongest — falling back model by model and to the
+// desk's own arithmetic, so it always answers. Answers are rich Markdown (headings, tables, coloured
+// figures) with key numbers, a forecast and actions. The empty chat suggests what you are most
+// likely to ask now (your open positions first); every answer ends with related questions.
+
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { api } from "../api";
+import { useAuth } from "../auth";
+import { useDialog } from "../dialog/DialogProvider";
+import Shell from "../Shell";
+import Markdown, { inline } from "./markdown";
+import "./tradeai.css";
+
+const KIND = { corrective: "Fix now", proactive: "Prepare", watch: "Watch" };
+const SUGGEST_ICON = { position: "📈", order: "⏳", review: "📋", probable: "🎯", alert: "🔔", time: "🕘", market: "🌐" };
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const reduced = () => typeof window !== "undefined" && window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+const store = {
+  get(k, d) {
+    try {
+      const v = window.localStorage.getItem(k);
+      return v === null ? d : JSON.parse(v);
+    } catch (_) {
+      return d;
+    }
+  },
+  set(k, v) {
+    try {
+      window.localStorage.setItem(k, JSON.stringify(v));
+    } catch (_) {
+      /* a private window: fine */
+    }
+  },
+};
+
+function greeting(d = new Date()) {
+  const h = d.getHours();
+  return h < 5 ? "Working late" : h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : h < 22 ? "Good evening" : "Good night";
+}
+function firstName(user) {
+  const raw = ((user && user.name) || "").trim().split(/\s+/)[0] || "there";
+  return raw.charAt(0).toUpperCase() + raw.slice(1);
+}
+function groupOf(iso, now = new Date()) {
+  const d = new Date(iso);
+  const day = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const diff = Math.round((day(now) - day(d)) / 86400000);
+  if (diff <= 0) return "Today";
+  if (diff === 1) return "Yesterday";
+  if (diff < 7) return "Previous 7 days";
+  if (diff < 30) return "Previous 30 days";
+  return "Older";
+}
+const signClass = (v) => (/^\s*[+▲]/.test(v) ? "is-up" : /^\s*[−▼]|^\s*-\s?[₹\d]/.test(v) ? "is-down" : "");
+
+/* ---------------------------------------------------------------------------------- icons */
+const I = ({ d, size = 18, fill = "none" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill={fill} stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    {d}
+  </svg>
+);
+const IcNew = () => <I d={<path d="M12 5v14M5 12h14" />} />;
+const IcSide = () => <I d={<><rect x="3" y="4" width="18" height="16" rx="3" /><path d="M9 4v16" /></>} />;
+const IcSearch = () => <I size={16} d={<><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></>} />;
+const IcSend = () => <I d={<path d="M12 19V5M5 12l7-7 7 7" />} />;
+const IcStop = () => <I fill="currentColor" d={<rect x="7" y="7" width="10" height="10" rx="2" />} />;
+const IcCopy = () => <I size={16} d={<><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15V6a2 2 0 0 1 2-2h9" /></>} />;
+const IcCheck = () => <I size={16} d={<path d="m5 12 5 5 9-10" />} />;
+const IcEdit = () => <I size={16} d={<path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4Z" />} />;
+const IcRetry = () => <I size={16} d={<><path d="M20 11a8 8 0 1 0-2.3 5.7" /><path d="M20 4v7h-7" /></>} />;
+const IcPin = () => <I size={15} d={<path d="M9 4h6l-1 6 4 3H6l4-3-1-6ZM12 13v7" />} />;
+const IcTrash = () => <I size={15} d={<><path d="M4 7h16M10 11v6M14 11v6" /><path d="M6 7l1 13h10l1-13M9 7V4h6v3" /></>} />;
+const IcMore = () => <I size={16} d={<><circle cx="5" cy="12" r="1" /><circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /></>} />;
+const IcDown = () => <I d={<path d="M12 5v14M5 12l7 7 7-7" />} />;
+const IcArrow = () => <I size={16} d={<path d="M5 12h14M13 6l6 6-6 6" />} />;
+const IcRefresh = () => <I size={15} d={<><path d="M20 11a8 8 0 1 0-2.3 5.7" /><path d="M20 4v7h-7" /></>} />;
+
+/* ------------------------------------------------------------------------------ copy button */
+function CopyBtn({ text, label = "Copy" }) {
+  const [done, setDone] = useState(false);
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch (_) {
+      const t = document.createElement("textarea");
+      t.value = text;
+      document.body.appendChild(t);
+      t.select();
+      try {
+        document.execCommand("copy");
+      } catch (__) {
+        /* nothing more to try */
+      }
+      t.remove();
+    }
+    setDone(true);
+    setTimeout(() => setDone(false), 1500);
+  };
+  return (
+    <button type="button" className="tai-icon" onClick={copy} aria-label={done ? "Copied" : label} data-tip={done ? "Copied" : label}>
+      {done ? <IcCheck /> : <IcCopy />}
+    </button>
+  );
+}
+
+/* --------------------------------------------------------------------------------- composer */
+function Composer({ value, onChange, onSend, onStop, busy, disabled, big, inputRef, hint }) {
+  useLayoutEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 220)}px`;
+  }, [value, inputRef]);
+  return (
+    <form
+      className={`tai-comp ${big ? "tai-comp--big" : ""}`}
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (!busy) onSend(value);
+      }}
+    >
+      <textarea
+        ref={inputRef}
+        rows={1}
+        value={value}
+        maxLength={1500}
+        onChange={(e) => onChange(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+            e.preventDefault();
+            if (!busy) onSend(value);
+          }
+        }}
+        placeholder={big ? "Ask about your positions, a stock, the market or your results…" : "Reply to TradeAI…"}
+        aria-label="Your question"
+        disabled={disabled}
+      />
+      <div className="tai-comp__row">
+        <span className="tai-comp__hint">{hint}</span>
+        {value.length > 1200 && <span className="tai-comp__count">{value.length}/1500</span>}
+        {busy ? (
+          <button type="button" className="tai-send is-stop" onClick={onStop} aria-label="Stop the answer" data-tip="Stop (Esc)">
+            <IcStop />
+          </button>
+        ) : (
+          <button type="submit" className="tai-send" disabled={disabled || !value.trim()} aria-label="Send" data-tip="Send (Enter)">
+            <IcSend />
+          </button>
+        )}
+      </div>
+    </form>
+  );
+}
+
+/* ----------------------------------------------------------------------------- an answer */
+function useReveal(text, on) {
+  const [n, setN] = useState(on ? 0 : String(text || "").length);
+  useEffect(() => {
+    const len = String(text || "").length;
+    if (!on || reduced()) {
+      setN(len);
+      return undefined;
+    }
+    // by the clock, on a timer (animation frames stop in a hidden tab): it always finishes in
+    // under two seconds, however busy the page is
+    const t0 = Date.now();
+    const ms = Math.min(1800, 450 + len * 1.6);
+    const id = setInterval(() => {
+      const i = Math.min(len, Math.ceil((len * (Date.now() - t0)) / ms));
+      setN(i);
+      if (i >= len) clearInterval(id);
+    }, 30);
+    return () => clearInterval(id);
+  }, [text, on]);
+  return n;
+}
+
+function Process({ meta }) {
+  const used = meta.used || [];
+  const n = (meta.by || []).length;
+  const label = meta.engineOnly ? "Answered with the desk’s own arithmetic (the AI models did not answer)" : `Read ${used.length ? used.join(", ") : "the desk"} · ${n} free model${n === 1 ? "" : "s"}${meta.mergedBy ? ` · merged by ${meta.mergedBy}` : ""}${meta.fallback ? " · after a fallback" : ""}`;
+  return (
+    <details className="tai-proc">
+      <summary>
+        <span className="tai-proc__ok">✓</span>
+        <span className="tai-proc__t">{label}</span>
+        {Number.isFinite(meta.sec) && <span className="tai-proc__s">{meta.sec}s</span>}
+      </summary>
+      <div className="tai-proc__body">
+        {meta.steps && meta.steps.length > 0 && (
+          <ol>
+            {meta.steps.map((s, i) => (
+              <li key={i}>{s}</li>
+            ))}
+          </ol>
+        )}
+        {meta.models && meta.models.length > 0 && (
+          <ul className="tai-proc__models">
+            {meta.models.map((m, i) => (
+              <li key={i} className={m.ok ? "is-ok" : "is-bad"}>
+                {m.ok ? "✓" : "✕"} {m.name} <small>{(m.ms / 1000).toFixed(1)}s{m.error ? ` · ${m.error}` : ""}</small>
+              </li>
+            ))}
+          </ul>
+        )}
+        <p>Through the AI Engine: the owner’s brains and the trading-skills rules went with every request.</p>
+      </div>
+    </details>
+  );
+}
+
+function Answer({ m, fresh, last, onAsk, onRetry, busy }) {
+  const r = m.reply || { answer: m.text, datapoints: [], actions: [], forecast: null, followups: [], related: [], meta: {} };
+  const meta = r.meta || {};
+  const text = String(r.answer || "");
+  const n = useReveal(text, fresh);
+  const done = n >= text.length;
+  const related = r.related && r.related.length ? r.related : r.followups || [];
+  const groups = ["corrective", "proactive", "watch"].map((k) => [k, (r.actions || []).filter((a) => a.kind === k)]).filter(([, l]) => l.length);
+  const conf = { low: 1, medium: 2, high: 3 }[r.confidence] || 1;
+  return (
+    <article className={`tai-msg tai-msg--ai ${fresh ? "is-fresh" : ""}`}>
+      <img className="tai-avatar" src="/img/hanuman-full-96.png" alt="" width="30" height="30" />
+      <div className="tai-ans">
+        <Process meta={meta} />
+        <Markdown text={done ? text : text.slice(0, n)} className={done ? "" : "is-typing"} />
+        {done && (
+          <div className="tai-extra">
+            {r.datapoints && r.datapoints.length > 0 && (
+              <section className="tai-dp" aria-label="Key numbers">
+                {r.datapoints.map((d, i) => (
+                  <div key={i} style={{ animationDelay: `${i * 40}ms` }}>
+                    <span>{d.label}</span>
+                    <b className={signClass(d.value)}>{d.value}</b>
+                  </div>
+                ))}
+              </section>
+            )}
+            {r.forecast && r.forecast.lean && r.forecast.lean !== "n/a" && (
+              <section className={`tai-fc is-${r.forecast.lean}`} aria-label="Forecast">
+                <span className="tai-fc__arrow" aria-hidden="true">
+                  {r.forecast.lean === "up" ? "▲" : r.forecast.lean === "down" ? "▼" : "◆"}
+                </span>
+                <div>
+                  <b>
+                    Leans {r.forecast.lean}
+                    {r.forecast.horizon ? <small> · {r.forecast.horizon}</small> : null}
+                  </b>
+                  {r.forecast.scenarios && r.forecast.scenarios.length > 0 && (
+                    <ul>
+                      {r.forecast.scenarios.map((s, i) => (
+                        <li key={i}>{inline(s, `fc${i}`)}</li>
+                      ))}
+                    </ul>
+                  )}
+                  <span className="tai-conf" aria-label={`Confidence ${r.confidence || "low"}`}>
+                    Confidence
+                    {[1, 2, 3].map((x) => (
+                      <i key={x} className={x <= conf ? "is-on" : ""} />
+                    ))}
+                    <small>{r.confidence || "low"} — how well the evidence agrees, not a promise</small>
+                  </span>
+                </div>
+              </section>
+            )}
+            {groups.length > 0 && (
+              <section className="tai-acts" aria-label="Actions">
+                {groups.map(([k, list]) => (
+                  <div key={k} className={`tai-acts__g is-${k}`}>
+                    <span className="tai-acts__k">{KIND[k]}</span>
+                    <ul>
+                      {list.map((a, i) => (
+                        <li key={i}>{inline(a.text, `a${k}${i}`)}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </section>
+            )}
+            <div className="tai-bar">
+              <CopyBtn text={text} />
+              {last && (
+                <button type="button" className="tai-icon" onClick={onRetry} disabled={busy} aria-label="Retry" data-tip="Ask again">
+                  <IcRetry />
+                </button>
+              )}
+              <span className="tai-bar__note">{meta.engineOnly ? "Desk’s arithmetic" : "A second opinion, not advice"}</span>
+            </div>
+            {last && related.length > 0 && (
+              <section className="tai-rel" aria-label="Related questions">
+                <h4>Related</h4>
+                <ul>
+                  {related.map((q, i) => (
+                    <li key={q} style={{ animationDelay: `${i * 60}ms` }}>
+                      <button type="button" onClick={() => onAsk(q)} disabled={busy}>
+                        <span className="tai-rel__i" aria-hidden="true">↳</span>
+                        <span>{q}</span>
+                        <IcArrow />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+          </div>
+        )}
+      </div>
+    </article>
+  );
+}
+
+function Question({ m, onEdit, busy }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(m.text);
+  if (editing)
+    return (
+      <article className="tai-msg tai-msg--me is-editing">
+        <form
+          className="tai-edit"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (draft.trim()) {
+              setEditing(false);
+              onEdit(draft);
+            }
+          }}
+        >
+          <textarea value={draft} onChange={(e) => setDraft(e.target.value)} rows={3} maxLength={1500} aria-label="Edit your question" autoFocus />
+          <span>
+            <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm" onClick={() => setEditing(false)}>
+              Cancel
+            </button>
+            <button type="submit" className="adm-btn adm-btn--solid adm-btn--sm" disabled={!draft.trim() || busy}>
+              Send
+            </button>
+          </span>
+        </form>
+      </article>
+    );
+  return (
+    <article className="tai-msg tai-msg--me">
+      <div className="tai-q">{m.text}</div>
+      <div className="tai-bar tai-bar--me">
+        <CopyBtn text={m.text} />
+        <button
+          type="button"
+          className="tai-icon"
+          onClick={() => {
+            setDraft(m.text);
+            setEditing(true);
+          }}
+          disabled={busy}
+          aria-label="Edit"
+          data-tip="Edit and ask again"
+        >
+          <IcEdit />
+        </button>
+      </div>
+    </article>
+  );
+}
+
+function Working({ job }) {
+  const [sec, setSec] = useState(0);
+  useEffect(() => {
+    // counted on this page (the server's clock may differ from this computer's)
+    const t0 = Date.now();
+    const id = setInterval(() => setSec(Math.round((Date.now() - t0) / 1000)), 500);
+    return () => clearInterval(id);
+  }, [job.id]);
+  const steps = job.steps || [];
+  const now = steps[steps.length - 1] || "Working out what this needs";
+  return (
+    <article className="tai-msg tai-msg--ai is-working" aria-live="polite">
+      <img className="tai-avatar is-spin" src="/img/hanuman-full-96.png" alt="" width="30" height="30" />
+      <div className="tai-ans">
+        <p className="tai-shimmer">
+          {now}
+          <span className="tai-dots" aria-hidden="true">
+            <i />
+            <i />
+            <i />
+          </span>
+        </p>
+        {steps.length > 1 && (
+          <ol className="tai-steps">
+            {steps.slice(0, -1).map((s, i) => (
+              <li key={i}>
+                <span>✓</span> {s}
+              </li>
+            ))}
+          </ol>
+        )}
+        <small className="tai-dim">{sec}s · free models answer in about 15–60 seconds</small>
+      </div>
+    </article>
+  );
+}
+
+/* --------------------------------------------------------------------------------- sidebar */
+function ChatItem({ c, open, onOpen, onRename, onPin, onDelete }) {
+  const [menu, setMenu] = useState(false);
+  const [edit, setEdit] = useState(false);
+  const [name, setName] = useState(c.title);
+  const ref = useRef(null);
+  useEffect(() => {
+    if (!menu) return undefined;
+    const close = (e) => ref.current && !ref.current.contains(e.target) && setMenu(false);
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [menu]);
+  if (edit)
+    return (
+      <li className="tai-item is-edit">
+        <input
+          value={name}
+          autoFocus
+          maxLength={80}
+          onChange={(e) => setName(e.target.value)}
+          onBlur={() => setEdit(false)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && name.trim()) {
+              setEdit(false);
+              onRename(name);
+            }
+            if (e.key === "Escape") setEdit(false);
+          }}
+          aria-label="Chat name"
+        />
+      </li>
+    );
+  return (
+    <li className={`tai-item ${open ? "is-on" : ""}`} ref={ref}>
+      <button type="button" className="tai-item__go" onClick={onOpen} title={c.preview || c.title}>
+        {c.pinned && (
+          <span className="tai-item__pin" aria-label="Pinned">
+            <IcPin />
+          </span>
+        )}
+        <span className="tai-item__t">{c.title || "Chat"}</span>
+      </button>
+      <button type="button" className="tai-item__more" onClick={() => setMenu((x) => !x)} aria-label={`More for ${c.title}`} aria-expanded={menu}>
+        <IcMore />
+      </button>
+      {menu && (
+        <div className="tai-menu" role="menu">
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              setMenu(false);
+              setName(c.title);
+              setEdit(true);
+            }}
+          >
+            <IcEdit /> Rename
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              setMenu(false);
+              onPin(!c.pinned);
+            }}
+          >
+            <IcPin /> {c.pinned ? "Unpin" : "Pin"}
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            className="is-danger"
+            onClick={() => {
+              setMenu(false);
+              onDelete();
+            }}
+          >
+            <IcTrash /> Delete
+          </button>
+        </div>
+      )}
+    </li>
+  );
+}
+
+/* ------------------------------------------------------------------------------------ page */
+export default function TradeAI() {
+  const { user } = useAuth() || {};
+  const ask = useDialog();
+  const isOwner = Boolean(user && user.role === "superadmin");
+  const [convs, setConvs] = useState(null);
+  const [q, setQ] = useState("");
+  const [conv, setConv] = useState(null);
+  const [text, setText] = useState("");
+  const [job, setJob] = useState(null);
+  const [err, setErr] = useState("");
+  const [fresh, setFresh] = useState(null);
+  const [side, setSide] = useState(() => (typeof window !== "undefined" && window.innerWidth < 1024 ? false : store.get("tai.side", true)));
+  const [sugg, setSugg] = useState(null);
+  const [atBottom, setAtBottom] = useState(true);
+  const [titleEdit, setTitleEdit] = useState(false);
+  const [top, setTop] = useState(56);
+  const inputRef = useRef(null);
+  const scrollRef = useRef(null);
+  const openRef = useRef(null);
+  const stopRef = useRef(false);
+  const narrow = () => typeof window !== "undefined" && window.innerWidth < 1024;
+
+  // the chat fills the window under the site's header, and the page itself does not scroll
+  useLayoutEffect(() => {
+    const head = document.querySelector(".adm-head");
+    const measure = () => setTop(head ? Math.max(0, Math.round(head.getBoundingClientRect().bottom)) : 56);
+    measure();
+    document.documentElement.classList.add("tai-lock");
+    window.addEventListener("resize", measure);
+    let ro = null;
+    if (head && typeof ResizeObserver !== "undefined") {
+      ro = new ResizeObserver(measure);
+      ro.observe(head);
+    }
+    return () => {
+      document.documentElement.classList.remove("tai-lock");
+      window.removeEventListener("resize", measure);
+      if (ro) ro.disconnect();
+    };
+  }, []);
+
+  const setUrl = (id) => {
+    try {
+      const u = new URL(window.location.href);
+      if (id) u.searchParams.set("c", id);
+      else u.searchParams.delete("c");
+      window.history.replaceState(null, "", u.toString());
+    } catch (_) {
+      /* fine */
+    }
+  };
+
+  const loadList = useCallback((query = "") => {
+    return api(`/api/admin/tradeai/convs${query ? `?q=${encodeURIComponent(query)}` : ""}`)
+      .then((d) => setConvs(Array.isArray(d && d.convs) ? d.convs : []))
+      .catch(() => setConvs((c) => c || []));
+  }, []);
+  const loadSugg = useCallback(() => {
+    setSugg(null);
+    api("/api/admin/tradeai/suggest")
+      .then((d) => setSugg(Array.isArray(d && d.suggestions) ? d : { suggestions: [] }))
+      .catch(() => setSugg({ suggestions: [] }));
+  }, []);
+
+  // search the chats as you type (titles and messages)
+  useEffect(() => {
+    const id = setTimeout(() => loadList(q.trim()), q ? 250 : 0);
+    return () => clearTimeout(id);
+  }, [q, loadList]);
+
+  const follow = useCallback(
+    async (j0, convId) => {
+      let j = j0;
+      setJob(j);
+      stopRef.current = false;
+      while (!j.finishedAt && !stopRef.current) {
+        await sleep(1000);
+        try {
+          j = await api(`/api/admin/tradeai/job/${j.id}`);
+        } catch (e) {
+          setErr(e.message);
+          break;
+        }
+        setJob(j);
+      }
+      if (j.error) setErr(j.error);
+      const c = await api(`/api/admin/tradeai/convs/${convId}`).catch(() => null);
+      if (c && openRef.current === convId) {
+        setConv(c);
+        const lastMsg = c.messages[c.messages.length - 1];
+        if (lastMsg && lastMsg.role === "assistant" && !j.cancelled && !stopRef.current) setFresh(lastMsg.id);
+      }
+      setJob(null);
+      loadList();
+    },
+    [loadList]
+  );
+
+  const openChat = useCallback(
+    async (id) => {
+      setErr("");
+      if (narrow()) setSide(false);
+      try {
+        const c = await api(`/api/admin/tradeai/convs/${id}`);
+        openRef.current = c.id;
+        setConv(c);
+        setFresh(null);
+        setUrl(c.id);
+        setAtBottom(true);
+        if (c.job) follow({ id: c.job, finishedAt: null, steps: [], startedAt: null }, c.id);
+      } catch (e) {
+        setErr(e.message);
+        setUrl(null);
+      }
+    },
+    [follow]
+  );
+
+  // first load: the chat in the address (?c=), else a new chat with suggestions
+  useEffect(() => {
+    let id = null;
+    try {
+      id = new URL(window.location.href).searchParams.get("c");
+    } catch (_) {
+      id = null;
+    }
+    if (id && /^[a-f0-9]{6,32}$/.test(id)) openChat(id);
+    loadSugg();
+  }, [openChat, loadSugg]);
+
+  const fresh0 = () => {
+    if (job) return;
+    openRef.current = null;
+    setConv(null);
+    setErr("");
+    setFresh(null);
+    setText("");
+    setUrl(null);
+    if (narrow()) setSide(false);
+    loadSugg();
+    setTimeout(() => inputRef.current && inputRef.current.focus(), 0);
+  };
+
+  const send = async (raw, from = null) => {
+    const question = String(raw || "").trim();
+    if (!question || job) return;
+    setErr("");
+    setText("");
+    setFresh(null);
+    setAtBottom(true);
+    const base = conv || { id: null, title: question.slice(0, 60), messages: [] };
+    const msgs = from !== null ? base.messages.slice(0, from) : base.messages;
+    setConv({ ...base, messages: [...msgs, { id: `tmp-${Date.now()}`, role: "user", text: question, at: new Date().toISOString() }] });
+    try {
+      const d = await api("/api/admin/tradeai/ask", { method: "POST", body: { conv: base.id, text: question, from } });
+      openRef.current = d.conv;
+      setUrl(d.conv);
+      if (!base.id) {
+        setConv((c) => ({ ...c, id: d.conv }));
+        loadList();
+      }
+      await follow(d.job, d.conv);
+    } catch (e) {
+      setErr(e.message);
+      setJob(null);
+    }
+  };
+
+  const stop = async () => {
+    if (!job) return;
+    stopRef.current = true;
+    await api(`/api/admin/tradeai/job/${job.id}/stop`, { method: "POST" }).catch(() => null);
+  };
+
+  const fail = (e) => {
+    setErr(e.message);
+    return null;
+  };
+  const rename = async (id, title) => {
+    const d = await api(`/api/admin/tradeai/convs/${id}`, { method: "PUT", body: { title } }).catch(fail);
+    if (d) setConvs(d.convs);
+    if (conv && conv.id === id) setConv((c) => ({ ...c, title: title.trim() }));
+  };
+  const pin = async (id, pinned) => {
+    const d = await api(`/api/admin/tradeai/convs/${id}/pin`, { method: "PUT", body: { pinned } }).catch(fail);
+    if (d) setConvs(d.convs);
+  };
+  const del = async (c) => {
+    const yes = await ask({ tone: "danger", title: "Delete this chat?", body: `“${c.title}” is deleted from the database for good.`, confirmText: "Delete the chat", cancelText: "Keep it" });
+    if (!yes) return;
+    const d = await api(`/api/admin/tradeai/convs/${c.id}`, { method: "DELETE" }).catch(fail);
+    if (d) setConvs(d.convs);
+    if (conv && conv.id === c.id) fresh0();
+  };
+
+  // keyboard: Esc stops (or closes the chats on a phone), Ctrl+Shift+O a new chat, "/" the composer
+  useEffect(() => {
+    const onKey = (e) => {
+      const typing = /^(INPUT|TEXTAREA|SELECT)$/.test((e.target && e.target.tagName) || "");
+      if (e.key === "Escape") {
+        if (job) stop();
+        else if (side && narrow()) setSide(false);
+      } else if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === "O" || e.key === "o")) {
+        e.preventDefault();
+        fresh0();
+      } else if (e.key === "/" && !typing) {
+        e.preventDefault();
+        if (inputRef.current) inputRef.current.focus();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
+
+  // follow the conversation down while you are at the bottom
+  const msgs = (conv && conv.messages) || [];
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (el && atBottom) el.scrollTo({ top: el.scrollHeight, behavior: reduced() ? "auto" : "smooth" });
+  }, [msgs.length, job, atBottom]);
+  useEffect(() => {
+    if (!fresh) return undefined;
+    const el = scrollRef.current;
+    const id = setInterval(() => el && atBottom && (el.scrollTop = el.scrollHeight), 120);
+    const off = setTimeout(() => clearInterval(id), 2500);
+    return () => {
+      clearInterval(id);
+      clearTimeout(off);
+    };
+  }, [fresh, atBottom]);
+
+  const toggleSide = () =>
+    setSide((s) => {
+      if (!narrow()) store.set("tai.side", !s);
+      return !s;
+    });
+
+  const groups = useMemo(() => {
+    const out = [];
+    const now = new Date();
+    for (const c of convs || []) {
+      const g = c.pinned ? "Pinned" : groupOf(c.updatedAt, now);
+      let grp = out.find((x) => x.name === g);
+      if (!grp) {
+        grp = { name: g, items: [] };
+        out.push(grp);
+      }
+      grp.items.push(c);
+    }
+    return out;
+  }, [convs]);
+
+  const busy = Boolean(job);
+  const lastAi = msgs.map((m) => m.role).lastIndexOf("assistant");
+  const dangling = !busy && msgs.length > 0 && msgs[msgs.length - 1].role === "user" && conv && conv.id;
+  const retryFrom = (i) => {
+    // the question before answer i, asked again
+    for (let k = i - 1; k >= 0; k -= 1) if (msgs[k].role === "user") return send(msgs[k].text, k);
+    return null;
+  };
+  const hint = isOwner ? "Reads your positions & P&L (read-only) · free models · never down" : "Free models · never down · account data is the owner’s only";
+
+  return (
+    <Shell crumb="TradeAI" fluid>
+      <div className={`tai-app ${side ? "is-side" : ""}`} style={{ top }}>
+        <aside className="tai-side" aria-label="Your chats">
+          <div className="tai-side__top">
+            <button type="button" className="tai-new" onClick={fresh0} disabled={busy} data-tip="New chat (Ctrl Shift O)">
+              <IcNew /> New chat
+            </button>
+            <button type="button" className="tai-icon" onClick={toggleSide} aria-label="Hide the chats">
+              <IcSide />
+            </button>
+          </div>
+          <label className="tai-search">
+            <IcSearch />
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search chats" aria-label="Search chats" />
+          </label>
+          <nav className="tai-list">
+            {convs === null && (
+              <ul className="tai-skel" aria-hidden="true">
+                {[0, 1, 2, 3].map((i) => (
+                  <li key={i} />
+                ))}
+              </ul>
+            )}
+            {convs && !convs.length && <p className="tai-dim tai-list__empty">{q ? "No chat matches." : "Your chats will appear here — saved in the database, until you delete them."}</p>}
+            {groups.map((g) => (
+              <div key={g.name} className="tai-group">
+                <h5>{g.name}</h5>
+                <ul>
+                  {g.items.map((c) => (
+                    <ChatItem key={c.id} c={c} open={conv && conv.id === c.id} onOpen={() => openChat(c.id)} onRename={(t) => rename(c.id, t)} onPin={(p) => pin(c.id, p)} onDelete={() => del(c)} />
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </nav>
+          <p className="tai-side__foot">
+            {convs ? `${convs.length} chat${convs.length === 1 ? "" : "s"}` : ""} · saved in the database
+          </p>
+        </aside>
+        <button type="button" className="tai-scrim" aria-label="Close the chats" onClick={() => setSide(false)} tabIndex={-1} />
+
+        <section className="tai-main" aria-label="TradeAI">
+          <header className="tai-top">
+            {!side && (
+              <button type="button" className="tai-icon" onClick={toggleSide} aria-label="Show the chats">
+                <IcSide />
+              </button>
+            )}
+            {conv && conv.id && titleEdit ? (
+              <input
+                className="tai-title-in"
+                defaultValue={conv.title}
+                autoFocus
+                maxLength={80}
+                onBlur={() => setTitleEdit(false)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && e.target.value.trim()) {
+                    setTitleEdit(false);
+                    rename(conv.id, e.target.value);
+                  }
+                  if (e.key === "Escape") setTitleEdit(false);
+                }}
+                aria-label="Chat name"
+              />
+            ) : (
+              <button type="button" className="tai-title" onClick={() => conv && conv.id && setTitleEdit(true)} disabled={!conv || !conv.id} data-tip={conv && conv.id ? "Rename" : undefined}>
+                {conv ? conv.title : "TradeAI"}
+              </button>
+            )}
+            <span className="tai-grow" />
+            <span className="tai-badge" data-tip="A mixture of the free AI models through the AI Engine, merged by the strongest; fallback one by one, then the desk’s own arithmetic.">
+              <i /> Mixture · free models
+            </span>
+            {conv && (
+              <button type="button" className="tai-icon" onClick={fresh0} disabled={busy} aria-label="New chat" data-tip="New chat">
+                <IcNew />
+              </button>
+            )}
+          </header>
+
+          <div
+            className="tai-scroll"
+            ref={scrollRef}
+            onScroll={(e) => {
+              const el = e.currentTarget;
+              setAtBottom(el.scrollHeight - el.scrollTop - el.clientHeight < 80);
+            }}
+          >
+            {!conv ? (
+              <div className="tai-welcome">
+                <div className="tai-mark" aria-hidden="true">
+                  <img src="/img/hanuman-full-192.png" alt="" width="64" height="64" />
+                </div>
+                <h1>
+                  {greeting()}, {firstName(user)}
+                </h1>
+                <p className="tai-welcome__sub">What would you like to know about your trading today?</p>
+                <Composer value={text} onChange={setText} onSend={(v) => send(v)} onStop={stop} busy={busy} big inputRef={inputRef} hint={hint} />
+                <section className="tai-sugg" aria-label="Suggested questions">
+                  <header>
+                    <h2>{sugg && sugg.positions ? `Suggested now — from your ${sugg.positions} open position${sugg.positions === 1 ? "" : "s"} and the market` : "Suggested for you now"}</h2>
+                    <button type="button" className="tai-icon" onClick={loadSugg} aria-label="Refresh the suggestions" data-tip="Refresh">
+                      <IcRefresh />
+                    </button>
+                  </header>
+                  {!sugg ? (
+                    <ul className="tai-sugg__list is-loading" aria-hidden="true">
+                      {[0, 1, 2, 3].map((i) => (
+                        <li key={i} />
+                      ))}
+                    </ul>
+                  ) : (
+                    <ul className="tai-sugg__list">
+                      {sugg.suggestions.map((s, i) => (
+                        <li key={s.text} style={{ animationDelay: `${i * 50}ms` }}>
+                          <button type="button" onClick={() => send(s.text)} className={`is-${s.kind}`}>
+                            <span className="tai-sugg__i" aria-hidden="true">
+                              {SUGGEST_ICON[s.kind] || "💬"}
+                            </span>
+                            <span className="tai-sugg__t">{s.text}</span>
+                            <span className="tai-sugg__why">{s.why}</span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </section>
+              </div>
+            ) : (
+              <div className="tai-thread">
+                {msgs.map((m, i) =>
+                  m.role === "user" ? (
+                    <Question key={m.id || i} m={m} busy={busy} onEdit={(t) => send(t, i)} />
+                  ) : (
+                    <Answer key={m.id || i} m={m} fresh={fresh === m.id} last={i === lastAi && i === msgs.length - 1} busy={busy} onAsk={(t) => send(t)} onRetry={() => retryFrom(i)} />
+                  )
+                )}
+                {job && (!conv.id || job.conv === conv.id) && <Working job={job} />}
+                {dangling && (
+                  <div className="tai-note">
+                    <span>No answer is kept for this question{err ? "" : " (it was stopped, or the page was closed while it ran)"}.</span>
+                    <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm" onClick={() => send(msgs[msgs.length - 1].text, msgs.length - 1)}>
+                      <IcRetry /> Retry
+                    </button>
+                  </div>
+                )}
+                {err && <p className="tai-err">{err}</p>}
+              </div>
+            )}
+          </div>
+
+          {conv && !atBottom && (
+            <button type="button" className="tai-down" onClick={() => setAtBottom(true)} aria-label="Jump to the latest">
+              <IcDown />
+            </button>
+          )}
+          {conv && (
+            <div className="tai-foot">
+              <Composer value={text} onChange={setText} onSend={(v) => send(v)} onStop={stop} busy={busy} inputRef={inputRef} hint={hint} />
+              <p className="tai-dim">TradeAI can be wrong and never places orders — a second opinion, not advice. You decide.</p>
+            </div>
+          )}
+          {!conv && err && <p className="tai-err tai-err--welcome">{err}</p>}
+        </section>
+      </div>
+    </Shell>
+  );
+}

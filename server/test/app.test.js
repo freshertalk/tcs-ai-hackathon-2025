@@ -440,3 +440,30 @@ test("TRUST_PROXY given as text (as pm2 and .env do) still trusts one proxy hop"
   const r = await plain.request("GET", "/api/auth/status", { headers: { "x-forwarded-proto": "https" } });
   assert.equal(r.headers["strict-transport-security"], undefined, "without TRUST_PROXY the header is not believed");
 });
+
+test("site health: every part is checked, the page never breaks, and only signed-in people see it", async (t) => {
+  const s = await boot();
+  t.after(s.close);
+  assert.equal((await s.request("GET", "/api/admin/health")).status, 401);
+  await s.configure();
+  const boss = (await s.login(SUPERADMIN_EMAIL)).session;
+  const r = await s.request("GET", "/api/admin/health", { cookie: boss });
+  assert.equal(r.status, 200, r.text);
+  const ids = r.json.checks.map((c) => c.id);
+  for (const id of ["server", "database", "https", "signin", "zerodha", "stream", "universe", "alerts", "ai", "free", "brains", "research", "trading", "analysis", "paper", "telegram", "whatsapp", "mandir"]) assert.ok(ids.includes(id), `checks ${id}`);
+  assert.ok(r.json.checks.every((c) => ["ok", "warn", "error", "off"].includes(c.status) && c.detail), JSON.stringify(r.json.checks.filter((c) => !c.detail)));
+  assert.equal(r.json.checks.find((c) => c.id === "database").status, "ok");
+  assert.equal(r.json.checks.find((c) => c.id === "signin").status, "ok");
+  assert.equal(r.json.checks.find((c) => c.id === "zerodha").status, "off");
+  assert.equal(r.json.checks.find((c) => c.id === "mandir").status, "warn", "only a YouTube link: no background audio until a file is uploaded");
+  assert.ok(["ok", "warn", "error"].includes(r.json.overall));
+});
+
+test("the WhatsApp webhook refuses an unsigned body and a wrong verify token", async (t) => {
+  const s = await boot();
+  t.after(s.close);
+  const v = await s.request("GET", "/api/whatsapp/webhook?hub.mode=subscribe&hub.verify_token=nope&hub.challenge=1");
+  assert.equal(v.status, 403);
+  const p = await s.request("POST", "/api/whatsapp/webhook", { body: { entry: [] }, csrf: false });
+  assert.equal(p.status, 401, "no signature: refused (and no CSRF header is needed for Meta)");
+});

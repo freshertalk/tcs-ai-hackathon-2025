@@ -5,6 +5,7 @@ import { useAuth } from "./auth";
 import { adminPath } from "./paths";
 import { setTipsEnabled, useTipsEnabled } from "./help/TipLayer";
 import { useDeskTheme } from "./stock/analyzer/theme";
+import { TempleButton } from "./temple/Temple";
 
 const HINT_KEY = "vpt.tips.hint";
 
@@ -72,7 +73,7 @@ export default function Shell({ crumb, notice, children, narrow, wide, fluid }) 
           <nav className="adm-crumbs" aria-label="Breadcrumb">
             <Link to={adminPath()} className="adm-brand" aria-label="Drishti — the AI Trading Advisor for NSE. Back to the dashboard." data-tip="Back to the dashboard.">
               {/* Panchmukhi Hanuman Ji: the whole desk rests on Him */}
-              <img className="adm-brand__logo" src="/img/hanuman-icon-96.png" alt="" width="36" height="36" />
+              <img className="adm-brand__logo" src="/img/hanuman-full-96.png" srcSet="/img/hanuman-full-96.png 1x, /img/hanuman-full-192.png 2x" alt="Panchmukhi Hanuman Ji" width="40" height="40" />
               {/* one line at every width: the full name, then shorter forms as the screen narrows */}
               <span className="adm-brand__full">Drishti — the AI Trading Advisor for NSE</span>
               <span className="adm-brand__mid" aria-hidden="true">Drishti — AI Trading Advisor</span>
@@ -102,6 +103,7 @@ export default function Shell({ crumb, notice, children, narrow, wide, fluid }) 
                   </span>
                 </small>
               </span>
+              <TempleButton />
               <button type="button" className="tm-icon" onClick={toggleTheme} aria-label={theme === "dark" ? "Light theme" : "Dark theme"} data-tip="Switch between dark and light, here and in the trading terminal.">
                 {theme === "dark" ? "☀" : "☾"}
               </button>

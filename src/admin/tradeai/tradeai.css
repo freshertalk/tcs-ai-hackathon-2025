@@ -1,0 +1,1298 @@
+/* TradeAI (TradeAI.jsx, markdown.jsx): a calm, modern AI-chat layout — chats on the left, one
+   centred column of conversation, the composer at the foot. Soft surfaces, warm saffron-gold and
+   violet accents, gentle motion (all of it off under prefers-reduced-motion), and a drawer on a
+   phone. Colours come from the site's tokens so light and dark themes both work. */
+
+html.tai-lock,
+html.tai-lock body {
+  overflow: hidden;
+}
+
+.tai-app {
+  --tai-gold: #d9a93a;
+  --tai-saffron: #f08a24;
+  --tai-violet: #8b6cf0;
+  --tai-glow: color-mix(in srgb, var(--tai-gold) 22%, transparent);
+  --tai-col: 780px;
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 5;
+  display: grid;
+  grid-template-columns: 0 minmax(0, 1fr);
+  background:
+    radial-gradient(1200px 500px at 70% -10%, color-mix(in srgb, var(--tai-violet) 9%, transparent), transparent 60%),
+    radial-gradient(900px 400px at 20% 110%, color-mix(in srgb, var(--tai-gold) 8%, transparent), transparent 60%),
+    var(--paper);
+  transition: grid-template-columns 0.25s ease;
+}
+.tai-app.is-side {
+  grid-template-columns: 272px minmax(0, 1fr);
+}
+
+/* ---------------------------------------------------------------------------- sidebar */
+.tai-side {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  border-right: 1px solid var(--line);
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  backdrop-filter: blur(8px);
+}
+.tai-app:not(.is-side) .tai-side {
+  visibility: hidden;
+}
+.tai-side__top {
+  display: flex;
+  gap: 6px;
+  padding: 12px 12px 8px;
+}
+.tai-new {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  border: 1px solid color-mix(in srgb, var(--tai-gold) 45%, var(--line));
+  border-radius: 12px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--tai-gold) 16%, var(--surface)), color-mix(in srgb, var(--tai-violet) 10%, var(--surface)));
+  color: var(--ink);
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.2s ease;
+}
+.tai-new:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px var(--tai-glow);
+}
+.tai-new:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.tai-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 12px 8px;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--ink-3);
+}
+.tai-search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--ink);
+  font-size: var(--t-mid);
+}
+.tai-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 8px 8px;
+  overscroll-behavior: contain;
+}
+.tai-list__empty {
+  padding: 10px 8px;
+}
+.tai-group h5 {
+  margin: 12px 8px 4px;
+  font-size: var(--t-tag);
+  font-weight: 600;
+  color: var(--ink-3);
+}
+.tai-group ul,
+.tai-skel {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.tai-skel li {
+  height: 30px;
+  margin: 6px 4px;
+  border-radius: 8px;
+  background: linear-gradient(90deg, var(--surface-2), color-mix(in srgb, var(--surface-2) 40%, var(--line)), var(--surface-2));
+  background-size: 200% 100%;
+  animation: tai-skel 1.2s linear infinite;
+}
+@keyframes tai-skel {
+  to {
+    background-position: -200% 0;
+  }
+}
+.tai-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  border-radius: 9px;
+  transition: background 0.15s ease;
+}
+.tai-item:hover {
+  background: var(--surface-2);
+}
+.tai-item.is-on {
+  background: color-mix(in srgb, var(--tai-gold) 16%, var(--surface-2));
+}
+.tai-item__go {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 7px 8px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+.tai-item__t {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: var(--t-mid);
+}
+.tai-item__pin {
+  flex: none;
+  color: var(--tai-gold);
+  display: inline-flex;
+}
+.tai-item__more {
+  flex: none;
+  display: inline-flex;
+  padding: 5px;
+  margin-right: 2px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink-3);
+  cursor: pointer;
+  opacity: 0;
+}
+.tai-item:hover .tai-item__more,
+.tai-item.is-on .tai-item__more,
+.tai-item__more:focus-visible,
+.tai-item__more[aria-expanded="true"] {
+  opacity: 1;
+}
+.tai-item.is-edit input {
+  width: 100%;
+  margin: 2px 0;
+  padding: 6px 8px;
+  border: 1px solid var(--tai-gold);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: var(--t-mid);
+}
+.tai-menu {
+  position: absolute;
+  right: 4px;
+  top: calc(100% - 2px);
+  z-index: 20;
+  display: grid;
+  min-width: 150px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
+  animation: tai-pop 0.14s ease;
+}
+.tai-menu button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--ink);
+  font-size: var(--t-mid);
+  text-align: left;
+  cursor: pointer;
+}
+.tai-menu button:hover {
+  background: var(--surface-2);
+}
+.tai-menu .is-danger {
+  color: var(--down);
+}
+@keyframes tai-pop {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+}
+.tai-side__foot {
+  margin: 0;
+  padding: 8px 14px 12px;
+  border-top: 1px solid var(--line);
+  font-size: var(--t-tag);
+  color: var(--ink-3);
+}
+.tai-scrim {
+  display: none;
+}
+
+/* ------------------------------------------------------------------------------- main */
+.tai-main {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+.tai-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  min-height: 50px;
+}
+.tai-title,
+.tai-title-in {
+  min-width: 0;
+  max-width: min(520px, 60vw);
+  padding: 5px 9px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink);
+  font-size: var(--t-base);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: left;
+}
+.tai-title:not(:disabled) {
+  cursor: pointer;
+}
+.tai-title:not(:disabled):hover {
+  border-color: var(--line);
+}
+.tai-title-in {
+  border-color: var(--tai-gold);
+  background: var(--surface);
+  outline: 0;
+}
+.tai-grow {
+  flex: 1;
+}
+.tai-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 99px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  font-size: var(--t-tag);
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+.tai-badge i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--up);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--up) 22%, transparent);
+}
+.tai-icon {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink-2);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.tai-icon:hover:not(:disabled) {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+.tai-icon:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.tai-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scroll-behavior: smooth;
+}
+.tai-thread {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr); /* never wider than the window */
+  gap: 22px;
+  width: 100%;
+  max-width: var(--tai-col);
+  margin: 0 auto;
+  padding: 14px 18px 28px;
+}
+
+/* ---------------------------------------------------------------------------- welcome */
+.tai-welcome {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr); /* a one-line hint must not widen the page */
+  justify-items: center;
+  gap: 14px;
+  width: 100%;
+  max-width: var(--tai-col);
+  margin: 0 auto;
+  padding: clamp(24px, 9vh, 90px) 18px 40px;
+  text-align: center;
+  animation: tai-rise 0.5s ease both;
+}
+.tai-mark {
+  position: relative;
+  width: 72px;
+  height: 72px;
+  display: grid;
+  place-items: center;
+}
+.tai-mark::before {
+  content: "";
+  position: absolute;
+  inset: -8px;
+  border-radius: 24px;
+  background: conic-gradient(from 0deg, var(--tai-gold), var(--tai-saffron), var(--tai-violet), var(--tai-gold));
+  filter: blur(14px);
+  opacity: 0.55;
+  animation: tai-spin 8s linear infinite;
+}
+.tai-mark img {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  border-radius: 18px;
+  object-fit: contain;
+  background: #1a1005;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+@keyframes tai-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.tai-welcome h1 {
+  font-size: clamp(1.6rem, 3.4vw, 2.3rem) !important;
+  font-weight: 300 !important;
+  line-height: 1.15;
+  background: linear-gradient(90deg, var(--ink), color-mix(in srgb, var(--tai-gold) 70%, var(--ink)), var(--ink));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.tai-welcome__sub {
+  color: var(--ink-2);
+  margin-top: -6px !important;
+}
+.tai-sugg {
+  width: 100%;
+  margin-top: 8px;
+  text-align: left;
+}
+.tai-sugg header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.tai-sugg h2 {
+  font-size: var(--t-small) !important;
+  font-weight: 600 !important;
+  color: var(--ink-3);
+}
+.tai-sugg__list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.tai-sugg__list li {
+  animation: tai-rise 0.35s ease both;
+}
+.tai-sugg__list.is-loading li {
+  height: 74px;
+  border-radius: 14px;
+  background: linear-gradient(90deg, var(--surface-2), color-mix(in srgb, var(--surface-2) 40%, var(--line)), var(--surface-2));
+  background-size: 200% 100%;
+  animation: tai-skel 1.2s linear infinite;
+}
+.tai-sugg__list button {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 4px 10px;
+  width: 100%;
+  height: 100%;
+  padding: 11px 13px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.16s ease, border-color 0.16s ease, box-shadow 0.2s ease;
+}
+.tai-sugg__list button:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--tai-gold) 55%, var(--line));
+  box-shadow: 0 10px 24px var(--tai-glow);
+}
+.tai-sugg__list button.is-position {
+  border-left: 3px solid var(--tai-saffron);
+}
+.tai-sugg__list button.is-order,
+.tai-sugg__list button.is-alert {
+  border-left: 3px solid var(--tai-gold);
+}
+.tai-sugg__list button.is-review {
+  border-left: 3px solid var(--tai-violet);
+}
+.tai-sugg__i {
+  grid-row: span 2;
+  font-size: 1.15rem;
+  line-height: 1.3;
+}
+.tai-sugg__t {
+  font-size: var(--t-mid);
+  line-height: 1.4;
+}
+.tai-sugg__why {
+  justify-self: start;
+  padding: 0 8px;
+  border-radius: 99px;
+  background: var(--surface-2);
+  font-size: var(--t-tag);
+  color: var(--ink-2);
+}
+
+/* --------------------------------------------------------------------------- composer */
+.tai-foot {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
+  width: 100%;
+  max-width: var(--tai-col);
+  margin: 0 auto;
+  padding: 0 18px 12px;
+}
+.tai-foot > .tai-dim {
+  text-align: center;
+}
+.tai-comp {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 4px;
+  width: 100%;
+  padding: 10px 10px 8px 14px;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background: var(--surface);
+  background-clip: padding-box; /* the gradient ring shows through the border */
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.12);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.tai-comp::before {
+  /* a soft gradient ring while you type */
+  content: "";
+  position: absolute;
+  inset: -1px;
+  z-index: -1;
+  border-radius: 23px;
+  background: linear-gradient(120deg, var(--tai-gold), var(--tai-saffron), var(--tai-violet), var(--tai-gold));
+  background-size: 300% 100%;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  animation: tai-flow 6s linear infinite;
+}
+.tai-comp:focus-within {
+  border-color: transparent;
+  box-shadow: 0 10px 34px var(--tai-glow);
+}
+.tai-comp:focus-within::before {
+  opacity: 1;
+}
+@keyframes tai-flow {
+  to {
+    background-position: 300% 0;
+  }
+}
+.tai-comp--big {
+  padding: 14px 12px 10px 18px;
+  border-radius: 26px;
+}
+.tai-comp--big::before {
+  border-radius: 27px;
+}
+.tai-comp textarea {
+  width: 100%;
+  min-height: 26px;
+  max-height: 220px;
+  padding: 2px 0;
+  border: 0;
+  outline: 0;
+  resize: none;
+  background: transparent;
+  color: var(--ink);
+  font-size: var(--t-lead);
+  line-height: 1.55;
+}
+.tai-comp--big textarea {
+  min-height: 52px;
+}
+.tai-comp__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.tai-comp__hint {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: var(--t-tag);
+  color: var(--ink-3);
+  text-align: left;
+}
+.tai-comp__count {
+  font-size: var(--t-tag);
+  color: var(--ink-3);
+}
+.tai-send {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--tai-saffron), var(--tai-gold));
+  color: #1a1005;
+  cursor: pointer;
+  transition: transform 0.15s ease, opacity 0.15s ease, box-shadow 0.2s ease;
+}
+.tai-send:hover:not(:disabled) {
+  transform: scale(1.06);
+  box-shadow: 0 6px 16px var(--tai-glow);
+}
+.tai-send:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.tai-send.is-stop {
+  background: var(--ink);
+  color: var(--paper);
+  animation: tai-breathe 1.6s ease-in-out infinite;
+}
+@keyframes tai-breathe {
+  50% {
+    box-shadow: 0 0 0 6px color-mix(in srgb, var(--ink) 15%, transparent);
+  }
+}
+.tai-down {
+  position: absolute;
+  left: 50%;
+  bottom: 118px;
+  z-index: 4;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  margin-left: -18px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  animation: tai-rise 0.2s ease;
+}
+
+/* ---------------------------------------------------------------------------- messages */
+.tai-msg {
+  animation: tai-rise 0.32s ease both;
+}
+@keyframes tai-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+.tai-msg--me {
+  display: grid;
+  justify-items: end;
+  gap: 2px;
+}
+.tai-q {
+  max-width: min(620px, 88%);
+  padding: 10px 15px;
+  border-radius: 18px 18px 4px 18px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--tai-gold) 20%, var(--surface)), color-mix(in srgb, var(--tai-violet) 14%, var(--surface)));
+  border: 1px solid color-mix(in srgb, var(--tai-gold) 25%, var(--line));
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.55;
+}
+.tai-edit {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+  width: min(620px, 100%);
+}
+.tai-edit textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--tai-gold);
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: var(--t-base);
+  resize: vertical;
+}
+.tai-edit > span {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+.tai-msg--ai {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+.tai-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  object-fit: contain;
+  background: #1a1005;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--tai-gold) 40%, transparent);
+}
+.tai-avatar.is-spin {
+  animation: tai-halo 1.6s ease-in-out infinite;
+}
+@keyframes tai-halo {
+  50% {
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--tai-gold) 35%, transparent), 0 0 18px var(--tai-glow);
+  }
+}
+.tai-ans {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+  min-width: 0;
+}
+.tai-proc {
+  justify-self: start;
+  max-width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface) 80%, transparent);
+  font-size: var(--t-small);
+  color: var(--ink-2);
+}
+.tai-proc summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  cursor: pointer;
+  list-style: none;
+}
+.tai-proc summary::-webkit-details-marker {
+  display: none;
+}
+.tai-proc summary::after {
+  content: "›";
+  margin-left: 2px;
+  transition: transform 0.2s ease;
+}
+.tai-proc[open] summary::after {
+  transform: rotate(90deg);
+}
+.tai-proc__ok {
+  color: var(--up);
+}
+.tai-proc__t {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.tai-proc__s {
+  color: var(--ink-3);
+}
+.tai-proc__body {
+  display: grid;
+  gap: 6px;
+  padding: 2px 12px 10px 28px;
+  animation: tai-rise 0.2s ease;
+}
+.tai-proc__body ol,
+.tai-proc__body ul {
+  margin: 0;
+  padding-left: 16px;
+}
+.tai-proc__models {
+  list-style: none;
+  padding-left: 0 !important;
+}
+.tai-proc__models .is-ok {
+  color: var(--up);
+}
+.tai-proc__models .is-bad {
+  color: var(--down);
+}
+.tai-proc__models small {
+  color: var(--ink-3);
+}
+.tai-proc__body p {
+  color: var(--ink-3);
+}
+
+/* the answer's extras appear one after another */
+.tai-extra {
+  display: grid;
+  gap: 12px;
+  animation: tai-rise 0.35s ease both;
+}
+.tai-dp {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px;
+}
+.tai-dp > div {
+  display: grid;
+  gap: 1px;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: linear-gradient(180deg, var(--surface), color-mix(in srgb, var(--surface-2) 70%, var(--surface)));
+  animation: tai-rise 0.3s ease both;
+}
+.tai-dp span {
+  font-size: var(--t-tag);
+  color: var(--ink-3);
+}
+.tai-dp b {
+  font-size: var(--t-lead);
+  font-variant-numeric: tabular-nums;
+}
+.tai-app .is-up {
+  color: var(--up);
+}
+.tai-app .is-down {
+  color: var(--down);
+}
+.tai-fc {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--surface-2) 60%, var(--surface));
+}
+.tai-fc.is-up {
+  border-color: color-mix(in srgb, var(--up) 40%, var(--line));
+  background: linear-gradient(135deg, color-mix(in srgb, var(--up) 12%, var(--surface)), var(--surface));
+}
+.tai-fc.is-down {
+  border-color: color-mix(in srgb, var(--down) 40%, var(--line));
+  background: linear-gradient(135deg, color-mix(in srgb, var(--down) 12%, var(--surface)), var(--surface));
+}
+.tai-fc__arrow {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: var(--surface);
+  font-size: 1.1rem;
+}
+.tai-fc.is-up .tai-fc__arrow {
+  color: var(--up);
+}
+.tai-fc.is-down .tai-fc__arrow {
+  color: var(--down);
+}
+.tai-fc b small {
+  font-weight: 400;
+  color: var(--ink-3);
+}
+.tai-fc ul {
+  margin: 4px 0;
+  padding-left: 18px;
+}
+.tai-conf {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--t-tag);
+  color: var(--ink-3);
+}
+.tai-conf i {
+  width: 16px;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--line);
+}
+.tai-conf i.is-on {
+  background: linear-gradient(90deg, var(--tai-saffron), var(--tai-gold));
+}
+.tai-conf small {
+  margin-left: 4px;
+}
+.tai-acts {
+  display: grid;
+  gap: 8px;
+}
+.tai-acts__g {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--ink-3);
+  background: var(--surface);
+}
+.tai-acts__g.is-corrective {
+  border-left-color: var(--down);
+}
+.tai-acts__g.is-proactive {
+  border-left-color: var(--up);
+}
+.tai-acts__g.is-watch {
+  border-left-color: var(--tai-gold);
+}
+.tai-acts__k {
+  font-size: var(--t-tag);
+  font-weight: 700;
+  color: var(--ink-2);
+}
+.tai-acts ul {
+  margin: 0;
+  padding-left: 18px;
+}
+.tai-acts li {
+  font-size: var(--t-mid);
+}
+.tai-bar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--ink-3);
+}
+.tai-bar .tai-icon {
+  width: 28px;
+  height: 28px;
+}
+.tai-bar__note {
+  margin-left: 6px;
+  font-size: var(--t-tag);
+}
+.tai-bar--me {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.tai-msg--me:hover .tai-bar--me,
+.tai-bar--me:focus-within {
+  opacity: 1;
+}
+.tai-rel h4 {
+  margin: 0 0 4px;
+  font-size: var(--t-small);
+  font-weight: 600;
+  color: var(--ink-2);
+}
+.tai-rel ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--line);
+}
+.tai-rel li {
+  border-bottom: 1px solid var(--line);
+  animation: tai-rise 0.3s ease both;
+}
+.tai-rel button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 4px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-size: var(--t-mid);
+  text-align: left;
+  cursor: pointer;
+  transition: color 0.15s ease, padding 0.15s ease;
+}
+.tai-rel button > span:nth-child(2) {
+  flex: 1;
+}
+.tai-rel button svg {
+  opacity: 0;
+  transform: translateX(-4px);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+.tai-rel button:hover:not(:disabled) {
+  color: var(--tai-gold);
+  padding-left: 8px;
+}
+.tai-rel button:hover:not(:disabled) svg {
+  opacity: 1;
+  transform: none;
+}
+.tai-rel__i {
+  color: var(--tai-gold);
+}
+.tai-rel button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* while it works */
+.tai-shimmer {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  font-weight: 600;
+  background: linear-gradient(90deg, var(--ink-3), var(--ink), var(--tai-gold), var(--ink-3));
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: tai-flow 2.4s linear infinite;
+}
+.tai-dots {
+  display: inline-flex;
+  gap: 3px;
+}
+.tai-dots i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--tai-gold);
+  animation: tai-dot 1.2s ease-in-out infinite;
+}
+.tai-dots i:nth-child(2) {
+  animation-delay: 0.15s;
+}
+.tai-dots i:nth-child(3) {
+  animation-delay: 0.3s;
+}
+@keyframes tai-dot {
+  0%,
+  80%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+  40% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+}
+.tai-steps {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--t-small);
+  color: var(--ink-2);
+}
+.tai-steps li {
+  animation: tai-rise 0.25s ease both;
+}
+.tai-steps span {
+  color: var(--up);
+}
+.tai-note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+  color: var(--ink-2);
+  font-size: var(--t-mid);
+}
+.tai-note .adm-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.tai-err {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--down) 12%, transparent);
+  color: var(--down);
+}
+.tai-err--welcome {
+  max-width: var(--tai-col);
+  margin: 0 auto 12px;
+}
+.tai-dim {
+  color: var(--ink-3);
+  font-size: var(--t-tag);
+}
+
+/* ------------------------------------------------------------------------------ markdown */
+.md {
+  display: grid;
+  gap: 10px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.md.is-typing > :last-child::after {
+  content: "▍";
+  margin-left: 2px;
+  color: var(--tai-gold);
+  animation: tai-blink 0.9s steps(2) infinite;
+}
+@keyframes tai-blink {
+  50% {
+    opacity: 0;
+  }
+}
+.md-h {
+  margin: 6px 0 -2px !important;
+  font-weight: 600 !important;
+  line-height: 1.3 !important;
+}
+h3.md-h {
+  font-size: var(--t-title) !important;
+}
+h4.md-h {
+  font-size: var(--t-lead) !important;
+  color: color-mix(in srgb, var(--tai-gold) 55%, var(--ink));
+}
+h5.md-h {
+  font-size: var(--t-base) !important;
+}
+.md-p {
+  margin: 0;
+}
+.md strong {
+  font-weight: 600;
+  color: var(--ink);
+}
+.md em {
+  color: var(--ink-2);
+}
+.md a {
+  color: var(--tai-gold);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.md-list {
+  margin: 0;
+  padding-left: 22px;
+  display: grid;
+  gap: 4px;
+}
+.md-list li::marker {
+  color: var(--tai-gold);
+}
+.md-list .md-list {
+  margin-top: 4px;
+}
+.md-quote {
+  margin: 0;
+  padding: 6px 14px;
+  border-left: 3px solid var(--tai-violet);
+  border-radius: 0 10px 10px 0;
+  background: color-mix(in srgb, var(--tai-violet) 8%, transparent);
+  color: var(--ink-2);
+}
+.md-hr {
+  width: 100%;
+  border: 0;
+  border-top: 1px solid var(--line);
+}
+.md-pre {
+  margin: 0;
+  padding: 12px;
+  overflow-x: auto;
+  border-radius: 10px;
+  background: var(--surface-2);
+  font-size: var(--t-small);
+}
+.md-pre code {
+  padding: 0;
+  background: none;
+  color: var(--ink);
+}
+.md-table {
+  max-width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.md-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--t-mid);
+  font-variant-numeric: tabular-nums;
+}
+.md-table th,
+.md-table td {
+  padding: 7px 12px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+.md-table th {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--tai-gold) 12%, var(--surface-2)), var(--surface-2));
+  font-weight: 600;
+  font-size: var(--t-small);
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+.md-table tbody tr:nth-child(even) {
+  background: color-mix(in srgb, var(--surface-2) 45%, transparent);
+}
+.md-table tbody tr {
+  transition: background 0.12s ease;
+}
+.md-table tbody tr:hover {
+  background: color-mix(in srgb, var(--tai-gold) 9%, transparent);
+}
+.md-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+.md-table .is-num {
+  text-align: right;
+  white-space: nowrap;
+}
+.md-up,
+.md-table .md-up {
+  color: var(--up);
+  font-weight: 600;
+}
+.md-down,
+.md-table .md-down {
+  color: var(--down);
+  font-weight: 600;
+}
+
+/* ------------------------------------------------------------------------- small screens */
+@media (max-width: 1023px) {
+  .tai-app,
+  .tai-app.is-side {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .tai-side {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 30;
+    width: min(300px, 86vw);
+    transform: translateX(-100%);
+    transition: transform 0.25s ease, visibility 0.25s;
+    box-shadow: 12px 0 40px rgba(0, 0, 0, 0.35);
+    background: var(--surface);
+  }
+  .tai-app.is-side .tai-side {
+    transform: none;
+    visibility: visible;
+  }
+  .tai-app.is-side .tai-scrim {
+    display: block;
+    position: absolute;
+    inset: 0;
+    z-index: 25;
+    border: 0;
+    background: rgba(0, 0, 0, 0.45);
+    animation: tai-fade 0.2s ease;
+  }
+  .tai-main {
+    grid-column: 1;
+  }
+}
+@keyframes tai-fade {
+  from {
+    opacity: 0;
+  }
+}
+@media (max-width: 640px) {
+  .tai-sugg__list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .tai-badge {
+    display: none;
+  }
+  .tai-thread,
+  .tai-welcome {
+    padding-inline: 14px;
+  }
+  .tai-foot {
+    padding: 0 10px 8px;
+  }
+  .tai-foot > .tai-dim {
+    display: none;
+  }
+  .tai-msg--ai {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .tai-avatar {
+    display: none;
+  }
+  .tai-bar--me {
+    opacity: 1;
+  }
+  .tai-down {
+    bottom: 96px;
+  }
+  .tai-comp textarea {
+    font-size: 16px; /* no zoom on a phone */
+  }
+}
+@media (hover: none) {
+  .tai-item__more,
+  .tai-bar--me {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tai-app,
+  .tai-app *,
+  .tai-app *::before,
+  .tai-app *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+  .tai-scroll {
+    scroll-behavior: auto;
+  }
+}

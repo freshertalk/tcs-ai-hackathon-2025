@@ -304,11 +304,53 @@ The page also shows each feature's real instructions word for word and edits the
 downloads everything as a real .docx made in the browser (`docs/docx.js`: a stored ZIP, no library). The Document has the
 same Word download.
 
-**The Mandir (`server/temple.js`, `src/admin/temple/`).** Shri Hanuman Chalisa at 15% on every private page, with play,
-pause, volume, fold and close (one tab plays at a time; browsers need a first tap). Sources: an uploaded audio file (chunked
-upload, kept in `server/data/media`, served to signed-in people with a week of browser caching), an https audio link, or a
-YouTube link played through YouTube's own embedded player (visible while playing; its audio is never downloaded or extracted).
-The Panchmukhi Hanuman Ji logo stands before the name in the header.
+**The Mandir (`server/temple.js`, `src/admin/temple/`).** Shri Hanuman Chalisa as background audio only (no video, no
+floating window) at 5% on every private page, controlled from the Mandir card under Settings and an ॐ button in every
+header (one tab plays at a time; browsers need a first tap). Sources: an uploaded audio file (chunked upload, kept in
+`server/data/media`, served to signed-in people with a week of browser caching) or an https audio link. A YouTube source is
+kept as a link only: YouTube's terms allow neither audio without its player nor downloading, so it never plays in the
+background. The full (uncropped) Panchmukhi Hanuman Ji logo stands before the name in the header
+(`public/img/hanuman-full-96.png`, `-192.png`).
+
+**WhatsApp Trading (`server/whatsapp.js`, `server/ai/whatsapp-ai.js`, `src/admin/WhatsAppCard.jsx`; superadmin).** The
+official WhatsApp Business Cloud API (Graph v21.0). The webhook `GET|POST /api/whatsapp/webhook` is mounted before
+`express.json` so the raw body can be checked against `X-Hub-Signature-256` (HMAC-SHA256 with the app secret); only the
+owner's number is answered and each message id is handled once. The server sends a 9:20 AM status, an update every N minutes
+(10–120, default 30) in market hours while positions are open (price, P&L, volume, buyers vs sellers, 5-minute RSI, VWAP, the
+live call, levels, plus up to 5 free models' advice voted per position) and the 3:35 PM P&L; alerts, the risk-guard lock and the
+3:45 PM report fan out from `notify.js`. Commands: HELP, STATUS, POS, PNL [YESTERDAY|WEEK|MONTH], QUOTE, CALL, ASK, ALERTS,
+ALERT, UPDATES ON|OFF, EVERY n, TRADING ON|OFF, BUY/SELL qty SYM [@ price] [MIS|CNC], EXIT SYM, EXIT ALL, NO. Money-moving
+commands (and TRADING ON) need "Allow trading from WhatsApp", then `YES <6-digit code> <PIN>` within 2 minutes; 3 wrong PINs
+lock it for 30 minutes; orders go through `TradingService` (switch, limits, risk guard, duplicate guard) audited as
+`whatsapp`. Token, app secret and verify token are encrypted; the PIN is a scrypt hash. Outside the 24-hour customer window
+it needs an approved template (one body parameter) or the owner sends HI.
+
+**TradeAI (`server/ai/tradeai.js`, `server/ai/mixture.js`, `src/admin/tradeai/`; `/me/tradeai`, opened from a `/me` card in
+a new tab).** An agentic chat: a plan picks the stocks named (positions, watchlist, NSE list) and the tools needed
+(positions/funds, P&L history, snapshot, market, outlook, news via the paid web search when asked, alerts); the snapshot reads
+the live call, verdict, levels, indicators, patterns, setups, habits, odds and the quote's buyers/sellers and circuits. The answer
+comes from `askMixture`: the 3 strongest free models in parallel, merged by the strongest that answered, then the others one by
+one, then the paid lead when on, then `fallbackAnswer` (the desk's arithmetic) — it always answers. Account data is injected by
+`app.js` (`ai.tradeai.account`: positions, funds, history, pending orders, today's trips) for the owner only; TradeAI cannot
+trade. The page (`src/admin/tradeai/`, a modern AI-chat layout fixed under the site header) has grouped/searchable chats with
+rename/pin/delete, `?c=<id>` in the address, a safe Markdown renderer (`markdown.jsx`: headings, lists, tables with coloured
+signed figures, no HTML), a timed typewriter reveal, edit/retry/stop/copy, `GET /api/admin/tradeai/suggest` (deterministic
+suggestions ranked from positions — losers first —, pending orders, today's trips, watchlist movers, alerts within 1%, time of
+day) and `reply.related` after each answer. Routes: `POST …/ask` (`{ conv, text, from }` — `from` rewinds to that question for
+edit/retry), `GET …/job/:id`, `POST …/job/:id/stop`, `GET …/convs?q=`, `GET|PUT|DELETE …/convs/:id`, `PUT …/convs/:id/pin`.
+Chats are kept by `server/ai/chats.js`: one document per chat in MongoDB's `tradeai_chats` collection (or one record per chat
+plus an index in the file store); delete removes the document. The old single `ai/tradeai.json` record is migrated once.
+
+**The AI Engine as one door (`server/ai/engine.js`).** Every feature's model client comes from `ai.engine.client(spec)`
+(`ai._client()`, the ensemble's analysts and paid lead, the mixture, the brains team): brains are composed on the way out, calls
+on one key share a lane (8 in flight for the NVIDIA key, 6 for others; a promise queue, no timers), and a live board
+(`GET /api/admin/ai/engine/live`, the "Live engine" tab) shows running/waiting calls, lanes and today's per-feature counts
+(kept in `ai/engine.json`). Web-search prompts are named on the board with `tag()` and take no brains.
+
+**Site health (`server/health.js`, `src/admin/HealthCard.jsx`; `GET /api/admin/health`).** Every part of the site checked
+independently (server, database write/read, disk, HTTPS, sign-in, Zerodha, stream, universe, alerts, holidays, AI, free
+models, brains, research, trading, analysis, paper, Telegram, WhatsApp, Mandir) as ok / warn / error / off with a sentence
+and a hint; the card under Settings re-checks every minute.
 
 **Advisor tools from the comparison with other products (2026-11-15).** Price alerts checked on the server every 15 s in
 market hours (`server/alert-watch.js`) with Telegram messages (`server/notify.js`; token encrypted; also the risk-guard lock

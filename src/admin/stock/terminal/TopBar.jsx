@@ -11,6 +11,7 @@ import { setTipsEnabled, useTipsEnabled } from "../../help/TipLayer";
 import { useTrade } from "../trade/TradeContext";
 import { num } from "../analyzer/format";
 import { useAlerts } from "./AlertsContext";
+import { TempleButton } from "../../temple/Temple";
 import AlertsPanel from "./AlertsPanel";
 
 const IST = 5.5 * 3600 * 1000;
@@ -111,7 +112,7 @@ export default function TopBar({ views, view, onView, theme, onTheme, onHelp, on
     <header className="tm-top">
       <Link to={adminPath()} className="tm-brand" data-tip="Back to the dashboard.">
         <span className="tm-brand__mark tm-brand__mark--img">
-          <img src="/img/hanuman-icon-96.png" alt="Panchmukhi Hanuman Ji" width="42" height="42" decoding="async" />
+          <img src="/img/hanuman-full-96.png" srcSet="/img/hanuman-full-96.png 1x, /img/hanuman-full-192.png 2x" alt="Panchmukhi Hanuman Ji" width="42" height="42" decoding="async" />
         </span>
         <span className="tm-brand__name">Control room</span>
       </Link>
@@ -194,6 +195,7 @@ export default function TopBar({ views, view, onView, theme, onTheme, onHelp, on
             {alertsOpen && <AlertsPanel symbol={symbol} onClose={() => onAlerts(false)} />}
           </span>
         )}
+        <TempleButton />
         <button type="button" className="tm-icon" onClick={onTheme} aria-label={theme === "dark" ? "Light theme" : "Dark theme"} data-tip="Switch between dark and light. Shortcut: T.">
           {theme === "dark" ? "☀" : "☾"}
         </button>

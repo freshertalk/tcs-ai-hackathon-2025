@@ -33,12 +33,12 @@ test("audio is recognised by its first bytes", () => {
   assert.equal(sniff(Buffer.from("<html><body>hello")), "");
 });
 
-test("the default is the owner's Chalisa through YouTube's own player, soft and on", () => {
+test("the default is the owner's Chalisa link, very soft (5%) and on", () => {
   const { temple } = fresh();
   const s = temple.settings();
   assert.equal(s.source.kind, "youtube");
   assert.equal(s.source.videoId, DEFAULT_VIDEO);
-  assert.equal(s.volume, 0.15);
+  assert.equal(s.volume, 0.05);
   assert.equal(s.autoplay, true);
 });
 

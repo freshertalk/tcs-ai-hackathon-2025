@@ -81,6 +81,8 @@ class Notifier {
 
   /** Send one message. Quietly does nothing when it is not set up, or that kind is switched off. */
   async send(text, kind = "alerts") {
+    // the same message to WhatsApp too, when WhatsApp Trading is on (server/whatsapp.js)
+    if (typeof this.also === "function" && kind !== "test") Promise.resolve().then(() => this.also(text, kind)).catch(() => {});
     const d = this._load();
     const token = this._token();
     if (!token || !d.chatId) return { sent: false, reason: "not_configured" };

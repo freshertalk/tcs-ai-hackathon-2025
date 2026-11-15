@@ -40,6 +40,8 @@ const FEATURES = [
   { id: "review", name: "Journal review", trigger: "Review this range on the Journal" },
   { id: "dayreview", name: "Trade Analysis day review", trigger: "The 3:45 PM report (when AI analysis is on) or Write the AI analysis" },
   { id: "debrief", name: "Day debrief", trigger: "Write the debrief on the Debrief" },
+  { id: "tradeai", name: "TradeAI chat", trigger: "A question in the TradeAI chat (its own page), or ASK on WhatsApp" },
+  { id: "whatsapp", name: "WhatsApp updates", trigger: "The timed updates on WhatsApp while WhatsApp Trading is on" },
 ];
 const FEATURE_IDS = FEATURES.map((f) => f.id);
 
@@ -291,7 +293,8 @@ class Brains {
       writers.map(async (a) => {
         const t0 = Date.now();
         try {
-          const client = makeClient({ providerId: a.provider, apiKey: ai._key(a.provider), model: a.model, fetchImpl: ai.fetch, timeoutMs: (a.lead ? Math.max(sec, 120) : sec) * 1000, repair: false });
+          const spec = { providerId: a.provider, apiKey: ai._key(a.provider), model: a.model, timeoutMs: (a.lead ? Math.max(sec, 120) : sec) * 1000, repair: false };
+          const client = ai.engine ? ai.engine.client(spec, { feature: "brains-team", brains: false }) : makeClient({ ...spec, fetchImpl: ai.fetch });
           const r = await client.ask({ system: REFINE_SYSTEM, user, schema: VERSION_SCHEMA, maxTokens: 3000, effort: "low" });
           const v = r.data || {};
           return { id: a.id, name: a.name, company: a.company, free: a.free, lead: Boolean(a.lead), ok: true, title: str(v.title, MAX_TITLE), text: str(v.text, MAX_TEXT), scopes: cleanScopes(v.scopes), conflicts: (v.conflicts || []).map((x) => str(x, 300)).slice(0, 6), rationale: str(v.rationale, 400), ms: Date.now() - t0, usage: r.usage };
@@ -316,7 +319,8 @@ class Brains {
     let mergedBy = null;
     if (good.length > 1 && mergeWith) {
       try {
-        const client = makeClient({ providerId: mergeWith.provider, apiKey: ai._key(mergeWith.provider), model: mergeWith.model, fetchImpl: ai.fetch, timeoutMs: Math.max(sec, 90) * 1000, repair: false });
+        const spec = { providerId: mergeWith.provider, apiKey: ai._key(mergeWith.provider), model: mergeWith.model, timeoutMs: Math.max(sec, 90) * 1000, repair: false };
+        const client = ai.engine ? ai.engine.client(spec, { feature: "brains-team", brains: false }) : makeClient({ ...spec, fetchImpl: ai.fetch });
         const r = await client.ask({ system: MERGE_SYSTEM, user: `The owner's draft:\n${JSON.stringify({ title: draft.title, text: draft.text, scopes: draft.scopes })}\n\nThe versions:\n${JSON.stringify(good.map((v) => ({ by: v.name, title: v.title, text: v.text, scopes: v.scopes, conflicts: v.conflicts, rationale: v.rationale })))}\n\nExisting brains:\n${JSON.stringify(others)}\n\nWrite the final version.`, schema: MERGE_SCHEMA, maxTokens: 3000, effort: "low" });
         const m = r.data || {};
         if (str(m.title, MAX_TITLE) && str(m.text, MAX_TEXT).length >= 10) {

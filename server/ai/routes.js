@@ -155,7 +155,9 @@ function mountAi(app, { ai, requireAdmin, requireSuper = requireAdmin, limiter }
   app.post("/api/admin/ai/brains/:id/move", requireSuper, limiter(120, 15 * 60 * 1000), wrap(async (req) => ai.brains.move(idOf(req), (req.body || {}).dir === "up" ? "up" : "down")));
   app.delete("/api/admin/ai/brains/:id", requireSuper, limiter(60, 15 * 60 * 1000), wrap(async (req) => ai.brains.remove(idOf(req))));
   // every feature's real instructions as they are sent now, with the brains that are added to them
-  app.get("/api/admin/ai/engine", requireSuper, wrap(async () => ({ features: ai.brains.prompts(), skills: { text: ai.playbook.read(), lessons: ai.playbook.lessons().length }, team: ai.brains.teamStatus() })));
+  app.get("/api/admin/ai/engine", requireSuper, wrap(async () => ({ features: ai.brains.prompts(), skills: { text: ai.playbook.read(), lessons: ai.playbook.lessons().length }, team: ai.brains.teamStatus(), live: ai.engine.status() })));
+  // the engine's live board: what every feature is asking the models now, and today's counts
+  app.get("/api/admin/ai/engine/live", requireAdmin, wrap(async () => ai.engine.status()));
 }
 
 module.exports = { mountAi };

@@ -180,10 +180,10 @@
 }
 .adm-brand__logo {
   flex: none;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  object-fit: cover;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px; /* the whole picture, never cropped */
+  object-fit: contain;
   background: #1a1005;
   box-shadow: 0 0 0 2px #d9a93a, 0 0 12px rgba(217, 169, 58, 0.45);
 }
