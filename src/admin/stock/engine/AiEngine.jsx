@@ -1,8 +1,8 @@
 // AI Engine: everything about the AI in one place.
 //   - How the AI works: every AI feature, rule and condition, in plain English (everyone).
 //   - Brains: the owner's standing instructions for the AI — add, edit, switch off, reorder, delete,
-//     with the AI team (the free NVIDIA-hosted models, and the paid model when it is on) writing
-//     and placing each one (superadmin only).
+//     with the default AI model (Claude Sonnet 5.5 unless another is picked) writing and placing
+//     each one (superadmin only).
 //   - Real instructions: what every feature actually sends the AI now, brains included (superadmin).
 //   - Skills file: the core rules every strategist / research / decision request reads (superadmin).
 //   - Live engine: the one engine every feature uses — what is asking the models right now, the
@@ -61,7 +61,7 @@ function Editor({ start, features, team, limits, onSaved, onCancel }) {
   const [keepScopes, setKeepScopes] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
-  const hasTeam = team && (team.free.length > 0 || team.lead);
+  const hasTeam = Boolean(team && team.lead);
   const save = async (e) => {
     e.preventDefault();
     setBusy(true);
@@ -107,26 +107,17 @@ function Editor({ start, features, team, limits, onSaved, onCancel }) {
       <p className="eng-dim">
         {hasTeam ? (
           <>
-            The team now: <b>{team.free.length} free model{team.free.length === 1 ? "" : "s"}</b>
-            {team.free.length ? ` (${team.free.join(", ")})` : ""}
-            {team.lead ? (
-              <>
-                {" "}
-                and the paid lead <b>{team.lead}</b>
-              </>
-            ) : (
-              " — no paid model (switched off or no paid key)"
-            )}
-            . Your own wording is kept and can be put back.
+            Written by the default model, <b>{team.lead}</b>
+            {team.fallbacks && team.fallbacks.length ? ` (if it fails: ${team.fallbacks.join(", ")})` : ""}. It counts as one of today&rsquo;s AI runs. Your own wording is kept and can be put back.
           </>
         ) : (
-          "No AI key is saved for the team (the free NVIDIA key, or a paid key on the AI page), so the brain is saved exactly as written."
+          "No AI key is saved (the default model is Claude Sonnet 5.5 — save the Anthropic key on the AI page), so the brain is saved exactly as written."
         )}
       </p>
       <Alert>{err}</Alert>
       <span className="eng-actions">
         <button type="submit" className="adm-btn adm-btn--solid adm-btn--sm" disabled={busy}>
-          {busy ? (refine && hasTeam ? "The AI team is writing… (up to two minutes)" : "Saving…") : start ? "Save the brain" : "Add the brain"}
+          {busy ? (refine && hasTeam ? "The AI is writing… (up to two minutes)" : "Saving…") : start ? "Save the brain" : "Add the brain"}
         </button>
         <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm" onClick={onCancel} disabled={busy}>
           Cancel
@@ -162,7 +153,7 @@ function TeamResult({ r, onClose }) {
             <li key={v.id} className={v.ok ? "" : "is-failed"}>
               <b>
                 {v.name}
-                {v.lead ? " · paid lead" : " · free"}
+                {v.ok ? "" : " · did not answer"}
               </b>{" "}
               <small>{Math.round((v.ms || 0) / 1000)} s</small>
               {v.ok ? (
@@ -451,7 +442,7 @@ function LiveEngine() {
         <div>
           <h3>One engine, every feature</h3>
           <p className="eng-dim">
-            Every AI feature — strategist, co-pilot, decision, research, coach, reviews, debrief, AI Live / AI Research, TradeAI, WhatsApp and the brains team — reaches the models through this one engine. Each request carries the same brains and trading-skills rules, and requests that share a key queue fairly, so many features can use the free models at the same time.
+            Every AI feature — strategist, co-pilot, decision, research, coach, reviews, debrief, AI Live / AI Research, TradeAI, Social Media, WhatsApp and the brains — reaches the default model through this one engine. Each request carries the same brains and trading-skills rules, and requests that share a key queue fairly, so many features can use the model at the same time.
           </p>
           <div className="eng-live__chips">
             <span>
@@ -461,10 +452,14 @@ function LiveEngine() {
               Skills file <b>{fmtTok(d.core.skillsChars)}</b> characters
             </span>
             <span>
-              Free models <b>{d.core.lanes.nvidia}</b> at a time · others <b>{d.core.lanes.other}</b>
+              Anthropic <b>{d.core.lanes.anthropic}</b> at a time · others <b>{d.core.lanes.other}</b>
             </span>
             <span>
               <b>{d.running.length}</b> running now
+            </span>
+            <span data-tip="An identical request (same model, instructions, data and schema) within 15 minutes gets the answer already paid for, and two identical requests at the same moment share one call.">
+              Reused today <b>{d.saved ? d.saved.calls : 0}</b> call{d.saved && d.saved.calls === 1 ? "" : "s"}
+              {d.saved && d.saved.input + d.saved.output > 0 ? ` · ${fmtTok(d.saved.input + d.saved.output)} tokens not spent` : ""}
             </span>
           </div>
         </div>
@@ -481,7 +476,7 @@ function LiveEngine() {
                 <span className="eng-live__dot" />
                 <b>{r.name}</b>
                 <span>{r.model}</span>
-                <small>{r.waiting ? `waiting for a free lane · ${r.sec}s` : `${r.kind === "search" ? "searching" : "thinking"} · ${r.sec}s`}</small>
+                <small>{r.waiting ? `waiting for a lane · ${r.sec}s` : `${r.kind === "search" ? "searching" : "thinking"} · ${r.sec}s`}</small>
               </li>
             ))}
           </ul>
@@ -490,7 +485,7 @@ function LiveEngine() {
           <div className="eng-live__lanes">
             {d.lanes.map((l) => (
               <div key={l.lane}>
-                <span>{l.lane === "nvidia" ? "Free NVIDIA models" : l.lane}</span>
+                <span>{l.lane}</span>
                 <span className="eng-live__bar" role="img" aria-label={`${l.busy} of ${l.limit} in use, ${l.waiting} waiting`}>
                   <i style={{ width: `${Math.min(100, (l.busy / l.limit) * 100)}%` }} />
                 </span>

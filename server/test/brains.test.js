@@ -1,6 +1,6 @@
 "use strict";
 // AI brains: the owner's standing instructions reach exactly the AI features they belong to, and the
-// AI team (free models in parallel, merged by the paid lead or the strongest free model) writes them.
+// default model (Claude Sonnet 5.5; a fallback company when it fails) refines them.
 // Everything runs against FAKE companies: no network, no real key, no cost.
 
 const test = require("node:test");
@@ -12,29 +12,28 @@ const path = require("node:path");
 const { AiService } = require("../ai/service");
 const { FEATURE_IDS, featureOf, cleanScopes } = require("../ai/brains");
 
-const KEYS = { nvidia: "nvapi-TESTONLYtestonlyTESTONLY1234567890", anthropic: "sk-ant-api03-TESTONLYtestonlyTESTONLY1234567890abcd" };
+const KEYS = { openai: "sk-TESTONLYtestonlyTESTONLY1234567890abcd", anthropic: "sk-ant-api03-TESTONLYtestonlyTESTONLY1234567890abcd" };
 const json = (status, obj) => new Response(JSON.stringify(obj), { status, headers: { "content-type": "application/json" } });
 
-function boot({ failFree = false } = {}) {
+function boot({ failAnthropic = false, failOpenai = false } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "vpt-brains-"));
   const seen = [];
   const fetchImpl = async (url, init = {}) => {
     const u = String(url);
     const body = init.body ? JSON.parse(init.body) : {};
     const version = (by) => ({ title: `Stand aside at midday (${by})`, text: `Between 11:30 AM and 1:30 PM IST prefer "no trade" unless the tape score is at least 45 — ${by}.`, scopes: ["strategist", "copilot", "nonsense"], conflicts: [], rationale: `${by} tightened it.` });
-    if (u.includes("integrate.api.nvidia.com")) {
-      if (/\/models/.test(u)) return json(200, { data: [] });
+    if (u.includes("api.openai.com")) {
+      // the fallback company (OpenAI-style chat completions)
       const sys = (body.messages || []).find((m) => m.role === "system");
       seen.push({ to: body.model, system: sys ? sys.content : "" });
-      if (failFree) return json(500, { error: { message: "down" } });
-      const merge = sys && /You merge several models/.test(sys.content);
-      const reply = merge ? { title: "Midday: stand aside", text: "From 11:30 AM to 1:30 PM IST, prefer no trade unless the tape score is 45 or more.", scopes: ["copilot", "strategist"], conflicts: [], notes: "Merged by a free model." } : version(body.model);
+      if (failOpenai) return json(500, { error: { message: "down" } });
+      const reply = { title: "Midday: stand aside", text: "From 11:30 AM to 1:30 PM IST, prefer no trade unless the tape score is 45 or more.", scopes: ["copilot", "strategist"], conflicts: [], rationale: "Written by the fallback." };
       return json(200, { model: body.model, choices: [{ message: { role: "assistant", content: JSON.stringify(reply) }, finish_reason: "stop" }], usage: { prompt_tokens: 400, completion_tokens: 120 } });
     }
     if (u.includes("api.anthropic.com")) {
       seen.push({ to: body.model, system: typeof body.system === "string" ? body.system : JSON.stringify(body.system) });
-      const req = (body.output_config && body.output_config.format && body.output_config.format.schema && body.output_config.format.schema.required) || [];
-      const reply = req.includes("notes") ? { title: "Midday discipline", text: "Between 11:30 AM and 1:30 PM IST, stand aside unless the tape score is at least 45; say so plainly.", scopes: ["strategist", "copilot", "ensemble-live"], conflicts: [], notes: "Merged by the paid lead." } : version(body.model);
+      if (failAnthropic) return json(500, { type: "error", error: { type: "api_error", message: "down" } });
+      const reply = { ...version(body.model), title: "Midday discipline", text: "Between 11:30 AM and 1:30 PM IST, stand aside unless the tape score is at least 45; say so plainly.", scopes: ["strategist", "copilot", "ensemble-live"], rationale: "Made it testable." };
       return json(200, { id: "m", type: "message", role: "assistant", model: body.model, content: [{ type: "text", text: JSON.stringify(reply) }], stop_reason: "end_turn", stop_sequence: null, usage: { input_tokens: 600, output_tokens: 150 } });
     }
     return json(404, { error: { message: `no fake for ${u}` } });
@@ -80,7 +79,7 @@ test("a brain is added to exactly the features in its scope; switched off, it is
 
 test("the strategist's real request carries the brains of its feature", async () => {
   const { ai, seen } = boot();
-  ai.setSettings({ provider: "nvidia", apiKey: KEYS.nvidia });
+  ai.setSettings({ provider: "anthropic", apiKey: KEYS.anthropic });
   await ai.brains.save({ title: "Midday rule", text: "Prefer no trade between 11:30 AM and 1:30 PM IST.", scopes: ["learn"] });
   const client = ai._client();
   await client.ask({ system: ai.brains.prompts().find((p) => p.id === "learn").prompts[0].text, user: "{}", schema: { type: "object", additionalProperties: false, required: ["title", "text", "scopes", "conflicts", "rationale"], properties: { title: { type: "string" }, text: { type: "string" }, scopes: { type: "array", items: { type: "string" } }, conflicts: { type: "array", items: { type: "string" } }, rationale: { type: "string" } } }, maxTokens: 500 });
@@ -106,37 +105,51 @@ test("edits keep a history; scopes are cleaned; bad input and unknown ids are re
   assert.deepEqual(ai.brains.remove(c.id).brains.map((x) => x.title), ["First"]);
 });
 
-test("the AI team: seven free models write in parallel and the paid lead merges and places it; the owner's wording is kept", async () => {
+test("refine: the default model writes the final version and places it; the owner's wording is kept", async () => {
   const { ai, seen } = boot();
-  ai.setSettings({ provider: "nvidia", apiKey: KEYS.nvidia });
-  ai.setSettings({ provider: "anthropic", apiKey: KEYS.anthropic, model: "claude-sonnet-5-5" });
+  ai.setSettings({ provider: "anthropic", apiKey: KEYS.anthropic });
+  assert.deepEqual(ai.brains.teamStatus(), { lead: "Claude Sonnet 5.5 (Anthropic)", fallbacks: [] });
   const r = await ai.brains.save({ title: "midday", text: "dont trade in lunch time unless strong", scopes: ["all"], refine: true }, "owner@example.com");
-  assert.equal(r.refine.versions.length, 8, "the lead and seven free models");
+  assert.equal(r.refine.versions.length, 1, "one model writes it");
   assert.equal(r.refine.mergedBy, "Claude Sonnet 5.5");
   assert.equal(r.brain.title, "Midday discipline");
-  assert.deepEqual(r.brain.scopes, ["strategist", "copilot", "ensemble-live"], "placed where the team decided");
+  assert.deepEqual(r.brain.scopes, ["strategist", "copilot", "ensemble-live"], "placed where the model decided");
   assert.deepEqual(r.brain.original, { title: "midday", text: "dont trade in lunch time unless strong", scopes: ["all"] });
-  assert.ok(r.brain.refined.by.length === 8);
+  assert.deepEqual(r.brain.refined.by, ["Claude Sonnet 5.5"]);
   assert.equal(ai.ensemble.status().paidRunsToday, 1, "it counts against the same daily cap as AI Live");
-  assert.ok(seen.filter((s) => /You help the owner of a private NSE/.test(s.system)).length === 8);
+  assert.equal(seen.filter((s) => /You help the owner of a private NSE/.test(s.system)).length, 1);
+  assert.ok(seen.every((s) => s.to === "claude-sonnet-5-5"));
   // the owner can put their own wording back
   const back = ai.brains.revert(r.brain.id, { to: "original" }).brain;
   assert.deepEqual([back.title, back.scopes], ["midday", ["all"]]);
+  // the daily cap holds: with no runs left, refining is refused and nothing is saved
+  ai.ensemble.setSettings({ paidDailyCap: 1 });
+  await assert.rejects(ai.brains.save({ title: "y rule", text: "another rule to refine", refine: true }), /AI runs are used up/);
+  assert.equal(ai.brains.list().brains.length, 1);
 });
 
-test("without a paid model the strongest free model merges; with no key at all the team says so", async () => {
-  const { ai } = boot();
-  await assert.rejects(ai.brains.save({ title: "x rule", text: "a rule to refine here", refine: true }), /No AI key is saved for the AI team/);
-  ai.setSettings({ provider: "nvidia", apiKey: KEYS.nvidia });
+test("when the default model fails, the fallback company writes it; with no key at all the reason is given", async () => {
+  const empty = boot();
+  await assert.rejects(empty.ai.brains.save({ title: "x rule", text: "a rule to refine here", refine: true }), /No AI key is saved/);
+  const { ai, seen } = boot({ failAnthropic: true });
+  ai.setSettings({ provider: "anthropic", apiKey: KEYS.anthropic });
+  ai.setSettings({ provider: "openai", apiKey: KEYS.openai, use: false });
+  assert.equal(ai.brains.teamStatus().fallbacks.length, 1);
   const r = await ai.brains.save({ title: "x rule", text: "a rule to refine here", refine: true });
-  assert.equal(r.refine.lead, null);
-  assert.match(r.refine.mergedBy, /Ultra/);
+  assert.equal(r.refine.versions.length, 2);
+  assert.equal(r.refine.versions[0].ok, false);
   assert.equal(r.brain.title, "Midday: stand aside");
+  assert.notEqual(r.refine.mergedBy, "Claude Sonnet 5.5");
+  // the default model first (the SDK retries a 500 once), then the fallback
+  const order = seen.map((x) => (x.to.startsWith("claude") ? "anthropic" : "openai")).filter((x, i, all) => i === 0 || all[i - 1] !== x);
+  assert.deepEqual(order, ["anthropic", "openai"]);
 });
 
 test("when every model fails, nothing is saved and the reason is given", async () => {
-  const { ai } = boot({ failFree: true });
-  ai.setSettings({ provider: "nvidia", apiKey: KEYS.nvidia });
-  await assert.rejects(ai.brains.save({ title: "x rule", text: "a rule to refine here", refine: true }), /Every model of the AI team failed/);
+  const { ai } = boot({ failAnthropic: true, failOpenai: true });
+  ai.setSettings({ provider: "anthropic", apiKey: KEYS.anthropic });
+  ai.setSettings({ provider: "openai", apiKey: KEYS.openai, use: false });
+  await assert.rejects(ai.brains.save({ title: "x rule", text: "a rule to refine here", refine: true }), /The AI model failed or timed out/);
   assert.equal(ai.brains.list().brains.length, 0);
+  assert.equal(ai.ensemble.status().paidRunsToday, 0, "a failed refine uses no run");
 });

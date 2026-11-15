@@ -7,7 +7,9 @@ import { publishAiStatus, useAiStatus, loadAiStatus } from "./aiStatus";
 import "./ai.css";
 
 /**
- * The AI strategist's connection: which AI company, which of its models, and its API key.
+ * The default model: the one AI company and model every AI feature uses (Claude Sonnet 5.5 unless
+ * another is picked here), its API key, and the fallback switch (the other saved companies, tried in
+ * turn when the default model fails).
  *
  * Each company keeps its own key and its own model on the server, so switching back to a company
  * never asks for its key again — only when a test of that key fails. A choice made here is saved
@@ -126,15 +128,24 @@ export default function AiSettings() {
   const liveSame = s && s.live && live && ["model", "minGapSec", "dailyCap", "refreshMin"].every((k) => String(live[k]) === String(s.live.settings[k]));
   const activeModels = s ? s.models : [];
   const note = co ? (co.models.find((m) => m.id === co.model) || {}).note : "";
-  const free = co ? (co.models.find((m) => m.id === co.model) || {}).free : false;
+  const dm = s && s.defaultModel;
+  const rec = s && s.recommended;
+  const isRec = Boolean(dm && rec && dm.provider === rec.provider && dm.model === rec.model);
+  const chain = (s && s.chain) || [];
+  // back to the recommended default (Claude Sonnet 5.5); without its key the AI waits for one
+  const useRecommended = () => {
+    setPick(rec.provider);
+    setAskKey(false);
+    run("recommended", () => put({ provider: rec.provider, model: rec.model }), (d) => (d.configured ? `The default model is ${d.modelName} again. Every page uses it from the next request.` : `${rec.name} is the default again. Save the ${d.providerName} key below to switch the AI on.`));
+  };
 
   return (
-    <Shell crumb="AI strategist" wide>
+    <Shell crumb="AI model" wide>
       <div className="ais">
         <header className="ais-head">
           <div>
-            <h1 className="adm-h1">AI strategist</h1>
-            <p className="ais-lead">Pick any AI company and model. Each keeps its own key; a change applies to every page at once. It runs only when you ask, and it can never place an order.</p>
+            <h1 className="adm-h1">AI model</h1>
+            <p className="ais-lead">One default model runs every AI feature — TradeAI, AI Live and AI Research, Social Media, WhatsApp, the brains and the strategist. Claude Sonnet 5.5 is the default; pick any other model here. It can never place an order.</p>
           </div>
           {s && (
             <p className={`ais-pill ${s.configured ? "is-on" : ""}`} role="status" aria-live="polite">
@@ -144,7 +155,7 @@ export default function AiSettings() {
                   <b>{s.providerName}</b> · {s.modelName}
                 </>
               ) : (
-                "Off — no key for the company in use"
+                "Off — no key for the default model"
               )}
             </p>
           )}
@@ -155,25 +166,37 @@ export default function AiSettings() {
         {s && co && (
           <div className="ais-grid">
             <section className="ais-card ais-main" aria-labelledby="ais-conn">
-              <h2 id="ais-conn">Company &amp; model</h2>
+              <h2 id="ais-conn">Default model</h2>
+              {dm && (
+                <div className={`ais-default ${dm.ready ? "is-on" : ""}`}>
+                  <span className="ais-default-name">
+                    <i aria-hidden="true" />
+                    <span>
+                      <b>{dm.name}</b> · {dm.company}
+                      <small>{dm.ready ? "used by every AI feature" : `no ${dm.company} key saved yet — the AI is off${chain.length ? `; ${chain[0].name} stands in` : ""}`}</small>
+                    </span>
+                  </span>
+                  {isRec ? (
+                    <em className="ais-rec">Recommended default</em>
+                  ) : (
+                    rec && (
+                      <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm" disabled={Boolean(busy)} onClick={useRecommended}>
+                        {busy === "recommended" ? "Switching…" : `Back to ${rec.name}`}
+                      </button>
+                    )
+                  )}
+                </div>
+              )}
               <div className="ais-row2">
                 <label className="ais-field">
                   <span>AI company</span>
                   <select id="ai-company" value={co.id} onChange={(e) => chooseCompany(e.target.value)} disabled={Boolean(busy)}>
-                    {[
-                      ["Paid — billed by each company", s.providers.filter((p) => !p.free)],
-                      ["FREE — hosted by NVIDIA, one nvapi- key", s.providers.filter((p) => p.free)],
-                    ].map(([label, list]) => (
-                      <optgroup key={label} label={label}>
-                        {list.map((p) => (
-                          <option key={p.id} value={p.id}>
-                            {p.free ? "FREE · " : ""}
-                            {p.name}
-                            {p.name.includes(p.family) ? "" : ` (${p.family})`}
-                            {p.configured ? " — key saved" : ""}
-                          </option>
-                        ))}
-                      </optgroup>
+                    {s.providers.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                        {p.name.includes(p.family) ? "" : ` (${p.family})`}
+                        {p.configured ? " — key saved" : ""}
+                      </option>
                     ))}
                   </select>
                 </label>
@@ -188,14 +211,13 @@ export default function AiSettings() {
                     {co.models.map((m) => (
                       <option key={m.id} value={m.id}>
                         {m.name}
-                        {m.free ? " — free" : ""}
+                        {rec && co.id === rec.provider && m.id === rec.model ? " (recommended)" : ""}
                       </option>
                     ))}
                   </select>
                 </label>
               </div>
               <p className="ais-note">
-                {free && <em className="ais-free">Free</em>}
                 {note || (co.listedAt ? `From ${co.name}'s own list, read ${new Date(co.listedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}.` : `${co.models.length} suggested — save the key to read ${co.name}'s current list.`)}
               </p>
 
@@ -204,9 +226,7 @@ export default function AiSettings() {
                   <button key={p.id} type="button" role="listitem" className={`ais-chip ${p.id === co.id ? "is-picked" : ""} ${p.configured ? "has-key" : ""} ${s.provider === p.id && s.configured ? "is-used" : ""}`} onClick={() => chooseCompany(p.id)} disabled={Boolean(busy)} data-tip={p.configured ? `${p.name}: key saved${p.lastTest ? (p.lastTest.ok ? ", last test worked" : ", last test failed") : ""}.` : `${p.name}: no key saved yet.`}>
                     <i aria-hidden="true" />
                     {p.name}
-                    {p.keyOf ? " (NVIDIA)" : ""}
-                    {p.free && <em className="ais-free ais-free--chip">Free</em>}
-                    {s.provider === p.id && s.configured && <small>in use</small>}
+                    {s.provider === p.id && s.configured && <small>default</small>}
                   </button>
                 ))}
               </div>
@@ -234,7 +254,7 @@ export default function AiSettings() {
                         type="button"
                         className="adm-btn adm-btn--danger adm-btn--sm"
                         disabled={Boolean(busy)}
-                        onClick={() => run("clear", () => put({ provider: co.id, clear: true, use: false }), `${co.free ? "The NVIDIA key (used by every FREE company) was removed." : `${co.name}'s key was removed.`}${s.provider === co.id ? " The AI is off until a key is added or another company is picked." : ""}`)}
+                        onClick={() => run("clear", () => put({ provider: co.id, clear: true, use: false }), `${co.name}'s key was removed.${s.provider === co.id ? " The AI is off until a key is added or another default model is picked." : ""}`)}
                       >
                         Remove
                       </button>
@@ -244,7 +264,7 @@ export default function AiSettings() {
                 {showKey && (
                   <form className="ais-keyform" onSubmit={saveKey}>
                     <label className="ais-field">
-                      <span>{co.free ? `${co.configured ? "New " : ""}NVIDIA API key — shared by every FREE company` : co.configured ? `New ${co.name} API key` : `${co.name} API key`}</span>
+                      <span>{co.configured ? `New ${co.name} API key` : `${co.name} API key`}</span>
                       <input id="ai-key" type="password" value={key} onChange={(e) => setKey(e.target.value)} placeholder={co.keyExample} spellCheck="false" autoComplete="off" />
                     </label>
                     <button className="adm-btn adm-btn--solid" disabled={Boolean(busy) || !key.trim()}>
@@ -264,6 +284,13 @@ export default function AiSettings() {
                   </form>
                 )}
               </div>
+              <label className="ais-check">
+                <input type="checkbox" checked={s.fallback !== false} disabled={Boolean(busy)} onChange={(e) => run("fallback", () => put({ fallback: e.target.checked }), e.target.checked ? "Fallback on: when the default model fails, the other saved companies are tried in turn." : "Fallback off: only the default model is asked.")} />
+                <span>
+                  <b>Fallback</b> — when the default model fails, try the other companies whose keys are saved, one at a time
+                </span>
+              </label>
+              <p className="ais-note">{chain.length ? `Order now: ${chain.map((c) => `${c.name} (${c.company})`).join(" → ")}.` : "No key is saved yet, so there is no model to ask: the desk's own arithmetic answers."}</p>
               <Alert kind={msg.kind === "ok" ? "ok" : "error"}>{msg.text}</Alert>
             </section>
 
@@ -276,14 +303,10 @@ export default function AiSettings() {
                       The world brief and the news check search the web with <b>{s.searchByName}</b>
                       {s.searchBy !== s.provider && s.configured ? `, because ${s.providerName} has none in its API` : ""}.
                     </>
-                  ) : s.configured && s.free ? (
-                    <>
-                      <b>Off while a FREE model is in use.</b> The NVIDIA-hosted models have no web search, and the app never borrows a paid company&rsquo;s key for them, so nothing is billed. Pick Anthropic, OpenAI or Gemini for the world brief and news check.
-                    </>
                   ) : s.configured ? (
                     <>{s.providerName} has no web search in its API. Save an Anthropic, OpenAI or Gemini key too and the world brief and news check will use it; the strategist stays on {s.providerName}.</>
                   ) : (
-                    "Anthropic, OpenAI and Gemini can search the web; DeepSeek, Kimi and the FREE NVIDIA-hosted models cannot."
+                    "Anthropic, OpenAI and Gemini can search the web; DeepSeek and Kimi cannot."
                   )}
                 </p>
               </section>
@@ -294,7 +317,7 @@ export default function AiSettings() {
                   <label className="ais-field">
                     <span>Model</span>
                     <select id="cp-model" value={activeModels.some((m) => m.id === live.model) ? live.model : ""} onChange={(e) => setLive({ ...live, model: e.target.value })}>
-                      <option value="">Same as the strategist</option>
+                      <option value="">Same as the default model</option>
                       {activeModels.map((m) => (
                         <option key={m.id} value={m.id}>
                           {m.name}
@@ -329,7 +352,7 @@ export default function AiSettings() {
             </aside>
 
             <details className="ais-card ais-more">
-              <summary>Getting {co.free ? "the free NVIDIA" : co.name === "Moonshot AI" ? "a Moonshot (Kimi)" : /^[AEIO]|^N[A-Z]/.test(co.name) ? `an ${co.name}` : `a ${co.name}`} key</summary>
+              <summary>Getting {co.name === "Moonshot AI" ? "a Moonshot (Kimi)" : /^[AEIO]/.test(co.name) ? `an ${co.name}` : `a ${co.name}`} key</summary>
               <ol className="adm-steps">
                 {co.steps.map((t) => (
                   <li key={t}>{t}</li>
@@ -339,7 +362,7 @@ export default function AiSettings() {
                 <a href={co.consoleUrl} target="_blank" rel="noopener noreferrer">
                   Open {co.console} ↗
                 </a>{" "}
-                {co.free ? "Free trial under NVIDIA's API Trial Terms. These requests go only to NVIDIA, with the NVIDIA key; when the trial's rate limit is reached the request fails with a clear message, and the app never switches to a paid company by itself." : "Pay-as-you-go companies bill per token; set a spend limit in their console."}
+                Every company bills per token; set a monthly spend limit in its console.
               </p>
             </details>
 
@@ -347,8 +370,9 @@ export default function AiSettings() {
               <summary>What it does, and what it does not</summary>
               <ul className="adm-list">
                 <li>
-                  <b>Only on request.</b> A call is made when you press a button on the <a href={adminPath("/stock-report")}>trading desk</a> (Build strategy, Score &amp; learn, Check the news,
-                  Ask now, Write the debrief). The live co-pilot asks by itself only for the stock you have open, only while its switch is on, and only inside the limits above.
+                  <b>Mostly on request.</b> A call is made when you press a button on the <a href={adminPath("/stock-report")}>trading desk</a> (Build strategy, Score &amp; learn, Check the news,
+                  Ask now, Write the debrief) or ask TradeAI. Two things ask by themselves, each inside its own limits: the live co-pilot (only for the stock you have open, while its switch is on) and
+                  the <a href={adminPath("/social")}>Social Media</a> digest (new market-related posts and headlines, within its batches an hour).
                 </li>
                 <li>
                   <b>What is sent to the AI company.</b> Market data for the one stock, the rule engine’s reading and your trading-skills file. The news check sends the symbol, the company’s

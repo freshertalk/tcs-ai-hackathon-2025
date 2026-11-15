@@ -339,7 +339,7 @@ test("without a key the desk still works: the AI says it is off and spends nothi
   const st = (await s.request("GET", "/api/admin/ai/status", { cookie: s.admin })).json;
   assert.equal(st.configured, false);
   assert.equal(st.keyHint, "");
-  assert.equal(st.model, "claude-opus-5-5");
+  assert.equal(st.model, "claude-sonnet-5-5"); // the default model
 
   const r = await s.request("POST", "/api/admin/ai/strategy/SBIN", { cookie: s.admin, body: { horizon: "both" } });
   assert.equal(r.status, 409);
@@ -416,7 +416,7 @@ test("a strategy: the brief sent, the request shape, the checks applied, the jou
   const out = r.json;
   assert.equal(out.symbol, "SBIN");
   assert.equal(out.stance, "bullish");
-  assert.equal(out.model, "claude-opus-5-5");
+  assert.equal(out.model, "claude-sonnet-5-5");
   assert.equal(out.plans.length, 2);
   assert.equal(out.plans[0].checkStatus, "passed", JSON.stringify(out.plans[0].checks.filter((c) => !c.ok)));
   assert.equal(out.plans[1].checkStatus, "rejected");
@@ -428,7 +428,7 @@ test("a strategy: the brief sent, the request shape, the checks applied, the jou
   const q = s.claude.requests[0];
   assert.match(q.url, /^https:\/\/api\.anthropic\.com\/v1\/messages/);
   assert.equal(q.key, KEY);
-  assert.equal(q.body.model, "claude-opus-5-5");
+  assert.equal(q.body.model, "claude-sonnet-5-5");
   assert.equal(q.body.output_config.format.type, "json_schema");
   assert.equal(q.body.output_config.effort, "high");
   assert.equal(q.body.fallbacks, "default");
@@ -811,7 +811,7 @@ test("live co-pilot: off without a key; a reading is built from the live snapsho
 
   // the request: the co-pilot's own instructions, a schema, low effort, and only market data
   const q = s.claude.requests[0];
-  assert.equal(q.body.model, "claude-opus-5-5");
+  assert.equal(q.body.model, "claude-sonnet-5-5");
   assert.equal(q.body.max_tokens, 4000);
   assert.equal(q.body.output_config.effort, "low");
   assert.equal(q.body.output_config.format.type, "json_schema");
@@ -898,7 +898,7 @@ test("live co-pilot: off without a key; a reading is built from the live snapsho
   assert.equal(saved.status, 200, saved.text);
   assert.deepEqual(saved.json.live.settings, { minGapSec: 60, dailyCap: 3, refreshMin: 0, model: "claude-haiku-5-5" });
   assert.equal(saved.json.live.usage.used, 2);
-  assert.equal(saved.json.model, "claude-opus-5-5", "the strategist keeps its own model");
+  assert.equal(saved.json.model, "claude-sonnet-5-5", "the strategist keeps its own model");
 
   s.claude.queue.push({ json: liveJson({ bias: "down", agrees_with_engine: "no", what_changed: "The order book flipped." }) });
   r = await live({ reason: "weakening", event: "Dropping fast" });
@@ -1268,7 +1268,7 @@ test("every AI company gets the same instructions, the same brief and the same c
     seen.push({ system: body.messages[0].content, user: body.messages[1].content });
     return ok({ model: body.model, choices: [{ message: { role: "assistant", content: answer }, finish_reason: "stop" }], usage: { prompt_tokens: 1, completion_tokens: 1 } });
   };
-  const keys = { anthropic: KEY, openai: "sk-proj-TESTONLYtestonlyTESTONLY1234567890", gemini: "AIzaTESTONLYtestonlyTESTONLY12345678", deepseek: "sk-TESTONLYtestonlyTESTONLY1234567890ab", moonshot: "sk-TESTONLYmoonshotTESTONLY1234567890ab", nvidia: "nvapi-TESTONLYtestonlyTESTONLY1234567890" };
+  const keys = { anthropic: KEY, openai: "sk-proj-TESTONLYtestonlyTESTONLY1234567890", gemini: "AIzaTESTONLYtestonlyTESTONLY12345678", deepseek: "sk-TESTONLYtestonlyTESTONLY1234567890ab", moonshot: "sk-TESTONLYmoonshotTESTONLY1234567890ab" };
   const results = [];
   for (const p of PROVIDERS) {
     const put = await s.request("PUT", "/api/admin/ai/settings", { cookie: s.admin, body: { provider: p.id, ...(keys[p.id] ? { apiKey: keys[p.id] } : {}) } });

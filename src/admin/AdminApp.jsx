@@ -33,6 +33,7 @@ import PersonalAccess from "./PersonalAccess";
 import StockReport from "./stock/StockReport";
 import ChartPage from "./stock/chart/ChartPage";
 import TradeAI from "./tradeai/TradeAI";
+import Social from "./social/Social";
 
 import "./admin.css";
 import "./hub.css";
@@ -190,6 +191,7 @@ export default function AdminApp() {
           <Route path={`${ADMIN_BASE}/stock-report`} element={<Gate><StockReport /></Gate>} />
           <Route path={`${ADMIN_BASE}/chart/:symbol`} element={<Gate><ChartPage /></Gate>} />
           <Route path={`${ADMIN_BASE}/tradeai`} element={<Gate><TradeAI /></Gate>} />
+          <Route path={`${ADMIN_BASE}/social`} element={<Gate><Social /></Gate>} />
           <Route path={`${ADMIN_BASE}/personal-access`} element={<Gate><PersonalAccess /></Gate>} />
           <Route path="*" element={<Navigate to={ADMIN_BASE} replace />} />
         </Routes>

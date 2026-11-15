@@ -179,6 +179,59 @@ function PaperCard() {
   );
 }
 
+/** The Social Media tile: the news mood and the stocks being talked about, opening the page in a new tab. */
+function SocialCard() {
+  const [d, setD] = useState(null);
+  useEffect(() => {
+    let on = true;
+    const load = () =>
+      api("/api/admin/social/digest?hours=24")
+        .then((x) => on && setD(x))
+        .catch(() => {});
+    load();
+    const id = setInterval(() => document.visibilityState !== "hidden" && load(), 60000);
+    return () => {
+      on = false;
+      clearInterval(id);
+    };
+  }, []);
+  const t = d && d.mood ? (d.mood.score >= 20 ? "up" : d.mood.score <= -20 ? "down" : "flat") : "flat";
+  return (
+    <section className="hub-social" aria-labelledby="hub-social-h">
+      <a href={adminPath("/social")} target="_blank" rel="noopener noreferrer" data-tip="Open Social Media in a new tab.">
+        <span className="hub-hero__k">Live · news &amp; social</span>
+        <span className="hub-paper__t" id="hub-social-h">
+          Social Media
+        </span>
+        <span className="hub-tai__d">News sites, Google News, X, Reddit, YouTube and NSE announcements in one live feed — organised for trading by the AI model and fed to the forecast, the Intraday plans and TradeAI.</span>
+        {d && d.items > 0 ? (
+          <span className="hub-social__now">
+            <span className={`hub-social__mood is-${t}`}>
+              {t === "up" ? "▲" : t === "down" ? "▼" : "●"} {d.mood.label} mood
+            </span>
+            <span>{d.items} market items · 24 h</span>
+            {d.radar.slice(0, 4).map((r) => (
+              <span key={r.symbol} className="hub-social__sym">
+                {r.symbol}
+              </span>
+            ))}
+          </span>
+        ) : (
+          <span className="hub-tai__chips" aria-hidden="true">
+            <span>Live feed</span>
+            <span>AI brief</span>
+            <span>Stock radar</span>
+            <span>Your sources</span>
+          </span>
+        )}
+        <span className="hub-hero__go">
+          Open Social Media <IconArrow />
+        </span>
+      </a>
+    </section>
+  );
+}
+
 export default function Dashboard() {
   const { user } = useAuth();
   const [s, setS] = useState(null);
@@ -236,7 +289,7 @@ export default function Dashboard() {
               <span className="hub-paper__t" id="hub-tai-h">
                 TradeAI
               </span>
-              <span className="hub-tai__d">Ask anything about the market, a stock, your open positions or your results. It reads the desk’s live calls, levels, patterns, habits and your history, and answers in plain English with tables, forecasts and actions — a mixture of the free AI models that never goes down.</span>
+              <span className="hub-tai__d">Ask anything about the market, a stock, your open positions or your results. It reads the desk’s live calls, levels, patterns, habits and your history, and answers in plain English with tables, forecasts and actions — on the default AI model (Claude Sonnet 5.5), with the desk’s own arithmetic when no model answers.</span>
               <span className="hub-tai__chips" aria-hidden="true">
                 <span>Your positions</span>
                 <span>Live calls</span>
@@ -251,6 +304,8 @@ export default function Dashboard() {
 
           <PaperCard />
         </div>
+
+        <SocialCard />
 
         <section className="hub-sets" aria-labelledby="hub-sets-h">
           <h2 id="hub-sets-h">Settings</h2>
@@ -267,9 +322,9 @@ export default function Dashboard() {
             <Setting
               to={adminPath("/ai")}
               icon={<IconChart />}
-              title="AI strategist"
+              title="AI model"
               text={ai && ai.configured ? `${ai.providerName} · ${ai.modelName}` : "Any AI company and model; advice only."}
-              tip="Choose the AI company (Anthropic, OpenAI, Gemini, DeepSeek, Kimi, NVIDIA) and model, save its key, and set the live co-pilot’s limits."
+              tip="The default AI model every feature uses (Claude Sonnet 5.5 unless you pick another: Anthropic, OpenAI, Gemini, DeepSeek or Kimi), its key, the fallback, and the live co-pilot’s limits."
               status={ai && { on: ai.configured, label: ai.configured ? "On" : "Off" }}
             />
           </div>

@@ -489,7 +489,7 @@ export default function AiPanel({ symbol, onSize }) {
           </a>
         </header>
         <p className="vd-note">
-          With a key, the AI model (Anthropic, OpenAI, Gemini, DeepSeek, Kimi or NVIDIA Nemotron) reads this stock’s live and historical Zerodha data and the desk’s skills file, and writes a strategy on request. Each plan is
+          With a key, the default AI model (Claude Sonnet 5.5, or the one picked on the AI page) reads this stock’s live and historical Zerodha data and the desk’s skills file, and writes a strategy on request. Each plan is
           checked mechanically, saved, and later scored against real prices; the results become lessons in the skills file. It never places an order.
         </p>
         <Record stats={journal.stats} />

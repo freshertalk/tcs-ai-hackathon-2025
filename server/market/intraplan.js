@@ -221,8 +221,10 @@ const bucketOf = (s) => (!num(s) ? null : s >= LEAN_AT ? "up" : s <= -LEAN_AT ? 
  * @param costPct   assumed round-trip cost, % of the entry price
  * @param options   buildOptionChain(...) for the stock, or null (no options, or not read)
  * @param marketCue the NSE forecast from the world ({ gapPct, label, basis, score, word, firm, headline }), or null
+ * @param news      what the Social Media page's news and posts said about this stock in the last day
+ *                  ({ mentions, sentiment −1…+1, tone, high, items: [{ title, source, at }] }), or null
  */
-function buildIntradayPlan({ daily, forming = false, bars5 = [], outlook = null, nifty = null, gift = null, marketOpen = false, costPct = 0.1, options = null, marketCue = null }) {
+function buildIntradayPlan({ daily, forming = false, bars5 = [], outlook = null, nifty = null, gift = null, marketOpen = false, costPct = 0.1, options = null, marketCue = null, news = null }) {
   if (!Array.isArray(daily) || daily.length < 60) return { available: false, reason: "Fewer than 60 daily bars: not enough history for an intraday plan." };
   const done = forming ? daily.slice(0, -1) : daily;
   const k = done.length - 1;
@@ -561,6 +563,13 @@ function buildIntradayPlan({ daily, forming = false, bars5 = [], outlook = null,
     const line = `World markets: ${marketCue.headline}.`;
     (Math.sign(marketCue.score) === sideSign ? reasonsFor : reasonsAgainst).push(line);
   } else if (marketCue && marketCue.headline && !marketOpen) reasonsFor.length < 6 && (marketCue.firm ? reasonsFor : reasonsAgainst).push(`World markets: ${marketCue.headline}.`);
+  // the news and posts about this stock (Social Media): one more reason, for or against — never a trigger
+  if (news && news.mentions > 0 && news.items && news.items[0]) {
+    const tone = news.sentiment >= 0.2 ? 1 : news.sentiment <= -0.2 ? -1 : 0;
+    const line = `News & social: ${news.mentions} item${news.mentions === 1 ? "" : "s"} in the last day, ${news.tone}${news.high ? ` (${news.high} high-impact)` : ""} — latest: “${String(news.items[0].title).slice(0, 140)}” (${news.items[0].source}).`;
+    if (sideSign && tone) (tone === sideSign ? reasonsFor : reasonsAgainst).push(line);
+    else reasonsAgainst.push(`${line} Read it before trading.`);
+  }
   if (habits && habits.firstHourExtremePct >= 65) reasonsFor.push(`The day's high or low came in the first hour on ${habits.firstHourExtremePct}% of days: the opening hour usually decides the day here.`);
 
   const sym = (x) => (num(x) ? `₹${x.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—");
@@ -664,6 +673,7 @@ function buildIntradayPlan({ daily, forming = false, bars5 = [], outlook = null,
     ladder,
     habits,
     record,
+    news: news && news.mentions ? { mentions: news.mentions, sentiment: news.sentiment, tone: news.tone, high: news.high, items: (news.items || []).slice(0, 3) } : null,
     market: marketCue && !marketOpen ? { headline: marketCue.headline, gapPct: marketCue.gapPct, word: marketCue.word, firm: marketCue.firm, score: marketCue.score } : null,
     options: opt
       ? { expiry: opt.expiry, daysToExpiry: opt.daysToExpiry, label: opt.bias.label, score: opt.bias.score, pcr: opt.pcr, maxPain: opt.maxPain, resistance: opt.resistance && opt.resistance.strike, support: opt.support && opt.support.strike, atmIv: opt.atmIv, dayMove: opt.expectedMove && opt.expectedMove.day, toExpiry: opt.expectedMove && opt.expectedMove.toExpiry }

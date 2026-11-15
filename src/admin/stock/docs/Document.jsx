@@ -272,7 +272,7 @@ export function DocView({ parts, chapters, kicker, title, lead, endNote, onWord,
         <div className="doc-tools">
           <label className="doc-search">
             <span className="doc-sr">Search the document</span>
-            <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search — for example stop-loss, RSI, free models, 3:45" autoComplete="off" spellCheck="false" />
+            <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search — for example stop-loss, RSI, default model, 3:45" autoComplete="off" spellCheck="false" />
           </label>
           <button type="button" className="adm-btn doc-tocbtn" aria-expanded={tocOpen} onClick={() => setTocOpen((o) => !o)}>
             Contents

@@ -1,5 +1,5 @@
 // "WhatsApp Trading" — the card under Settings (superadmin). Like WhatsApp banking for this desk:
-// timed updates on your open positions (with the free AI models' voted advice), answers to fixed
+// timed updates on your open positions (with the default AI model's advice), answers to fixed
 // commands, and — only if you allow it — trading by WhatsApp, every money-moving step confirmed with
 // a code and your PIN. It runs on the server: the laptop can be closed. Every secret is typed here
 // by you, kept encrypted on the server, and never shown again.
@@ -15,7 +15,7 @@ const COMMANDS = [
   ["PNL · PNL YESTERDAY · PNL WEEK · PNL MONTH", "profit and loss (past days from Trade Analysis)"],
   ["QUOTE SBIN", "price, day range, VWAP, volume, buyers/sellers, circuits, live call"],
   ["CALL SBIN", "the desk's live call and plan"],
-  ["ASK <anything>", "TradeAI answers in plain English (the free AI models)"],
+  ["ASK <anything>", "TradeAI answers in plain English (the default AI model)"],
   ["ALERTS · ALERT SBIN 800 · ALERT SBIN BELOW 780", "price alerts the server watches"],
   ["UPDATES ON · UPDATES OFF · EVERY 15", "the timed updates"],
   ["TRADING OFF", "switch trading off at once"],
@@ -66,7 +66,7 @@ export default function WhatsAppCard() {
         <div>
           <h3 id="wa-h">WhatsApp Trading</h3>
           <p>
-            Updates on your open positions while you are away — price, P&amp;L, volume, buyers vs sellers, RSI, VWAP and the desk’s call, with the free AI models’ voted advice — answers to simple commands, and, only if you allow it, trading by WhatsApp with a code and your PIN for every order. It runs on the server, so your laptop can be closed.
+            Updates on your open positions while you are away — price, P&amp;L, volume, buyers vs sellers, RSI, VWAP and the desk’s call, with the default AI model’s advice — answers to simple commands, and, only if you allow it, trading by WhatsApp with a code and your PIN for every order. It runs on the server, so your laptop can be closed.
           </p>
         </div>
         <span className={`ntf__chip ${st.enabled ? "is-on" : ""}`}>{!st.configured ? "Not set up" : st.enabled ? "On" : "Off"}</span>
@@ -157,7 +157,7 @@ export default function WhatsAppCard() {
             setBusy("");
           }}
         >
-          {busy === "prev" ? "Writing (the free AI models)…" : "Preview an update"}
+          {busy === "prev" ? "Writing (the AI model)…" : "Preview an update"}
         </button>
         {st.configured && (
           <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm" disabled={Boolean(busy)} onClick={() => run("rm", () => api("/api/admin/whatsapp", { method: "PUT", body: { remove: true } }), "WhatsApp is removed: every secret is deleted.")}>

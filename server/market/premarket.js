@@ -107,7 +107,7 @@ function measureFollow(nifty, us, { minMove = 0.5 } = {}) {
  * @param options  the Nifty's option chain read (options.js), or null
  * @param history  overseas daily closes { spx, ixic, dax, n225 } or null
  */
-function buildMarketForecast({ phase = "pre", nifty = null, kite = {}, tide = null, global = null, world = null, options = null, history = null, nextSession = null } = {}) {
+function buildMarketForecast({ phase = "pre", nifty = null, kite = {}, tide = null, global = null, world = null, options = null, history = null, nextSession = null, social = null, giftGap = null } = {}) {
   // one table of every cue, the provider's numbers first, the world brief filling gaps
   const rows = new Map();
   const put = (id, row) => {
@@ -123,6 +123,17 @@ function buildMarketForecast({ phase = "pre", nifty = null, kite = {}, tide = nu
     const ch = id === "fii" || id === "dii" ? null : pctOf(c.change);
     put(id, { id, name: c.name, region: REGION[id] || "", last: c.value, changePct: ch, flowCr: id === "fii" || id === "dii" ? crore(`${c.value} ${c.change}`) : null, session: null, asOf: c.asOf, source: `web search (${new Date(fresh.at).toISOString().slice(11, 16)} UTC)` });
   }
+  // GIFT Nifty: its move against the NSE Nifty future's close when known; its own change from the last
+  // settlement otherwise — but not a 0.00% that only means it has settled for the day
+  const giftRow = rows.get("gift");
+  let giftNote = "";
+  if (giftRow && giftGap && num(giftGap.pct) && phase !== "open") {
+    rows.set("gift", { ...giftRow, changePct: giftGap.pct, session: `vs the NSE Nifty future's close ${Number(giftGap.futLast).toLocaleString("en-IN")}`, source: "Zerodha" });
+  } else if (giftRow && phase !== "open" && giftRow.changePct === 0) {
+    const prem = nifty && num(nifty.prevClose) && num(giftRow.last) ? r2((giftRow.last / nifty.prevClose - 1) * 100) : null;
+    giftNote = `GIFT Nifty shows 0.00% because it has settled for the day${num(prem) ? `; it stands ${prem > 0 ? "+" : ""}${prem}% above the Nifty's close, which includes the usual futures premium` : ""} — so it is left out of the expected open.`;
+    rows.set("gift", { ...giftRow, changePct: null, session: "settled for the day" });
+  }
   const ch = (id) => (rows.get(id) && num(rows.get(id).changePct) ? rows.get(id).changePct : null);
   const avg = (ids) => {
     const v = ids.map(ch).filter(num);
@@ -136,7 +147,8 @@ function buildMarketForecast({ phase = "pre", nifty = null, kite = {}, tide = nu
   };
   const s = (x, d = 2) => `${x > 0 ? "+" : ""}${Number(x).toFixed(d)}%`;
   const gift = ch("gift");
-  if (!live && num(gift)) add("gift", "GIFT Nifty (trades through the night)", 2.5, gift / 0.6, `GIFT Nifty ${s(gift)} from its last settlement — the closest thing to the Nifty overnight`);
+  const giftVs = giftGap && num(giftGap.pct) ? `against the NSE Nifty future's close (${Number(giftGap.futLast).toLocaleString("en-IN")}), so the usual futures premium cancels out` : "from its last settlement";
+  if (!live && num(gift)) add("gift", "GIFT Nifty (trades through the night)", 2.5, gift / 0.6, `GIFT Nifty ${s(gift)} ${giftVs} — the closest thing to the Nifty overnight`);
   const us = avg(["spx", "ixic"]);
   const usState = rows.get("spx") && rows.get("spx").session;
   if (num(us)) add("us", usState === "live" ? "US markets (trading now)" : "US markets (last session)", live ? 0.8 : 1.5, us / 1.0, `S&P 500 ${num(ch("spx")) ? s(ch("spx")) : "—"}, Nasdaq ${num(ch("ixic")) ? s(ch("ixic")) : "—"}${usState === "live" ? " now" : " at the close"}`);
@@ -156,6 +168,11 @@ function buildMarketForecast({ phase = "pre", nifty = null, kite = {}, tide = nu
   if (options && options.available && options.bias) add("options", "Nifty option chain", live ? 1.2 : 1.0, options.bias.score / 50, `${options.bias.label}: PCR ${options.pcr ?? "—"}, max pain ${options.maxPain ?? "—"}, call wall ${options.resistance ? options.resistance.strike : "—"}, put wall ${options.support ? options.support.strike : "—"}`);
   if (live && tide && num(tide.score)) add("tide", "The Nifty's own tide (live)", 2.0, tide.score / 60, tide.summary || `tide ${tide.score}`);
   if (fresh && fresh.mood) add("mood", "World news mood", live ? 0.5 : 0.8, { risk_on: 0.7, risk_off: -0.7 }[fresh.mood] || 0, `${fresh.headline || fresh.mood}`);
+  // the Social Media page's organised picture of the last six hours (news sites, X, Reddit, NSE)
+  if (social && social.items >= 5 && social.mood && num(social.mood.score)) {
+    const top = (social.alerts || [])[0];
+    add("social", "Social & news mood (last 6 hours)", live ? 0.5 : 0.7, social.mood.score / 60, `${social.mood.label} across ${social.items} market items${social.brief && social.brief.headline ? ` — ${social.brief.headline}` : top ? ` — ${top.title}` : ""}`);
+  }
 
   const wsum = votes.reduce((a, v) => a + v.weight, 0);
   const lean = wsum ? votes.reduce((a, v) => a + v.vote * v.weight, 0) / wsum : 0;
@@ -177,7 +194,7 @@ function buildMarketForecast({ phase = "pre", nifty = null, kite = {}, tide = nu
     let basis = "";
     if (num(gift)) {
       gap = gift;
-      basis = `GIFT Nifty ${s(gift)}: it trades through the night, so it is the best single guide to the Nifty's open.`;
+      basis = `GIFT Nifty ${s(gift)} ${giftVs}: it trades through the night, so it is the best single guide to the Nifty's open.`;
     } else if (num(ch("spx"))) {
       const b = follow ? follow.beta : 0.3;
       gap = b * ch("spx") + (num(eu) ? 0.15 * eu : 0) + (num(asia) ? 0.25 * asia : 0);
@@ -225,7 +242,8 @@ function buildMarketForecast({ phase = "pre", nifty = null, kite = {}, tide = nu
 
   const cautions = [];
   if (!votes.length) cautions.push("No overseas cue could be read: connect Zerodha (GIFT Nifty, the rupee, crude), add an FMP key for the overseas indices, or refresh the world brief.");
-  if (!num(gift) && !live) cautions.push("No GIFT Nifty reading: the expected open rests on the overseas closes alone, which explain only a part of the Nifty's opens.");
+  if (giftNote) cautions.push(giftNote);
+  if (!num(gift) && !live && !giftNote) cautions.push("No GIFT Nifty reading: the expected open rests on the overseas closes alone, which explain only a part of the Nifty's opens.");
   if (fresh && fresh.events && fresh.events.length) cautions.push(`Scheduled today: ${fresh.events.slice(0, 3).join("; ")}.`);
   if (follow && num(follow.r2) && follow.r2 < 0.15) cautions.push(`Overnight US moves explained only ${Math.round(follow.r2 * 100)}% of the Nifty's opening gaps over ${follow.days} days: GIFT Nifty and the morning's own news matter more.`);
 

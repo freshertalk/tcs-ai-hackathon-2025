@@ -359,11 +359,34 @@ const ENTRIES = [
   [["Year"], "Which year’s market holidays to show."],
 
   /* ---------------------------------------------------------------- settings */
-  [["AI company"], "Which company's AI writes strategies, debriefs and briefs: Anthropic, OpenAI, Google Gemini, DeepSeek, Moonshot (Kimi) or NVIDIA (Nemotron). Each keeps its own saved key; a switch applies to every page at once.", ".ais"],
+  [["Default model"], "The one AI model every feature uses: TradeAI, AI Live and AI Research, Social Media, WhatsApp, the brains and the strategist. Claude Sonnet 5.5 unless you pick another.", ".ais"],
+  [["AI company"], "The company of the default model: Anthropic, OpenAI, Google Gemini, DeepSeek or Moonshot (Kimi). Each keeps its own saved key; a switch applies to every page at once.", ".ais"],
+  [["Fallback", "Fallback (AI)"], "When the default model fails, the other companies whose keys are saved are tried one at a time. Off: only the default model is asked.", ".ais"],
+  // Social Media (/me/social)
+  [["↻ Read now", "Read now"], "Read every source now. They are also read by themselves every few minutes, with no page open.", ".soc"],
+  [["Sources & settings", "⚙ Sources & settings"], "Add or remove sources, choose what to track, the AI's hourly budget and the X API token (superadmin).", ".soc"],
+  [["Live feed"], "News and posts from your sources, newest first, read again every 20 seconds. New items slide in highlighted.", ".soc"],
+  [["Market-related only"], "Hide items the rules and the AI found unrelated to Indian markets (sport, gossip and the like).", ".soc"],
+  [["Organized for trading"], "What the desk's rules and the AI model made of the feed: the brief, the mood, the stocks and sectors in the news, and the alerts. It also feeds the forecast, the Intraday plans and TradeAI.", ".soc"],
+  [["AI brief"], "The AI model's summary of the last six hours' market items, written when you press Ask the AI (or by itself every half hour, if switched on). One paid request.", ".soc"],
+  [["Desk brief"], "The brief the desk's rules write from the organised items — headline, themes, stocks to watch, sectors, risks and a checklist. Always there, no AI, no cost.", ".soc"],
+  [["Ask the AI", "Rewrite with AI"], "Have the AI model write its brief over the last six hours' items: one paid request. The desk's own brief is free and always shown.", ".soc"],
+  [["When the AI reads an item"], "Only when needed: the AI reads just the items that matter to you (open positions, tracked stocks, high impact) and that the rules cannot settle. Every item: all market-related ones. Never: the rules only.", ".soc"],
+  [["Alerts"], "High-impact news on your open positions and tracked stocks goes to Telegram / WhatsApp the moment it is read — at most one per stock every 30 minutes, 12 a day.", ".soc"],
+  [["News mood · 24 h"], "The tone of the last day's market items, from −100 (bearish) to +100 (bullish). Newer and higher-impact items weigh more.", ".soc"],
+  [["Stock radar"], "The NSE stocks named most in the last day's market items, with their tone and the latest headline. ★ marks a stock you track.", ".soc"],
+  [["Sectors in the news"], "Sectors named in the last day's items, coloured and marked ▲ ▼ ● by their tone. Click one to filter the feed.", ".soc"],
+  [["High-impact alerts"], "Items the AI (or the rules) rated high impact, and medium-impact items about stocks you track.", ".soc"],
+  [["Batches an hour"], "How many batches of eight items the AI model may read an hour. Each batch is one paid request; 0 leaves the rules alone.", ".soc"],
+  [["What to track"], "Sectors, keywords and stocks: they decide which items count as market-related and which become alerts.", ".soc"],
+  [["Accounts & keys"], "Official API tokens only — never usernames and passwords, which platforms forbid for automated use.", ".soc"],
+  [["Suggestions — one click to add"], "Ready-made sources: news sites, NSE announcements, Reddit communities and X accounts. X needs your API token.", ".soc"],
+  [["Social Media"], "Live news and posts that can move NSE and BSE stocks, organised for trading. Opens in a new tab."],
+  [["Back to Claude Sonnet 5.5"], "Make Claude Sonnet 5.5 the default model again. Without the Anthropic key saved, the AI waits for it.", ".ais"],
   [["API key", "Save & use"], "The key from the chosen company's developer console. Stored encrypted on the server, never shown again; switching companies keeps it.", ".ais"],
   [["↻ Refresh models", "Refresh models"], "Read the models this key can use from the company now, so the list stays current. Spends no tokens.", ".ais"],
-  [["Web search"], "Which company gathers the world brief and the news check. DeepSeek, Kimi and NVIDIA have no web search, so another saved company does it.", ".ais"],
-  [["Use"], "Switch every page to this company now (its key is already saved).", ".ais"],
+  [["Web search"], "Which company gathers the world brief and the news check. DeepSeek and Kimi have no web search, so another saved company does it.", ".ais"],
+  [["Use"], "Make this company's model the default for every page now (its key is already saved).", ".ais"],
   [["Save"], "Store these settings.", ".adm-form"],
   [["Client ID", "Google Client ID"], "The public name of your Google sign-in client. It ends in .apps.googleusercontent.com."],
   [["Client Secret", "Google Client Secret"], "The private half of the Google sign-in client. Stored encrypted; never shown again."],
@@ -470,9 +493,9 @@ const ENTRIES = [
 
   /* ---- AI Engine, Mandir, new tools */
   [["AI Engine"], "Everything about the AI: every feature, rule and condition — and, for the superadmin, the AI brains, the real instructions and the skills file. Word download."],
-  [["Brains", "+ Add a brain"], "Standing instructions for the AI. From the next request on, every AI feature a brain belongs to follows it. The AI team writes and places each one; only the superadmin sees them."],
+  [["Brains", "+ Add a brain"], "Standing instructions for the AI. From the next request on, every AI feature a brain belongs to follows it. The default AI model writes and places each one; only the superadmin sees them."],
   [["Real instructions"], "Word for word, what each AI feature sends the AI now — its own instructions, then the brains added to it."],
-  [["Use my wording"], "Put back the words you wrote, instead of the AI team's version."],
+  [["Use my wording"], "Put back the words you wrote, instead of the AI's version."],
   [["Download Word ⤓", "Word ⤓"], "Download this page as a Word file (.docx)."],
   [["Heatmap"], "One tile per stock: size by value traded, colour by today's change. Click a tile to open the stock."],
   [["Custom scanner · NIFTY 500"], "Your own conditions over the Nifty 500's daily closes, with today's live price. All conditions must hold."],
@@ -507,11 +530,11 @@ const ENTRIES = [
   [["Process score"], "From the good and bad practices found in the day's trades: how the day was traded, not what it made. A reminder about habits.", ".ta"],
 
   /* ---- AI Live and AI Research */
-  [["AI Live"], "Ask every analyst to read this stock's live numbers now: where it is more likely to go in the next 15–30 minutes. The desk's own arithmetic answers first, without AI.", ".ab"],
-  [["AI Research"], "Ask every analyst to prepare this stock for the next trading session, from the earlier data. The desk's own outlook answers first, without AI.", ".ab"],
-  [["Engine + AI analysts", "Desk’s own arithmetic — no AI"], "Whether the answer is the desk's arithmetic alone, or that arithmetic weighed together with the AI analysts' readings.", ".ab"],
-  [["% agree", "agree"], "How much of the weight (the desk's engine and each analyst, by track record) sits on the winning side. Agreement is not a probability of profit.", ".ab"],
-  [["AI, one by one"], "Runs the top stocks of the list shown through the analysts one after another, free models only — no paid credits. Nothing starts until you press a button.", ".mb"],
+  [["AI Live"], "Ask the AI model to read this stock's live numbers now: where it is more likely to go in the next 15–30 minutes. The desk's own arithmetic answers first, without AI.", ".ab"],
+  [["AI Research"], "Ask the AI model to prepare this stock for the next trading session, from the earlier data. The desk's own outlook answers first, without AI.", ".ab"],
+  [["Engine + AI analyst", "Engine + AI analysts", "Desk’s own arithmetic — no AI"], "Whether the answer is the desk's arithmetic alone, or that arithmetic weighed together with the AI model's reading.", ".ab"],
+  [["% agree", "agree"], "How much of the weight (the desk's engine and the AI analyst, by track record) sits on the winning side. Agreement is not a probability of profit.", ".ab"],
+  [["AI, one by one"], "Runs the top stocks of the list shown through the default AI model one after another. Each stock is one of today's AI runs, billed by the AI company. Nothing starts until you press a button.", ".mb"],
   [["Next 30 min", "Next session"], "The desk's read for the next 15–30 minutes, or for the next trading session. Click to show it.", ".ab"],
 
   /* ---- the daily goal and profit protection */
@@ -541,8 +564,8 @@ const ENTRIES = [
   [["Calls", "Puts"], "Calls gain when the price rises, puts when it falls. Writers (sellers) of calls cap the upside; writers of puts support the downside.", ".oc"],
 
   /* ---- TradeAI's answer modes and settings */
-  [["How TradeAI answers"], "The default answer mode and the paid model: whether it may be used for advice, research and the Deep merge, and at most how many paid answers a day.", ".tai-set"],
-  [["Fastest free models (measured)"], "The free models ordered by how fast they have actually answered here. Fast mode asks the first one; the next only if it fails.", ".tai-set"],
+  [["How TradeAI answers"], "The default answer mode, whether TradeAI may use the AI model, and at most how many model answers a day.", ".tai-set"],
+  [["Models, in order (measured answer time)"], "The default model first, then the fallbacks, with how fast each has actually answered here. The next is asked only if one fails.", ".tai-set"],
 
   /* ---- the Intraday plan (Desk while the market is shut; Research → Intraday research) */
   [["Intraday research · next session"], "Tomorrow's intraday plan for each stock you pick — the decision, where it may open and trade, and how the same rules did on its past sessions. Arithmetic only: no AI, no tokens."],

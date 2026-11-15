@@ -207,6 +207,7 @@ class Debrief {
       schema: DEBRIEF_SCHEMA,
       maxTokens: 8000,
       effort: "medium",
+      fresh: refresh, // "write a new one": never the answer the engine already has for the same facts
     });
     const d = answer.data;
     const known = new Set(facts.stocks.map((s) => s.symbol));

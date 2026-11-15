@@ -1189,11 +1189,39 @@ class MarketService {
         marketCue = null;
       }
     }
-    const p = buildIntradayPlan({ daily: d.candles, forming, bars5, outlook: out, nifty: ix ? ix.candles : null, gift, marketOpen, costPct: DEFAULT_COST_PCT, options, marketCue });
+    let news = null;
+    try {
+      news = this.social ? this.social.forSymbol(symbol) : null;
+    } catch (_) {
+      news = null;
+    }
+    const p = buildIntradayPlan({ daily: d.candles, forming, bars5, outlook: out, nifty: ix ? ix.candles : null, gift, marketOpen, costPct: DEFAULT_COST_PCT, options, marketCue, news });
     const res = { ...p, symbol, source: d.source, stale: Boolean(d.stale), marketOpen, outlookBasis: outlook && outlook.available ? "full" : "chart and odds", at: new Date(now).toISOString() };
     if (this._planAt.size > 80) this._planAt.clear();
     this._planAt.set(key, { at: now, out: res });
     return res;
+  }
+
+  /**
+   * GIFT Nifty against the close of the NSE near-month Nifty future: { pct, giftLast, futLast, futName }
+   * or null (no Zerodha connection, no GIFT price, or no future found).
+   */
+  async _giftGap(gift) {
+    if (this.mode() !== "kite" || !gift || !gift.available || !(gift.last > 0)) return null;
+    try {
+      const now = this.now();
+      const today = istDate(now);
+      const ist = new Date(now + 5.5 * 3600 * 1000);
+      const closedToday = ist.getUTCHours() * 60 + ist.getUTCMinutes() > 930;
+      const futs = (await this.derivatives()).filter((x) => x.n === "NIFTY" && x.y === "FUT" && (x.e > today || (x.e === today && !closedToday))).sort((a, b) => (a.e < b.e ? -1 : 1));
+      if (!futs.length) return null;
+      const key = `NFO:${futs[0].s}`;
+      const q = (await this._call((k) => k.quotes([key])))[key];
+      if (!q || !(q.last > 0)) return null;
+      return { pct: Math.round((gift.last / q.last - 1) * 10000) / 100, giftLast: gift.last, futLast: q.last, futName: futs[0].s, expiry: futs[0].e };
+    } catch (_) {
+      return null;
+    }
   }
 
   /** The NFO contract list (futures and options), once a day: several megabytes, one download for everyone. */
@@ -1327,7 +1355,7 @@ class MarketService {
     const now = this.now();
     const phase = sessionPhase(now).split("|")[1];
     // a new world brief, a Zerodha login or a new overseas key each start a fresh reading
-    const key = `${phase}|${world && world.at ? world.at : ""}|${this.mode()}|${this.global && this.global.configured() ? this.global.status().setAt : ""}`;
+    const key = `${phase}|${world && world.at ? world.at : ""}|${this.mode()}|${this.global && this.global.configured() ? this.global.status().setAt : ""}|${this.social ? this.social.status().polledAt || "" : ""}`;
     if (this._fcAt && this._fcAt.key === key && now - this._fcAt.at < (phase === "open" ? 30000 : 120000)) return this._fcAt.out;
     let ctx = null;
     try {
@@ -1363,6 +1391,10 @@ class MarketService {
     }
     const n = items.nifty;
     const kite = { gift: items.gift, usdinr: items.usdinr, crude: items.crude, gold: items.gold, vix: items.vix };
+    // GIFT Nifty's move since the NSE close, measured against the NSE Nifty future's close (both are
+    // near-month Nifty futures, so the usual futures premium cancels out). Its own "change" is measured
+    // from its last settlement, which reads 0.00% once it has settled — every weekend.
+    const giftGap = phase !== "open" ? await this._giftGap(kite.gift) : null;
     let daily = null;
     try {
       const d = await this.daily(INDEX_SYMBOL);
@@ -1397,7 +1429,13 @@ class MarketService {
     }
     const today = istDate(now);
     const nextSession = phase === "pre" ? today : phase === "open" ? null : nextWeekday(today);
-    const f = buildMarketForecast({ phase, nifty, kite, tide: ctx && ctx.tide, global, world, options, history, nextSession });
+    let social = null;
+    try {
+      social = this.social ? this.social.signal() : null;
+    } catch (_) {
+      social = null;
+    }
+    const f = buildMarketForecast({ phase, nifty, kite, tide: ctx && ctx.tide, global, world, options, history, nextSession, social, giftGap });
     const out = { ...f, at: new Date(now).toISOString(), feed: this.global ? { configured: this.global.configured(), stale: Boolean(feed && feed.stale), error: feed && (feed.error || (!feed.available && feed.reason)) ? feed.error || feed.reason : "" } : { configured: false } };
     this._fcAt = { key, at: now, out };
     return out;

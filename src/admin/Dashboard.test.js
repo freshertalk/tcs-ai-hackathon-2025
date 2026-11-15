@@ -44,3 +44,11 @@ test("an admin who is not the owner does not get the account workspaces", async 
   expect(screen.queryByText("Journal")).toBeNull();
   expect(screen.getByText("Advisor")).toBeTruthy();
 });
+
+test("the Social Media tile opens its page in a new tab", async () => {
+  render(page("admin"));
+  await settle();
+  const a = screen.getByText("Open Social Media").closest("a");
+  expect(a.getAttribute("href")).toBe("/me/social");
+  expect(a.getAttribute("target")).toBe("_blank");
+});

@@ -3,9 +3,9 @@
 // day, searchable, pinnable, renamable), one calm column of conversation, and a composer at the foot.
 //
 // Each question is planned, the desk's data is gathered (positions, P&L history, live calls, levels,
-// patterns, habits, odds, outlook, the market, news when asked) and a mixture of the free AI models
-// answers through the AI Engine, merged by the strongest — falling back model by model and to the
-// desk's own arithmetic, so it always answers. Answers are rich Markdown (headings, tables, coloured
+// patterns, habits, odds, outlook, the market, news when asked) and the default AI model (Claude
+// Sonnet 5.5 unless another is picked on the AI page) answers through the AI Engine — falling back to
+// the other saved companies and to the desk's own arithmetic, so it always answers. Answers are rich Markdown (headings, tables, coloured
 // figures) with key numbers, a forecast and actions. The empty chat suggests what you are most
 // likely to ask now (your open positions first); every answer ends with related questions.
 
@@ -87,11 +87,11 @@ const IcExport = () => <I size={16} d={<><path d="M12 3v12M7 10l5 5 5-5" /><path
 
 // how a question is answered (server/ai/route.js): Auto picks for each question
 const MODES = [
-  { id: "auto", label: "Auto", tip: "Each question goes the best way: data at once with no model, light questions to the fastest model, advice to the paid model, depth to all models merged." },
-  { id: "fast", label: "Fast", tip: "The quickest answer: the desk's data at once, or one fast model." },
-  { id: "deep", label: "Deep", tip: "The most thorough: the free models answer together and the paid model merges them. Slower." },
+  { id: "auto", label: "Auto", tip: "Each question goes the best way: data at once with no model, light questions briefly, advice with the full data, depth with longer thinking — all on the default model." },
+  { id: "fast", label: "Fast", tip: "The quickest answer: the desk's data at once, or a brief answer from the default model." },
+  { id: "deep", label: "Deep", tip: "The most thorough: the default model thinks longer and writes a fuller answer. Slower." },
 ];
-const ROUTE_ETA = { instant: "from the desk's data — no AI model", fast: "one fast model · usually 3–12 s", advice: "one model for advice · usually 5–25 s", deep: "several models, then a merge · usually 20–60 s" };
+const ROUTE_ETA = { instant: "from the desk's data — no AI model", fast: "a brief answer · usually 3–12 s", advice: "the full data · usually 6–25 s", deep: "longer thinking · usually 20–60 s" };
 const SR = typeof window !== "undefined" ? window.SpeechRecognition || window.webkitSpeechRecognition : null;
 
 /* ------------------------------------------------------------------------------ copy button */
@@ -292,14 +292,15 @@ function useReveal(text, on) {
 function Process({ meta }) {
   const used = meta.used || [];
   const n = (meta.by || []).length;
-  const paid = (meta.models || []).some((m) => m.ok && m.paid);
   const sec = Number.isFinite(meta.ms) ? Math.round(meta.ms / 100) / 10 : null;
   const label =
     meta.tier === "instant"
       ? `⚡ Instant — from the desk’s data (${used.length ? used.join(", ") : "the desk"}), no AI model${sec !== null ? ` · ${sec}s` : ""}`
-      : meta.engineOnly
-        ? "Answered with the desk’s own arithmetic (the AI models did not answer)"
-        : `Read ${used.length ? used.join(", ") : "the desk"} · ${meta.tier === "deep" || (!meta.tier && n > 1) ? `${n} models${meta.mergedBy ? ` · merged by ${meta.mergedBy}` : ""}` : `answered by ${(meta.by || [])[0] || "a model"}${paid ? " (paid)" : ""}`}${meta.fallback ? " · after a fallback" : ""}`;
+      : meta.reused
+        ? `♻ Reused — the same question on ${meta.sameData ? "the same data" : "nearly the same data (within 3 minutes)"}, answered ${meta.reusedAt ? new Date(meta.reusedAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }) : "earlier"} — no new AI call (Retry asks again)`
+        : meta.engineOnly
+        ? "Answered with the desk’s own arithmetic (no AI model answered)"
+        : `Read ${used.length ? used.join(", ") : "the desk"} · ${n > 1 ? `${n} models${meta.mergedBy ? ` · merged by ${meta.mergedBy}` : ""}` : `answered by ${(meta.by || [])[0] || "a model"}${meta.tier === "deep" ? " · thinking longer" : ""}`}${meta.fallback ? " · after a fallback" : ""}`;
   return (
     <details className="tai-proc">
       <summary>
@@ -515,7 +516,7 @@ function Working({ job }) {
         )}
         <small className="tai-dim">
           {sec}s
-          {route ? ` · ${route.tier === "instant" ? "instant" : route.model ? `${route.model}${route.paid ? " (paid)" : ""}` : route.tier} · ${ROUTE_ETA[route.tier] || ""}` : " · working out the fastest way to answer"}
+          {route ? ` · ${route.tier === "instant" ? "instant" : route.model ? route.model : route.tier} · ${ROUTE_ETA[route.tier] || ""}` : " · working out the fastest way to answer"}
         </small>
       </div>
     </article>
@@ -625,7 +626,7 @@ export default function TradeAI() {
   const [titleEdit, setTitleEdit] = useState(false);
   const [top, setTop] = useState(56);
   const [mode, setModeState] = useState(() => store.get("tai.mode", "auto"));
-  const [tset, setTset] = useState(null); // how TradeAI answers: settings, the paid lead, the fastest models
+  const [tset, setTset] = useState(null); // how TradeAI answers: settings, the default model and its fallbacks
   const [setOpen, setSetOpen] = useState(false);
   const setMode = (m) => {
     setModeState(m);
@@ -907,7 +908,8 @@ export default function TradeAI() {
     "Show the option chain of NIFTY",
     sugg && sugg.suggestions && (sugg.suggestions.find((x) => x.symbol) || {}).symbol ? `Intraday plan for ${sugg.suggestions.find((x) => x.symbol).symbol}` : null,
   ].filter(Boolean);
-  const badge = tset ? (mode === "fast" ? "Fast · data or one quick model" : mode === "deep" ? `Deep · all models${tset.lead && tset.usePaid ? ` + ${tset.lead.name}` : ""}` : `Auto · ${tset.lead && tset.usePaid ? `${tset.lead.name} for advice` : "free models"}`) : "Auto";
+  const model = tset && tset.lead && tset.usePaid ? tset.lead.name : "desk's data only";
+  const badge = tset ? `${mode === "fast" ? "Fast" : mode === "deep" ? "Deep" : "Auto"} · ${model}` : "Auto";
 
   return (
     <Shell crumb="TradeAI" fluid>
@@ -981,7 +983,7 @@ export default function TradeAI() {
             )}
             <span className="tai-grow" />
             {isOwner && <GoalChip />}
-            <span className="tai-badge" data-tip="Data questions are answered at once from the desk; light questions by the fastest model; advice by the paid model when it is on; Deep runs every model and merges. If every model fails, the desk’s own arithmetic answers.">
+            <span className="tai-badge" data-tip="Data questions are answered at once from the desk; everything else by the default AI model — brief for light questions, longer thinking for Deep. If it fails, the other saved companies are tried; if every model fails, the desk’s own arithmetic answers.">
               <i /> {badge}
             </span>
             {conv && conv.messages && conv.messages.length > 0 && (
@@ -991,7 +993,7 @@ export default function TradeAI() {
             )}
             {isOwner && (
               <span className="tai-setwrap">
-                <button type="button" className="tai-icon" onClick={() => setSetOpen((o) => !o)} aria-expanded={setOpen} aria-label="How TradeAI answers" data-tip="How TradeAI answers: the default mode and the paid model">
+                <button type="button" className="tai-icon" onClick={() => setSetOpen((o) => !o)} aria-expanded={setOpen} aria-label="How TradeAI answers" data-tip="How TradeAI answers: the default mode and the AI model's daily limit">
                   <IcGear />
                 </button>
                 {setOpen && tset && (
@@ -1009,20 +1011,20 @@ export default function TradeAI() {
                     </label>
                     <label className="tai-set__row tai-set__check">
                       <input type="checkbox" checked={tset.usePaid} onChange={(e) => saveSet({ usePaid: e.target.checked })} />
-                      <span>Use the paid model for advice, research and the Deep merge{tset.lead ? ` (${tset.lead.name})` : " — none saved on the AI page"}</span>
+                      <span>Use the AI model{tset.lead ? ` (${tset.lead.name}, the default model)` : " — no key saved on the AI page"}; off, TradeAI answers from the desk’s data only</span>
                     </label>
                     <label className="tai-set__row">
-                      <span>Paid answers a day, at most</span>
+                      <span>Model answers a day, at most</span>
                       <input type="number" min="0" max="2000" step="10" defaultValue={tset.paidDailyCap} onBlur={(e) => saveSet({ paidDailyCap: Number(e.target.value) })} />
                     </label>
-                    <p className="tai-dim">Paid answers today: {tset.paidToday}.</p>
-                    {tset.fastest && tset.fastest.length > 0 && (
+                    <p className="tai-dim">Model answers today: {tset.paidToday}. The default model is picked on the AI page.</p>
+                    {tset.models && tset.models.length > 0 && (
                       <>
-                        <h5>Fastest free models (measured)</h5>
+                        <h5>Models, in order (measured answer time)</h5>
                         <ol className="tai-set__fast">
-                          {tset.fastest.map((f) => (
+                          {tset.models.map((f) => (
                             <li key={f.name}>
-                              {f.name} <small>{f.avgSec !== null ? `${f.avgSec}s` : "not measured yet"}</small>
+                              {f.name} <small>{f.fallback ? "fallback · " : "default · "}{f.avgSec !== null ? `${f.avgSec}s` : "not measured yet"}</small>
                             </li>
                           ))}
                         </ol>

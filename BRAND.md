@@ -1,8 +1,8 @@
 # DrishtiAI — the name, and how to write it
 
 The whole system built in this repository — the private area at `/me`, the trading terminal (Stock
-Report), the AI Engine and its brains, TradeAI, the Journal and its analytics, WhatsApp Trading,
-Telegram alerts, the Mandir, the Document — is called **DrishtiAI**.
+Report), the AI Engine and its brains, TradeAI, Social Media, the Journal and its analytics, WhatsApp
+Trading, Telegram alerts, the Mandir, the Document — is called **DrishtiAI**.
 
 | What | How it is written |
 |---|---|
@@ -23,7 +23,7 @@ Where the name comes from in code — change it there, and only there:
 - `server/brand.js` — the server's messages (WhatsApp, Telegram, price alerts, the risk guard and the
   3:45 PM report).
 
-Feature names stay as they are: **TradeAI** (the chat), **AI Engine**, **AI brains**, **Stock Report**
+Feature names stay as they are: **TradeAI** (the chat), **Social Media**, **AI Engine**, **AI brains**, **Stock Report**
 (the trading terminal), **Trade Analysis**, **Journal**, **WhatsApp Trading**, **Mandir**.
 
 The public website at `/` (vinaytiwari.org) is the owner's personal site and keeps its own name.

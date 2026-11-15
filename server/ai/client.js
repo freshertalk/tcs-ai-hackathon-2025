@@ -11,12 +11,13 @@ const sdk = require("@anthropic-ai/sdk");
 
 const Anthropic = sdk.default || sdk.Anthropic || sdk;
 
-// The models an admin can choose. The first is the default.
+// The models an admin can choose. The first is the default (Sonnet 5.5); the AI page can make any
+// other the default. Prices are Anthropic's list prices per million input / output tokens.
 const MODELS = [
-  { id: "claude-opus-5-5", name: "Claude Opus 5.5", note: "Default — strong reasoning at a moderate price" },
-  { id: "claude-fable-5-2", name: "Claude Fable 5.2", note: "Most capable; about twice the price of Opus 5.5" },
-  { id: "claude-sonnet-5-5", name: "Claude Sonnet 5.5", note: "Faster and cheaper" },
-  { id: "claude-haiku-5-5", name: "Claude Haiku 5.5", note: "Cheapest; least depth" },
+  { id: "claude-sonnet-5-5", name: "Claude Sonnet 5.5", note: "Default — fast and strong; $2 / $10 per million tokens (in / out)" },
+  { id: "claude-opus-5-5", name: "Claude Opus 5.5", note: "Deeper reasoning; $4 / $20 per million tokens" },
+  { id: "claude-fable-5-2", name: "Claude Fable 5.2", note: "Most capable; $8 / $40 per million tokens" },
+  { id: "claude-haiku-5-5", name: "Claude Haiku 5.5", note: "Fastest and cheapest, least depth; $0.10 / $0.50 per million tokens" },
 ];
 const DEFAULT_MODEL = MODELS[0].id;
 // If a safety classifier declines a request, these models can hand it to a fallback model server-side.

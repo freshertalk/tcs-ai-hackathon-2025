@@ -136,17 +136,73 @@
 .ais-note b {
   color: var(--ink);
 }
-.ais-free {
-  display: inline-block;
-  margin-right: 6px;
-  padding: 0 6px;
-  border-radius: 4px;
-  background: color-mix(in srgb, var(--up, #16a34a) 18%, transparent);
-  color: var(--up-ink, #14613d);
+.ais-default {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line-2);
+  border-radius: 10px;
+  background: var(--paper);
+}
+.ais-default-name {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+  color: var(--ink-2);
+  overflow-wrap: anywhere;
+}
+.ais-default-name > i {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  margin-top: 6px;
+  border-radius: 50%;
+  background: var(--ink-3);
+}
+.ais-default.is-on .ais-default-name > i {
+  background: var(--up, #16a34a);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--up, #16a34a) 25%, transparent);
+}
+.ais-default-name b {
+  color: var(--ink);
+}
+.ais-default-name small {
+  display: block;
+  font-size: var(--t-small);
+  color: var(--ink-3);
+}
+.ais-rec {
+  padding: 2px 8px;
+  border-radius: 99px;
+  background: var(--accent-soft);
+  color: var(--ink);
   font-style: normal;
   font-weight: 600;
   font-size: var(--t-tag);
   text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.ais-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: var(--t-mid);
+  color: var(--ink-2);
+  cursor: pointer;
+}
+.ais-check input {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  accent-color: var(--accent);
+}
+.ais-check b {
+  color: var(--ink);
 }
 
 .ais-chips {
@@ -268,9 +324,6 @@
   .ais-card {
     padding: 12px;
   }
-}
-.ais-free--chip {
-  margin: 0 0 0 2px;
 }
 .ais-field optgroup {
   font-style: normal;

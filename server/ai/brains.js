@@ -5,10 +5,10 @@
 //   - A brain is { title, text, scopes, enabled }. "scopes" names the features it applies to
 //     ("all", or e.g. "strategist", "copilot", "ensemble-live"). Every AI request whose
 //     instructions belong to one of those features gets the brain appended to its system prompt.
-//   - When a brain is saved with "let the AI team refine it", every free NVIDIA-hosted model
-//     writes its own version in parallel, and one model (the paid lead when the paid model is on,
-//     else the strongest free model that answered) merges them into the final wording and decides
-//     where it belongs. The owner's own wording is kept and can be put back at any time.
+//   - When a brain is saved with "let the AI refine it", the default model (Claude Sonnet 5.5 unless
+//     the owner picked another on the AI page) rewrites it into clear final wording and decides where
+//     it belongs; if it fails, the AI page's fallback models are tried in turn. The owner's own
+//     wording is kept and can be put back at any time.
 //   - Brains can never change an answer's format (the code checks it), never permit a promise of
 //     profit, and never remove a stop-loss or the desk's arithmetic checks: those live in code.
 //
@@ -42,6 +42,7 @@ const FEATURES = [
   { id: "debrief", name: "Day debrief", trigger: "Write the debrief on the Debrief" },
   { id: "tradeai", name: "TradeAI chat", trigger: "A question in the TradeAI chat (its own page), or ASK on WhatsApp" },
   { id: "whatsapp", name: "WhatsApp updates", trigger: "The timed updates on WhatsApp while WhatsApp Trading is on" },
+  { id: "social", name: "Social & news digest", trigger: "New posts and headlines from the Social Media sources (every few minutes), or Digest now on the Social Media page" },
 ];
 const FEATURE_IDS = FEATURES.map((f) => f.id);
 
@@ -61,7 +62,7 @@ const featureOf = (system) => registry.get(system) || null;
 
 /* ---------------------------------------------------------------------------- the AI team */
 
-const REFINE_SYSTEM = `You help the owner of a private NSE (India) trading desk write an "AI brain": a standing instruction that is added to the instructions of some of the desk's AI features. You are one of several models writing a version independently.
+const REFINE_SYSTEM = `You help the owner of a private NSE (India) trading desk write an "AI brain": a standing instruction that is added to the instructions of some of the desk's AI features. You write the final version.
 
 The desk's AI features (ids): ${FEATURES.map((f) => `"${f.id}" = ${f.name} (${f.trigger})`).join("; ")}. "all" means every feature.
 
@@ -72,10 +73,6 @@ Write the best version of the owner's draft:
 - Choose the scopes: the feature ids where this brain belongs (or ["all"]). Prefer the narrowest set that fits.
 - Point out any conflict with the existing brains or the trading-skills rules you are shown, in "conflicts" (empty list when none).
 - "rationale": one or two sentences on what you changed and why.`;
-
-const MERGE_SYSTEM = `You merge several models' versions of one "AI brain" (a standing instruction for a private NSE trading desk's AI features) into the single best final version.
-
-Rules: keep the owner's intent exactly; take the clearest and most precise wording and the strongest safeguards from the versions; drop anything that promises profit, a win rate or a probability, removes a stop-loss, asks for orders, or changes an answer's format; keep it concise (about 1,200 characters at most unless the intent needs more). Choose the final scopes from the feature ids (${FEATURE_IDS.join(", ")}, or "all"), preferring the narrowest set that fits — the versions' choices are votes. List real conflicts with the existing brains or rules in "conflicts". "notes": two or three sentences on how the versions differed and what you kept.`;
 
 const VERSION_SCHEMA = {
   type: "object",
@@ -89,20 +86,6 @@ const VERSION_SCHEMA = {
     rationale: { type: "string" },
   },
 };
-const MERGE_SCHEMA = {
-  type: "object",
-  additionalProperties: false,
-  required: ["title", "text", "scopes", "conflicts", "notes"],
-  properties: {
-    title: { type: "string" },
-    text: { type: "string" },
-    scopes: { type: "array", items: { type: "string" } },
-    conflicts: { type: "array", items: { type: "string" } },
-    notes: { type: "string" },
-  },
-};
-// which free model merges when no paid model is available: the strongest first
-const MERGE_ORDER = ["nemotron-3-ultra", "mistral-large", "nemotron-3-super", "nemotron-3.5", "deepseek", "gemma", "nano"];
 
 const str = (x, n) => String(x === undefined || x === null ? "" : x).replace(/\r\n/g, "\n").trim().slice(0, n);
 const cleanScopes = (list) => {
@@ -136,12 +119,10 @@ class Brains {
     };
   }
 
-  /** Who would write a brain now: the free models with the NVIDIA key, and the paid lead when it is on. */
+  /** Who would write a brain now: the default model, then the fallbacks. */
   teamStatus() {
-    const ens = this.ai.ensemble;
-    if (!ens) return { free: [], lead: null };
-    const r = ens.roster();
-    return { free: r.free.map((a) => a.name), lead: r.lead ? `${r.lead.name} (${r.lead.company})` : null };
+    const chain = typeof this.ai.modelChain === "function" ? this.ai.modelChain() : [];
+    return { lead: chain[0] ? `${chain[0].name} (${chain[0].company})` : null, fallbacks: chain.slice(1).map((a) => `${a.name} (${a.company})`) };
   }
 
   /* --------------------------------------------------------------- what each request gets */
@@ -266,73 +247,64 @@ class Brains {
   /* --------------------------------------------------------------------------- the team */
 
   /**
-   * Every free model writes its version in parallel; one model merges them. The paid lead joins
-   * (and merges) when the paid model is switched on in the AI settings and today's paid runs are
-   * not used up (the same daily cap as AI Live / AI Research).
+   * The default model writes the final version; when it fails, the fallback models are tried in turn.
+   * Each refine counts as one of today's AI runs (the same daily cap as AI Live / AI Research).
    */
   async refine(draft, skipId = null) {
     const ai = this.ai;
     const ens = ai.ensemble;
-    if (!ens) throw new AiError("The AI team is not available on this server.", "not_configured", 409);
+    if (!ens) throw new AiError("The AI is not available on this server.", "not_configured", 409);
     const roster = ens.roster();
     const st = ens._state();
     const today = istDate(ai.now());
     if (st.day.date !== today) st.day = { date: today, paid: 0 };
-    let lead = roster.lead;
-    if (lead && st.day.paid >= roster.settings.paidDailyCap) lead = null;
-    const writers = [...(lead ? [lead] : []), ...roster.free];
-    if (!writers.length) throw new AiError("No AI key is saved for the AI team. Save the free NVIDIA key (or a paid key) on the AI page, or save the brain without refining.", "not_configured", 409);
+    const writers = roster.lead ? [roster.lead, ...(roster.fallbacks || [])] : [];
+    if (!writers.length) throw new AiError("No AI key is saved. Save the Anthropic key (the default model is Claude Sonnet 5.5) on the AI page, or save the brain without refining.", "not_configured", 409);
+    if (st.day.paid >= roster.settings.paidDailyCap) throw new AiError(`Today's ${roster.settings.paidDailyCap} AI runs are used up (a limit you can change on the AI Engine page). Save the brain as written.`, "rate_limited", 429);
 
     const others = this._load()
       .brains.filter((b) => b.id !== skipId)
       .map((b) => ({ title: b.title, scopes: b.scopes, text: b.text.slice(0, 600) }));
     const skills = ai.playbook ? ai.playbook.read().slice(0, 5000) : "";
-    const user = `The owner's draft:\n${JSON.stringify({ title: draft.title, text: draft.text, scopes: draft.scopes })}\n\nExisting brains:\n${JSON.stringify(others)}\n\nThe trading-skills file (the core rules, first part):\n${skills}\n\nWrite your version.`;
+    const user = `The owner's draft:
+${JSON.stringify({ title: draft.title, text: draft.text, scopes: draft.scopes })}
+
+Existing brains:
+${JSON.stringify(others)}
+
+The trading-skills file (the core rules, first part):
+${skills}
+
+Write your version.`;
     const sec = roster.settings.deadlineSec;
-    const versions = await Promise.all(
-      writers.map(async (a) => {
-        const t0 = Date.now();
-        try {
-          const spec = { providerId: a.provider, apiKey: ai._key(a.provider), model: a.model, timeoutMs: (a.lead ? Math.max(sec, 120) : sec) * 1000, repair: false };
-          const client = ai.engine ? ai.engine.client(spec, { feature: "brains-team", brains: false }) : makeClient({ ...spec, fetchImpl: ai.fetch });
-          const r = await client.ask({ system: REFINE_SYSTEM, user, schema: VERSION_SCHEMA, maxTokens: 3000, effort: "low" });
-          const v = r.data || {};
-          return { id: a.id, name: a.name, company: a.company, free: a.free, lead: Boolean(a.lead), ok: true, title: str(v.title, MAX_TITLE), text: str(v.text, MAX_TEXT), scopes: cleanScopes(v.scopes), conflicts: (v.conflicts || []).map((x) => str(x, 300)).slice(0, 6), rationale: str(v.rationale, 400), ms: Date.now() - t0, usage: r.usage };
-        } catch (err) {
-          return { id: a.id, name: a.name, company: a.company, free: a.free, lead: Boolean(a.lead), ok: false, error: err && err.message ? err.message : "failed", ms: Date.now() - t0 };
+    const versions = [];
+    let pick = null;
+    for (const a of writers) {
+      const t0 = Date.now();
+      try {
+        const spec = { providerId: a.provider, apiKey: ai._key(a.provider), model: a.model, timeoutMs: Math.max(sec, 90) * 1000, repair: false };
+        const client = ai.engine ? ai.engine.client(spec, { feature: "brains-team", brains: false }) : makeClient({ ...spec, fetchImpl: ai.fetch });
+        const r = await client.ask({ system: REFINE_SYSTEM, user, schema: VERSION_SCHEMA, maxTokens: 6000, effort: "low" });
+        const v = r.data || {};
+        const out = { id: a.id, name: a.name, company: a.company, lead: true, ok: true, title: str(v.title, MAX_TITLE), text: str(v.text, MAX_TEXT), scopes: cleanScopes(v.scopes), conflicts: (v.conflicts || []).map((x) => str(x, 300)).slice(0, 6), rationale: str(v.rationale, 400), ms: Date.now() - t0, usage: r.usage, cached: Boolean(r.cached) };
+        versions.push(out);
+        if (out.title && out.text.length >= 10) {
+          pick = out;
+          break;
         }
-      })
-    );
-    const good = versions.filter((v) => v.ok && v.title && v.text.length >= 10);
-    if (lead && versions.some((v) => v.lead && v.ok)) {
+      } catch (err) {
+        versions.push({ id: a.id, name: a.name, company: a.company, lead: true, ok: false, error: err && err.message ? err.message : "failed", ms: Date.now() - t0 });
+      }
+    }
+    if (pick && !pick.cached) {
       const s2 = ens._state();
       if (s2.day.date !== today) s2.day = { date: today, paid: 0 };
       s2.day.paid += 1;
       ens._save(s2);
     }
-    if (!good.length) throw new AiError(`Every model of the AI team failed or timed out (${versions.map((v) => `${v.name}: ${v.error || "no answer"}`).join("; ").slice(0, 400)}). Save the brain as written, or try again.`, "unavailable", 502);
-
-    // one model merges: the paid lead when it answered, else the strongest free model that did
-    const pick = (lead && good.find((v) => v.lead)) || MERGE_ORDER.map((k) => good.find((v) => v.id.toLowerCase().includes(k))).find(Boolean) || good[0];
-    const mergeWith = writers.find((a) => a.id === pick.id);
-    let final = null;
-    let mergedBy = null;
-    if (good.length > 1 && mergeWith) {
-      try {
-        const spec = { providerId: mergeWith.provider, apiKey: ai._key(mergeWith.provider), model: mergeWith.model, timeoutMs: Math.max(sec, 90) * 1000, repair: false };
-        const client = ai.engine ? ai.engine.client(spec, { feature: "brains-team", brains: false }) : makeClient({ ...spec, fetchImpl: ai.fetch });
-        const r = await client.ask({ system: MERGE_SYSTEM, user: `The owner's draft:\n${JSON.stringify({ title: draft.title, text: draft.text, scopes: draft.scopes })}\n\nThe versions:\n${JSON.stringify(good.map((v) => ({ by: v.name, title: v.title, text: v.text, scopes: v.scopes, conflicts: v.conflicts, rationale: v.rationale })))}\n\nExisting brains:\n${JSON.stringify(others)}\n\nWrite the final version.`, schema: MERGE_SCHEMA, maxTokens: 3000, effort: "low" });
-        const m = r.data || {};
-        if (str(m.title, MAX_TITLE) && str(m.text, MAX_TEXT).length >= 10) {
-          final = { title: str(m.title, MAX_TITLE), text: str(m.text, MAX_TEXT), scopes: cleanScopes(m.scopes), conflicts: (m.conflicts || []).map((x) => str(x, 300)).slice(0, 6), notes: str(m.notes, 600) };
-          mergedBy = mergeWith.name;
-        }
-      } catch (_) {
-        final = null; // fall back to the strongest single version below
-      }
-    }
-    if (!final) final = { title: pick.title, text: pick.text, scopes: pick.scopes, conflicts: pick.conflicts, notes: good.length > 1 ? `The merge step did not answer, so ${pick.name}'s version is used.` : `Only ${pick.name} answered.` };
-    return { final, versions, models: good.map((v) => v.name), mergedBy: mergedBy || pick.name, lead: lead ? lead.name : null };
+    if (!pick) throw new AiError(`The AI model failed or timed out (${versions.map((v) => `${v.name}: ${v.error || "no answer"}`).join("; ").slice(0, 400)}). Save the brain as written, or try again.`, "unavailable", 502);
+    const final = { title: pick.title, text: pick.text, scopes: pick.scopes, conflicts: pick.conflicts, notes: pick.rationale || (versions.length > 1 ? `Written by ${pick.name} (the default model did not answer).` : "") };
+    return { final, versions, models: [pick.name], mergedBy: pick.name, lead: pick.name };
   }
 
   /** What the AI Engine page shows the superadmin: every feature's real instructions. */
@@ -341,4 +313,4 @@ class Brains {
   }
 }
 
-module.exports = { Brains, FEATURES, FEATURE_IDS, register, featureOf, cleanScopes, REFINE_SYSTEM, MERGE_SYSTEM, providerOf };
+module.exports = { Brains, FEATURES, FEATURE_IDS, register, featureOf, cleanScopes, REFINE_SYSTEM, providerOf };

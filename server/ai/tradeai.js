@@ -5,15 +5,16 @@
 //   1. PLAN — which stocks and which data the question needs (positions, P&L history, a stock's
 //      live call, levels, patterns, habits, measured odds, next-session outlook, the market, news).
 //   2. GATHER — reads them from the desk's own engines, the broker (read-only, owner only), the
-//      journal and Trade Analysis records, and the stored history. News is a web search by the paid
-//      model only when the question asks why / for news and a paid key is saved.
+//      journal and Trade Analysis records, and the stored history. News is a web search by the
+//      default model's company (or another saved one that can search) only when the question asks
+//      why / for news.
 //   3. ANSWER — routed by the question's words (route.js): data questions are answered INSTANTLY from
-//      the desk's data with no model; light ones by ONE model, the fastest free one by measured speed;
-//      questions of judgement by ONE model, the paid lead when allowed (else the strongest free one);
-//      "deep" questions by the free models together, merged by the paid lead — paid and free in
-//      combination. The trader can also pick Fast or Deep. One model at a time unless Deep: the next
-//      is asked only when one fails. If every model fails, the desk's own arithmetic answers — the
-//      chat never goes down.
+//      the desk's data with no model; every other one by the DEFAULT MODEL (Claude Sonnet 5.5 unless
+//      the owner picked another on the AI page) — brief for light questions, with the full data for
+//      advice, thinking longer for "deep" ones. The trader can also pick Fast or Deep. When the
+//      default model fails, the AI page's fallback models are asked one at a time. If every model
+//      fails (or today's limit of model answers is reached), the desk's own arithmetic answers —
+//      the chat never goes down.
 //
 // Every model comes from the AI Engine, so it gets the owner's AI brains for "tradeai" and the core
 // trading-skills rules, like every other AI feature. It can never place an order; it reads account
@@ -26,18 +27,19 @@
 // Conversations are kept in the database, one record each (chats.js).
 
 const crypto = require("node:crypto");
-const { askMixture, askOne, team, rankOf } = require("./mixture");
+const { askOne, team } = require("./mixture");
 const { ChatStore } = require("./chats");
 const { classify, instantAnswer, MODES } = require("./route");
 
 const SETTINGS_DOC = "ai/tradeai-settings.json";
 const SPEED_DOC = "ai/tradeai-speed.json";
+// usePaid: TradeAI may use the AI model (every model is paid); paidDailyCap: model answers a day
 const TRADEAI_DEFAULTS = { usePaid: true, paidDailyCap: 150, mode: "auto" };
-// before a model's speed is measured: smaller models first (an index, times 4 s)
-const SPEED_SEED = ["nano", "gemma", "deepseek", "nemotron-3.5", "nemotron-3-super", "mistral", "nemotron-3-ultra"];
-const seedMs = (a) => {
-  const i = SPEED_SEED.findIndex((k) => a.id.toLowerCase().includes(k));
-  return (i < 0 ? SPEED_SEED.length : i) * 4000 + 4000;
+// how much each tier may write and think, and how long it may take
+const TIER = {
+  fast: { maxTokens: 4000, effort: "low", timeoutSec: 45, data: 14000, rules: 1500 },
+  advice: { maxTokens: 8000, effort: "low", timeoutSec: 90, data: 32000, rules: 3500 },
+  deep: { maxTokens: 16000, effort: "medium", timeoutSec: 150, data: 32000, rules: 3500 },
 };
 const istDay = (ms) => new Date(ms + 5.5 * 3600000).toISOString().slice(0, 10);
 
@@ -83,7 +85,6 @@ const SCHEMA = {
   },
 };
 
-const MERGE_SYSTEM = `You merge several analysts' answers to the same trading question into one best answer for the trader. Keep every number exactly as the analysts quoted it from the data; prefer points that several analysts agree on; drop anything that promises a profit or certainty, or tells the trader to remove a stop-loss. The lean is the one most analysts gave, unless the data clearly says otherwise. Plain, friendly English in Markdown (a direct first line, ### headings, **bold** key numbers, bullets, and a small table when comparing). Keep the best 3–4 specific follow-up questions.`;
 
 const STOP = new Set("A I IN ON AT OF TO THE AND OR IS IT MY ME WE BE DO GO NO YES NOT FOR WITH WHAT WHY HOW WHEN WHERE WHO SHOULD COULD WOULD CAN WILL TODAY NOW BUY SELL LONG SHORT HOLD EXIT STOP LOSS PROFIT RSI VWAP NSE BSE MIS CNC ALL ANY OPEN CLOSE HIGH LOW UP DOWN TELL GIVE SHOW NEXT WEEK DAY MONTH YEAR PNL P&L SL TP ATR EMA SMA MACD ADX OI F&O FNO NIFTY BANK INDEX MARKET STOCK STOCKS SHARE SHARES TRADE TRADES POSITION POSITIONS PORTFOLIO PLEASE THANKS HI HELLO ABOUT ARE AM WAS HAS HAVE HAD THIS THAT THESE THOSE ITS OUR YOUR THEIR VS FROM BY AN AS IF SO THEN THAN ALSO JUST VERY MORE LESS MUCH MANY SOME AFTER BEFORE BETWEEN SUPPORT RESISTANCE TARGET LEVEL LEVELS TREND VOLUME PRICE NEWS RESULT RESULTS".split(" "));
 const has = (q, words) => words.some((w) => q.includes(w));
@@ -99,6 +100,7 @@ class TradeAI {
     this.account = null; // set by app.js: read-only { positions, funds, history, orders, today }
     this.jobs = new Map();
     this.chats = new ChatStore(ai.docs); // every conversation is its own record in the database
+    this._reuse = new Map(); // question key → { at, dkey, reply }: an answer reused while the question and data are unchanged
   }
 
   /* -------------------------------------------------------------------- conversations */
@@ -140,7 +142,8 @@ class TradeAI {
         if (!list) {
           try {
             const ins = await this.ai.market.instruments();
-            list = new Set((ins || []).map((x) => x.symbol));
+            // Zerodha's list names a stock "s"; older and demo lists "symbol"
+            list = new Set((ins || []).map((x) => x.s || x.symbol).filter(Boolean));
           } catch (_) {
             list = new Set();
           }
@@ -183,6 +186,8 @@ class TradeAI {
     if (symbols.length && has(q, ["intraday", "plan", "tomorrow", "next session", "levels for", "trade plan", "setup"])) tools.add("plan");
     // the NSE forecast from the world: GIFT Nifty, the US, Europe, Japan, Singapore and the rest
     if (has(q, ["gift", "sgx", "global", "world", "overseas", "us market", "wall street", "nasdaq", "s&p", "dow", "nikkei", "japan", "singapore", "straits", "hang seng", "asia", "europe", "dax", "ftse", "open tomorrow", "pre-open", "preopen", "premarket", "pre-market", "market open", "will the market", "will nifty", "next week"]) || (tools.has("market") && tools.has("outlook"))) tools.add("global");
+    // the Social Media page's organised news and posts (news sites, X, Reddit, NSE announcements)
+    if (tools.has("news") || has(q, ["tweet", "twitter", "x post", "social", "headline", "buzz", "trending", "talked about", "rumour", "rumor", "sentiment", "reddit", "what's the news", "latest news", "market news"])) tools.add("social");
     return { symbols, tools: [...tools], positions };
   }
 
@@ -356,6 +361,19 @@ class TradeAI {
           .catch(() => {}),
       );
     }
+    const soc = this.ai.market && this.ai.market.social;
+    if (want("social") && soc) {
+      onStep("Reading the Social Media feed: news sites, X, Reddit and NSE announcements");
+      try {
+        const sig = soc.signal();
+        const per = syms.slice(0, 3).map((x) => soc.forSymbol(x)).filter(Boolean);
+        const latest = soc.feed({ relevant: true, limit: 8 }).items.map((it) => ({ at: it.at, source: it.sourceLabel, kind: it.type, title: it.title, summary: it.reading.summary, stocks: it.reading.symbols, impact: it.reading.impact, sentiment: it.reading.sentiment }));
+        data.social = { signal: sig, stocks: per, latest, note: "Headlines and posts as published; social posts are unverified." };
+        if (sig || per.length || latest.length) used.push("news & social");
+      } catch (_) {
+        /* the chat goes on without it */
+      }
+    }
     if (want("plan") && syms.length && this.ai.ensemble && this.ai.ensemble.intraday) {
       onStep(`Building the intraday plan for ${syms[0]}`);
       jobs.push(
@@ -398,7 +416,7 @@ class TradeAI {
   }
 
   /* ------------------------------------------------------------- the desk's own answer */
-  fallbackAnswer(question, data) {
+  fallbackAnswer(question, data, why = "The AI model did not answer just now") {
     const lines = [];
     if (Array.isArray(data.positions) && data.positions.length) {
       const tot = data.positions.reduce((s, p) => s + (p.pnl || 0), 0);
@@ -414,7 +432,7 @@ class TradeAI {
     if (data.market && data.market.tide) lines.push(`Market: ${data.market.tide.summary || data.market.tide.label}.`);
     if (data.pnl && data.pnl.last30) lines.push(`Last 30 days: net ₹${Math.round(data.pnl.last30.net || 0)} over ${data.pnl.last30.days || 0} saved days.`);
     return {
-      answer: `The AI models did not answer just now, so this is the desk's own arithmetic.\n\n${lines.join("\n") || "There was no data for that question."}`,
+      answer: `${why}, so this is the desk's own arithmetic.\n\n${lines.join("\n") || "There was no data for that question."}`,
       datapoints: [],
       actions: [],
       forecast: { lean: "n/a", horizon: "", scenarios: [] },
@@ -468,12 +486,11 @@ class TradeAI {
     d.paid = d.paid && d.paid.day === day ? { day, n: d.paid.n + 1 } : { day, n: 1 };
     this.ai.docs.write(SETTINGS_DOC, d);
   }
-  /** The paid lead when TradeAI may use it today (a paid key saved, switched on, under the daily limit). */
-  _paid() {
+  /** The models TradeAI may ask now: the default model, then the fallbacks — none when switched off or today's limit is reached. */
+  _models() {
     const st = this.settings();
-    if (!st.usePaid || st.paidToday >= st.paidDailyCap) return null;
-    const e = this.ai.ensemble;
-    return e && typeof e._lead === "function" ? e._lead() : null;
+    if (!st.usePaid || st.paidToday >= st.paidDailyCap) return [];
+    return team(this.ai).models;
   }
   _speeds() {
     return (this.ai.docs && this.ai.docs.read(SPEED_DOC, null)) || {};
@@ -492,30 +509,20 @@ class TradeAI {
     }
     this.ai.docs.write(SPEED_DOC, sp);
   }
-  /** The free models, fastest first by measured speed (an unmeasured one by its size); failing ones last. */
-  _fastest() {
-    const sp = this._speeds();
-    const est = (a) => {
-      const o = sp[a.id];
-      const ms = o && o.ms !== null ? o.ms : seedMs(a);
-      const failShare = o && o.n ? (o.fail || 0) / o.n : 0;
-      return ms * (1 + failShare * 3);
-    };
-    return team(this.ai).free.slice().sort((a, b) => est(a) - est(b));
-  }
   status() {
     const st = this.settings();
-    const lead = this.ai.ensemble && typeof this.ai.ensemble._lead === "function" ? this.ai.ensemble._lead() : null;
+    const chain = team(this.ai).models;
     const sp = this._speeds();
     return {
       ...st,
-      lead: lead ? { name: lead.name, company: lead.company } : null,
-      fastest: this._fastest().slice(0, 4).map((a) => ({ name: a.name, avgSec: sp[a.id] && sp[a.id].ms !== null ? Math.round(sp[a.id].ms / 100) / 10 : null })),
+      lead: chain[0] ? { name: chain[0].name, company: chain[0].company } : null,
+      // the default model first, then the fallbacks, with their measured answer time
+      models: chain.slice(0, 4).map((a, i) => ({ name: a.name, company: a.company, fallback: i > 0, avgSec: sp[a.id] && sp[a.id].ms !== null ? Math.round(sp[a.id].ms / 100) / 10 : null })),
     };
   }
 
   /** One question, answered now (used by the chat's jobs and by WhatsApp's ASK). */
-  async answer(question, { owner = false, history = [], onStep = () => {}, onRoute = () => {}, width = 3, mode = null } = {}) {
+  async answer(question, { owner = false, history = [], onStep = () => {}, onRoute = () => {}, mode = null, fresh = false } = {}) {
     const q = String(question || "").trim().slice(0, 1500);
     if (!q) throw Object.assign(new Error("Ask a question."), { code: "invalid", status: 400 });
     const t0 = Date.now();
@@ -526,7 +533,7 @@ class TradeAI {
     // 1. instant: the desk's own data answers — no model
     if (route.tier === "instant") {
       onRoute({ ...route, model: null });
-      const need = { goal: ["goal", "positions"], positions: ["positions", "goal"], funds: ["funds", "goal"], orders: ["orders"], alerts: ["alerts"], quote: ["quote"], options: ["options"], plan: ["plan"], global: ["global"] }[route.intent] || [];
+      const need = { goal: ["goal", "positions"], positions: ["positions", "goal"], funds: ["funds", "goal"], orders: ["orders"], alerts: ["alerts"], quote: ["quote"], options: ["options"], plan: ["plan"], global: ["global"], social: ["social"], levels: ["snapshot"], call: ["snapshot"], outlook: ["snapshot", "outlook"], market: ["market"], pnl: ["pnl"] }[route.intent] || [];
       const { data, used } = await this.gather(plan, { owner, onStep, only: need });
       const r = instantAnswer(route.intent, data, { symbol: plan.symbols[0] || "" });
       if (r) return { ...r, related: this.related(q, r, data, plan), meta: { used, symbols: plan.symbols, tools: need, by: [], mergedBy: null, fallback: false, models: [], usage: { input: 0, output: 0 }, engineOnly: true, tier: "instant", intent: route.intent, why: route.why, ms: Date.now() - t0 } };
@@ -535,38 +542,38 @@ class TradeAI {
     }
 
     const { data, used } = await this.gather(plan, { owner, onStep });
+    const tier = TIER[route.tier] || TIER.advice;
     let json = JSON.stringify(data);
-    const cap = route.tier === "fast" ? 14000 : MAX_DATA;
+    const cap = Math.min(tier.data, MAX_DATA);
     if (json.length > cap) json = `${json.slice(0, cap)}…(cut)`;
     const convo = history.slice(-6).map((m) => `${m.role === "user" ? "Trader" : "TradeAI"}: ${String(m.text).slice(0, 800)}`).join("\n");
-    const rules = this.ai.playbook ? String(this.ai.playbook.read() || "").slice(0, route.tier === "fast" ? 1500 : MAX_RULES) : "";
+    const rules = this.ai.playbook ? String(this.ai.playbook.read() || "").slice(0, Math.min(tier.rules, MAX_RULES)) : "";
     const user = `${rules ? `THE DESK'S TRADING RULES (the skills file every AI feature reads, first part):\n${rules}\n\n` : ""}${convo ? `The conversation so far:\n${convo}\n\n` : ""}DATA (gathered now):\n${json}\n\nThe trader asks: ${q}`;
-    const paid = this._paid();
-    let r;
-    if (route.tier === "deep") {
-      onRoute({ ...route, model: paid ? `free models + ${paid.name}` : "free models" });
-      r = await askMixture(this.ai, {
-        system: SYSTEM,
-        user,
-        schema: SCHEMA,
-        maxTokens: 3500,
-        width,
-        allowPaid: Boolean(paid),
-        judge: paid,
-        onStep,
-        merge: { system: MERGE_SYSTEM, schema: SCHEMA, build: (answers) => `The question: ${q}\n\nThe analysts' answers:\n${JSON.stringify(answers)}\n\nWrite the merged answer.` },
-      });
-    } else {
-      const free = route.tier === "fast" ? this._fastest() : team(this.ai).free.slice().sort((a, b) => rankOf(a) - rankOf(b));
-      // fast: the quickest free model first; advice: the paid lead first (best advice), the strongest free ones after
-      const order = route.tier === "advice" ? [...(paid ? [paid] : []), ...free.slice(0, 3)] : [...free.slice(0, 3), ...(paid ? [paid] : [])];
-      onRoute({ ...route, model: order[0] ? order[0].name : null, paid: Boolean(order[0] && order[0].lead) });
-      r = order.length ? await askOne(this.ai, order, { system: SYSTEM, user, schema: SCHEMA, maxTokens: route.tier === "fast" ? 1800 : 3200, timeoutSec: route.tier === "fast" ? 35 : 75, onStep }) : { data: null, by: [], mergedBy: null, tried: [], fallback: false, usage: { input: 0, output: 0 } };
+    // the same question on the same data (or within three minutes, while prices tick) is answered with
+    // the answer already paid for — no new AI call. Retry and edited questions always ask again.
+    // (the models in the key: a new default model, or the fallback switched, asks again)
+    const models = this._models();
+    const ckey = crypto.createHash("sha256").update(JSON.stringify([q.toLowerCase().replace(/\s+/g, " "), route.tier, plan.symbols, history.slice(-2).map((m) => String(m.text).slice(0, 400)), owner, models.map((x) => x.id)])).digest("hex");
+    const dkey = crypto.createHash("sha256").update(JSON.stringify(data, (k, v) => (k === "asOf" ? undefined : v))).digest("hex");
+    const prev = this._reuse.get(ckey);
+    const age = prev ? this.ai.now() - prev.at : Infinity;
+    if (!fresh && prev && age < 6 * 3600000 && (prev.dkey === dkey || age < 3 * 60000)) {
+      onRoute({ ...route, model: null, reused: true });
+      return { ...prev.reply, meta: { ...prev.reply.meta, reused: true, reusedAt: new Date(prev.at).toISOString(), sameData: prev.dkey === dkey, models: [], usage: { input: 0, output: 0 }, ms: Date.now() - t0 } };
     }
+    onRoute({ ...route, model: models[0] ? models[0].name : null });
+    const r = models.length ? await askOne(this.ai, models, { system: SYSTEM, user, schema: SCHEMA, maxTokens: tier.maxTokens, effort: tier.effort, timeoutSec: tier.timeoutSec, onStep, fresh }) : { data: null, by: [], mergedBy: null, tried: [], fallback: false, usage: { input: 0, output: 0 } };
     this._learn(r.tried);
-    if ((r.tried || []).some((t) => t.paid)) this._countPaid();
-    const ai = r.data ? this._clean(r.data) : this.fallbackAnswer(q, data);
-    return { ...ai, related: this.related(q, ai, data, plan), meta: { used, symbols: plan.symbols, tools: plan.tools, by: r.by, mergedBy: r.mergedBy, fallback: r.fallback, models: r.tried, usage: r.usage, engineOnly: !r.data, tier: route.tier, why: route.why, ms: Date.now() - t0 } };
+    if ((r.tried || []).some((t) => t.ok && !t.cached)) this._countPaid();
+    const st = this.settings();
+    const why = models.length ? "The AI model did not answer just now" : !st.usePaid ? "TradeAI's AI model is switched off (TradeAI settings)" : st.paidToday >= st.paidDailyCap ? `Today's limit of ${st.paidDailyCap} model answers is reached (TradeAI settings)` : "No AI key is saved — the default model is Claude Sonnet 5.5; save the Anthropic key on the AI page";
+    const ai = r.data ? this._clean(r.data) : this.fallbackAnswer(q, data, why);
+    const out = { ...ai, related: this.related(q, ai, data, plan), meta: { used, symbols: plan.symbols, tools: plan.tools, by: r.by, mergedBy: r.mergedBy, fallback: r.fallback, models: r.tried, usage: r.usage, engineOnly: !r.data, tier: route.tier, why: route.why, ms: Date.now() - t0 } };
+    if (r.data) {
+      this._reuse.set(ckey, { at: this.ai.now(), dkey, reply: out });
+      if (this._reuse.size > 200) this._reuse.delete(this._reuse.keys().next().value);
+    }
+    return out;
   }
 
   /* ------------------------------------------------------------ related questions */
@@ -731,7 +738,8 @@ class TradeAI {
     if (this.jobs.size > 40) this.jobs.delete(this.jobs.keys().next().value);
     const history = c.messages.slice(0, -1);
     const t0 = Date.now();
-    this.answer(question, { owner: isOwner, history, mode: MODES.includes(mode) ? mode : null, onStep: (s) => job.steps.push({ at: Date.now(), text: s }), onRoute: (r) => (job.route = r) })
+    // Retry or an edited question asks for a new answer: never the reused one
+    this.answer(question, { owner: isOwner, history, fresh: from !== null, mode: MODES.includes(mode) ? mode : null, onStep: (s) => job.steps.push({ at: Date.now(), text: s }), onRoute: (r) => (job.route = r) })
       .then(async (reply) => {
         if (job.cancelled) return;
         reply.meta = { ...reply.meta, sec: Math.round((Date.now() - t0) / 100) / 10, steps: job.steps.map((x) => x.text) };
@@ -770,6 +778,5 @@ class TradeAI {
 }
 
 require("./brains").register("tradeai", SYSTEM, "TradeAI chat");
-require("./brains").register("tradeai", MERGE_SYSTEM, "TradeAI merge step");
 
 module.exports = { TradeAI, SYSTEM, SCHEMA, short };

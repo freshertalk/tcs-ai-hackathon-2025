@@ -561,3 +561,70 @@
     transition: none;
   }
 }
+
+/* ---------------------------------------------------- the Social Media card (full width) */
+.hub-social > a {
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+  text-align: center;
+  padding: 18px 20px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, #1d9bf0 40%, transparent);
+  background:
+    radial-gradient(80% 160% at 0% 0%, rgba(29, 155, 240, 0.2), transparent 60%),
+    radial-gradient(70% 140% at 100% 100%, rgba(240, 138, 36, 0.14), transparent 60%),
+    linear-gradient(135deg, #07182a, #0b1622 55%, #1a1222);
+  color: #f2f6fa;
+  text-decoration: none;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.hub-social > a:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.28);
+}
+.hub-social .hub-tai__chips span {
+  border-color: rgba(29, 155, 240, 0.5);
+  background: rgba(29, 155, 240, 0.12);
+  color: #a9d8fb;
+}
+.hub-social__now {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 6px 10px;
+  font-size: var(--t-small);
+  color: rgba(242, 246, 250, 0.85);
+}
+.hub-social__mood {
+  padding: 1px 10px;
+  border-radius: 99px;
+  border: 1px solid rgba(242, 246, 250, 0.35);
+  font-weight: 700;
+}
+.hub-social__mood.is-up {
+  border-color: #2ebd85;
+  color: #58d9a4;
+}
+.hub-social__mood.is-down {
+  border-color: #ff6b7e;
+  color: #ff8795;
+}
+.hub-social__sym {
+  padding: 0 8px;
+  border-radius: 6px;
+  background: rgba(29, 155, 240, 0.16);
+  color: #d6ecfd;
+  font-weight: 700;
+}
+@media (max-width: 560px) {
+  .hub-social > a {
+    padding: 14px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hub-social > a {
+    transition: none;
+  }
+}

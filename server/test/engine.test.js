@@ -24,8 +24,8 @@ test("one door: the brains of the feature go out with every request, and the boa
   const ai = boot();
   await ai.brains.save({ title: "Midday", text: "Between 11:30 and 13:30 prefer no trade.", scopes: ["tradeai"] }, "owner");
   const seen = [];
-  const fake = { provider: "nvidia", model: "m-1", ask: async (a) => (seen.push(a.system), { data: { ok: true }, usage: { prompt_tokens: 10, completion_tokens: 4 } }) };
-  const c = ai.engine.wrap(fake, { providerId: "nv-mistral" });
+  const fake = { provider: "anthropic", model: "claude-sonnet-5-5", ask: async (a) => (seen.push(a.system), { data: { ok: true }, usage: { prompt_tokens: 10, completion_tokens: 4 } }) };
+  const c = ai.engine.wrap(fake, { providerId: "anthropic" });
   await c.ask({ system: tradeai.SYSTEM, user: "u" });
   await c.ask({ system: "unregistered", user: "u" });
   assert.match(seen[0], /THE OWNER'S AI BRAINS[\s\S]*Midday/);
@@ -46,21 +46,23 @@ test("shared lanes: features using the same key at once queue instead of floodin
   let inFlight = 0;
   let peak = 0;
   const release = [];
-  const fake = { provider: "nvidia", model: "m", ask: () => new Promise((r) => { inFlight += 1; peak = Math.max(peak, inFlight); release.push(() => { inFlight -= 1; r({ data: {} }); }); }) };
-  const c = eng.wrap(fake, { providerId: "nvidia" });
-  const all = Array.from({ length: 12 }, () => c.ask({ system: "s" }));
+  const fake = { provider: "anthropic", model: "claude-sonnet-5-5", ask: () => new Promise((r) => { inFlight += 1; peak = Math.max(peak, inFlight); release.push(() => { inFlight -= 1; r({ data: {} }); }); }) };
+  const c = eng.wrap(fake, { providerId: "anthropic" });
+  const all = Array.from({ length: 10 }, (_, i) => c.ask({ system: "s", user: `question ${i}` }));
   await new Promise((r) => setImmediate(r));
-  assert.equal(peak, 8, "eight calls in flight on the free models' key");
+  assert.equal(peak, 6, "six calls in flight on the default model's key");
   const st = eng.status();
   assert.equal(st.running.filter((x) => x.waiting).length, 4, "the rest wait their turn");
+  assert.equal(st.lanes[0].lane, "anthropic");
   assert.equal(st.lanes[0].waiting, 4);
   while (release.length) {
     release.shift()();
     await new Promise((r) => setImmediate(r));
   }
   await Promise.all(all);
-  assert.equal(peak, 8);
+  assert.equal(peak, 6);
   assert.equal(eng.status().lanes[0].busy, 0);
+  assert.equal(eng.laneOf("nvidia"), "anthropic", "a removed company has no lane of its own");
 });
 
 test("a failed request is counted and still frees its place in the lane", async () => {
@@ -76,8 +78,41 @@ test("a failed request is counted and still frees its place in the lane", async 
 
 test("every AI feature in the service gets its client from the engine", () => {
   const ai = boot();
-  ai.setSettings({ provider: "nvidia", apiKey: "nvapi-TESTONLYtestonlyTESTONLY1234567890" });
-  assert.equal(ai._client().__engine, true, "the company in use");
-  const src = ["ensemble.js", "mixture.js", "brains.js"].map((f) => fs.readFileSync(path.join(__dirname, "..", "ai", f), "utf8")).join("\n");
-  assert.equal((src.match(/ai\.engine\.client\(/g) || []).length, 5, "the analysts, the paid lead, the mixture and the brains team");
+  ai.setSettings({ provider: "anthropic", apiKey: "sk-ant-api03-TESTONLYtestonlyTESTONLY1234567890abcd" });
+  assert.equal(ai._client().__engine, true, "the default model");
+  const read = (f) => fs.readFileSync(path.join(__dirname, "..", "ai", f), "utf8");
+  // the files that build their own clients build them through the engine
+  for (const f of ["ensemble.js", "mixture.js", "brains.js"]) assert.match(read(f), /ai\.engine\.client\(/, f);
+  // the rest ask the default model through the mixture's door, never with a client of their own
+  for (const f of ["tradeai.js", "social.js", "whatsapp-ai.js"]) {
+    assert.match(read(f), /require\("\.\/mixture"\)/, f);
+    assert.doesNotMatch(read(f), /makeClient\(/, f);
+  }
+});
+
+test("no credit spent twice: the identical request within 15 minutes is answered from the cache; Retry (fresh) asks again; two at once share one call", async () => {
+  const ai = boot();
+  let calls = 0;
+  const fake = { provider: "anthropic", model: "claude-sonnet-5-5", ask: async () => {
+    calls += 1;
+    await new Promise((r) => setImmediate(r));
+    return { data: { n: calls }, usage: { input_tokens: 1000, output_tokens: 200 } };
+  } };
+  const c = ai.engine.wrap(fake, { providerId: "anthropic", model: "claude-sonnet-5-5" });
+  const a = await c.ask({ system: "s", user: "the same data", schema: { type: "object" } });
+  const b = await c.ask({ system: "s", user: "the same data", schema: { type: "object" } });
+  assert.equal(calls, 1, "one paid call");
+  assert.deepEqual(b.data, a.data);
+  assert.equal(b.cached, true);
+  await c.ask({ system: "s", user: "other data", schema: { type: "object" } });
+  assert.equal(calls, 2, "different data is a new call");
+  const f = await c.ask({ system: "s", user: "the same data", schema: { type: "object" }, fresh: true });
+  assert.equal(calls, 3, "fresh asks again");
+  assert.equal(f.cached, undefined);
+  const [x, y] = await Promise.all([c.ask({ system: "s", user: "at once" }), c.ask({ system: "s", user: "at once" })]);
+  assert.equal(calls, 4, "two identical requests at the same moment share one call");
+  assert.deepEqual(x.data, y.data);
+  const st = ai.engine.status();
+  assert.equal(st.saved.calls, 1);
+  assert.equal(st.saved.input, 1000);
 });

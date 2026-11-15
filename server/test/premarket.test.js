@@ -160,3 +160,26 @@ test("the overseas feed: the owner's key is kept encrypted and never returned; q
   feed.setKey({ remove: true });
   assert.equal(feed.status().configured, false);
 });
+
+test("GIFT Nifty: measured against the NSE Nifty future's close; a settled 0.00% is not read as a flat open", () => {
+  const daily = [];
+  let c = 25000;
+  for (let i = 0; i < 80; i += 1) {
+    const o = c * (1 + ((i % 3) - 1) * 0.001);
+    c = o * 1.001;
+    daily.push({ t: i, o, h: c * 1.004, l: o * 0.996, c, v: 1 });
+  }
+  const nifty = { prevClose: 25144.3, last: 25144.3, daily };
+  const kite = { gift: { available: true, last: 25262.5, changePct: 0 } };
+  const settled = buildMarketForecast({ phase: "closed", nifty, kite, nextSession: "2026-11-16" });
+  assert.equal(settled.open, null, "no flat-open call from a settled price");
+  assert.ok(settled.cautions.some((x) => /settled for the day/.test(x) && /\+0\.47% above the Nifty's close/.test(x)));
+  assert.ok(!(settled.votes || []).some((v) => v.id === "gift"));
+  const f = buildMarketForecast({ phase: "closed", nifty, kite, nextSession: "2026-11-16", giftGap: { pct: 0.12, giftLast: 25262.5, futLast: 25232.2, futName: "NIFTY26NOVFUT" } });
+  assert.equal(f.open.gapPct, 0.12);
+  assert.match(f.open.basis, /against the NSE Nifty future's close/);
+  const v = f.votes.find((x) => x.id === "gift");
+  assert.equal(v.vote, 0.2);
+  const row = f.markets.find((m) => m.id === "gift");
+  assert.equal(row.changePct, 0.12);
+});

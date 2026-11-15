@@ -115,11 +115,12 @@ async function buildHealth(ctx, { secure = false, host = "" } = {}) {
     if (t && t.ok === false) return { status: "error", detail: `${st.providerName} · ${st.modelName || st.model}: the last key test failed — ${t.message}`, hint: "AI settings → Test." };
     return { status: "ok", detail: `${st.providerName} · ${st.modelName || st.model}${t && t.at ? ` · key tested ${ago(t.at, now)}` : ""}.` };
   });
-  await check("free", "AI", "Free NVIDIA models", () => {
-    const r = ai.ensemble.roster();
-    const cat = ai.ensemble.status().catalogue;
-    if (!cat.some((m) => m.ready)) return { status: "off", detail: "No NVIDIA key saved: AI Live / AI Research, the AI team, TradeAI and WhatsApp summaries use the desk's arithmetic only.", hint: "AI settings → FREE → NVIDIA key." };
-    return { status: r.free.length ? "ok" : "warn", detail: `${r.free.length} of ${cat.length} free models on${r.lead ? ` · paid lead ${r.lead.name}` : " · no paid lead"}.` };
+  await check("chain", "AI", "Default model & fallbacks", () => {
+    const d = ai.defaultModel();
+    const chain = ai.modelChain();
+    if (!d.ready && !chain.length) return { status: "off", detail: `No key for the default model (${d.company} · ${d.name}): AI Live / AI Research, TradeAI, Social Media, WhatsApp summaries and the brains use the desk's arithmetic only.`, hint: "AI settings → Default model → API key." };
+    if (!d.ready) return { status: "warn", detail: `No key for the default model (${d.company} · ${d.name}): ${chain[0].name} (${chain[0].company}) stands in as a fallback.`, hint: "AI settings." };
+    return { status: "ok", detail: `${d.company} · ${d.name}${chain.length > 1 ? ` · fallbacks: ${chain.slice(1).map((m) => m.name).join(", ")}` : ai.fallbackOn() ? " · no fallback key saved" : " · fallback off"}.` };
   });
   await check("brains", "AI", "AI brains", () => {
     const l = ai.brains.list();

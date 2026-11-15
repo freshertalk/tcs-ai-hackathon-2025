@@ -3,30 +3,36 @@
 //
 //   - ONE DOOR. The strategist, co-pilot, decision, research, coach, reviews, debrief, AI Live /
 //     AI Research analysts, the AI team that writes brains, TradeAI and the WhatsApp updates all get
-//     their model client here (the company in use, a free NVIDIA-hosted model or the paid lead).
+//     their model client here (the default model, or a fallback when it fails).
 //   - ONE SET OF BRAINS. On the way out, every request gets the owner's AI brains for the feature
 //     its instructions belong to (brains.js) — the same brains, read at the moment of the request, so
 //     an edit reaches every feature at once.
-//   - SHARED LANES. Requests that use the same key (all the free models share one NVIDIA key) share
-//     a fair number of calls in flight. When several features use the models at the same time —
+//   - SHARED LANES. Requests that use the same key share a fair number of calls in flight. When several features use the models at the same time —
 //     TradeAI, AI Live, WhatsApp, the co-pilot — the extra requests wait their turn for a moment
 //     instead of tripping the provider's rate limit. Waiting is a promise queue, not a timer.
+//   - NO CREDIT SPENT TWICE. The very same request (same model, same instructions with their brains,
+//     same data, same schema) within 15 minutes gets the answer already paid for; two identical
+//     requests at the same moment share one call. The board counts the calls and tokens saved. A
+//     caller that needs a new answer (Retry, Rewrite) passes { fresh: true }.
 //   - ONE LIVE BOARD. What is running now (per feature and model, and what is waiting), today's
 //     calls, failures, tokens and time per feature, and the last calls — shown on the AI Engine page.
 //
 // No timers and no broker here (a test checks the whole AI folder).
 
+const crypto = require("node:crypto");
 const { makeClient, providerOf } = require("./providers");
 const { featureOf, FEATURES } = require("./brains");
 
 const NAME = "ai/engine.json";
-const LANES = { nvidia: 8 }; // calls in flight per key; every other key: DEFAULT_LANE
+const LANES = { anthropic: 6 }; // calls in flight per key; every other key: DEFAULT_LANE
 const DEFAULT_LANE = 6;
 const RECENT = 40;
+const CACHE_MS = 15 * 60000; // an identical request within this reuses the answer already paid for
+const CACHE_MAX = 300;
 
 // requests that are not one of the brains' features, but are still counted on the board
 const EXTRA = new Map(); // system prompt text → { id, name }
-const EXTRA_NAMES = { "brains-team": "AI team writing a brain", "tradeai-merge": "TradeAI merge step", other: "Other requests" };
+const EXTRA_NAMES = { "brains-team": "AI refining a brain", other: "Other requests" };
 /** Give a system prompt a name on the board without giving it brains (the web searches, for instance). */
 function tag(system, id, name) {
   if (typeof system === "string" && id) {
@@ -47,12 +53,37 @@ class Engine {
     this.day = saved && saved.day && saved.day.date ? saved.day : { date: "", by: {} };
     this.recent = Array.isArray(saved && saved.recent) ? saved.recent.slice(0, RECENT) : [];
     this.startedAt = new Date(ai.now ? ai.now() : Date.now()).toISOString();
+    this.cache = new Map(); // request key → { at, r }
+    this.inflight = new Map(); // request key → promise (identical requests at the same moment share one call)
+  }
+
+  _key(parts) {
+    return crypto.createHash("sha256").update(JSON.stringify(parts)).digest("hex");
+  }
+
+  /** An answer served from the cache: counted on the board as a call (and its tokens) saved. */
+  _saved(feature, usage) {
+    const now = this.ai.now ? this.ai.now() : Date.now();
+    const date = istDate(now);
+    if (this.day.date !== date) this.day = { date, by: {} };
+    const sv = this.day.saved || { calls: 0, input: 0, output: 0, by: {} };
+    sv.calls += 1;
+    if (usage) {
+      sv.input += usage.input_tokens || usage.inputTokens || usage.prompt_tokens || 0;
+      sv.output += usage.output_tokens || usage.outputTokens || usage.completion_tokens || 0;
+    }
+    sv.by[feature] = (sv.by[feature] || 0) + 1;
+    this.day.saved = sv;
+    try {
+      if (this.ai.docs) this.ai.docs.write(NAME, { day: this.day, recent: this.recent });
+    } catch (_) {
+      /* the board is a convenience */
+    }
   }
 
   /* ------------------------------------------------------------------------------ lanes */
   laneOf(providerId) {
-    const p = providerOf(providerId);
-    return (p && p.keyOf) || providerId || "anthropic";
+    return providerOf(providerId) ? providerId : "anthropic";
   }
   limitOf(lane) {
     return LANES[lane] || DEFAULT_LANE;
@@ -114,7 +145,30 @@ class Engine {
         this.running.delete(id);
       }
     };
-    w.ask = (args = {}) => run("ask", args, (a) => client.ask(compose && this.ai.brains ? { ...a, system: this.ai.brains.compose(a.system || "") } : a));
+    w.ask = async (args = {}) => {
+      const { fresh = false, ...a } = args || {};
+      const sent = compose && this.ai.brains ? { ...a, system: this.ai.brains.compose(a.system || "") } : a;
+      const key = this._key([pid, model || client.model || "", sent.system || "", sent.user || "", sent.schema || null]);
+      const now = Date.now();
+      const hit = this.cache.get(key);
+      if (!fresh && hit && now - hit.at < CACHE_MS) {
+        const extra = EXTRA.get(a.system || "");
+        this._saved(featureOf(a.system || "") || (extra && extra.id) || feature || "other", hit.r && hit.r.usage);
+        return { ...hit.r, cached: true, cachedAt: new Date(hit.at).toISOString() };
+      }
+      if (!fresh && this.inflight.has(key)) return this.inflight.get(key);
+      const p = run("ask", a, () => client.ask(sent)).then((r) => {
+        this.cache.set(key, { at: Date.now(), r });
+        if (this.cache.size > CACHE_MAX) this.cache.delete(this.cache.keys().next().value);
+        return r;
+      });
+      this.inflight.set(key, p);
+      try {
+        return await p;
+      } finally {
+        this.inflight.delete(key);
+      }
+    };
     if (typeof client.search === "function") w.search = (args = {}) => run("search", args, (a) => client.search(a));
     return w;
   }
@@ -167,7 +221,9 @@ class Engine {
         }),
       },
       recent: this.recent.map((r) => ({ ...r, name: nameOf(r.feature) })),
-      core: { brainsOn: brains.filter((b) => b.enabled !== false).length, brains: brains.length, skillsChars: this.ai.playbook ? this.ai.playbook.read().length : 0, lanes: { nvidia: LANES.nvidia, other: DEFAULT_LANE } },
+      // answers reused instead of paid for again today (identical requests within 15 minutes)
+      saved: this.day.saved ? { calls: this.day.saved.calls, input: this.day.saved.input, output: this.day.saved.output, by: Object.entries(this.day.saved.by || {}).map(([id, n]) => ({ id, name: nameOf(id), calls: n })) } : { calls: 0, input: 0, output: 0, by: [] },
+      core: { brainsOn: brains.filter((b) => b.enabled !== false).length, brains: brains.length, skillsChars: this.ai.playbook ? this.ai.playbook.read().length : 0, lanes: { anthropic: LANES.anthropic, other: DEFAULT_LANE } },
     };
   }
 }

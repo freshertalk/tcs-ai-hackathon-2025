@@ -4,19 +4,21 @@
 //   instant  the question only wants the desk's own data (positions, today's P&L against the daily
 //            goal, margin, a price, the option chain, the intraday plan, orders, alerts): it is
 //            answered at once from that data, in a table, with no model at all
-//   fast     a light question: ONE model — the fastest free one by its measured speed — answers;
-//            only if it fails is the next one asked
-//   advice   a question of judgement (should I…, why…, will…, a forecast, news, a plan): ONE model —
-//            the paid lead when it is allowed, for the best advice; else the strongest free model
-//   deep     asked for depth (research, compare, review, the week ahead): the free models answer
-//            together and the paid lead (when allowed) merges them into one — paid and free in combination
+//   fast     a light question: the default model answers briefly (less data, a short answer)
+//   advice   a question of judgement (should I…, why…, will…, a forecast, news, a plan): the default
+//            model answers with the full data
+//   deep     asked for depth (research, compare, review, the week ahead): the default model thinks
+//            longer (a higher effort) over the full data and writes a longer answer
+// In every tier the default model (Claude Sonnet 5.5 unless the owner picked another on the AI page)
+// answers; only if it fails are the AI page's fallback models asked, one at a time.
 //
-// The trader can also pick: Fast (instant or one fast model), Deep (always the combination) or Auto.
+// The trader can also pick: Fast (instant or a brief answer), Deep (always the long one) or Auto.
 // Also here: the instant answers themselves, written from the data as Markdown.
 
 const MODES = ["auto", "fast", "deep"];
 
 const JUDGE = /\b(should|shall|would|could|why|will|predict|forecast|expect|outlook|advice|advise|suggest|recommend|best|worst|which|worth|explain|analy[sz]e|analysis|compare|strategy|risk|risky|safe|good time|enter|entry|exit|book|hold|average|averaging|trail|stop.?loss|tomorrow|next week|next month|news|reason|opinion|think|idea|setup|swing|long.?term|target for|buy|sell|short|go long|fix|mistake|improve|wrong|right)\b/;
+const STRONG = /\b(why|should|shall|would|could|recommend|advi[sc]e|suggest|buy|sell|short|hold|exit|enter|entry|book|average|trail|strategy|reason|explain|predict|forecast|will)\b/;
 const DEEP = /\b(deep|detailed|in.?depth|research|full analysis|compare|comparison|every stock|week ahead|next week|portfolio review|review (my|all)|all my (stocks|positions|trades)|thorough)\b/;
 
 const INTENTS = [
@@ -25,11 +27,18 @@ const INTENTS = [
   ["funds", /\b(margin|funds|available (cash|balance)|buying power|how much (cash|money) (do )?i have)\b/],
   ["orders", /\b((my|pending|open) orders?|orders? (pending|open|today))\b/],
   ["alerts", /\b(my (price )?alerts?|alerts? (set|waiting))\b/],
+  ["social", /\b(latest (news|headlines|tweets?|posts?)|(market|stock) news (now|today)|what'?s (the )?(news|buzz)|news (feed|now|today)|any news|tweets?|trending (stocks?|now)|most talked|social (media|feed|mood|sentiment)|news (mood|sentiment))\b/],
   ["global", /\b(gift ?nifty|sgx ?nifty|global (markets?|cues?)|world markets?|overseas|us markets?|wall street|dow jones|s&p ?500|nasdaq|nikkei|japan(ese)? markets?|singapore markets?|straits times|hang seng|asian? markets?|europe(an)? markets?|dax|ftse|how will (the )?(market|nifty) open|(market|nifty) open(ing)? (tomorrow|today)|pre.?open|pre.?market)\b/],
   ["options", /\b(option.?chain|options? (data|chain|oi)|pcr|put.?call ratio|max.?pain|open interest|call wall|put wall)\b/],
-  ["plan", /\b(intraday plan|plan for|trade plan|trading plan|intraday (setup|levels)|levels for)\b/],
+  ["plan", /\b(intraday plan|plan for|trade plan|trading plan|intraday (setup|levels))\b/],
+  ["levels", /\b(support|resistance|supports|resistances|key levels|levels (of|for|in|on)|pivot( points?|s)?)\b/],
+  ["outlook", /\b(outlook|next session|next trading (day|session))\b/],
+  ["call", /\b(live call|desk'?s (call|view|signal)|signal (on|for)|what does the desk say|technicals?|indicators?|rsi|vwap|macd|adx|supertrend)\b/],
+  ["pnl", /\b(how did i do|my (p&l|pnl|results?|performance|win rate)( this| last| for)?|(this|last) (week|month)'?s? (p&l|pnl|results?)|last (7|30) days|journal (stats|summary))\b/],
+  ["market", /\b(how is the market|how'?s the market|market (today|now|mood|breadth)|nifty (today|now)|sectors? (today|now|leading|lagging|performance)|which sectors?|leading sectors?|lagging sectors?|market tide)\b/],
   ["quote", /\b(price|ltp|quote|rate|trading at|how much is)\b/],
 ];
+const NEEDS_SYMBOL = new Set(["quote", "plan", "levels", "outlook", "call"]);
 
 /**
  * @param question the trader's words
@@ -43,19 +52,21 @@ function classify(question, { symbols = [], mode = "auto" } = {}) {
   let intent = null;
   for (const [id, re] of INTENTS) {
     if (!re.test(q)) continue;
-    if ((id === "quote" || id === "plan") && !symbols.length) continue; // a price or a plan of what?
+    if (NEEDS_SYMBOL.has(id) && !symbols.length) continue; // a price, a plan, levels of what?
     intent = id;
     break;
   }
   const judge = JUDGE.test(q);
-  if (m === "deep") return { tier: "deep", intent, why: "Deep was chosen: the free models answer together and the paid lead merges them." };
+  if (m === "deep") return { tier: "deep", intent, why: "Deep was chosen: the default model thinks longer and writes a fuller answer." };
   // a plan or the option chain is the desk's own analysis: shown at once even when phrased as "should"
-  const analytic = intent === "plan" || intent === "options" || intent === "global";
+  // the desk's own analysis is shown at once even when phrased as "should"; readings of the market,
+  // a stock's indicators or your results too, unless the question asks for a judgement (why, should…)
+  const analytic = ["plan", "options", "global", "social", "levels", "outlook"].includes(intent) || (["market", "call", "pnl"].includes(intent) && !STRONG.test(q));
   if (intent && (!judge || analytic || m === "fast") && !(DEEP.test(q) && m === "auto")) return { tier: "instant", intent, why: "The desk's own data answers this — no model needed." };
-  if (m === "fast") return { tier: "fast", intent, why: "Fast was chosen: one model, the quickest." };
-  if (DEEP.test(q)) return { tier: "deep", intent, why: "A question for depth: the free models answer together and the paid lead merges them." };
-  if (judge) return { tier: "advice", intent, why: "A question of judgement: one model — the paid lead when allowed — for the best advice." };
-  return { tier: "fast", intent, why: "A light question: one model, the quickest." };
+  if (m === "fast") return { tier: "fast", intent, why: "Fast was chosen: a brief answer from the default model." };
+  if (DEEP.test(q)) return { tier: "deep", intent, why: "A question for depth: the default model thinks longer and writes a fuller answer." };
+  if (judge) return { tier: "advice", intent, why: "A question of judgement: the default model, with the full data." };
+  return { tier: "fast", intent, why: "A light question: a brief answer from the default model." };
 }
 
 /* ------------------------------------------------------------------- the instant answers */
@@ -165,6 +176,106 @@ function instantAnswer(intent, d, { symbol = "" } = {}) {
     for (const c of f.cautions || []) lines.push(`- ⚠️ ${c}`);
     lines.push("", "_A reading of the cues, not a promise._");
     return reply(lines.join("\n"), { forecast: { lean: f.lean.word === "up" ? "up" : f.lean.word === "down" ? "down" : "sideways", horizon: f.for, scenarios: [] }, followups: ["Which of my watchlist stocks gain most if the market opens like this?", "What could change this before the open?", "Show the option chain of NIFTY"] });
+  }
+  if (intent === "social") {
+    const x = d.social;
+    if (!x) return null;
+    const sig = x.signal;
+    if (!sig && !(x.latest || []).length && !(x.stocks || []).length) return reply("The Social Media feed has nothing market-related in the last six hours yet. Add or switch on sources on the Social Media page.", { confidence: "high" });
+    const tone = (v) => (v >= 0.2 ? "🟢 bullish" : v <= -0.2 ? "🔴 bearish" : "⚪ mixed");
+    const when = (t) => (t ? new Date(t).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Kolkata" }) : "");
+    const lines = [];
+    if (sig) lines.push(`**News & social mood (last 6 hours): ${sig.mood.label} (${sig.mood.score > 0 ? "+" : ""}${sig.mood.score})** across ${sig.items} market items${sig.aiRead ? `, ${sig.aiRead} read by the AI` : ""}.`, "");
+    if (sig && sig.brief && sig.brief.headline) lines.push(`> ${sig.brief.headline}`, "");
+    for (const st of x.stocks || []) {
+      lines.push(`### ${st.symbol} — ${st.mentions} item${st.mentions === 1 ? "" : "s"}, ${tone(st.sentiment)}`);
+      for (const it of st.items.slice(0, 4)) lines.push(`- ${when(it.at)} · ${it.source}: ${it.summary || it.title}${it.impact === "high" ? " **(high impact)**" : ""}`);
+      lines.push("");
+    }
+    if (sig && sig.stocks && sig.stocks.length) {
+      lines.push("### Most talked about", "", "| Stock | Mentions | Tone | Latest |", "|---|---|---|---|");
+      for (const r of sig.stocks.slice(0, 6)) lines.push(`| ${r.symbol} | ${r.mentions} | ${tone(r.sentiment)} | ${String(r.headline || "").slice(0, 70)} |`);
+      lines.push("");
+    }
+    if ((x.latest || []).length) {
+      lines.push("### Latest market items");
+      for (const it of x.latest.slice(0, 6)) lines.push(`- ${when(it.at)} · ${it.source}: ${it.summary || it.title}${it.stocks && it.stocks.length ? ` _(${it.stocks.join(", ")})_` : ""}`);
+    }
+    lines.push("", "_Headlines and posts as published; social posts are unverified. One input among the desk's readings — not a call._");
+    return reply(lines.join("\n"), { followups: [(x.stocks[0] && `Should I trade ${x.stocks[0].symbol} on this news?`) || "Which sectors are in the news today?", "How will the market open tomorrow?", "Show my positions"] });
+  }
+  const st = symbol ? d[`stock_${symbol}`] : null;
+  // the desk's data could not be read (Zerodha not connected, no history): say so at once — a model
+  // given no data could only say the same, and would be paid for it
+  const noData = (what, why) => reply(`No ${what} right now: ${why}`, { confidence: "high", followups: ["How is the market today?", "Show my positions"] });
+  if (["levels", "call", "outlook"].includes(intent) && st && !st.levels && !st.daily && !st.liveCall && st.liveError) return noData(`reading for ${symbol}`, st.liveError);
+  if (intent === "levels") {
+    if (!st || !Array.isArray(st.levels) || !st.levels.length) return null;
+    const last = st.quote && st.quote.last;
+    const rows = st.levels.slice().sort((a, b) => b.price - a.price).slice(0, 12);
+    const lines = [`**${symbol} — the levels that matter${num(last) ? ` around ${rs(last)}` : ""}.**`, "", "| Level | Price | Away |", "|---|---:|---:|"];
+    for (const l of rows) lines.push(`| ${l.name}${num(last) ? (l.price > last ? " ▲" : " ▼") : ""} | ${rs(l.price)} | ${num(l.awayPct) ? pc(l.awayPct) : "—"} |`);
+    const pv = st.outlook && st.outlook.pivots;
+    if (pv && num(pv.p)) lines.push("", `_Next-session pivots: S2 ${rs(pv.s2)} · S1 ${rs(pv.s1)} · P ${rs(pv.p)} · R1 ${rs(pv.r1)} · R2 ${rs(pv.r2)}._`);
+    lines.push("", "_From the desk's own ladder (prior highs and lows, VWAP, pivots, moving averages) — no model._");
+    return reply(lines.join("\n"), { followups: [`What is the intraday plan for ${symbol}?`, `What does the desk's live call say on ${symbol}?`, `Should I buy ${symbol} near support?`] });
+  }
+  if (intent === "call") {
+    if (!st || (!st.liveCall && !st.daily && !st.verdict)) return null;
+    const lc = st.liveCall;
+    const dl = st.daily;
+    const v = st.verdict;
+    const lines = [`**${symbol}${st.quote && num(st.quote.last) ? ` ${rs(st.quote.last)} (${pc(st.quote.changePct)})` : ""} — what the desk reads now.**`, ""];
+    if (lc) lines.push(`- **Live call:** ${lc.headline || lc.state}${num(lc.score) ? ` — score ${lc.score}${num(lc.threshold) ? ` of ${lc.threshold} needed` : ""}` : ""}.`, `- **VWAP:** ${rs(lc.vwap)}${num(lc.vsVwapPct) ? ` (price ${pc(lc.vsVwapPct)} from it)` : ""} · **RSI 5-min:** ${num(lc.rsi5) ? Math.round(lc.rsi5) : "—"}`);
+    if (lc && Array.isArray(lc.earlyWarnings) && lc.earlyWarnings.length) lines.push(`- **Early warnings:** ${lc.earlyWarnings.join("; ")}`);
+    if (dl) lines.push(`- **Daily:** score ${dl.score ? `${dl.score.value} (${dl.score.label})` : "—"} · RSI 14 ${num(dl.rsi14) ? Math.round(dl.rsi14) : "—"} · MACD histogram ${num(dl.macdHist) ? dl.macdHist.toFixed(2) : "—"} · ADX ${num(dl.adx) ? Math.round(dl.adx) : "—"}${dl.supertrendDir ? ` · Supertrend ${dl.supertrendDir > 0 ? "up" : "down"}` : ""}`);
+    if (v && v.stance) lines.push(`- **All timeframes:** ${v.stance}${v.convictionLabel ? ` (${v.convictionLabel})` : ""}${v.summary ? ` — ${v.summary}` : ""}`);
+    if (st.odds && st.odds.graded && st.odds.graded.length) lines.push(`- **Measured odds:** ${st.odds.graded.map((g) => `${g.kind} ${g.side} grade ${g.grade}${num(g.winPct) ? ` (${g.winPct}% of ${g.trades})` : ""}`).join("; ")}`);
+    lines.push("", "_The desk's own engines — no model. Ask “should I…” for a judgement._");
+    return reply(lines.join("\n"), { followups: [`Should I buy ${symbol} now?`, `What are the key levels for ${symbol}?`, `What is the outlook for ${symbol} next session?`] });
+  }
+  if (intent === "outlook") {
+    const o = st && st.outlook;
+    if (!o) return null;
+    const lines = [`**${symbol} — next session: ${o.headline || o.call || o.lean}.**`, "", `- **Lean:** ${o.lean}${num(o.score) ? ` (score ${o.score})` : ""}${num(o.agreement) ? `, ${o.agreement}% of the evidence agrees` : ""}`];
+    if (o.range && num(o.range.low)) lines.push(`- **A normal day's range:** ${rs(o.range.low)} – ${rs(o.range.high)}`);
+    if (o.pivots && num(o.pivots.p)) lines.push(`- **Pivots:** S1 ${rs(o.pivots.s1)} · P ${rs(o.pivots.p)} · R1 ${rs(o.pivots.r1)}`);
+    if (Array.isArray(o.scenarios) && o.scenarios.length) lines.push("", "### Scenarios", ...o.scenarios.map((x) => `- ${typeof x === "string" ? x : x.text || x.if ? `${x.if || ""} → ${x.then || ""}` : JSON.stringify(x)}`));
+    lines.push("", "_The desk's Next-Session Outlook (arithmetic) — not a promise. Ask Deep for the AI's reading._");
+    return reply(lines.join("\n"), { forecast: { lean: o.lean === "up" || o.lean === "down" ? o.lean : "sideways", horizon: "next session", scenarios: [] }, followups: [`What is the intraday plan for ${symbol}?`, `What are the key levels for ${symbol}?`, `Deep research on ${symbol}`] });
+  }
+  if (intent === "market") {
+    const mk = d.market;
+    if (mk && mk.available === false) return noData("market reading", mk.reason || "the market data is not available.");
+    if (!mk) return null;
+    const lines = [];
+    if (mk.tide) lines.push(`**The market now: ${mk.tide.label || ""}${num(mk.tide.score) ? ` (tide ${mk.tide.score})` : ""}.** ${mk.tide.summary || ""}`, "");
+    if (mk.vix && num(mk.vix.last)) lines.push(`India VIX ${mk.vix.last.toFixed(2)}${num(mk.vix.changePct) ? ` (${pc(mk.vix.changePct)})` : ""}.`, "");
+    const sec = (mk.sectors || []).filter((x) => num(x.changePct)).sort((a, b) => b.changePct - a.changePct);
+    if (sec.length) {
+      lines.push("| Sector | Change |", "|---|---:|");
+      for (const x of [...sec.slice(0, 4), ...(sec.length > 8 ? sec.slice(-4) : sec.slice(4))]) lines.push(`| ${x.name}${x.changePct > 0 ? " ▲" : x.changePct < 0 ? " ▼" : ""} | ${pc(x.changePct)} |`);
+    }
+    for (const n of (mk.notes || []).slice(0, 3)) lines.push(`- ${n}`);
+    if (!lines.length) return null;
+    lines.push("", "_From the desk's market reading — no model._");
+    return reply(lines.join("\n"), { followups: ["Why is the market moving today?", "How will the market open tomorrow?", "Show my positions"] });
+  }
+  if (intent === "pnl") {
+    const h = d.pnl;
+    if (!h || h.error || !h.last30) return null;
+    const l = h.last30;
+    if (!l.days) return reply("No saved Trade Analysis days in the last 30 days yet, so there are no results to show. They are saved from the 3:45 PM report or the Trade Analysis page.", { confidence: "high", followups: ["Show my positions", "How am I doing against my daily target?"] });
+    const lines = [`**Last 30 days: net ${signed(l.net)}** over ${l.days} saved day${l.days === 1 ? "" : "s"} and ${l.trades || 0} trades (profit ${rs0(l.profit)}, loss ${rs0(Math.abs(l.loss || 0))}, charges ${rs0(l.charges)}).`, ""];
+    if (Array.isArray(h.recentDays) && h.recentDays.length) {
+      lines.push("| Day | Net | Trades |", "|---|---:|---:|");
+      for (const x of h.recentDays.slice(0, 7)) lines.push(`| ${x.date} | ${signed(x.net)} | ${x.trades ?? "—"} |`);
+      lines.push("");
+    }
+    const j = h.journal3m;
+    if (j && j.trades) lines.push(`**Journal, 3 months:** ${j.trades} trades, win rate ${num(j.winRate) ? `${Math.round(j.winRate)}%` : "—"}, profit factor ${num(j.profitFactor) ? j.profitFactor.toFixed(2) : "—"}, expectancy ${signed(j.expectancy)}, deepest drawdown ${signed(j.maxDrawdown)}.`);
+    lines.push("", "_From your saved Trade Analysis days and journal — no model._");
+    return reply(lines.join("\n"), { followups: ["What are my biggest mistakes?", "Which hour of the day loses me most?", "How am I doing against my daily target?"] });
   }
   if (intent === "plan") {
     const p = d.plan;

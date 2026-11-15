@@ -46,6 +46,9 @@ const { Notifier, mountNotify } = require("./notify");
 const { AlertWatch } = require("./alert-watch");
 const { DisciplineWatch } = require("./discipline-watch");
 const { GlobalFeed } = require("./market/global");
+const { SocialService } = require("./social/service");
+const { readingOf: socialReading } = require("./social/extract");
+const { SocialWatch } = require("./social-watch");
 const { JournalCapture } = require("./journal-capture");
 const { WhatsAppService, mountWhatsApp } = require("./whatsapp");
 const { buildHealth } = require("./health");
@@ -186,7 +189,8 @@ function createApp(opts = {}) {
   // Financial Modeling Prep key, kept encrypted like the other secrets (server/market/global.js)
   if (!market.global) market.global = opts.globalFeed || new GlobalFeed({ docs: store.docs, secrets: { encrypt: (t) => encrypt(t, settingsKey), decrypt: (b) => decrypt(b, settingsKey) }, fetchImpl: opts.globalFetch || globalThis.fetch, now: opts.now });
 
-  // the AI strategist (Anthropic, OpenAI, Gemini, DeepSeek, Moonshot or NVIDIA). Optional: without a key every other feature works as before.
+  // the AI (one default model for every feature: Claude Sonnet 5.5 unless the owner picks another of Anthropic,
+  // OpenAI, Gemini, DeepSeek or Moonshot). Optional: without a key every other feature works as before.
   const ai =
     opts.ai ||
     new AiService({
@@ -715,6 +719,118 @@ ${e.text}
   app.get("/api/admin/market/global", requireAdmin, limiter(120, 60 * 1000), gWrap(async () => ({ feed: market.global.status(), quotes: await market.global.quotes() })));
   app.post("/api/admin/market/global/refresh", requireAdmin, limiter(20, 60 * 60 * 1000), gWrap(async () => ({ feed: market.global.status(), quotes: await market.global.quotes({ refresh: true }) })));
   app.put("/api/admin/market/global/key", requireSuper, limiter(20, 60 * 60 * 1000), gWrap(async (req) => ({ feed: market.global.setKey(req.body || {}) })));
+
+  /* ------------------------------------------------ Social Media (server/social/) */
+  // the aggregator: news sites, Google News, X, YouTube, Reddit and NSE announcements, organised for
+  // trading by the rules and the default AI model; its signal goes to the forecast, plans and TradeAI.
+  // Official access only (RSS, X's API with the owner's token); it never logs in or posts.
+  const social =
+    opts.socialService ||
+    new SocialService({ docs: store.docs, secrets: { encrypt: (t) => encrypt(t, settingsKey), decrypt: (b) => decrypt(b, settingsKey) }, fetchImpl: opts.socialFetch || globalThis.fetch, now: opts.now, market, ai, log: opts.log || console });
+  market.social = social;
+  // the open positions' symbols (for which items need the AI, and for the news alerts), read at most once a minute
+  let posCache = { at: 0, list: [] };
+  const openSymbols = async () => {
+    const t = opts.now ? opts.now() : Date.now();
+    if (t - posCache.at < 60000) return posCache.list;
+    let list = [];
+    try {
+      if (trading.status().connected) list = (await trading.positions()).net.filter((p) => p.quantity !== 0).map((p) => p.symbol);
+    } catch (_) {
+      list = [];
+    }
+    posCache = { at: t, list };
+    return list;
+  };
+  social.focusSymbols = openSymbols;
+
+  // LISTENER: a high-impact item about an open position or a tracked stock (or any market-moving item
+  // about an open position) goes to Telegram / WhatsApp at once — at most one per stock every 30
+  // minutes and 12 a day, only items from the last two hours, and only while "Alert me" is on.
+  const newsSent = new Map(); // symbol → time sent
+  let newsDay = { date: "", n: 0 };
+  social.on("items", async (items) => {
+    try {
+      const st = social.settings();
+      if (!st.alertMe) return;
+      const t = opts.now ? opts.now() : Date.now();
+      const date = new Date(t + 5.5 * 3600000).toISOString().slice(0, 10);
+      if (newsDay.date !== date) newsDay = { date, n: 0 };
+      const pos = new Set(await openSymbols());
+      const focus = new Set([...st.watch, ...pos]);
+      for (const it of items) {
+        if (newsDay.n >= 12) break;
+        const r = socialReading(it);
+        if (!r.relevant || t - Date.parse(it.at || it.seenAt) > 2 * 3600000) continue;
+        const hits = r.symbols.filter((x) => focus.has(x) && t - (newsSent.get(x) || 0) > 30 * 60000);
+        if (!hits.length) continue;
+        if (!(r.impact === "high" || (r.impact === "medium" && hits.some((x) => pos.has(x))))) continue;
+        hits.forEach((x) => newsSent.set(x, t));
+        newsDay.n += 1;
+        const tone = r.sentiment >= 0.2 ? "🟢" : r.sentiment <= -0.2 ? "🔴" : "⚪";
+        notifier.send(`📰 ${tone} ${hits.join(", ")}${hits.some((x) => pos.has(x)) ? " (you hold it)" : ""} — ${r.impact}-impact news\n${it.title}\n${it.sourceLabel}${it.link ? ` · ${it.link}` : ""}\n(${BRAND.name} · a news alert — nothing was traded)`, "alerts");
+      }
+    } catch (_) {
+      /* an alert is a convenience: it never stops the feed */
+    }
+  });
+
+  // LISTENER: the Social Media page's live stream — a pushed note the moment new items are kept or
+  // organised, so the page reads them at once (Server-Sent Events; the page falls back to polling)
+  const streams = new Set();
+  const push = (event, data) => {
+    for (const res of streams) {
+      try {
+        res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+      } catch (_) {
+        streams.delete(res);
+      }
+    }
+  };
+  social.on("items", (items) => push("items", { count: items.length, at: new Date().toISOString() }));
+  social.on("organised", (x) => push("organised", x));
+  const beat = setInterval(() => push("ping", { at: new Date().toISOString() }), 25000);
+  if (beat.unref) beat.unref();
+  app.get("/api/admin/social/stream", requireAdmin, (req, res) => {
+    if (streams.size >= 20) return res.status(429).json({ error: "busy", message: "Too many open live streams." });
+    res.set({ "Content-Type": "text/event-stream", "Cache-Control": "no-cache, no-transform", Connection: "keep-alive", "X-Accel-Buffering": "no" });
+    res.flushHeaders && res.flushHeaders();
+    res.write(`event: hello\ndata: ${JSON.stringify({ at: new Date().toISOString() })}\n\n`);
+    streams.add(res);
+    req.on("close", () => streams.delete(res));
+  });
+  const socialWatch = opts.socialWatchService || new SocialWatch({ social, now: opts.now, log: opts.log || console });
+  // the watcher reads real feeds: never under the test runner, unless a test hands it a fake fetch
+  const underTest = Boolean(process.env.NODE_TEST_CONTEXT) && !opts.socialFetch;
+  if (opts.socialWatch !== false && opts.alertWatch !== false && !underTest) socialWatch.start();
+  const sWrap = (fn) => async (req, res) => {
+    try {
+      res.json(await fn(req));
+    } catch (err) {
+      res.status(err.status || 400).json({ error: err.code || "social_failed", message: err.message || "Social Media failed." });
+    }
+  };
+  const sq = (req) => req.query || {};
+  app.get("/api/admin/social", requireAdmin, limiter(240, 60 * 1000), sWrap(async () => ({ settings: social.settings(), status: social.status(), watch: socialWatch.status() })));
+  app.get("/api/admin/social/feed", requireAdmin, limiter(240, 60 * 1000), sWrap(async (req) => social.feed({ since: String(sq(req).since || ""), limit: Number(sq(req).limit) || 80, type: String(sq(req).type || ""), sector: String(sq(req).sector || ""), relevant: sq(req).relevant === "1", symbol: String(sq(req).symbol || ""), q: String(sq(req).q || "").slice(0, 80) })));
+  app.get("/api/admin/social/digest", requireAdmin, limiter(120, 60 * 1000), sWrap(async (req) => social.digest({ hours: Number(sq(req).hours) || 24 })));
+  app.get("/api/admin/social/symbol/:symbol", requireAdmin, limiter(120, 60 * 1000), sWrap(async (req) => ({ symbol: String(req.params.symbol || "").toUpperCase(), news: social.forSymbol(req.params.symbol) })));
+  app.post("/api/admin/social/refresh", requireAdmin, limiter(20, 10 * 60 * 1000), sWrap(async () => {
+    const polled = await social.poll({ force: true });
+    const read = await social.process();
+    return { polled, ai: { read: read.read, batches: read.batches }, status: social.status(), settings: social.settings() };
+  }));
+  app.post("/api/admin/social/brief", requireAdmin, limiter(10, 10 * 60 * 1000), sWrap(async () => ({ brief: await social.brief({ refresh: true }) })));
+  app.put("/api/admin/social/settings", requireSuper, limiter(60, 10 * 60 * 1000), sWrap(async (req) => ({ settings: social.setSettings(req.body || {}) })));
+  app.post("/api/admin/social/sources", requireSuper, limiter(60, 10 * 60 * 1000), sWrap(async (req) => ({ settings: social.addSource(req.body || {}) })));
+  app.put("/api/admin/social/sources/:id", requireSuper, limiter(120, 10 * 60 * 1000), sWrap(async (req) => ({ settings: social.updateSource(String(req.params.id), req.body || {}) })));
+  app.delete("/api/admin/social/sources/:id", requireSuper, limiter(60, 10 * 60 * 1000), sWrap(async (req) => ({ settings: social.removeSource(String(req.params.id)) })));
+  // the X API Bearer Token: written by the superadmin only, never read back (only "set" or not)
+  app.put("/api/admin/social/creds", requireSuper, limiter(20, 60 * 60 * 1000), sWrap(async (req) => {
+    const out = social.setCreds(req.body || {});
+    console.log(`[social] X token ${(req.body || {}).remove === "x" ? "removed" : "saved"}`);
+    return { settings: out };
+  }));
 
   // research that runs by itself before the open and after the close (server/research-auto.js)
   const researchAuto = new ResearchAuto({ ai, market, docs: store.docs, now: opts.now, log: opts.log || console });

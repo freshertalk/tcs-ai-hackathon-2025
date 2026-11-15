@@ -12,7 +12,7 @@ const { BRAND } = require("./brand");
 //
 // What it does when switched on:
 //   - Updates every N minutes in market hours while positions are open: each position's price, P&L,
-//     volume, buyers vs sellers, RSI, VWAP, the live call — and the free AI models' voted advice.
+//     volume, buyers vs sellers, RSI, VWAP, the live call — and the default AI model's advice.
 //   - A morning note at 9:20 and a closing note at 3:35; price alerts, the risk-guard lock and the
 //     3:45 PM report (through the notifier).
 //   - Commands (HELP lists them): STATUS, POS, PNL, QUOTE SBIN, CALL SBIN, ASK …, ALERTS, ALERT SBIN 800,
@@ -78,7 +78,7 @@ POS — every open position in detail
 PNL — today · PNL YESTERDAY · PNL WEEK · PNL MONTH
 QUOTE SBIN — price, RSI, VWAP, buyers/sellers, live call
 CALL SBIN — the desk's live call and plan
-ASK <question> — TradeAI answers (free AI models)
+ASK <question> — TradeAI answers (the default AI model)
 ALERTS — waiting price alerts · ALERT SBIN 800 · ALERT SBIN BELOW 780
 *Updates*
 UPDATES ON · UPDATES OFF · EVERY 15 (minutes)
@@ -385,7 +385,7 @@ WhatsApp trading: ${this._load().allowTrading ? "allowed (PIN)" : "not allowed"}
     return { at: ist(this.now()).hhmm, positions: rows, funds, market, session: marketOpen(this.now()) ? "open" : "closed" };
   }
 
-  /** The positions message: figures for each, and — with ai — the free models' voted advice. */
+  /** The positions message: figures for each, and — with ai — the default model's advice. */
   async positionsText({ ai = true } = {}) {
     if (!this.trading.status().connected) return "Zerodha is not connected, so the positions cannot be read. Log in to Kite on the desk.";
     const f = await this._facts();
@@ -412,7 +412,7 @@ WhatsApp trading: ${this._load().allowTrading ? "allowed (PIN)" : "not allowed"}
       if (p.call) lines.push(`  Desk: ${p.call}`);
       if (p.support || p.resistance) lines.push(`  Levels: ${p.support ? `support ${px(p.support.price)}` : ""}${p.support && p.resistance ? " · " : ""}${p.resistance ? `resistance ${px(p.resistance.price)}` : ""}`);
       const a = adv && adv.ok && adv.per[p.symbol];
-      if (a) lines.push(`  AI (${a.agree} of ${a.of} agree): *${a.action.toUpperCase()}* — ${a.note}`);
+      if (a) lines.push(`  AI: *${a.action.toUpperCase()}* — ${a.note}`);
     }
     if (f.market) lines.push("", `Market: ${f.market.tide || "—"}${Number.isFinite(f.market.tideScore) ? ` (${f.market.tideScore > 0 ? "+" : ""}${f.market.tideScore})` : ""}${Number.isFinite(f.market.vix) ? ` · VIX ${f.market.vix}` : ""}`);
     if (adv && adv.ok && adv.watch) lines.push(`Watch: ${adv.watch}`);
@@ -471,10 +471,10 @@ Daily: ${v.summary}
 
   async _ask(q) {
     if (!this.ai || !this.ai.tradeai) return "TradeAI is not available on this server.";
-    const r = await this.ai.tradeai.answer(q, { owner: true, width: 3 });
+    const r = await this.ai.tradeai.answer(q, { owner: true });
     const acts = (r.actions || []).slice(0, 4).map((a) => `• ${a.kind}: ${a.text}`).join("\n");
     const fc = r.forecast && r.forecast.lean !== "n/a" ? `\nLean (${r.forecast.horizon || "next"}): ${r.forecast.lean}` : "";
-    return `🤖 *TradeAI*\n${toWhatsApp(r.answer).slice(0, 2600)}${acts ? `\n\n${acts}` : ""}${fc}\n\n(${r.meta.engineOnly ? "desk's arithmetic" : `${(r.meta.by || []).length} free model(s)${r.meta.mergedBy ? `, merged by ${r.meta.mergedBy}` : ""}`})`;
+    return `🤖 *TradeAI*\n${toWhatsApp(r.answer).slice(0, 2600)}${acts ? `\n\n${acts}` : ""}${fc}\n\n(${r.meta.engineOnly ? "desk's arithmetic" : (r.meta.by || []).join(", ") || "AI"})`;
   }
 
   _alerts() {

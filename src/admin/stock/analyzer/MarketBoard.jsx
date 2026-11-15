@@ -150,7 +150,7 @@ export default function MarketBoard({ onOpen }) {
   const [sort, setSort] = useState(null); // a header the user clicked: [column, direction]
   const [q, setQ] = useState("");
   const [index, setIndex] = useState(storedIndex);
-  // AI one stock at a time (free models only — no paid credits), for the top of the list shown
+  // AI one stock at a time (the default model; each stock is one of today's AI runs), for the top of the list shown
   const [ai, setAi] = useState({ running: false, kind: "", done: 0, total: 0, current: "", error: "" });
   const [aiRes, setAiRes] = useState({});
   const [aiN, setAiN] = useState(5);
@@ -193,7 +193,7 @@ export default function MarketBoard({ onOpen }) {
       if (stopAi.current) break;
       setAi((a) => ({ ...a, current: sym }));
       try {
-        let j = await api(`/api/admin/ai/ensemble/${kind}/${encodeURIComponent(sym)}`, { method: "POST", body: { freeOnly: true } });
+        let j = await api(`/api/admin/ai/ensemble/${kind}/${encodeURIComponent(sym)}`, { method: "POST", body: {} });
         while (!j.finishedAt && !stopAi.current) {
           await sleep(1500);
           j = await api(`/api/admin/ai/ensemble/job/${j.id}`);
@@ -319,7 +319,7 @@ export default function MarketBoard({ onOpen }) {
       </div>
 
       <div className="mb-ai-bar">
-        <span className="mb-ai-bar__t" data-tip="Each stock is read by every free NVIDIA-hosted model together with the desk's own arithmetic, one stock after another. No paid credits are used here. Nothing starts until you press a button.">
+        <span className="mb-ai-bar__t" data-tip="Each stock is read by the default AI model together with the desk's own arithmetic, one stock after another. Each stock counts as one of today's AI runs (a limit on the AI Live / Research settings). Nothing starts until you press a button.">
           AI, one by one
         </span>
         <select value={aiN} onChange={(e) => setAiN(Number(e.target.value))} aria-label="How many stocks, from the top of the list" disabled={ai.running}>

@@ -1,6 +1,7 @@
 "use strict";
 // The AI companies: one key and one model per company, switching without losing keys, the
-// request each kind of API is sent, the web-search fallback, and the live model lists.
+// request each kind of API is sent, the web-search fallback, the live model lists, the default
+// model (Claude Sonnet 5.5) with its fallback chain, and the one-time move off the free models.
 // Every company is FAKED here — no network, no real key, no cost.
 
 const test = require("node:test");
@@ -11,6 +12,7 @@ const path = require("path");
 
 const { AiService } = require("../ai/service");
 const { PROVIDERS, checkKey, readJson, pickChatModels } = require("../ai/providers");
+const { MODELS: ANTHROPIC_MODELS, DEFAULT_MODEL } = require("../ai/client");
 
 // not real keys
 const KEYS = {
@@ -19,8 +21,8 @@ const KEYS = {
   gemini: "AIzaTESTONLYtestonlyTESTONLY12345678",
   deepseek: "sk-TESTONLYtestonlyTESTONLY1234567890ab",
   moonshot: "sk-TESTONLYmoonshotTESTONLY1234567890ab",
-  nvidia: "nvapi-TESTONLYtestonlyTESTONLY1234567890",
 };
+const NVIDIA_KEY = "nvapi-TESTONLYtestonlyTESTONLY1234567890"; // a key of the removed free companies
 
 const json = (status, obj) => new Response(JSON.stringify(obj), { status, headers: { "content-type": "application/json" } });
 
@@ -38,42 +40,52 @@ function fakeWorld() {
   return f;
 }
 
-function boot() {
+const SECRETS = { encrypt: (x) => `enc:${Buffer.from(x).toString("base64")}`, decrypt: (x) => Buffer.from(x.slice(4), "base64").toString() };
+
+function boot(settings = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "vpt-aip-"));
-  const store = { data: { settings: {} }, update(fn) { fn(this.data); } };
+  const store = { data: { settings }, update(fn) { fn(this.data); } };
   const world = fakeWorld();
-  const ai = new AiService({ dir, store, secrets: { encrypt: (x) => `enc:${Buffer.from(x).toString("base64")}`, decrypt: (x) => Buffer.from(x.slice(4), "base64").toString() }, market: {}, fetchImpl: world.fetch, log: { log() {} } });
-  return { ai, store, world };
+  const ai = new AiService({ dir, store, secrets: SECRETS, market: {}, fetchImpl: world.fetch, log: { log() {} } });
+  return { ai, store, world, dir };
 }
 
 const SCHEMA = { type: "object", additionalProperties: false, required: ["mood"], properties: { mood: { type: "string" } } };
 const chat = (content, extra = {}) => json(200, { model: extra.model || "served", choices: [{ message: { role: "assistant", content }, finish_reason: extra.finish || "stop" }], usage: { prompt_tokens: 120, completion_tokens: 30 } });
 
-test("the catalogue: five paid companies and four FREE NVIDIA-hosted ones, each with models and steps", () => {
-  assert.deepEqual(PROVIDERS.map((p) => p.id), ["anthropic", "openai", "gemini", "deepseek", "moonshot", "nvidia", "nv-mistral", "nv-deepseek", "nv-gemma"]);
-  assert.deepEqual(PROVIDERS.filter((p) => p.free).map((p) => p.id), ["nvidia", "nv-mistral", "nv-deepseek", "nv-gemma"]);
-  for (const p of PROVIDERS.filter((x) => x.free)) {
-    assert.equal(p.base, "https://integrate.api.nvidia.com/v1", `${p.id} talks to NVIDIA only`);
-    assert.ok(p.models.every((m) => m.free), p.id);
-  }
-  // the three Nemotron models stay, plus the newer ones asked for
-  const ids = PROVIDERS.filter((p) => p.free).flatMap((p) => p.models.map((m) => m.id));
-  for (const id of ["nvidia/nemotron-3-super-120b-a12b", "nvidia/nemotron-3-ultra-550b-a55b", "nvidia/nvidia-nemotron-nano-9b-v2", "nvidia/nemotron-3.5-super-vl-120b-a12b", "mistralai/mistral-large-4-1t-a52b", "deepseek-ai/deepseek-v4.1-flash", "google/gemma-4-31b-it"]) assert.ok(ids.includes(id), id);
+test("the catalogue: five paid companies, no free NVIDIA-hosted ones; Claude Sonnet 5.5 is the default model", () => {
+  assert.deepEqual(PROVIDERS.map((p) => p.id), ["anthropic", "openai", "gemini", "deepseek", "moonshot"]);
+  assert.ok(PROVIDERS.every((p) => !p.free && !p.keyOf), "no free company and no shared key");
+  assert.ok(!JSON.stringify(PROVIDERS).includes("nvidia.com"), "nothing talks to NVIDIA");
   for (const p of PROVIDERS) {
     assert.ok(p.models.length > 0, p.id);
     assert.ok(p.steps.length >= 2, p.id);
     assert.match(p.consoleUrl, /^https:\/\//);
   }
-  assert.ok(PROVIDERS.find((p) => p.id === "nvidia").models.some((m) => /nemotron/i.test(m.id) && m.free), "a free Nemotron model is offered");
+  assert.equal(DEFAULT_MODEL, "claude-sonnet-5-5");
+  assert.equal(ANTHROPIC_MODELS[0].id, "claude-sonnet-5-5", "the first Anthropic model is the default");
+  assert.match(ANTHROPIC_MODELS[0].note, /^Default/);
+
+  // a fresh setup: Anthropic with Sonnet 5.5, waiting only for the key
+  const { ai } = boot();
+  const st = ai.status();
+  assert.equal(st.provider, "anthropic");
+  assert.equal(st.model, "claude-sonnet-5-5");
+  assert.equal(st.configured, false);
+  assert.deepEqual(st.recommended, { provider: "anthropic", model: "claude-sonnet-5-5", name: "Claude Sonnet 5.5" });
+  assert.equal(st.defaultModel.model, "claude-sonnet-5-5");
+  assert.equal(st.defaultModel.ready, false);
+  assert.equal(st.fallback, true, "the fallback switch is on by default");
+  assert.deepEqual(st.chain, []);
+  assert.ok(st.providers.every((p) => p.free === undefined && p.keyOf === undefined));
 });
 
 test("keys are checked against the company they are saved for", () => {
   for (const [pid, k] of Object.entries(KEYS)) assert.equal(checkKey(pid, k), k, pid);
   assert.throws(() => checkKey("openai", KEYS.anthropic), /looks like an Anthropic key/);
-  assert.throws(() => checkKey("anthropic", KEYS.nvidia), /looks like an NVIDIA key/);
-  assert.throws(() => checkKey("nvidia", KEYS.deepseek), /start with "nvapi-"/);
-  assert.equal(checkKey("nv-gemma", KEYS.nvidia), KEYS.nvidia, "the free companies take the NVIDIA key");
-  assert.throws(() => checkKey("nv-mistral", KEYS.anthropic), /looks like an Anthropic key/);
+  for (const pid of ["anthropic", "openai", "deepseek"]) assert.throws(() => checkKey(pid, NVIDIA_KEY), /NVIDIA key\. The free NVIDIA-hosted models are no longer used/, pid);
+  assert.throws(() => checkKey("nvidia", KEYS.deepseek), /Unknown AI company/);
+  assert.throws(() => checkKey("gemini", KEYS.anthropic), /looks like an Anthropic key/);
   assert.throws(() => checkKey("anthropic", "sk-ant-admin01-AAAAAAAAAAAAAAAAAAAAAAAA"), /Admin API key/);
   assert.throws(() => checkKey("gemini", "short"), /does not look like a Google Gemini API key/);
   assert.throws(() => checkKey("openai", "sk-has a space in it 1234567890"), /does not look like an OpenAI API key/);
@@ -98,14 +110,14 @@ test("switching companies keeps every saved key and each company's model; keys a
   assert.equal(st.providers.find((p) => p.id === "deepseek").model, "deepseek-v4-flash");
 
   // a company without a key can be chosen; the AI is then off until its key is added
-  st = ai.setSettings({ provider: "nvidia" });
+  st = ai.setSettings({ provider: "moonshot" });
   assert.equal(st.configured, false);
-  assert.equal(st.model, "nvidia/nemotron-3-super-120b-a12b");
+  assert.equal(st.model, "kimi-k3");
 
   // removing one company's key leaves the others
   ai.setSettings({ provider: "deepseek", clear: true, use: false });
   st = ai.status();
-  assert.equal(st.provider, "nvidia", "use:false changes a company without switching to it");
+  assert.equal(st.provider, "moonshot", "use:false changes a company without switching to it");
   assert.equal(st.providers.find((p) => p.id === "deepseek").configured, false);
   assert.equal(st.providers.find((p) => p.id === "anthropic").configured, true);
 
@@ -115,6 +127,7 @@ test("switching companies keeps every saved key and each company's model; keys a
 
   assert.throws(() => ai.setSettings({ provider: "openai", model: "claude-opus-5-5" }), /Unknown model for this company/);
   assert.throws(() => ai.setSettings({ provider: "acme" }), /Unknown AI company/);
+  assert.throws(() => ai.setSettings({ provider: "nvidia" }), /Unknown AI company/, "the free companies are gone");
 });
 
 test("an older single-key record still works and moves into the per-company fields", () => {
@@ -172,15 +185,15 @@ test("DeepSeek and Moonshot: JSON mode with the schema in the prompt and their a
   assert.equal(world.requests[1].auth, `Bearer ${KEYS.moonshot}`);
 });
 
-test("NVIDIA Nemotron: the schema in the prompt, and the answer read past thinking and code fences", async () => {
+test("a model that thinks out loud: the answer is read past thinking tags and code fences", async () => {
   const { ai, world } = boot();
-  ai.setSettings({ provider: "nvidia", apiKey: KEYS.nvidia });
-  world.answers["integrate.api.nvidia.com/v1/chat/completions"] = () => chat('<think>weighing it up {not json}</think>\nHere it is:\n```json\n{"mood":"risk_on"}\n```');
+  ai.setSettings({ provider: "moonshot", apiKey: KEYS.moonshot });
+  world.answers["api.moonshot.ai/v1/chat/completions"] = () => chat('<think>weighing it up {not json}</think>\nHere it is:\n```json\n{"mood":"risk_on"}\n```');
   const r = await ai._client().ask({ system: "s", user: "u", schema: SCHEMA });
   assert.equal(r.data.mood, "risk_on");
   const q = world.requests[0];
-  assert.equal(q.body.model, "nvidia/nemotron-3-super-120b-a12b");
-  assert.equal(q.body.response_format, undefined);
+  assert.equal(q.body.model, "kimi-k3");
+  assert.deepEqual(q.body.response_format, { type: "json_object" });
   assert.equal(readJson("no json here"), null);
   assert.equal(readJson("[1,2]"), null);
 });
@@ -253,64 +266,92 @@ test("the live model list: read with the saved key, filtered to text models, the
   assert.equal(world.requests.at(-1).method, "GET");
   assert.equal(ai.setSettings({ provider: "openai", model: "gpt-6-astra" }).model, "gpt-6-astra");
 
-  // NVIDIA's long list keeps chat models, Nemotron first
-  const nv = pickChatModels("nvidia", ["meta/llama-4-maverick", "nvidia/nv-embedqa-e5-v5", "nvidia/nemotron-3-super-120b-a12b", "nvidia/llama-3.1-nemoguard-8b-content-safety", "nvidia/nemotron-3-ultra-550b-a55b"]);
-  assert.deepEqual(nv, ["nvidia/nemotron-3-ultra-550b-a55b", "nvidia/nemotron-3-super-120b-a12b", "meta/llama-4-maverick"]);
+  // other companies' lists drop embedding, image and audio models; newest-looking names first
+  assert.deepEqual(pickChatModels("deepseek", ["deepseek-v4-flash", "deepseek-embed-2", "deepseek-v4-pro", "deepseek-v4-pro"]), ["deepseek-v4-pro", "deepseek-v4-flash"]);
 });
 
 test("Test checks the chosen company's key and keeps the result per company", async () => {
   const { ai, world } = boot();
-  ai.setSettings({ provider: "nvidia", apiKey: KEYS.nvidia });
-  world.answers["integrate.api.nvidia.com/v1/chat/completions"] = () => chat("ok");
+  ai.setSettings({ provider: "deepseek", apiKey: KEYS.deepseek });
+  world.answers["api.deepseek.com/chat/completions"] = () => chat("ok");
   let r = await ai.test();
   assert.equal(r.test.ok, true);
-  assert.equal(r.test.provider, "nvidia");
-  world.answers["integrate.api.nvidia.com/v1/chat/completions"] = () => json(429, { detail: "Too many requests" });
+  assert.equal(r.test.provider, "deepseek");
+  world.answers["api.deepseek.com/chat/completions"] = () => json(429, { error: { message: "Too many requests" } });
   r = await ai.test();
   assert.equal(r.test.ok, false);
-  assert.match(r.test.message, /NVIDIA's rate limit/);
-  assert.equal(r.providers.find((p) => p.id === "nvidia").lastTest.ok, false);
+  assert.match(r.test.message, /DeepSeek's rate limit/);
+  assert.equal(r.providers.find((p) => p.id === "deepseek").lastTest.ok, false);
   r = await ai.test("openai");
   assert.equal(r.test.ok, false);
   assert.match(r.test.message, /No OpenAI API key is saved/);
 });
 
-test("FREE companies: one NVIDIA key for all four, requests only to NVIDIA, never a paid key borrowed", async () => {
-  const { ai, world } = boot();
-  ai.setSettings({ provider: "anthropic", apiKey: KEYS.anthropic });
-  ai.setSettings({ provider: "nv-mistral", apiKey: KEYS.nvidia });
+test("once: a record on a free NVIDIA model moves to Anthropic with Sonnet 5.5; the NVIDIA key is deleted; a later choice stands", () => {
+  const nv = SECRETS.encrypt(NVIDIA_KEY);
+  const old = {
+    aiProvider: "nv-mistral",
+    aiKeys: { nvidia: nv, anthropic: SECRETS.encrypt(KEYS.anthropic) },
+    aiModels: { anthropic: "claude-opus-5-5", nvidia: "nvidia/nemotron-3-super-120b-a12b", "nv-mistral": "mistralai/mistral-large-4-1t-a52b" },
+    aiTests: { nvidia: { ok: true, at: "x" }, "nv-gemma": null },
+    aiModelLists: { nvidia: { at: "x", models: [{ id: "nvidia/nemotron-3-super-120b-a12b" }] } },
+    aiEnsemble: { useFree: true, usePaid: true, freeModels: ["nvidia|x"], paidDailyCap: 25 },
+    aiVersion: 7,
+  };
+  const { ai, store, dir } = boot(old);
+  const s = store.data.settings;
+  assert.equal(s.aiDefaultModelV2, true);
+  assert.equal(s.aiProvider, "anthropic");
+  assert.equal(s.aiModels.anthropic, "claude-sonnet-5-5", "Sonnet 5.5 becomes the default model");
+  for (const k of ["aiKeys", "aiModels", "aiTests", "aiModelLists"]) for (const g of ["nvidia", "nv-mistral", "nv-deepseek", "nv-gemma"]) assert.equal(s[k][g], undefined, `${k}.${g}`);
+  assert.ok(s.aiKeys.anthropic, "the Anthropic key stays");
+  assert.deepEqual(s.aiEnsemble, { usePaid: true, paidDailyCap: 25 }, "the free-model settings are dropped, the rest kept");
+  assert.ok(s.aiVersion > 7, "open pages see the change");
+  assert.ok(!JSON.stringify(s).includes(nv), "no trace of the NVIDIA key");
   let st = ai.status();
-  assert.equal(st.provider, "nv-mistral");
-  assert.equal(st.free, true);
-  for (const id of ["nvidia", "nv-mistral", "nv-deepseek", "nv-gemma"]) assert.equal(st.providers.find((p) => p.id === id).configured, true, `${id} uses the one saved key`);
-  assert.equal(st.providers.find((p) => p.id === "nv-gemma").keyOf, "nvidia");
-
-  // switching among the free ones never asks for a key
-  st = ai.setSettings({ provider: "nv-deepseek" });
+  assert.equal(st.provider, "anthropic");
+  assert.equal(st.model, "claude-sonnet-5-5");
   assert.equal(st.configured, true);
-  assert.equal(st.model, "deepseek-ai/deepseek-v4.1-flash");
-  world.answers["integrate.api.nvidia.com/v1/chat/completions"] = () => chat('<think>…</think>{"mood":"mixed"}');
-  assert.equal((await ai._client().ask({ system: "s", user: "u", schema: SCHEMA })).data.mood, "mixed");
-  const q = world.requests.at(-1);
-  assert.ok(q.url.startsWith("https://integrate.api.nvidia.com/v1/"), q.url);
-  assert.equal(q.auth, `Bearer ${KEYS.nvidia}`);
-  assert.equal(q.body.model, "deepseek-ai/deepseek-v4.1-flash");
 
-  // web search: an Anthropic key IS saved, but a free model never borrows it
-  assert.equal(ai.status().searchBy, null);
-  assert.throws(() => ai._searchClient(), /never borrows a paid company's key/);
-  await assert.rejects(ai.worldBrief({ refresh: true }), /never borrows/);
-  assert.ok(world.requests.every((r) => r.url.startsWith("https://integrate.api.nvidia.com/")), "no request left for a paid company");
+  // the owner then picks another default; a restart (a new service on the same store) keeps it
+  ai.setSettings({ provider: "anthropic", model: "claude-opus-5-5" });
+  const again = new AiService({ dir, store, secrets: SECRETS, market: {}, fetchImpl: async () => json(404, {}), log: { log() {} } });
+  st = again.status();
+  assert.equal(st.model, "claude-opus-5-5", "the migration runs once only");
+  assert.equal(st.defaultModel.name, "Claude Opus 5.5");
+});
 
-  // each free company's model list keeps only its own publisher's models from NVIDIA's list
-  world.answers["integrate.api.nvidia.com/v1/models"] = () => json(200, { data: ["deepseek-ai/deepseek-v4.1-flash", "deepseek-ai/deepseek-v4.1-pro", "mistralai/mistral-large-4-1t-a52b", "google/gemma-4-31b-it", "nvidia/nemotron-3-super-120b-a12b", "nvidia/nv-embedqa-e5-v5"].map((id) => ({ id })) });
-  assert.deepEqual((await ai.refreshModels("nv-deepseek")).providers.find((p) => p.id === "nv-deepseek").models.map((m) => m.id).sort(), ["deepseek-ai/deepseek-v4.1-flash", "deepseek-ai/deepseek-v4.1-pro"]);
-  assert.deepEqual((await ai.refreshModels("nvidia")).providers.find((p) => p.id === "nvidia").models.map((m) => m.id), ["nvidia/nemotron-3-super-120b-a12b"]);
+test("the model chain: the default model first, then each other company with a saved key; the fallback switch", () => {
+  const { ai } = boot();
+  assert.deepEqual(ai.modelChain(), [], "no key, no model");
+  ai.setSettings({ provider: "anthropic", apiKey: KEYS.anthropic });
+  ai.setSettings({ provider: "deepseek", apiKey: KEYS.deepseek, model: "deepseek-v4-flash", use: false });
+  ai.setSettings({ provider: "openai", apiKey: KEYS.openai, model: "gpt-5.6-luna", use: false });
+  let chain = ai.modelChain();
+  assert.deepEqual(chain.map((m) => `${m.provider}|${m.model}`), ["anthropic|claude-sonnet-5-5", "openai|gpt-5.6-luna", "deepseek|deepseek-v4-flash"], "the default, then the search-capable companies, then the rest");
+  assert.deepEqual(chain[0], { id: "anthropic|claude-sonnet-5-5", provider: "anthropic", model: "claude-sonnet-5-5", name: "Claude Sonnet 5.5", company: "Anthropic", lead: true, search: true });
+  let st = ai.status();
+  assert.deepEqual(st.chain.map((m) => m.name), ["Claude Sonnet 5.5", "GPT-5.6 Luna", "DeepSeek V4 Flash"]);
+  assert.equal(st.defaultModel.ready, true);
 
-  // removing the key from one free company removes it for all four; Anthropic's stays
-  st = ai.setSettings({ provider: "nv-gemma", clear: true, use: false });
-  for (const id of ["nvidia", "nv-mistral", "nv-deepseek", "nv-gemma"]) assert.equal(st.providers.find((p) => p.id === id).configured, false, id);
-  assert.equal(st.providers.find((p) => p.id === "anthropic").configured, true);
+  // another default model, picked on the AI page
+  ai.setSettings({ provider: "openai" });
+  assert.equal(ai.defaultModel().name, "GPT-5.6 Luna");
+  assert.deepEqual(ai.modelChain().map((m) => m.provider), ["openai", "anthropic", "deepseek"]);
+
+  // fallback off: only the default model
+  st = ai.setSettings({ fallback: false });
+  assert.equal(st.fallback, false);
+  assert.equal(ai.fallbackOn(), false);
+  assert.deepEqual(ai.modelChain().map((m) => m.provider), ["openai"]);
+
+  // the default company's key removed: with the fallback off nothing answers; on, a saved company stands in
+  ai.setSettings({ provider: "openai", clear: true });
+  assert.deepEqual(ai.modelChain(), []);
+  assert.equal(ai.defaultModel().ready, false);
+  st = ai.setSettings({ fallback: true });
+  assert.deepEqual(ai.modelChain().map((m) => m.provider), ["anthropic", "deepseek"]);
+  assert.equal(st.chain[0].company, "Anthropic");
 });
 
 test("one answer contract: a malformed answer gets one correction; a second miss is refused", async () => {
@@ -321,15 +362,16 @@ test("one answer contract: a malformed answer gets one correction; a second miss
   assert.deepEqual(problems({}, S), ["answer.mood is missing", "answer.n is missing"]);
 
   const { ai, world } = boot();
-  ai.setSettings({ provider: "nv-deepseek", apiKey: KEYS.nvidia });
+  ai.setSettings({ provider: "deepseek", apiKey: KEYS.deepseek });
   const replies = ['{"mood":"sideways","n":1}', '{"mood":"up","n":1}'];
-  world.answers["integrate.api.nvidia.com/v1/chat/completions"] = () => chat(replies.shift() || '{"mood":"bad"}');
+  world.answers["api.deepseek.com/chat/completions"] = () => chat(replies.shift() || '{"mood":"bad"}');
   const r = await ai._client().ask({ system: "s", user: "u", schema: S });
   assert.deepEqual(r.data, { mood: "up", n: 1 });
   assert.equal(r.contract, "repaired");
   assert.equal(r.usage.inputTokens, 240, "both requests are counted");
   assert.match(world.requests[1].body.messages[1].content, /did not match the required JSON schema:\n- answer\.mood must be one of/);
 
-  world.answers["integrate.api.nvidia.com/v1/chat/completions"] = () => chat('{"mood":"bad","n":1}');
-  await assert.rejects(ai._client().ask({ system: "s", user: "u", schema: S }), /did not follow the required format twice/);
+  world.answers["api.deepseek.com/chat/completions"] = () => chat('{"mood":"bad","n":1}');
+  // fresh: the engine would otherwise answer this identical request from its cache
+  await assert.rejects(ai._client().ask({ system: "s", user: "u", schema: S, fresh: true }), /did not follow the required format twice/);
 });

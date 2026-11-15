@@ -3,10 +3,10 @@
 // (IntradayPlan.jsx: arithmetic only), which is what the card shows first while the market is shut.
 //
 // Underneath, the desk's own arithmetic (the Live Pulse and the Next-Session Outlook) is ALWAYS shown
-// and kept fresh by itself: it needs no AI and no key. A press of a button brings in the analysts —
-// the free NVIDIA-hosted models, and one optional paid lead that does the web search — which read the
-// same numbers in parallel; the result is weighed with the desk's arithmetic, so if every model fails
-// the page simply keeps the arithmetic. Nothing here runs an AI by itself: only the button does.
+// and kept fresh by itself: it needs no AI and no key. A press of a button brings in the analyst — the
+// default AI model (Claude Sonnet 5.5 unless another is picked on the AI page), which does the web
+// search when its company has one and reads the same numbers; the result is weighed with the desk's
+// arithmetic, so if the model (and its fallbacks) fail the page simply keeps the arithmetic. Nothing here runs an AI by itself: only the button does.
 // Nothing here can place an order.
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
@@ -186,7 +186,7 @@ function Analysts({ rows, running }) {
                 {r.name}
                 <small>
                   {r.company}
-                  {r.free ? " · free" : r.lead ? " · paid, with web search" : ""}
+                  {r.fallbackFrom ? ` · fallback for ${r.fallbackFrom}` : " · default model"}
                 </small>
               </span>
               {r.status === "answered" ? (
@@ -371,8 +371,8 @@ function Pane({ kind, floor, run, symbol }) {
       {r && (
         <details className="ab-foot">
           <summary>
-            Tokens used: free models {tok(r.usage && r.usage.free)} · paid {tok(r.usage && r.usage.paid)}
-            {r.web && r.web.used ? " · web research by the paid model" : ""} <small>— about this read</small>
+            Tokens used: {tok(r.usage && r.usage.paid)}
+            {r.web && r.web.used ? " · with web research" : ""} <small>— about this read</small>
           </summary>
           <p>{r.disclaimer}</p>
         </details>
@@ -381,7 +381,7 @@ function Pane({ kind, floor, run, symbol }) {
   );
 }
 
-/** Which analysts run, how the paid lead is used, and how each has done so far. */
+/** The analyst (the default model), its limits, and how each model has done so far. */
 function Settings({ onClose }) {
   const [s, setS] = useState(null);
   const [err, setErr] = useState("");
@@ -398,11 +398,7 @@ function Settings({ onClose }) {
       .catch((e) => setErr(e.message));
   if (!s) return <div className="ab-set">{err ? <p className="adm-alert adm-alert--error">{err}</p> : <p className="ab-dim">Loading…</p>}</div>;
   const set = s.settings;
-  const picked = set.freeModels || s.catalogue.map((a) => a.id);
-  const toggle = (id) => {
-    const next = picked.includes(id) ? picked.filter((x) => x !== id) : [...picked, id];
-    save({ freeModels: next.length === s.catalogue.length ? null : next });
-  };
+  const fb = (s.roster && s.roster.fallbacks) || [];
   return (
     <div className="ab-set">
       <header>
@@ -412,33 +408,22 @@ function Settings({ onClose }) {
         </button>
       </header>
       {err && <p className="adm-alert adm-alert--error">{err}</p>}
-      <label className="ab-chk">
-        <input type="checkbox" checked={set.useFree} onChange={(e) => save({ useFree: e.target.checked })} /> The free NVIDIA-hosted models
+      <label className="ab-chk" data-tip="The default model does the web search (company news, world markets) when its company has one, then reads the numbers. It is used only when you press a button, and its search is kept 30 minutes.">
+        <input type="checkbox" checked={set.usePaid} disabled={!s.roster.lead && !set.usePaid} onChange={(e) => save({ usePaid: e.target.checked })} /> The default AI model{" "}
+        <small>{s.roster.lead ? `${s.roster.lead.name} (${s.roster.lead.company}) — picked on the AI page` : "no key saved — save the Anthropic key on the AI page"}</small>
       </label>
-      <ul className="ab-set__list">
-        {s.catalogue.map((a) => (
-          <li key={a.id}>
-            <label className="ab-chk" data-tip={a.ready ? "" : "Save the NVIDIA key on the AI page to use this one."}>
-              <input type="checkbox" disabled={!set.useFree || !a.ready} checked={a.ready && picked.includes(a.id)} onChange={() => toggle(a.id)} /> {a.name} <small>{a.company}{a.ready ? "" : " · no key"}</small>
-            </label>
-          </li>
-        ))}
-      </ul>
-      <label className="ab-chk" data-tip="The paid model does the web search (company news, world markets) and analyses like the others. It is used only when you press a button, and its search is kept 30 minutes.">
-        <input type="checkbox" checked={set.usePaid} disabled={!s.roster.lead && !set.usePaid} onChange={(e) => save({ usePaid: e.target.checked })} /> The paid model with web search{" "}
-        <small>{s.roster.lead ? `${s.roster.lead.name} (${s.roster.lead.company}) — chosen on the AI page` : "no paid key saved"}</small>
-      </label>
+      {fb.length > 0 && <p className="ab-dim">If it fails: {fb.map((a) => `${a.name} (${a.company})`).join(", ")}.</p>}
       <div className="ab-set__nums">
         <label>
-          <span>Paid runs a day, at most</span>
+          <span>AI runs a day, at most</span>
           <input type="number" min="0" max="500" value={set.paidDailyCap} onChange={(e) => save({ paidDailyCap: Number(e.target.value) })} />
         </label>
         <label>
-          <span>Wait for each model (seconds)</span>
+          <span>Wait for the model (seconds)</span>
           <input type="number" min="20" max="180" value={set.deadlineSec} onChange={(e) => save({ deadlineSec: Number(e.target.value) })} />
         </label>
       </div>
-      <p className="ab-dim">Paid runs today: {s.paidRunsToday}. Free models cost nothing. Nothing runs until you press AI Live or AI Research.</p>
+      <p className="ab-dim">AI runs today: {s.paidRunsToday}. Each run is billed by the AI company. Nothing runs until you press AI Live or AI Research.</p>
       {s.record && s.record.rows.length > 0 && (
         <>
           <h5>Track record — scored against real prices</h5>

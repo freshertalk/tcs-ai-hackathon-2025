@@ -11,14 +11,11 @@
 // network is down, the result is that engine's answer — same shape, same plans — and the page says
 // so. AI is optional; it can only add to the arithmetic, never be required by it.
 //
-// Analysts:
-//   • every FREE NVIDIA-hosted model with a saved key (Nemotron ×4, Mistral Large 4, DeepSeek
-//     V4.1 Flash, Gemma 4) — they cannot browse, so they work from the numbers they are given;
-//   • one optional PAID "lead" (the company chosen on the AI page, else the first saved Anthropic /
-//     OpenAI / Gemini key) which first does the web search — company news and world markets, kept
-//     30 minutes so credits are not spent twice — and then analyses like the rest, with a little
-//     more say because it has read the news.
-// Every analyst gets the identical instructions, schema and snapshot. They answer in parallel.
+// The analyst: the DEFAULT MODEL (Claude Sonnet 5.5 unless the owner picked another on the AI page).
+// It first does the web search when its company has one — company news and world markets, kept 30
+// minutes so credits are not spent twice — and then reads the snapshot, with a little more say than
+// one plain vote because it has read the news. If it fails, the AI page's fallback models (the other
+// companies with a saved key) are tried in turn. Runs are limited per day (a setting).
 //
 // The combination is arithmetic too: each vote (the desk's own included) carries a weight, adjusted
 // by how well that analyst's past calls scored against real prices; the lean is the weighted sum
@@ -31,14 +28,14 @@
 // not a probability of profit and nothing here can promise a winning trade.
 
 const crypto = require("crypto");
-const { PROVIDERS, providerOf, makeClient, SEARCH_ORDER } = require("./providers");
+const { makeClient } = require("./providers");
 const { AiError } = require("./client");
 const { buildDirection } = require("../market/direction");
 const { buildOutlook } = require("../market/outlook");
 const { sheet } = require("./research");
 const { barStart } = require("../market/intraday");
 
-const SETTINGS_DEFAULT = { useFree: true, usePaid: true, freeModels: null, paidDailyCap: 40, deadlineSec: 75 };
+const SETTINGS_DEFAULT = { usePaid: true, paidDailyCap: 40, deadlineSec: 90 };
 const NAME = "ai/ensemble.json";
 const LAST = "ai/ensemble-last.json";
 const MAX_PREDS = 400;
@@ -68,12 +65,13 @@ const onTick = (x) => (num(x) ? r2(Math.round(x / 0.05) * 0.05) : null);
 
 /* --------------------------------------------------------------------------------- the questions */
 
-const COMMON = `You are one of several independent analysts on a private trading desk for NSE (India) cash equities. A single trader reads the combined result and decides for themselves; you never place orders and you cannot browse the internet.
+const COMMON = `You are the AI analyst on a private trading desk for NSE (India) cash equities; your reading is weighed with the desk's own arithmetic. A single trader reads the combined result and decides for themselves; you never place orders and you cannot browse the internet.
 
 How to work:
 - Use only the numbers in the snapshot. Quote them. Never invent a price, a level, an event or a date. If something you need is missing, say so in "risks".
 - The desk's own arithmetic read is in the snapshot (its lean, the evidence for and against it, its plans). You may disagree with it when the data supports it; say why. When you agree, add what its fixed rules cannot see.
 - "Web context" (company news, world markets), when present, was gathered by a search model and can be stale, incomplete or wrong. Treat it as background, never as a trigger.
+- "newsAndSocial", when present, is the desk's Social Media feed (news sites, X posts, Reddit, NSE announcements) about this stock and the market's news mood. Headlines can move a stock, but social posts are unverified: name the item you rely on, and never treat a single post as a trigger.
 - Weigh evidence on BOTH sides: the case for a long and the case for a short. "sideways" is a respectable answer when the evidence is split — it is a position, not a failure.
 - Every plan needs a numeric entry, a stop on the losing side and a target on the winning side; set "take" to false (and the prices to 0) for a side you would not trade. The first target must be at least as far as the stop. A short in the cash market is intraday-only.
 - If the trader already holds this stock, say in "summary" what your read means for that position.
@@ -305,9 +303,7 @@ class Ensemble {
   settings() {
     const s = this.ai.store.data.settings.aiEnsemble || {};
     return {
-      useFree: s.useFree !== false,
-      usePaid: s.usePaid !== false,
-      freeModels: Array.isArray(s.freeModels) ? s.freeModels.filter((x) => typeof x === "string").slice(0, 20) : null,
+      usePaid: s.usePaid !== false, // "use the AI model" (every model is paid now)
       paidDailyCap: Number.isFinite(Number(s.paidDailyCap)) && s.paidDailyCap !== null && s.paidDailyCap !== undefined ? clamp(Math.round(Number(s.paidDailyCap)), 0, 500) : SETTINGS_DEFAULT.paidDailyCap,
       deadlineSec: clamp(Math.round(Number(s.deadlineSec)) || SETTINGS_DEFAULT.deadlineSec, 20, 180),
     };
@@ -315,15 +311,7 @@ class Ensemble {
 
   setSettings(patch = {}) {
     const next = { ...this.settings() };
-    if (typeof patch.useFree === "boolean") next.useFree = patch.useFree;
     if (typeof patch.usePaid === "boolean") next.usePaid = patch.usePaid;
-    if (patch.freeModels !== undefined) {
-      if (patch.freeModels === null) next.freeModels = null;
-      else if (Array.isArray(patch.freeModels)) {
-        const known = new Set(this._freeCatalogue().map((a) => a.id));
-        next.freeModels = patch.freeModels.filter((x) => known.has(x));
-      } else throw new AiError("freeModels must be a list.", "invalid", 400);
-    }
     for (const k of ["paidDailyCap", "deadlineSec"]) {
       if (patch[k] === undefined) continue;
       const v = Number(patch[k]);
@@ -337,31 +325,17 @@ class Ensemble {
     return this.status();
   }
 
-  /** Every FREE model the app knows, whether or not its key is saved. */
-  _freeCatalogue() {
-    const out = [];
-    for (const p of PROVIDERS.filter((x) => x.free)) for (const m of p.models) out.push({ id: `${p.id}|${m.id}`, provider: p.id, model: m.id, name: m.name, company: p.name, free: true, ready: Boolean(this.ai._key(p.id)) });
-    return out;
-  }
-
-  /** The paid lead: the company in use when it is paid, else the first saved search-capable one. */
+  /** The analyst: the default model (or, while its key is missing, the first fallback). */
   _lead() {
-    const ai = this.ai;
-    const inUse = ai._provider();
-    let pid = null;
-    if (!providerOf(inUse).free && ai._key(inUse)) pid = inUse;
-    else pid = SEARCH_ORDER.find((id) => ai._key(id)) || null;
-    if (!pid) return null;
-    const model = ai._modelOf(pid);
-    const name = (ai.modelsFor(pid).find((m) => m.id === model) || {}).name || model;
-    return { id: `${pid}|${model}`, provider: pid, model, name, company: providerOf(pid).name, free: false, lead: true, search: Boolean(providerOf(pid).search) };
+    const chain = typeof this.ai.modelChain === "function" ? this.ai.modelChain() : [];
+    return chain[0] || null;
   }
 
   roster() {
     const s = this.settings();
-    const free = s.useFree ? this._freeCatalogue().filter((a) => a.ready && (!s.freeModels || s.freeModels.includes(a.id))) : [];
-    const lead = s.usePaid ? this._lead() : null;
-    return { free, lead, analysts: [...(lead ? [lead] : []), ...free], settings: s };
+    const chain = s.usePaid && typeof this.ai.modelChain === "function" ? this.ai.modelChain() : [];
+    const lead = chain[0] || null;
+    return { lead, analysts: lead ? [lead] : [], fallbacks: chain.slice(1), settings: s };
   }
 
   /* ----------------------------------------------------------------- stored state */
@@ -387,8 +361,7 @@ class Ensemble {
     const today = istDate(this.ai.now());
     return {
       settings: r.settings,
-      catalogue: this._freeCatalogue(),
-      roster: { free: r.free, lead: r.lead },
+      roster: { lead: r.lead, fallbacks: r.fallbacks },
       ready: r.analysts.length > 0,
       paidRunsToday: st.day.date === today ? st.day.paid : 0,
       record: this._recordRows(st),
@@ -521,8 +494,27 @@ class Ensemble {
       last15OneMinuteBars: t1 && t1.available ? { columns: ["time", "open", "high", "low", "close", "volume"], rows: t1.tape.bars.slice(-15).map((b) => [b.t, b.o, b.h, b.l, b.c, b.v]) } : null,
       indianMarket: india,
       web: this._web(symbol),
+      newsAndSocial: this._social(symbol),
       theTrader: you ? { position: you.hasPosition ? { side: you.side, quantity: you.quantity, average: you.average, pnlNow: you.pnl, deskNote: you.why } : "none in this stock", availableCash: you.cash, sizingByRisk: you.sizing || null } : "not available",
     };
+  }
+
+  /** What the Social Media feed said about this stock in the last day, and the market's news mood (or null). */
+  _social(symbol) {
+    const soc = this.ai.market && this.ai.market.social;
+    if (!soc) return null;
+    try {
+      const st = soc.forSymbol(symbol);
+      const sig = soc.signal();
+      if (!st && !sig) return null;
+      return {
+        thisStock: st ? { mentions: st.mentions, tone: st.tone, sentiment: st.sentiment, highImpact: st.high, items: st.items.map((x) => ({ at: x.at, source: x.source, title: x.title, summary: x.summary, impact: x.impact })) } : "no item about it in the last day",
+        marketMood: sig ? { label: sig.mood.label, score: sig.mood.score, items: sig.items, brief: sig.brief ? sig.brief.headline : null } : null,
+        note: "Headlines and posts as published; social posts are unverified.",
+      };
+    } catch (_) {
+      return null;
+    }
   }
 
   async _researchBrief(symbol, out) {
@@ -542,6 +534,7 @@ class Ensemble {
       deskNextSessionOutlook: { asOf: out.asOf, lean: out.lean, score: out.score, agreement: out.agreement, call: out.call, headline: out.headline, gates: out.gates, components: out.components.map((c) => ({ name: c.label, vote: c.vote, weight: c.weight, reading: c.why })), expectedRange: out.range, gapHabit: out.gap, pivots: out.pivots, plans: { long: { entry: out.plans.long.entry, stop: out.plans.long.stop, targets: out.plans.long.targets }, short: { entry: out.plans.short.entry, stop: out.plans.short.stop, targets: out.plans.short.targets } }, scenarios: out.scenarios },
       measuredOdds: edgeSummary,
       web: this._web(symbol),
+      newsAndSocial: this._social(symbol),
       theTrader: you ? { position: you.position ? { side: you.position.quantity > 0 ? "long" : "short", quantity: Math.abs(you.position.quantity), average: you.position.average } : "none in this stock", availableCash: you.funds ? you.funds.available : null } : "not available",
     };
   }
@@ -567,12 +560,12 @@ class Ensemble {
   }
 
   /** Start an AI run for the stock that is open. One at a time per stock and kind. */
-  start(kind, symbol, { freeOnly = false } = {}) {
+  start(kind, symbol, { engineOnly = false } = {}) {
     if (kind !== "live" && kind !== "research") throw new AiError("Unknown kind.", "invalid", 400);
     if (!SYMBOL_RE.test(symbol)) throw new AiError("That is not a valid symbol.", "invalid", 400);
     for (const j of this.jobs.values()) if (j.kind === kind && j.symbol === symbol && !j.finishedAt) return this._view(j);
     if ([...this.jobs.values()].filter((j) => !j.finishedAt).length >= 4) throw new AiError("Four AI runs are already going. Wait for one to finish.", "busy", 429);
-    const job = { id: crypto.randomBytes(6).toString("hex"), kind, symbol, startedAt: new Date(this.ai.now()).toISOString(), finishedAt: null, freeOnly: Boolean(freeOnly), stage: "data", steps: [], analysts: [], det: null, result: null, error: "" };
+    const job = { id: crypto.randomBytes(6).toString("hex"), kind, symbol, startedAt: new Date(this.ai.now()).toISOString(), finishedAt: null, engineOnly: Boolean(engineOnly), stage: "data", steps: [], analysts: [], det: null, result: null, error: "" };
     this.jobs.set(job.id, job);
     if (this.jobs.size > MAX_JOBS) for (const [id, j] of this.jobs) if (j.finishedAt && this.jobs.size > MAX_JOBS) this.jobs.delete(id);
     job._promise = this._run(job).catch((err) => {
@@ -608,10 +601,11 @@ class Ensemble {
     this._step(job, "data", "The desk's own arithmetic read", "done", det.headline);
 
     const roster = this.roster();
-    // a run for a list of stocks (the screener) uses the free models only: no paid credits are spent
-    if (job.freeOnly) {
+    // a run for a list of stocks (the screener) is the desk's arithmetic only: no AI credits are spent
+    if (job.engineOnly) {
       roster.lead = null;
-      roster.analysts = roster.analysts.filter((a) => !a.lead);
+      roster.analysts = [];
+      roster.fallbacks = [];
     }
     const state = this._state();
     const today = istDate(ai.now());
@@ -620,14 +614,14 @@ class Ensemble {
     let analysts = roster.analysts.slice();
     if (!analysts.length) {
       const s = roster.settings;
-      notes.push(!s.useFree && !s.usePaid ? "Both the free and the paid analysts are switched off in the AI settings." : "No AI key is saved for the analysts, so this run is the desk's own arithmetic. Add the free NVIDIA key (or a paid key) on the AI page to bring the analysts in.");
+      notes.push(job.engineOnly ? "A run for a list of stocks is the desk's own arithmetic: no AI credits are spent." : !s.usePaid ? "The AI analyst is switched off in the AI Engine settings: this run is the desk's own arithmetic." : "No AI key is saved, so this run is the desk's own arithmetic. Save the Anthropic key (Claude Sonnet 5.5 is the default model) on the AI page to bring the analyst in.");
     }
 
     /* 2. the paid lead's web research (news and world markets, kept 30 minutes) */
     const lead = roster.lead && analysts.some((a) => a.lead) ? roster.lead : null;
     const web = { used: false };
     if (lead && state.day.paid >= roster.settings.paidDailyCap) {
-      notes.push(`The paid model has done its ${roster.settings.paidDailyCap} runs for today (a limit you can change): it sat this one out.`);
+      notes.push(`The AI model has done its ${roster.settings.paidDailyCap} runs for today (a limit you can change): it sat this one out.`);
       analysts = analysts.filter((a) => !a.lead);
     } else if (lead && lead.search) {
       this._step(job, "web", `Web research by ${lead.name}`, "running");
@@ -657,33 +651,36 @@ class Ensemble {
       const schema = live ? LIVE_SCHEMA : RESEARCH_SCHEMA;
       const sec = roster.settings.deadlineSec;
       this._step(job, "analysts", `${analysts.length} analyst${analysts.length === 1 ? "" : "s"} reading the same numbers`, "running");
-      job.analysts = analysts.map((a) => ({ id: a.id, name: a.name, company: a.company, free: a.free, lead: Boolean(a.lead), status: "waiting" }));
-      await Promise.all(
-        analysts.map(async (a, i) => {
-          job.analysts[i].status = "reading";
-          const t0 = Date.now();
-          try {
-            const spec = { providerId: a.provider, apiKey: ai._key(a.provider), model: a.model, timeoutMs: (a.lead ? Math.max(sec, 120) : sec) * 1000, repair: false };
-            // through the AI Engine: the owner's brains for AI Live / AI Research, and the shared lane
-            const client = ai.engine ? ai.engine.client(spec) : ai.brains ? ai.brains.wrap(makeClient({ ...spec, fetchImpl: ai.fetch })) : makeClient({ ...spec, fetchImpl: ai.fetch });
-            const r = await client.ask({ system, user, schema, maxTokens: 3500, effort: "low" });
-            const v = { ...cleanVote(r.data), id: a.id, name: a.name, company: a.company, free: a.free, lead: Boolean(a.lead), usage: r.usage, ms: Date.now() - t0 };
-            votes.push(v);
-            job.analysts[i] = { ...job.analysts[i], status: "answered", bias: v.bias, confidence: v.confidence, summary: v.summary, reasons: v.reasons, risks: v.risks, change: v.change, low: v.low, high: v.high, long: v.long, short: v.short, levels: v.levels, gap: v.gap, ms: v.ms, usage: v.usage };
-          } catch (err) {
-            job.analysts[i] = { ...job.analysts[i], status: "failed", error: err && err.message ? err.message : "failed", ms: Date.now() - t0 };
-          }
-        })
-      );
+      job.analysts = analysts.map((a) => ({ id: a.id, name: a.name, company: a.company, lead: true, status: "waiting" }));
+      // the default model reads; when it fails, the fallback models are tried in turn (one at a time)
+      const queue = [...analysts, ...(roster.fallbacks || [])];
+      const i = 0;
+      for (let k = 0; k < queue.length; k += 1) {
+        const a = queue[k];
+        job.analysts[i] = { ...job.analysts[i], id: a.id, name: a.name, company: a.company, status: "reading", ...(k ? { fallbackFrom: queue[0].name } : {}) };
+        const t0 = Date.now();
+        try {
+          const spec = { providerId: a.provider, apiKey: ai._key(a.provider), model: a.model, timeoutMs: Math.max(sec, 90) * 1000, repair: false };
+          // through the AI Engine: the owner's brains for AI Live / AI Research, and the shared lane
+          const client = ai.engine ? ai.engine.client(spec) : ai.brains ? ai.brains.wrap(makeClient({ ...spec, fetchImpl: ai.fetch })) : makeClient({ ...spec, fetchImpl: ai.fetch });
+          const r = await client.ask({ system, user, schema, maxTokens: 3500, effort: "low" });
+          const v = { ...cleanVote(r.data), id: a.id, name: a.name, company: a.company, lead: true, usage: r.usage, cached: Boolean(r.cached), ms: Date.now() - t0 };
+          votes.push(v);
+          job.analysts[i] = { ...job.analysts[i], status: "answered", bias: v.bias, confidence: v.confidence, summary: v.summary, reasons: v.reasons, risks: v.risks, change: v.change, low: v.low, high: v.high, long: v.long, short: v.short, levels: v.levels, gap: v.gap, ms: v.ms, usage: v.usage };
+          break;
+        } catch (err) {
+          job.analysts[i] = { ...job.analysts[i], status: "failed", error: err && err.message ? err.message : "failed", ms: Date.now() - t0 };
+        }
+      }
       const ok = votes.length;
       this._step(job, "analysts", `${analysts.length} analyst${analysts.length === 1 ? "" : "s"} reading the same numbers`, ok ? "done" : "failed", `${ok} answered${ok < analysts.length ? `, ${analysts.length - ok} did not` : ""}`);
       if (!ok) notes.push("Every analyst failed or timed out: this is the desk's own arithmetic read.");
-      if (votes.some((v) => v.lead)) state.day.paid += 1;
+      // a run counts against the daily limit only when the model was really paid (not a reused answer)
+      if (votes.some((v) => v.lead && !v.cached)) state.day.paid += 1;
     }
 
     /* 4. the combination: arithmetic, with the same plan checks as every other plan */
     this._step(job, "combine", "Weighing everything together", "running");
-    votes = analysts.map((a) => votes.find((v) => v.id === a.id)).filter(Boolean); // the roster's order, not the finishing order
     const weights = this._weights(state);
     const ctx = live
       ? { last: det.last, atr: det.stats ? det.stats.dailyAtr : null, circuit: det.circuit || null, session: det.session || null, checkPlan: this.checkPlan }
@@ -700,8 +697,8 @@ class Ensemble {
       final,
       analysts: job.analysts,
       web,
-      usage: { free: tokens(votes.filter((v) => v.free)), paid: tokens(votes.filter((v) => !v.free)) },
-      disclaimer: "This is a summary of evidence — arithmetic and several models' readings of the same numbers — not a forecast and not advice. Agreement is not a probability of profit. No method wins every trade; keep the stop.",
+      usage: { paid: tokens(votes) },
+      disclaimer: "This is a summary of evidence — arithmetic and the AI model's reading of the same numbers — not a forecast and not advice. Agreement is not a probability of profit. No method wins every trade; keep the stop.",
     };
     job.result = result;
     this._step(job, "combine", "Weighing everything together", "done", final.headline);

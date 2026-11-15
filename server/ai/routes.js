@@ -33,7 +33,7 @@ function mountAi(app, { ai, requireAdmin, requireSuper = requireAdmin, limiter }
 
   app.put("/api/admin/ai/settings", requireAdmin, limiter(30, 15 * 60 * 1000), wrap(async (req) => {
     const b = req.body || {};
-    const out = ai.setSettings({ provider: b.provider ? String(b.provider) : undefined, apiKey: b.apiKey, model: b.model, clear: Boolean(b.clear), live: b.live, use: b.use });
+    const out = ai.setSettings({ provider: b.provider ? String(b.provider) : undefined, apiKey: b.apiKey, model: b.model, clear: Boolean(b.clear), live: b.live, use: b.use, fallback: typeof b.fallback === "boolean" ? b.fallback : undefined });
     // never the key itself; the company and model names only (safe characters, so no forged log lines)
     const safe = (x) => String(x || "").replace(/[^A-Za-z0-9._/-]/g, "").slice(0, 80);
     console.log(`[ai] settings changed: ${safe(out.provider)} / ${safe(out.model)}${b.apiKey ? " (new key)" : ""}${b.clear ? " (key removed)" : ""}`);
@@ -102,8 +102,8 @@ function mountAi(app, { ai, requireAdmin, requireSuper = requireAdmin, limiter }
   app.post("/api/admin/ai/decision/:symbol", requireAdmin, limiter(40, 60 * 60 * 1000), wrap(async (req) => ({ decision: await ai.decision.decide(symbolOf(req)), ...ai.decision.list(symbolOf(req)) })));
 
   /* ---- AI Live and AI Research: the desk's own arithmetic answers first and needs no AI; the
-     analysts (free NVIDIA-hosted models, plus one optional paid lead that does the web search)
-     are started only by these buttons, for the stock that is open. */
+     analyst (the default model, which also does the web search when its company has one) is
+     started only by these buttons, for the stock that is open. */
   app.get("/api/admin/ai/pulse/:symbol", requireAdmin, limiter(300, 60 * 1000), wrap(async (req) => ai.ensemble.pulse(symbolOf(req))));
 
   app.get("/api/admin/ai/outlook/:symbol", requireAdmin, limiter(90, 60 * 1000), wrap(async (req) => {
@@ -130,7 +130,7 @@ function mountAi(app, { ai, requireAdmin, requireSuper = requireAdmin, limiter }
   app.put("/api/admin/ai/ensemble/settings", requireAdmin, limiter(40, 15 * 60 * 1000), wrap(async (req) => ai.ensemble.setSettings(req.body || {})));
 
   // one run reads the page's stock with up to eight models at once: a limit keeps a stuck button from spending
-  app.post("/api/admin/ai/ensemble/:kind/:symbol", requireAdmin, limiter(30, 10 * 60 * 1000), wrap(async (req) => ai.ensemble.start(kindOf(req), symbolOf(req), { freeOnly: Boolean((req.body || {}).freeOnly) })));
+  app.post("/api/admin/ai/ensemble/:kind/:symbol", requireAdmin, limiter(30, 10 * 60 * 1000), wrap(async (req) => ai.ensemble.start(kindOf(req), symbolOf(req), { engineOnly: Boolean((req.body || {}).engineOnly) })));
 
   app.get("/api/admin/ai/ensemble/job/:id", requireAdmin, limiter(600, 60 * 1000), wrap(async (req) => ai.ensemble.job(req.params.id)));
 

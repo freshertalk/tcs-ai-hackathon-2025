@@ -1,7 +1,7 @@
 "use strict";
 // AI Live and AI Research: the deterministic floor (pulse, outlook), the weighing of analysts, the
-// plan checks, the scoring against real prices, and a whole run against FAKE companies (no network,
-// no real key, no cost).
+// plan checks, the scoring against real prices, and a whole run against FAKE companies — the default
+// model (Claude Sonnet 5.5) and a fallback company — with no network, no real key, no cost.
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
@@ -267,10 +267,10 @@ test("judge: right, wrong and flat against what price did", () => {
 
 /* ------------------------------------------------------------ a whole run against fake companies */
 
-const KEYS = { nvidia: "nvapi-TESTONLYtestonlyTESTONLY1234567890", anthropic: "sk-ant-api03-TESTONLYtestonlyTESTONLY1234567890abcd" };
+const KEYS = { openai: "sk-TESTONLYtestonlyTESTONLY1234567890abcd", anthropic: "sk-ant-api03-TESTONLYtestonlyTESTONLY1234567890abcd" };
 const json = (status, obj) => new Response(JSON.stringify(obj), { status, headers: { "content-type": "application/json" } });
 
-function boot({ sessionBars, bias = {}, webFails = false } = {}) {
+function boot({ sessionBars, bias = {}, webFails = false, anthropicDown = false } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "vpt-ens-"));
   const clock = { ms: at("10:40") };
   const b = sessionBars || bars5(30, 1000, 0.8);
@@ -310,12 +310,13 @@ function boot({ sessionBars, bias = {}, webFails = false } = {}) {
         change_my_mind: ["A close under VWAP."],
       };
     };
-    if (u.includes("integrate.api.nvidia.com")) {
-      if (/\/models/.test(u)) return json(200, { data: [] });
+    if (u.includes("api.openai.com")) {
+      // the fallback company (OpenAI-style chat completions)
       const reply = answerVote(body.model);
       return json(200, { model: body.model, choices: [{ message: { role: "assistant", content: JSON.stringify(reply) }, finish_reason: "stop" }], usage: { prompt_tokens: 900, completion_tokens: 200 } });
     }
     if (u.includes("api.anthropic.com")) {
+      if (anthropicDown) return json(500, { type: "error", error: { type: "api_error", message: "down" } });
       if (webFails && body.tools) return json(500, { type: "error", error: { type: "api_error", message: "down" } });
       if (body.tools) return json(200, { id: "m", type: "message", role: "assistant", model: body.model, content: [{ type: "text", text: "Nothing specific found for this company today." }], stop_reason: "end_turn", stop_sequence: null, usage: { input_tokens: 500, output_tokens: 80 } });
       const req = (body.output_config && body.output_config.format && body.output_config.format.schema && body.output_config.format.schema.required) || [];
@@ -342,14 +343,15 @@ const finish = async (ai, id) => {
   throw new Error("the run did not finish");
 };
 
-test("a whole AI Live run: seven free analysts and the paid lead read the same brief; web research once; the call is weighed and recorded", async () => {
+test("a whole AI Live run: the default model does the web research, reads the same brief, and the call is weighed and recorded", async () => {
   const s = boot();
-  s.ai.setSettings({ provider: "nvidia", apiKey: KEYS.nvidia });
-  s.ai.setSettings({ provider: "anthropic", apiKey: KEYS.anthropic, model: "claude-sonnet-5-5" });
+  s.ai.setSettings({ provider: "anthropic", apiKey: KEYS.anthropic });
   const st = s.ai.ensemble.status();
-  assert.equal(st.roster.free.length, 7, "Nemotron ×4, Mistral Large 4, DeepSeek V4.1 Flash, Gemma 4");
-  assert.equal(st.roster.lead.model, "claude-sonnet-5-5");
+  assert.equal(st.roster.lead.model, "claude-sonnet-5-5", "Claude Sonnet 5.5 is the default model");
+  assert.equal(st.roster.lead.provider, "anthropic");
+  assert.deepEqual(st.roster.fallbacks, []);
   assert.equal(st.ready, true);
+  assert.equal(st.settings.useFree, undefined, "no free-model settings are left");
 
   const started = s.ai.ensemble.start("live", "SBIN");
   assert.equal(started.finishedAt, null);
@@ -358,26 +360,30 @@ test("a whole AI Live run: seven free analysts and the paid lead read the same b
   assert.equal(job.error, "");
   assert.equal(job.stage, "done");
   const r = job.result;
-  assert.equal(r.analysts.filter((a) => a.status === "answered").length, 8);
+  assert.equal(r.analysts.length, 1, "one analyst: the default model");
+  assert.equal(r.analysts[0].status, "answered");
+  assert.equal(r.analysts[0].name, "Claude Sonnet 5.5");
   assert.equal(r.final.mode, "ensemble");
   assert.equal(r.final.call, "long");
   assert.ok(r.final.agreement >= 90);
   assert.equal(r.final.plans.long.checkStatus, "passed");
-  assert.equal(r.final.plans.long.source, "consensus");
   assert.deepEqual(job.steps.map((x) => x.id), ["data", "web", "analysts", "combine"]);
   assert.equal(r.web.used, true);
-  assert.ok(r.usage.free.inputTokens === 7 * 900 && r.usage.paid.inputTokens >= 1500);
-  // the free models only ever talk to NVIDIA; the paid lead only to Anthropic
-  assert.ok(s.calls.every((u) => u.includes("integrate.api.nvidia.com") || u.includes("api.anthropic.com")));
-  assert.equal(s.calls.filter((u) => u.includes("integrate.api.nvidia.com")).length, 7);
+  assert.ok(r.usage.paid.inputTokens >= 1500);
+  assert.equal(r.usage.free, undefined);
+  // every request went to the default model's company
+  assert.ok(s.calls.length > 0 && s.calls.every((u) => u.includes("api.anthropic.com")));
   // the page can read the last run for free
   assert.equal(s.ai.ensemble.last("live", "SBIN").id, r.id);
 
-  // a second run within 30 minutes reuses the web research: the paid lead is asked only for its own analysis
-  const before = s.calls.filter((u) => u.includes("api.anthropic.com")).length;
+  // a second run within 30 minutes reuses the web research; on the very same snapshot the engine also
+  // reuses the analysis already paid for — no call at all, and no extra run counted against the limit
+  const before = s.calls.length;
+  const runs = s.ai.ensemble.status().paidRunsToday;
   const again = await finish(s.ai, s.ai.ensemble.start("live", "SBIN").id);
   assert.equal(again.result.web.news.repeated, true);
-  assert.equal(s.calls.filter((u) => u.includes("api.anthropic.com")).length - before, 1);
+  assert.equal(s.calls.length - before, 0);
+  assert.equal(s.ai.ensemble.status().paidRunsToday, runs);
 });
 
 test("with no AI key at all the run is the desk's own arithmetic, in full, and nothing is called", async () => {
@@ -392,16 +398,37 @@ test("with no AI key at all the run is the desk's own arithmetic, in full, and n
   assert.equal(s.calls.length, 0);
 });
 
-test("every analyst failing leaves the engine's answer — and one that disagrees is outvoted, not obeyed", async () => {
-  const s = boot({ bias: { "nvidia/nemotron-3-super-120b-a12b": "down", "nvidia/nemotron-3-ultra-550b-a55b": "down", "nvidia/nvidia-nemotron-nano-9b-v2": "down", "nvidia/nemotron-3.5-super-vl-120b-a12b": "down", "mistralai/mistral-large-4-1t-a52b": "down", "deepseek-ai/deepseek-v4.1-flash": "down", "google/gemma-4-31b-it": "down" } });
-  s.ai.setSettings({ provider: "nvidia", apiKey: KEYS.nvidia });
+test("a model that disagrees is outvoted, not obeyed; when the default fails the fallback answers; when every model fails the engine's answer stands", async () => {
+  const s = boot({ bias: { "claude-sonnet-5-5": "down" } });
+  s.ai.setSettings({ provider: "anthropic", apiKey: KEYS.anthropic });
   const job = await finish(s.ai, s.ai.ensemble.start("live", "SBIN").id);
-  assert.equal(job.result.final.lean, "down");
-  assert.equal(job.result.final.call, "wait", "seven bearish models against a bullish engine: stand aside");
-  assert.ok(job.result.final.gates.some((g) => /engine reads the other way/.test(g)));
+  assert.equal(job.result.analysts[0].bias, "down");
+  assert.notEqual(job.result.final.call, "short", "one bearish model against a bullish engine never turns the call short");
+  assert.notEqual(job.result.final.lean, "down");
+
+  // the default model is down; OpenAI's key is saved too, so it answers as the fallback
+  const f = boot({ anthropicDown: true });
+  f.ai.setSettings({ provider: "anthropic", apiKey: KEYS.anthropic });
+  f.ai.setSettings({ provider: "openai", apiKey: KEYS.openai, use: false });
+  assert.equal(f.ai.ensemble.status().roster.fallbacks[0].provider, "openai");
+  const fj = await finish(f.ai, f.ai.ensemble.start("live", "SBIN").id);
+  assert.equal(fj.error, "");
+  assert.equal(fj.result.analysts.length, 1);
+  assert.equal(fj.result.analysts[0].status, "answered");
+  assert.equal(fj.result.analysts[0].fallbackFrom, "Claude Sonnet 5.5");
+  assert.match(fj.result.analysts[0].id, /^openai\|/);
+  assert.equal(fj.result.final.mode, "ensemble");
+  assert.ok(f.calls.some((u) => u.includes("api.openai.com")));
+  // with the fallback switch off, the other company is never asked
+  f.ai.setSettings({ fallback: false });
+  const before = f.calls.filter((u) => u.includes("api.openai.com")).length;
+  const off = await finish(f.ai, f.ai.ensemble.start("live", "TCS").id);
+  assert.equal(off.result.final.mode, "engine-only");
+  assert.equal(f.calls.filter((u) => u.includes("api.openai.com")).length, before);
+
   // the same fake world, but now every call fails
   const s2 = boot();
-  s2.ai.setSettings({ provider: "nvidia", apiKey: KEYS.nvidia });
+  s2.ai.setSettings({ provider: "anthropic", apiKey: KEYS.anthropic });
   s2.ai.fetch = async () => json(500, { error: { message: "down" } });
   const j2 = await finish(s2.ai, s2.ai.ensemble.start("live", "SBIN").id);
   assert.equal(j2.error, "");
@@ -410,33 +437,32 @@ test("every analyst failing leaves the engine's answer — and one that disagree
   assert.equal(j2.result.analysts.every((a) => a.status === "failed"), true);
 });
 
-test("the paid lead is optional: switched off, it is never called; a failed web search does not stop the run", async () => {
+test("the AI model is optional: switched off, it is never called; a failed web search does not stop the run; runs are capped per day", async () => {
   const s = boot();
-  s.ai.setSettings({ provider: "nvidia", apiKey: KEYS.nvidia });
   s.ai.setSettings({ provider: "anthropic", apiKey: KEYS.anthropic });
   s.ai.ensemble.setSettings({ usePaid: false });
-  await finish(s.ai, s.ai.ensemble.start("live", "SBIN").id);
-  assert.ok(!s.calls.some((u) => u.includes("api.anthropic.com")), "no paid call");
-  s.ai.ensemble.setSettings({ usePaid: true, freeModels: ["nvidia|nvidia/nemotron-3-super-120b-a12b"] });
+  const offJob = await finish(s.ai, s.ai.ensemble.start("live", "SBIN").id);
+  assert.equal(s.calls.length, 0, "no model call");
+  assert.equal(offJob.result.final.mode, "engine-only");
+  assert.ok(offJob.result.final.notes.some((n) => /switched off/.test(n)));
   const f = boot({ webFails: true });
-  f.ai.setSettings({ provider: "nvidia", apiKey: KEYS.nvidia });
   f.ai.setSettings({ provider: "anthropic", apiKey: KEYS.anthropic });
   const job = await finish(f.ai, f.ai.ensemble.start("live", "SBIN").id);
   assert.equal(job.error, "");
   assert.equal(job.steps.find((x) => x.id === "web").status, "failed");
-  assert.ok(job.result.analysts.filter((a) => a.status === "answered").length >= 7);
-  // a daily limit on paid runs
+  assert.equal(job.result.analysts.filter((a) => a.status === "answered").length, 1);
+  // a daily limit on AI runs
   f.ai.ensemble.setSettings({ paidDailyCap: 0 });
   const capped = await finish(f.ai, f.ai.ensemble.start("live", "SBIN").id);
-  assert.ok(capped.result.final.notes.some((n) => /paid model has done its 0 runs/.test(n)));
-  assert.ok(!capped.result.analysts.some((a) => a.lead));
+  assert.ok(capped.result.final.notes.some((n) => /AI model has done its 0 runs/.test(n)));
+  assert.equal(capped.result.analysts.length, 0);
+  assert.equal(capped.result.final.mode, "engine-only");
   assert.throws(() => f.ai.ensemble.setSettings({ deadlineSec: 5 }), /between 20 and 180/);
-  assert.throws(() => f.ai.ensemble.setSettings({ freeModels: "all" }), /must be a list/);
 });
 
 test("a market that is not live stops AI Live with a plain reason; nothing is asked of any model", async () => {
   const s = boot();
-  s.ai.setSettings({ provider: "nvidia", apiKey: KEYS.nvidia });
+  s.ai.setSettings({ provider: "anthropic", apiKey: KEYS.anthropic });
   s.market.pulse = async () => ({ available: false, reason: "The market is closed." });
   const job = await finish(s.ai, s.ai.ensemble.start("live", "SBIN").id);
   assert.equal(job.stage, "failed");
@@ -447,9 +473,9 @@ test("a market that is not live stops AI Live with a plain reason; nothing is as
   assert.throws(() => s.ai.ensemble.job("nope"), /No such AI run/);
 });
 
-test("scoring: a live call is judged against the price thirty minutes later, and each analyst's record is kept", async () => {
+test("scoring: a live call is judged against the price thirty minutes later, and the model's record is kept", async () => {
   const s = boot();
-  s.ai.setSettings({ provider: "nvidia", apiKey: KEYS.nvidia });
+  s.ai.setSettings({ provider: "anthropic", apiKey: KEYS.anthropic });
   const job = await finish(s.ai, s.ai.ensemble.start("live", "SBIN").id);
   assert.equal(await s.ai.ensemble.score(), 0, "not due yet");
   s.clock.ms += 31 * 60000;
@@ -459,7 +485,7 @@ test("scoring: a live call is judged against the price thirty minutes later, and
   const final = rec.rows.find((r) => r.id === "final");
   assert.equal(final.right + final.wrong + final.flat, 1);
   assert.ok(rec.rows.find((r) => r.id === "engine"));
-  assert.equal(rec.rows.filter((r) => r.id.includes("nvidia")).length, 4);
+  assert.equal(rec.rows.filter((r) => r.id === "anthropic|claude-sonnet-5-5").length, 1);
   assert.equal(rec.recent[0].id, job.id);
   assert.equal(rec.recent[0].scored.movePct !== null, true);
   assert.equal(await s.ai.ensemble.score(), 0, "scored once");
@@ -483,14 +509,15 @@ test("outlook plans always pay at least their risk on the first target — a piv
   }
 });
 
-test("a run for a list of stocks (freeOnly) never touches the paid model, even when one is saved and switched on", async () => {
+test("a run for a list of stocks (engineOnly) is the desk's arithmetic: no model and no web search, even with a key saved", async () => {
   const s = boot();
-  s.ai.setSettings({ provider: "nvidia", apiKey: KEYS.nvidia });
   s.ai.setSettings({ provider: "anthropic", apiKey: KEYS.anthropic });
-  const job = await finish(s.ai, s.ai.ensemble.start("live", "SBIN", { freeOnly: true }).id);
+  s.ai.setSettings({ provider: "openai", apiKey: KEYS.openai, use: false });
+  const job = await finish(s.ai, s.ai.ensemble.start("live", "SBIN", { engineOnly: true }).id);
   assert.equal(job.error, "");
-  assert.equal(job.result.analysts.length, 7);
-  assert.ok(!job.result.analysts.some((a) => a.lead));
-  assert.ok(!s.calls.some((u) => u.includes("api.anthropic.com")), "no paid call and no web search");
+  assert.equal(job.result.analysts.length, 0);
+  assert.equal(job.result.final.mode, "engine-only");
+  assert.ok(job.result.final.notes.some((n) => /list of stocks/.test(n)));
+  assert.equal(s.calls.length, 0, "no model call and no web search");
   assert.equal(job.steps.some((x) => x.id === "web"), false);
 });

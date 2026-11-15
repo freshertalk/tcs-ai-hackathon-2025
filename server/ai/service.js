@@ -20,12 +20,13 @@
 const path = require("path");
 const crypto = require("crypto");
 
-const { AiError } = require("./client");
+const { AiError, MODELS: ANTHROPIC_MODELS, DEFAULT_MODEL } = require("./client");
 const { PROVIDERS, providerOf, DEFAULT_PROVIDER, SEARCH_ORDER, checkKey, makeClient } = require("./providers");
 const { Playbook } = require("./playbook");
 const { Brains } = require("./brains");
 const { Engine, tag } = require("./engine");
 const { TradeAI } = require("./tradeai");
+const { SocialAI } = require("./social");
 const whatsappAi = require("./whatsapp-ai");
 const { Journal, scorePlan, summarize, summarizeByModel, SWING_MAX_BARS } = require("./journal");
 const { Copilot } = require("./copilot");
@@ -314,8 +315,35 @@ class AiService {
     this.ensemble = new Ensemble(this, { checkPlan }); // AI Live / AI Research: the analysts, weighed with the desk's own arithmetic
     this.brains = new Brains({ ai: this, docs: this.docs, now: this.now }); // the owner's standing instructions, added to every AI feature they belong to
     this.engine = new Engine(this); // the one door to every model: brains on the way out, shared lanes, the live board
-    this.tradeai = new TradeAI(this); // the agentic chat (its own page), free-model mixture with fallback
-    this.whatsappAi = whatsappAi; // the free models' advice for the WhatsApp updates
+    this.tradeai = new TradeAI(this); // the agentic chat (its own page), on the default model
+    this.social = new SocialAI(this); // the social and news digest: the default model organises posts and headlines
+    this.whatsappAi = whatsappAi; // the default model's advice for the WhatsApp updates
+    this._moveToDefaultModel();
+  }
+
+  /**
+   * Once: the free NVIDIA-hosted models were removed, and Claude Sonnet 5.5 became the default model
+   * of every AI feature. An older record that used a free company (or nothing) is moved to Anthropic
+   * with Sonnet 5.5; the NVIDIA key, its tests and model lists are deleted. Afterwards the owner's own
+   * choice on the AI page stands.
+   */
+  _moveToDefaultModel() {
+    const s = this.store && this.store.data && this.store.data.settings;
+    if (!s || s.aiDefaultModelV2) return;
+    this.store.update((d) => {
+      const x = d.settings;
+      const gone = ["nvidia", "nv-mistral", "nv-deepseek", "nv-gemma"];
+      x.aiProvider = DEFAULT_PROVIDER;
+      x.aiModels = { ...(x.aiModels || {}), [DEFAULT_PROVIDER]: DEFAULT_MODEL };
+      delete x.aiModel;
+      for (const k of ["aiKeys", "aiTests", "aiModelLists", "aiModels"]) if (x[k] && typeof x[k] === "object") for (const g of gone) delete x[k][g];
+      if (x.aiEnsemble && typeof x.aiEnsemble === "object") {
+        delete x.aiEnsemble.useFree;
+        delete x.aiEnsemble.freeModels;
+      }
+      x.aiDefaultModelV2 = true;
+      x.aiVersion = (x.aiVersion || 0) + 1;
+    });
   }
 
   /* ------------------------------------------------------------ settings */
@@ -337,16 +365,9 @@ class AiService {
     return providerOf(id) ? id : DEFAULT_PROVIDER;
   }
 
-  /** Whose key a company uses: its own, or NVIDIA's for the free NVIDIA-hosted companies. */
-  _keyOwner(pid) {
-    const p = providerOf(pid);
-    return (p && p.keyOf) || pid;
-  }
-
   _keyBlob(pid) {
     const s = this._settings();
     const keys = s.aiKeys && typeof s.aiKeys === "object" ? s.aiKeys : {};
-    pid = this._keyOwner(pid);
     if (keys[pid]) return keys[pid];
     return pid === "anthropic" ? s.anthropicApiKeyEnc || "" : "";
   }
@@ -405,11 +426,44 @@ class AiService {
     return Boolean(this._key());
   }
 
+  /** One company's chosen model, as the AI features use it. */
+  _modelSpec(pid) {
+    const p = providerOf(pid);
+    const model = this._modelOf(pid);
+    const m = this.modelsFor(pid).find((x) => x.id === model);
+    return { id: `${pid}|${model}`, provider: pid, model, name: (m && m.name) || model, company: p.name, lead: true, search: Boolean(p.search) };
+  }
+
+  /**
+   * The default model: the company in use and its chosen model (Claude Sonnet 5.5 unless the owner
+   * picked another on the AI page). Every AI feature uses it. `ready` is false while its key is missing.
+   */
+  defaultModel() {
+    const pid = this._provider();
+    return { ...this._modelSpec(pid), ready: Boolean(this._key(pid)) };
+  }
+
+  /** Whether a failed request may be tried on the other companies whose keys are saved (on by default). */
+  fallbackOn() {
+    return this._settings().aiFallback !== false;
+  }
+
+  /**
+   * The models to ask, in order: the default model (when its key is saved), then — with the fallback
+   * switch on — each other company with a saved key, on its chosen model. Empty when no key is saved.
+   */
+  modelChain() {
+    const pid = this._provider();
+    const out = this._key(pid) ? [this._modelSpec(pid)] : [];
+    if (!this.fallbackOn()) return out;
+    const order = [...SEARCH_ORDER, ...PROVIDERS.map((p) => p.id)];
+    for (const id of [...new Set(order)]) if (id !== pid && this._key(id)) out.push(this._modelSpec(id));
+    return out;
+  }
+
   /** The company that answers web searches: the one in use if it can, else another with a saved key. */
   _searchProvider() {
     const pid = this._provider();
-    // a free model never borrows a paid company's key — not even for web search — so nothing is billed
-    if (providerOf(pid).free) return null;
     if (providerOf(pid).search && this._key(pid)) return pid;
     return SEARCH_ORDER.find((id) => this._key(id)) || null;
   }
@@ -433,8 +487,6 @@ class AiService {
         listedAt: lists[x.id] ? lists[x.id].at : null,
         lastTest: this._testOf(x.id),
         search: x.search,
-        free: Boolean(x.free),
-        keyOf: x.keyOf || null, // the free companies share NVIDIA's key
         keyExample: x.keyExample,
         console: x.console,
         consoleUrl: x.consoleUrl,
@@ -449,7 +501,6 @@ class AiService {
       configured: Boolean(key),
       provider: pid,
       providerName: p.name,
-      free: Boolean(p.free),
       // enough to recognise the key, never enough to use it
       keyHint: hint(key),
       model,
@@ -459,6 +510,11 @@ class AiService {
       names,
       searchBy,
       searchByName: searchBy ? providerOf(searchBy).name : null,
+      // the default model every AI feature uses, the recommended one, and the fallback switch
+      defaultModel: this.defaultModel(),
+      recommended: { provider: DEFAULT_PROVIDER, model: DEFAULT_MODEL, name: (ANTHROPIC_MODELS.find((m) => m.id === DEFAULT_MODEL) || {}).name || DEFAULT_MODEL },
+      fallback: this.fallbackOn(),
+      chain: this.modelChain().map((m) => ({ provider: m.provider, model: m.model, name: m.name, company: m.company })),
       lastTest: this._testOf(pid),
       stats: summarize(this.journal.all().filter((e) => e.source === "kite")),
       byModel: summarizeByModel(this.journal.all().filter((e) => e.source === "kite")),
@@ -475,7 +531,7 @@ class AiService {
    * @param model     a model of that company
    * @param clear     remove that company's key
    */
-  setSettings({ provider, apiKey, model, clear, live, use } = {}) {
+  setSettings({ provider, apiKey, model, clear, live, use, fallback } = {}) {
     const pid = provider ? String(provider) : this._provider();
     if (!providerOf(pid)) throw new AiError("Unknown AI company.", "invalid", 400);
     const key = String(apiKey || "").trim();
@@ -493,18 +549,17 @@ class AiService {
       delete s.anthropicApiKeyEnc;
       delete s.aiModel;
       delete s.aiLastTest;
-      const owner = this._keyOwner(pid);
-      const sharing = PROVIDERS.filter((x) => (x.keyOf || x.id) === owner).map((x) => x.id);
       if (clear) {
-        delete s.aiKeys[owner];
-        sharing.forEach((id) => (s.aiTests[id] = null));
+        delete s.aiKeys[pid];
+        s.aiTests[pid] = null;
       }
       if (key) {
-        s.aiKeys[owner] = this.secrets.encrypt(key);
-        sharing.forEach((id) => (s.aiTests[id] = null));
+        s.aiKeys[pid] = this.secrets.encrypt(key);
+        s.aiTests[pid] = null;
       }
       if (model) s.aiModels[pid] = model;
       if (provider && use !== false) s.aiProvider = pid;
+      if (typeof fallback === "boolean") s.aiFallback = fallback;
       s.aiVersion = (s.aiVersion || 0) + 1; // pages compare this to know the choice changed
     });
     if (live && typeof live === "object") this.copilot.setSettings(live);
@@ -543,7 +598,6 @@ class AiService {
     const pid = this._provider();
     const by = this._searchProvider();
     if (!this._key(pid)) return this._client(); // the usual "not set up" message
-    if (!by && providerOf(pid).free) throw new AiError("The free NVIDIA-hosted models have no web search, and while one is in use the app never borrows a paid company's key, so nothing is billed. The world brief and the news check need Anthropic, OpenAI or Gemini picked as the company.", "no_search", 409);
     if (!by) throw new AiError(`${providerOf(pid).name} has no web search in its API. The world brief and the news check need Anthropic, OpenAI or Gemini — save a key for one of them in the AI settings (the strategist can stay on ${providerOf(pid).name}).`, "no_search", 409);
     return by === pid ? this._client() : this.engine.client({ providerId: by, apiKey: this._key(by), model: this._modelOf(by) });
   }
@@ -596,7 +650,7 @@ class AiService {
     const stamp = `${ist.toISOString().slice(0, 10)} ${ist.toISOString().slice(11, 16)}`;
     const weekday = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][ist.getUTCDay()];
     const found = await searcher.search({ system: WORLD_SYSTEM, user: `It is ${weekday} ${stamp} India time. Prepare the brief.` });
-    const shaped = await client.ask({ system: WORLD_SHAPE_SYSTEM, user: `Brief:\n\n${found.text}`, schema: WORLD_SCHEMA, maxTokens: 6000, effort: "low" });
+    const shaped = await client.ask({ system: WORLD_SHAPE_SYSTEM, user: `Brief:\n\n${found.text}`, schema: WORLD_SCHEMA, maxTokens: 6000, effort: "low", fresh: refresh });
     const d = shaped.data;
     const str = (x, n) => String(x == null ? "" : x).slice(0, n);
     const out = {
@@ -673,7 +727,7 @@ class AiService {
     const moving = move ? ` The share is at ${move.last}, ${move.changePct >= 0 ? "up" : "down"} ${Math.abs(move.changePct).toFixed(2)}% against the previous close.` : "";
     const who = name && name.toUpperCase() !== symbol ? `${name} (NSE symbol ${symbol})` : `the company with NSE symbol ${symbol}`;
     const found = await searcher.search({ system: NEWS_SYSTEM, user: `Company: ${who}. It is ${weekday} ${stamp} India time.${moving} Check the news.`, maxUses: 5, maxTokens: 6000 });
-    const shaped = await client.ask({ system: NEWS_SHAPE_SYSTEM, user: `Brief:\n\n${found.text}`, schema: NEWS_SCHEMA, maxTokens: 4000, effort: "low" });
+    const shaped = await client.ask({ system: NEWS_SHAPE_SYSTEM, user: `Brief:\n\n${found.text}`, schema: NEWS_SCHEMA, maxTokens: 4000, effort: "low", fresh: refresh });
     const d = shaped.data;
     const str = (x, n) => String(x == null ? "" : x).slice(0, n);
     const out = {

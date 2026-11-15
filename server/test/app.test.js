@@ -37,7 +37,7 @@ function fakeGoogle(overrides = {}) {
 async function boot(opts = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "vpt-"));
   const env = { SETUP_TOKEN: "setup-token-123", ...(opts.env || {}) };
-  const made = createApp({ dataDir: dir, buildDir: opts.buildDir || path.join(dir, "no-build"), env, google: opts.google || fakeGoogle(), holidayFetch: opts.holidayFetch || (async () => { throw new Error("no network in tests"); }) });
+  const made = createApp({ dataDir: dir, buildDir: opts.buildDir || path.join(dir, "no-build"), env, google: opts.google || fakeGoogle(), holidayFetch: opts.holidayFetch || (async () => { throw new Error("no network in tests"); }), ...(opts.app || {}) });
   const server = await new Promise((res) => {
     const s = made.app.listen(0, "127.0.0.1", () => res(s));
   });
@@ -98,6 +98,7 @@ async function boot(opts = {}) {
     request,
     login,
     configure,
+    port,
     close: () => new Promise((r) => server.close(r)),
   };
 }
@@ -450,11 +451,15 @@ test("site health: every part is checked, the page never breaks, and only signed
   const r = await s.request("GET", "/api/admin/health", { cookie: boss });
   assert.equal(r.status, 200, r.text);
   const ids = r.json.checks.map((c) => c.id);
-  for (const id of ["server", "database", "https", "signin", "zerodha", "stream", "universe", "alerts", "ai", "free", "brains", "research", "trading", "analysis", "paper", "telegram", "whatsapp", "mandir"]) assert.ok(ids.includes(id), `checks ${id}`);
+  for (const id of ["server", "database", "https", "signin", "zerodha", "stream", "universe", "alerts", "ai", "chain", "brains", "research", "trading", "analysis", "paper", "telegram", "whatsapp", "mandir"]) assert.ok(ids.includes(id), `checks ${id}`);
   assert.ok(r.json.checks.every((c) => ["ok", "warn", "error", "off"].includes(c.status) && c.detail), JSON.stringify(r.json.checks.filter((c) => !c.detail)));
   assert.equal(r.json.checks.find((c) => c.id === "database").status, "ok");
   assert.equal(r.json.checks.find((c) => c.id === "signin").status, "ok");
   assert.equal(r.json.checks.find((c) => c.id === "zerodha").status, "off");
+  const chain = r.json.checks.find((c) => c.id === "chain");
+  assert.equal(chain.status, "off", "no AI key saved");
+  assert.match(chain.detail, /Anthropic · Claude Sonnet 5\.5/, "the default model is named");
+  assert.ok(!r.json.checks.some((c) => /NVIDIA/i.test(`${c.title || ""} ${c.detail}`)), "nothing about the removed free models");
   assert.equal(r.json.checks.find((c) => c.id === "mandir").status, "warn", "only a YouTube link: no background audio until a file is uploaded");
   assert.ok(["ok", "warn", "error"].includes(r.json.overall));
 });
@@ -466,4 +471,83 @@ test("the WhatsApp webhook refuses an unsigned body and a wrong verify token", a
   assert.equal(v.status, 403);
   const p = await s.request("POST", "/api/whatsapp/webhook", { body: { entry: [] }, csrf: false });
   assert.equal(p.status, 401, "no signature: refused (and no CSRF header is needed for Meta)");
+});
+
+test("Social Media routes: admins read the feed; only the superadmin changes sources and the X token, which never comes back", async (t) => {
+  const feed = `<?xml version="1.0"?><rss><channel><item><title>SBI Q2 net profit jumps 28%; shares rise</title><link>https://example.com/sbi</link><pubDate>${new Date().toUTCString()}</pubDate></item></channel></rss>`;
+  const socialFetch = async () => ({ ok: true, status: 200, text: async () => feed, json: async () => ({}) });
+  const s = await boot({ app: { socialFetch, socialWatch: false } });
+  t.after(s.close);
+  await s.configure();
+  const boss = (await s.login(SUPERADMIN_EMAIL)).session;
+  let r = await s.request("POST", "/api/admin/admins", { cookie: boss, body: { email: "helper@example.com" } });
+  assert.equal(r.status, 201, r.text);
+  const helper = (await s.login("helper@example.com")).session;
+
+  r = await s.request("GET", "/api/admin/social", { cookie: helper });
+  assert.equal(r.status, 200);
+  assert.ok(r.json.settings.sources.length > 0);
+  assert.equal(r.json.status.aiReady, false, "no AI key in this test");
+  r = await s.request("POST", "/api/admin/social/sources", { cookie: helper, body: { type: "x", value: "NSEIndia" } });
+  assert.equal(r.status, 403, "an admin cannot change the sources");
+  r = await s.request("PUT", "/api/admin/social/creds", { cookie: helper, body: { xToken: "TESTONLY-x-bearer-token-0123456789abcdef" } });
+  assert.equal(r.status, 403);
+
+  r = await s.request("POST", "/api/admin/social/sources", { cookie: boss, body: { type: "x", value: "@NSEIndia" } });
+  assert.equal(r.status, 200, r.text);
+  assert.ok(r.json.settings.sources.some((x) => x.type === "x" && x.value === "NSEIndia"));
+  r = await s.request("PUT", "/api/admin/social/creds", { cookie: boss, body: { xToken: "TESTONLY-x-bearer-token-0123456789abcdef" } });
+  assert.equal(r.status, 200);
+  assert.equal(r.json.settings.creds.x, true);
+  assert.ok(!r.text.includes("TESTONLY"), "the token is never sent back");
+  r = await s.request("PUT", "/api/admin/social/sources/nope", { cookie: boss, body: { enabled: false } });
+  assert.equal(r.status, 404);
+
+  r = await s.request("POST", "/api/admin/social/refresh", { cookie: helper });
+  assert.equal(r.status, 200, r.text);
+  assert.ok(r.json.polled.read > 0);
+  r = await s.request("GET", "/api/admin/social/feed?relevant=1", { cookie: helper });
+  assert.ok(r.json.items.some((x) => /SBI Q2/.test(x.title) && x.reading.symbols.includes("SBIN")));
+  r = await s.request("GET", "/api/admin/social/digest", { cookie: helper });
+  assert.ok(r.json.items >= 1);
+  r = await s.request("POST", "/api/admin/social/brief", { cookie: helper });
+  assert.equal(r.status, 409, "the brief needs the AI model");
+  assert.match(r.json.message, /Anthropic key/);
+});
+
+test("Social Media live: the stream says hello to a signed-in admin, and high-impact news on a tracked stock is sent as an alert once", async (t) => {
+  const at = new Date().toUTCString();
+  const feed = `<?xml version="1.0"?><rss><channel><item><title>SBI Q2 net profit jumps 28%, beats estimates; shares rise 4%</title><link>https://example.com/sbi</link><guid>g1</guid><pubDate>${at}</pubDate></item><item><title>SBI shares rally 5% to a record high on strong results</title><link>https://example.com/sbi2</link><guid>g2</guid><pubDate>${at}</pubDate></item></channel></rss>`;
+  const socialFetch = async () => ({ ok: true, status: 200, headers: new Map(), text: async () => feed, json: async () => ({}) });
+  const sent = [];
+  const notifier = { send: async (text, kind) => sent.push({ text, kind }) };
+  const s = await boot({ app: { socialFetch, socialWatch: false, notifier } });
+  t.after(s.close);
+  await s.configure();
+  const boss = (await s.login(SUPERADMIN_EMAIL)).session;
+  // the stream: read the first event, then hang up
+  const first = await new Promise((resolve, reject) => {
+    const req = http.request({ host: "127.0.0.1", port: s.port, method: "GET", path: "/api/admin/social/stream", headers: { cookie: boss } }, (res) => {
+      res.once("data", (chunk) => {
+        resolve({ type: res.headers["content-type"], buffering: res.headers["x-accel-buffering"], text: String(chunk) });
+        req.destroy();
+      });
+    });
+    req.on("error", reject);
+    req.end();
+  });
+  assert.match(first.type, /text\/event-stream/);
+  assert.equal(first.buffering, "no", "nginx is told not to hold the stream back");
+  assert.match(first.text, /event: hello/);
+  const shut = await s.request("GET", "/api/admin/social/stream");
+  assert.ok(shut.status === 401 || shut.status === 403, "signed out: no stream");
+  let r = await s.request("PUT", "/api/admin/social/settings", { cookie: boss, body: { watch: "SBIN" } });
+  assert.equal(r.status, 200, r.text);
+  r = await s.request("POST", "/api/admin/social/refresh", { cookie: boss });
+  assert.equal(r.status, 200, r.text);
+  await new Promise((res) => setTimeout(res, 50));
+  assert.equal(sent.length, 1, "one alert for the stock, however many items");
+  assert.equal(sent[0].kind, "alerts");
+  assert.match(sent[0].text, /📰 .*SBIN — high-impact news/);
+  assert.match(sent[0].text, /nothing was traded/);
 });

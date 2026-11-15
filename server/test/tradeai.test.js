@@ -1,7 +1,8 @@
 "use strict";
-// TradeAI against FAKE companies and a fake market: the plan, the router (instant data answers, one
-// fast model, one model for advice, the merged mixture for Deep), the fallback one by one, the learned
-// speeds, the paid model's limits, and the desk's own answer when every model fails.
+// TradeAI against FAKE companies and a fake market: the plan, the router (instant data answers; the
+// default model — Claude Sonnet 5.5 — brief for light questions, fuller for advice, thinking longer for
+// Deep), the fallback company one at a time, the learned speeds, the daily limit, and the desk's own
+// answer when no model can answer.
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
@@ -11,24 +12,30 @@ const path = require("node:path");
 
 const { AiService } = require("../ai/service");
 
-const KEY = "nvapi-TESTONLYtestonlyTESTONLY1234567890";
+const KEYS = { anthropic: "sk-ant-api03-TESTONLYtestonlyTESTONLY1234567890abcd", openai: "sk-TESTONLYtestonlyTESTONLY1234567890abcd" };
 const json = (status, obj) => new Response(JSON.stringify(obj), { status, headers: { "content-type": "application/json" } });
+const REPLY = (by) => ({ answer: `${by}: SBIN looks firm.`, datapoints: [{ label: "VWAP", value: "803.2" }], actions: [{ kind: "corrective", text: "Keep the stop at 799." }], forecast: { lean: "up", horizon: "next 30 minutes", scenarios: ["Above 809: 813"] }, confidence: "medium", followups: ["What if it breaks 799?"] });
 
-function boot({ failModels = [] } = {}) {
+function boot({ fail = {} } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "vpt-tai-"));
   const calls = [];
   const fetchImpl = async (url, init = {}) => {
     const u = String(url);
     const body = init.body ? JSON.parse(init.body) : {};
-    if (!u.includes("integrate.api.nvidia.com")) return json(404, {});
-    if (/\/models/.test(u)) return json(200, { data: [] });
-    const sys = (body.messages || []).find((m) => m.role === "system");
-    const user = (body.messages || []).find((m) => m.role === "user");
-    calls.push({ model: body.model, merge: /You merge several analysts/.test(sys.content), user: user.content });
-    if (failModels.some((f) => body.model.includes(f))) return json(500, { error: { message: "down" } });
-    const merge = /You merge several analysts/.test(sys.content);
-    const reply = { answer: merge ? "MERGED: SBIN is above VWAP 803.2 with RSI 61; the long holds while 799 holds." : `${body.model}: SBIN looks firm.`, datapoints: [{ label: "VWAP", value: "803.2" }], actions: [{ kind: "corrective", text: "Keep the stop at 799." }], forecast: { lean: "up", horizon: "next 30 minutes", scenarios: ["Above 809: 813"] }, confidence: "medium", followups: ["What if it breaks 799?"] };
-    return json(200, { model: body.model, choices: [{ message: { role: "assistant", content: JSON.stringify(reply) }, finish_reason: "stop" }], usage: { prompt_tokens: 500, completion_tokens: 120 } });
+    if (u.includes("api.anthropic.com")) {
+      // the default model (the Messages API)
+      calls.push({ company: "anthropic", model: body.model, maxTokens: body.max_tokens, effort: body.output_config && body.output_config.effort, user: body.messages[0].content });
+      if (fail.anthropic) return json(400, { type: "error", error: { type: "invalid_request_error", message: "down" } });
+      return json(200, { id: "m", type: "message", role: "assistant", model: body.model, content: [{ type: "text", text: JSON.stringify(REPLY(body.model)) }], stop_reason: "end_turn", stop_sequence: null, usage: { input_tokens: 500, output_tokens: 120 } });
+    }
+    if (u.includes("api.openai.com")) {
+      // the fallback company (OpenAI-style chat completions)
+      const user = (body.messages || []).find((m) => m.role === "user");
+      calls.push({ company: "openai", model: body.model, user: user.content });
+      if (fail.openai) return json(400, { error: { message: "down" } });
+      return json(200, { model: body.model, choices: [{ message: { role: "assistant", content: JSON.stringify(REPLY(body.model)) }, finish_reason: "stop" }], usage: { prompt_tokens: 500, completion_tokens: 120 } });
+    }
+    return json(404, {});
   };
   const market = {
     mode: () => "kite",
@@ -71,14 +78,19 @@ test("the plan finds the stocks and the data a question needs", async () => {
   assert.ok(p3.tools.includes("market") && p3.tools.includes("outlook") && !p3.tools.includes("positions"));
 });
 
-test("a question of judgement goes to ONE model — the strongest free one with no paid key — and Deep brings the merged mixture", async () => {
+test("every question that needs a model goes to the default model, Claude Sonnet 5.5 — brief when light, fuller for advice, thinking longer for Deep", async () => {
   const { ai, calls } = boot();
-  ai.setSettings({ provider: "nvidia", apiKey: KEY });
+  ai.setSettings({ provider: "anthropic", apiKey: KEYS.anthropic });
+  const st = ai.tradeai.status();
+  assert.equal(st.lead.name, "Claude Sonnet 5.5");
+  assert.deepEqual(st.models.map((m) => m.name), ["Claude Sonnet 5.5"]);
+  assert.equal(st.fastest, undefined, "no free-model speed list is left");
+
   const r = await ai.tradeai.answer("Should I hold SBIN?", { owner: true });
   assert.equal(r.meta.tier, "advice");
-  assert.equal(r.meta.by.length, 1, "one model answers");
-  assert.match(r.meta.by[0], /Ultra/, "with no paid key, the strongest free model");
-  assert.equal(calls.length, 1, "no other model was asked");
+  assert.deepEqual(r.meta.by, ["Claude Sonnet 5.5"]);
+  assert.equal(calls.length, 1, "one request");
+  assert.deepEqual([calls[0].model, calls[0].maxTokens, calls[0].effort], ["claude-sonnet-5-5", 8000, "low"]);
   assert.match(r.answer, /SBIN looks firm/);
   assert.equal(r.forecast.lean, "up");
   assert.equal(r.actions[0].kind, "corrective");
@@ -86,27 +98,45 @@ test("a question of judgement goes to ONE model — the strongest free one with 
   assert.match(calls[0].user, /"symbol":"SBIN"/);
   assert.match(calls[0].user, /"vwap":803.2/);
   assert.match(calls[0].user, /The trader asks: Should I hold SBIN\?/);
+
   const d = await ai.tradeai.answer("Should I hold SBIN?", { owner: true, mode: "deep" });
   assert.equal(d.meta.tier, "deep");
-  assert.match(d.answer, /^MERGED/);
-  assert.equal(d.meta.by.length, 3, "three models in the mixture");
+  assert.deepEqual(d.meta.by, ["Claude Sonnet 5.5"]);
+  assert.deepEqual([calls[1].maxTokens, calls[1].effort], [16000, "medium"], "Deep thinks longer");
+
+  const f = await ai.tradeai.answer("How is SBIN?", { owner: false });
+  assert.equal(f.meta.tier, "fast");
+  assert.deepEqual([calls[2].maxTokens, calls[2].effort], [4000, "low"], "a light question gets a brief answer");
+  assert.equal(calls.length, 3);
+  assert.ok(calls.every((c) => c.company === "anthropic"));
+
+  // another default picked on the AI page is used from the next question
+  ai.setSettings({ provider: "anthropic", model: "claude-opus-5-5" });
+  const o = await ai.tradeai.answer("Should I hold SBIN?", { owner: true });
+  assert.deepEqual(o.meta.by, ["Claude Opus 5.5"]);
+  assert.equal(calls[3].model, "claude-opus-5-5");
 });
 
-test("Fast: the quickest model first, one at a time; when it fails the next is asked, and speeds are learned", async () => {
-  const fails = [];
-  const { ai, calls } = boot({ failModels: fails });
-  ai.setSettings({ provider: "nvidia", apiKey: KEY });
-  const order = ai.tradeai._fastest();
-  assert.ok(order.length >= 2);
-  fails.push(order[0].model);
+test("when the default model fails the fallback company is asked, one at a time, and speeds are learned; with the fallback off, the desk answers", async () => {
+  const { ai, calls } = boot({ fail: { anthropic: true } });
+  ai.setSettings({ provider: "anthropic", apiKey: KEYS.anthropic });
+  ai.setSettings({ provider: "openai", apiKey: KEYS.openai, use: false });
+  assert.deepEqual(ai.tradeai.status().models.map((m) => [m.company, m.fallback]), [["Anthropic", false], ["OpenAI", true]]);
   const r = await ai.tradeai.answer("How is SBIN?", { owner: false });
   assert.equal(r.meta.tier, "fast");
   assert.equal(r.meta.fallback, true);
-  assert.deepEqual(r.meta.by, [order[1].name]);
-  assert.deepEqual(calls.map((c) => c.model), [order[0].model, order[1].model], "one model at a time, never in parallel");
+  assert.equal(r.meta.engineOnly, false);
+  assert.deepEqual(calls.map((c) => c.company), ["anthropic", "openai"], "one model at a time, never in parallel");
   const sp = ai.tradeai._speeds();
-  assert.ok(sp[order[1].id].ms >= 0 && sp[order[0].id].fail === 1, "the answer's speed and the failure are remembered");
-  assert.notEqual(ai.tradeai._fastest()[0].id, order[0].id, "a model that failed is no longer asked first");
+  assert.equal(sp["anthropic|claude-sonnet-5-5"].fail, 1, "the failure is remembered");
+  assert.ok(sp[`openai|${calls[1].model}`].ms >= 0, "and the fallback's answer time");
+  assert.equal(ai.tradeai.settings().paidToday, 1, "an answer counts once against the day's limit");
+
+  ai.setSettings({ fallback: false });
+  const off = await ai.tradeai.answer("How is SBIN?", { owner: false });
+  assert.equal(off.meta.engineOnly, true);
+  assert.match(off.answer, /did not answer just now, so this is the desk's own arithmetic/);
+  assert.equal(calls.filter((c) => c.company === "openai").length, 1, "the fallback was not asked again");
 });
 
 test("data questions are answered instantly from the desk's data — no model; and with no AI the desk's arithmetic answers", async () => {
@@ -120,19 +150,27 @@ test("data questions are answered instantly from the desk's data — no model; a
   assert.match(q.answer, /\*\*SBIN\*\* is at \*\*₹806.00\*\*/);
   const f = await ai.tradeai.answer("Should I exit SBIN?", { owner: true });
   assert.equal(f.meta.engineOnly, true);
+  assert.match(f.answer, /No AI key is saved — the default model is Claude Sonnet 5\.5/);
   assert.match(f.answer, /desk's own arithmetic/);
+  assert.equal(calls.length, 0);
   assert.match(f.answer, /SBIN long 40 @ ₹800 → ₹806/);
 });
 
-test("the paid model: used only when switched on and under the daily limit", async () => {
-  const { ai } = boot();
-  ai.ensemble._lead = () => ({ id: "anthropic|claude-sonnet-5-5", provider: "anthropic", model: "claude-sonnet-5-5", name: "Claude Sonnet 5.5", lead: true });
-  assert.equal(ai.tradeai._paid().name, "Claude Sonnet 5.5");
+test("the AI model: used only when switched on and under the daily limit; otherwise the desk's arithmetic says why", async () => {
+  const { ai, calls } = boot();
+  ai.setSettings({ provider: "anthropic", apiKey: KEYS.anthropic });
+  assert.equal(ai.tradeai._models()[0].name, "Claude Sonnet 5.5");
   ai.tradeai.setSettings({ paidDailyCap: 1 });
   ai.tradeai._countPaid();
-  assert.equal(ai.tradeai._paid(), null, "the day's limit is reached");
+  assert.deepEqual(ai.tradeai._models(), [], "the day's limit is reached");
+  const capped = await ai.tradeai.answer("Should I hold SBIN?", { owner: true });
+  assert.equal(capped.meta.engineOnly, true);
+  assert.match(capped.answer, /Today's limit of 1 model answers is reached/);
   ai.tradeai.setSettings({ paidDailyCap: 50, usePaid: false });
-  assert.equal(ai.tradeai._paid(), null, "switched off");
+  assert.deepEqual(ai.tradeai._models(), [], "switched off");
+  const off = await ai.tradeai.answer("Should I hold SBIN?", { owner: true });
+  assert.match(off.answer, /switched off/);
+  assert.equal(calls.length, 0, "no model was asked");
   assert.throws(() => ai.tradeai.setSettings({ mode: "turbo" }), /auto, fast or deep/);
   assert.equal(ai.tradeai.setSettings({ mode: "fast", usePaid: true }).mode, "fast");
 });
@@ -149,7 +187,7 @@ const until = async (ai, job, owner) => {
 
 test("a chat turn runs as a job and is saved as its own record, per owner", async () => {
   const { ai } = boot();
-  ai.setSettings({ provider: "nvidia", apiKey: KEY });
+  ai.setSettings({ provider: "anthropic", apiKey: KEYS.anthropic });
   const { job, conv } = await ai.tradeai.start({ text: "How is SBIN?", owner: "owner@example.com", isOwner: true });
   const j = await until(ai, job, "owner@example.com");
   assert.equal(j.error, "");
@@ -167,11 +205,11 @@ test("a chat turn runs as a job and is saved as its own record, per owner", asyn
 
 test("rename, pin, search, edit from an earlier question, and delete — which removes the record", async () => {
   const { ai } = boot();
-  ai.setSettings({ provider: "nvidia", apiKey: KEY });
+  ai.setSettings({ provider: "anthropic", apiKey: KEYS.anthropic });
   const me = "owner@example.com";
   const a = await ai.tradeai.start({ text: "How is SBIN?", owner: me, isOwner: true });
   await until(ai, a.job, me);
-  const b = await ai.tradeai.start({ text: "Market mood?", owner: me, isOwner: true });
+  const b = await ai.tradeai.start({ text: "Why is the market mood weak?", owner: me, isOwner: true });
   await until(ai, b.job, me);
   await ai.tradeai.rename(a.conv, me, "  SBIN   check ");
   const pinned = await ai.tradeai.pin(b.conv, me, true);
@@ -194,7 +232,7 @@ test("rename, pin, search, edit from an earlier question, and delete — which r
 
 test("stop: an answer that arrives after Stop is not kept", async () => {
   const { ai } = boot();
-  ai.setSettings({ provider: "nvidia", apiKey: KEY });
+  ai.setSettings({ provider: "anthropic", apiKey: KEYS.anthropic });
   const me = "owner@example.com";
   const { job, conv } = await ai.tradeai.start({ text: "How is SBIN?", owner: me, isOwner: true });
   const j = ai.tradeai.cancel(job.id, me);
@@ -281,4 +319,31 @@ test("WhatsApp gets TradeAI's Markdown as plain WhatsApp text", () => {
   assert.match(t, /• VWAP · 803\.2/);
   assert.ok(!t.includes("|---"));
   assert.match(t, /• Keep the stop/);
+});
+
+test("a stock named in the question is found in Zerodha's instrument list (its symbol field is \"s\"), not only on the watchlist", async () => {
+  const { TradeAI } = require("../ai/tradeai");
+  const t = new TradeAI({ market: { watchlist: () => [], instruments: async () => [{ s: "HDFCBANK", n: "HDFC BANK", k: "EQ" }, { s: "NIFTY 50", k: "INDEX" }] }, now: () => Date.now(), docs: null });
+  assert.deepEqual(await t._symbols("Should I buy HDFCBANK today?", new Set()), ["HDFCBANK"]);
+});
+
+test("the same question on unchanged data is answered with the answer already paid for; Retry and a new default model ask again", async () => {
+  const { ai, calls } = boot();
+  ai.setSettings({ provider: "anthropic", apiKey: KEYS.anthropic });
+  const q = "Should I hold SBIN or exit?";
+  const a = await ai.tradeai.answer(q, { owner: true });
+  assert.equal(calls.length, 1);
+  assert.ok(!a.meta.reused);
+  const b = await ai.tradeai.answer(q, { owner: true });
+  assert.equal(calls.length, 1, "no second AI call");
+  assert.equal(b.meta.reused, true);
+  assert.equal(b.answer, a.answer);
+  assert.deepEqual(b.meta.usage, { input: 0, output: 0 });
+  await ai.tradeai.answer(q, { owner: true, fresh: true });
+  assert.equal(calls.length, 2, "Retry asks the model again");
+  await ai.tradeai.answer("Should I hold INFY or exit?", { owner: true });
+  assert.equal(calls.length, 3, "another question is a new call");
+  ai.setSettings({ provider: "anthropic", model: "claude-opus-5-5" });
+  await ai.tradeai.answer(q, { owner: true });
+  assert.equal(calls.length, 4, "a new default model answers afresh");
 });

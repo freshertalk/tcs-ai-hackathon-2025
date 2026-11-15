@@ -331,9 +331,9 @@ months (from the first with a trade, up to 12) and Profit / loss, Taxes and Brok
 Every AI feature, rule and condition in plain English (the AI chapters of the Document plus two of its own), and — for the
 superadmin only — **AI brains**: standing instructions added to the system prompt of every AI feature in their scope, from the
 next request on. Each AI file registers its system prompt(s) with `brains.register(feature, SYSTEM)`; the clients from
-`ai._client()` and the ensemble's analysts are wrapped (`brains.wrap`) so `ask()` appends the brains of that feature.
-Saving with "Let the AI team refine it" runs every free NVIDIA model in parallel (plus the paid lead when it is on, counted in
-the AI Live daily cap), then one model merges the versions and chooses the scopes; the owner's wording is kept ("Use my wording").
+`ai._client()` and the AI Live / AI Research analyst are wrapped (`brains.wrap`) so `ask()` appends the brains of that feature.
+Saving with "Let the AI refine it" has the default model (fallbacks in turn when it fails) write the final version and choose
+the scopes, counted as one of the AI Live daily runs; the owner's wording is kept ("Use my wording").
 The page also shows each feature's real instructions word for word and edits the trading-skills file (now superadmin-only), and
 downloads everything as a real .docx made in the browser (`docs/docx.js`: a stored ZIP, no library). The Document has the
 same Word download.
@@ -351,7 +351,7 @@ official WhatsApp Business Cloud API (Graph v21.0). The webhook `GET|POST /api/w
 `express.json` so the raw body can be checked against `X-Hub-Signature-256` (HMAC-SHA256 with the app secret); only the
 owner's number is answered and each message id is handled once. The server sends a 9:20 AM status, an update every N minutes
 (10–120, default 30) in market hours while positions are open (price, P&L, volume, buyers vs sellers, 5-minute RSI, VWAP, the
-live call, levels, plus up to 5 free models' advice voted per position) and the 3:35 PM P&L; alerts, the risk-guard lock and the
+live call, levels, plus the default model's action and note per position) and the 3:35 PM P&L; alerts, the risk-guard lock and the
 3:45 PM report fan out from `notify.js`. Commands: HELP, STATUS, POS, PNL [YESTERDAY|WEEK|MONTH], QUOTE, CALL, ASK, ALERTS,
 ALERT, UPDATES ON|OFF, EVERY n, TRADING ON|OFF, BUY/SELL qty SYM [@ price] [MIS|CNC], EXIT SYM, EXIT ALL, NO. Money-moving
 commands (and TRADING ON) need "Allow trading from WhatsApp", then `YES <6-digit code> <PIN>` within 2 minutes; 3 wrong PINs
@@ -361,10 +361,10 @@ it needs an approved template (one body parameter) or the owner sends HI.
 
 **TradeAI (`server/ai/tradeai.js`, `server/ai/mixture.js`, `src/admin/tradeai/`; `/me/tradeai`, opened from a `/me` card in
 a new tab).** An agentic chat: a plan picks the stocks named (positions, watchlist, NSE list) and the tools needed
-(positions/funds, P&L history, snapshot, market, outlook, news via the paid web search when asked, alerts); the snapshot reads
+(positions/funds, P&L history, snapshot, market, outlook, news via a web search when asked, alerts); the snapshot reads
 the live call, verdict, levels, indicators, patterns, setups, habits, odds and the quote's buyers/sellers and circuits. The answer
-comes from `askMixture`: the 3 strongest free models in parallel, merged by the strongest that answered, then the others one by
-one, then the paid lead when on, then `fallbackAnswer` (the desk's arithmetic) — it always answers. Account data is injected by
+comes from `askOne` over `ai.modelChain()`: the default model, then (fallback on) each other company with a saved key, one at a
+time, then `fallbackAnswer` (the desk's arithmetic, with the reason) — it always answers. Account data is injected by
 `app.js` (`ai.tradeai.account`: positions, funds, history, pending orders, today's trips) for the owner only; TradeAI cannot
 trade. The page (`src/admin/tradeai/`, a modern AI-chat layout fixed under the site header) has grouped/searchable chats with
 rename/pin/delete, `?c=<id>` in the address, a safe Markdown renderer (`markdown.jsx`: headings, lists, tables with coloured
@@ -376,14 +376,14 @@ Chats are kept by `server/ai/chats.js`: one document per chat in MongoDB's `trad
 plus an index in the file store); delete removes the document. The old single `ai/tradeai.json` record is migrated once.
 
 **The AI Engine as one door (`server/ai/engine.js`).** Every feature's model client comes from `ai.engine.client(spec)`
-(`ai._client()`, the ensemble's analysts and paid lead, the mixture, the brains team): brains are composed on the way out, calls
-on one key share a lane (8 in flight for the NVIDIA key, 6 for others; a promise queue, no timers), and a live board
+(`ai._client()`, the AI Live / AI Research analyst, `askOne` / `askDefault`, the brains' refine): brains are composed on the way
+out, calls on one key share a lane (6 in flight for Anthropic, 6 for others; a promise queue, no timers), and a live board
 (`GET /api/admin/ai/engine/live`, the "Live engine" tab) shows running/waiting calls, lanes and today's per-feature counts
 (kept in `ai/engine.json`). Web-search prompts are named on the board with `tag()` and take no brains.
 
 **Site health (`server/health.js`, `src/admin/HealthCard.jsx`; `GET /api/admin/health`).** Every part of the site checked
-independently (server, database write/read, disk, HTTPS, sign-in, Zerodha, stream, universe, alerts, holidays, AI, free
-models, brains, research, trading, analysis, paper, Telegram, WhatsApp, Mandir) as ok / warn / error / off with a sentence
+independently (server, database write/read, disk, HTTPS, sign-in, Zerodha, stream, universe, alerts, holidays, AI, the
+default model & fallbacks, brains, research, trading, analysis, paper, Telegram, WhatsApp, Mandir) as ok / warn / error / off with a sentence
 and a hint; the card under Settings re-checks every minute.
 
 **Advisor tools from the comparison with other products (2026-11-15).** Price alerts checked on the server every 15 s in
@@ -396,7 +396,7 @@ window, the live call, revenge re-entries) from `TradingService._nudges`.
 **Document (the workspace after Trade Analysis; a tile in the Stock Report section of `/me`; `src/admin/stock/docs/`).**
 The manual of the whole advisor in plain English — "the bible": what DrishtiAI is, a map of every part with its name, a
 day with the advisor, then every engine and business rule (what it does, how and when) for the market readings,
-the live day, trading and risk, records and paper trading, the AI team, and the platform, ending in a glossary,
+the live day, trading and risk, records and paper trading, the AI, and the platform, ending in a glossary,
 questions and answers and every honest limit in one place. It is plain data (`chapters.js` and `content/*.js`;
 blocks of headings, paragraphs, lists, tables, notes and "how it works" cards) shown by `Document.jsx` with a
 contents list (folds into a bar on a phone), search that filters the passages and marks the words, justified text,
@@ -453,29 +453,62 @@ WhatsApp — repeated every 10 minutes while they hold, checked every 15 s in ma
 open. Always visible as the Goal pill in the top bar and a chip on TradeAI; full card and settings on
 Positions. Reminders only; an optional switch copies the target and stop into the risk guard.
 
+**Social Media (`server/social/`, `server/ai/social.js`, `server/social-watch.js`, `src/admin/social/`;
+`/me/social`, opened from a `/me` card in a new tab).** An aggregator of the owner's sources — news sites'
+RSS, Google News searches, X accounts (API v2 with the owner's Bearer Token, encrypted, never read back),
+YouTube channels, Reddit communities and NSE's announcements. **Software first, AI only when needed:** a
+watcher every 30 s reads due sources (3 min news / 5 Google News & Reddit / 15 X) with conditional
+requests (ETag / If-Modified-Since, so an unchanged feed costs nothing), keeps each story once (≤ 800
+items, 4 days), and the rules (`extract.js`) give every item its stocks, sectors, event, tone (phrases,
+negation, stated % moves), certainty, impact and relevance, and group the same story across sources. The
+default model reads an item only in mode "smart" (default) when it matters (open positions via
+`social.focusSymbols`, tracked stocks, high impact) AND the rules cannot settle it (unclear tone, an
+unnamed market-wide event, a social post about a stock), within "batches an hour" (default 4). The Desk
+brief (`deskBrief`) is written by the rules, always; the AI brief on request (or every half hour when
+`aiBriefAuto`). `SocialService` is an EventEmitter: on "items", app.js pushes to the page's SSE stream
+`/api/admin/social/stream` (with `X-Accel-Buffering: no`) and sends news alerts to Telegram / WhatsApp
+(high impact on tracked stocks / open positions; ≤ 1 per stock per 30 min, 12 a day; "Alert me").
+Its signal is a vote in the NSE forecast, a reason in each Intraday plan, part of the AI Live / AI
+Research brief, and TradeAI's instant "latest news / any news on X / trending" answers. Official access
+only: no username/password logins, no posting, no orders. Routes under `/api/admin/social` (reads for
+admins, changes for the superadmin).
+
+**AI credits: never spent twice, never for what the desk already knows.** The AI Engine (`engine.js`)
+reuses any identical request (model, instructions with brains, data, schema) within 15 minutes and
+shares identical in-flight requests; "Reused today" on the Live engine tab; reused answers do not count
+against daily AI-run limits; Retry / Refresh / Rewrite pass `{ fresh: true }`. TradeAI reuses an
+answer for the same question, stocks, earlier turn and models on unchanged data (or within 3 minutes),
+and answers more questions instantly from the desk: levels, the desk's reading (live call, VWAP, RSI,
+MACD…), next-session outlook, the market today, the owner's results — unless a judgement is asked.
+
+**GIFT Nifty for the expected open.** Measured against the close of the NSE near-month Nifty future
+(`MarketService._giftGap`, one NFO quote), so the futures premium cancels out; a settled 0.00% (every
+weekend) is never read as a flat open — the forecast says so and leaves GIFT out.
+
 **TradeAI routing (`server/ai/route.js`).** Data questions (positions, today vs the goal, margin, a price, the
-option chain, the intraday plan, orders, alerts) are answered instantly from the desk with no model; light
-questions by ONE model, the fastest free one by measured speed; questions of judgement by ONE model, the
-paid lead when allowed (daily cap, ⚙ on TradeAI), else the strongest free one; Deep (research, compare, the
-week ahead) by the free models merged by the paid lead. Auto / Fast / Deep in the composer; @ suggests
+option chain, the intraday plan, orders, alerts) are answered instantly from the desk with no model; every
+other question by the default model (Claude Sonnet 5.5 unless another is picked) — Fast: a brief answer
+from less data; Advice: the full data; Deep (research, compare, the week ahead): longer thinking (effort
+medium); the fallbacks one at a time; "Model answers a day" (150) and "Use the AI model" on TradeAI's ⚙.
+Auto / Fast / Deep in the composer; @ suggests
 stocks; voice input; export to Markdown.
-- **The buttons bring the analysts.** AI Live / AI Research start a run for the open stock: the paid
-  "lead" (the company chosen on the AI page, else the first saved Anthropic / OpenAI / Gemini key) first
-  does the web search — company news and world markets, kept 30 minutes so credits are not spent twice —
-  then every **free NVIDIA-hosted model** with a saved key (Nemotron ×4, Mistral Large 4, DeepSeek V4.1
-  Flash, Gemma 4) and the lead read the **identical** brief in parallel (free models cannot browse; they
-  get the numbers and the lead's web context). Results appear as each analyst answers.
+- **The buttons bring the analyst.** AI Live / AI Research start a run for the open stock: the **default
+  model** (Claude Sonnet 5.5 unless another is picked on the AI page) first does the web search when its
+  company can — company news and world markets, kept 30 minutes so credits are not spent twice — then
+  reads the brief. When it fails, the AI page's fallback models (the other companies with a saved key)
+  are tried one at a time.
 - **The weighing is arithmetic too.** Votes (the desk's own included) carry weights, adjusted by each
-  analyst's own scored record once it has 20 decided calls (0.4–1.6×); a long or short is called only when
+  model's own scored record once it has 20 decided calls (0.4–1.6×); a long or short is called only when
   the lean is clear, at least 60% of the weight agrees, the desk's engine does not oppose, no gate is shut
   (entry window, thin volume, spread, a stale quote) and the plan passes the same `checkPlan` arithmetic as
   every other plan. Otherwise: wait. AI is optional — with no key, or if every model fails, the answer is
   the desk's arithmetic in full, with the same plans.
-- **Only on a press.** Nothing in `server/ai/` has a timer. A paid-run limit per day and a per-model wait
-  are on the ⚙ panel, which also lists each analyst's track record. Live calls are scored against the price
+- **Only on a press.** Nothing in `server/ai/` has a timer. "AI runs a day" (default 40) and the wait for
+  the model (default 90 s) are on the ⚙ panel, which also lists each model's track record. Live calls are scored against the price
   30 minutes later, next-session calls against that session's close.
 - **Screener and Research.** The board's "AI, one by one" runs the top 3 / 5 / 10 stocks shown through the
-  analysts one after another, **free models only** (no paid credits), with a chip per stock; each Research
+  default model one after another — each stock is one of today's AI runs — with a chip per stock (the
+  server also accepts `engineOnly` for an arithmetic-only run); each Research
   stock card has its own AI Research. No AI run can place an order; the web context is untrusted text, and the
   plan checks and the lack of any order code bound what it could do.
 
@@ -752,15 +785,15 @@ it:
   already says; it does not make the call. Nothing here can place or modify an order.
 
 **AI strategist (optional; the "AI strategist" tab on the desk, settings at `/me/ai`).** With an
-API key for any of six AI companies, the chosen model builds a strategy for the open stock **on
+API key for any of five AI companies, the default model (Claude Sonnet 5.5 unless another is picked) builds a strategy for the open stock **on
 request** — never on a timer, so nothing is spent in the background. Without a key the tab says it
 is off and every other feature works unchanged. Code: `server/ai/`.
 
 - **Companies** (`server/ai/providers.js`): **Anthropic** (Claude, official `@anthropic-ai/sdk`),
   **OpenAI** (GPT; chat completions with schema-held answers, web search through the Responses
   API), **Google Gemini** (`generateContent`, JSON output, web search by Google Search grounding),
-  **DeepSeek**, **Moonshot AI** (Kimi) and the FREE NVIDIA-hosted group below — the last three over their OpenAI-style chat APIs with the schema in the prompt
-  and the answer read leniently. At `/me/ai` pick the company, then one of its models; the list is
+  **DeepSeek** and **Moonshot AI** (Kimi) — the last two over their OpenAI-style chat APIs with the schema in the prompt
+  and the answer read leniently. At `/me/ai` (the **AI model** page) pick the default model: the company, then one of its models; the list is
   read live from the company with the saved key (**↻ Refresh models**, no tokens), so new model names
   appear without code changes — the catalogue in `providers.js` is only the starting list.
 - **One key per company, kept.** Each company has its own encrypted key, chosen model and last
@@ -777,22 +810,23 @@ is off and every other feature works unchanged. Code: `server/ai/`.
   it (`server/ai/contract.js`: one correction request, then a clear failure, never a malformed plan).
   Then the same arithmetic checks (`checkPlan`) and the same scoring on real prices apply to all. The
   record is also kept **by model** ("By model" on the strategist tab), so models are compared on
-  their finished plans, not on claims. A test sends one plan through all nine companies and checks
+  their finished plans, not on claims. A test sends one plan through every company and checks
   that each got identical instructions and brief and that the plan was judged identically.
-- **FREE group** (its own section of the company drop-down): models NVIDIA hosts at build.nvidia.com,
-  all on one `nvapi-` key — NVIDIA Nemotron (3 Super 120B, 3 Ultra 550B, Nano 9B v2, 3.5 Super VL
-  120B), Mistral AI (Mistral Large 4), DeepSeek (V4.1 Flash) and Google Gemma (4 31B IT). Saving the
-  key once enables all four; removing it removes it for all four. These requests go only to
-  `integrate.api.nvidia.com`, and while a free model is in use the app never borrows a paid
-  company's key — not even for web search — so the app cannot run up a bill. NVIDIA runs them as a
-  free trial under its API Trial Terms, with rate limits it can change.
-- **Web search** (world brief, news check) runs on the company in use when it has search (Anthropic,
-  OpenAI, Gemini); with paid DeepSeek or Kimi it borrows another paid company whose key is saved, and
-  says so on the settings page. With a FREE model it is off.
+- **One default model for every feature** (`ai.defaultModel()`, `ai.modelChain()` in
+  `server/ai/service.js`): Claude Sonnet 5.5 ($2 / $10 per million input / output tokens) unless the
+  owner picks another; "Back to Claude Sonnet 5.5" on the page. Anthropic models offered: Sonnet 5.5
+  (default), Opus 5.5 ($4 / $20), Fable 5.2 ($8 / $40), Haiku 5.5 ($0.10 / $0.50). **Fallback**
+  (`settings.aiFallback`, on by default): when the default fails, each other company with a saved key
+  is tried in turn on its own chosen model. The free NVIDIA-hosted models were removed: a one-time
+  migration (`aiDefaultModelV2`) moves an older free setup to Anthropic + Sonnet 5.5 and deletes the
+  NVIDIA key; an `nvapi-` key is refused.
+- **Web search** (world brief, news check) runs on the default model's company when it has search
+  (Anthropic, OpenAI, Gemini); with DeepSeek or Kimi it borrows another company whose key is saved, and
+  says so on the settings page.
 
 - **Keys** are encrypted with the same key as the other secrets, are write-only (set / replace /
   remove; only a short hint is ever returned) and go only to their own company. With Anthropic,
-  requests use structured output (`output_config.format`), adaptive thinking at `high` effort, and —
+  requests use structured output (`output_config.format`), adaptive thinking with an effort setting, and —
   where the model supports it — Anthropic's server-side refusal fallback (`fallbacks: "default"`).
 - **What is sent:** one stock's market data from Zerodha (quote, today's 5-minute bars, the last
   30 daily bars, indicators, levels, circuit limits, the rule engine's reading on all three

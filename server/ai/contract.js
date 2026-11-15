@@ -3,7 +3,7 @@
 //
 // Every AI feature asks with the same instructions, the same trading-skills file, the same data
 // and the same JSON schema, whichever company answers. Anthropic and OpenAI hold their answers to
-// the schema themselves; the others (DeepSeek, Kimi and the free NVIDIA-hosted models) are only
+// the schema themselves; the others (DeepSeek and Kimi) are only
 // asked to follow it. So their answer is checked here against the very same schema; if it does not
 // match, the model is shown what was wrong and asked once more; if it still does not match, the
 // request fails with a clear message instead of letting a malformed plan through.
