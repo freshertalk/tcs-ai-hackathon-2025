@@ -213,7 +213,9 @@
   min-width: 0;
   position: relative;
   display: grid;
-  align-content: end;
+  align-content: center; /* the title, text and button sit in the middle of the card */
+  justify-items: center;
+  text-align: center;
   gap: 6px;
   min-height: 210px;
   padding: 20px;
@@ -258,6 +260,7 @@
 }
 .hub-hero__d {
   max-width: 52ch;
+  margin-inline: auto;
   font-size: var(--t-mid);
   color: rgba(242, 246, 250, 0.8);
 }
@@ -265,8 +268,8 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  justify-self: start;
-  margin-top: 6px;
+  justify-self: center;
+  margin-top: 10px;
   padding: 8px 14px;
   border-radius: 8px;
   background: #2ebd85;

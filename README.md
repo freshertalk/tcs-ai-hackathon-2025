@@ -286,6 +286,13 @@ record (`analysis/days` — a collection of its own in MongoDB, a file otherwise
   of every day, stocks that made and cost money, and how often each habit recurs and what those days netted. The
   charts are plain SVG (no library), keyboard-reachable, with a read-out on hover.
 
+**Journal — by hand and the calendar.** `TradeJournal.addManual` / `removeManual` (`server/trading/journal.js`; routes
+`POST /api/admin/trading/journal/manual`, `DELETE …/manual/:batch`, superadmin) record a trade typed in for any past day as two
+fills (`source: "manual"`, ids `m:<batch>:1|2`) that pair, get the estimated charges and count everywhere; the trip carries
+`manual: <batch>` so the table shows "by hand" and a Remove button. The P&L calendar keeps the date readable on every colour and,
+on hover, focus or click, shows Profit / loss, Taxes and Brokerage + taxes for the day (the calendar days now carry `charges`,
+`brokerage` and `taxes`).
+
 **Document (the workspace after Trade Analysis; a tile in the Stock Report section of `/me`; `src/admin/stock/docs/`).**
 The manual of the whole advisor in plain English — "the bible": what Drishti is, a map of every part with its name, a
 day with the advisor, then every engine and business rule (what it does, how and when) for the market readings,

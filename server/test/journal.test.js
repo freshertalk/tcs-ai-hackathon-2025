@@ -136,3 +136,75 @@ test("risk rules: a loss or a profit lock locks the day; locks block only new ri
   assert.equal(risk.loosens(cfg, { ...cfg, dailyLoss: 3000, maxOrders: 5 }), false);
   assert.equal(risk.standing({ cfg: risk.cleanConfig({}), lock: null, now, dayPnl: -1e9, ordersToday: 0, openSymbols: new Set() }).locked, false, "off means off");
 });
+
+/* ---------------------------------------------------------------- trades typed in by hand */
+
+const NOW = at("2026-11-14T20:00:00");
+const manual = (o = {}) => ({ date: "2026-11-13", symbol: "sbin", side: "long", qty: 10, entryPrice: 800, exitPrice: 806, entryTime: "09:40", exitTime: "13:10", ...o });
+const freshJournal = () => new TradeJournal(new FileDocs(fs.mkdtempSync(path.join(os.tmpdir(), "vpt-jm-"))));
+
+test("a trade typed in by hand is two fills that pair into one round trip with charges", () => {
+  const j = freshJournal();
+  const r = j.addManual(manual(), NOW);
+  assert.equal(r.error, undefined);
+  assert.match(r.batch, /^[a-f0-9]{12}$/);
+  const trips = j.trips();
+  assert.equal(trips.length, 1);
+  const t = trips[0];
+  assert.deepEqual([t.symbol, t.side, t.qty, t.entryAvg, t.exitAvg, t.pnl, t.intraday, t.open], ["SBIN", "long", 10, 800, 806, 60, true, false]);
+  assert.equal(t.manual, r.batch);
+  assert.ok(t.charges > 0 && t.net < t.pnl, "charges are estimated like any other trade");
+  assert.ok(t.brokerage > 0 && t.brokerage <= t.charges);
+  // it shows in the calendar with the figures a day needs
+  const day = stats(trips).calendar.find((c) => c.key === "2026-11-13");
+  assert.deepEqual([day.trades, day.gross], [1, 60]);
+  assert.equal(day.taxes, Math.round((day.charges - day.brokerage) * 100) / 100);
+});
+
+test("a short trade, and a delivery trade over two days, are paired and marked", () => {
+  const j = freshJournal();
+  j.addManual(manual({ side: "short", entryPrice: 810, exitPrice: 804 }), NOW);
+  const r = j.addManual(manual({ symbol: "TCS", date: "2026-11-10", exitDate: "2026-11-12", entryPrice: 3900, exitPrice: 3950 }), NOW);
+  const trips = j.trips();
+  const sbin = trips.find((t) => t.symbol === "SBIN");
+  const tcs = trips.find((t) => t.symbol === "TCS");
+  assert.deepEqual([sbin.side, sbin.pnl], ["short", 60]);
+  assert.deepEqual([tcs.intraday, tcs.product, tcs.pnl], [false, "CNC", 500]);
+  assert.equal(tcs.manual, r.batch);
+});
+
+test("hand-typed trades are checked: future days, bad prices, the exit before the entry", () => {
+  const j = freshJournal();
+  const bad = (o, re) => assert.match(j.addManual(manual(o), NOW).error || "", re);
+  bad({ date: "2026-11-15" }, /not happened/);
+  bad({ date: "2026-13-40" }, /date of the trade/);
+  bad({ symbol: "" }, /symbol/);
+  bad({ exchange: "NFO" }, /NSE and BSE/);
+  bad({ side: "" }, /long .* or short/);
+  bad({ qty: 1.5 }, /whole number/);
+  bad({ entryPrice: 0 }, /prices/);
+  bad({ entryTime: "25:00" }, /hours and minutes/);
+  bad({ exitTime: "09:00" }, /exit must come after/);
+  bad({ exitDate: "2026-11-12" }, /before the entry date/);
+  bad({ date: "2026-11-14", entryTime: "21:00", exitTime: "21:30" }, /future/);
+  assert.equal(j.trips().length, 0, "nothing was saved");
+});
+
+test("a hand-typed trade can be removed with its tag, and warns when Zerodha already gave that day", () => {
+  const j = freshJournal();
+  // an earlier, complete round trip in the same stock that day (so the two do not interleave)
+  j.ingestKite([
+    { id: "9001", orderId: "o1", exchange: "NSE", symbol: "SBIN", side: "BUY", quantity: 5, price: 801, at: "2026-11-13 09:20:00", product: "MIS" },
+    { id: "9002", orderId: "o2", exchange: "NSE", symbol: "SBIN", side: "SELL", quantity: 5, price: 802, at: "2026-11-13 09:30:00", product: "MIS" },
+  ]);
+  const r = j.addManual(manual(), NOW);
+  assert.match(r.warn, /already has 2 fills/);
+  const key = r.key;
+  j.setTags(key, { setup: "Opening range" });
+  assert.equal(j.trips().find((t) => t.manual === r.batch).tags.setup, "Opening range");
+  assert.equal(j.removeManual(r.batch), 2);
+  assert.equal(j.trips().find((t) => t.manual), undefined);
+  assert.equal(j.view().setups.length, 0, "its tag went with it");
+  assert.equal(j.removeManual(r.batch), 0);
+  assert.equal(j.removeManual("zzzz"), 0);
+});

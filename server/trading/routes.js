@@ -99,6 +99,21 @@ function mountTrading(app, { trading, ai, requireSuper, limiter }) {
       return r;
     })
   );
+  // a trade typed in by hand for any past day (it goes through the same pairing, charges and statistics)
+  app.post("/api/admin/trading/journal/manual", requireSuper, limiter(60, 10 * 60 * 1000), wrap(async (req) => {
+    const r = trading.journal.addManual(req.body || {});
+    if (r.error) throw new TradingError(r.error);
+    console.log(`[trading] journal: trade added by hand by ${req.user.email} (${r.key})`);
+    return r;
+  }));
+  app.delete("/api/admin/trading/journal/manual/:batch", requireSuper, limiter(60, 10 * 60 * 1000), wrap(async (req) => {
+    const batch = String(req.params.batch || "");
+    if (!/^[a-f0-9]{12}$/.test(batch)) throw new TradingError("That is not a trade added by hand.");
+    const removed = trading.journal.removeManual(batch);
+    if (!removed) throw new TradingError("That trade is not in the journal any more.", "not_found", 404);
+    console.log(`[trading] journal: hand-added trade removed by ${req.user.email}`);
+    return { removed };
+  }));
   app.put("/api/admin/trading/journal/tags", requireSuper, wrap(async (req) => {
     const b = req.body || {};
     if (!/^[A-Z]{2,4}:[A-Z0-9&._-]{1,40}:\d{10,14}$/.test(String(b.key || ""))) throw new TradingError("That is not a journal trade.");

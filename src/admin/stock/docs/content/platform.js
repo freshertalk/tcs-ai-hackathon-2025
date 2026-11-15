@@ -158,7 +158,7 @@ export const PLATFORM = [
         "**Switch:** “Hover help: on/off” in the footer and the account menu; remembered and synchronised across tabs. A one-time strip “Help is built in…” introduces it.",
       ] },
       { h: "The frame of every page" },
-      { p: "A header with the breadcrumb “Vinay’s control room / <page>”, your name and role badge, the theme button and **Sign out**; a footer “Private area · not indexed · not for public use”. The terminal has its own top bar. Every call to the server carries the CSRF header and expects JSON — if a page comes back as HTML instead, the app says requests to `/api` are returning the site’s own page. Market answers (not account or order data) are remembered in memory for the visit, so a stock you return to draws instantly and then refreshes." },
+      { p: "A header with the name **“Drishti — the AI Trading Advisor for NSE”** (always on one line: the full name on a wide screen, “Drishti — AI Trading Advisor” on a tablet and “Drishti” on a phone; on a wide screen the page name follows it), your name and role badge, the theme button and **Sign out**; a footer “Private area · not indexed · not for public use”. The terminal has its own top bar. Every call to the server carries the CSRF header and expects JSON — if a page comes back as HTML instead, the app says requests to `/api` are returning the site’s own page. Market answers (not account or order data) are remembered in memory for the visit, so a stock you return to draws instantly and then refreshes." },
     ],
   },
 

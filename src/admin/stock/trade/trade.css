@@ -1183,15 +1183,146 @@
 .jr-cal__h {
   font-weight: 600;
 }
-.jr-cal__d {
+/* a day is a button: its number must stay readable on every colour (the month's .is-up / .is-down
+   text colours must not reach it) */
+.jr-cal__grid > button.jr-cal__d {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  border-radius: 3px;
+  padding: 0;
+  border: 1px solid transparent;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  background: var(--surface-2);
+  color: var(--ink-2);
+  cursor: pointer;
+  min-width: 0;
+}
+.jr-cal__grid > button.jr-cal__d.is-up {
+  background: color-mix(in srgb, var(--up) calc(var(--a) * 100%), var(--surface-2));
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
+}
+.jr-cal__grid > button.jr-cal__d.is-down {
+  background: color-mix(in srgb, var(--down) calc(var(--a) * 100%), var(--surface-2));
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
+}
+.jr-cal__grid > button.jr-cal__d:hover,
+.jr-cal__grid > button.jr-cal__d:focus-visible,
+.jr-cal__grid > button.jr-cal__d.is-sel {
+  border-color: var(--ink);
+  outline: none;
+}
+.jr-cal__grid > button.jr-cal__d.is-sel {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+.jr-cal__grid > button.jr-cal__d.is-future {
+  opacity: 0.45;
+}
+.jr-calw {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+.jr-cal__hint {
+  margin: 0;
+  padding: 8px 10px;
+  font-size: var(--t-small);
+  color: var(--ink-3);
+}
+.jr-cal__tip {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+  font-size: var(--t-small);
+}
+.jr-cal__head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+  justify-content: space-between;
+  margin: 0;
+}
+.jr-cal__head > span {
+  color: var(--ink-3);
+}
+.jr-cal__tip dl {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin: 0;
+}
+.jr-cal__tip dl > div {
+  display: grid;
+  gap: 1px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: var(--surface);
+}
+.jr-cal__tip dt {
+  font-size: var(--t-tag);
+  color: var(--ink-3);
+}
+.jr-cal__tip dd {
+  margin: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.jr-cal__tip .is-up {
+  color: var(--up);
+}
+.jr-cal__tip .is-down {
+  color: var(--down);
+}
+.jr-cal__tip .adm-btn {
+  justify-self: start;
+}
+
+/* adding a trade by hand */
+.jr-add {
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
   background: var(--surface-2);
 }
-.jr-cal__d.is-up {
-  background: color-mix(in srgb, var(--up) calc(var(--a) * 100%), transparent);
-  color: var(--ink);
+.jr-add h4 {
+  margin: 0;
+  font-size: var(--t-title);
 }
-.jr-cal__d.is-down {
-  background: color-mix(in srgb, var(--down) calc(var(--a) * 100%), transparent);
+.jr-add__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+.jr-add__grid input,
+.jr-add__grid select {
+  width: 100%;
+  min-height: 40px;
+}
+.jr-add__sum {
+  margin: 0;
+  font-size: var(--t-mid);
+}
+.jr-add__sum .is-up {
+  color: var(--up);
+}
+.jr-add__sum .is-down {
+  color: var(--down);
+}
+.jr-chip--hand {
+  margin-left: 6px;
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
   color: var(--ink);
 }
 .jr-bds {

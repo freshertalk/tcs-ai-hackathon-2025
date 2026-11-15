@@ -15,6 +15,8 @@
 // and SEBI fees, GST, stamp duty, DP charge); the contract note is the truth.
 // Pure functions plus a small store; no timers, no orders.
 
+const crypto = require("node:crypto");
+
 const IST = 5.5 * 3600 * 1000;
 const NAME = "trading/journal.json";
 const MAX_FILLS = 60000;
@@ -106,6 +108,60 @@ function fromConsoleCsv(text) {
   return { fills, skipped, error: "" };
 }
 
+/**
+ * A trade typed in by hand → the two fills of one round trip. The fills go through the same
+ * pairing, charges estimate and statistics as every other fill. Only NSE/BSE equity (the
+ * charges estimate covers nothing else). @returns { fills, error }
+ */
+function fromManual(input, now = Date.now()) {
+  const b = input || {};
+  const today = istIso(now).slice(0, 10);
+  const validDate = (d) => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return false;
+    const ms = Date.parse(`${d}T00:00:00Z`);
+    return Number.isFinite(ms) && new Date(ms).toISOString().slice(0, 10) === d; // 30 Feb is not a day
+  };
+  const validTime = (t) => /^([01]\d|2[0-3]):[0-5]\d$/.test(t);
+  const date = String(b.date || "").trim();
+  const exitDate = String(b.exitDate || date).trim();
+  const entryTime = String(b.entryTime || "10:00").trim();
+  const exitTime = String(b.exitTime || "14:30").trim();
+  const symbol = String(b.symbol || "").trim().toUpperCase();
+  const exchange = String(b.exchange || "NSE").trim().toUpperCase();
+  const side = String(b.side || "").toLowerCase();
+  const qty = Number(b.qty);
+  const entryPrice = Math.round(Number(b.entryPrice) * 100) / 100;
+  const exitPrice = Math.round(Number(b.exitPrice) * 100) / 100;
+  const fail = (error) => ({ fills: [], error });
+  if (!validDate(date)) return fail("Enter the date of the trade.");
+  if (date > today) return fail("That day has not happened yet.");
+  if (!validDate(exitDate) || exitDate < date) return fail("The exit date cannot be before the entry date.");
+  if (exitDate > today) return fail("The exit date has not happened yet.");
+  if (!/^[A-Z0-9&._-]{1,40}$/.test(symbol)) return fail("Enter the stock symbol, for example SBIN.");
+  if (!["NSE", "BSE"].includes(exchange)) return fail("Only NSE and BSE shares can be added by hand.");
+  if (!["long", "short"].includes(side)) return fail("Choose long (bought first) or short (sold first).");
+  if (!Number.isInteger(qty) || qty < 1 || qty > 1000000) return fail("Quantity must be a whole number from 1 to 10,00,000.");
+  if (!(entryPrice > 0 && entryPrice <= 10000000) || !(exitPrice > 0 && exitPrice <= 10000000)) return fail("Enter the entry and exit prices.");
+  if (!validTime(entryTime) || !validTime(exitTime)) return fail("Enter the times as hours and minutes, for example 09:30.");
+  const entryAt = parseTime(`${date} ${entryTime}`);
+  const exitAt = parseTime(`${exitDate} ${exitTime}`);
+  if (!(exitAt > entryAt)) return fail("The exit must come after the entry.");
+  if (exitAt > now) return fail("The exit time is still in the future.");
+  const sameDay = date === exitDate;
+  const product = ["MIS", "CNC"].includes(String(b.product || "").toUpperCase()) ? String(b.product).toUpperCase() : sameDay ? "MIS" : "CNC";
+  const batch = crypto.randomBytes(6).toString("hex");
+  const open = side === "long" ? "BUY" : "SELL";
+  const close = side === "long" ? "SELL" : "BUY";
+  const base = { orderId: "", exchange, symbol, qty, product, source: "manual", batch };
+  return {
+    fills: [
+      { ...base, id: `m:${batch}:1`, side: open, price: entryPrice, at: entryAt },
+      { ...base, id: `m:${batch}:2`, side: close, price: exitPrice, at: exitAt },
+    ],
+    error: "",
+  };
+}
+
 /* ------------------------------------------------------------ round trips */
 
 /**
@@ -124,7 +180,7 @@ function roundTrips(fills) {
     let cur = null;
     let pos = 0;
     const start = (f, qty) => {
-      cur = { symbol: f.symbol, exchange: f.exchange, side: f.side === "BUY" ? "long" : "short", entryAt: f.at, exitAt: null, buyQty: 0, buyVal: 0, sellQty: 0, sellVal: 0, maxQty: 0, fills: 0, products: new Set() };
+      cur = { symbol: f.symbol, exchange: f.exchange, side: f.side === "BUY" ? "long" : "short", entryAt: f.at, exitAt: null, buyQty: 0, buyVal: 0, sellQty: 0, sellVal: 0, maxQty: 0, fills: 0, products: new Set(), batches: new Set(), nonManual: 0 };
       pos = 0;
       return qty;
     };
@@ -139,6 +195,8 @@ function roundTrips(fills) {
         pos -= qty;
       }
       cur.fills += 1;
+      if (f.source === "manual" && f.batch) cur.batches.add(f.batch);
+      else cur.nonManual += 1;
       if (f.product) cur.products.add(f.product);
       cur.maxQty = Math.max(cur.maxQty, Math.abs(pos));
       cur.lastAt = f.at;
@@ -198,6 +256,7 @@ function finish(t, open) {
     fills: t.fills,
     product: products.length === 1 ? products[0] : intraday ? "MIS" : products.includes("CNC") || !products.length ? "CNC" : products.join("/"),
     intraday,
+    manual: t.nonManual === 0 && t.batches.size === 1 ? [...t.batches][0] : null,
     holdMin: open ? null : Math.round((t.exitAt - t.entryAt) / 60000),
   };
 }
@@ -239,14 +298,16 @@ function group(trips, keyOf) {
   for (const t of trips) {
     const k = keyOf(t);
     if (k === null || k === undefined || k === "") continue;
-    const g = m.get(k) || { key: k, trades: 0, wins: 0, net: 0, gross: 0 };
+    const g = m.get(k) || { key: k, trades: 0, wins: 0, net: 0, gross: 0, charges: 0, brokerage: 0 };
     g.trades += 1;
     if (t.net > 0) g.wins += 1;
     g.net += t.net;
     g.gross += t.pnl;
+    g.charges += t.charges || 0;
+    g.brokerage += t.brokerage || 0;
     m.set(k, g);
   }
-  return [...m.values()].map((g) => ({ ...g, net: r2(g.net), gross: r2(g.gross), winRate: g.trades ? r2((g.wins / g.trades) * 100) : 0, avg: g.trades ? r2(g.net / g.trades) : 0 }));
+  return [...m.values()].map((g) => ({ ...g, net: r2(g.net), gross: r2(g.gross), charges: r2(g.charges), brokerage: r2(g.brokerage), taxes: r2(g.charges - g.brokerage), winRate: g.trades ? r2((g.wins / g.trades) * 100) : 0, avg: g.trades ? r2(g.net / g.trades) : 0 }));
 }
 
 /**
@@ -394,6 +455,40 @@ class TradeJournal {
     return { added, read: r.fills.length, skipped: r.skipped, error: "" };
   }
 
+  /**
+   * A trade typed in by hand (see fromManual). @returns { batch, key, warn } or { error }.
+   * "warn" says when Zerodha or an import already gave fills in that stock on that day: if it is the
+   * same trade it now counts twice, and the manual one can be removed.
+   */
+  addManual(input, now = Date.now()) {
+    const r = fromManual(input, now);
+    if (r.error) return { error: r.error };
+    const d = this._load();
+    const [first, last] = r.fills;
+    const dayOf = (ms) => istIso(ms).slice(0, 10);
+    const same = Object.values(d.fills).filter((f) => f.source !== "manual" && f.exchange === first.exchange && f.symbol === first.symbol && (dayOf(f.at) === dayOf(first.at) || dayOf(f.at) === dayOf(last.at))).length;
+    this.add(r.fills, "manual");
+    return {
+      batch: first.batch,
+      key: `${first.exchange}:${first.symbol}:${first.at}`,
+      warn: same ? `The journal already has ${same} fill${same === 1 ? "" : "s"} in ${first.symbol} on that day from Zerodha or an import. If this is the same trade, it now counts twice: remove the manual one.` : "",
+    };
+  }
+
+  /** Removes a hand-typed trade (both fills, its tags and its measured excursion). @returns fills removed */
+  removeManual(batch) {
+    const d = this._load();
+    const ids = Object.keys(d.fills).filter((id) => d.fills[id].source === "manual" && d.fills[id].batch === batch);
+    if (!ids.length) return 0;
+    const first = d.fills[ids.sort()[0]];
+    for (const id of ids) delete d.fills[id];
+    const key = `${first.exchange}:${first.symbol}:${first.at}`; // a trip is keyed by its entry time
+    delete d.tags[key];
+    delete d.excursions[key];
+    this._save(d);
+    return ids.length;
+  }
+
   setTags(key, { setup, mistakes, note, rating } = {}) {
     const d = this._load();
     const clean = {
@@ -420,7 +515,8 @@ class TradeJournal {
     return roundTrips(Object.values(d.fills))
       .map((t) => {
         const c = t.open ? 0 : charges(t);
-        return { ...t, charges: c, net: r2(t.pnl - c), tags: d.tags[t.key] || null, exc: d.excursions[t.key] || null };
+        const brokerage = t.open ? 0 : r2(chargeParts(t).brokerage);
+        return { ...t, charges: c, brokerage, net: r2(t.pnl - c), tags: d.tags[t.key] || null, exc: d.excursions[t.key] || null };
       })
       .filter((t) => (!from || t.entryAt >= from) && (!to || t.entryAt <= to))
       .filter((t) => (!symbol || t.symbol === symbol) && (!side || t.side === side) && (!kind || (kind === "intraday" ? t.intraday : !t.intraday)) && (!setup || (t.tags && t.tags.setup === setup)));
@@ -442,4 +538,4 @@ class TradeJournal {
   }
 }
 
-module.exports = { TradeJournal, roundTrips, charges, chargeParts, stats, excursion, fromConsoleCsv, fromKite, parseTime, csvRows, MISTAKES, NAME };
+module.exports = { TradeJournal, fromManual, roundTrips, charges, chargeParts, stats, excursion, fromConsoleCsv, fromKite, parseTime, csvRows, MISTAKES, NAME };

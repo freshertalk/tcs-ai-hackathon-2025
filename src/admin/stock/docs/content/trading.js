@@ -216,6 +216,7 @@ export const TRADING = [
       { ul: [
         "**Automatically:** Zerodha’s trades of the current day are copied into the journal whenever the account is read (every Positions refresh, the Journal page load, the Trade Analysis capture). Zerodha’s API returns only today’s trades, so a day you never visited while connected is lost unless imported.",
         "**Import Console CSV:** in Zerodha Console go to Reports → Tradebook and download the CSV, then use **Import Console CSV** (up to 8 MB; repeats are ignored). Columns are matched by name in any order; symbol, trade type, quantity and price are required. Rows with a bad side, quantity, price or time are skipped and counted. Date-only values are read as 9:15 IST. A fill’s id has the same form as a live Kite fill, so the same trade is not added twice.",
+        "**By hand:** **+ Add a trade** (or **+ Add a trade on this date** after clicking a date in the P&L calendar) records a trade for any past day the journal does not have: date, stock (NSE or BSE), long or short, quantity, entry and exit price, entry and exit time (defaults 10:00 and 14:30), and an exit date if it ended on a later day. It becomes two fills that pair, get estimated charges, count in every statistic and can be tagged like any other trade; it is marked **by hand** and has a **Remove** button. A future day, a bad price or an exit before the entry is refused. If Zerodha or an import already gave fills in that stock that day, you get a warning that the trade may now count twice.",
         "The journal keeps the newest 60,000 fills, your tags, the MAE/MFE results and the last 20 import records.",
       ] },
       { logic: {
@@ -245,7 +246,7 @@ export const TRADING = [
       { ul: [
         "**Win = net above zero after charges**; everything at or below zero counts as a loss. Win rate, gross, charges, net.",
         "Average win and loss, **payoff** (average win ÷ average loss), **profit factor** (money won ÷ money lost; ∞ with no loss), **expectancy** (average net per trade), largest win and loss, **max drawdown** (the largest fall of the running net in exit order), best and worst streak, average hold, trading days and green days.",
-        "An equity curve (needs 2 closed trades) and a P&L calendar of the last 6 months.",
+        "An equity curve (needs 2 closed trades) and a **P&L calendar** of the last 6 months (always including this month). Every date number stays readable on its green or red colour (the shade grows with the size of the day’s net). **Hover or focus a date** — or click or tap it to keep it open — for three short figures: **Profit / loss** (before charges), **Taxes** (STT, exchange fee, SEBI fee, GST, stamp duty, DP charge) and **Brokerage + taxes** (everything the day cost), with the day’s net and trade count above them. All of these are estimates.",
         "**Breakdowns** (trades, win %, net, bar): by stock (best 8 and worst 4), by hour and weekday of entry, long and short, intraday and delivery, by setup tag, and the **cost of each mistake**. Rows with fewer than 8 trades are greyed as “too few to trust”.",
         "**Filters:** period 1W, 1M, 3M (default), YTD, 1Y, All; kind (All, Intraday, Delivery); side; setup. The table lists the 25 latest rows with “Show all”.",
       ] },
@@ -396,6 +397,7 @@ export const TRADING = [
       { ul: [
         "**Notes:** free text (4,000 characters), a 1–5 star “How well did you stick to your rules?”, mood (calm, confident, anxious, impatient, tired, angry, greedy) and up to 8 lessons of 300 characters.",
         "**Figures:** trades, winning, losing; total profit, total loss, charges & taxes, margin left. Hand figures replace computed ones everywhere (table, totals, charts) and mark the day **Edited**. “Use the journal’s figures again” clears them. A day the journal does not hold can be entered this way.",
+        "**Any day, right on its page:** open a date with the picker (“Open any day”). If it has no report, the page shows the figures form (empty — only what you type is saved) and your notes, ready to fill in and save there and then, without saving the day first. You can also add the day’s real trades in the Journal (**+ Add a trade**) and press **Save this day**.",
         "**Delete** removes only that day’s report; the trades stay in the journal and the day can be saved again.",
       ] },
       { h: "The pages" },

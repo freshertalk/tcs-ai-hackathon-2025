@@ -446,10 +446,13 @@ function NotesEditor({ d, onSaved }) {
   );
 }
 
-function FigureEditor({ d, onSaved }) {
+function FigureEditor({ d, onSaved, blank = false }) {
   const o = d.overrides || {};
   const s = d.summary;
-  const init = { trades: o.trades ?? s.trades, wins: o.wins ?? s.wins, losses: o.losses ?? s.losses, grossProfit: o.grossProfit ?? s.grossProfit, grossLoss: o.grossLoss ?? s.grossLoss, chargesTotal: o.chargesTotal ?? s.charges.total, marginAvailable: o.marginAvailable ?? (d.margin ? d.margin.available : "") };
+  // a day with no report starts empty, so only what you type is saved
+  const init = blank
+    ? { trades: "", wins: "", losses: "", grossProfit: "", grossLoss: "", chargesTotal: "", marginAvailable: "" }
+    : { trades: o.trades ?? s.trades, wins: o.wins ?? s.wins, losses: o.losses ?? s.losses, grossProfit: o.grossProfit ?? s.grossProfit, grossLoss: o.grossLoss ?? s.grossLoss, chargesTotal: o.chargesTotal ?? s.charges.total, marginAvailable: o.marginAvailable ?? (d.margin ? d.margin.available : "") };
   const [f, setF] = useState(init);
   const [msg, setMsg] = useState({ kind: "", text: "" });
   const [busy, setBusy] = useState(false);
@@ -473,7 +476,7 @@ function FigureEditor({ d, onSaved }) {
     ["marginAvailable", "Margin left (₹)"],
   ];
   return (
-    <details className="ta-card ta-edit" open={Boolean(d.edited)}>
+    <details className="ta-card ta-edit" open>
       <summary>
         <b>Edit the figures by hand</b> <small>for a day the journal does not hold, or a number it got wrong</small>
       </summary>
@@ -488,7 +491,18 @@ function FigureEditor({ d, onSaved }) {
       </div>
       <Alert kind={msg.kind === "ok" ? "ok" : "error"}>{msg.text}</Alert>
       <div className="ta-actions">
-        <button type="button" className="adm-btn adm-btn--solid adm-btn--sm" disabled={busy} onClick={() => send({ overrides: f }, "Figures saved: every total now follows them.")}>
+        <button
+          type="button"
+          className="adm-btn adm-btn--solid adm-btn--sm"
+          disabled={busy}
+          onClick={() => {
+            if (blank && Object.values(f).every((v) => v === "" || v === null)) {
+              setMsg({ kind: "error", text: "Enter at least one figure to save." });
+              return;
+            }
+            send({ overrides: f }, "Figures saved: every total now follows them.");
+          }}
+        >
           Save these figures
         </button>
         {d.edited && (
@@ -572,11 +586,16 @@ function DayView({ date, onBack, onChanged }) {
       {st.loading && !d && <Loading label="Opening the day…" />}
       {st.error && !st.missing && <Alert>{st.error}</Alert>}
       {st.missing && (
+        <>
         <section className="ta-card ta-first">
           <h3>No report is saved for this day</h3>
-          <p>Press <b>Save this day</b> to build it from the journal (the trades it has seen for that day). If you traded outside the journal's reach, save it first and then enter the figures by hand below.</p>
-          <FigureEditor d={{ date, summary: { trades: 0, wins: 0, losses: 0, grossProfit: 0, grossLoss: 0, charges: { total: 0 } }, margin: null, overrides: null }} onSaved={saved} />
+          <p>
+            Fill in this day right here and save it, or press <b>Save this day</b> to build it from the journal (the trades it has seen for that day). To bring in the actual trades, add them in the Journal (<b>+ Add a trade</b>) and then press <b>Save this day</b>.
+          </p>
         </section>
+        <FigureEditor blank d={{ date, summary: { trades: 0, wins: 0, losses: 0, grossProfit: 0, grossLoss: 0, charges: { total: 0 } }, margin: null, overrides: null }} onSaved={saved} />
+        <NotesEditor d={{ date, notes: null }} onSaved={saved} />
+        </>
       )}
       {d && <DayBody d={d} onSaved={saved} />}
     </div>

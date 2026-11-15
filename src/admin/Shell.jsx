@@ -70,14 +70,17 @@ export default function Shell({ crumb, notice, children, narrow, wide, fluid }) 
       <header className="adm-head">
         <div className={`${wrap} adm-head__row`}>
           <nav className="adm-crumbs" aria-label="Breadcrumb">
-            <Link to={adminPath()} className="adm-brand" data-tip="Back to the dashboard.">
-              Vinay&rsquo;s control room
+            <Link to={adminPath()} className="adm-brand" aria-label="Drishti — the AI Trading Advisor for NSE. Back to the dashboard." data-tip="Back to the dashboard.">
+              {/* one line at every width: the full name, then shorter forms as the screen narrows */}
+              <span className="adm-brand__full">Drishti — the AI Trading Advisor for NSE</span>
+              <span className="adm-brand__mid" aria-hidden="true">Drishti — AI Trading Advisor</span>
+              <span className="adm-brand__short" aria-hidden="true">Drishti</span>
             </Link>
             {crumb && (
-              <>
+              <span className="adm-crumbs__page">
                 <span aria-hidden="true">/</span>
                 <span aria-current="page">{crumb}</span>
-              </>
+              </span>
             )}
           </nav>
           {user && (
