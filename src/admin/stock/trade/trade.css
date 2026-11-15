@@ -1286,45 +1286,6 @@
   justify-self: start;
 }
 
-/* adding a trade by hand */
-.jr-add {
-  display: grid;
-  gap: 10px;
-  margin-top: 10px;
-  padding: 12px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--surface-2);
-}
-.jr-add h4 {
-  margin: 0;
-  font-size: var(--t-title);
-}
-.jr-add__grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 10px;
-}
-.jr-add__grid input,
-.jr-add__grid select {
-  width: 100%;
-  min-height: 40px;
-}
-.jr-add__sum {
-  margin: 0;
-  font-size: var(--t-mid);
-}
-.jr-add__sum .is-up {
-  color: var(--up);
-}
-.jr-add__sum .is-down {
-  color: var(--down);
-}
-.jr-chip--hand {
-  margin-left: 6px;
-  background: color-mix(in srgb, var(--accent) 18%, transparent);
-  color: var(--ink);
-}
 .jr-bds {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
@@ -1924,4 +1885,325 @@
   font-size: var(--t-mid);
   font-weight: 600;
   color: var(--accent);
+}
+
+/* ------------------------------------------- the journal's periods and analytics (JournalPeriods.jsx) */
+.jp-bar {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+.jp-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.jp-chips > button,
+.jp-sel select {
+  padding: 4px 11px;
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  background: var(--surface);
+  color: var(--ink-2);
+  font: inherit;
+  font-size: var(--t-small);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.jp-chips > button:hover,
+.jp-sel select:hover {
+  border-color: var(--accent);
+  color: var(--ink);
+}
+.jp-chips > button[aria-pressed="true"],
+.jp-sel.is-on select {
+  background: color-mix(in srgb, var(--accent) 20%, var(--surface));
+  border-color: var(--accent);
+  color: var(--ink);
+  font-weight: 600;
+}
+.jp-custom,
+.jp-name,
+.jp-since {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 8px;
+}
+.jp-custom label,
+.jp-since label {
+  display: grid;
+  gap: 2px;
+  font-size: var(--t-tag);
+  color: var(--ink-3);
+}
+.jp-custom input,
+.jp-name input,
+.jp-since input {
+  padding: 5px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--t-mid);
+}
+.jp-views {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.jp-now {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px !important;
+  font-size: var(--t-base);
+}
+.jp-now span {
+  color: var(--ink-2);
+}
+.jp-card {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.jp-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+.jp-head .vd-note {
+  margin: 2px 0 0;
+}
+.jp-table {
+  width: 100%;
+  font-size: var(--t-mid);
+}
+.jp-table .is-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.jp-table tbody th small {
+  display: block;
+  font-weight: 400;
+  color: var(--ink-3);
+  font-size: var(--t-tag);
+}
+.jp-table tbody tr[tabindex] {
+  cursor: pointer;
+}
+.jp-table tbody tr[tabindex]:hover,
+.jp-table tbody tr[tabindex]:focus-visible {
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  outline: none;
+}
+.jp-table tbody tr.is-sel {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+.jp-table tbody tr.is-sel th {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+.jp-table tbody tr.is-break > * {
+  border-top: 2px solid var(--line);
+}
+.jp-table tbody tr.is-empty {
+  color: var(--ink-3);
+}
+.jp-net {
+  font-weight: 600;
+}
+.jp-table .is-up,
+.jp-src .is-up,
+.jp-cap .is-up {
+  color: var(--up);
+}
+.jp-table .is-down,
+.jp-src .is-down,
+.jp-cap .is-down {
+  color: var(--down);
+}
+/* the year chart beside the heatmap: the heatmap gets the wider column */
+.jp-two {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+}
+@media (min-width: 1200px) {
+  .jp-two {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.75fr);
+  }
+}
+/* financial-year bars */
+.jp-fy {
+  width: 100%;
+  height: auto;
+  max-height: 260px;
+}
+.jp-fy__bar rect.is-up {
+  fill: var(--up);
+}
+.jp-fy__bar rect.is-down {
+  fill: var(--down);
+}
+.jp-fy__bar rect.is-up,
+.jp-fy__bar rect.is-down {
+  opacity: 0.85;
+  transition: opacity 0.15s ease;
+}
+.jp-fy__bar.is-hover rect.is-up,
+.jp-fy__bar.is-hover rect.is-down {
+  opacity: 1;
+}
+.jp-fy__hit {
+  fill: transparent;
+  cursor: pointer;
+}
+.jp-fy__bar.is-hover .jp-fy__hit {
+  fill: color-mix(in srgb, var(--accent) 7%, transparent);
+}
+.jp-fy__val {
+  font-size: 12px;
+  font-weight: 600;
+  fill: var(--ink);
+}
+.jp-cap {
+  margin: 0 !important;
+  font-size: var(--t-small);
+  color: var(--ink-2);
+  min-height: 1.5em;
+}
+/* the month heatmap */
+.jp-heat {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 3px;
+  font-size: var(--t-tag);
+  font-variant-numeric: tabular-nums;
+}
+.jp-heat th {
+  font-weight: 600;
+  color: var(--ink-3);
+  text-align: center;
+  white-space: nowrap;
+}
+.jp-heat tbody th {
+  text-align: left;
+  padding-right: 4px;
+}
+.jp-heat td {
+  min-width: 40px;
+  height: 30px;
+  padding: 0;
+  border-radius: 6px;
+  background: var(--surface-2);
+  text-align: center;
+}
+.jp-heat td.is-up {
+  background: color-mix(in srgb, var(--up) calc(var(--a, 0.3) * 75%), var(--surface-2));
+}
+.jp-heat td.is-down {
+  background: color-mix(in srgb, var(--down) calc(var(--a, 0.3) * 75%), var(--surface-2));
+}
+.jp-heat td.is-future {
+  background: transparent;
+  border: 1px dashed var(--line);
+}
+.jp-heat td button {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.jp-heat td button:hover {
+  outline: 2px solid var(--accent);
+  border-radius: 6px;
+}
+.jp-heat td span {
+  color: var(--ink-3);
+}
+.jp-heat__tot {
+  background: transparent !important;
+  font-weight: 700;
+  padding: 0 4px !important;
+}
+.jp-heat__tot.is-up {
+  color: var(--up);
+}
+.jp-heat__tot.is-down {
+  color: var(--down);
+}
+/* where the history comes from */
+.jp-src__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+}
+.jp-src__grid > div {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+}
+.jp-src h4 {
+  margin: 0;
+  font-size: var(--t-base);
+  font-weight: 600;
+}
+.jp-src p {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: var(--t-mid);
+  line-height: 1.55;
+}
+.jp-src__st {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.jp-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--down);
+}
+.jp-dot.is-on {
+  background: var(--up);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--up) 25%, transparent);
+}
+.jp-src .adm-btn {
+  justify-self: start;
+}
+.jp-imports,
+.jp-gaps ul {
+  margin: 0;
+  padding-left: 18px;
+  font-size: var(--t-small);
+  color: var(--ink-2);
+}
+.jp-gaps {
+  padding: 10px 12px;
+  border: 1px dashed color-mix(in srgb, var(--down) 45%, var(--line));
+  border-radius: 10px;
+}
+.jp-gaps h4 {
+  margin-bottom: 4px;
+}
+@media (max-width: 640px) {
+  .jp-chips > button,
+  .jp-sel select {
+    padding: 5px 10px;
+  }
+  .jp-heat td {
+    min-width: 42px;
+  }
 }

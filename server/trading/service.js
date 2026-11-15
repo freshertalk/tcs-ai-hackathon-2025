@@ -285,7 +285,9 @@ class TradingService {
   async journalView(filters) {
     if (this.market.kiteAuth()) {
       try {
-        this.journal.ingestKite(await this.trades());
+        const trades = await this.trades();
+        this.journal.ingestKite(trades);
+        this.journal.markCaptured(new Date(this.now() + 5.5 * 3600 * 1000).toISOString().slice(0, 10), trades.length);
       } catch (_) {
         /* the stored journal is still worth showing */
       }

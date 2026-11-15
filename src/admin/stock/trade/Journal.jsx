@@ -1,26 +1,19 @@
 // The trading journal: every round trip you made, and what the numbers say about how you
-// trade — net P&L after estimated charges, win rate, profit factor, expectancy, drawdown,
-// streaks; the equity curve and a P&L calendar; where the money is made and lost (stock,
-// hour, weekday, side, intraday/delivery, setup, mistake); MAE/MFE per trade; tags and notes;
-// and an AI review of it all. Today's fills come in from Zerodha by themselves; history comes
-// from a Zerodha Console tradebook CSV.
+// trade — profit and loss for any period (today, yesterday, this week / month / quarter, the last
+// 6, 9 and 12 months, this financial year, every past financial year, all time, a custom range or a
+// saved view), net after estimated charges, win rate, profit factor, expectancy, drawdown, streaks;
+// the financial-year chart, the month heatmap, the equity curve, the P&L calendar, month-by-month
+// and day-by-day tables; where the money is made and lost; MAE/MFE; tags and notes; an AI review;
+// CSV downloads of all of it. Every figure comes from Zerodha: today's fills are read from Kite by
+// the server by itself, and the history from Zerodha Console tradebook files. Nothing is typed in.
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../../api";
 import { Alert, Loading } from "../../ui";
 import { useAiStatus } from "../../aiStatus";
-import { useDialog } from "../../dialog/DialogProvider";
 import { isNum, num, when } from "../analyzer/format";
+import { DayTable, FyChart, MonthHeatmap, MonthTable, PeriodBar, PeriodTable, Sources, dayLabel, downloadCsv, monthLabel } from "./JournalPeriods";
 import "./trade.css";
-
-const RANGES = [
-  { id: "1w", label: "1W" },
-  { id: "1m", label: "1M" },
-  { id: "3m", label: "3M" },
-  { id: "ytd", label: "YTD" },
-  { id: "1y", label: "1Y" },
-  { id: "all", label: "All" },
-];
 const IST = 5.5 * 3600 * 1000;
 const day = (ms) => new Date(ms + IST).toISOString().slice(0, 10);
 const time = (ms) => new Date(ms + IST).toISOString().slice(11, 16);
@@ -77,8 +70,8 @@ const TRIP_ROWS = 25;
 const longDay = (k) => new Date(`${k}T00:00:00Z`).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
 
 /** The three figures of one day, in short words: profit or loss, taxes, and brokerage with the taxes. */
-function DayFigures({ k, d, onAdd }) {
-  if (!k) return <p className="jr-cal__hint">Hover over a date to see its figures. Click or tap a date to keep it open and add a trade on it.</p>;
+function DayFigures({ k, d }) {
+  if (!k) return <p className="jr-cal__hint">Hover over a date to see its figures. Click or tap a date to keep it open.</p>;
   return (
     <div className="jr-cal__tip">
       <p className="jr-cal__head">
@@ -107,16 +100,11 @@ function DayFigures({ k, d, onAdd }) {
           </div>
         </dl>
       )}
-      {onAdd && (
-        <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm" onClick={() => onAdd(k)}>
-          + Add a trade on this date
-        </button>
-      )}
     </div>
   );
 }
 
-function Calendar({ days, onAdd }) {
+function Calendar({ days, fromDay, toDay }) {
   const box = useRef(null);
   const [hover, setHover] = useState("");
   const [sel, setSel] = useState("");
@@ -126,9 +114,17 @@ function Calendar({ days, onAdd }) {
   }, [days.length]);
   const byDay = new Map(days.map((d) => [d.key, d]));
   const max = Math.max(...days.map((d) => Math.abs(d.net)), 1);
-  // the last six months that have trades, and always this month, so any day can be picked
-  const thisMonth = day(Date.now()).slice(0, 7);
-  const months = [...new Set([...days.map((d) => d.key.slice(0, 7)), thisMonth])].sort().slice(-6);
+  // the months of the period shown (the last twelve of a longer one), newest on the right
+  const last = (toDay || day(Date.now())).slice(0, 7);
+  // from the first month of the period that has a trade (empty months before it say nothing)
+  const firstTrade = days.length ? days.reduce((a, d) => (d.key < a ? d.key : a), days[0].key) : "";
+  const first = [fromDay || "", firstTrade || last].sort().pop().slice(0, 7);
+  const months = [];
+  for (let m = last; m >= first && months.length < 12; ) {
+    months.unshift(m);
+    const [yy, mm] = m.split("-").map(Number);
+    m = mm === 1 ? `${yy - 1}-12` : `${yy}-${String(mm - 1).padStart(2, "0")}`;
+  }
   const shown = hover || sel;
   return (
     <div className="jr-calw">
@@ -180,101 +176,12 @@ function Calendar({ days, onAdd }) {
         })}
       </div>
       <div role="status" aria-live="polite">
-        <DayFigures k={shown} d={shown ? byDay.get(shown) : null} onAdd={shown && shown === sel && shown <= day(Date.now()) ? onAdd : null} />
+        <DayFigures k={shown} d={shown ? byDay.get(shown) : null} />
       </div>
     </div>
   );
 }
 
-/* ---------------------------------------------------- a trade typed in by hand */
-function ManualForm({ start, onClose, onSaved }) {
-  const today = day(Date.now());
-  const [f, setF] = useState({ date: start || today, exitDate: "", symbol: "", exchange: "NSE", side: "long", qty: "", entryPrice: "", exitPrice: "", entryTime: "10:00", exitTime: "14:30" });
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState("");
-  const set = (k) => (e) => setF((x) => ({ ...x, [k]: e.target.value }));
-  const qty = Number(f.qty);
-  const gross = qty > 0 && Number(f.entryPrice) > 0 && Number(f.exitPrice) > 0 ? (Number(f.exitPrice) - Number(f.entryPrice)) * qty * (f.side === "long" ? 1 : -1) : null;
-  const save = async (e) => {
-    e.preventDefault();
-    setBusy(true);
-    setErr("");
-    try {
-      const body = { ...f, qty: Number(f.qty), entryPrice: Number(f.entryPrice), exitPrice: Number(f.exitPrice), exitDate: f.exitDate || f.date };
-      const d = await api("/api/admin/trading/journal/manual", { method: "POST", body });
-      onSaved(d, f);
-    } catch (x) {
-      setErr(x.message);
-      setBusy(false);
-    }
-  };
-  return (
-    <form className="jr-add" onSubmit={save} aria-label="Add a trade by hand">
-      <h4>Add a trade by hand</h4>
-      <p className="vd-note">For a day the journal does not have. It counts like any other trade: charges are estimated, and it can be tagged and removed. Do not add trades that Zerodha or an import already gave — they would count twice.</p>
-      <div className="jr-add__grid">
-        <label className="tr-field">
-          <span>Date</span>
-          <input type="date" value={f.date} max={today} onChange={set("date")} required />
-        </label>
-        <label className="tr-field">
-          <span>Stock</span>
-          <input value={f.symbol} onChange={(e) => setF((x) => ({ ...x, symbol: e.target.value.toUpperCase() }))} placeholder="SBIN" maxLength={40} required autoCapitalize="characters" />
-        </label>
-        <label className="tr-field">
-          <span>Exchange</span>
-          <select value={f.exchange} onChange={set("exchange")}>
-            <option>NSE</option>
-            <option>BSE</option>
-          </select>
-        </label>
-        <label className="tr-field">
-          <span>Side</span>
-          <select value={f.side} onChange={set("side")}>
-            <option value="long">Long (bought first)</option>
-            <option value="short">Short (sold first)</option>
-          </select>
-        </label>
-        <label className="tr-field">
-          <span>Quantity</span>
-          <input type="number" inputMode="numeric" min="1" step="1" value={f.qty} onChange={set("qty")} required />
-        </label>
-        <label className="tr-field">
-          <span>Entry price ₹</span>
-          <input type="number" inputMode="decimal" min="0" step="0.05" value={f.entryPrice} onChange={set("entryPrice")} required />
-        </label>
-        <label className="tr-field">
-          <span>Exit price ₹</span>
-          <input type="number" inputMode="decimal" min="0" step="0.05" value={f.exitPrice} onChange={set("exitPrice")} required />
-        </label>
-        <label className="tr-field">
-          <span>Entry time</span>
-          <input type="time" value={f.entryTime} onChange={set("entryTime")} required />
-        </label>
-        <label className="tr-field">
-          <span>Exit time</span>
-          <input type="time" value={f.exitTime} onChange={set("exitTime")} required />
-        </label>
-        <label className="tr-field">
-          <span>Exit date (if later)</span>
-          <input type="date" value={f.exitDate} min={f.date} max={today} onChange={set("exitDate")} />
-        </label>
-      </div>
-      <p className="jr-add__sum">{gross === null ? "Fill in the quantity and both prices to see the result." : <>Before charges: <b className={tone(gross)}>{sMoney(gross)}</b></>}</p>
-      <Alert>{err}</Alert>
-      <span className="jr-tag__a">
-        <button type="submit" className="adm-btn adm-btn--solid adm-btn--sm" disabled={busy}>
-          {busy ? "Saving…" : "Add to the journal"}
-        </button>
-        <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm" onClick={onClose} disabled={busy}>
-          Cancel
-        </button>
-      </span>
-    </form>
-  );
-}
-
-/* --------------------------------------------------------- breakdowns */
 function Breakdown({ title, rows, tip, limit = 12 }) {
   if (!rows || !rows.length) return null;
   const max = Math.max(...rows.map((r) => Math.abs(r.net)), 1);
@@ -374,7 +281,7 @@ function TagEditor({ trip, setups, mistakes, onSaved, onClose }) {
 }
 
 /* ------------------------------------------------------------ AI review */
-function ReviewPanel({ range }) {
+function ReviewPanel({ sel, label }) {
   const [st0, setSt] = useState({ configured: false, reviews: [] });
   const aiNow = useAiStatus();
   const st = { ...st0, configured: aiNow ? aiNow.configured : st0.configured };
@@ -387,7 +294,7 @@ function ReviewPanel({ range }) {
     setBusy(true);
     setErr("");
     try {
-      const d = await api("/api/admin/trading/journal/review", { method: "POST", body: { range } });
+      const d = await api("/api/admin/trading/journal/review", { method: "POST", body: { period: sel.period, from: sel.from, to: sel.to, range: label } });
       setSt({ configured: d.configured, reviews: d.reviews });
     } catch (e) {
       setErr(e.message);
@@ -410,8 +317,8 @@ function ReviewPanel({ range }) {
           <h3>AI review of your trading</h3>
           <p>The model reads this journal’s numbers — by stock, hour, weekday, side, setup and mistake, with MAE/MFE where measured — and names where your money is made and where it leaks, with the figures. Rules it suggests go into your skills file only if you add them.</p>
         </div>
-        <button type="button" className="adm-btn adm-btn--solid adm-btn--sm" onClick={run} disabled={busy || !st.configured} data-tip="Review the trades in the range shown. It uses your AI company's tokens, and runs only when you press it.">
-          {busy ? "Reading your journal…" : "Review this range"}
+        <button type="button" className="adm-btn adm-btn--solid adm-btn--sm" onClick={run} disabled={busy || !st.configured} data-tip="Review the trades in the period shown. It uses your AI company's tokens, and runs only when you press it.">
+          {busy ? "Reading your journal…" : `Review ${label || "this period"}`}
         </button>
       </header>
       {!st.configured && <p className="adm-alert adm-alert--info">Add an AI API key in the AI settings to use the review.</p>}
@@ -469,108 +376,125 @@ function ReviewPanel({ range }) {
 }
 
 /* ---------------------------------------------------------------- view */
+const TRIP_HEAD = ["Entry", "Exit", "Symbol", "Exchange", "Side", "Product", "Qty", "Entry avg", "Exit avg", "Hold (min)", "Gross P&L", "Brokerage", "Charges", "Net P&L", "Setup", "Mistakes", "Note", "Rating"];
+const stamp = (ms) => (ms ? new Date(ms + IST).toISOString().slice(0, 16).replace("T", " ") : "");
+
 export default function Journal() {
-  const [range, setRange] = useState("3m");
+  const [sel, setSel] = useState({ period: "fy", from: "", to: "" });
   const [kind, setKind] = useState("");
   const [side, setSide] = useState("");
   const [setup, setSetup] = useState("");
   const [state, setState] = useState({ loading: true, data: null, error: "" });
+  const [per, setPer] = useState(null);
   const [editing, setEditing] = useState("");
   const [allTrips, setAllTrips] = useState(false); // the list opens on the latest few; the totals above always cover every trade
-  const [msg, setMsg] = useState({ kind: "", text: "" });
+  const [msg, setMsg] = useState({ kind: "", text: "" }); // imports (shown where the import is)
+  const [hmsg, setHmsg] = useState({ kind: "", text: "" }); // MAE / MFE (shown at the top)
   const [busy, setBusy] = useState("");
-  const [form, setForm] = useState(null); // null, or { date } while the add-a-trade form is open
-  const formRef = useRef(null);
-  const ask = useDialog();
+  const top = useRef(null);
 
   const load = useCallback(() => {
-    const q = new URLSearchParams({ range, ...(kind ? { kind } : {}), ...(side ? { side } : {}), ...(setup ? { setup } : {}) });
+    const q = new URLSearchParams({ period: sel.period, ...(sel.period === "custom" ? { from: sel.from, to: sel.to } : {}), ...(kind ? { kind } : {}), ...(side ? { side } : {}), ...(setup ? { setup } : {}) });
     setState((s) => ({ ...s, loading: true, error: "" }));
     api(`/api/admin/trading/journal?${q}`)
       .then((d) => setState({ loading: false, data: d, error: "" }))
       .catch((e) => setState((s) => ({ loading: false, data: s.data, error: e.message })));
-  }, [range, kind, side, setup]);
+  }, [sel, kind, side, setup]);
+  const loadPer = useCallback(() => {
+    api("/api/admin/trading/journal/periods")
+      .then((d) => d && Array.isArray(d.rows) && setPer(d))
+      .catch(() => {});
+  }, []);
   useEffect(() => load(), [load]);
+  useEffect(() => loadPer(), [loadPer]);
+  // a saved view brings its filters with it
+  useEffect(() => {
+    if (!sel.view) return;
+    setKind(sel.view.kind || "");
+    setSide(sel.view.side || "");
+    setSetup(sel.view.setup || "");
+  }, [sel.view]);
 
-  const importCsv = async (file) => {
-    if (!file) return;
+  const pick = (id) => {
+    setSel({ period: id, from: "", to: "" });
+    if (top.current && top.current.scrollIntoView) top.current.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+  const pickMonth = (m) => {
+    const [y, mm] = m.split("-").map(Number);
+    const last = new Date(Date.UTC(y, mm, 0)).getUTCDate();
+    setSel({ period: "custom", from: `${m}-01`, to: `${m}-${String(last).padStart(2, "0")}` });
+    if (top.current && top.current.scrollIntoView) top.current.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  const importCsv = async (files) => {
+    if (!files || !files.length) return;
     setBusy("import");
     setMsg({ kind: "", text: "" });
-    try {
-      const text = await file.text();
-      const res = await fetch("/api/admin/trading/journal/import", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "text/csv", "X-Requested-With": "vpt", Accept: "application/json" }, body: text });
-      const d = await res.json().catch(() => null);
-      if (!res.ok) throw new Error((d && d.message) || `Import failed (${res.status}).`);
-      setMsg({ kind: "ok", text: `Imported ${d.added} new fill${d.added === 1 ? "" : "s"} of ${d.read} read${d.skipped ? ` · ${d.skipped} row${d.skipped === 1 ? "" : "s"} skipped` : ""}.` });
-      load();
-    } catch (e) {
-      setMsg({ kind: "error", text: e.message });
+    let added = 0;
+    let read = 0;
+    let skipped = 0;
+    const failed = [];
+    for (const file of files) {
+      try {
+        const text = await file.text();
+        const res = await fetch("/api/admin/trading/journal/import", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "text/csv", "X-Requested-With": "vpt", Accept: "application/json" }, body: text });
+        const d = await res.json().catch(() => null);
+        if (!res.ok) throw new Error((d && d.message) || `Import failed (${res.status}).`);
+        added += d.added;
+        read += d.read;
+        skipped += d.skipped;
+      } catch (e) {
+        failed.push(`${file.name}: ${e.message}`);
+      }
     }
+    setMsg({ kind: failed.length && !read ? "error" : "ok", text: `${files.length} file${files.length === 1 ? "" : "s"}: ${added} new fill${added === 1 ? "" : "s"} of ${read} read${skipped ? ` · ${skipped} row${skipped === 1 ? "" : "s"} skipped` : ""}.${failed.length ? ` Not imported — ${failed.join("; ")}` : ""}` });
     setBusy("");
-  };
-  const openForm = (date) => {
-    setForm({ date: date || "" });
-    setTimeout(() => formRef.current && formRef.current.scrollIntoView && formRef.current.scrollIntoView({ behavior: "smooth", block: "center" }), 60);
-  };
-  const removeManual = async (t) => {
-    const yes = await ask({ title: "Remove this trade?", body: `${t.symbol} on ${day(t.entryAt)} was added by hand. It leaves the journal, its tag goes with it, and the totals change.`, confirmText: "Remove trade", cancelText: "Keep it", tone: "danger" });
-    if (!yes) return;
-    try {
-      await api(`/api/admin/trading/journal/manual/${encodeURIComponent(t.manual)}`, { method: "DELETE" });
-      setMsg({ kind: "ok", text: `Removed ${t.symbol} of ${day(t.entryAt)}.` });
-      load();
-    } catch (e) {
-      setMsg({ kind: "error", text: e.message });
-    }
+    load();
+    loadPer();
   };
   const measure = async () => {
     setBusy("exc");
-    setMsg({ kind: "", text: "" });
+    setHmsg({ kind: "", text: "" });
     try {
       const d = await api("/api/admin/trading/journal/excursions", { method: "POST", body: { limit: 25 } });
-      setMsg({ kind: d.failed.length ? "error" : "ok", text: `Measured ${d.done} trade${d.done === 1 ? "" : "s"}.${d.left ? ` ${d.left} still to do — press again.` : ""}${d.failed.length ? ` Not measured: ${d.failed.join("; ")}` : ""}` });
+      setHmsg({ kind: d.failed.length ? "error" : "ok", text: `Measured ${d.done} trade${d.done === 1 ? "" : "s"}.${d.left ? ` ${d.left} still to do — press again.` : ""}${d.failed.length ? ` Not measured: ${d.failed.join("; ")}` : ""}` });
       load();
     } catch (e) {
-      setMsg({ kind: "error", text: e.message });
+      setHmsg({ kind: "error", text: e.message });
     }
     setBusy("");
   };
 
   const d = state.data;
   const s = d ? d.stats : null;
-  const bySym = useMemo(() => (s ? [...s.by.symbol.slice(0, 8), ...s.by.symbol.slice(-4).filter((x) => !s.by.symbol.slice(0, 8).includes(x))] : []), [s]);
+  const a = d ? d.analytics : null;
+  const period = d && d.period;
+  const label = period ? period.label : "";
+  const fileTag = period ? `${period.fromDay || "start"}_${period.toDay}` : "journal";
+  const bySym = useMemo(() => (s && s.by && s.by.symbol ? [...s.by.symbol.slice(0, 8), ...s.by.symbol.slice(-4).filter((x) => !s.by.symbol.slice(0, 8).includes(x))] : []), [s]);
+  const tripsCsv = () =>
+    downloadCsv(
+      `trades-${fileTag}.csv`,
+      TRIP_HEAD,
+      d.trips.filter((t) => !t.open).map((t) => [stamp(t.entryAt), stamp(t.exitAt), t.symbol, t.exchange, t.side, t.product, t.maxQty, t.entryAvg, t.exitAvg, t.holdMin, t.pnl, t.brokerage, t.charges, t.net, t.tags ? t.tags.setup : "", t.tags ? t.tags.mistakes.join("; ") : "", t.tags ? t.tags.note : "", t.tags && t.tags.rating ? t.tags.rating : ""])
+    );
 
   return (
     <div className="jr">
-      <section className="an-card jr-head">
+      <section className="an-card jr-head" ref={top}>
         <header className="an-card__head">
           <div>
             <h3>Trading journal</h3>
-            <p>
-              Every round trip you made, flat to flat, with estimated charges. Today’s fills come in from Zerodha by themselves; for history, import a tradebook from Zerodha Console (Reports → Tradebook → download CSV), as many date ranges as you like — repeats are ignored.
-            </p>
+            <p>Profit and loss for any period since your account opened — every figure from Zerodha. Today’s trades are read from Kite by the server by itself; the history comes from Zerodha Console tradebook files (see “Where the history comes from” below). Nothing is typed in by hand.</p>
           </div>
           <span className="jr-head__act">
-            <button type="button" className="adm-btn adm-btn--solid adm-btn--sm" onClick={() => (form ? setForm(null) : openForm(""))} aria-expanded={Boolean(form)} data-tip="Add a trade you made, for any past day the journal does not have. Charges are estimated like every other trade.">
-              {form ? "Close the form" : "+ Add a trade"}
-            </button>
-            <label className="adm-btn adm-btn--ghost adm-btn--sm jr-file" data-tip="Import a tradebook CSV downloaded from Zerodha Console. Trades already in the journal are skipped.">
-              {busy === "import" ? "Importing…" : "Import Console CSV"}
-              <input type="file" accept=".csv,text/csv" onChange={(e) => importCsv(e.target.files && e.target.files[0])} disabled={busy === "import"} />
-            </label>
             <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm" onClick={measure} disabled={Boolean(busy)} data-tip="Measure MAE and MFE — how far each trade went against you and in your favour — from 1-minute bars, for up to 25 recent trades (Zerodha keeps about 60 days of them).">
               {busy === "exc" ? "Measuring…" : "Measure MAE / MFE"}
             </button>
           </span>
         </header>
+        <PeriodBar key={sel.view ? sel.view.id : "bar"} sel={sel} setSel={setSel} fys={per ? per.fys : []} views={per ? per.views || [] : []} filters={{ kind, side, setup }} onViews={(views) => setPer((x) => (x ? { ...x, views } : x))} />
         <div className="jr-filters">
-          <div className="sv__ranges" role="group" aria-label="Period">
-            {RANGES.map((r) => (
-              <button key={r.id} type="button" aria-pressed={range === r.id} onClick={() => setRange(r.id)}>
-                {r.label}
-              </button>
-            ))}
-          </div>
           <div className="sv__ranges" role="group" aria-label="Kind">
             {[["", "All"], ["intraday", "Intraday"], ["delivery", "Delivery"]].map(([v, l]) => (
               <button key={l} type="button" aria-pressed={kind === v} onClick={() => setKind(v)}>
@@ -597,31 +521,25 @@ export default function Journal() {
             </label>
           )}
         </div>
-        <Alert kind={msg.kind === "ok" ? "ok" : "error"}>{msg.text}</Alert>
-        <Alert>{state.error}</Alert>
-        {form && (
-          <div ref={formRef}>
-            <ManualForm
-              key={form.date || "new"}
-              start={form.date}
-              onClose={() => setForm(null)}
-              onSaved={(r, f) => {
-                setForm(null);
-                setMsg({ kind: "ok", text: `Added ${f.symbol} on ${f.date} to the journal.${r.warn ? ` ${r.warn}` : ""} In Trade Analysis, open that day and press “Refresh from the journal” to include it in its report.` });
-                load();
-              }}
-            />
-          </div>
+        {period && (
+          <p className="jp-now">
+            <b>{label}</b>
+            {period.fromDay ? <span> · {period.fromDay === period.toDay ? dayLabel(period.toDay) : `${dayLabel(period.fromDay)} – ${dayLabel(period.toDay)}`}</span> : null}
+            {sel.view ? <span className="jr-chip">view: {sel.view.name}</span> : null}
+          </p>
         )}
+        <Alert kind={hmsg.kind === "ok" ? "ok" : "error"}>{hmsg.text}</Alert>
+        <Alert>{state.error}</Alert>
       </section>
 
       {state.loading && !d && <Loading label="Reading your journal…" />}
-      {d && d.fills === 0 && <p className="adm-alert adm-alert--info">The journal is empty. Trades you make from now on are added by themselves while Zerodha is connected; import a Console tradebook for your history.</p>}
+      {d && d.fills === 0 && <p className="adm-alert adm-alert--info">The journal is empty. Trades are added by themselves every trading day while Zerodha is connected; import your Console tradebooks below for the history since your account opened.</p>}
+      {s && s.trades === 0 && d.fills > 0 && <p className="adm-alert adm-alert--info">No closed trades in {label || "this period"}. Pick another period above, or a row in the table below.</p>}
 
       {s && s.trades > 0 && (
         <>
           <dl className="tr-tiles jr-tiles">
-            <div className={tone(s.net)} data-tip="Profit after estimated charges on closed round trips in this range.">
+            <div className={tone(s.net)} data-tip="Profit after estimated charges on trades closed in this period.">
               <dt>Net P&amp;L</dt>
               <dd>{sMoney(s.net)}</dd>
               <small>
@@ -647,7 +565,7 @@ export default function Journal() {
                 avg win {sMoney(s.avgWin)} · avg loss {sMoney(s.avgLoss)}
               </small>
             </div>
-            <div className="is-down" data-tip="The largest fall of the equity curve from a high, in this range.">
+            <div className="is-down" data-tip="The largest fall of the equity curve from a high, in this period.">
               <dt>Max drawdown</dt>
               <dd>{sMoney(-s.maxDrawdown)}</dd>
               <small>
@@ -663,6 +581,39 @@ export default function Journal() {
                 streaks +{s.bestStreak} / −{s.worstStreak} · hold {hold(s.avgHoldMin)}
               </small>
             </div>
+            {a && (
+              <>
+                <div data-tip="The best and the worst day of the period, after charges.">
+                  <dt>Best / worst day</dt>
+                  <dd>
+                    <span className="is-up">{a.summary.bestDay ? sMoney(a.summary.bestDay.net) : "—"}</span>
+                  </dd>
+                  <small>
+                    {a.summary.bestDay ? dayLabel(a.summary.bestDay.day) : ""}
+                    {a.summary.worstDay ? ` · worst ${sMoney(a.summary.worstDay.net)} on ${dayLabel(a.summary.worstDay.day)}` : ""}
+                  </small>
+                </div>
+                <div className={a.summary.chargesPct !== null && a.summary.chargesPct > 30 ? "is-down" : ""} data-tip="Brokerage and taxes as a share of the gross profit: how much of what you made the costs took.">
+                  <dt>Charges vs gross</dt>
+                  <dd>{a.summary.chargesPct === null ? "—" : `${num(a.summary.chargesPct, 1)}%`}</dd>
+                  <small>
+                    brokerage {sMoney(-a.summary.brokerage)} · taxes {sMoney(-a.summary.taxes)}
+                  </small>
+                </div>
+                {(a.bestMonth || a.worstMonth) && a.months.length > 1 && (
+                  <div data-tip="The best and the worst calendar month inside the period.">
+                    <dt>Best / worst month</dt>
+                    <dd>
+                      <span className="is-up">{a.bestMonth ? sMoney(a.bestMonth.net) : "—"}</span>
+                    </dd>
+                    <small>
+                      {a.bestMonth ? monthLabel(a.bestMonth.month) : ""}
+                      {a.worstMonth ? ` · worst ${sMoney(a.worstMonth.net)} in ${monthLabel(a.worstMonth.month)}` : ""}
+                    </small>
+                  </div>
+                )}
+              </>
+            )}
           </dl>
 
           <div className="jr-two">
@@ -672,9 +623,12 @@ export default function Journal() {
             </section>
             <section className="an-card">
               <h3 className="jr-h">P&amp;L calendar</h3>
-              <Calendar days={s.calendar} onAdd={openForm} />
+              <Calendar days={s.calendar} fromDay={period && period.fromDay} toDay={period && period.toDay} />
             </section>
           </div>
+
+          {a && <MonthTable months={a.months} label={fileTag} />}
+          <DayTable days={s.calendar} label={fileTag} />
 
           <section className="an-card jr-bdcard">
             <h3 className="jr-h">Where the money is made and lost</h3>
@@ -692,9 +646,22 @@ export default function Journal() {
         </>
       )}
 
+      {per && <PeriodTable per={per} sel={sel.period} onPick={pick} />}
+      {per && (
+        <div className="jp-two">
+          <FyChart per={per} onPick={pick} />
+          <MonthHeatmap per={per} onMonth={pickMonth} />
+        </div>
+      )}
+
       {d && d.trips.length > 0 && (
         <section className="an-card jr-tripcard">
-          <h3 className="jr-h">Round trips ({d.trips.length}{d.trips.length === 500 ? ", newest 500" : ""})</h3>
+          <header className="jp-head">
+            <h3 className="jr-h">Round trips ({d.trips.length}{d.trips.length === 500 ? ", newest 500" : ""})</h3>
+            <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm" onClick={tripsCsv} data-tip="Every closed trade of this period with its charges and tags, as a CSV.">
+              ⤓ CSV
+            </button>
+          </header>
           <div className="bt__scroll tr">
             <table className="an-table tr-table jr-trips">
               <thead>
@@ -725,11 +692,15 @@ export default function Journal() {
                   <React.Fragment key={t.key}>
                     <tr className={t.open ? "is-closed" : ""}>
                       <td>
-                        {day(t.entryAt)} <small>{time(t.entryAt)}</small>
+                        {day(t.open ? t.entryAt : t.exitAt)} <small>{time(t.open ? t.entryAt : t.exitAt)}</small>
                       </td>
                       <th scope="row">
                         {t.symbol} <small>{t.intraday ? "intraday" : t.open ? "open" : "delivery"}</small>
-                        {t.manual && <span className="jr-chip jr-chip--hand" data-tip="You added this trade by hand.">by hand</span>}
+                        {t.sources && t.sources.includes("console") && !t.sources.includes("kite") && (
+                          <span className="jr-chip" data-tip="From a Zerodha Console tradebook import.">
+                            Console
+                          </span>
+                        )}
                       </th>
                       <td>
                         <span className={`tr-side-tag tr-side-tag--${t.side === "long" ? "buy" : "sell"}`}>{t.side}</span>
@@ -756,13 +727,8 @@ export default function Journal() {
                         {t.tags && t.tags.setup && <span className="jr-chip">{t.tags.setup}</span>}
                         {t.tags && t.tags.mistakes.map((m) => <span key={m} className="jr-chip jr-chip--bad">{m}</span>)}
                         {t.tags && t.tags.rating ? <small> {"★".repeat(t.tags.rating)}</small> : null}
-                        {t.manual && (
-                          <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm" onClick={() => removeManual(t)} data-tip="Remove this hand-added trade from the journal.">
-                            Remove
-                          </button>
-                        )}
                         {!t.open && (
-                          <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm" onClick={() => setEditing(editing === t.key ? "" : t.key)} data-tip="Tag the setup, any mistakes, a note and how well you executed. The breakdowns and the AI review use them.">
+                          <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm" onClick={() => setEditing(editing === t.key ? "" : t.key)} data-tip="Tag the setup, any mistakes, a note and how well you executed. The breakdowns and the AI review use them. (Tags never change a figure.)">
                             {editing === t.key ? "Close" : "Tag"}
                           </button>
                         )}
@@ -790,7 +756,7 @@ export default function Journal() {
             </table>
           </div>
           {d.trips.length > TRIP_ROWS && (
-            <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm jr-more" onClick={() => setAllTrips((a) => !a)}>
+            <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm jr-more" onClick={() => setAllTrips((x) => !x)}>
               {allTrips ? `Show only the latest ${TRIP_ROWS}` : `Show all ${d.trips.length} round trips`}
             </button>
           )}
@@ -798,7 +764,12 @@ export default function Journal() {
         </section>
       )}
 
-      <ReviewPanel range={range} />
+      {per && <Sources per={per} ignoredManual={d ? d.ignoredManual || 0 : 0} onImport={importCsv} importing={busy === "import"} msg={msg} onChanged={() => {
+        load();
+        loadPer();
+      }} />}
+
+      <ReviewPanel sel={sel} label={label} />
     </div>
   );
 }

@@ -265,8 +265,10 @@ record (`analysis/days` — a collection of its own in MongoDB, a file otherwise
 - **Saved by itself at 3:45 PM IST** on trading days (`DayAnalysis.tick`, once a minute, outside `server/ai`
   because that folder holds no timers): the day's closed round trips from the journal, the margin that
   is left, any position still open, and the Nifty's move. It tries again every ten minutes (four times)
-  if the broker cannot be read, and saves nothing for a day with no trades. Any day can be saved, refreshed,
-  edited or deleted by hand; notes, a rating, lessons and hand-entered figures survive a refresh.
+  if the broker cannot be read, and saves nothing for a day with no trades. Any day can be built again from the
+  journal or deleted; notes, a rating, lessons and a mood survive a refresh. **Figures are never typed in** (removed
+  2026-11-16): `edit()` takes notes only and refuses `overrides`; `buildDay` has no overrides; days edited by hand
+  earlier are rebuilt once at start (`dropHandFigures`, old figures kept as `formerOverrides`).
 - **Profit, loss and taxes are separate everywhere** — the cards, the table, the charts: *profit* is the sum of
   trades that closed above zero, *loss* the sum of those below zero (both before charges), and *charges &
   taxes* are brokerage, STT, exchange fee, SEBI fee, GST, stamp duty and DP charge, each shown on its own
@@ -286,12 +288,24 @@ record (`analysis/days` — a collection of its own in MongoDB, a file otherwise
   of every day, stocks that made and cost money, and how often each habit recurs and what those days netted. The
   charts are plain SVG (no library), keyboard-reachable, with a read-out on hover.
 
-**Journal — by hand and the calendar.** `TradeJournal.addManual` / `removeManual` (`server/trading/journal.js`; routes
-`POST /api/admin/trading/journal/manual`, `DELETE …/manual/:batch`, superadmin) record a trade typed in for any past day as two
-fills (`source: "manual"`, ids `m:<batch>:1|2`) that pair, get the estimated charges and count everywhere; the trip carries
-`manual: <batch>` so the table shows "by hand" and a Remove button. The P&L calendar keeps the date readable on every colour and,
-on hover, focus or click, shows Profit / loss, Taxes and Brokerage + taxes for the day (the calendar days now carry `charges`,
-`brokerage` and `taxes`).
+**Journal — P&L for any period, only from Zerodha (`server/trading/journal.js`, `server/journal-capture.js`,
+`src/admin/stock/trade/Journal.jsx`, `JournalPeriods.jsx`).** Kite Connect returns only the current day's trades (no endpoint
+for past trades or P&L), so `JournalCapture` reads `trading.trades()` every 5 minutes on weekdays 09:10–23:59 IST while Kite
+is connected (no page needed), ingests new fills, `markCaptured(day)` and saves `snapshot()`; the history comes from Console
+tradebook CSVs (multi-file import; each import records its first/last trade day). Manual add/remove was removed: old
+`source: "manual"` fills stay stored but are excluded from `trips()`. A closed trip now counts on its **exit** day.
+`periodRange(id, now, { from, to, firstAt })`: today, yesterday (previous weekday), week, month, quarter, 6m/9m/12m, fy,
+`fy-YYYY`, all, custom. `periods(now)` returns every period's `summarize()` (trades, win rate, gross, brokerage, taxes,
+charges, net, profit factor, expectancy, avg win/loss, drawdown, best/worst day, charges % of gross), every past FY since
+`accountSince` (optional, set on the page) or the first fill, all months (heatmap), sources, gaps (10+ weekdays with no fill,
+capture or import range) and saved views. `analytics(filters)` adds month-by-month and best/worst month. Saved views
+(`saveView`/`removeView`, in the journal record) and daily snapshots (`trading/pnl-snapshots.json`: latest in full plus one
+compact row per period per day, 800 days, written only on change). Routes (superadmin): `GET /api/admin/trading/journal?period=&from=&to=&kind=&side=&setup=`,
+`GET …/journal/periods`, `POST …/journal/capture`, `GET …/journal/snapshots`, `PUT …/journal/account-since`,
+`POST|DELETE …/journal/views[/:id]`, `POST …/journal/import`. The page: period chips + past-FY select + custom range + saved
+views, the period table, an FY bar chart, a month heatmap (FY × Apr–Mar), month-by-month and day-by-day tables, CSV downloads
+(periods, months, days, trades, snapshot history), and "Where the history comes from". The P&L calendar shows the period's
+months (from the first with a trade, up to 12) and Profit / loss, Taxes and Brokerage + taxes per day.
 
 **AI Engine and AI brains (the workspace before Document; a tile on `/me`; `src/admin/stock/engine/`, `server/ai/brains.js`).**
 Every AI feature, rule and condition in plain English (the AI chapters of the Document plus two of its own), and — for the

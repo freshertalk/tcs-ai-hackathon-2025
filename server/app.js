@@ -43,6 +43,7 @@ const { mountAnalysis } = require("./analysis/routes");
 const { Temple, mountTemple } = require("./temple");
 const { Notifier, mountNotify } = require("./notify");
 const { AlertWatch } = require("./alert-watch");
+const { JournalCapture } = require("./journal-capture");
 const { WhatsAppService, mountWhatsApp } = require("./whatsapp");
 const { buildHealth } = require("./health");
 const { chargeParts } = require("./trading/journal");
@@ -263,6 +264,8 @@ function createApp(opts = {}) {
       },
     });
   if (opts.analysisAuto !== false) analysis.start();
+  // figures are no longer entered by hand: days edited by hand in an earlier version are rebuilt from the journal once
+  if (typeof analysis.dropHandFigures === "function") analysis.dropHandFigures().catch((err) => (opts.log || console).error(`[analysis] ${err.message}`));
 
   // the live call mentions the latest world brief when it argues against a trade
   if (market && typeof ai.worldSummary === "function") market.worldProvider = () => ai.worldSummary();
@@ -721,7 +724,10 @@ ${s.trades || 0} trades, ${s.wins || 0} won · process score ${d.score === null 
   });
 
   /* ------------------------------------------- stock report: the account and trading */
-  mountTrading(app, { trading, ai, requireSuper, limiter });
+  // the journal reads today's trades from Kite by itself (Kite keeps only the current day's)
+  const journalCapture = opts.journalCaptureService || new JournalCapture({ trading, market, now: opts.now, log: opts.log || console });
+  if (opts.journalCapture !== false) journalCapture.start();
+  mountTrading(app, { trading, ai, requireSuper, limiter, capture: journalCapture });
 
   /* ------------------------------------------- stock report: the analyzer */
   mountMarket(app, {

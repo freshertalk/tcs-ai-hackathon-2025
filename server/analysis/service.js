@@ -5,9 +5,10 @@
 //     by itself: the day's closed round trips from the journal, the margin that is left, what is still
 //     open, and the Nifty's move — built into the report in day.js. With an AI model switched on, one
 //     more call writes the "why" in words (dayreview.js); without one, the report is the same arithmetic.
-//   • Any day can be captured again by hand, and edited: a note, a rating, lessons, and — for a day the
-//     journal does not hold, or a figure it got wrong — the figures themselves (profit, loss, trades,
-//     charges, margin). A hand-entered figure is marked as such everywhere it shows.
+//   • Any day can be built again from the journal ("Save this day"), and given a note, a rating, lessons
+//     and a mood. The figures themselves are never typed in: they come only from Zerodha's fills (the
+//     journal reads them from Kite every day, and from Console tradebooks for the history). Figures
+//     entered by hand in an earlier version are kept on the record ("formerOverrides") but not used.
 //   • The records live in their own document, "analysis/days" (a collection of its own in MongoDB, a
 //     file otherwise), apart from the journal, so a report survives whatever happens to the journal.
 //
@@ -140,21 +141,22 @@ class DayAnalysis {
     const positions = isToday ? await this._read(() => this.source.positions(), "The open positions", notes) : null;
     const market = isToday ? await this._read(() => this.source.market(), "The Nifty's move", notes) : null;
     const history = Object.values(doc0.days).map((d) => ({ date: d.date, summary: d.summary }));
-    const day = buildDay({ date, trips, funds, market, history, openPositions: positions, overrides: old && old.overrides ? old.overrides : null });
+    const day = buildDay({ date, trips, funds, market, history, openPositions: positions });
     const at = new Date(this.now()).toISOString();
     const rec = {
       ...day,
-      source: old && old.source === "manual" && !trips.length ? "manual" : by === "auto" ? "auto" : old && old.source === "auto" ? "auto" : "manual",
+      source: by === "auto" ? "auto" : old && old.source === "auto" ? "auto" : "manual",
       capturedAt: at,
       editedAt: old ? old.editedAt || null : null,
-      overrides: old && old.overrides ? old.overrides : null,
+      overrides: null,
+      formerOverrides: old ? old.formerOverrides || old.overrides || null : null,
       // a margin read earlier the same day is kept when the broker cannot be read again
       margin: day.margin || (old ? old.margin : null),
       notes: old && old.notes ? old.notes : { text: "", rating: null, lessons: [], mood: "" },
       ai: old ? old.ai || null : null,
       readNotes: notes,
     };
-    if (!trips.length && !(rec.overrides && Object.keys(rec.overrides).length) && !old && by === "auto") return { skipped: "no trades", date, notes };
+    if (!trips.length && !old && by === "auto") return { skipped: "no trades", date, notes };
     if (withAi || (by === "auto" && this.settings().withAi)) await this._writeAi(rec);
     const doc = this._doc();
     doc.days[date] = rec;
@@ -194,53 +196,48 @@ class DayAnalysis {
     return rec;
   }
 
-  /* -------------------------------------------------------------------------- edit */
+  /* -------------------------------------------------------------------------- notes */
 
   /**
-   * A hand edit: the trader's own notes, and figures that replace the computed ones. Saved as given
-   * (bounded), and the report is rebuilt so every total, percentage and chart follows.
+   * Your notes on a day: a note, a rating, lessons and a mood. They change no figure. The figures
+   * are never edited by hand — they come only from Zerodha's fills.
    */
-  async edit(date, { notes, overrides, clearOverrides } = {}) {
+  async edit(date, { notes, overrides } = {}) {
     this._check(date);
+    if (overrides && typeof overrides === "object" && Object.keys(overrides).length) throw new AnalysisError("The figures come only from Zerodha's trades and cannot be edited by hand. Add the day's trades to the journal (Kite reads them each day; Console tradebooks for the history) and press Save this day.", "read_only", 400);
+    if (!notes || typeof notes !== "object") throw new AnalysisError("Nothing to save: write a note, a rating, a lesson or a mood.");
+    if (!this._doc().days[date]) {
+      // a note on a day with nothing saved: build the day from the journal first so there is something to annotate
+      const r = await this.capture(date, { by: "manual" });
+      if (r && r.skipped) throw new AnalysisError("No closed trades are on record for that day, so there is no report to add a note to.", "no_trades", 404);
+    }
+    const lessons = (Array.isArray(notes.lessons) ? notes.lessons : []).map((x) => str(x, 300)).filter(Boolean).slice(0, 8);
     const doc = this._doc();
-    const old = doc.days[date];
-    if (!old && !(overrides && Object.keys(overrides).length)) {
-      // a note on a day with nothing saved: capture the day first so there is something to annotate
-      await this.capture(date, { by: "manual" });
+    const rec = { ...doc.days[date], notes: { text: str(notes.text, MAX_NOTE), rating: [1, 2, 3, 4, 5].includes(Number(notes.rating)) ? Number(notes.rating) : null, lessons, mood: str(notes.mood, 40) }, editedAt: new Date(this.now()).toISOString() };
+    doc.days[date] = rec;
+    this._save(doc);
+    return rec;
+  }
+
+  /**
+   * Days whose figures were entered by hand in an earlier version are rebuilt from the journal once:
+   * the hand-entered figures are kept as "formerOverrides" (a record), notes and the AI write-up stay.
+   * @returns the dates rebuilt
+   */
+  async dropHandFigures() {
+    const dates = Object.values(this._doc().days).filter((d) => d.overrides && Object.keys(d.overrides).length).map((d) => d.date);
+    for (const date of dates) {
+      const doc = this._doc();
+      const old = doc.days[date];
+      const trips = (await this._read(() => this.source.closedTrips(date), "The trades", [])) || [];
+      const history = Object.values(doc.days).filter((d) => d.date !== date).map((d) => ({ date: d.date, summary: d.summary }));
+      const day = buildDay({ date, trips, funds: null, market: null, history, openPositions: null });
+      const d2 = this._doc();
+      d2.days[date] = { ...old, ...day, margin: old.margin && old.margin.source === "kite" ? old.margin : day.margin, market: old.market || day.market, overrides: null, formerOverrides: old.overrides, edited: false, source: old.source === "auto" ? "auto" : "manual", notes: old.notes, ai: old.ai || null };
+      this._save(d2);
     }
-    const cur = this._doc().days[date] || null;
-    const next = {};
-    if (notes && typeof notes === "object") {
-      const lessons = (Array.isArray(notes.lessons) ? notes.lessons : []).map((x) => str(x, 300)).filter(Boolean).slice(0, 8);
-      next.notes = { text: str(notes.text, MAX_NOTE), rating: [1, 2, 3, 4, 5].includes(Number(notes.rating)) ? Number(notes.rating) : null, lessons, mood: str(notes.mood, 40) };
-    }
-    if (overrides && typeof overrides === "object") {
-      const o = {};
-      for (const k of ["trades", "wins", "losses"]) if (overrides[k] !== undefined && overrides[k] !== null && overrides[k] !== "") {
-        const v = Math.round(Number(overrides[k]));
-        if (!Number.isFinite(v) || v < 0 || v > 5000) throw new AnalysisError(`"${k}" must be a whole number from 0 to 5000.`);
-        o[k] = v;
-      }
-      for (const k of ["grossProfit", "grossLoss", "chargesTotal", "marginAvailable"]) if (overrides[k] !== undefined && overrides[k] !== null && overrides[k] !== "") {
-        const v = Number(overrides[k]);
-        if (!Number.isFinite(v) || v < 0 || v > 1e9) throw new AnalysisError(`"${k}" must be an amount from 0 to 1,00,00,00,000 (losses and charges are entered as positive numbers).`);
-        o[k] = Math.round(v * 100) / 100;
-      }
-      next.overrides = Object.keys(o).length ? o : null;
-    }
-    if (clearOverrides) next.overrides = null;
-    const rec = { ...(cur || {}), ...next, editedAt: new Date(this.now()).toISOString() };
-    if (!cur) rec.date = date;
-    // rebuild so the totals follow the overrides (or return to the journal's own figures)
-    const trips = (await this._read(() => this.source.closedTrips(date), "The trades", [])) || [];
-    const history = Object.values(doc.days).map((d) => ({ date: d.date, summary: d.summary }));
-    const day = buildDay({ date, trips, funds: null, market: null, history, openPositions: null, overrides: rec.overrides });
-    const merged = { ...rec, ...day, margin: day.margin && rec.overrides && num(rec.overrides.marginAvailable) ? day.margin : (cur && cur.margin) || day.margin, market: (cur && cur.market) || day.market, source: cur ? cur.source : "manual", capturedAt: cur ? cur.capturedAt : new Date(this.now()).toISOString(), practices: day.practices, notes: rec.notes || (cur && cur.notes) || { text: "", rating: null, lessons: [], mood: "" }, ai: cur ? cur.ai || null : null };
-    if (merged.overrides) merged.edited = true;
-    const d2 = this._doc();
-    d2.days[date] = merged;
-    this._save(d2);
-    return merged;
+    if (dates.length) this.log.log(`[analysis] rebuilt ${dates.length} day${dates.length === 1 ? "" : "s"} from the journal (hand-entered figures are no longer used): ${dates.join(", ")}`);
+    return dates;
   }
 
   remove(date) {

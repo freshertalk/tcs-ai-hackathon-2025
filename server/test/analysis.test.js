@@ -116,18 +116,9 @@ test("practices: charges that turn a gross profit into a net loss; an intraday p
   assert.match(day.practices.bad.find((p) => p.id === "costs").detail, /Before charges the day made/);
 });
 
-test("hand-entered figures replace the computed ones, and everything follows", () => {
-  const day = buildDay({ date: D, trips: [], overrides: { trades: 6, wins: 4, losses: 2, grossProfit: 5000, grossLoss: 1500, chargesTotal: 400, marginAvailable: 80000 } });
-  const s = day.summary;
-  assert.deepEqual([s.trades, s.wins, s.losses, s.winRatePct], [6, 4, 2, 66.7]);
-  assert.equal(s.gross, 3500);
-  assert.equal(s.net, 3100);
-  assert.equal(s.charges.total, 400);
-  assert.equal(s.charges.manual, true);
-  assert.equal(day.margin.available, 80000);
-  assert.equal(day.margin.source, "manual");
-  assert.equal(day.edited, true);
-  assert.equal(s.profitFactor, 3.33);
+test("a day is built only from the trades: figures passed by hand are ignored", () => {
+  const day = buildDay({ date: D, trips: [], overrides: { trades: 6, grossProfit: 5000 } });
+  assert.deepEqual([day.summary.trades, day.summary.gross, day.edited], [0, 0, false]);
 });
 
 test("an empty day is reported as such, not invented", () => {
@@ -232,7 +223,7 @@ test("saving a day: the report is stored in its own record, and read back with i
   assert.equal(svc.analytics({}).totals.days, 1);
 });
 
-test("editing a day: notes and hand-entered figures are kept, the totals follow, and a refresh does not lose them", async () => {
+test("a day's notes are kept and change no figure; figures can never be typed in", async () => {
   const trips = [trip("SBIN", "long", 100, 1000, 1012, "09:45", "10:20")];
   const { svc } = boot({ trips });
   await svc.capture(D, { by: "manual" });
@@ -242,30 +233,37 @@ test("editing a day: notes and hand-entered figures are kept, the totals follow,
   assert.equal(r.notes.rating, 4);
   assert.deepEqual(r.notes.lessons, ["Keep waiting for VWAP"]);
   assert.equal(r.summary.net, before, "a note changes no figure");
-  r = await svc.edit(D, { overrides: { grossProfit: 3000, grossLoss: 500, trades: 5, wins: 3, losses: 2, chargesTotal: 150 } });
-  assert.equal(r.summary.gross, 2500);
-  assert.equal(r.summary.net, 2350);
-  assert.equal(r.edited, true);
-  assert.equal(r.notes.rating, 4, "the note survives the figures");
-  // capturing again (the journal's own figures) keeps the hand entry; clearing it brings the journal's back
+  await assert.rejects(svc.edit(D, { overrides: { grossProfit: 3000 } }), /cannot be edited by hand/);
+  await assert.rejects(svc.edit(D, {}), /Nothing to save/);
+  assert.equal(svc.get(D).summary.net, before);
+  // capturing again keeps the note
   r = await svc.capture(D, { by: "manual" });
-  assert.equal(r.summary.net, 2350);
   assert.equal(r.notes.text, "Waited for VWAP. Good.");
-  r = await svc.edit(D, { clearOverrides: true });
-  assert.equal(r.summary.net, before);
   assert.equal(r.edited, false);
-  // bad figures are refused
-  await assert.rejects(svc.edit(D, { overrides: { grossLoss: -5 } }), /amount from 0/);
-  await assert.rejects(svc.edit(D, { overrides: { trades: 1.5e6 } }), /whole number/);
-  // a day the journal does not hold can be entered by hand
-  const d2 = "2026-11-12";
-  const made = await svc.edit(d2, { overrides: { grossProfit: 900, grossLoss: 300, trades: 4, wins: 3, losses: 1, chargesTotal: 90, marginAvailable: 70000 } });
-  assert.equal(made.summary.net, 510);
-  assert.equal(made.margin.available, 70000);
-  assert.equal(made.source, "manual");
+  // a note on a day the journal holds no trades for: the day is built (empty) from the journal, never invented
+  const e = await svc.edit("2026-11-12", { notes: { text: "No trades: stayed out." } });
+  assert.deepEqual([e.summary.trades, e.summary.net, e.notes.text], [0, 0, "No trades: stayed out."]);
   assert.equal(svc.list({}).length, 2);
-  assert.deepEqual(svc.remove(d2), { removed: d2 });
-  assert.equal(svc.list({}).length, 1);
+  assert.deepEqual(svc.remove(D), { removed: D });
+});
+
+test("days whose figures were typed in by hand earlier are rebuilt from the journal; the old figures stay on record", async () => {
+  const trips = [trip("SBIN", "long", 100, 1000, 1012, "09:45", "10:20")];
+  const { svc, docs } = boot({ trips });
+  await svc.capture(D, { by: "manual" });
+  const real = svc.get(D).summary.net;
+  // an earlier version's hand edit, as it was stored
+  const doc = docs.read("analysis/days");
+  doc.days[D] = { ...doc.days[D], overrides: { grossProfit: 3000, grossLoss: 500 }, edited: true, summary: { ...doc.days[D].summary, net: 2350 }, notes: { text: "kept", rating: 3, lessons: [], mood: "" } };
+  docs.write("analysis/days", doc);
+  assert.deepEqual(await svc.dropHandFigures(), [D]);
+  const d = svc.get(D);
+  assert.equal(d.summary.net, real, "the journal's own figures");
+  assert.deepEqual(d.formerOverrides, { grossProfit: 3000, grossLoss: 500 });
+  assert.equal(d.overrides, null);
+  assert.equal(d.edited, false);
+  assert.equal(d.notes.text, "kept");
+  assert.deepEqual(await svc.dropHandFigures(), [], "once");
 });
 
 test("3:45 PM: on a trading day the report saves itself once, and not before, not on a weekend, not twice", async () => {

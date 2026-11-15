@@ -7,7 +7,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 
-const { roundTrips, charges, stats, excursion, fromConsoleCsv, TradeJournal } = require("../trading/journal");
+const { roundTrips, charges, stats, excursion, fromConsoleCsv, TradeJournal, periodRange, summarize } = require("../trading/journal");
 const { FileDocs } = require("../docs");
 const risk = require("../trading/risk");
 
@@ -137,74 +137,139 @@ test("risk rules: a loss or a profit lock locks the day; locks block only new ri
   assert.equal(risk.standing({ cfg: risk.cleanConfig({}), lock: null, now, dayPnl: -1e9, ordersToday: 0, openSymbols: new Set() }).locked, false, "off means off");
 });
 
-/* ---------------------------------------------------------------- trades typed in by hand */
+/* ------------------------------------------------- periods, years, saved views, capture */
 
-const NOW = at("2026-11-14T20:00:00");
-const manual = (o = {}) => ({ date: "2026-11-13", symbol: "sbin", side: "long", qty: 10, entryPrice: 800, exitPrice: 806, entryTime: "09:40", exitTime: "13:10", ...o });
-const freshJournal = () => new TradeJournal(new FileDocs(fs.mkdtempSync(path.join(os.tmpdir(), "vpt-jm-"))));
+const freshJournal = () => new TradeJournal(new FileDocs(fs.mkdtempSync(path.join(os.tmpdir(), "vpt-jp-"))));
+const kite = (id, symbol, side, quantity, price, when, product = "MIS") => ({ id: String(id), orderId: `o${id}`, exchange: "NSE", symbol, side, quantity, price, at: when, product });
+// a round trip in one call: buy then sell (or sell then buy) on the given days
+let tid = 1000;
+const trip = (symbol, inAt, outAt, qty, buy, sell, product = "MIS") => [kite((tid += 1), symbol, "BUY", qty, buy, inAt, product), kite((tid += 1), symbol, "SELL", qty, sell, outAt, product)];
+const NOW = at("2026-11-16T12:00:00"); // a Monday
 
-test("a trade typed in by hand is two fills that pair into one round trip with charges", () => {
-  const j = freshJournal();
-  const r = j.addManual(manual(), NOW);
-  assert.equal(r.error, undefined);
-  assert.match(r.batch, /^[a-f0-9]{12}$/);
-  const trips = j.trips();
-  assert.equal(trips.length, 1);
-  const t = trips[0];
-  assert.deepEqual([t.symbol, t.side, t.qty, t.entryAvg, t.exitAvg, t.pnl, t.intraday, t.open], ["SBIN", "long", 10, 800, 806, 60, true, false]);
-  assert.equal(t.manual, r.batch);
-  assert.ok(t.charges > 0 && t.net < t.pnl, "charges are estimated like any other trade");
-  assert.ok(t.brokerage > 0 && t.brokerage <= t.charges);
-  // it shows in the calendar with the figures a day needs
-  const day = stats(trips).calendar.find((c) => c.key === "2026-11-13");
-  assert.deepEqual([day.trades, day.gross], [1, 60]);
-  assert.equal(day.taxes, Math.round((day.charges - day.brokerage) * 100) / 100);
+test("periods: today, yesterday (Friday on a Monday), week, month, quarter, months back, financial years, custom", () => {
+  const p = (id, o) => periodRange(id, NOW, o);
+  assert.deepEqual([p("today").fromDay, p("today").toDay], ["2026-11-16", "2026-11-16"]);
+  assert.equal(p("yesterday").fromDay, "2026-11-13");
+  assert.equal(p("week").fromDay, "2026-11-16");
+  assert.equal(p("month").fromDay, "2026-11-01");
+  assert.equal(p("quarter").fromDay, "2026-10-01");
+  assert.equal(p("6m").fromDay, "2026-05-16");
+  assert.equal(p("9m").fromDay, "2026-02-16");
+  assert.equal(p("12m").fromDay, "2025-11-16");
+  assert.deepEqual([p("fy").fromDay, p("fy").label], ["2026-04-01", "This FY (2026-27)"]);
+  assert.deepEqual([p("fy-2024").fromDay, p("fy-2024").toDay, p("fy-2024").label], ["2024-04-01", "2025-03-31", "FY 2024-25"]);
+  assert.equal(p("fy-2027"), null, "a financial year not yet begun");
+  assert.equal(p("custom", { from: "2026-02-30", to: "2026-03-05" }), null, "not a real date");
+  assert.equal(p("custom", { from: "2026-03-05", to: "2026-03-01" }), null, "the first day after the last");
+  assert.equal(p("custom", { from: "2026-01-01", to: "2027-06-01" }).toDay, "2026-11-16", "never past today");
+  assert.equal(periodRange("6m", at("2026-08-31T10:00:00")).fromDay, "2026-02-28", "31 August − 6 months is the end of February");
+  assert.equal(p("nonsense"), null);
 });
 
-test("a short trade, and a delivery trade over two days, are paired and marked", () => {
+test("profit and loss for every period at once, each trade on the day it was closed, and every past financial year", () => {
   const j = freshJournal();
-  j.addManual(manual({ side: "short", entryPrice: 810, exitPrice: 804 }), NOW);
-  const r = j.addManual(manual({ symbol: "TCS", date: "2026-11-10", exitDate: "2026-11-12", entryPrice: 3900, exitPrice: 3950 }), NOW);
-  const trips = j.trips();
-  const sbin = trips.find((t) => t.symbol === "SBIN");
-  const tcs = trips.find((t) => t.symbol === "TCS");
-  assert.deepEqual([sbin.side, sbin.pnl], ["short", 60]);
-  assert.deepEqual([tcs.intraday, tcs.product, tcs.pnl], [false, "CNC", 500]);
-  assert.equal(tcs.manual, r.batch);
-});
-
-test("hand-typed trades are checked: future days, bad prices, the exit before the entry", () => {
-  const j = freshJournal();
-  const bad = (o, re) => assert.match(j.addManual(manual(o), NOW).error || "", re);
-  bad({ date: "2026-11-15" }, /not happened/);
-  bad({ date: "2026-13-40" }, /date of the trade/);
-  bad({ symbol: "" }, /symbol/);
-  bad({ exchange: "NFO" }, /NSE and BSE/);
-  bad({ side: "" }, /long .* or short/);
-  bad({ qty: 1.5 }, /whole number/);
-  bad({ entryPrice: 0 }, /prices/);
-  bad({ entryTime: "25:00" }, /hours and minutes/);
-  bad({ exitTime: "09:00" }, /exit must come after/);
-  bad({ exitDate: "2026-11-12" }, /before the entry date/);
-  bad({ date: "2026-11-14", entryTime: "21:00", exitTime: "21:30" }, /future/);
-  assert.equal(j.trips().length, 0, "nothing was saved");
-});
-
-test("a hand-typed trade can be removed with its tag, and warns when Zerodha already gave that day", () => {
-  const j = freshJournal();
-  // an earlier, complete round trip in the same stock that day (so the two do not interleave)
   j.ingestKite([
-    { id: "9001", orderId: "o1", exchange: "NSE", symbol: "SBIN", side: "BUY", quantity: 5, price: 801, at: "2026-11-13 09:20:00", product: "MIS" },
-    { id: "9002", orderId: "o2", exchange: "NSE", symbol: "SBIN", side: "SELL", quantity: 5, price: 802, at: "2026-11-13 09:30:00", product: "MIS" },
+    ...trip("SBIN", "2026-11-16 09:30:00", "2026-11-16 10:00:00", 10, 800, 810), // today +100 gross
+    ...trip("INFY", "2026-11-13 09:30:00", "2026-11-13 10:00:00", 10, 1500, 1490), // Friday −100 gross
+    ...trip("TCS", "2026-10-29 09:30:00", "2026-11-02 10:00:00", 10, 3900, 3950, "CNC"), // bought in October, sold in November
+    ...trip("ITC", "2025-06-10 09:30:00", "2025-06-10 10:00:00", 100, 400, 402), // FY 2025-26
+    ...trip("ITC", "2024-12-10 09:30:00", "2024-12-10 10:00:00", 100, 400, 399), // FY 2024-25
   ]);
-  const r = j.addManual(manual(), NOW);
-  assert.match(r.warn, /already has 2 fills/);
-  const key = r.key;
-  j.setTags(key, { setup: "Opening range" });
-  assert.equal(j.trips().find((t) => t.manual === r.batch).tags.setup, "Opening range");
-  assert.equal(j.removeManual(r.batch), 2);
-  assert.equal(j.trips().find((t) => t.manual), undefined);
-  assert.equal(j.view().setups.length, 0, "its tag went with it");
-  assert.equal(j.removeManual(r.batch), 0);
-  assert.equal(j.removeManual("zzzz"), 0);
+  const per = j.periods(NOW);
+  const row = (id) => per.rows.find((r) => r.id === id);
+  assert.equal(row("today").trades, 1);
+  assert.equal(row("today").gross, 100);
+  assert.equal(row("yesterday").gross, -100);
+  assert.equal(row("week").trades, 1);
+  assert.equal(row("month").trades, 3, "TCS counts in November, the month it was sold");
+  assert.equal(row("quarter").trades, 3);
+  assert.equal(row("12m").trades, 3);
+  assert.equal(row("fy").trades, 3);
+  assert.deepEqual(per.fys.map((r) => [r.id, r.trades]), [["fy-2025", 1], ["fy-2024", 1]], "every past financial year since the first trade");
+  assert.equal(per.all.trades, 5);
+  assert.equal(per.firstDay, "2024-12-10");
+  const t = row("today");
+  assert.ok(t.charges > 0 && t.net < t.gross && t.brokerage <= t.charges);
+  assert.equal(t.taxes, Math.round((t.charges - t.brokerage) * 100) / 100);
+  assert.ok(per.months.some((m) => m.month === "2025-06" && m.fy === 2025));
+  // the account opened earlier than the first trade: its years are listed, empty
+  j.setAccountSince("2022-07-01");
+  assert.deepEqual(j.periods(NOW).fys.map((r) => r.id), ["fy-2025", "fy-2024", "fy-2023", "fy-2022"]);
+  assert.match(j.setAccountSince("2099-01-01").error, /past date/);
+});
+
+test("the journal for one period, with month by month, best and worst, and the deeper figures", () => {
+  const j = freshJournal();
+  j.ingestKite([...trip("SBIN", "2026-09-10 09:30:00", "2026-09-10 10:00:00", 10, 800, 830), ...trip("SBIN", "2026-10-12 09:30:00", "2026-10-12 10:00:00", 10, 800, 790), ...trip("INFY", "2026-10-13 09:30:00", "2026-10-13 10:00:00", 10, 1500, 1520)]);
+  const p = periodRange("fy", NOW);
+  const a = j.analytics({ from: p.from, to: p.to });
+  assert.equal(a.summary.trades, 3);
+  assert.deepEqual(a.months.map((m) => [m.month, m.trades]), [["2026-10", 2], ["2026-09", 1]]);
+  assert.equal(a.bestMonth.month, "2026-09");
+  assert.ok(a.summary.profitFactor > 1);
+  assert.ok(a.summary.maxDrawdown > 0, "the October loss is a fall from the September high");
+  assert.equal(a.summary.bestDay.day, "2026-09-10");
+  assert.equal(a.summary.worstDay.day, "2026-10-12");
+  const s0 = summarize([]);
+  assert.deepEqual([s0.trades, s0.net, s0.bestDay, s0.chargesPct], [0, 0, null, null]);
+});
+
+test("hand-typed fills of an earlier version are kept in the record but never counted", () => {
+  const docs = new FileDocs(fs.mkdtempSync(path.join(os.tmpdir(), "vpt-jh-")));
+  docs.write("trading/journal.json", { fills: { "m:aaaaaaaaaaaa:1": { id: "m:aaaaaaaaaaaa:1", exchange: "NSE", symbol: "SBIN", side: "BUY", qty: 10, price: 800, at: at("2026-11-13T09:40:00"), source: "manual", batch: "aaaaaaaaaaaa" }, "m:aaaaaaaaaaaa:2": { id: "m:aaaaaaaaaaaa:2", exchange: "NSE", symbol: "SBIN", side: "SELL", qty: 10, price: 806, at: at("2026-11-13T13:10:00"), source: "manual", batch: "aaaaaaaaaaaa" } } });
+  const j = new TradeJournal(docs);
+  assert.equal(j.trips().length, 0);
+  const v = j.view();
+  assert.deepEqual([v.fills, v.ignoredManual, v.firstAt], [0, 2, null]);
+  assert.equal(Object.keys(docs.read("trading/journal.json").fills).length, 2, "nothing was deleted");
+  assert.equal(typeof j.addManual, "undefined", "there is no way to type a trade in any more");
+});
+
+test("saved views, the daily snapshot of every period, captured days and the gaps in the history", () => {
+  const j = freshJournal();
+  j.ingestKite([...trip("SBIN", "2026-11-16 09:30:00", "2026-11-16 10:00:00", 10, 800, 810), ...trip("ITC", "2026-06-01 09:30:00", "2026-06-01 10:00:00", 100, 400, 402)]);
+  // views
+  const v = j.saveView({ name: "  Intraday   this FY ", period: "fy", kind: "intraday" }, NOW);
+  assert.equal(v.view.name, "Intraday this FY");
+  j.saveView({ name: "intraday this fy", period: "custom", from: "2026-06-01", to: "2026-06-30" }, NOW);
+  assert.equal(j.views().length, 1, "the same name replaces the view");
+  assert.equal(j.views()[0].period, "custom");
+  assert.match(j.saveView({ name: "x", period: "custom", from: "2026-06-30", to: "2026-06-01" }, NOW).error, /not valid/);
+  assert.equal(j.removeView(j.views()[0].id).removed, 1);
+  // snapshot: written once per change
+  const s1 = j.snapshot(NOW);
+  assert.equal(s1.saved, true);
+  assert.equal(j.snapshot(NOW).saved, false, "nothing changed: nothing written");
+  const snaps = j.snapshots();
+  assert.ok(snaps.days["2026-11-16"].rows.some((r) => r[0] === "fy" && r[4] === 2));
+  // captured days and gaps: June to November has nothing on record but the two trades
+  j.markCaptured("2026-11-13", 0);
+  const per = j.periods(NOW);
+  assert.equal(per.sources.capturedDays, 1);
+  assert.ok(per.gaps.length >= 1 && per.gaps[0].weekdays >= 10, "a long run of weekdays with nothing on record is a gap");
+  assert.ok(per.gaps.every((g) => g.fromDay > "2026-06-01"));
+});
+
+test("the automatic capture reads today's trades from Kite on weekdays, marks the day and saves the snapshot", async () => {
+  const { JournalCapture, captureWindow } = require("../journal-capture");
+  assert.equal(captureWindow(at("2026-11-16T09:00:00")), false, "before 9:10");
+  assert.equal(captureWindow(at("2026-11-16T09:15:00")), true);
+  assert.equal(captureWindow(at("2026-11-16T22:30:00")), true, "a late Kite login still saves the day");
+  assert.equal(captureWindow(at("2026-11-15T11:00:00")), false, "Sunday");
+  const j = freshJournal();
+  let connected = false;
+  const today = trip("SBIN", "2026-11-16 09:30:00", "2026-11-16 10:00:00", 10, 800, 810); // the same two trades on every read
+  const trading = { journal: j, trades: async () => today.map((t) => ({ ...t })) };
+  const cap = new JournalCapture({ trading, market: { kiteAuth: () => connected }, now: () => at("2026-11-16T11:00:00"), log: { log() {} } });
+  assert.equal(await cap.tick(), null, "not connected: nothing read");
+  connected = true;
+  const r = await cap.tick();
+  assert.deepEqual([r.day, r.trades, r.added, r.error], ["2026-11-16", 2, 2, ""]);
+  assert.equal((await cap.tick()).added, 0, "repeats are ignored");
+  assert.equal(j.periods(at("2026-11-16T11:00:00")).sources.lastCaptured.day, "2026-11-16");
+  assert.ok(Object.keys(j.snapshots().days).length === 1);
+  trading.trades = async () => {
+    throw new Error("Zerodha session expired");
+  };
+  assert.match((await cap.tick()).error, /expired/);
 });

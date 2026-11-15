@@ -681,10 +681,6 @@
   color: var(--ink-2);
   white-space: nowrap;
 }
-.ta-badge.is-edit {
-  border-color: var(--warn, #d29922);
-  color: var(--warn, #d29922);
-}
 .ta-badge.is-ai {
   border-color: var(--accent);
   color: var(--accent);
@@ -798,25 +794,10 @@
   font-size: var(--t-small);
   cursor: pointer;
 }
-.ta-fields {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
-  gap: 8px 12px;
-}
 .ta-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-}
-.ta-edit > summary {
-  cursor: pointer;
-  font-size: var(--t-mid);
-}
-.ta-edit > summary small {
-  color: var(--ink-3);
-}
-.ta-edit[open] {
-  gap: 10px;
 }
 .ta-foot {
   margin: 0;

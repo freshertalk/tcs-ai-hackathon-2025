@@ -484,13 +484,22 @@ const ENTRIES = [
   [["How it works"], "One business rule in full: who does it, when, the steps, and its honest limits."],
   [["Limits & honest notes", "Limits & honest notes."], "What the rule cannot do, and where it is only an estimate."],
 
+  /* ---- Journal: periods and analytics */
+  [["Profit and loss by period"], "Every period at once — today, yesterday, this week, month and quarter, the last 6, 9 and 12 months, this financial year, each past one and all time — each trade on the day it was closed, after estimated charges. Click a row to open it.", ".jr"],
+  [["Net P&L by financial year"], "One bar per financial year (1 April to 31 March); the current one so far. Point at a year for its figures, click to open it.", ".jr"],
+  [["Every month since the start"], "Each month's net profit or loss, financial years down and April to March across, with the year's total. Deeper colour, larger result.", ".jr"],
+  [["Where the history comes from"], "Kite's API gives only today's trades, so the server reads them every 5 minutes on weekdays while Zerodha is connected; earlier years come from Zerodha Console tradebook files, imported once.", ".jr"],
+  [["Read today’s trades now"], "Read today's trades from Kite at once instead of waiting for the next automatic read (every 5 minutes).", ".jr"],
+  [["☆ Save this view"], "Save this period (or custom range) and the filters under a name, in the database, to open again in one click.", ".jr"],
+  [["Charges vs gross"], "Brokerage and taxes as a share of the gross profit: how much of what the trades made the costs took.", ".jr"],
+  [["Month by month", "Day by day"], "The open period split into months or days, each with trades, win rate, gross, charges and net. ⤓ CSV downloads it.", ".jr"],
+
   /* ---- Trade Analysis */
   [["Trade Analysis"], "Every trading day read back: profit, loss, charges and taxes, trades and margin, what went well and what did not. Saved by itself at 3:45 PM IST.", ".ta"],
-  [["Save today now", "Save this day"], "Build the report from the journal's trades and the broker's readings now, and save it. Notes and figures you entered are kept.", ".ta"],
+  [["Save today now", "Save this day"], "Build the report from the journal's trades (Zerodha's fills) and the broker's readings now, and save it. Your notes are kept. Figures are never typed in.", ".ta"],
   [["Total profit", "Total loss"], "Profit is the sum of the trades that closed above zero; loss is the sum of those that closed below zero. Both are before charges.", ".ta"],
   [["Charges & taxes", "Charges and taxes"], "Brokerage, STT, exchange fees, SEBI fee, GST, stamp duty and DP charge: an estimate from Zerodha's published rates. The contract note is the truth.", ".ta"],
   [["Process score"], "From the good and bad practices found in the day's trades: how the day was traded, not what it made. A reminder about habits.", ".ta"],
-  [["Edit the figures by hand"], "For a day the journal does not hold, or a number it got wrong. What you enter replaces the computed figure everywhere and the day is marked Edited.", ".ta"],
 
   /* ---- AI Live and AI Research */
   [["AI Live"], "Ask every analyst to read this stock's live numbers now: where it is more likely to go in the next 15–30 minutes. The desk's own arithmetic answers first, without AI.", ".ab"],

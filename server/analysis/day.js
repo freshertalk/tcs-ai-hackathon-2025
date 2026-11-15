@@ -184,36 +184,27 @@ const scoreOf = (p, n) => (n ? clamp(60 + 8 * Math.min(p.good.length, 5) - 12 * 
  * @param market    { niftyChangePct } or null
  * @param history   earlier days' summaries, for the usual figures
  * @param openPositions  [{ symbol, quantity, product }] at the time of capture, or null when not known
- * @param overrides hand-entered figures that replace the computed ones: { trades, wins, losses, grossProfit, grossLoss, chargesTotal, marginAvailable }
+ * Every figure comes from the trades (Zerodha's fills in the journal) and the broker's readings;
+ * nothing is entered by hand.
  */
-function buildDay({ date, trips, funds = null, market = null, history = [], openPositions = null, overrides = null }) {
+function buildDay({ date, trips, funds = null, market = null, history = [], openPositions = null }) {
   const closed = [...trips].sort((a, b) => a.exitAt - b.exitAt);
   const wins = closed.filter((t) => t.pnl > 0);
   const losses = closed.filter((t) => t.pnl < 0);
   const parts = emptyParts();
   for (const t of closed) for (const k of PARTS) parts[k] += (t.parts && t.parts[k]) || 0;
-  let o = overrides && typeof overrides === "object" ? overrides : null;
-  const pick = (k, v) => (o && num(o[k]) ? o[k] : v);
-
-  const nTrades = pick("trades", closed.length);
-  const nWins = pick("wins", wins.length);
-  const nLosses = pick("losses", losses.length);
-  const grossProfit = pick("grossProfit", sum(wins, (t) => t.pnl));
-  const grossLoss = pick("grossLoss", -sum(losses, (t) => t.pnl));
-  let ch = chargeSet(parts);
-  if (o && num(o.chargesTotal)) {
-    // a hand-entered total replaces the estimate; its kinds are scaled to match when there are any
-    const est = ch.total || 0;
-    const scale = est > 0 ? o.chargesTotal / est : 0;
-    ch = chargeSet(est > 0 ? Object.fromEntries(PARTS.map((k) => [k, parts[k] * scale])) : { brokerage: o.chargesTotal });
-    ch.manual = true;
-  }
+  const nTrades = closed.length;
+  const nWins = wins.length;
+  const nLosses = losses.length;
+  const grossProfit = sum(wins, (t) => t.pnl);
+  const grossLoss = -sum(losses, (t) => t.pnl);
+  const ch = chargeSet(parts);
   const gross = grossProfit - grossLoss;
   const net = gross - ch.total;
   const seg = funds && funds.available ? funds : null;
   const opening = seg ? seg.available.opening : null;
-  const availableMargin = pick("marginAvailable", seg ? (num(seg.available.live) ? seg.available.live : seg.available.cash) : null);
-  const margin = availableMargin === null && !seg ? null : { available: r2(availableMargin), opening: r2(opening), used: seg && seg.used ? r2(seg.used.debits) : null, net: seg ? r2(seg.net) : null, source: o && num(o.marginAvailable) ? "manual" : seg ? "kite" : null };
+  const availableMargin = seg ? (num(seg.available.live) ? seg.available.live : seg.available.cash) : null;
+  const margin = availableMargin === null && !seg ? null : { available: r2(availableMargin), opening: r2(opening), used: seg && seg.used ? r2(seg.used.debits) : null, net: seg ? r2(seg.net) : null, source: seg ? "kite" : null };
   const base = margin && num(margin.opening) && margin.opening > 0 ? margin.opening : margin && num(margin.available) && margin.available > 0 ? margin.available + Math.max(0, -net) : null;
   const avgWin = nWins ? grossProfit / nWins : 0;
   const avgLoss = nLosses ? grossLoss / nLosses : 0;
@@ -314,7 +305,7 @@ function buildDay({ date, trips, funds = null, market = null, history = [], open
     score: scoreOf(pr, closed.length),
     why,
     advice,
-    edited: Boolean(o && Object.keys(o).length),
+    edited: false,
   };
 }
 

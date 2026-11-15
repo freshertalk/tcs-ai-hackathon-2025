@@ -7,8 +7,9 @@ const { TradingError } = require("./service");
 const { KiteError } = require("../market/kite");
 const { AiError } = require("../ai/client");
 const express = require("express");
+const { periodRange } = require("./journal");
 
-function mountTrading(app, { trading, ai, requireSuper, limiter }) {
+function mountTrading(app, { trading, ai, requireSuper, limiter, capture = null }) {
   const wrap = (fn) => async (req, res) => {
     try {
       res.json(await fn(req, res));
@@ -68,24 +69,63 @@ function mountTrading(app, { trading, ai, requireSuper, limiter }) {
   }));
   app.put("/api/admin/trading/risk", requireSuper, wrap(async (req) => trading.setRisk(req.body || {}, by(req))));
 
-  /* ---- journal */
+  /* ---- journal: every fill from Zerodha (Kite each day, Console tradebooks for the history) */
   const DAY = 86400000;
-  const RANGES = { "1w": 7, "1m": 31, "3m": 92, "6m": 183, "1y": 366 };
+  const OLD = { "1w": 7, "1m": 31, "3m": 92, "6m": 183, "1y": 366 }; // the earlier page's ranges, still understood
+  const nowMs = () => (typeof trading.now === "function" ? trading.now() : Date.now()); // the server's clock, like the capture
   const filtersOf = (q) => {
-    const now = Date.now();
+    const now = nowMs();
     let from = null;
-    if (RANGES[q.range]) from = now - RANGES[q.range] * DAY;
-    if (q.range === "ytd") from = Date.parse(`${new Date(now + 5.5 * 3600000).toISOString().slice(0, 4)}-01-01T00:00:00+05:30`);
+    let to = null;
+    let period = null;
+    const p = periodRange(String(q.period || ""), now, { from: q.from, to: q.to, firstAt: trading.journal.firstAt() });
+    if (p) {
+      from = p.from;
+      to = p.to;
+      period = { id: p.id, label: p.label, fromDay: p.fromDay, toDay: p.toDay };
+    } else if (OLD[q.range]) from = now - OLD[q.range] * DAY;
+    else if (q.range === "ytd") from = Date.parse(`${new Date(now + 5.5 * 3600000).toISOString().slice(0, 4)}-01-01T00:00:00+05:30`);
+    else if (q.period === "custom") throw new TradingError("Pick a valid date range: the first day on or before the last.");
     const sym = String(q.symbol || "").toUpperCase();
     return {
       from,
+      to,
+      period,
       symbol: /^[A-Z0-9&._-]{1,40}$/.test(sym) ? sym : "",
       side: ["long", "short"].includes(q.side) ? q.side : "",
       kind: ["intraday", "delivery"].includes(q.kind) ? q.kind : "",
       setup: String(q.setup || "").slice(0, 60),
     };
   };
-  app.get("/api/admin/trading/journal", requireSuper, wrap(async (req) => trading.journalView(filtersOf(req.query || {}))));
+  // the journal for one period (today, yesterday, week … a financial year, all, or a custom range), with its deeper figures
+  app.get("/api/admin/trading/journal", requireSuper, wrap(async (req) => {
+    const f = filtersOf(req.query || {});
+    const view = await trading.journalView(f);
+    return { ...view, analytics: trading.journal.analytics(f) };
+  }));
+  // profit and loss for every period at once, every financial year since the account opened, the month heatmap,
+  // where the history comes from (and its gaps), your saved views and the automatic capture
+  app.get("/api/admin/trading/journal/periods", requireSuper, wrap(async () => ({ ...trading.journal.periods(nowMs()), capture: capture ? capture.status() : null, snapshots: { days: Object.keys(trading.journal.snapshots().days).length, latestAt: trading.journal.snapshots().latestAt } })));
+  app.post("/api/admin/trading/journal/capture", requireSuper, limiter(20, 10 * 60 * 1000), wrap(async () => {
+    if (!capture) throw new TradingError("Automatic capture is not running on this server.", "not_configured", 409);
+    const r = await capture.tick({ force: true });
+    if (!r) throw new TradingError("Zerodha is not connected: log in to Kite first, then today's trades are read.", "not_connected", 409);
+    if (r.error) throw new TradingError(r.error, "upstream", 502);
+    return { ...r, status: capture.status() };
+  }));
+  app.get("/api/admin/trading/journal/snapshots", requireSuper, wrap(async () => trading.journal.snapshots()));
+  app.put("/api/admin/trading/journal/account-since", requireSuper, wrap(async (req) => {
+    const r = trading.journal.setAccountSince((req.body || {}).date);
+    if (r.error) throw new TradingError(r.error);
+    trading.journal.snapshot(nowMs());
+    return r;
+  }));
+  app.post("/api/admin/trading/journal/views", requireSuper, limiter(60, 10 * 60 * 1000), wrap(async (req) => {
+    const r = trading.journal.saveView(req.body || {}, nowMs());
+    if (r.error) throw new TradingError(r.error);
+    return r;
+  }));
+  app.delete("/api/admin/trading/journal/views/:id", requireSuper, wrap(async (req) => trading.journal.removeView(String(req.params.id || "").slice(0, 20))));
   app.post(
     "/api/admin/trading/journal/import",
     requireSuper,
@@ -95,25 +135,11 @@ function mountTrading(app, { trading, ai, requireSuper, limiter }) {
       if (!text.trim()) throw new TradingError("The file was empty.");
       const r = trading.journal.importCsv(text);
       if (r.error) throw new TradingError(r.error);
+      trading.journal.snapshot(nowMs());
       console.log(`[trading] journal import by ${req.user.email}: ${r.added} new of ${r.read} (${r.skipped} skipped)`);
       return r;
     })
   );
-  // a trade typed in by hand for any past day (it goes through the same pairing, charges and statistics)
-  app.post("/api/admin/trading/journal/manual", requireSuper, limiter(60, 10 * 60 * 1000), wrap(async (req) => {
-    const r = trading.journal.addManual(req.body || {});
-    if (r.error) throw new TradingError(r.error);
-    console.log(`[trading] journal: trade added by hand by ${req.user.email} (${r.key})`);
-    return r;
-  }));
-  app.delete("/api/admin/trading/journal/manual/:batch", requireSuper, limiter(60, 10 * 60 * 1000), wrap(async (req) => {
-    const batch = String(req.params.batch || "");
-    if (!/^[a-f0-9]{12}$/.test(batch)) throw new TradingError("That is not a trade added by hand.");
-    const removed = trading.journal.removeManual(batch);
-    if (!removed) throw new TradingError("That trade is not in the journal any more.", "not_found", 404);
-    console.log(`[trading] journal: hand-added trade removed by ${req.user.email}`);
-    return { removed };
-  }));
   app.put("/api/admin/trading/journal/tags", requireSuper, wrap(async (req) => {
     const b = req.body || {};
     if (!/^[A-Z]{2,4}:[A-Z0-9&._-]{1,40}:\d{10,14}$/.test(String(b.key || ""))) throw new TradingError("That is not a journal trade.");
@@ -129,7 +155,7 @@ function mountTrading(app, { trading, ai, requireSuper, limiter }) {
     const view = trading.journal.view(f);
     if (view.stats.trades < 5) throw new TradingError("The journal needs at least 5 closed trades in this range for a review.", "no_data", 409);
     const trips = trading.journal.trips(f).filter((t) => !t.open);
-    return { review: await ai.journalReview.build({ stats: view.stats, trips, range: String((req.body || {}).range || "all") }), ...ai.journalReview.list() };
+    return { review: await ai.journalReview.build({ stats: view.stats, trips, range: f.period ? f.period.label : String((req.body || {}).range || "all") }), ...ai.journalReview.list() };
   }));
   app.post("/api/admin/trading/journal/review/:id/rule", requireSuper, wrap(async (req) => {
     if (!ai || !ai.journalReview) throw new TradingError("The AI is not available on this server.", "not_configured", 409);

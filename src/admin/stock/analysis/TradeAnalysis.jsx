@@ -1,9 +1,9 @@
 // Trade Analysis: every trading day read back — profit, loss, charges and taxes, trades, margin —
 // with what went well and what did not, and the analytics over many days.
 //
-// A report is saved by itself at 3:45 PM IST (server/analysis) and can be refreshed, edited or
-// entered by hand for any day. Everything here is the owner's own record; nothing on this page can
-// place an order.
+// A report is saved by itself at 3:45 PM IST (server/analysis) and can be built again from the
+// journal for any day. Its figures come only from Zerodha's fills — they are never typed in; your
+// notes, rating, lessons and mood are yours to write. Nothing on this page can place an order.
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../../api";
@@ -344,8 +344,7 @@ function DaysTable({ days, onOpen }) {
                 <span className="ta-ok" data-tip="Good practices found">✓ {d.good}</span> <span className="ta-x" data-tip="Bad practices found">✗ {d.bad}</span>
               </td>
               <td>
-                <span className="ta-badge">{d.source === "auto" ? "Auto 3:45" : "Manual"}</span>
-                {d.edited && <span className="ta-badge is-edit" data-tip="Some figures were entered by hand">Edited</span>}
+                <span className="ta-badge" data-tip={d.source === "auto" ? "Saved by itself at 3:45 PM" : "Built from the journal when you pressed Save"}>{d.source === "auto" ? "Auto 3:45" : "On request"}</span>
                 {d.hasAi && <span className="ta-badge is-ai">AI</span>}
               </td>
             </tr>
@@ -446,75 +445,6 @@ function NotesEditor({ d, onSaved }) {
   );
 }
 
-function FigureEditor({ d, onSaved, blank = false }) {
-  const o = d.overrides || {};
-  const s = d.summary;
-  // a day with no report starts empty, so only what you type is saved
-  const init = blank
-    ? { trades: "", wins: "", losses: "", grossProfit: "", grossLoss: "", chargesTotal: "", marginAvailable: "" }
-    : { trades: o.trades ?? s.trades, wins: o.wins ?? s.wins, losses: o.losses ?? s.losses, grossProfit: o.grossProfit ?? s.grossProfit, grossLoss: o.grossLoss ?? s.grossLoss, chargesTotal: o.chargesTotal ?? s.charges.total, marginAvailable: o.marginAvailable ?? (d.margin ? d.margin.available : "") };
-  const [f, setF] = useState(init);
-  const [msg, setMsg] = useState({ kind: "", text: "" });
-  const [busy, setBusy] = useState(false);
-  const send = async (body, ok) => {
-    setBusy(true);
-    setMsg({ kind: "", text: "" });
-    try {
-      onSaved(await api(`/api/admin/analysis/day/${d.date}`, { method: "PUT", body }), ok);
-    } catch (e) {
-      setMsg({ kind: "error", text: e.message });
-    }
-    setBusy(false);
-  };
-  const fields = [
-    ["trades", "Trades"],
-    ["wins", "Winning trades"],
-    ["losses", "Losing trades"],
-    ["grossProfit", "Total profit (₹)"],
-    ["grossLoss", "Total loss (₹, as a positive number)"],
-    ["chargesTotal", "Charges & taxes (₹)"],
-    ["marginAvailable", "Margin left (₹)"],
-  ];
-  return (
-    <details className="ta-card ta-edit" open>
-      <summary>
-        <b>Edit the figures by hand</b> <small>for a day the journal does not hold, or a number it got wrong</small>
-      </summary>
-      <p className="ta-dim">Whatever you enter here replaces the computed figure everywhere — the table, the totals and the charts — and the day is marked “Edited”. Enter losses and charges as positive numbers.</p>
-      <div className="ta-fields">
-        {fields.map(([k, l]) => (
-          <label key={k} className="ta-field">
-            <span>{l}</span>
-            <input type="number" min="0" step={k.startsWith("gross") || k === "chargesTotal" || k === "marginAvailable" ? "0.01" : "1"} value={f[k] ?? ""} onChange={(e) => setF({ ...f, [k]: e.target.value })} />
-          </label>
-        ))}
-      </div>
-      <Alert kind={msg.kind === "ok" ? "ok" : "error"}>{msg.text}</Alert>
-      <div className="ta-actions">
-        <button
-          type="button"
-          className="adm-btn adm-btn--solid adm-btn--sm"
-          disabled={busy}
-          onClick={() => {
-            if (blank && Object.values(f).every((v) => v === "" || v === null)) {
-              setMsg({ kind: "error", text: "Enter at least one figure to save." });
-              return;
-            }
-            send({ overrides: f }, "Figures saved: every total now follows them.");
-          }}
-        >
-          Save these figures
-        </button>
-        {d.edited && (
-          <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm" disabled={busy} onClick={() => send({ clearOverrides: true }, "Back to the journal's own figures.")}>
-            Use the journal’s figures again
-          </button>
-        )}
-      </div>
-    </details>
-  );
-}
-
 function DayView({ date, onBack, onChanged }) {
   const ask = useDialog();
   const [st, setSt] = useState({ loading: true, d: null, error: "", missing: false });
@@ -562,8 +492,7 @@ function DayView({ date, onBack, onChanged }) {
         <h3>{dayLong(date)}</h3>
         {d && (
           <span className="ta-badges">
-            <span className="ta-badge">{d.source === "auto" ? "Saved automatically at 3:45 PM" : "Saved by hand"}</span>
-            {d.edited && <span className="ta-badge is-edit">Edited by hand</span>}
+            <span className="ta-badge">{d.source === "auto" ? "Saved automatically at 3:45 PM" : "Built from the journal on request"}</span>
             {d.ai && <span className="ta-badge is-ai">AI analysis</span>}
           </span>
         )}
@@ -590,11 +519,9 @@ function DayView({ date, onBack, onChanged }) {
         <section className="ta-card ta-first">
           <h3>No report is saved for this day</h3>
           <p>
-            Fill in this day right here and save it, or press <b>Save this day</b> to build it from the journal (the trades it has seen for that day). To bring in the actual trades, add them in the Journal (<b>+ Add a trade</b>) and then press <b>Save this day</b>.
+            Press <b>Save this day</b> to build it from the journal — Zerodha’s own trades for that day. Figures are never typed in. If the journal has no trades for that day, it was before the server read your account each day: import that financial year’s tradebook from Zerodha Console on the <b>Journal</b> (“Where the history comes from”), then press <b>Save this day</b>. Notes can be added once the day is saved.
           </p>
         </section>
-        <FigureEditor blank d={{ date, summary: { trades: 0, wins: 0, losses: 0, grossProfit: 0, grossLoss: 0, charges: { total: 0 } }, margin: null, overrides: null }} onSaved={saved} />
-        <NotesEditor d={{ date, notes: null }} onSaved={saved} />
         </>
       )}
       {d && <DayBody d={d} onSaved={saved} />}
@@ -612,9 +539,9 @@ function DayBody({ d, onSaved }) {
         <Kpi label="Net profit / loss" value={rsSigned(s.net)} cls={tone(s.net)} sub={s.netPctOfMargin !== null ? `${s.netPctOfMargin > 0 ? "+" : ""}${s.netPctOfMargin}% of opening margin` : null} />
         <Kpi label="Total profit" value={rs(s.grossProfit)} cls="is-up" sub={`${s.wins} winning trade${s.wins === 1 ? "" : "s"}`} />
         <Kpi label="Total loss" value={rs(-s.grossLoss)} cls="is-down" sub={`${s.losses} losing trade${s.losses === 1 ? "" : "s"}`} />
-        <Kpi label="Charges & taxes" value={rs(-c.total)} cls="is-warn" sub={s.chargesPctOfGross !== null ? `${pct1(s.chargesPctOfGross)} of gross profit` : c.manual ? "entered by hand" : "estimate"} />
+        <Kpi label="Charges & taxes" value={rs(-c.total)} cls="is-warn" sub={s.chargesPctOfGross !== null ? `${pct1(s.chargesPctOfGross)} of gross profit` : "estimate"} />
         <Kpi label="Trades" value={s.trades} sub={`${pct1(s.winRatePct)} won · ${s.long} long · ${s.short} short`} />
-        <Kpi label="Margin left" value={d.margin && d.margin.available !== null ? rs(d.margin.available) : "—"} sub={d.margin && d.margin.opening ? `of ${rs(d.margin.opening)} at the open${d.margin.used ? ` · ${rs(d.margin.used)} used` : ""}` : d.margin && d.margin.source === "manual" ? "entered by hand" : "not read"} />
+        <Kpi label="Margin left" value={d.margin && d.margin.available !== null ? rs(d.margin.available) : "—"} sub={d.margin && d.margin.opening ? `of ${rs(d.margin.opening)} at the open${d.margin.used ? ` · ${rs(d.margin.used)} used` : ""}` : "not read"} />
         <Kpi label="Profit factor" value={s.profitFactor === null ? "—" : num(s.profitFactor, 2)} sub={s.payoff !== null ? `win ${rs(s.avgWin)} · loss ${rs(s.avgLoss)}` : null} />
         <Kpi label="Process score" value={d.score === null ? "—" : `${d.score}/100`} sub={`✓ ${d.practices.good.length} · ✗ ${d.practices.bad.length}`} />
       </div>
@@ -789,7 +716,7 @@ function DayBody({ d, onSaved }) {
             <li className="is-sum">
               <span>Total charges & taxes</span>
               <b>{rs(c.total, 2)}</b>
-              <small>{c.manual ? "by hand" : "estimate"}</small>
+              <small>estimate</small>
             </li>
           </ul>
         </section>
@@ -811,7 +738,7 @@ function DayBody({ d, onSaved }) {
           <small>{d.trades.length} round trips closed this day{d.market ? ` · Nifty ${d.market.niftyChangePct >= 0 ? "+" : ""}${d.market.niftyChangePct}%` : ""}</small>
         </header>
         {d.trades.length === 0 ? (
-          <p className="ta-dim">The journal holds no closed trades for this day{d.edited ? "; the figures above were entered by hand" : ""}.</p>
+          <p className="ta-dim">The journal holds no closed trades for this day. If you traded it, import that period’s Console tradebook on the Journal, then press Refresh from the journal.</p>
         ) : (
           <div className="ta-scroll">
             <table className="an-table ta-table">
@@ -853,8 +780,8 @@ function DayBody({ d, onSaved }) {
       </section>
 
       {d.readNotes && d.readNotes.length > 0 && <p className="ta-dim">Not read when this report was saved: {d.readNotes.join(" ")}</p>}
+      {d.formerOverrides && <p className="ta-dim">Figures typed in by hand for this day in an earlier version are kept on record but no longer used: every figure above comes from Zerodha’s trades in the journal.</p>}
       <NotesEditor key={`${d.date}-${d.editedAt || d.capturedAt}`} d={d} onSaved={onSaved} />
-      <FigureEditor key={`f-${d.date}-${d.editedAt || d.capturedAt}`} d={d} onSaved={onSaved} />
     </>
   );
 }
