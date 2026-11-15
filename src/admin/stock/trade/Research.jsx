@@ -12,6 +12,7 @@ import { useAuth } from "../../auth";
 import { api } from "../../api";
 import { Alert, Loading } from "../../ui";
 import { useAiStatus } from "../../aiStatus";
+import AiBrain from "../analyzer/AiBrain";
 import { inr, isNum, num, pct, when } from "../analyzer/format";
 import "./trade.css";
 
@@ -80,6 +81,7 @@ function StockNote({ row, onOpen }) {
       </header>
       {row.error && <p className="adm-alert">{row.error}</p>}
       <DirectionCard d={row.direction} />
+      <ResearchAi symbol={row.symbol} />
       {n && <p>{n.summary}</p>}
       {n && (
         <div className="rs-sec">
@@ -190,6 +192,20 @@ function StockNote({ row, onOpen }) {
         </details>
       )}
     </article>
+  );
+}
+
+/**
+ * AI Research for one stock card: the desk's next-session outlook (arithmetic, no AI) and, on a press of
+ * the button, every analyst's reading of the same numbers. Nothing loads until the card is opened.
+ */
+function ResearchAi({ symbol }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <details className="rs-ai" onToggle={(e) => setOpen(e.currentTarget.open)}>
+      <summary>AI Research — next trading day for {symbol}</summary>
+      {open && <AiBrain symbol={symbol} live={false} marketHours={false} only="research" />}
+    </details>
   );
 }
 

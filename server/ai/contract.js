@@ -47,13 +47,14 @@ function problems(data, schema, at = "answer", out = []) {
  * Wrap a client's ask() so every answer meets the schema: one repair attempt, then a clear failure.
  * @param held  true when the company itself holds answers to the schema (no second check needed)
  */
-function enforce(client, { held = false, AiError }) {
+function enforce(client, { held = false, AiError, repair = true }) {
   if (held) return client;
   const ask = client.ask.bind(client);
   client.ask = async (args) => {
     const first = await ask(args);
     let issues = problems(first.data, args.schema);
     if (!issues.length) return { ...first, contract: "checked" };
+    if (!repair) throw new AiError(`The model's answer did not follow the required format (${issues.slice(0, 3).join("; ")}).`, "bad_output", 502);
     const retryUser = `${args.user}\n\n---\n\nYour previous answer did not match the required JSON schema:\n- ${issues.slice(0, 10).join("\n- ")}\n\nAnswer again: one JSON object only, matching the schema exactly, with the same analysis rules as before.`;
     const second = await ask({ ...args, user: retryUser });
     issues = problems(second.data, args.schema);

@@ -6,7 +6,7 @@
 // is closed. Prices, VWAP and volume come from Zerodha's quotes; RSI and the 52-week range from
 // the screener's stored daily history with the live price as the newest bar.
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../../api";
 import { Alert, Loading } from "../../ui";
 import { day, inr, isNum, num, when } from "./format";
@@ -46,7 +46,10 @@ const COLS = [
   { id: "relTurnover", label: "× usual" },
   { id: "range", label: "Day range", sortable: false },
   { id: "fromHigh52Pct", label: "From 52w high" },
+  { id: "ai", label: "AI", sortable: false },
 ];
+const SHORT = { long: "▲ Long", short: "▼ Short", wait: "Wait", "long-bias": "▲ Up", "short-bias": "▼ Down", neutral: "Neutral" };
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const INDEX_KEY = "vpt.board.index";
 const storedIndex = () => {
   try {
@@ -96,6 +99,11 @@ export default function MarketBoard({ onOpen }) {
   const [sort, setSort] = useState(null); // a header the user clicked: [column, direction]
   const [q, setQ] = useState("");
   const [index, setIndex] = useState(storedIndex);
+  // AI one stock at a time (free models only — no paid credits), for the top of the list shown
+  const [ai, setAi] = useState({ running: false, kind: "", done: 0, total: 0, current: "", error: "" });
+  const [aiRes, setAiRes] = useState({});
+  const [aiN, setAiN] = useState(5);
+  const stopAi = useRef(false);
 
   const load = useCallback(
     () =>
@@ -125,6 +133,29 @@ export default function MarketBoard({ onOpen }) {
     } catch (_) {
       /* remembered for this visit only */
     }
+  };
+
+  const runAi = async (kind, symbols) => {
+    stopAi.current = false;
+    setAi({ running: true, kind, done: 0, total: symbols.length, current: "", error: "" });
+    for (const sym of symbols) {
+      if (stopAi.current) break;
+      setAi((a) => ({ ...a, current: sym }));
+      try {
+        let j = await api(`/api/admin/ai/ensemble/${kind}/${encodeURIComponent(sym)}`, { method: "POST", body: { freeOnly: true } });
+        while (!j.finishedAt && !stopAi.current) {
+          await sleep(1500);
+          j = await api(`/api/admin/ai/ensemble/job/${j.id}`);
+        }
+        if (j.result) setAiRes((m) => ({ ...m, [sym]: { ...m[sym], [kind]: { call: j.result.final.call, lean: j.result.final.lean, agreement: j.result.final.agreement, mode: j.result.final.mode, n: j.result.analysts.filter((x) => x.status === "answered").length } } }));
+        else if (j.error) setAi((a) => ({ ...a, error: `${sym}: ${j.error}` }));
+      } catch (e) {
+        setAi((a) => ({ ...a, error: `${sym}: ${e.message}` }));
+        if (/Four AI runs|rate/i.test(e.message)) await sleep(8000);
+      }
+      setAi((a) => ({ ...a, done: a.done + 1 }));
+    }
+    setAi((a) => ({ ...a, running: false, current: "" }));
   };
 
   const pick = (id) => {
@@ -228,6 +259,36 @@ export default function MarketBoard({ onOpen }) {
         <input className="mb-find" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Filter by symbol or name" aria-label="Filter the board" spellCheck="false" />
       </div>
 
+      <div className="mb-ai-bar">
+        <span className="mb-ai-bar__t" data-tip="Each stock is read by every free NVIDIA-hosted model together with the desk's own arithmetic, one stock after another. No paid credits are used here. Nothing starts until you press a button.">
+          AI, one by one
+        </span>
+        <select value={aiN} onChange={(e) => setAiN(Number(e.target.value))} aria-label="How many stocks, from the top of the list" disabled={ai.running}>
+          {[3, 5, 10].map((n) => (
+            <option key={n} value={n}>
+              top {n} shown
+            </option>
+          ))}
+        </select>
+        <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm" disabled={ai.running || !b.live || rows.length === 0} onClick={() => runAi("live", rows.slice(0, aiN).map((r) => r.symbol))} data-tip={b.live ? "The next 15–30 minutes of each stock." : "AI Live needs the market open."}>
+          AI Live
+        </button>
+        <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm" disabled={ai.running || rows.length === 0} onClick={() => runAi("research", rows.slice(0, aiN).map((r) => r.symbol))} data-tip="The next trading session of each stock.">
+          AI Research
+        </button>
+        {ai.running && (
+          <>
+            <span className="mb-ai-bar__p" role="status">
+              {ai.kind === "live" ? "AI Live" : "AI Research"} · {ai.done}/{ai.total} · reading {ai.current}…
+            </span>
+            <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm" onClick={() => (stopAi.current = true)}>
+              Stop
+            </button>
+          </>
+        )}
+        {ai.error && <span className="mb-ai-bar__e">{ai.error}</span>}
+      </div>
+
       {rows.length === 0 ? (
         <p className="vd-note">No stock fits “{def.label}” right now.</p>
       ) : (
@@ -295,6 +356,19 @@ export default function MarketBoard({ onOpen }) {
                   <td className={`is-num ${r.relTurnover >= 1.5 ? "is-up" : ""}`}>{isNum(r.relTurnover) ? `${num(r.relTurnover, 1)}×` : "—"}</td>
                   <Range r={r} />
                   <td className={`is-num ${tone(r.fromHigh52Pct)}`}>{pctText(r.fromHigh52Pct)}</td>
+                  <td className="mb-aicell">
+                    {aiRes[r.symbol] ? (
+                      ["live", "research"].map((k) =>
+                        aiRes[r.symbol][k] ? (
+                          <span key={k} className={`mb-aichip mb-aichip--${/^long/.test(aiRes[r.symbol][k].call) ? "up" : /^short/.test(aiRes[r.symbol][k].call) ? "down" : aiRes[r.symbol][k].lean}`} data-tip={`${k === "live" ? "AI Live (next 30 min)" : "AI Research (next session)"}: ${aiRes[r.symbol][k].agreement}% agree, ${aiRes[r.symbol][k].mode === "ensemble" ? `${aiRes[r.symbol][k].n} AI analysts + the desk's arithmetic` : "desk's arithmetic only"}`}>
+                            {k === "live" ? "L" : "R"} {SHORT[aiRes[r.symbol][k].call] || aiRes[r.symbol][k].call} {aiRes[r.symbol][k].agreement}%
+                          </span>
+                        ) : null
+                      )
+                    ) : (
+                      <span className="mb-dim">—</span>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>

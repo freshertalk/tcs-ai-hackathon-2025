@@ -19,6 +19,7 @@ import Shell from "./Shell";
 import TipLayer from "./help/TipLayer";
 import { DialogProvider } from "./dialog/DialogProvider";
 
+
 import Login from "./Login";
 import Setup from "./Setup";
 import Dashboard from "./Dashboard";
@@ -32,6 +33,40 @@ import ChartPage from "./stock/chart/ChartPage";
 
 import "./admin.css";
 import "./hub.css";
+// The private area wears Panchmukhi Hanuman Ji as its favicon. The public site's own icons are
+// put aside while this area is open and put back when it is left. (A page loaded straight from
+// /me already carries these in its own head: see scripts/prerender.js.)
+const PRIVATE_ICONS = [
+  ["icon", "32x32", "/img/hanuman-icon-32.png"],
+  ["icon", "48x48", "/img/hanuman-icon-48.png"],
+  ["icon", "192x192", "/img/hanuman-icon-192.png"],
+  ["apple-touch-icon", "180x180", "/img/hanuman-icon-180.png"],
+];
+function usePrivateFavicon() {
+  useEffect(() => {
+    if (typeof document === "undefined") return undefined;
+    const head = document.head;
+    const put = [...head.querySelectorAll('link[rel~="icon"], link[rel="apple-touch-icon"], link[rel="shortcut icon"]')].filter((l) => !l.dataset.private);
+    put.forEach((l) => l.remove());
+    // a page that came straight from /me already carries them in its own head
+    const have = Boolean(head.querySelector("link[data-private]"));
+    const added = (have ? [] : PRIVATE_ICONS).map(([rel, sizes, href]) => {
+      const l = document.createElement("link");
+      l.rel = rel;
+      l.sizes = sizes;
+      l.type = "image/png";
+      l.href = href;
+      l.dataset.private = "1";
+      head.appendChild(l);
+      return l;
+    });
+    return () => {
+      added.forEach((l) => l.remove());
+      put.forEach((l) => head.appendChild(l));
+    };
+  }, []);
+}
+
 
 /** Keep this area out of search results and out of the browser tab's public identity. */
 function useQuietHead() {
@@ -117,6 +152,7 @@ function Gate({ superOnly = false, children }) {
 
 export default function AdminApp() {
   useQuietHead();
+  usePrivateFavicon();
   const [state, setState] = useState({ loading: true });
 
   const reload = useCallback(async () => {

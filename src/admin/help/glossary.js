@@ -468,6 +468,27 @@ const ENTRIES = [
   [["Entry", "Stop", "Targets", "Reward : risk"], "The plan for this direction, taken from the stock's own levels.", ".dir"],
   [["Time zone converter"], "Pick a date and time in one zone and see it in another. Every zone in the world, with daylight saving."],
 
+  /* ---- Document */
+  [["Document", "Drishti — the complete guide"], "The complete guide to this advisor in plain English: every feature, who does what, and every rule — what it does, how and when. Search it, or read it from the top."],
+  [["How it works"], "One business rule in full: who does it, when, the steps, and its honest limits."],
+  [["Limits & honest notes", "Limits & honest notes."], "What the rule cannot do, and where it is only an estimate."],
+
+  /* ---- Trade Analysis */
+  [["Trade Analysis"], "Every trading day read back: profit, loss, charges and taxes, trades and margin, what went well and what did not. Saved by itself at 3:45 PM IST.", ".ta"],
+  [["Save today now", "Save this day"], "Build the report from the journal's trades and the broker's readings now, and save it. Notes and figures you entered are kept.", ".ta"],
+  [["Total profit", "Total loss"], "Profit is the sum of the trades that closed above zero; loss is the sum of those that closed below zero. Both are before charges.", ".ta"],
+  [["Charges & taxes", "Charges and taxes"], "Brokerage, STT, exchange fees, SEBI fee, GST, stamp duty and DP charge: an estimate from Zerodha's published rates. The contract note is the truth.", ".ta"],
+  [["Process score"], "From the good and bad practices found in the day's trades: how the day was traded, not what it made. A reminder about habits.", ".ta"],
+  [["Edit the figures by hand"], "For a day the journal does not hold, or a number it got wrong. What you enter replaces the computed figure everywhere and the day is marked Edited.", ".ta"],
+
+  /* ---- AI Live and AI Research */
+  [["AI Live"], "Ask every analyst to read this stock's live numbers now: where it is more likely to go in the next 15–30 minutes. The desk's own arithmetic answers first, without AI.", ".ab"],
+  [["AI Research"], "Ask every analyst to prepare this stock for the next trading session, from the earlier data. The desk's own outlook answers first, without AI.", ".ab"],
+  [["Engine + AI analysts", "Desk’s own arithmetic — no AI"], "Whether the answer is the desk's arithmetic alone, or that arithmetic weighed together with the AI analysts' readings.", ".ab"],
+  [["% agree", "agree"], "How much of the weight (the desk's engine and each analyst, by track record) sits on the winning side. Agreement is not a probability of profit.", ".ab"],
+  [["AI, one by one"], "Runs the top stocks of the list shown through the analysts one after another, free models only — no paid credits. Nothing starts until you press a button.", ".mb"],
+  [["Next 30 min", "Next session"], "The desk's read for the next 15–30 minutes, or for the next trading session. Click to show it.", ".ab"],
+
   /* ---- paper trading and the market board */
   [["Paper trading", "Paper"], "The desk's live call followed with play money — in today's market, on past sessions, and in an auto mode. No order is ever sent from it, and it is separate from real trading, which works as before.", ".pp"],
   [["Auto mode ON", "Auto mode OFF"], "Paper-trades the live market every five minutes and re-tests the setup on history after each close, by itself. It has no effect on real trading.", ".pp"],

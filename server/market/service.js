@@ -31,6 +31,7 @@ const { replayDayAsync, combine, DEFAULT_COST_PCT } = require("./replay");
 const { KiteTicker } = require("./ticker");
 const { Universe } = require("./universe");
 const { IndexList } = require("./indexlist");
+const { buildPulse } = require("./pulse");
 const { buildContext: buildMarketContext, contextKeys } = require("./context");
 const { buildProfile } = require("./profile");
 const E = require("./edge");
@@ -1002,6 +1003,41 @@ class MarketService {
   screenerStop() {
     this.universe.stop();
     return this.screenerStatus();
+  }
+
+  /**
+   * The Live Pulse for one stock: the next 15–30 minutes read from the live session by arithmetic
+   * (pulse.js) — no AI. It sits on top of the desk's live call. `account` is the trader's own
+   * position and margin for this stock, read-only, when the caller has them.
+   */
+  async pulse(symbol, { account = null, riskPct } = {}) {
+    if (!SYMBOL_RE.test(symbol)) throw new MarketError("That is not a valid symbol.", "invalid");
+    if (this.mode() !== "kite") return { available: false, symbol, reason: "The live pulse needs the Zerodha connection and the market open." };
+    const v = await this.verdict(symbol);
+    const day = v.available && v.day ? v.day : null;
+    if (!day || !day.available) return { available: false, symbol, reason: day && day.reason ? day.reason : "The live session is not available: the market is closed or has not traded yet." };
+    let t5 = null;
+    let t1 = null;
+    try {
+      t5 = await this.tape(symbol, 5);
+    } catch (_) {
+      t5 = null;
+    }
+    try {
+      t1 = await this.tape(symbol, 1);
+    } catch (_) {
+      t1 = null;
+    }
+    const bars5 = t5 && t5.available && t5.tape.today ? t5.tape.bars : [];
+    const fast = day.fast || (t1 && t1.fast && t1.fast.available ? t1.fast : null);
+    let flow = null;
+    try {
+      flow = this.flowSnapshot(symbol);
+    } catch (_) {
+      flow = null;
+    }
+    const p = buildPulse({ day, bars5, fast, flow, account, riskPct });
+    return { ...p, symbol, source: v.source, circuit: v.circuit || null, session: day.session || null, at: new Date(this.now()).toISOString(), lastBar: day.movement ? day.movement.lastBarAt : null };
   }
 
   /** The market board: top gainers and losers, RSI, VWAP and more for any NSE index (universe.js). */

@@ -8,6 +8,11 @@ const { MarketError, SYMBOL_RE } = require("../market/service");
 const { KiteError } = require("../market/kite");
 
 function mountAi(app, { ai, requireAdmin, limiter }) {
+  const kindOf = (req) => {
+    const k = String(req.params.kind || "");
+    if (k !== "live" && k !== "research") throw new AiError("Unknown kind: use live or research.", "invalid", 400);
+    return k;
+  };
   const wrap = (fn) => async (req, res) => {
     try {
       res.json(await fn(req, res));
@@ -95,6 +100,33 @@ function mountAi(app, { ai, requireAdmin, limiter }) {
   // the AI decision: today's live brief weighed against the stock's stored behaviour profile
   app.get("/api/admin/ai/decision/:symbol", requireAdmin, wrap(async (req) => ai.decision.list(symbolOf(req))));
   app.post("/api/admin/ai/decision/:symbol", requireAdmin, limiter(40, 60 * 60 * 1000), wrap(async (req) => ({ decision: await ai.decision.decide(symbolOf(req)), ...ai.decision.list(symbolOf(req)) })));
+
+  /* ---- AI Live and AI Research: the desk's own arithmetic answers first and needs no AI; the
+     analysts (free NVIDIA-hosted models, plus one optional paid lead that does the web search)
+     are started only by these buttons, for the stock that is open. */
+  app.get("/api/admin/ai/pulse/:symbol", requireAdmin, limiter(300, 60 * 1000), wrap(async (req) => ai.ensemble.pulse(symbolOf(req))));
+
+  app.get("/api/admin/ai/outlook/:symbol", requireAdmin, limiter(90, 60 * 1000), wrap(async (req) => {
+    const { brief, verdict, sheet, ...rest } = await ai.ensemble.outlook(symbolOf(req));
+    void brief;
+    void verdict;
+    void sheet;
+    return rest;
+  }));
+
+  app.get("/api/admin/ai/ensemble/status", requireAdmin, wrap(async () => {
+    await ai.ensemble.score();
+    return ai.ensemble.status();
+  }));
+
+  app.put("/api/admin/ai/ensemble/settings", requireAdmin, limiter(40, 15 * 60 * 1000), wrap(async (req) => ai.ensemble.setSettings(req.body || {})));
+
+  // one run reads the page's stock with up to eight models at once: a limit keeps a stuck button from spending
+  app.post("/api/admin/ai/ensemble/:kind/:symbol", requireAdmin, limiter(30, 10 * 60 * 1000), wrap(async (req) => ai.ensemble.start(kindOf(req), symbolOf(req), { freeOnly: Boolean((req.body || {}).freeOnly) })));
+
+  app.get("/api/admin/ai/ensemble/job/:id", requireAdmin, limiter(600, 60 * 1000), wrap(async (req) => ai.ensemble.job(req.params.id)));
+
+  app.get("/api/admin/ai/ensemble/:kind/:symbol", requireAdmin, wrap(async (req) => ({ last: ai.ensemble.last(kindOf(req), symbolOf(req)) })));
 
   app.get("/api/admin/ai/skills", requireAdmin, wrap(async () => ({ text: ai.playbook.read(), lessons: ai.playbook.lessons().length })));
 

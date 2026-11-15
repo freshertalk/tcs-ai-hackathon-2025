@@ -110,15 +110,15 @@ export default function TopBar({ views, view, onView, theme, onTheme, onHelp, on
   return (
     <header className="tm-top">
       <Link to={adminPath()} className="tm-brand" data-tip="Back to the dashboard.">
-        <span className="tm-brand__mark" aria-hidden="true">
-          ▲
+        <span className="tm-brand__mark tm-brand__mark--img">
+          <img src="/img/hanuman-icon-96.png" alt="Panchmukhi Hanuman Ji" width="42" height="42" decoding="async" />
         </span>
         <span className="tm-brand__name">Control room</span>
       </Link>
 
       <nav className="tm-tabs" role="tablist" aria-label="Workspaces">
         {views.map((v, i) => (
-          <button key={v.id} type="button" role="tab" aria-selected={view === v.id} onClick={() => onView(v.id)} data-tip={`${v.tip} Shortcut: ${i + 1}.`}>
+          <button key={v.id} type="button" role="tab" aria-selected={view === v.id} onClick={() => onView(v.id)} data-tip={i < 9 ? `${v.tip} Shortcut: ${i + 1}.` : v.tip}>
             {v.label}
             <kbd aria-hidden="true">{i + 1}</kbd>
           </button>

@@ -208,20 +208,26 @@ function finish(t, open) {
  * An estimate of Zerodha's charges on an NSE/BSE equity round trip (published rates; they
  * change — the contract note is the truth). F&O and commodities are not estimated (0).
  */
-function charges(t) {
-  if (!["NSE", "BSE"].includes(t.exchange)) return 0;
+function chargeParts(t) {
+  const zero = { brokerage: 0, stt: 0, exchange: 0, sebi: 0, gst: 0, stamp: 0, dp: 0 };
+  if (!["NSE", "BSE"].includes(t.exchange)) return zero;
   const buy = t.turnoverBuy;
   const sell = t.turnoverSell;
   const turnover = buy + sell;
   const intraday = t.intraday;
   const brokerage = intraday ? Math.min(20, buy * 0.0003) + Math.min(20, sell * 0.0003) : 0;
   const stt = intraday ? sell * 0.00025 : turnover * 0.001;
-  const exch = turnover * (t.exchange === "NSE" ? 0.0000297 : 0.0000375);
+  const exchange = turnover * (t.exchange === "NSE" ? 0.0000297 : 0.0000375);
   const sebi = turnover * 0.000001;
-  const gst = 0.18 * (brokerage + exch + sebi);
+  const gst = 0.18 * (brokerage + exchange + sebi);
   const stamp = buy * (intraday ? 0.00003 : 0.00015);
   const dp = !intraday && sell > 0 ? 15.34 : 0;
-  return r2(brokerage + stt + exch + sebi + gst + stamp + dp);
+  return { brokerage, stt, exchange, sebi, gst, stamp, dp };
+}
+
+function charges(t) {
+  const p = chargeParts(t);
+  return r2(p.brokerage + p.stt + p.exchange + p.sebi + p.gst + p.stamp + p.dp);
 }
 
 /* ------------------------------------------------------------------ stats */
@@ -436,4 +442,4 @@ class TradeJournal {
   }
 }
 
-module.exports = { TradeJournal, roundTrips, charges, stats, excursion, fromConsoleCsv, fromKite, parseTime, csvRows, MISTAKES, NAME };
+module.exports = { TradeJournal, roundTrips, charges, chargeParts, stats, excursion, fromConsoleCsv, fromKite, parseTime, csvRows, MISTAKES, NAME };

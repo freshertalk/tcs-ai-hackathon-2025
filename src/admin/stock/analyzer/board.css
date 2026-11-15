@@ -251,3 +251,55 @@
 .mb-chip.is-down {
   background: color-mix(in srgb, var(--down) 16%, transparent);
 }
+.mb-ai-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  padding: 6px 8px;
+  border: 1px dashed var(--line-2);
+  border-radius: 8px;
+  font-size: var(--t-small);
+}
+.mb-ai-bar__t {
+  font-weight: 600;
+  color: var(--accent);
+}
+.mb-ai-bar select {
+  height: 26px;
+  padding: 0 6px;
+  border: 1px solid var(--line-2);
+  border-radius: 6px;
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--t-small);
+}
+.mb-ai-bar__p {
+  color: var(--ink-2);
+}
+.mb-ai-bar__e {
+  flex-basis: 100%;
+  color: var(--down);
+}
+.mb-aicell {
+  white-space: nowrap;
+}
+.mb-aichip {
+  display: inline-block;
+  margin-right: 4px;
+  padding: 1px 7px;
+  border-radius: 99px;
+  background: var(--line);
+  color: var(--ink-2);
+  font-size: var(--t-tag);
+  font-weight: 700;
+}
+.mb-aichip--up {
+  background: color-mix(in srgb, var(--up) 20%, transparent);
+  color: var(--up);
+}
+.mb-aichip--down {
+  background: color-mix(in srgb, var(--down) 20%, transparent);
+  color: var(--down);
+}

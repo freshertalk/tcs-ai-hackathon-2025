@@ -259,6 +259,76 @@ target under 1.5× the risk also holds it back. Research also **runs by itself**
 no cost, or with AI notes, company news and the world brief when switched on (that uses Anthropic
 tokens). It is a summary of evidence, not a forecast and not advice.
 
+**Trade Analysis (the last workspace on the terminal bar; a tile in the Stock Report section of `/me`;
+`server/analysis/`, `src/admin/stock/analysis/`; superadmin only).** One report per trading day, kept in its own
+record (`analysis/days` — a collection of its own in MongoDB, a file otherwise).
+- **Saved by itself at 3:45 PM IST** on trading days (`DayAnalysis.tick`, once a minute, outside `server/ai`
+  because that folder holds no timers): the day's closed round trips from the journal, the margin that
+  is left, any position still open, and the Nifty's move. It tries again every ten minutes (four times)
+  if the broker cannot be read, and saves nothing for a day with no trades. Any day can be saved, refreshed,
+  edited or deleted by hand; notes, a rating, lessons and hand-entered figures survive a refresh.
+- **Profit, loss and taxes are separate everywhere** — the cards, the table, the charts: *profit* is the sum of
+  trades that closed above zero, *loss* the sum of those below zero (both before charges), and *charges &
+  taxes* are brokerage, STT, exchange fee, SEBI fee, GST, stamp duty and DP charge, each shown on its own
+  and grouped (government taxes & statutory = STT + GST + stamp + SEBI). Net = profit − loss − charges. The charges
+  are an estimate from Zerodha's published equity rates (`chargeParts` in `journal.js`).
+- **Good and bad practices from the trades themselves**, each with its figures and what it cost: overtrading
+  against your usual count, winners smaller than losers, one loss outweighing the winners, losers held longer than
+  winners, entries before 9:30 or after 2:45, revenge trades, trading on after two losses in a row, oversized
+  positions, charges that turn a profit into a loss, piling into one stock, an intraday position left open, a
+  heavy loss day. They come with advice and a process score; they describe the day, they do not predict the next.
+- **The AI's "why"** is optional (the model chosen on the AI page; `server/ai/dayreview.js`): written with the
+  automatic report when switched on, or on a press of a button; without it the page shows the desk's own
+  arithmetic, and a failing model never loses the report.
+- **Analytics** over any period (7 days … all, or custom dates), with the previous period for comparison:
+  scorecards with sparklines, cumulative net and gross curves, daily profit/loss bars with the net, where the
+  money went, charges by kind, weekday and hour tables, rolling win rate and process score, drawdown, a calendar
+  of every day, stocks that made and cost money, and how often each habit recurs and what those days netted. The
+  charts are plain SVG (no library), keyboard-reachable, with a read-out on hover.
+
+**Document (the workspace after Trade Analysis; a tile in the Stock Report section of `/me`; `src/admin/stock/docs/`).**
+The manual of the whole advisor in plain English — "the bible": what Drishti is, a map of every part with its name, a
+day with the advisor, then every engine and business rule (what it does, how and when) for the market readings,
+the live day, trading and risk, records and paper trading, the AI team, and the platform, ending in a glossary,
+questions and answers and every honest limit in one place. It is plain data (`chapters.js` and `content/*.js`;
+blocks of headings, paragraphs, lists, tables, notes and "how it works" cards) shown by `Document.jsx` with a
+contents list (folds into a bar on a phone), search that filters the passages and marks the words, justified text,
+tables that become cards on a phone, back-to-top and a clean print. It was written from the code itself; when a rule
+changes, change the chapter in the same commit (`Document.test.js` only keeps the data well-formed).
+
+**AI Live and AI Research (the "AI Brain" card on the Desk, above the chart; `server/ai/ensemble.js`,
+`server/market/pulse.js`, `server/market/outlook.js`).** Two buttons that bring every analyst to one stock,
+added on top of everything that already existed — no earlier logic was removed or replaced.
+- **The floor needs no AI.** Under the buttons the desk's own arithmetic is always shown and refreshes
+  itself (every 20 s in market hours): the **Live Pulse** (next 15–30 minutes) weighs the desk's live call
+  together with momentum over 15 and 30 minutes, VWAP side and cross, 1-minute structure, volume and who
+  carries it, 5-minute RSI (stretched counts against the move), candle patterns, the opening range and the
+  order book; the **Next-Session Outlook** weighs the research direction and the measured odds together
+  with trend, momentum, how the last session closed, three-day drift, candles and stretch, and adds the
+  expected range, the gap habit, tomorrow's pivots and if-then scenarios. Each piece of evidence votes
+  −1…+1 with a fixed weight; the lean is the weighted sum and the confidence is how much of the weight
+  agrees. Plans for **both** a long and a short are always shown, and the trader's own position and
+  available margin (read-only) shape the advice and the size by risk. Weak or split evidence reads "wait".
+- **The buttons bring the analysts.** AI Live / AI Research start a run for the open stock: the paid
+  "lead" (the company chosen on the AI page, else the first saved Anthropic / OpenAI / Gemini key) first
+  does the web search — company news and world markets, kept 30 minutes so credits are not spent twice —
+  then every **free NVIDIA-hosted model** with a saved key (Nemotron ×4, Mistral Large 4, DeepSeek V4.1
+  Flash, Gemma 4) and the lead read the **identical** brief in parallel (free models cannot browse; they
+  get the numbers and the lead's web context). Results appear as each analyst answers.
+- **The weighing is arithmetic too.** Votes (the desk's own included) carry weights, adjusted by each
+  analyst's own scored record once it has 20 decided calls (0.4–1.6×); a long or short is called only when
+  the lean is clear, at least 60% of the weight agrees, the desk's engine does not oppose, no gate is shut
+  (entry window, thin volume, spread, a stale quote) and the plan passes the same `checkPlan` arithmetic as
+  every other plan. Otherwise: wait. AI is optional — with no key, or if every model fails, the answer is
+  the desk's arithmetic in full, with the same plans.
+- **Only on a press.** Nothing in `server/ai/` has a timer. A paid-run limit per day and a per-model wait
+  are on the ⚙ panel, which also lists each analyst's track record. Live calls are scored against the price
+  30 minutes later, next-session calls against that session's close.
+- **Screener and Research.** The board's "AI, one by one" runs the top 3 / 5 / 10 stocks shown through the
+  analysts one after another, **free models only** (no paid credits), with a chip per stock; each Research
+  stock card has its own AI Research. No AI run can place an order; the web context is untrusted text, and the
+  plan checks and the lack of any order code bound what it could do.
+
 **Paper trading (the "Paper" workspace; card on `/me`; `server/paper/`).** The desk's own live call
 followed with play money — never real money. Rules are the Debrief's day replay (`server/market/replay.js`):
 a fresh "Long / Short — in play" call at a 5-minute close is entered at that close with the call's stop

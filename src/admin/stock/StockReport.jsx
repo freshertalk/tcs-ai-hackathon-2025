@@ -2,7 +2,7 @@
 // one workspace at a time beneath it — the Desk (watchlist, chart, live call, order book,
 // co-pilot, with your positions docked along the bottom), the Advisor (measured odds for
 // the whole watchlist), Positions & orders, Journal, Research, Screener, Debrief and
-// Calendar. Keyboard: / search, B / S buy or sell the open stock, 1–8 workspaces, D dock,
+// Calendar. Keyboard: / search, B / S buy or sell the open stock, 1–9 workspaces, D dock,
 // T theme, ? the list.
 //
 // One layout, every screen: the same workspaces sit in the top bar on a laptop or monitor and
@@ -19,6 +19,8 @@ import TimeConverter from "./TimeConverter";
 import Analyzer from "./analyzer/Analyzer";
 import Screener from "./analyzer/Screener";
 import Paper from "./paper/Paper";
+import TradeAnalysis from "./analysis/TradeAnalysis";
+import Document from "./docs/Document";
 import Debrief from "./analyzer/Debrief";
 import ErrorBoundary from "./analyzer/ErrorBoundary";
 import Account from "./trade/Account";
@@ -47,6 +49,8 @@ const VIEWS = [
   { id: "paper", label: "Paper", tip: "Paper trading: the desk’s live call followed with play money — in today’s market, on past sessions, and in an auto mode. No real orders; separate from real trading." },
   { id: "debrief", label: "Debrief", tip: "After the close: if you had followed every live call by fixed rules, what would today have made or lost? A report card for the desk’s signals — no real trades." },
   { id: "calendar", label: "Calendar", tip: "World clock and upcoming exchange holidays." },
+  { id: "analysis", label: "Trade Analysis", superOnly: true, tip: "Every trading day read back: profit, loss, charges and taxes, trades and margin, what went well and what did not — saved by itself at 3:45 PM IST, with analytics over many days." },
+  { id: "document", label: "Document", tip: "The complete guide to this advisor in plain English: every feature, who does what, and every rule — what it does, how and when." },
 ];
 const DOCK_KEY = "vpt.terminal.dock";
 const storedDock = () => {
@@ -258,6 +262,10 @@ function Terminal() {
               <Screener onOpen={openStock} />
             ) : view === "paper" ? (
               <Paper />
+            ) : view === "analysis" ? (
+              <TradeAnalysis />
+            ) : view === "document" ? (
+              <Document />
             ) : view === "debrief" ? (
               <Debrief onOpen={openStock} />
             ) : (

@@ -9,7 +9,8 @@ import { useAuth } from "./auth";
 import { adminPath } from "./paths";
 import Shell from "./Shell";
 import { useAiStatus } from "./aiStatus";
-import { IconArrow, IconChart, IconGlobe, IconKey, IconUsers } from "./icons";
+import Darshan from "./Darshan";
+import { IconArrow, IconChart, IconKey, IconUsers } from "./icons";
 
 const WORKSPACES = [
   { view: "", label: "Desk", text: "Chart, live call, order book" },
@@ -21,6 +22,8 @@ const WORKSPACES = [
   { view: "paper", label: "Paper trading", text: "Play money, live and history" },
   { view: "debrief", label: "Debrief", text: "Today’s calls, replayed" },
   { view: "calendar", label: "Calendar", text: "Holidays and time zones" },
+  { view: "analysis", label: "Trade Analysis", text: "Every day: profit, loss, taxes", superOnly: true },
+  { view: "document", label: "Document", text: "The complete guide, in plain English" },
 ];
 const terminal = (view) => `${adminPath("/stock-report")}${view ? `?view=${view}` : ""}`;
 
@@ -184,15 +187,18 @@ export default function Dashboard() {
   return (
     <Shell wide>
       <div className="hub">
-        <header className="hub-head">
-          <div>
-            <p className="hub-head__k">
-              {greeting()} · {today}
-            </p>
-            <h1>Namaste, {firstName(user)}</h1>
-          </div>
-          <Pulse isSuper={isSuper} />
-        </header>
+        <div className="hub-top">
+          <Darshan />
+          <div className="hub-top__main">
+          <header className="hub-head">
+            <div>
+              <p className="hub-head__k">
+                {greeting()} · {today}
+              </p>
+              <h1>Namaste, {firstName(user)}</h1>
+            </div>
+            <Pulse isSuper={isSuper} />
+          </header>
 
         <section className="hub-hero" aria-labelledby="hub-sr">
           <a className="hub-hero__main" href={terminal("")} target="_blank" rel="noopener noreferrer" data-tip="Open the trading terminal in a new tab.">
@@ -214,6 +220,8 @@ export default function Dashboard() {
             ))}
           </nav>
         </section>
+          </div>
+        </div>
 
         <PaperCard />
 
@@ -237,15 +245,6 @@ export default function Dashboard() {
               tip="Choose the AI company (Anthropic, OpenAI, Gemini, DeepSeek, Kimi, NVIDIA) and model, save its key, and set the live co-pilot’s limits."
               status={ai && { on: ai.configured, label: ai.configured ? "On" : "Off" }}
             />
-            <Setting
-              to={adminPath("/analytics")}
-              icon={<IconChart />}
-              title="Google Analytics"
-              text="Visit counting on the public site."
-              tip="Turn visit counting on or off for the public website."
-              status={s && { on: Boolean(s.gaMeasurementId), label: s.gaMeasurementId ? "On" : "Off" }}
-            />
-            <Setting external href="/" icon={<IconGlobe />} title="Public website" text="vinaytiwari.org, as visitors see it." tip="See the public website as a visitor does." />
           </div>
         </section>
       </div>

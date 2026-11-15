@@ -352,7 +352,9 @@ export default function AiSettings() {
                 </li>
                 <li>
                   <b>What is sent to the AI company.</b> Market data for the one stock, the rule engine’s reading and your trading-skills file. The news check sends the symbol, the company’s
-                  name and today’s change. No name, email, account or holdings.
+                  name and today’s change. Never your name or email. The strategist, news check, co-pilot and research send no account data; the AI Live / AI Research analysts add your
+                  position in that stock and your available cash, and the position coach, journal review and day review read your positions or trades — each only when you press its button
+                  (the day review also runs at the 3:45 PM report if switched on).
                 </li>
                 <li>
                   <b>Every plan is checked</b> by arithmetic — stop side, circuit limits, risk size, reward at least equal to risk — whichever company wrote it. Plans are later scored against

@@ -268,11 +268,12 @@ const effortOf = (e) => (e === "low" ? "low" : e === "medium" ? "medium" : "high
 /* ------------------------------------------------ OpenAI-style chat APIs */
 
 class CompatClient {
-  constructor({ provider, apiKey, model, fetchImpl }) {
+  constructor({ provider, apiKey, model, fetchImpl, timeoutMs }) {
     this.p = provider;
     this.key = apiKey;
     this.model = model;
     this.fetch = fetchImpl;
+    this.timeoutMs = timeoutMs; // undefined: the default (four minutes); a shorter deadline for the ensemble's analysts
   }
 
   _auth() {
@@ -295,7 +296,7 @@ class CompatClient {
     };
     if (format) body.response_format = format;
     if (effort && this._reasoning()) body.reasoning_effort = effortOf(effort);
-    return call(this.p, this.fetch, `${this.p.base}/chat/completions`, { headers: this._auth(), body });
+    return call(this.p, this.fetch, `${this.p.base}/chat/completions`, { headers: this._auth(), body, timeoutMs: this.timeoutMs });
   }
 
   async ask({ system, user, schema, maxTokens = 16000, effort = "high" }) {
@@ -332,7 +333,7 @@ class CompatClient {
     if (!this.p.search) throw new AiError(`${this.p.name} has no web search in its API.`, "no_search", 409);
     const body = { model: this.model, instructions: system, input: user, tools: [{ type: "web_search" }], max_output_tokens: Math.min(maxTokens + 8000, this.p.maxOut || 32000) };
     if (this._reasoning()) body.reasoning = { effort: effortOf(effort) };
-    const r = await call(this.p, this.fetch, `${this.p.base}/responses`, { headers: this._auth(), body });
+    const r = await call(this.p, this.fetch, `${this.p.base}/responses`, { headers: this._auth(), body, timeoutMs: this.timeoutMs });
     const sources = new Map();
     let text = "";
     let searches = 0;
@@ -391,11 +392,12 @@ function pickChatModels(providerId, ids) {
 /* ------------------------------------------------------- Google Gemini */
 
 class GeminiClient {
-  constructor({ provider, apiKey, model, fetchImpl }) {
+  constructor({ provider, apiKey, model, fetchImpl, timeoutMs }) {
     this.p = provider;
     this.key = apiKey;
     this.model = model;
     this.fetch = fetchImpl;
+    this.timeoutMs = timeoutMs; // undefined: the default (four minutes); a shorter deadline for the ensemble's analysts
   }
 
   _url(path) {
@@ -403,7 +405,7 @@ class GeminiClient {
   }
 
   async _generate(body) {
-    return call(this.p, this.fetch, this._url(`models/${encodeURIComponent(this.model)}:generateContent`), { headers: { "x-goog-api-key": this.key }, body });
+    return call(this.p, this.fetch, this._url(`models/${encodeURIComponent(this.model)}:generateContent`), { headers: { "x-goog-api-key": this.key }, body, timeoutMs: this.timeoutMs });
   }
 
   _read(r) {
@@ -478,12 +480,12 @@ async function anthropicModels(client) {
 }
 
 /** A client for one company, with one key and one model. */
-function makeClient({ providerId, apiKey, model, fetchImpl }) {
+function makeClient({ providerId, apiKey, model, fetchImpl, timeoutMs, repair = true }) {
   const p = providerOf(providerId);
   if (!p) throw new AiError("Unknown AI company.", "invalid", 400);
   if (!apiKey) throw new AiError(`No ${p.name} API key is set.`, "not_configured", 409);
   if (p.kind === "anthropic") {
-    const c = new AiClient({ apiKey, model, fetchImpl });
+    const c = new AiClient({ apiKey, model, fetchImpl, timeoutMs });
     c.provider = p.id;
     c.listModels = () =>
       anthropicModels(c).catch((err) => {
@@ -491,11 +493,11 @@ function makeClient({ providerId, apiKey, model, fetchImpl }) {
       });
     return c;
   }
-  const c = p.kind === "gemini" ? new GeminiClient({ provider: p, apiKey, model, fetchImpl }) : new CompatClient({ provider: p, apiKey, model, fetchImpl });
+  const c = p.kind === "gemini" ? new GeminiClient({ provider: p, apiKey, model, fetchImpl, timeoutMs }) : new CompatClient({ provider: p, apiKey, model, fetchImpl, timeoutMs });
   c.provider = p.id;
   // Anthropic holds answers to the schema itself; every other company's answer is checked against
   // the same schema here (contract.js), so all models meet one contract
-  return enforce(c, { held: false, AiError });
+  return enforce(c, { held: false, AiError, repair });
 }
 
 module.exports = { PROVIDERS, providerOf, DEFAULT_PROVIDER, SEARCH_ORDER, checkKey, makeClient, readJson, pickChatModels };

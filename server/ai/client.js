@@ -51,12 +51,12 @@ const usageOf = (m) => {
 };
 
 class AiClient {
-  constructor({ apiKey, model = DEFAULT_MODEL, fetchImpl }) {
+  constructor({ apiKey, model = DEFAULT_MODEL, fetchImpl, timeoutMs }) {
     if (!apiKey) throw new AiError("No Anthropic API key is set.", "not_configured", 409);
     // the service checks the model against the list (the catalogue, or the live one read from Anthropic)
     this.model = typeof model === "string" && model ? model : DEFAULT_MODEL;
     // maxRetries: the SDK retries 429 / 5xx / network errors itself; timeout is in milliseconds
-    this.client = new Anthropic({ apiKey, maxRetries: 1, timeout: 240000, ...(fetchImpl ? { fetch: fetchImpl } : {}) });
+    this.client = new Anthropic({ apiKey, maxRetries: 1, timeout: timeoutMs || 240000, ...(fetchImpl ? { fetch: fetchImpl } : {}) });
   }
 
   /**

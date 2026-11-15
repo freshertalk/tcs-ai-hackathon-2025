@@ -424,3 +424,19 @@ test("when the exchange is unreachable the endpoint still answers, with the reas
   assert.match(r.json.nasdaq.lastError, /no network in tests/);
   assert.deepEqual(r.json.nasdaq.years, {});
 });
+
+test("TRUST_PROXY given as text (as pm2 and .env do) still trusts one proxy hop", async (t) => {
+  // Express reads the text "1" as an address list; the app must turn it into a hop count, or
+  // every visitor looks like nginx and HTTPS is never seen.
+  for (const value of ["1", "true"]) {
+    const s = await boot({ env: { TRUST_PROXY: value } });
+    t.after(s.close);
+    const r = await s.request("GET", "/api/auth/status", { headers: { "x-forwarded-proto": "https", "x-forwarded-for": "203.0.113.9" } });
+    assert.equal(r.status, 200);
+    assert.match(String(r.headers["strict-transport-security"] || ""), /max-age=31536000/, `HSTS is sent when TRUST_PROXY=${value}`);
+  }
+  const plain = await boot();
+  t.after(plain.close);
+  const r = await plain.request("GET", "/api/auth/status", { headers: { "x-forwarded-proto": "https" } });
+  assert.equal(r.headers["strict-transport-security"], undefined, "without TRUST_PROXY the header is not believed");
+});

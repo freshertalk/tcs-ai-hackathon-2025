@@ -38,6 +38,9 @@ const { AiService } = require("./ai/service");
 const { mountAi } = require("./ai/routes");
 const { ResearchAuto } = require("./research-auto");
 const { PaperService, PaperError } = require("./paper/service");
+const { DayAnalysis } = require("./analysis/service");
+const { mountAnalysis } = require("./analysis/routes");
+const { chargeParts } = require("./trading/journal");
 const { TradingService } = require("./trading/service");
 const { mountTrading } = require("./trading/routes");
 
@@ -197,6 +200,65 @@ function createApp(opts = {}) {
       gapMs: opts.marketGaps ? 0 : undefined,
     });
 
+  // What AI Live and AI Research may know about the trader, READ-ONLY: this stock's position and the
+  // available margin. Nothing here places, changes or cancels anything; a failure is simply "not known".
+  let accountRead = null; // shared for 15 seconds: the page's pulse asks every 20, for every stock it opens
+  ai.ensemble.account = async (symbol) => {
+    try {
+      const nowMs = Date.now();
+      if (!accountRead || nowMs - accountRead.at > 15000) accountRead = { at: nowMs, ask: Promise.all([trading.funds(), trading.positions()]) };
+      const [f, p] = await accountRead.ask;
+      const row = ((p && p.net) || []).find((x) => x.symbol === symbol && Number(x.quantity) !== 0) || null;
+      const eq = f && f.equity && f.equity.available ? f.equity.available : null;
+      const available = eq ? (Number.isFinite(eq.live) ? eq.live : eq.cash) : null;
+      return { position: row ? { quantity: row.quantity, average: row.average, product: row.product, pnl: row.pnl } : null, funds: { available: Number.isFinite(available) ? available : null, net: f && f.equity ? f.equity.net : null } };
+    } catch (_) {
+      return null;
+    }
+  };
+
+  // Trade Analysis: one report per trading day, saved by itself at 3:45 PM IST and editable by hand.
+  // It reads the owner's own closed trades, margin and positions through this narrow door — read-only.
+  const istDay = (ms) => new Date(ms + 5.5 * 3600 * 1000).toISOString().slice(0, 10);
+  const analysis =
+    opts.analysis ||
+    new DayAnalysis({
+      docs: store.docs,
+      ai,
+      now: opts.now,
+      log: opts.log || console,
+      source: {
+        async closedTrips(date) {
+          // Zerodha only ever returns today's trades: bring them into the journal first, when connected
+          if (market.kiteAuth()) {
+            try {
+              trading.journal.ingestKite(await trading.trades());
+            } catch (_) {
+              /* the stored journal still holds the earlier fills */
+            }
+          }
+          return trading.journal
+            .trips({})
+            .filter((t) => !t.open && t.exitAt && istDay(t.exitAt) === date)
+            .map((t) => ({ ...t, parts: chargeParts(t) }));
+        },
+        async funds() {
+          const f = await trading.funds();
+          return f && f.equity ? f.equity : null;
+        },
+        async positions() {
+          const p = await trading.positions();
+          return ((p && p.net) || []).filter((x) => Number(x.quantity) !== 0).map((x) => ({ symbol: x.symbol, quantity: x.quantity, product: x.product }));
+        },
+        async market() {
+          const q = await market.quotes(["NIFTY 50"]);
+          const n = q && q.quotes ? q.quotes["NIFTY 50"] : null;
+          return n && Number.isFinite(n.changePct) ? { niftyChangePct: n.changePct } : null;
+        },
+      },
+    });
+  if (opts.analysisAuto !== false) analysis.start();
+
   // the live call mentions the latest world brief when it argues against a trade
   if (market && typeof ai.worldSummary === "function") market.worldProvider = () => ai.worldSummary();
 
@@ -256,7 +318,12 @@ function createApp(opts = {}) {
   /* --------------------------------------------------------- express */
   const app = express();
   app.disable("x-powered-by");
-  if (env.TRUST_PROXY) app.set("trust proxy", env.TRUST_PROXY === "true" ? 1 : env.TRUST_PROXY);
+  // pm2 and .env give every value as text. Express reads the TEXT "1" as an address list, not
+  // as "one proxy hop", so "true" and a plain number are turned into numbers here.
+  if (env.TRUST_PROXY) {
+    const hops = String(env.TRUST_PROXY).trim();
+    app.set("trust proxy", hops === "true" ? 1 : /^\d+$/.test(hops) ? Number(hops) : env.TRUST_PROXY);
+  }
 
   // baseline headers on everything
   app.use((req, res, next) => {
@@ -567,6 +634,7 @@ function createApp(opts = {}) {
 
   /* ------------------------------------------- stock report: the AI strategist */
   mountAi(app, { ai, requireAdmin, limiter });
+  mountAnalysis(app, { analysis, requireSuper, limiter });
 
   // research that runs by itself before the open and after the close (server/research-auto.js)
   const researchAuto = new ResearchAuto({ ai, market, docs: store.docs, now: opts.now, log: opts.log || console });

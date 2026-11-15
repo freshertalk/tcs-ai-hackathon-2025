@@ -292,4 +292,4 @@ class Research {
   }
 }
 
-module.exports = { Research, RESEARCH_SYSTEM, RESEARCH_SCHEMA, SUMMARY_SCHEMA };
+module.exports = { Research, RESEARCH_SYSTEM, RESEARCH_SCHEMA, SUMMARY_SCHEMA, sheet };

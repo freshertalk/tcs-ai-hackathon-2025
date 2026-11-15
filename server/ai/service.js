@@ -31,6 +31,8 @@ const { Coach } = require("./coach");
 const { Research } = require("./research");
 const { Review } = require("./review");
 const { Decision } = require("./decision");
+const { Ensemble } = require("./ensemble");
+const { DayReview } = require("./dayreview");
 const { barStart } = require("../market/intraday");
 
 const IST = 5.5 * 3600 * 1000;
@@ -303,6 +305,8 @@ class AiService {
     this.research = new Research(this);
     this.journalReview = new Review(this); // "review" is taken: the score-and-learn step below
     this.decision = new Decision(this, checkPlan);
+    this.dayReview = new DayReview(this); // Trade Analysis: one day's report, explained
+    this.ensemble = new Ensemble(this, { checkPlan }); // AI Live / AI Research: the analysts, weighed with the desk's own arithmetic
   }
 
   /* ------------------------------------------------------------ settings */
@@ -574,11 +578,11 @@ class AiService {
    * Overseas markets, gathered by web search and then put into a fixed shape.
    * Two requests: one that searches and writes, one that structures what was written.
    */
-  async worldBrief({ refresh = false } = {}) {
+  async worldBrief({ refresh = false, via = null } = {}) {
     const have = this.world();
     if (have && !refresh && this.now() - Date.parse(have.at) < 30 * 60000) return { ...have, repeated: true };
-    const searcher = this._searchClient();
-    const client = this._client();
+    const searcher = via ? via.searcher : this._searchClient();
+    const client = via ? via.shaper : this._client();
     const ist = new Date(this.now() + IST);
     const stamp = `${ist.toISOString().slice(0, 10)} ${ist.toISOString().slice(11, 16)}`;
     const weekday = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][ist.getUTCDay()];
@@ -636,11 +640,11 @@ class AiService {
    * Two requests, like the world brief. Only the symbol, the company's name and
    * today's move are sent.
    */
-  async news(symbol, { refresh = false } = {}) {
+  async news(symbol, { refresh = false, via = null } = {}) {
     const have = this.newsFor(symbol);
     if (have && !refresh && this.now() - Date.parse(have.at) < NEWS_REUSE_MS) return { ...have, repeated: true };
-    const searcher = this._searchClient();
-    const client = this._client();
+    const searcher = via ? via.searcher : this._searchClient();
+    const client = via ? via.shaper : this._client();
     let name = "";
     let move = null;
     try {

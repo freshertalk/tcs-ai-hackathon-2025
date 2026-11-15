@@ -122,8 +122,8 @@ export default function ConnectPanel({ status, flash, onStatus, startOpen }) {
               </li>
             </ol>
             <p className="adm-small">
-              The secret and the daily token are stored encrypted on your server and are never sent to the browser. Only market-data calls are made —
-              there is no order code in this tool.
+              The secret and the daily token are stored encrypted on your server and are never sent to the browser. This market-data connection can only read
+              prices; orders are sent by a separate part, only from Positions, with the trading switch on.
             </p>
           </div>
 

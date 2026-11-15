@@ -20,6 +20,7 @@ import FastRead from "./FastRead";
 import { TradeButtons } from "../trade/TradeContext";
 import Behaviour from "./Behaviour";
 import ProChart from "../chart/ProChart";
+import AiBrain from "./AiBrain";
 import { callLabel as oddsLabel } from "../advisor/advisorMath";
 
 const TABS = [
@@ -344,6 +345,7 @@ export default function StockView({ symbol, quote, status, streaming = false, in
             </div>
           ))}
         </dl>
+        <AiBrain symbol={symbol} live={live} marketHours={Boolean(status.marketHours)} />
       </div>
 
       {wide && panel}
