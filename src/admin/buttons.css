@@ -1,0 +1,289 @@
+/* DrishtiAI buttons — one system for every page of the private area, loaded last so it governs
+   them all (and its selectors start with .adm to out-rank older per-page rules — including the
+   global ".adm a { color: inherit }", which used to give links styled as buttons dark text).
+
+   Filled (.adm-btn--solid)  the main action of a place — accent background, light text
+   Outlined (.adm-btn)       everything else — a quiet outline that fills softly on hover
+   Ghost (.adm-btn--ghost)   the same, with no background at rest
+   Danger (.adm-btn--danger) things that cannot be undone
+   Small (.adm-btn--sm)      inside cards, tables and tool rows
+
+   Every size meets a 44 px touch target on a touch screen; the trading terminal stays compact
+   with a mouse. Text always meets 4.5:1 against its button in both themes, a disabled button
+   stays readable, keyboard focus shows a ring, and long labels wrap instead of overflowing. */
+
+.adm .adm-btn {
+  --btn-h: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: var(--btn-h);
+  max-width: 100%;
+  padding: 6px 20px;
+  border: 1px solid var(--line-2);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--t-base);
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+  text-align: center;
+  text-decoration: none;
+  white-space: normal;
+  vertical-align: middle;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
+}
+.adm .adm-btn > svg {
+  flex: none;
+  width: 1.1em;
+  height: 1.1em;
+}
+.adm .adm-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 9%, var(--surface));
+  border-color: color-mix(in srgb, var(--accent) 60%, var(--line-2));
+  color: var(--ink);
+}
+.adm .adm-btn:active:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 16%, var(--surface));
+  transform: translateY(1px);
+}
+.adm .adm-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.adm .adm-btn:disabled,
+.adm .adm-btn[aria-disabled="true"] {
+  background: var(--surface-2);
+  border-color: var(--line);
+  color: var(--ink-2);
+  box-shadow: none;
+  transform: none;
+  opacity: 0.8;
+  cursor: not-allowed;
+}
+
+/* filled: the main action */
+.adm .adm-btn--solid {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent, #fff);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12), 0 2px 10px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+.adm .adm-btn--solid:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 86%, #000);
+  border-color: color-mix(in srgb, var(--accent) 86%, #000);
+  color: var(--on-accent, #fff);
+}
+.adm .adm-btn--solid:active:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 78%, #000);
+}
+.adm[data-desk="dark"] .adm-btn--solid:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 86%, #fff);
+  border-color: color-mix(in srgb, var(--accent) 86%, #fff);
+}
+.adm[data-desk="dark"] .adm-btn--solid:active:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 76%, #fff);
+}
+
+/* ghost: no background at rest */
+.adm .adm-btn--ghost {
+  background: transparent;
+}
+
+/* danger: outlined in red, filled red on hover */
+.adm .adm-btn--danger {
+  background: transparent;
+  border-color: color-mix(in srgb, var(--down) 45%, var(--line-2));
+  color: var(--down-ink, var(--down));
+}
+.adm .adm-btn--danger:hover:not(:disabled) {
+  background: #b3261e;
+  border-color: #b3261e;
+  color: #fff;
+}
+
+/* small: inside cards, tables and tool rows */
+.adm .adm-btn--sm {
+  --btn-h: 34px;
+  gap: 6px;
+  padding: 4px 14px;
+  font-size: var(--t-mid);
+}
+.adm .tm .adm-btn--sm {
+  --btn-h: 32px;
+  padding: 4px 12px;
+}
+
+/* the trading buttons: Buy blue, Sell orange, Exit neutral — light text on deep colours in both themes */
+.adm .tr-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 6px 16px;
+  border: 0;
+  border-radius: 10px;
+  color: #fff;
+  font: inherit;
+  font-size: var(--t-base);
+  font-weight: 600;
+  line-height: 1.1;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.adm .tr-btn--buy {
+  background: #1f5bb5;
+}
+.adm .tr-btn--sell {
+  background: #b4440a;
+}
+.adm .tr-btn--exit {
+  background: var(--ink);
+  color: var(--paper);
+}
+.adm .tr-btn--danger {
+  background: #b3261e;
+  color: #fff;
+}
+.adm .tr-btn:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+.adm .tr-btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+.adm .tr-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.adm .tr-btn:disabled {
+  background: var(--neutral-bar);
+  color: var(--ink-2);
+  box-shadow: none;
+  filter: none;
+  cursor: not-allowed;
+}
+.adm .tr-btn--lg {
+  min-height: 44px;
+  padding: 8px 24px;
+}
+.adm .tr-bs--sm .tr-btn {
+  min-width: 32px;
+  min-height: 30px;
+  padding: 4px 10px;
+}
+/* inside table rows and plan lines the trading buttons stay row-height */
+.adm .av-act .tr-btn,
+.adm .av-plan .tr-btn {
+  min-height: 30px;
+  height: auto;
+  padding: 4px 12px;
+  font-size: var(--t-mid);
+}
+
+/* chips and segmented choices (periods, kinds, tabs inside a page) */
+.adm .sv__ranges button,
+.adm .sr-views button,
+.adm .sv__tabs button,
+.adm .pc__toggles button,
+.adm .jp-chips > button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 4px 14px;
+  border: 1px solid var(--line-2);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink-2);
+  font: inherit;
+  font-size: var(--t-mid);
+  font-weight: 500;
+  line-height: 1.2;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.adm .sv__ranges button:hover,
+.adm .sr-views button:hover,
+.adm .sv__tabs button:hover,
+.adm .pc__toggles button:hover,
+.adm .jp-chips > button:hover {
+  border-color: var(--accent);
+  color: var(--ink);
+}
+.adm .sv__ranges button[aria-pressed="true"],
+.adm .sr-views button[aria-selected="true"],
+.adm .sv__tabs button[aria-selected="true"],
+.adm .pc__toggles button[aria-pressed="true"],
+.adm .jp-chips > button[aria-pressed="true"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent, #fff);
+  font-weight: 600;
+}
+.adm .tm .sv__ranges button {
+  min-height: 30px;
+  padding: 2px 12px;
+}
+/* a dropdown sitting in a chip row (the journal's "Past FYs") wears the chip's shape */
+.adm .jp-chips > select {
+  min-height: 34px;
+  padding: 4px 12px;
+  border: 1px solid var(--line-2);
+  border-radius: 999px;
+  background-color: var(--surface);
+  color: var(--ink-2);
+  font: inherit;
+  font-size: var(--t-mid);
+  font-weight: 500;
+  cursor: pointer;
+}
+.adm .jp-chips > select:hover {
+  border-color: var(--accent);
+  color: var(--ink);
+}
+
+/* a touch screen: every button is at least 44 px tall (small ones 40 px) */
+@media (pointer: coarse) {
+  .adm .adm-btn {
+    --btn-h: 44px;
+  }
+  .adm .adm-btn--sm,
+  .adm .tm .adm-btn--sm {
+    --btn-h: 40px;
+  }
+  .adm .tr-btn {
+    min-height: 44px;
+  }
+  .adm .tr-bs--sm .tr-btn,
+  .adm .av-act .tr-btn,
+  .adm .av-plan .tr-btn {
+    min-height: 38px;
+    min-width: 40px;
+  }
+  .adm .sv__ranges button,
+  .adm .sr-views button,
+  .adm .sv__tabs button,
+  .adm .pc__toggles button,
+  .adm .jp-chips > button,
+  .adm .tm .sv__ranges button,
+  .adm .jp-chips > select {
+    min-height: 40px;
+  }
+  .adm .jp-chips > select {
+    font-size: 16px; /* below 16px a phone zooms the page when the list opens */
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .adm .adm-btn,
+  .adm .tr-btn {
+    transition: none;
+  }
+}

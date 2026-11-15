@@ -46,6 +46,11 @@ src/
 
 ## Private admin area — `/me`
 
+The whole system in this area is called **DrishtiAI** ("DrishtiAI — the AI Trading Advisor for NSE").
+How to write the name, where it comes from in code (`src/admin/brand.js`, `server/brand.js`), the one
+button system (`src/admin/buttons.css`, loaded last) and the rules that keep every text readable in
+the light and dark themes are in [BRAND.md](BRAND.md).
+
 A login-protected control room that is **not linked from the public site**, is served
 `noindex`, and loads none of the public site's code. It needs the small Node server in
 `server/` (a static-only host cannot run it; the public site still works there).
@@ -389,7 +394,7 @@ tab (`server/market/seasonality.js`); and nudges on the order ticket (breakeven 
 window, the live call, revenge re-entries) from `TradingService._nudges`.
 
 **Document (the workspace after Trade Analysis; a tile in the Stock Report section of `/me`; `src/admin/stock/docs/`).**
-The manual of the whole advisor in plain English — "the bible": what Drishti is, a map of every part with its name, a
+The manual of the whole advisor in plain English — "the bible": what DrishtiAI is, a map of every part with its name, a
 day with the advisor, then every engine and business rule (what it does, how and when) for the market readings,
 the live day, trading and risk, records and paper trading, the AI team, and the platform, ending in a glossary,
 questions and answers and every honest limit in one place. It is plain data (`chapters.js` and `content/*.js`;

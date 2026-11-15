@@ -485,7 +485,7 @@ export const TRADING = [
       { p: "For the account owner: **1 Desk, 2 Advisor, 3 Positions, 4 Journal, 5 Research, 6 Screener, 7 Paper, 8 Debrief, 9 Calendar, then Trade Analysis and Document.** Other admins do not see Positions, Journal and Trade Analysis, so their numbers shift (1 Desk, 2 Advisor, 3 Research, 4 Screener, 5 Paper, 6 Debrief, 7 Calendar, then Document). The workspace is chosen by `?view=` in the address and the open stock by `?s=SYMBOL`; an unknown or not-permitted view falls back to the Desk. A crash in one workspace never blanks the terminal. A stock picked in Screener, Research or Debrief opens on the Desk." },
       { h: "The top bar" },
       { ul: [
-        "The brand (“Control room” with the Hanuman Ji mark; click for the dashboard), the workspace tabs, and the **Search or command** box (Ctrl K).",
+        "The brand (“DrishtiAI” with the Hanuman Ji mark; click for the dashboard), the workspace tabs, and the **Search or command** box (Ctrl K).",
         "Status pills: the **NSE clock** (open 9:15–3:30 Mon–Fri, pre-open 9:00–9:15, otherwise closed — by the clock only; holidays are on the Calendar); the **Kite pill** (connected, Demo data, or offline; click goes to the Desk to log in); **Risk locked** (only when the guard has locked the day); **Trading ON/OFF**; and the **P&L pill** (day P&L and the number open, every 15 seconds). The trading pills and the P&L are for the account owner only.",
         "The price-alerts bell with a count, the theme button (T), shortcuts (?) and the account menu (Dashboard, Hover help on/off, Sign out).",
       ] },

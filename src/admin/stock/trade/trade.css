@@ -7,15 +7,15 @@
 
 .adm {
   --buy: #3d7fe0;
-  --buy-deep: #2f6bc7;
+  --buy-deep: #1f5bb5;
   --sell: #e8590c;
-  --sell-deep: #c94a07;
+  --sell-deep: #a83c04;
 }
 .adm[data-desk="dark"] {
   --buy: #5b9cf5;
-  --buy-deep: #4a8be6;
+  --buy-deep: #7aaef5;
   --sell: #ff7a3d;
-  --sell-deep: #f0682a;
+  --sell-deep: #ff8a52;
 }
 
 .tr {
@@ -23,59 +23,10 @@
   gap: 14px;
 }
 
-/* ---- buttons */
-.tr-btn {
-  min-height: 34px;
-  padding: 0 14px;
-  border: 0;
-  border-radius: 6px;
-  color: #fff;
-  font: inherit;
-  font-size: var(--t-base);
-  font-weight: 600;
-  cursor: pointer;
-  transition: filter 0.15s, opacity 0.15s;
-}
-.tr-btn:hover:not(:disabled) {
-  filter: brightness(1.06);
-}
-.tr-btn:focus-visible {
-  outline: 2px solid var(--ink);
-  outline-offset: 2px;
-}
-.tr-btn--buy {
-  background: var(--buy);
-}
-.tr-btn--sell {
-  background: var(--sell);
-}
-.tr-btn--exit {
-  background: var(--ink-2);
-}
-.tr-btn--danger {
-  background: var(--down);
-  color: #fff;
-}
-.tr-btn--lg {
-  min-height: 42px;
-  padding: 0 22px;
-}
-/* greyed out and inert while trading is off */
-.tr-btn:disabled {
-  background: var(--neutral-bar);
-  color: var(--ink-3);
-  cursor: not-allowed;
-  filter: none;
-}
+/* ---- buttons: .tr-btn (Buy, Sell, Exit) is drawn by src/admin/buttons.css */
 .tr-bs {
   display: inline-flex;
   gap: 6px;
-}
-.tr-bs--sm .tr-btn {
-  min-width: 30px;
-  min-height: 28px;
-  padding: 0 8px;
-  font-size: var(--t-small);
 }
 
 /* ---- Buy / Sell in the stock's sticky header (an empty cell for anyone who cannot trade) */
@@ -1203,13 +1154,24 @@
 }
 .jr-cal__grid > button.jr-cal__d.is-up {
   background: color-mix(in srgb, var(--up) calc(var(--a) * 100%), var(--surface-2));
-  color: #fff;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
 }
 .jr-cal__grid > button.jr-cal__d.is-down {
   background: color-mix(in srgb, var(--down) calc(var(--a) * 100%), var(--surface-2));
-  color: #fff;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
+}
+/* the date sits on a small pill of the page colour: readable on any shade, in both themes */
+.jr-cal__n {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 16px;
+  padding: 0 3px;
+  border-radius: 8px;
+  line-height: 1;
+}
+.jr-cal__d.is-up .jr-cal__n,
+.jr-cal__d.is-down .jr-cal__n {
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  color: var(--ink);
 }
 .jr-cal__grid > button.jr-cal__d:hover,
 .jr-cal__grid > button.jr-cal__d:focus-visible,
@@ -2336,4 +2298,15 @@
     transition: none;
     animation: none;
   }
+}
+
+.jp-heat__v {
+  display: inline-block;
+  padding: 1px 5px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--surface) 86%, transparent);
+  color: var(--ink);
+}
+.jp-table tbody tr.is-sel {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
 }

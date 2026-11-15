@@ -7,7 +7,10 @@
 /* Colour tokens for the trading desk. Every green, red and amber below comes from
    here, so the dark theme only has to redefine this list. */
 .adm {
-  --up: #17754a;
+  /* readable text on every light surface (WCAG AA: 4.5:1 for small text) */
+  --ink-3: #5f6977;
+  --accent-2: #a8532a;
+  --up: #12663e;
   --up-ink: #14613d;
   --up-bright: #2fa36b;
   --up-bg: #eef9f3;
@@ -33,7 +36,7 @@
   --surface-2: #1b2430;
   --ink: #e8edf3;
   --ink-2: #b3bdc9;
-  --ink-3: #8592a1;
+  --ink-3: #97a3b2;
   --line: rgba(255, 255, 255, 0.09);
   --line-2: rgba(255, 255, 255, 0.2);
   --accent: #6aaeee;
@@ -45,7 +48,7 @@
   --up-bright: #2ebd85;
   --up-bg: rgba(46, 189, 133, 0.12);
   --up-line: rgba(46, 189, 133, 0.45);
-  --down: #f6465d;
+  --down: #ff6b7e;
   --down-ink: #ff8795;
   --down-candle: #f6465d;
   --down-bg: rgba(246, 70, 93, 0.12);
@@ -70,19 +73,11 @@
   border-color: var(--up-line);
   color: var(--up-ink);
 }
-.adm[data-desk="dark"] .adm-btn--danger {
-  background: transparent;
-  border-color: var(--down-line);
-  color: var(--down-ink);
-}
 .adm[data-desk="dark"] .adm-field input,
 .adm[data-desk="dark"] .adm-field input:focus-visible,
 .adm[data-desk="dark"] select {
   background: var(--surface-2);
   color: var(--ink);
-}
-.adm[data-desk="dark"] .adm-btn--solid:hover {
-  background: color-mix(in srgb, var(--accent) 86%, #fff);
 }
 
 /* doubled class: these must beat .adm-wrap whatever order the stylesheets load in */

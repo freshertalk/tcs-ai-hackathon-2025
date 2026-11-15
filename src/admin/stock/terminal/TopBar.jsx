@@ -7,6 +7,7 @@ import { Link } from "react-router-dom";
 import { api } from "../../api";
 import { useAuth } from "../../auth";
 import { adminPath } from "../../paths";
+import { BRAND } from "../../brand";
 import { setTipsEnabled, useTipsEnabled } from "../../help/TipLayer";
 import { useTrade } from "../trade/TradeContext";
 import { num } from "../analyzer/format";
@@ -114,7 +115,7 @@ export default function TopBar({ views, view, onView, theme, onTheme, onHelp, on
         <span className="tm-brand__mark tm-brand__mark--img">
           <img src="/img/hanuman-full-96.png" srcSet="/img/hanuman-full-96.png 1x, /img/hanuman-full-192.png 2x" alt="Panchmukhi Hanuman Ji" width="42" height="42" decoding="async" />
         </span>
-        <span className="tm-brand__name">Control room</span>
+        <span className="tm-brand__name">{BRAND.name}</span>
       </Link>
 
       <nav className="tm-tabs" role="tablist" aria-label="Workspaces">

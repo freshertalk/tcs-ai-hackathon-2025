@@ -10,6 +10,7 @@
 //   - Word: the whole page as a .docx.
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { BRAND } from "../../brand";
 import { api } from "../../api";
 import { useAuth } from "../../auth";
 import { Alert, Loading } from "../../ui";
@@ -610,7 +611,7 @@ export default function AiEngine() {
     return out;
   }, [isSuper, brains, engine]);
 
-  const word = () => downloadDocx("Drishti-AI-Engine.docx", { title: "Drishti — AI Engine", subtitle: "Every AI feature, rule and condition — and the owner’s AI brains", parts: PARTS, chapters: CHAPTERS, appendix });
+  const word = () => downloadDocx(`${BRAND.name}-AI-Engine.docx`, { title: `${BRAND.name} — AI Engine`, subtitle: "Every AI feature, rule and condition — and the owner’s AI brains", parts: PARTS, chapters: CHAPTERS, appendix });
 
   const tabs = [
     { id: "doc", label: "How the AI works" },

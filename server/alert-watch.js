@@ -1,4 +1,5 @@
 "use strict";
+const { BRAND } = require("./brand");
 // Price alerts that fire with no page open.
 //
 // The open terminal already checks alerts on every tick. This watcher does the same on the server,
@@ -71,7 +72,7 @@ class AlertWatch {
         if (!r.first) continue; // a page saw it first
         fired.push(r.alert);
         if (this.notifier) {
-          const text = `🔔 Price alert: ${a.symbol} is at ${rs(last)} — ${a.dir === "above" ? "at or above" : "at or below"} ${rs(a.price)}${a.note ? `\n${a.note}` : ""}\n(Drishti · nothing was traded)`;
+          const text = `🔔 Price alert: ${a.symbol} is at ${rs(last)} — ${a.dir === "above" ? "at or above" : "at or below"} ${rs(a.price)}${a.note ? `\n${a.note}` : ""}\n(${BRAND.name} · nothing was traded)`;
           await this.notifier.send(text, "alerts");
         }
       }

@@ -90,7 +90,7 @@ describe("Document page", () => {
 
   test("shows the title and one contents link per chapter", () => {
     render(<Document />);
-    expect(screen.getByRole("heading", { level: 1 }).textContent).toMatch(/Drishti/);
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toMatch(/DrishtiAI/);
     const nav = screen.getByRole("navigation", { name: "Contents" });
     expect(within(nav).getAllByRole("link")).toHaveLength(CHAPTERS.length);
   });
@@ -141,7 +141,7 @@ describe("Word download", () => {
 
   test("the .docx holds every part Word needs, each well-formed XML, with the chapters in it", () => {
     const { docxBytes, crc32 } = require("./docx");
-    const bytes = docxBytes({ title: "Drishti — test", subtitle: "Every chapter", parts: PARTS, chapters: CHAPTERS, appendix: [{ title: "Appendix", blocks: [{ pre: "line one\nline <two> & three" }] }] });
+    const bytes = docxBytes({ title: "DrishtiAI — test", subtitle: "Every chapter", parts: PARTS, chapters: CHAPTERS, appendix: [{ title: "Appendix", blocks: [{ pre: "line one\nline <two> & three" }] }] });
     const files = unzip(bytes);
     expect(Object.keys(files).sort()).toEqual(["[Content_Types].xml", "_rels/.rels", "docProps/core.xml", "word/_rels/document.xml.rels", "word/document.xml", "word/styles.xml"].sort());
     Object.entries(files).forEach(([name, f]) => {

@@ -9,6 +9,7 @@
 //   superadmin ....... the same, plus Admin users
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { BRAND } from "./brand";
 import { Navigate, Route, Routes } from "react-router-dom";
 
 import { api } from "./api";
@@ -35,6 +36,8 @@ import TradeAI from "./tradeai/TradeAI";
 
 import "./admin.css";
 import "./hub.css";
+// the one button system: loaded last so it governs every page (see BRAND.md)
+import "./buttons.css";
 // The private area wears Panchmukhi Hanuman Ji as its favicon. The public site's own icons are
 // put aside while this area is open and put back when it is left. (A page loaded straight from
 // /me already carries these in its own head: see scripts/prerender.js.)
@@ -74,7 +77,7 @@ function usePrivateFavicon() {
 function useQuietHead() {
   useEffect(() => {
     const prevTitle = document.title;
-    document.title = "Control room";
+    document.title = BRAND.name;
     let meta = document.querySelector('meta[name="robots"]');
     const prev = meta ? meta.getAttribute("content") : null;
     if (!meta) {

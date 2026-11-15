@@ -129,7 +129,7 @@ export default function WhatsAppCard() {
         </label>
         <label className="mdr-field">
           <span>Template name (optional)</span>
-          <input value={f.template} onChange={set("template")} placeholder="e.g. drishti_update" />
+          <input value={f.template} onChange={set("template")} placeholder="e.g. drishtiai_update" />
         </label>
       </div>
       <p className="mdr-dim">

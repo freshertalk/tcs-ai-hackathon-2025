@@ -192,7 +192,7 @@ test("outside WhatsApp's 24-hour window an update needs a template; inside it, p
   const r1 = await s.wa.send("hello");
   assert.equal(r1.sent, false);
   assert.match(s.wa.status().lastError, /24 hours/);
-  s.wa.set({ template: { name: "drishti_update", lang: "en" } });
+  s.wa.set({ template: { name: "drishtiai_update", lang: "en" } });
   await s.wa.send("line one\nline two");
   assert.equal(s.sent[0].body.type, "template");
   assert.equal(s.sent[0].body.template.components[0].parameters[0].text, "line one · line two");
@@ -208,7 +208,7 @@ test("the timed update goes out in market hours while a position is open, at mos
   const before = s.sent.length;
   await s.wa.tick();
   assert.equal(s.sent.length, before + 1);
-  assert.match(s.sent[s.sent.length - 1].body.text.body, /Drishti update[\s\S]*SBIN/);
+  assert.match(s.sent[s.sent.length - 1].body.text.body, /DrishtiAI update[\s\S]*SBIN/);
   await s.wa.tick();
   assert.equal(s.sent.length, before + 1, "not again within the interval");
   s.clock.ms += 31 * 60000;

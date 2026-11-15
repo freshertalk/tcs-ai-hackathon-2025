@@ -201,3 +201,27 @@
   height: 100%;
   object-fit: contain;
 }
+
+/* the caption's gold, readable in both themes */
+.dsn figcaption small,
+.dsn figcaption em {
+  color: #8a6100;
+}
+.adm[data-desk="dark"] .dsn figcaption small {
+  color: #d9a93a;
+}
+.adm[data-desk="dark"] .dsn figcaption em {
+  color: #e8b84a;
+}
+
+/* the card's glow: warm cream in light mode, deep temple brown in dark mode */
+.dsn {
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(232, 184, 74, 0.2), transparent 62%),
+    linear-gradient(180deg, color-mix(in srgb, #e8b84a 14%, var(--surface)), var(--surface));
+}
+.adm[data-desk="dark"] .dsn {
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(232, 184, 74, 0.18), transparent 62%),
+    linear-gradient(180deg, color-mix(in srgb, #2a1a05 55%, var(--surface)), var(--surface));
+}

@@ -210,6 +210,27 @@
   .adm-brand__short {
     display: inline;
   }
+  /* a phone: room for the whole name — a smaller logo, tighter gaps, a compact Sign out */
+  .adm-head__row {
+    gap: 8px;
+  }
+  .adm-brand {
+    gap: 8px;
+    font-size: 1.05rem;
+  }
+  .adm-crumbs .adm-brand {
+    font-size: 1.05rem;
+  }
+  .adm-brand__logo {
+    width: 34px;
+    height: 34px;
+  }
+  .adm-user {
+    gap: 6px;
+  }
+  .adm .adm-user .adm-btn--sm {
+    padding-inline: 12px;
+  }
 }
 .adm-user {
   flex: none;
@@ -412,65 +433,13 @@
   }
 }
 
-/* ------------------------------------------------------------ buttons */
-.adm-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  min-height: 46px;
-  padding: 0 20px;
-  border-radius: 99px;
-  border: 1px solid var(--line-2);
-  background: var(--surface);
-  color: var(--ink);
-  font: inherit;
-  font-size: var(--t-base);
-  font-weight: 400;
-  cursor: pointer;
-  transition: background 0.25s, border-color 0.25s, color 0.25s, transform 0.15s;
-}
-.adm-btn:hover {
-  border-color: var(--accent);
-}
-.adm-btn:active {
-  transform: scale(0.98);
-}
-.adm-btn:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-.adm-btn:focus-visible,
+/* ------------------------------------------------------------ buttons
+   Every button (.adm-btn and its --solid, --ghost, --danger and --sm kinds, the trading
+   .tr-btn, and the chip rows) is drawn by buttons.css, loaded last. */
 .adm-tile:focus-visible,
 .adm-google:focus-visible {
   outline: 2px solid var(--accent-2);
   outline-offset: 2px;
-}
-.adm-btn--solid {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--on-accent);
-}
-.adm-btn--solid:hover {
-  background: color-mix(in srgb, var(--accent) 86%, #000);
-}
-.adm-btn--ghost {
-  background: transparent;
-}
-.adm-btn--danger {
-  color: #a3281b;
-  border-color: #e3b3ad;
-  background: #fff;
-}
-.adm-btn--danger:hover {
-  background: #a3281b;
-  border-color: #a3281b;
-  color: #fff;
-}
-.adm-btn--sm {
-  min-height: 36px;
-  padding: 0 14px;
-  font-size: var(--t-mid);
 }
 .adm-google {
   display: flex;
@@ -976,12 +945,6 @@
     grid-template-columns: 1fr;
     padding-block: 18px;
   }
-}
-.adm-btn:focus-visible,
-.adm-tile:focus-visible,
-.adm-google:focus-visible {
-  outline: 2px solid var(--accent-2);
-  outline-offset: 2px;
 }
 
 /* ==========================================================================
@@ -1533,4 +1496,17 @@
   .adm-field select {
     font-size: 16px;
   }
+}
+
+/* dark theme versions of a few light-only colours */
+.adm[data-desk="dark"] .wc__off.is-ahead b {
+  color: var(--up-ink);
+}
+.adm[data-desk="dark"] .wc__off.is-behind b {
+  color: #f0a070;
+}
+.adm[data-desk="dark"] .hc__source--warn {
+  background: var(--warn-bg);
+  border-color: var(--warn-line);
+  color: var(--warn-ink);
 }

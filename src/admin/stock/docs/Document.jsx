@@ -6,6 +6,7 @@
 // sits beside the text on a laptop and folds into a bar on a phone. Printing gives a clean copy.
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { BRAND } from "../../brand";
 import { PARTS, CHAPTERS } from "./chapters";
 import { downloadDocx } from "./docx";
 import "./document.css";
@@ -344,13 +345,13 @@ export function DocView({ parts, chapters, kicker, title, lead, endNote, onWord,
 
 /** The whole manual. */
 export default function Document() {
-  const word = () => downloadDocx("Drishti-complete-guide.docx", { title: "Drishti — the AI Trading Advisor for NSE", subtitle: "The complete guide", parts: PARTS, chapters: CHAPTERS });
+  const word = () => downloadDocx(`${BRAND.name}-complete-guide.docx`, { title: BRAND.full, subtitle: "The complete guide", parts: PARTS, chapters: CHAPTERS });
   return (
     <DocView
       parts={PARTS}
       chapters={CHAPTERS}
       kicker="The manual"
-      title="Drishti — the AI Trading Advisor for NSE · complete guide"
+      title={`${BRAND.full} · complete guide`}
       lead="This is the one document that explains everything the advisor does: every screen, who does what, and the reasoning behind each number — when it runs, how it is worked out and where it stops. Read it from the top as a story, or search for a word."
       endNote="That is the whole desk. It is a tool to read the market and keep your own discipline — it never promises a profit and it never decides for you. Every call it makes can be wrong; the stop-loss, the daily limit and your own judgement are what protect your money."
       onWord={word}

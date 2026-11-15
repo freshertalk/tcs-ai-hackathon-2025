@@ -400,7 +400,7 @@ export function MonthHeatmap({ per, onMonth }) {
                       <td key={m} className={d ? (d.net >= 0 ? "is-up" : "is-down") : future ? "is-future" : ""} style={d ? { "--a": 0.15 + 0.85 * Math.min(1, Math.abs(d.net) / max) } : undefined}>
                         {d ? (
                           <button type="button" onClick={() => onMonth(key)} title={`${monthLabel(key)}: ${d.trades} trades · win ${num(d.winRate, 0)}% · net ${sMoney(d.net)}`}>
-                            {compact(d.net)}
+                            <span className="jp-heat__v">{compact(d.net)}</span>
                           </button>
                         ) : (
                           <span aria-label={`${monthLabel(key)}: no trades`}>{future ? "" : "·"}</span>

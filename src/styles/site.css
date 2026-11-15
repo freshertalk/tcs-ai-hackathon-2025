@@ -40,11 +40,11 @@
   --surface-2: #eceff3;
   --ink: #101620;
   --ink-2: #4a5462;
-  --ink-3: #8b94a2;
+  --ink-3: #5f6977; /* 4.8:1 or better on every surface (was #8b94a2, 2.8:1) */
   --line: rgba(16, 22, 32, 0.1);
   --line-2: rgba(16, 22, 32, 0.19);
   --accent: #1e4b7a;
-  --accent-2: #c1663a;
+  --accent-2: #a3502a; /* readable as text: 4.6:1 or better (was #c1663a, 3.7:1) */
   --accent-soft: #e4ecf4;
   --on-accent: #ffffff;
   --shadow: 0 30px 70px -44px rgba(16, 22, 32, 0.55);
@@ -60,11 +60,11 @@
   --surface-2: #eceff3;
   --ink: #101620;
   --ink-2: #4a5462;
-  --ink-3: #8b94a2;
+  --ink-3: #5f6977; /* 4.8:1 or better on every surface (was #8b94a2, 2.8:1) */
   --line: rgba(16, 22, 32, 0.1);
   --line-2: rgba(16, 22, 32, 0.19);
   --accent: #1e4b7a;
-  --accent-2: #c1663a;
+  --accent-2: #a3502a; /* readable as text: 4.6:1 or better (was #c1663a, 3.7:1) */
   --accent-soft: #e4ecf4;
   --on-accent: #ffffff;
   --shadow: 0 30px 70px -44px rgba(16, 22, 32, 0.5);
@@ -80,11 +80,11 @@
   --surface-2: #f2e8d7;
   --ink: #1f1611;
   --ink-2: #5c4b3e;
-  --ink-3: #9a8877;
+  --ink-3: #735f4c; /* 5:1 or better on every surface (was #9a8877) */
   --line: rgba(31, 22, 17, 0.12);
   --line-2: rgba(31, 22, 17, 0.2);
   --accent: #7b2b2b;
-  --accent-2: #c1663a;
+  --accent-2: #a3502a; /* readable as text: 4.6:1 or better (was #c1663a, 3.7:1) */
   --accent-soft: #f0dfca;
   --on-accent: #fff8ee;
   --shadow: 0 30px 70px -44px rgba(63, 40, 25, 0.42);
@@ -1903,7 +1903,7 @@ h4 {
   color: var(--ink-2);
 }
 .ai__ready {
-  color: #2fa36b;
+  color: #1d7a4c;
 }
 .ai__body {
   padding: clamp(18px, 2.2vw, 30px);
@@ -2491,6 +2491,9 @@ h4 {
 .halves__cell--night {
   background: #1b2330;
   border-color: #1b2330;
+}
+.halves__cell--night .halves__k {
+  color: #f08a5d; /* the dark card keeps a bright orange: 6.4:1 on #1b2330 */
 }
 .halves__cell--night p {
   color: #d9dde5;

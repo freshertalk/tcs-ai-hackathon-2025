@@ -118,7 +118,7 @@ function writeAdminShell(template) {
     .replace(
       "</head>",
       `${ICONS}
-    <title>Control room</title>
+    <title>DrishtiAI</title>
     <meta name="robots" content="noindex, nofollow, noarchive" />
   </head>`
     )

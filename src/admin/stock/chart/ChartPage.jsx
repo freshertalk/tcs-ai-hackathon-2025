@@ -4,6 +4,7 @@
 // summary, with live prices while Zerodha is connected. Another stock is one search away.
 
 import React, { useEffect, useRef, useState } from "react";
+import { BRAND } from "../../brand";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, peek } from "../../api";
 import { adminPath } from "../../paths";
@@ -109,7 +110,10 @@ export default function ChartPage() {
       .catch(() => {});
   }, []);
   useEffect(() => {
-    document.title = valid ? `${symbol} · Chart` : "Chart";
+    document.title = valid ? `${symbol} · Chart · ${BRAND.name}` : `Chart · ${BRAND.name}`;
+    return () => {
+      document.title = BRAND.name;
+    };
   }, [symbol, valid]);
   useEffect(() => {
     if (!valid) return undefined;

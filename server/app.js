@@ -1,4 +1,5 @@
 "use strict";
+const { BRAND } = require("./brand");
 // The API behind /me, plus static hosting of the built site.
 //
 // Roles
@@ -676,13 +677,13 @@ function createApp(opts = {}) {
   mountNotify(app, { notifier, requireSuper, limiter });
   const inr = (x) => `${x < 0 ? "−" : x > 0 ? "+" : ""}₹${Math.abs(Math.round(x)).toLocaleString("en-IN")}`;
   trading.onLock = (lock) => notifier.send(`🛑 Risk guard locked the day: ${lock.reason}
-New trades are refused until tomorrow; exits and cancels still work. (Drishti)`, "risk");
+New trades are refused until tomorrow; exits and cancels still work. (${BRAND.name})`, "risk");
   analysis.onReport = (d) => {
     const s = d.summary || {};
     return notifier.send(`📒 Trade Analysis · ${d.date}
 Net ${inr(s.net || 0)} · profit ${inr(s.grossProfit || 0)} · loss ${inr(-(s.grossLoss || 0))} · charges ${inr(-((s.charges && s.charges.total) || 0))}
 ${s.trades || 0} trades, ${s.wins || 0} won · process score ${d.score === null || d.score === undefined ? "—" : d.score}
-(Drishti)`, "dayReport");
+(${BRAND.name})`, "dayReport");
   };
   // price alerts checked on the server every 15 s in market hours, even with no page open
   const alertWatch = opts.alertWatchService || new AlertWatch({ market, notifier, now: opts.now, log: opts.log || console });

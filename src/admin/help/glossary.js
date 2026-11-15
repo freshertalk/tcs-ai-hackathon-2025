@@ -480,7 +480,7 @@ const ENTRIES = [
   [["Seasonality — month by month"], "Each calendar month's return, year by year, with the average and how often it rose. A past frequency, not a forecast."],
 
   /* ---- Document */
-  [["Document", "Drishti — the complete guide"], "The complete guide to this advisor in plain English: every feature, who does what, and every rule — what it does, how and when. Search it, or read it from the top."],
+  [["Document", "DrishtiAI — the complete guide"], "The complete guide to this advisor in plain English: every feature, who does what, and every rule — what it does, how and when. Search it, or read it from the top."],
   [["How it works"], "One business rule in full: who does it, when, the steps, and its honest limits."],
   [["Limits & honest notes", "Limits & honest notes."], "What the rule cannot do, and where it is only an estimate."],
 

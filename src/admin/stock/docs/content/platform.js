@@ -146,7 +146,7 @@ export const PLATFORM = [
         "**Settings:** Google sign-in, Admin users (owner only) and the AI strategist (showing the company and model in use).",
       ] },
       { h: "Darshan" },
-      { p: "A framed picture of **Panchmukhi Hanuman Ji**, shown whole and never cropped, with the caption “दर्शन · Darshan — जय श्री हनुमान — पंचमुखी हनुमान जी — ॐ हं हनुमते नमः”. Click or tap opens a **full-screen** view; close with ×, Esc or a click outside. If the picture cannot load, the card stays with a large “ॐ”. There is **no audio** and nothing plays by itself. The same image, resized, is the **tab icon of the private area only** (the public website keeps its own) and the mark beside “Control room” in the terminal’s top bar." },
+      { p: "A framed picture of **Panchmukhi Hanuman Ji**, shown whole and never cropped, with the caption “दर्शन · Darshan — जय श्री हनुमान — पंचमुखी हनुमान जी — ॐ हं हनुमते नमः”. Click or tap opens a **full-screen** view; close with ×, Esc or a click outside. If the picture cannot load, the card stays with a large “ॐ”. There is **no audio** and nothing plays by itself. The same image, resized, is the **tab icon of the private area only** (the public website keeps its own) and the mark beside “DrishtiAI” in the terminal’s top bar." },
       { h: "Light and dark theme" },
       { p: "Dark by default. One shared choice per browser, applied at once to every open screen and to the chart — through the ☀/☾ button, the terminal top bar, the More menu on phones, the **T** key, the palette or the chart page header. It is a per-device choice, not per account." },
       { h: "Dialogs" },
@@ -158,7 +158,7 @@ export const PLATFORM = [
         "**Switch:** “Hover help: on/off” in the footer and the account menu; remembered and synchronised across tabs. A one-time strip “Help is built in…” introduces it.",
       ] },
       { h: "The frame of every page" },
-      { p: "A header with the name **“Drishti — the AI Trading Advisor for NSE”** (always on one line: the full name on a wide screen, “Drishti — AI Trading Advisor” on a tablet and “Drishti” on a phone; on a wide screen the page name follows it), your name and role badge, the theme button and **Sign out**; a footer “Private area · not indexed · not for public use”. The terminal has its own top bar. Every call to the server carries the CSRF header and expects JSON — if a page comes back as HTML instead, the app says requests to `/api` are returning the site’s own page. Market answers (not account or order data) are remembered in memory for the visit, so a stock you return to draws instantly and then refreshes." },
+      { p: "A header with the name **“DrishtiAI — the AI Trading Advisor for NSE”** (always on one line: the full name on a wide screen, “DrishtiAI — AI Trading Advisor” on a tablet and “DrishtiAI” on a phone; on a wide screen the page name follows it), your name and role badge, the theme button and **Sign out**; a footer “Private area · not indexed · not for public use”. The terminal has its own top bar. Every call to the server carries the CSRF header and expects JSON — if a page comes back as HTML instead, the app says requests to `/api` are returning the site’s own page. Market answers (not account or order data) are remembered in memory for the visit, so a stock you return to draws instantly and then refreshes." },
     ],
   },
 
@@ -168,7 +168,7 @@ export const PLATFORM = [
     title: "The Mandir — Shri Hanuman Chalisa, softly, on every page",
     intro: "The whole desk rests on Lord Hanuman. Panchmukhi Hanuman Ji is the logo, the Darshan and the tab icon, and Shri Hanuman Chalisa plays softly in the background while the private area is open — audio only, no video, no window.",
     blocks: [
-      { p: "The full picture of Panchmukhi Hanuman Ji (never cropped) is the **logo before “Drishti — the AI Trading Advisor for NSE”** in the header of every private page and the mark in the terminal’s top bar; it is also the Darshan card and the tab icon of the private area. The **Mandir** card under Settings on the dashboard controls the audio, and a small **ॐ** button in the header of every page plays or pauses it. Lines of the Chalisa (Goswami Tulsidas) are shown on the card." },
+      { p: "The full picture of Panchmukhi Hanuman Ji (never cropped) is the **logo before “DrishtiAI — the AI Trading Advisor for NSE”** in the header of every private page and the mark in the terminal’s top bar; it is also the Darshan card and the tab icon of the private area. The **Mandir** card under Settings on the dashboard controls the audio, and a small **ॐ** button in the header of every page plays or pauses it. Lines of the Chalisa (Goswami Tulsidas) are shown on the card." },
       { h: "How it plays" },
       { ul: [
         "**Background audio only**, at a very soft **5%** by default, looping, on every private page, carrying on while you move between pages. No video and no floating window.",

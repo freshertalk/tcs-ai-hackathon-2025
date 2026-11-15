@@ -142,7 +142,7 @@
   padding: 0 6px;
   border-radius: 4px;
   background: color-mix(in srgb, var(--up, #16a34a) 18%, transparent);
-  color: var(--up, #16a34a);
+  color: var(--up-ink, #14613d);
   font-style: normal;
   font-weight: 600;
   font-size: var(--t-tag);

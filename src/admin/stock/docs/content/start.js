@@ -5,10 +5,10 @@ export const START = [
   {
     id: "welcome",
     part: "start",
-    title: "Welcome — what Drishti is",
-    intro: "Drishti (दृष्टि) means “sight”. It is a private NSE trading advisor and terminal: it reads the market, explains what it sees, helps you plan and size trades, keeps your records — and never decides for you.",
+    title: "Welcome — what DrishtiAI is",
+    intro: "DrishtiAI takes its name from Drishti (दृष्टि), “sight”. It is a private NSE trading advisor and terminal: it reads the market, explains what it sees, helps you plan and size trades, keeps your records — and never decides for you.",
     blocks: [
-      { p: "**Drishti — the AI Trading Advisor for NSE** is one web application with one purpose: to help one trader, the owner, trade the Indian stock market (NSE) with discipline. It joins five jobs that are usually spread over many tools: **a market reader** (charts, scores, setups, levels, a screener), **a live day-trading desk** (a call that updates every two seconds), **an order desk** (real orders, but only behind safety gates), **a record keeper** (journal, daily trade analysis, paper trading) and **an AI team** (optional models that read the same numbers and write notes)." },
+      { p: "**DrishtiAI — the AI Trading Advisor for NSE** is one web application with one purpose: to help one trader, the owner, trade the Indian stock market (NSE) with discipline. It joins five jobs that are usually spread over many tools: **a market reader** (charts, scores, setups, levels, a screener), **a live day-trading desk** (a call that updates every two seconds), **an order desk** (real orders, but only behind safety gates), **a record keeper** (journal, daily trade analysis, paper trading) and **an AI team** (optional models that read the same numbers and write notes)." },
       { p: "It lives inside the owner’s private website, at `/me`. The screens are grouped in the **Stock Report** terminal — the part with Desk, Advisor, Positions and the rest — and a small **dashboard** that opens it." },
       { h: "The golden rules of the design" },
       { ol: [

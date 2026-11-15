@@ -163,7 +163,7 @@
   white-space: nowrap;
   vertical-align: 1px;
 }
-.av-grade--A {
+.av-grade.av-grade--A {
   border-color: var(--up);
   background: var(--up);
   color: var(--on-solid);
@@ -327,10 +327,10 @@
   font-weight: 400;
 }
 .av-long {
-  color: var(--buy);
+  color: var(--buy-deep, var(--buy));
 }
 .av-short {
-  color: var(--sell);
+  color: var(--sell-deep, var(--sell));
 }
 .av-mute {
   color: var(--ink-3);

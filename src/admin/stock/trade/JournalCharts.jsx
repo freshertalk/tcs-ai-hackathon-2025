@@ -224,11 +224,26 @@ export function Hero({ s, a, label, period, onRetro, busy }) {
         )}
       </ul>
       <div className="jc-hero__act">
-        <button type="button" className="jc-retro-btn" onClick={onRetro} disabled={busy}>
-          <span aria-hidden="true">🔍</span>
-          {busy ? "Looking at your trades…" : "Retrospective analysis"}
+        <button type="button" className={`jc-retro-btn ${busy ? "is-busy" : ""}`} onClick={onRetro} disabled={busy}>
+          <span className="jc-retro-btn__icon" aria-hidden="true">
+            {/* an arrow turning back round a clock face: looking back over the period */}
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 12a9 9 0 1 0 2.64-6.36" />
+              <path d="M3 4v4.5h4.5" />
+              <path d="M12 7.5V12l3 2" />
+            </svg>
+          </span>
+          <span className="jc-retro-btn__text">
+            <span className="jc-retro-btn__t">{busy ? "Looking at your trades…" : "Retrospective analysis"}</span>
+            <span className="jc-retro-btn__s">What went well, what went wrong, what to keep doing</span>
+          </span>
+          <span className="jc-retro-btn__go" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M5 12h14" />
+              <path d="M13 6l6 6-6 6" />
+            </svg>
+          </span>
         </button>
-        <small>What went well, what went wrong, what to keep doing — for this period</small>
       </div>
     </section>
   );

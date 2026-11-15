@@ -1,4 +1,5 @@
 "use strict";
+const { BRAND } = require("./brand");
 // WhatsApp Trading — like WhatsApp banking, for this desk. It runs on the server, so it works with
 // the laptop closed and no page open.
 //
@@ -70,7 +71,7 @@ function toWhatsApp(md) {
 const big = (v) => (!Number.isFinite(v) ? "—" : v >= 1e7 ? `${(v / 1e7).toFixed(2)} Cr` : v >= 1e5 ? `${(v / 1e5).toFixed(1)} L` : String(v));
 const hashPin = (pin, salt) => crypto.scryptSync(String(pin), salt, 32).toString("hex");
 
-const HELP = `🙏 Jai Shri Ram — Drishti on WhatsApp
+const HELP = `🙏 Jai Shri Ram — ${BRAND.name} on WhatsApp
 *Ask*
 STATUS — switch, risk guard, today's P&L
 POS — every open position in detail
@@ -223,7 +224,7 @@ class WhatsAppService {
   }
 
   async test() {
-    const r = await this.send("🙏 Jai Shri Ram — Drishti can reach you on WhatsApp. Reply HELP for the commands.", { kind: "reply" });
+    const r = await this.send(`🙏 Jai Shri Ram — ${BRAND.name} can reach you on WhatsApp. Reply HELP for the commands.`, { kind: "reply" });
     if (!r.sent) throw new WhatsAppError(r.reason === "not_configured" ? "Fill in every field and switch it on first." : `WhatsApp did not accept it: ${r.reason}`, "failed", 502);
     return this.status();
   }
@@ -398,7 +399,7 @@ WhatsApp trading: ${this._load().allowTrading ? "allowed (PIN)" : "not allowed"}
       }
     }
     const tot = f.positions.reduce((s, p) => s + (p.pnl || 0), 0);
-    const lines = [`🙏 *Drishti update* ${f.at} IST`, `Open: ${f.positions.length} · P&L ${inr(tot)}${f.funds ? ` · margin left ${inr(f.funds.available).replace("+", "")}` : ""}`];
+    const lines = [`🙏 *${BRAND.name} update* ${f.at} IST`, `Open: ${f.positions.length} · P&L ${inr(tot)}${f.funds ? ` · margin left ${inr(f.funds.available).replace("+", "")}` : ""}`];
     for (const p of f.positions) {
       lines.push("");
       lines.push(`${p.side === "long" ? "▲" : "▼"} *${p.symbol}* ${p.side} ${p.quantity} @ ${px(p.average)} → ${px(p.last)} (${inr(p.pnl)}${p.pnlPct !== null ? `, ${p.pnlPct > 0 ? "+" : ""}${p.pnlPct}%` : ""}) ${p.product}`);

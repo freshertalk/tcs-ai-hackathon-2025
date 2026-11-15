@@ -44,7 +44,7 @@
 }
 .ab-btn small {
   font-size: var(--t-small);
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 .ab-btn--live {
   border-color: color-mix(in srgb, var(--up) 55%, var(--line-2));
@@ -232,7 +232,7 @@
   position: absolute;
   top: 12px;
   font-size: var(--t-tag);
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 .ab-score__l {
   left: 0;

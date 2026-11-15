@@ -126,7 +126,7 @@ function Calendar({ days, fromDay, toDay }) {
                       aria-pressed={sel === k}
                       aria-label={d ? `${longDay(k)}: net ${sMoney(d.net)}, ${d.trades} trade${d.trades === 1 ? "" : "s"}` : `${longDay(k)}: no trades`}
                     >
-                      {Number(k.slice(8))}
+                      <span className="jr-cal__n">{Number(k.slice(8))}</span>
                     </button>
                   );
                 })}

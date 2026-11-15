@@ -100,6 +100,11 @@
   text-decoration: none;
   transition: box-shadow 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
 }
+/* Google's own button is white with dark text in both themes; ".adm a { color: inherit }"
+   would otherwise hand it the dark theme's light ink */
+.adm .gate__google {
+  color: #1f1f1f;
+}
 .gate__google:hover {
   border-color: #c6c9cc;
   box-shadow: 0 2px 10px rgba(60, 64, 67, 0.18);
@@ -254,6 +259,7 @@
   color: #8fc7ff;
 }
 .hub-hero__t {
+  color: #f2f6fa; /* the card is dark in both themes */
   font-size: var(--t-xlarge);
   font-weight: 600;
   line-height: 1.1;

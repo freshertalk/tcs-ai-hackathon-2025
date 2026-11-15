@@ -1,4 +1,5 @@
 "use strict";
+const { BRAND } = require("./brand");
 // Notifications that reach the owner when no page is open: a Telegram bot.
 //
 // The owner creates a bot with Telegram's @BotFather, starts a chat with it, and enters the bot
@@ -110,7 +111,7 @@ class Notifier {
   }
 
   async test() {
-    const r = await this.send("Jai Shri Ram 🙏 — Drishti can reach you here. Price alerts, the risk guard and the 3:45 PM report will arrive in this chat.", "test");
+    const r = await this.send(`Jai Shri Ram 🙏 — ${BRAND.name} can reach you here. Price alerts, the risk guard and the 3:45 PM report will arrive in this chat.`, "test");
     if (!r.sent) throw new NotifyError(r.reason === "not_configured" ? "Save the bot token and the chat id first." : `Telegram did not accept it: ${r.reason}`, "failed", 502);
     return this.status();
   }

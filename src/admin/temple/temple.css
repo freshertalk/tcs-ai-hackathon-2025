@@ -439,3 +439,17 @@
 .hlth__body small {
   color: var(--ink-3);
 }
+
+/* gold that reads in both themes: deep on light, bright on dark */
+.mdr__k {
+  color: #8a6100;
+}
+.mdr__verse {
+  color: #7a5600;
+}
+.adm[data-desk="dark"] .mdr__k {
+  color: #d9a93a;
+}
+.adm[data-desk="dark"] .mdr__verse {
+  color: #e8b84a;
+}
