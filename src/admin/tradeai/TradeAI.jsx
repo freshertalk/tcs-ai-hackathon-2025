@@ -15,6 +15,7 @@ import { useAuth } from "../auth";
 import { useDialog } from "../dialog/DialogProvider";
 import Shell from "../Shell";
 import Markdown, { inline } from "./markdown";
+import { GoalChip } from "../stock/trade/DailyGoal";
 import "./tradeai.css";
 
 const KIND = { corrective: "Fix now", proactive: "Prepare", watch: "Watch" };
@@ -80,6 +81,18 @@ const IcMore = () => <I size={16} d={<><circle cx="5" cy="12" r="1" /><circle cx
 const IcDown = () => <I d={<path d="M12 5v14M5 12l7 7 7-7" />} />;
 const IcArrow = () => <I size={16} d={<path d="M5 12h14M13 6l6 6-6 6" />} />;
 const IcRefresh = () => <I size={15} d={<><path d="M20 11a8 8 0 1 0-2.3 5.7" /><path d="M20 4v7h-7" /></>} />;
+const IcMic = () => <I size={17} d={<><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3" /></>} />;
+const IcGear = () => <I size={16} d={<><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z" /></>} />;
+const IcExport = () => <I size={16} d={<><path d="M12 3v12M7 10l5 5 5-5" /><path d="M5 21h14" /></>} />;
+
+// how a question is answered (server/ai/route.js): Auto picks for each question
+const MODES = [
+  { id: "auto", label: "Auto", tip: "Each question goes the best way: data at once with no model, light questions to the fastest model, advice to the paid model, depth to all models merged." },
+  { id: "fast", label: "Fast", tip: "The quickest answer: the desk's data at once, or one fast model." },
+  { id: "deep", label: "Deep", tip: "The most thorough: the free models answer together and the paid model merges them. Slower." },
+];
+const ROUTE_ETA = { instant: "from the desk's data — no AI model", fast: "one fast model · usually 3–12 s", advice: "one model for advice · usually 5–25 s", deep: "several models, then a merge · usually 20–60 s" };
+const SR = typeof window !== "undefined" ? window.SpeechRecognition || window.webkitSpeechRecognition : null;
 
 /* ------------------------------------------------------------------------------ copy button */
 function CopyBtn({ text, label = "Copy" }) {
@@ -110,13 +123,71 @@ function CopyBtn({ text, label = "Copy" }) {
 }
 
 /* --------------------------------------------------------------------------------- composer */
-function Composer({ value, onChange, onSend, onStop, busy, disabled, big, inputRef, hint }) {
+/** "@SB…" while typing: NSE stocks to pick from. */
+function useMention(value) {
+  const [list, setList] = useState([]);
+  const m = /(^|\s)@([A-Za-z0-9&-]{1,20})$/.exec(value);
+  const term = m ? m[2] : "";
+  useEffect(() => {
+    if (!term) {
+      setList([]);
+      return undefined;
+    }
+    let alive = true;
+    const id = setTimeout(() => {
+      api(`/api/admin/market/search?q=${encodeURIComponent(term)}`)
+        .then((d) => alive && setList(((d && d.results) || []).slice(0, 6)))
+        .catch(() => alive && setList([]));
+    }, 150);
+    return () => {
+      alive = false;
+      clearTimeout(id);
+    };
+  }, [term]);
+  return { term, list };
+}
+
+function Composer({ value, onChange, onSend, onStop, busy, disabled, big, inputRef, hint, mode, onMode }) {
+  const [listening, setListening] = useState(false);
+  const [pick, setPick] = useState(0);
+  const rec = useRef(null);
+  const { term, list } = useMention(value);
+  const showList = Boolean(term && list.length);
   useLayoutEffect(() => {
     const el = inputRef.current;
     if (!el) return;
     el.style.height = "auto";
     el.style.height = `${Math.min(el.scrollHeight, 220)}px`;
   }, [value, inputRef]);
+  useEffect(() => setPick(0), [term]);
+  useEffect(() => () => rec.current && rec.current.abort && rec.current.abort(), []);
+  const choose = (sym) => {
+    onChange(value.replace(/@([A-Za-z0-9&-]{1,20})$/, `${sym} `));
+    if (inputRef.current) inputRef.current.focus();
+  };
+  const listen = () => {
+    if (!SR) return;
+    if (listening && rec.current) {
+      rec.current.stop();
+      return;
+    }
+    const r = new SR();
+    r.lang = "en-IN";
+    r.interimResults = false;
+    r.maxAlternatives = 1;
+    r.onresult = (e) => {
+      const said = Array.from(e.results)
+        .map((x) => x[0].transcript)
+        .join(" ")
+        .trim();
+      if (said) onChange(`${value ? `${value.trim()} ` : ""}${said}`);
+    };
+    r.onend = () => setListening(false);
+    r.onerror = () => setListening(false);
+    rec.current = r;
+    setListening(true);
+    r.start();
+  };
   return (
     <form
       className={`tai-comp ${big ? "tai-comp--big" : ""}`}
@@ -125,6 +196,18 @@ function Composer({ value, onChange, onSend, onStop, busy, disabled, big, inputR
         if (!busy) onSend(value);
       }}
     >
+      {showList && (
+        <ul className="tai-mention" role="listbox" aria-label="Stocks">
+          {list.map((x, i) => (
+            <li key={x.symbol} role="option" aria-selected={i === pick}>
+              <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => choose(x.symbol)}>
+                <b>{x.symbol}</b>
+                <small>{x.name}</small>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
       <textarea
         ref={inputRef}
         rows={1}
@@ -132,18 +215,43 @@ function Composer({ value, onChange, onSend, onStop, busy, disabled, big, inputR
         maxLength={1500}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={(e) => {
+          if (showList && (e.key === "ArrowDown" || e.key === "ArrowUp")) {
+            e.preventDefault();
+            setPick((p) => (p + (e.key === "ArrowDown" ? 1 : list.length - 1)) % list.length);
+            return;
+          }
+          if (showList && (e.key === "Enter" || e.key === "Tab")) {
+            e.preventDefault();
+            choose(list[pick].symbol);
+            return;
+          }
           if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
             e.preventDefault();
             if (!busy) onSend(value);
           }
         }}
-        placeholder={big ? "Ask about your positions, a stock, the market or your results…" : "Reply to TradeAI…"}
+        placeholder={big ? "Ask about your positions, a stock, the market or your results… (type @ for a stock)" : "Reply to TradeAI… (@ for a stock)"}
         aria-label="Your question"
         disabled={disabled}
       />
       <div className="tai-comp__row">
+        {onMode && (
+          <div className="tai-modes" role="group" aria-label="How to answer">
+            {MODES.map((x) => (
+              <button key={x.id} type="button" aria-pressed={mode === x.id} onClick={() => onMode(x.id)} data-tip={x.tip}>
+                {x.id === "fast" ? "⚡ " : x.id === "deep" ? "🧠 " : ""}
+                {x.label}
+              </button>
+            ))}
+          </div>
+        )}
         <span className="tai-comp__hint">{hint}</span>
         {value.length > 1200 && <span className="tai-comp__count">{value.length}/1500</span>}
+        {SR && !busy && (
+          <button type="button" className={`tai-icon tai-mic ${listening ? "is-on" : ""}`} onClick={listen} aria-label={listening ? "Stop listening" : "Speak your question"} aria-pressed={listening} data-tip={listening ? "Listening… press to stop" : "Speak your question"}>
+            <IcMic />
+          </button>
+        )}
         {busy ? (
           <button type="button" className="tai-send is-stop" onClick={onStop} aria-label="Stop the answer" data-tip="Stop (Esc)">
             <IcStop />
@@ -184,7 +292,14 @@ function useReveal(text, on) {
 function Process({ meta }) {
   const used = meta.used || [];
   const n = (meta.by || []).length;
-  const label = meta.engineOnly ? "Answered with the desk’s own arithmetic (the AI models did not answer)" : `Read ${used.length ? used.join(", ") : "the desk"} · ${n} free model${n === 1 ? "" : "s"}${meta.mergedBy ? ` · merged by ${meta.mergedBy}` : ""}${meta.fallback ? " · after a fallback" : ""}`;
+  const paid = (meta.models || []).some((m) => m.ok && m.paid);
+  const sec = Number.isFinite(meta.ms) ? Math.round(meta.ms / 100) / 10 : null;
+  const label =
+    meta.tier === "instant"
+      ? `⚡ Instant — from the desk’s data (${used.length ? used.join(", ") : "the desk"}), no AI model${sec !== null ? ` · ${sec}s` : ""}`
+      : meta.engineOnly
+        ? "Answered with the desk’s own arithmetic (the AI models did not answer)"
+        : `Read ${used.length ? used.join(", ") : "the desk"} · ${meta.tier === "deep" || (!meta.tier && n > 1) ? `${n} models${meta.mergedBy ? ` · merged by ${meta.mergedBy}` : ""}` : `answered by ${(meta.by || [])[0] || "a model"}${paid ? " (paid)" : ""}`}${meta.fallback ? " · after a fallback" : ""}`;
   return (
     <details className="tai-proc">
       <summary>
@@ -376,6 +491,7 @@ function Working({ job }) {
   }, [job.id]);
   const steps = job.steps || [];
   const now = steps[steps.length - 1] || "Working out what this needs";
+  const route = job.route;
   return (
     <article className="tai-msg tai-msg--ai is-working" aria-live="polite">
       <img className="tai-avatar is-spin" src="/img/hanuman-full-96.png" alt="" width="30" height="30" />
@@ -397,7 +513,10 @@ function Working({ job }) {
             ))}
           </ol>
         )}
-        <small className="tai-dim">{sec}s · free models answer in about 15–60 seconds</small>
+        <small className="tai-dim">
+          {sec}s
+          {route ? ` · ${route.tier === "instant" ? "instant" : route.model ? `${route.model}${route.paid ? " (paid)" : ""}` : route.tier} · ${ROUTE_ETA[route.tier] || ""}` : " · working out the fastest way to answer"}
+        </small>
       </div>
     </article>
   );
@@ -505,6 +624,18 @@ export default function TradeAI() {
   const [atBottom, setAtBottom] = useState(true);
   const [titleEdit, setTitleEdit] = useState(false);
   const [top, setTop] = useState(56);
+  const [mode, setModeState] = useState(() => store.get("tai.mode", "auto"));
+  const [tset, setTset] = useState(null); // how TradeAI answers: settings, the paid lead, the fastest models
+  const [setOpen, setSetOpen] = useState(false);
+  const setMode = (m) => {
+    setModeState(m);
+    store.set("tai.mode", m);
+  };
+  useEffect(() => {
+    api("/api/admin/tradeai/settings")
+      .then(setTset)
+      .catch(() => setTset(null));
+  }, []);
   const inputRef = useRef(null);
   const scrollRef = useRef(null);
   const openRef = useRef(null);
@@ -564,8 +695,11 @@ export default function TradeAI() {
       let j = j0;
       setJob(j);
       stopRef.current = false;
+      let polls = 0;
       while (!j.finishedAt && !stopRef.current) {
-        await sleep(1000);
+        // an instant answer is back in about a second: look often at first, then calmly
+        await sleep(polls < 6 ? 350 : 900);
+        polls += 1;
         try {
           j = await api(`/api/admin/tradeai/job/${j.id}`);
         } catch (e) {
@@ -643,7 +777,7 @@ export default function TradeAI() {
     const msgs = from !== null ? base.messages.slice(0, from) : base.messages;
     setConv({ ...base, messages: [...msgs, { id: `tmp-${Date.now()}`, role: "user", text: question, at: new Date().toISOString() }] });
     try {
-      const d = await api("/api/admin/tradeai/ask", { method: "POST", body: { conv: base.id, text: question, from } });
+      const d = await api("/api/admin/tradeai/ask", { method: "POST", body: { conv: base.id, text: question, from, mode } });
       openRef.current = d.conv;
       setUrl(d.conv);
       if (!base.id) {
@@ -749,7 +883,31 @@ export default function TradeAI() {
     for (let k = i - 1; k >= 0; k -= 1) if (msgs[k].role === "user") return send(msgs[k].text, k);
     return null;
   };
-  const hint = isOwner ? "Reads your positions & P&L (read-only) · free models · never down" : "Free models · never down · account data is the owner’s only";
+  const hint = isOwner ? "Reads your positions & P&L (read-only) · never down" : "Never down · account data is the owner’s only";
+  const exportChat = () => {
+    if (!conv || !conv.messages.length) return;
+    const md = [`# ${conv.title}`, "", ...conv.messages.map((m) => `## ${m.role === "user" ? "You" : "TradeAI"} · ${new Date(m.at).toLocaleString("en-IN")}\n\n${m.text}\n`)].join("\n");
+    const url = URL.createObjectURL(new Blob([md], { type: "text/markdown" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${(conv.title || "TradeAI chat").replace(/[^a-z0-9 _-]/gi, "").slice(0, 60) || "TradeAI chat"}.md`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+  const saveSet = async (patch) => {
+    try {
+      setTset(await api("/api/admin/tradeai/settings", { method: "PUT", body: patch }));
+    } catch (e) {
+      setErr(e.message);
+    }
+  };
+  const instantChips = [
+    isOwner && "Show my positions",
+    isOwner && "How am I doing against my daily target?",
+    "Show the option chain of NIFTY",
+    sugg && sugg.suggestions && (sugg.suggestions.find((x) => x.symbol) || {}).symbol ? `Intraday plan for ${sugg.suggestions.find((x) => x.symbol).symbol}` : null,
+  ].filter(Boolean);
+  const badge = tset ? (mode === "fast" ? "Fast · data or one quick model" : mode === "deep" ? `Deep · all models${tset.lead && tset.usePaid ? ` + ${tset.lead.name}` : ""}` : `Auto · ${tset.lead && tset.usePaid ? `${tset.lead.name} for advice` : "free models"}`) : "Auto";
 
   return (
     <Shell crumb="TradeAI" fluid>
@@ -822,9 +980,58 @@ export default function TradeAI() {
               </button>
             )}
             <span className="tai-grow" />
-            <span className="tai-badge" data-tip="A mixture of the free AI models through the AI Engine, merged by the strongest; fallback one by one, then the desk’s own arithmetic.">
-              <i /> Mixture · free models
+            {isOwner && <GoalChip />}
+            <span className="tai-badge" data-tip="Data questions are answered at once from the desk; light questions by the fastest model; advice by the paid model when it is on; Deep runs every model and merges. If every model fails, the desk’s own arithmetic answers.">
+              <i /> {badge}
             </span>
+            {conv && conv.messages && conv.messages.length > 0 && (
+              <button type="button" className="tai-icon" onClick={exportChat} aria-label="Export this chat" data-tip="Download this chat as a Markdown file">
+                <IcExport />
+              </button>
+            )}
+            {isOwner && (
+              <span className="tai-setwrap">
+                <button type="button" className="tai-icon" onClick={() => setSetOpen((o) => !o)} aria-expanded={setOpen} aria-label="How TradeAI answers" data-tip="How TradeAI answers: the default mode and the paid model">
+                  <IcGear />
+                </button>
+                {setOpen && tset && (
+                  <div className="tai-set" role="dialog" aria-label="How TradeAI answers">
+                    <h4>How TradeAI answers</h4>
+                    <label className="tai-set__row">
+                      <span>Default mode</span>
+                      <select value={tset.mode} onChange={(e) => saveSet({ mode: e.target.value })}>
+                        {MODES.map((x) => (
+                          <option key={x.id} value={x.id}>
+                            {x.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="tai-set__row tai-set__check">
+                      <input type="checkbox" checked={tset.usePaid} onChange={(e) => saveSet({ usePaid: e.target.checked })} />
+                      <span>Use the paid model for advice, research and the Deep merge{tset.lead ? ` (${tset.lead.name})` : " — none saved on the AI page"}</span>
+                    </label>
+                    <label className="tai-set__row">
+                      <span>Paid answers a day, at most</span>
+                      <input type="number" min="0" max="2000" step="10" defaultValue={tset.paidDailyCap} onBlur={(e) => saveSet({ paidDailyCap: Number(e.target.value) })} />
+                    </label>
+                    <p className="tai-dim">Paid answers today: {tset.paidToday}.</p>
+                    {tset.fastest && tset.fastest.length > 0 && (
+                      <>
+                        <h5>Fastest free models (measured)</h5>
+                        <ol className="tai-set__fast">
+                          {tset.fastest.map((f) => (
+                            <li key={f.name}>
+                              {f.name} <small>{f.avgSec !== null ? `${f.avgSec}s` : "not measured yet"}</small>
+                            </li>
+                          ))}
+                        </ol>
+                      </>
+                    )}
+                  </div>
+                )}
+              </span>
+            )}
             {conv && (
               <button type="button" className="tai-icon" onClick={fresh0} disabled={busy} aria-label="New chat" data-tip="New chat">
                 <IcNew />
@@ -849,7 +1056,17 @@ export default function TradeAI() {
                   {greeting()}, {firstName(user)}
                 </h1>
                 <p className="tai-welcome__sub">What would you like to know about your trading today?</p>
-                <Composer value={text} onChange={setText} onSend={(v) => send(v)} onStop={stop} busy={busy} big inputRef={inputRef} hint={hint} />
+                <Composer value={text} onChange={setText} onSend={(v) => send(v)} onStop={stop} busy={busy} big inputRef={inputRef} hint={hint} mode={mode} onMode={setMode} />
+                {instantChips.length > 0 && (
+                  <div className="tai-instant" aria-label="Instant answers">
+                    <span>⚡ Instant</span>
+                    {instantChips.map((t) => (
+                      <button key={t} type="button" onClick={() => send(t)} disabled={busy}>
+                        {t}
+                      </button>
+                    ))}
+                  </div>
+                )}
                 <section className="tai-sugg" aria-label="Suggested questions">
                   <header>
                     <h2>{sugg && sugg.positions ? `Suggested now — from your ${sugg.positions} open position${sugg.positions === 1 ? "" : "s"} and the market` : "Suggested for you now"}</h2>
@@ -910,7 +1127,7 @@ export default function TradeAI() {
           )}
           {conv && (
             <div className="tai-foot">
-              <Composer value={text} onChange={setText} onSend={(v) => send(v)} onStop={stop} busy={busy} inputRef={inputRef} hint={hint} />
+              <Composer value={text} onChange={setText} onSend={(v) => send(v)} onStop={stop} busy={busy} inputRef={inputRef} hint={hint} mode={mode} onMode={setMode} />
               <p className="tai-dim">TradeAI can be wrong and never places orders — a second opinion, not advice. You decide.</p>
             </div>
           )}

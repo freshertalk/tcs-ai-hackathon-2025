@@ -14,6 +14,7 @@ import { num } from "../analyzer/format";
 import { useAlerts } from "./AlertsContext";
 import { TempleButton } from "../../temple/Temple";
 import AlertsPanel from "./AlertsPanel";
+import { GoalPill } from "../trade/DailyGoal";
 
 const IST = 5.5 * 3600 * 1000;
 function istNow() {
@@ -184,6 +185,7 @@ export default function TopBar({ views, view, onView, theme, onTheme, onHelp, on
             <small className="tm-x">{pulse.open} open</small>
           </button>
         )}
+        {trade && trade.goal && <GoalPill goal={trade.goal} onClick={() => onView("account")} />}
         {alerts && (
           <span className="tm-bell">
             <button type="button" className={`tm-icon ${alerts.waiting.length ? "has-some" : ""}`} data-alerts-toggle aria-expanded={alertsOpen} aria-label={`Price alerts: ${alerts.waiting.length} waiting`} onClick={() => onAlerts(!alertsOpen)} data-tip="Price alerts: be told when a stock reaches a level. Kept in the database, checked while this terminal is open.">

@@ -44,6 +44,7 @@ const { mountAnalysis } = require("./analysis/routes");
 const { Temple, mountTemple } = require("./temple");
 const { Notifier, mountNotify } = require("./notify");
 const { AlertWatch } = require("./alert-watch");
+const { DisciplineWatch } = require("./discipline-watch");
 const { JournalCapture } = require("./journal-capture");
 const { WhatsAppService, mountWhatsApp } = require("./whatsapp");
 const { buildHealth } = require("./health");
@@ -689,6 +690,14 @@ ${s.trades || 0} trades, ${s.wins || 0} won · process score ${d.score === null 
   const alertWatch = opts.alertWatchService || new AlertWatch({ market, notifier, now: opts.now, log: opts.log || console });
   if (opts.alertWatch !== false) alertWatch.start();
   app.get("/api/admin/market/alerts/watch", requireAdmin, (req, res) => res.json(alertWatch.status()));
+  // the daily goal (target, stop, profit protection): reminders every 15 s in market hours, even with
+  // no page open, to Telegram / WhatsApp when set up — reminders only, it never trades
+  trading.onDiscipline = (e) => notifier.send(`${e.level === "danger" ? "🛑" : e.level === "success" ? "🎯" : "⚠️"} ${e.title}
+${e.text}
+(${BRAND.name} · a reminder — nothing was traded)`, "risk");
+  const disciplineWatch = opts.disciplineWatchService || new DisciplineWatch({ trading, now: opts.now, log: opts.log || console });
+  if (opts.disciplineWatch !== false && opts.alertWatch !== false) disciplineWatch.start();
+  app.get("/api/admin/trading/discipline/watch", requireAdmin, (req, res) => res.json(disciplineWatch.status()));
 
   // research that runs by itself before the open and after the close (server/research-auto.js)
   const researchAuto = new ResearchAuto({ ai, market, docs: store.docs, now: opts.now, log: opts.log || console });
@@ -766,6 +775,8 @@ ${s.trades || 0} trades, ${s.wins || 0} won · process score ${d.score === null 
       }
       return { last30: { days: days.length, net: sum((s) => s.net), profit: sum((s) => s.grossProfit), loss: sum((s) => s.grossLoss), charges: sum((s) => s.charges && s.charges.total), trades: sum((s) => s.trades) }, recentDays: days.slice(0, 7).map((d) => ({ date: d.date, net: d.summary && d.summary.net, trades: d.summary && d.summary.trades, score: d.score })), journal3m: journal };
     },
+    // the daily goal: today's P&L against the target and stop, and the giveback guard (read-only)
+    goal: () => trading.disciplineStatus(),
     // for the suggested questions: orders still waiting, and today's closed round trips
     orders: async () => (await trading.orders()).filter((o) => /^(OPEN|TRIGGER PENDING|AMO REQ RECEIVED)$/.test(o.status)).map((o) => ({ symbol: o.symbol, side: o.side, quantity: o.quantity, price: o.price || o.trigger || 0, type: o.type })),
     today: async () => {
@@ -787,8 +798,11 @@ ${s.trades || 0} trades, ${s.wins || 0} won · process score ${d.score === null 
     const text = String(b.text || "").trim();
     if (!text) throw Object.assign(new Error("Ask a question."), { status: 400 });
     const from = Number.isInteger(b.from) ? b.from : null; // edit / retry: go back to this question first
-    return ai.tradeai.start({ conv: b.conv ? String(b.conv) : null, text, owner: who(req), isOwner: req.user.role === "superadmin", from });
+    return ai.tradeai.start({ conv: b.conv ? String(b.conv) : null, text, owner: who(req), isOwner: req.user.role === "superadmin", from, mode: ["auto", "fast", "deep"].includes(b.mode) ? b.mode : null });
   }));
+  // how TradeAI answers: the default mode, and whether (and how often a day) the paid model may be used
+  app.get("/api/admin/tradeai/settings", requireAdmin, limiter(120, 60 * 1000), taWrap(async () => ai.tradeai.status()));
+  app.put("/api/admin/tradeai/settings", requireSuper, limiter(30, 10 * 60 * 1000), taWrap(async (req) => ai.tradeai.setSettings(req.body || {})));
   app.get("/api/admin/tradeai/job/:id", requireAdmin, limiter(600, 60 * 1000), taWrap(async (req) => ai.tradeai.job(String(req.params.id), who(req))));
   app.post("/api/admin/tradeai/job/:id/stop", requireAdmin, limiter(60, 60 * 1000), taWrap(async (req) => ai.tradeai.cancel(String(req.params.id), who(req))));
   // the questions you are most likely to ask now (positions, orders, today's trades, movers, alerts)

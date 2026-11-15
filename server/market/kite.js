@@ -172,6 +172,10 @@ class KiteClient {
         upperCircuit: v.upper_circuit_limit ?? null,
         lowerCircuit: v.lower_circuit_limit ?? null,
         time: v.last_trade_time || v.timestamp || null,
+        // futures and options: open interest (contracts) and the day's range of it
+        oi: v.oi ?? null,
+        oiHigh: v.oi_day_high ?? null,
+        oiLow: v.oi_day_low ?? null,
       };
     }
     return out;
@@ -223,5 +227,28 @@ class KiteClient {
     return out;
   }
 }
+
+/**
+ * The NFO contract list (futures and options on NSE stocks and indices), reduced to what the option
+ * chain needs: { s: tradingsymbol, n: underlying name, t: token, e: expiry "YYYY-MM-DD", k: strike,
+ * y: "CE" | "PE" | "FUT", l: lot size }.
+ */
+KiteClient.prototype.derivatives = async function derivatives() {
+  const res = await this._get("other", "/instruments/NFO", { timeout: 60000 });
+  if (!res.ok) throw new KiteError(`Kite answered HTTP ${res.status} for the NFO instrument list`, { status: res.status });
+  const rows = parseCsv(await res.text());
+  const head = rows.shift() || [];
+  const col = (name) => head.indexOf(name);
+  const c = { token: col("instrument_token"), symbol: col("tradingsymbol"), name: col("name"), expiry: col("expiry"), strike: col("strike"), lot: col("lot_size"), type: col("instrument_type"), exchange: col("exchange") };
+  if (c.token < 0 || c.symbol < 0 || c.type < 0) throw new KiteError("The NFO instrument list has an unexpected format");
+  const out = [];
+  for (const r of rows) {
+    const y = r[c.type];
+    if (y !== "CE" && y !== "PE" && y !== "FUT") continue;
+    if (c.exchange >= 0 && r[c.exchange] && r[c.exchange] !== "NFO") continue;
+    out.push({ s: r[c.symbol], n: r[c.name] || "", t: Number(r[c.token]), e: String(r[c.expiry] || "").slice(0, 10), k: Number(r[c.strike]) || 0, y, l: Number(r[c.lot]) || 1 });
+  }
+  return out;
+};
 
 module.exports = { KiteClient, KiteError, Throttle, loginUrl, exchangeToken, parseCsv, API };

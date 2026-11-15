@@ -7,9 +7,13 @@
 //   2. GATHER — reads them from the desk's own engines, the broker (read-only, owner only), the
 //      journal and Trade Analysis records, and the stored history. News is a web search by the paid
 //      model only when the question asks why / for news and a paid key is saved.
-//   3. ANSWER — a mixture of the free NVIDIA-hosted models answers in parallel, the strongest merges,
-//      and if they fail the others are tried one by one (then the paid lead when it is on). If every
-//      model fails, the desk's own arithmetic answers — the chat never goes down.
+//   3. ANSWER — routed by the question's words (route.js): data questions are answered INSTANTLY from
+//      the desk's data with no model; light ones by ONE model, the fastest free one by measured speed;
+//      questions of judgement by ONE model, the paid lead when allowed (else the strongest free one);
+//      "deep" questions by the free models together, merged by the paid lead — paid and free in
+//      combination. The trader can also pick Fast or Deep. One model at a time unless Deep: the next
+//      is asked only when one fails. If every model fails, the desk's own arithmetic answers — the
+//      chat never goes down.
 //
 // Every model comes from the AI Engine, so it gets the owner's AI brains for "tradeai" and the core
 // trading-skills rules, like every other AI feature. It can never place an order; it reads account
@@ -22,8 +26,20 @@
 // Conversations are kept in the database, one record each (chats.js).
 
 const crypto = require("node:crypto");
-const { askMixture } = require("./mixture");
+const { askMixture, askOne, team, rankOf } = require("./mixture");
 const { ChatStore } = require("./chats");
+const { classify, instantAnswer, MODES } = require("./route");
+
+const SETTINGS_DOC = "ai/tradeai-settings.json";
+const SPEED_DOC = "ai/tradeai-speed.json";
+const TRADEAI_DEFAULTS = { usePaid: true, paidDailyCap: 150, mode: "auto" };
+// before a model's speed is measured: smaller models first (an index, times 4 s)
+const SPEED_SEED = ["nano", "gemma", "deepseek", "nemotron-3.5", "nemotron-3-super", "mistral", "nemotron-3-ultra"];
+const seedMs = (a) => {
+  const i = SPEED_SEED.findIndex((k) => a.id.toLowerCase().includes(k));
+  return (i < 0 ? SPEED_SEED.length : i) * 4000 + 4000;
+};
+const istDay = (ms) => new Date(ms + 5.5 * 3600000).toISOString().slice(0, 10);
 
 const MAX_MSGS = 200;
 const MAX_DATA = 32000;
@@ -42,6 +58,9 @@ How to answer:
 - Forecasts: give a lean (up, down or sideways) for a stated horizon, the scenarios that would confirm or cancel it, and the levels to watch. Never promise a profit, a win rate or a certainty; confidence means how well the evidence agrees.
 - Actions: "corrective" ones for what is open now (a stop to respect or tighten, size to reduce, an exit to consider) and "proactive" ones (alerts to set, setups to wait for, levels to watch). Never tell the trader to remove a stop-loss or to average down a losing intraday trade.
 - Follow-ups: 3 or 4 short questions the trader is most likely to ask next, specific to the stocks, levels and numbers you discussed (for example "What if SBIN closes below 799?"), never generic.
+- The daily goal (DATA.goal, when shown): the trader's target is a share of the morning's margin (3% by default) and the daily stop half of it. Their known weakness: staying in a winning day for "more" until the gain, and then capital, is gone. So if the day has reached or nearly reached the target, is giving profits back, or turned red after being green, say that FIRST in one bold line with the rupee figures and tell them to book and stop. Never encourage a new trade after the target is reached or the stop is hit.
+- The option chain (DATA.options, when shown) is one factor among the others: quote its PCR, the call and put walls, max pain, ATM IV and its bias, and never make it the only reason.
+- The intraday plan (DATA.plan, when shown) is the desk's own plan for the next session with its measured record: build on its levels and say how strong its record is.
 - If the question is not about trading, answer briefly and steer back.`;
 
 const SCHEMA = {
@@ -155,6 +174,12 @@ class TradeAI {
     // a stock you hold: its position comes with it
     if (owner && positions.some((p) => symbols.includes(p.symbol))) tools.add("positions");
     if (has(q, ["forecast", "tomorrow", "next session", "next day", "predict", "will it", "target", "outlook", "where will", "expect"])) tools.add("outlook");
+    // the daily goal: today's P&L against the target and stop, and the giveback guard
+    if (owner && (tools.has("positions") || has(q, ["target", "goal", "how am i doing", "today", "p&l", "pnl", "profit", "loss", "greed", "giving back", "given back", "stop for"]))) tools.add("goal");
+    // the option chain: asked for, or a stock question where it is one more factor
+    if (has(q, ["option", "pcr", "put call", "put-call", "max pain", "open interest", " oi ", "call wall", "put wall", "expiry"]) || (symbols.length === 1 && tools.has("outlook"))) tools.add("options");
+    // the intraday plan for the next session
+    if (symbols.length && has(q, ["intraday", "plan", "tomorrow", "next session", "levels for", "trade plan", "setup"])) tools.add("plan");
     return { symbols, tools: [...tools], positions };
   }
 
@@ -212,59 +237,148 @@ class TradeAI {
     return out;
   }
 
-  async gather(plan, { owner, onStep }) {
+  async gather(plan, { owner, onStep, only = null }) {
     const data = { asOf: new Date(this.ai.now()).toISOString(), plan: { symbols: plan.symbols, tools: plan.tools } };
     const used = [];
     const m = this.ai.market;
-    if (plan.tools.includes("market")) {
+    const want = (t) => (only ? only.includes(t) : plan.tools.includes(t));
+    const jobs = [];
+    // every independent read starts at once: the slowest one sets the wait, not their sum
+    if (want("market")) {
       onStep("Reading the market: Nifty, Bank Nifty, India VIX, sectors");
-      const c = await this._within(m.context()).catch(() => null);
-      if (c && c.available) {
-        data.market = { tide: c.tide && { score: c.tide.score, label: c.tide.label, summary: c.tide.summary }, vix: c.vix, sectors: (c.sectors || []).map((s) => ({ name: s.name, changePct: s.changePct })), notes: (c.notes || []).slice(0, 5) };
-        used.push("market");
-      } else data.market = { available: false, reason: c ? c.reason : "unavailable" };
+      jobs.push(
+        this._within(m.context())
+          .catch(() => null)
+          .then((c) => {
+            if (c && c.available) {
+              data.market = { tide: c.tide && { score: c.tide.score, label: c.tide.label, summary: c.tide.summary }, vix: c.vix, sectors: (c.sectors || []).map((s) => ({ name: s.name, changePct: s.changePct })), notes: (c.notes || []).slice(0, 5) };
+              used.push("market");
+            } else data.market = { available: false, reason: c ? c.reason : "unavailable" };
+          }),
+      );
     }
-    if (owner && plan.tools.includes("positions") && this.account) {
+    if (owner && (want("positions") || want("funds")) && this.account) {
       onStep("Reading your open positions and funds (read-only)");
-      try {
-        const pos = plan.positions.length ? plan.positions : (await this.account.positions()).filter((p) => p.quantity !== 0);
-        const funds = await this.account.funds().catch(() => null);
-        data.positions = pos.slice(0, 10).map((p) => ({ symbol: p.symbol, exchange: p.exchange, product: p.product, side: p.quantity > 0 ? "long" : "short", quantity: p.quantity, average: p.average, last: p.last, pnl: r2(p.pnl), m2m: r2(p.m2m) }));
-        data.funds = funds && funds.equity ? { available: funds.equity.net, used: funds.equity.used } : null;
-        used.push("positions");
-        for (const p of data.positions.slice(0, 4)) if (!plan.symbols.includes(p.symbol) && (p.exchange === "NSE" || p.exchange === "BSE")) plan.symbols.push(p.symbol);
-      } catch (e) {
-        data.positions = { error: e.message };
-      }
+      jobs.push(
+        (async () => {
+          try {
+            const [pos, funds] = await Promise.all([plan.positions.length ? plan.positions : this.account.positions().then((x) => x.filter((p) => p.quantity !== 0)), this.account.funds().catch(() => null)]);
+            data.positions = pos.slice(0, 10).map((p) => ({ symbol: p.symbol, exchange: p.exchange, product: p.product, side: p.quantity > 0 ? "long" : "short", quantity: p.quantity, average: p.average, last: p.last, pnl: r2(p.pnl), m2m: r2(p.m2m) }));
+            data.funds = funds && funds.equity ? { available: funds.equity.net, used: funds.equity.used } : null;
+            used.push("positions");
+          } catch (e) {
+            data.positions = { error: e.message };
+          }
+        })(),
+      );
     }
-    if (owner && plan.tools.includes("pnl") && this.account) {
+    if (owner && want("goal") && this.account && this.account.goal) {
+      jobs.push(
+        this._within(Promise.resolve(this.account.goal()), 6000)
+          .then((g) => {
+            if (g && !g.__timeout && g.available) {
+              data.goal = { ...g, events: (g.events || []).slice(0, 4) };
+              used.push("daily goal");
+            }
+          })
+          .catch(() => {}),
+      );
+    }
+    if (owner && want("pnl") && this.account) {
       onStep("Reading your profit and loss history");
-      try {
-        data.pnl = await this.account.history();
-        used.push("pnl history");
-      } catch (e) {
-        data.pnl = { error: e.message };
-      }
+      jobs.push(
+        Promise.resolve(this.account.history())
+          .then((h) => {
+            data.pnl = h;
+            used.push("pnl history");
+          })
+          .catch((e) => {
+            data.pnl = { error: e.message };
+          }),
+      );
     }
-    const syms = plan.symbols.slice(0, 4);
-    for (const s of syms) {
-      onStep(`Reading ${s}: live call, levels, indicators, patterns, habits, odds${plan.tools.includes("outlook") ? ", outlook" : ""}`);
-      data[`stock_${s}`] = await this._snapshot(s, { outlook: plan.tools.includes("outlook") || syms.length === 1 });
-      used.push(s);
+    if (owner && want("orders") && this.account && this.account.orders) {
+      jobs.push(
+        Promise.resolve(this.account.orders())
+          .then((o) => {
+            data.orders = o;
+            used.push("orders");
+          })
+          .catch(() => {}),
+      );
     }
-    if (plan.tools.includes("news") && syms.length && this.ai._searchProvider && this.ai._searchProvider()) {
-      onStep(`News on ${syms[0]} (a web search by the paid model; kept 30 minutes)`);
-      const n = await this._within(this.ai.news(syms[0]), 90000).catch(() => null);
-      if (n && n.news) {
-        data.news = { symbol: syms[0], tone: n.news.tone, headline: n.news.headline, items: (n.news.items || []).slice(0, 5) };
-        used.push(`news ${syms[0]}`);
-      }
-    } else if (plan.tools.includes("news")) data.news = { available: false, reason: "News needs a paid model with web search (Anthropic, OpenAI or Gemini key)." };
-    if (plan.tools.includes("alerts")) {
+    if (want("alerts")) {
       data.alerts = m.alerts().alerts.filter((a) => !a.firedAt).slice(0, 20).map((a) => ({ symbol: a.symbol, dir: a.dir, price: a.price, note: a.note }));
       used.push("alerts");
     }
+    // a stock you hold comes into the question with your position
+    if (Array.isArray(plan.positions)) for (const p of plan.positions.slice(0, 4)) if (want("positions") && !plan.symbols.includes(p.symbol) && (p.exchange === "NSE" || p.exchange === "BSE") && plan.symbols.length < 4) plan.symbols.push(p.symbol);
+    const syms = plan.symbols.slice(0, 4);
+    if (want("snapshot") || want("quote")) {
+      for (const s of syms) {
+        onStep(`Reading ${s}: live call, levels, indicators, patterns, habits, odds${want("outlook") ? ", outlook" : ""}`);
+        jobs.push(
+          (only && only.includes("quote") ? this._quoteOnly(s) : this._snapshot(s, { outlook: want("outlook") || syms.length === 1 })).then((x) => {
+            data[`stock_${s}`] = x;
+            used.push(s);
+          }),
+        );
+      }
+    }
+    if (want("options") && m.optionChain) {
+      const u = syms[0] || "NIFTY 50";
+      onStep(`Reading the option chain of ${u}: OI, PCR, max pain, IV`);
+      jobs.push(
+        this._within(m.optionChain(u), 12000)
+          .then((c) => {
+            if (c && !c.__timeout) {
+              const { rows, ...rest } = c;
+              data.options = rows ? { ...rest, rows: rows.filter((r) => Math.abs(r.strike - c.spot) / c.spot <= 0.04).map((r) => ({ strike: r.strike, ceOi: r.ce && r.ce.oi, ceOiChg: r.ce && r.ce.oiChange, ceIv: r.ce && r.ce.iv, peOi: r.pe && r.pe.oi, peOiChg: r.pe && r.pe.oiChange, peIv: r.pe && r.pe.iv })) } : rest;
+              used.push(`options ${u}`);
+            }
+          })
+          .catch(() => {}),
+      );
+    }
+    if (want("plan") && syms.length && this.ai.ensemble && this.ai.ensemble.intraday) {
+      onStep(`Building the intraday plan for ${syms[0]}`);
+      jobs.push(
+        this._within(this.ai.ensemble.intraday(syms[0]), 15000)
+          .then((x) => {
+            if (x && !x.__timeout) {
+              const { record, habits, ladder, ...rest } = x;
+              data.plan = { ...rest, ladder: (ladder || []).slice(0, 12), habits: habits && { sessions: habits.sessions, rangePct: habits.rangePct, openingRange: habits.openingRange, firstHourExtremePct: habits.firstHourExtremePct, trendDayPct: habits.trendDayPct }, record: record && { sessions: record.sessions, lean: { trades: record.lean.trades, winRate: record.lean.winRate, avgR: record.lean.avgR, verdict: record.lean.verdict }, orb: { trades: record.orb.trades, winRate: record.orb.winRate, avgR: record.orb.avgR, verdict: record.orb.verdict } } };
+              used.push(`intraday plan ${syms[0]}`);
+            }
+          })
+          .catch(() => {}),
+      );
+    }
+    if (want("news") && syms.length && this.ai._searchProvider && this.ai._searchProvider()) {
+      onStep(`News on ${syms[0]} (a web search by the paid model; kept 30 minutes)`);
+      jobs.push(
+        this._within(this.ai.news(syms[0]), 90000)
+          .catch(() => null)
+          .then((n) => {
+            if (n && n.news) {
+              data.news = { symbol: syms[0], tone: n.news.tone, headline: n.news.headline, items: (n.news.items || []).slice(0, 5) };
+              used.push(`news ${syms[0]}`);
+            }
+          }),
+      );
+    } else if (want("news")) data.news = { available: false, reason: "News needs a paid model with web search (Anthropic, OpenAI or Gemini key)." };
+    await Promise.all(jobs);
     return { data, used };
+  }
+
+  /** Just the price of one stock: the instant answer to "what is the price of …". */
+  async _quoteOnly(symbol) {
+    try {
+      const q = (await this._within(this.ai.market.quotes([symbol]), 4000)).quotes[symbol] || null;
+      return { symbol, quote: q ? { last: q.last, prevClose: q.prevClose, changePct: q.changePct, open: q.open, high: q.high, low: q.low, volume: q.volume, vwap: q.avgPrice, buyersShare: q.buyQty && q.sellQty ? Math.round((q.buyQty / (q.buyQty + q.sellQty)) * 100) : null, upperCircuit: q.upperCircuit, lowerCircuit: q.lowerCircuit } : null };
+    } catch (_) {
+      return { symbol, quote: null };
+    }
   }
 
   /* ------------------------------------------------------------- the desk's own answer */
@@ -306,30 +420,137 @@ class TradeAI {
     };
   }
 
+  /* ------------------------------------------------------------- settings and speed */
+  settings() {
+    const d = (this.ai.docs && this.ai.docs.read(SETTINGS_DOC, null)) || {};
+    const cap = Number(d.paidDailyCap);
+    return {
+      usePaid: d.usePaid === undefined ? TRADEAI_DEFAULTS.usePaid : Boolean(d.usePaid),
+      paidDailyCap: Number.isFinite(cap) && cap >= 0 ? Math.min(2000, Math.round(cap)) : TRADEAI_DEFAULTS.paidDailyCap,
+      mode: MODES.includes(d.mode) ? d.mode : TRADEAI_DEFAULTS.mode,
+      paidToday: d.paid && d.paid.day === istDay(this.ai.now()) ? d.paid.n : 0,
+    };
+  }
+  setSettings(patch = {}) {
+    const d = (this.ai.docs && this.ai.docs.read(SETTINGS_DOC, null)) || {};
+    if (typeof patch.usePaid === "boolean") d.usePaid = patch.usePaid;
+    if (patch.paidDailyCap !== undefined) {
+      const v = Number(patch.paidDailyCap);
+      if (!Number.isFinite(v) || v < 0) throw Object.assign(new Error("The daily limit must be 0 or more."), { code: "invalid", status: 400 });
+      d.paidDailyCap = Math.min(2000, Math.round(v));
+    }
+    if (patch.mode !== undefined) {
+      if (!MODES.includes(patch.mode)) throw Object.assign(new Error("Mode is auto, fast or deep."), { code: "invalid", status: 400 });
+      d.mode = patch.mode;
+    }
+    this.ai.docs.write(SETTINGS_DOC, d);
+    return this.status();
+  }
+  _countPaid() {
+    const d = (this.ai.docs && this.ai.docs.read(SETTINGS_DOC, null)) || {};
+    const day = istDay(this.ai.now());
+    d.paid = d.paid && d.paid.day === day ? { day, n: d.paid.n + 1 } : { day, n: 1 };
+    this.ai.docs.write(SETTINGS_DOC, d);
+  }
+  /** The paid lead when TradeAI may use it today (a paid key saved, switched on, under the daily limit). */
+  _paid() {
+    const st = this.settings();
+    if (!st.usePaid || st.paidToday >= st.paidDailyCap) return null;
+    const e = this.ai.ensemble;
+    return e && typeof e._lead === "function" ? e._lead() : null;
+  }
+  _speeds() {
+    return (this.ai.docs && this.ai.docs.read(SPEED_DOC, null)) || {};
+  }
+  _learn(tried) {
+    if (!this.ai.docs || !Array.isArray(tried) || !tried.length) return;
+    const sp = this._speeds();
+    for (const t of tried) {
+      if (!t.id) continue;
+      const o = sp[t.id] || { ms: null, n: 0, fail: 0 };
+      if (t.ok) o.ms = o.ms === null ? t.ms : Math.round(o.ms * 0.7 + t.ms * 0.3);
+      else o.fail = (o.fail || 0) + 1;
+      o.n = (o.n || 0) + 1;
+      o.name = t.name;
+      sp[t.id] = o;
+    }
+    this.ai.docs.write(SPEED_DOC, sp);
+  }
+  /** The free models, fastest first by measured speed (an unmeasured one by its size); failing ones last. */
+  _fastest() {
+    const sp = this._speeds();
+    const est = (a) => {
+      const o = sp[a.id];
+      const ms = o && o.ms !== null ? o.ms : seedMs(a);
+      const failShare = o && o.n ? (o.fail || 0) / o.n : 0;
+      return ms * (1 + failShare * 3);
+    };
+    return team(this.ai).free.slice().sort((a, b) => est(a) - est(b));
+  }
+  status() {
+    const st = this.settings();
+    const lead = this.ai.ensemble && typeof this.ai.ensemble._lead === "function" ? this.ai.ensemble._lead() : null;
+    const sp = this._speeds();
+    return {
+      ...st,
+      lead: lead ? { name: lead.name, company: lead.company } : null,
+      fastest: this._fastest().slice(0, 4).map((a) => ({ name: a.name, avgSec: sp[a.id] && sp[a.id].ms !== null ? Math.round(sp[a.id].ms / 100) / 10 : null })),
+    };
+  }
+
   /** One question, answered now (used by the chat's jobs and by WhatsApp's ASK). */
-  async answer(question, { owner = false, history = [], onStep = () => {}, width = 3 } = {}) {
+  async answer(question, { owner = false, history = [], onStep = () => {}, onRoute = () => {}, width = 3, mode = null } = {}) {
     const q = String(question || "").trim().slice(0, 1500);
     if (!q) throw Object.assign(new Error("Ask a question."), { code: "invalid", status: 400 });
+    const t0 = Date.now();
     onStep("Working out what this needs");
     const plan = await this.plan(q, { owner });
+    const route = classify(q, { symbols: plan.symbols, mode: mode || this.settings().mode });
+
+    // 1. instant: the desk's own data answers — no model
+    if (route.tier === "instant") {
+      onRoute({ ...route, model: null });
+      const need = { goal: ["goal", "positions"], positions: ["positions", "goal"], funds: ["funds", "goal"], orders: ["orders"], alerts: ["alerts"], quote: ["quote"], options: ["options"], plan: ["plan"] }[route.intent] || [];
+      const { data, used } = await this.gather(plan, { owner, onStep, only: need });
+      const r = instantAnswer(route.intent, data, { symbol: plan.symbols[0] || "" });
+      if (r) return { ...r, related: this.related(q, r, data, plan), meta: { used, symbols: plan.symbols, tools: need, by: [], mergedBy: null, fallback: false, models: [], usage: { input: 0, output: 0 }, engineOnly: true, tier: "instant", intent: route.intent, why: route.why, ms: Date.now() - t0 } };
+      route.tier = "fast"; // the data was not there: one quick model with what could be read
+      route.why = "The data for an instant answer was not available: one quick model answers instead.";
+    }
+
     const { data, used } = await this.gather(plan, { owner, onStep });
     let json = JSON.stringify(data);
-    if (json.length > MAX_DATA) json = `${json.slice(0, MAX_DATA)}…(cut)`;
+    const cap = route.tier === "fast" ? 14000 : MAX_DATA;
+    if (json.length > cap) json = `${json.slice(0, cap)}…(cut)`;
     const convo = history.slice(-6).map((m) => `${m.role === "user" ? "Trader" : "TradeAI"}: ${String(m.text).slice(0, 800)}`).join("\n");
-    const rules = this.ai.playbook ? String(this.ai.playbook.read() || "").slice(0, MAX_RULES) : "";
+    const rules = this.ai.playbook ? String(this.ai.playbook.read() || "").slice(0, route.tier === "fast" ? 1500 : MAX_RULES) : "";
     const user = `${rules ? `THE DESK'S TRADING RULES (the skills file every AI feature reads, first part):\n${rules}\n\n` : ""}${convo ? `The conversation so far:\n${convo}\n\n` : ""}DATA (gathered now):\n${json}\n\nThe trader asks: ${q}`;
-    const r = await askMixture(this.ai, {
-      system: SYSTEM,
-      user,
-      schema: SCHEMA,
-      maxTokens: 3500,
-      width,
-      allowPaid: true,
-      onStep,
-      merge: { system: MERGE_SYSTEM, schema: SCHEMA, build: (answers) => `The question: ${q}\n\nThe analysts' answers:\n${JSON.stringify(answers)}\n\nWrite the merged answer.` },
-    });
+    const paid = this._paid();
+    let r;
+    if (route.tier === "deep") {
+      onRoute({ ...route, model: paid ? `free models + ${paid.name}` : "free models" });
+      r = await askMixture(this.ai, {
+        system: SYSTEM,
+        user,
+        schema: SCHEMA,
+        maxTokens: 3500,
+        width,
+        allowPaid: Boolean(paid),
+        judge: paid,
+        onStep,
+        merge: { system: MERGE_SYSTEM, schema: SCHEMA, build: (answers) => `The question: ${q}\n\nThe analysts' answers:\n${JSON.stringify(answers)}\n\nWrite the merged answer.` },
+      });
+    } else {
+      const free = route.tier === "fast" ? this._fastest() : team(this.ai).free.slice().sort((a, b) => rankOf(a) - rankOf(b));
+      // fast: the quickest free model first; advice: the paid lead first (best advice), the strongest free ones after
+      const order = route.tier === "advice" ? [...(paid ? [paid] : []), ...free.slice(0, 3)] : [...free.slice(0, 3), ...(paid ? [paid] : [])];
+      onRoute({ ...route, model: order[0] ? order[0].name : null, paid: Boolean(order[0] && order[0].lead) });
+      r = order.length ? await askOne(this.ai, order, { system: SYSTEM, user, schema: SCHEMA, maxTokens: route.tier === "fast" ? 1800 : 3200, timeoutSec: route.tier === "fast" ? 35 : 75, onStep }) : { data: null, by: [], mergedBy: null, tried: [], fallback: false, usage: { input: 0, output: 0 } };
+    }
+    this._learn(r.tried);
+    if ((r.tried || []).some((t) => t.paid)) this._countPaid();
     const ai = r.data ? this._clean(r.data) : this.fallbackAnswer(q, data);
-    return { ...ai, related: this.related(q, ai, data, plan), meta: { used, symbols: plan.symbols, tools: plan.tools, by: r.by, mergedBy: r.mergedBy, fallback: r.fallback, models: r.tried, usage: r.usage, engineOnly: !r.data } };
+    return { ...ai, related: this.related(q, ai, data, plan), meta: { used, symbols: plan.symbols, tools: plan.tools, by: r.by, mergedBy: r.mergedBy, fallback: r.fallback, models: r.tried, usage: r.usage, engineOnly: !r.data, tier: route.tier, why: route.why, ms: Date.now() - t0 } };
   }
 
   /* ------------------------------------------------------------ related questions */
@@ -474,7 +695,7 @@ class TradeAI {
    * Start a chat turn as a background job (the page polls it). With from (the index of one of your
    * earlier questions), the chat goes back to that point first: that is how "edit" and "retry" work.
    */
-  async start({ conv = null, text, owner = "", isOwner = false, from = null }) {
+  async start({ conv = null, text, owner = "", isOwner = false, from = null, mode = null }) {
     const running = [...this.jobs.values()].filter((j) => !j.finishedAt).length;
     if (running >= 3) throw Object.assign(new Error("TradeAI is already answering three questions. Try again in a moment."), { code: "busy", status: 429 });
     const question = String(text || "").trim().slice(0, 1500);
@@ -489,12 +710,12 @@ class TradeAI {
     c.messages.push({ id: crypto.randomBytes(5).toString("hex"), role: "user", text: question, at });
     c.updatedAt = at;
     await this.chats.put(c);
-    const job = { id: crypto.randomBytes(6).toString("hex"), conv: c.id, owner, steps: [], startedAt: at, finishedAt: null, error: "", reply: null, cancelled: false };
+    const job = { id: crypto.randomBytes(6).toString("hex"), conv: c.id, owner, steps: [], startedAt: at, finishedAt: null, error: "", reply: null, cancelled: false, route: null };
     this.jobs.set(job.id, job);
     if (this.jobs.size > 40) this.jobs.delete(this.jobs.keys().next().value);
     const history = c.messages.slice(0, -1);
     const t0 = Date.now();
-    this.answer(question, { owner: isOwner, history, onStep: (s) => job.steps.push({ at: Date.now(), text: s }) })
+    this.answer(question, { owner: isOwner, history, mode: MODES.includes(mode) ? mode : null, onStep: (s) => job.steps.push({ at: Date.now(), text: s }), onRoute: (r) => (job.route = r) })
       .then(async (reply) => {
         if (job.cancelled) return;
         reply.meta = { ...reply.meta, sec: Math.round((Date.now() - t0) / 100) / 10, steps: job.steps.map((x) => x.text) };
@@ -519,7 +740,7 @@ class TradeAI {
   job(id, owner = null) {
     const j = this.jobs.get(id);
     if (!j || (owner !== null && j.owner !== owner)) throw Object.assign(new Error("That answer is no longer kept."), { code: "not_found", status: 404 });
-    return { id: j.id, conv: j.conv, steps: j.steps.map((s) => s.text), startedAt: j.startedAt, finishedAt: j.finishedAt, error: j.error, cancelled: j.cancelled, reply: j.reply };
+    return { id: j.id, conv: j.conv, steps: j.steps.map((s) => s.text), startedAt: j.startedAt, finishedAt: j.finishedAt, error: j.error, cancelled: j.cancelled, reply: j.reply, route: j.route };
   }
 
   /** Stop: the answer, when it comes, is not kept (the models may still finish in the background). */

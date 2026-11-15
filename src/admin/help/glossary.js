@@ -514,6 +514,40 @@ const ENTRIES = [
   [["AI, one by one"], "Runs the top stocks of the list shown through the analysts one after another, free models only — no paid credits. Nothing starts until you press a button.", ".mb"],
   [["Next 30 min", "Next session"], "The desk's read for the next 15–30 minutes, or for the next trading session. Click to show it.", ".ab"],
 
+  /* ---- the daily goal and profit protection */
+  [["Daily goal and profit protection"], "Today's target (3% of the morning's available margin by default) and daily stop (half the target), and a guard against giving profits back. Reminders on screen, with a sound, and on your phone. It never trades for you.", ".dg"],
+  [["Best today"], "The highest the day's P&L has been today. The guard watches how much of it you give back.", ".dg"],
+  [["Keep at least"], "Once the day has been up 1% of your margin, at least half of the day's best should be kept. Falling below it raises a reminder to book and stop.", ".dg"],
+  [["Of the target"], "Today's P&L as a share of the daily target. At 80% a reminder says to trail the stops and add nothing new.", ".dg"],
+  [["Today"], "Today's P&L on all positions, open and closed, as Zerodha reports it (before charges).", ".dg"],
+
+  /* ---- the option chain */
+  [["OI"], "Open interest: how many contracts of that strike are open. Big call OI tends to act as a ceiling, big put OI as a floor.", ".oc"],
+  [["OI chg"], "Open interest added (+) or closed (−) since the last reading of the previous session.", ".oc"],
+  [["IV"], "Implied volatility in % a year: how much movement the option's price expects. Worked out from the price (Black-76).", ".oc"],
+  [["LTP"], "The option's last traded price, with its change on the day below.", ".oc"],
+  [["Strike"], "The price at which the option can be exercised. The row inside blue lines is at the money; shaded cells are in the money.", ".oc"],
+  [["Calls", "Puts"], "Calls gain when the price rises, puts when it falls. Writers (sellers) of calls cap the upside; writers of puts support the downside.", ".oc"],
+
+  /* ---- TradeAI's answer modes and settings */
+  [["How TradeAI answers"], "The default answer mode and the paid model: whether it may be used for advice, research and the Deep merge, and at most how many paid answers a day.", ".tai-set"],
+  [["Fastest free models (measured)"], "The free models ordered by how fast they have actually answered here. Fast mode asks the first one; the next only if it fails.", ".tai-set"],
+
+  /* ---- the Intraday plan (Desk while the market is shut; Research → Intraday research) */
+  [["Intraday research · next session"], "Tomorrow's intraday plan for each stock you pick — the decision, where it may open and trade, and how the same rules did on its past sessions. Arithmetic only: no AI, no tokens."],
+  [["Levels for the day"], "The prices that matter tomorrow, highest first: resistances, the long trigger, the previous day's high, close and low, the pivot, the expected open, the short trigger and supports. The number on the right is the distance from the expected open.", ".ip"],
+  [["For", "Against"], "The evidence on each side of the plan, with its numbers: the outlook's strongest components, what followed similar days, and how these rules did on this stock.", ".ip"],
+  [["Before you trade it"], "Conditions to check at the open before placing the order. Tick them as you go; the ticks are not saved.", ".ip"],
+  [["Trigger"], "The price the stock must trade beyond, after 9:30, for the plan to start. Nothing happens before it trades there.", ".ip"],
+  [["Rules"], "Which version of the plan was replayed: only the side the chart leaned to, either side (whichever triggered first), or the 9:15–9:30 range break.", ".ip-table"],
+  [["Avg R", "Total R"], "Results in R: 1R is the planned risk (entry to stop). +0.30R means a trade made 30% of what it risked, after costs.", ".ip-table"],
+  [["Verdict"], "Held up: positive and steady enough that luck is an unlikely explanation. Positive, not proven: positive, but it could be luck. Did not pay: lost after costs. Too few to judge: under eight trades.", ".ip-table"],
+  [["Won"], "The share of trades that ended above zero after costs.", ".ip-table"],
+  [["Expected open"], "Where the stock may open: GIFT Nifty's overnight move times this stock's measured sensitivity to the Nifty's gaps, when that cue is there; otherwise the last close.", ".ir-table"],
+  [["Expected range"], "A normal day's high-to-low span for this stock, placed around the expected open and tilted slightly toward the lean.", ".ir-table"],
+  [["Record"], "How the same rules did on this stock's past sessions: share of trades won, number of trades, and the average result in R after costs.", ".ir-table"],
+  [["Strength"], "Blends how much of the outlook's evidence agrees with how the same rules did on this stock. Not a probability of profit.", ".ir-table"],
+
   /* ---- paper trading and the market board */
   [["Paper trading", "Paper"], "The desk's live call followed with play money — in today's market, on past sessions, and in an auto mode. No order is ever sent from it, and it is separate from real trading, which works as before.", ".pp"],
   [["Auto mode ON", "Auto mode OFF"], "Paper-trades the live market every five minutes and re-tests the setup on history after each close, by itself. It has no effect on real trading.", ".pp"],
@@ -548,6 +582,9 @@ const PATTERNS = [
   [/^use [\d,]+ shares for /, "Set the quantity so that being stopped out loses about the risk you entered: the risk divided by the distance from the entry to the stop."],
   [/^order limits/, "A guard against a fat finger: an order above these is refused unless it only closes something you already hold."],
   [/^research \d+ stocks?$/, "Run the research for the stocks picked above."],
+  [/^plan \d+ stocks? for intraday$/, "Build tomorrow's intraday plan for each picked stock, one after another. No AI is used."],
+  [/^how .+ trades inside a day$/, "Measured on this stock's own 5-minute bars: its normal daily range, the opening range, when the high and low come, trend days, VWAP and gaps."],
+  [/^the plan's rules, replayed on past sessions$/, "Each past session planned with only the bars before it, by the same rules, then played on that day's bars — the record of exactly what is shown."],
   [/^trading (on|off)$/, "The master switch for trading from this site. OFF: Buy, Sell, Exit, Modify and Cancel do nothing. ON: they send real orders to Zerodha."],
   [/^target \d+(\.\d+)?r$/, "A price target that many times the risk away from the entry. At 1R the trade has made what it risked."],
   [/^level: /, "A nearby price level from the pivots or the previous day, where moves often pause."],

@@ -1,0 +1,434 @@
+/* The daily goal (DailyGoal.jsx): the top bar's pill, the live banner, the card on Positions and the
+   chip on TradeAI. Text wears the ink tokens; tints come from the up / down / warn tokens, so every
+   part reads in both themes. */
+
+/* ---------------------------------------------------------------- the top bar's pill */
+.dg-pill {
+  gap: 6px;
+}
+.dg-pill__k {
+  font-size: var(--t-small);
+  color: var(--ink-2);
+}
+.dg-pill b {
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+.dg-pill__bar {
+  display: inline-block;
+  width: 38px;
+  height: 5px;
+  border-radius: 99px;
+  background: var(--neutral-bar);
+  overflow: hidden;
+}
+.dg-pill__bar i {
+  display: block;
+  height: 100%;
+  border-radius: 99px;
+  background: var(--up);
+}
+.dg-pill--up b {
+  color: var(--up-ink);
+}
+.dg-pill--down b {
+  color: var(--down-ink);
+}
+.dg-pill--success {
+  border-color: var(--up-line);
+  background: var(--up-bg);
+}
+.dg-pill--success b {
+  color: var(--up-ink);
+}
+.dg-pill--warning {
+  border-color: var(--warn-line);
+  background: var(--warn-bg);
+  animation: dg-glow 1.6s ease-in-out infinite;
+}
+.dg-pill--warning b,
+.dg-pill--warning .dg-pill__k {
+  color: var(--warn-ink);
+}
+.dg-pill--warning .dg-pill__bar i {
+  background: var(--warn-ink);
+}
+.dg-pill--danger {
+  border-color: var(--down-line);
+  background: var(--down-bg);
+  animation: dg-glow 1.2s ease-in-out infinite;
+}
+.dg-pill--danger b,
+.dg-pill--danger .dg-pill__k {
+  color: var(--down-ink);
+}
+.dg-pill--danger .dg-pill__bar i {
+  background: var(--down);
+}
+@keyframes dg-glow {
+  50% {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--warn-line) 60%, transparent);
+  }
+}
+
+/* ---------------------------------------------------------------- the live banner */
+.dg-banner {
+  position: sticky;
+  top: var(--tm-top, 52px);
+  z-index: 55;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--warn-line);
+  background: var(--warn-bg);
+  color: var(--warn-ink);
+}
+.dg-banner--danger {
+  border-color: var(--down-line);
+  background: var(--down-bg);
+  color: var(--down-ink);
+}
+.dg-banner--success {
+  border-color: var(--up-line);
+  background: var(--up-bg);
+  color: var(--up-ink);
+}
+.dg-banner__main {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  flex: 1 1 420px;
+}
+.dg-banner__main b {
+  font-size: var(--t-base);
+}
+.dg-banner__main span {
+  font-size: var(--t-small);
+  line-height: 1.5;
+  color: var(--ink);
+}
+.dg-banner__act {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* ---------------------------------------------------------------- the card */
+.dg {
+  display: grid;
+  gap: 12px;
+  border-left: 4px solid var(--line-2);
+}
+.dg--success,
+.dg--up {
+  border-left-color: var(--up);
+}
+.dg--warning {
+  border-left-color: var(--warn-ink);
+}
+.dg--danger,
+.dg--down {
+  border-left-color: var(--down);
+}
+.dg__head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+.dg__head h3 {
+  margin: 0;
+}
+.dg__head p {
+  margin: 4px 0 0;
+  font-size: var(--t-small);
+  color: var(--ink-2);
+}
+.dg__now {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+  gap: 12px 20px;
+  align-items: start;
+}
+.dg__state {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+.dg__state b {
+  color: var(--ink);
+}
+.dg__state p {
+  margin: 2px 0 0;
+  font-size: var(--t-small);
+  color: var(--ink-2);
+  line-height: 1.5;
+}
+.dg__state .dg__action {
+  color: var(--ink);
+  font-weight: 600;
+}
+.dg__badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 2px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--line-2);
+  background: var(--surface-2);
+  font-size: var(--t-tag);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+.dg__badge--success,
+.dg__badge--up {
+  border-color: var(--up-line);
+  background: var(--up-bg);
+  color: var(--up-ink);
+}
+.dg__badge--warning {
+  border-color: var(--warn-line);
+  background: var(--warn-bg);
+  color: var(--warn-ink);
+}
+.dg__badge--danger,
+.dg__badge--down {
+  border-color: var(--down-line);
+  background: var(--down-bg);
+  color: var(--down-ink);
+}
+.dg__nums {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+.dg__nums div {
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+.dg__nums dt {
+  font-size: var(--t-tag);
+  color: var(--ink-2);
+}
+.dg__nums dd {
+  margin: 2px 0 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+.dg .is-up {
+  color: var(--up-ink);
+}
+.dg .is-down {
+  color: var(--down-ink);
+}
+.dg__pos {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.dg__pos li {
+  padding: 8px 10px;
+  border: 1px solid var(--warn-line);
+  border-radius: 10px;
+  background: var(--warn-bg);
+  font-size: var(--t-small);
+  color: var(--ink);
+}
+.dg__log summary {
+  cursor: pointer;
+  font-size: var(--t-small);
+  font-weight: 600;
+  color: var(--ink);
+}
+.dg__log ol {
+  display: grid;
+  gap: 4px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.dg__ev {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  gap: 8px;
+  padding: 6px 8px;
+  border-left: 3px solid var(--line-2);
+  border-radius: 6px;
+  background: var(--surface-2);
+  font-size: var(--t-small);
+  color: var(--ink-2);
+}
+.dg__ev b {
+  color: var(--ink);
+}
+.dg__ev time {
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+.dg__ev--danger {
+  border-left-color: var(--down);
+}
+.dg__ev--warning {
+  border-left-color: var(--warn-ink);
+}
+.dg__ev--success {
+  border-left-color: var(--up);
+}
+.dg__set {
+  display: grid;
+  gap: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+.dg__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px;
+}
+.dg__grid small {
+  color: var(--ink-2);
+  font-weight: 400;
+}
+.dg__checks {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 18px;
+}
+.dg__save {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* the bar: −stop … 0 … +target */
+.dg-bar {
+  display: grid;
+  gap: 4px;
+}
+.dg-bar__track {
+  position: relative;
+  height: 12px;
+  border-radius: 99px;
+  background: linear-gradient(90deg, var(--down-bg), var(--surface-2) 33%, var(--surface-2) 66%, var(--up-bg));
+  border: 1px solid var(--line);
+}
+.dg-bar--compact .dg-bar__track {
+  height: 8px;
+}
+.dg-bar__fill {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  border-radius: 99px;
+}
+.dg-bar__fill.is-up {
+  background: var(--up);
+}
+.dg-bar__fill.is-down {
+  background: var(--down);
+}
+.dg-bar__zero,
+.dg-bar__floor,
+.dg-bar__peak {
+  position: absolute;
+  top: -4px;
+  width: 2px;
+  height: 20px;
+  margin-left: -1px;
+}
+.dg-bar__zero {
+  background: var(--ink-2);
+}
+.dg-bar__floor {
+  width: 3px;
+  background: var(--warn-ink);
+}
+.dg-bar__peak {
+  width: 3px;
+  background: var(--ink);
+}
+.dg-bar__ends {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--t-tag);
+  color: var(--ink-2);
+}
+
+/* the chip on TradeAI */
+.dg-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border: 1px solid var(--line-2);
+  border-radius: 99px;
+  background: var(--surface);
+  font-size: var(--t-small);
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+.dg-chip b {
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.dg-chip--up b,
+.dg-chip--success b {
+  color: var(--up-ink);
+}
+.dg-chip--down b {
+  color: var(--down-ink);
+}
+.dg-chip--warning {
+  border-color: var(--warn-line);
+  background: var(--warn-bg);
+  color: var(--warn-ink);
+}
+.dg-chip--danger {
+  border-color: var(--down-line);
+  background: var(--down-bg);
+  color: var(--down-ink);
+}
+
+@media (max-width: 760px) {
+  .dg__now {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .dg__nums {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dg-pill--warning,
+  .dg-pill--danger {
+    animation: none;
+  }
+}
+@media (max-width: 520px) {
+  .tai-top .dg-chip {
+    display: none;
+  }
+}
+/* a phone keeps only a few pills in the top bar: the goal stays (it already shows today's P&L), and the
+   plain P&L pill makes room for it */
+@media (max-width: 560px) {
+  .tm .tm-top .tm-status .tm-pill--btn.dg-pill:not(.dg-never) {
+    display: inline-flex;
+  }
+  .tm .tm-top .tm-status:has(.dg-pill) .tm-pnl {
+    display: none;
+  }
+  .dg-pill .dg-pill__bar {
+    display: none;
+  }
+}

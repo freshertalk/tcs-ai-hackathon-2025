@@ -1296,3 +1296,194 @@ h5.md-h {
     scroll-behavior: auto;
   }
 }
+
+/* ---------------------------------------------------------------- modes, voice, @stocks, settings */
+.tai-modes {
+  display: inline-flex;
+  flex: none;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  background: var(--surface-2);
+}
+.tai-modes button {
+  min-height: 28px;
+  padding: 2px 10px;
+  border: 0;
+  border-radius: 99px;
+  background: transparent;
+  color: var(--ink-2);
+  font: inherit;
+  font-size: var(--t-small);
+  cursor: pointer;
+}
+.tai-modes button[aria-pressed="true"] {
+  background: var(--surface);
+  color: var(--ink);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+.tai-mic.is-on {
+  color: var(--down-ink, #b3261e);
+  animation: tai-pulse 1.2s ease-in-out infinite;
+}
+@keyframes tai-pulse {
+  50% {
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--down, #e5484d) 25%, transparent);
+  }
+}
+.tai-mention {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: calc(100% + 6px);
+  z-index: 30;
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  border: 1px solid var(--line-2);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
+}
+.tai-mention button {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  width: 100%;
+  min-height: 36px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.tai-mention [aria-selected="true"] button,
+.tai-mention button:hover {
+  background: color-mix(in srgb, var(--tai-gold) 14%, var(--surface));
+}
+.tai-mention small {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--ink-2);
+}
+.tai-instant {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+.tai-instant > span {
+  font-size: var(--t-small);
+  font-weight: 600;
+  color: var(--ink-2);
+}
+.tai-instant button {
+  min-height: 34px;
+  padding: 4px 14px;
+  border: 1px solid var(--line-2);
+  border-radius: 99px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--t-small);
+  cursor: pointer;
+}
+.tai-instant button:hover:not(:disabled) {
+  border-color: var(--tai-gold);
+  background: color-mix(in srgb, var(--tai-gold) 10%, var(--surface));
+}
+.tai-setwrap {
+  position: relative;
+}
+.tai-set {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  z-index: 40;
+  display: grid;
+  gap: 10px;
+  width: min(360px, calc(100vw - 24px));
+  padding: 14px;
+  border: 1px solid var(--line-2);
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.2);
+  color: var(--ink);
+  text-align: left;
+}
+.tai-set h4,
+.tai-set h5 {
+  margin: 0;
+}
+.tai-set h5 {
+  font-size: var(--t-small);
+  color: var(--ink-2);
+}
+.tai-set__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  font-size: var(--t-small);
+}
+.tai-set__row select,
+.tai-set__row input[type="number"] {
+  min-height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--line-2);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  width: 110px;
+}
+.tai-set__check {
+  grid-template-columns: auto minmax(0, 1fr);
+}
+.tai-set__check input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+}
+.tai-set__fast {
+  margin: 0;
+  padding-left: 20px;
+  font-size: var(--t-small);
+}
+.tai-set__fast small {
+  color: var(--ink-2);
+}
+
+/* phones: the mode switch and the hint share one row; the composer clears the home bar */
+@media (max-width: 640px) {
+  .tai-comp__row {
+    flex-wrap: wrap;
+  }
+  .tai-comp__hint {
+    display: none;
+  }
+  .tai-modes {
+    order: -1;
+  }
+  .tai-foot {
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
+  }
+  .tai-instant {
+    justify-content: flex-start;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tai-mic.is-on {
+    animation: none;
+  }
+}

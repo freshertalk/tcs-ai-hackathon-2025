@@ -32,6 +32,25 @@ const { KiteTicker } = require("./ticker");
 const { Universe } = require("./universe");
 const { IndexList } = require("./indexlist");
 const { buildPulse } = require("./pulse");
+const { buildOutlook } = require("./outlook");
+const { buildIntradayPlan } = require("./intraplan");
+const { buildOptionChain } = require("./options");
+
+// option underlyings: the index's name on NSE ↔ its name on the NFO contracts
+const OPTION_NAME = { "NIFTY 50": "NIFTY", "NIFTY BANK": "BANKNIFTY", "NIFTY FIN SERVICE": "FINNIFTY", "NIFTY MID SELECT": "MIDCPNIFTY", "NIFTY NEXT 50": "NIFTYNXT50" };
+const SPOT_OF = Object.fromEntries(Object.entries(OPTION_NAME).map(([k, v]) => [v, k]));
+const OI_DOC = "market/oi-snapshots.json";
+/** The trading session today's quotes describe: before 9:15 (and at weekends) it is the previous weekday's. */
+function sessionDay(ms) {
+  const d = new Date(ms + 5.5 * 3600 * 1000);
+  const mins = d.getUTCHours() * 60 + d.getUTCMinutes();
+  let back = 0;
+  const dow = d.getUTCDay();
+  if (dow === 6) back = 1;
+  else if (dow === 0) back = 2;
+  else if (mins < 555) back = dow === 1 ? 3 : 1;
+  return new Date(ms + 5.5 * 3600 * 1000 - back * 86400000).toISOString().slice(0, 10);
+}
 const { buildContext: buildMarketContext, contextKeys } = require("./context");
 const { buildProfile } = require("./profile");
 const E = require("./edge");
@@ -1104,6 +1123,179 @@ class MarketService {
     return { ...p, symbol, source: v.source, circuit: v.circuit || null, session: day.session || null, at: new Date(this.now()).toISOString(), lastBar: day.movement ? day.movement.lastBarAt : null };
   }
 
+  /**
+   * The Intraday Plan for the next session (intraplan.js): where the stock may open and trade, how
+   * it behaves inside a day, the plan's own rules replayed on its past sessions, and a decision —
+   * LONG / SHORT on a trigger, the opening-range break, WAIT or AVOID. Arithmetic only, read-only.
+   * `outlook` is the Next-Session Outlook with the research direction and odds when the caller has
+   * it (the AI service passes it); without it the outlook is drawn here from the chart and the odds.
+   */
+  async intradayPlan(symbol, { outlook = null } = {}) {
+    if (!SYMBOL_RE.test(symbol)) throw new MarketError("That is not a valid symbol.", "invalid");
+    const now = this.now();
+    const phase = sessionPhase(now);
+    const marketOpen = phase.endsWith("|open");
+    if (!this._planAt) this._planAt = new Map();
+    const key = `${symbol}|${phase}`;
+    const hit = this._planAt.get(key);
+    // overnight the GIFT Nifty cue moves, so the expected open is redrawn every quarter hour
+    if (hit && now - hit.at < (marketOpen ? 5 : 15) * 60000) return hit.out;
+    const d = await this.daily(symbol);
+    const forming = this._inProgress(d);
+    let bars5 = [];
+    if (this.mode() === "kite") {
+      try {
+        bars5 = (await this.candles(symbol, "5minute", { days: 150 })).candles;
+      } catch (_) {
+        bars5 = [];
+      }
+    }
+    const ix = symbol === INDEX_SYMBOL ? null : await this.index();
+    let gift = null;
+    if (!marketOpen) {
+      try {
+        const ctx = await this.context();
+        gift = ctx && ctx.available ? (ctx.items || []).find((x) => x.id === "gift") || null : null;
+      } catch (_) {
+        gift = null;
+      }
+    }
+    let out = outlook && outlook.available ? outlook : null;
+    if (!out) {
+      let edge = null;
+      try {
+        edge = await this.edge(symbol);
+      } catch (_) {
+        edge = null;
+      }
+      out = buildOutlook({ candles: d.candles, forming, edge });
+    }
+    let options = null;
+    if (this.mode() === "kite") {
+      try {
+        options = await this.optionChain(symbol);
+      } catch (_) {
+        options = null; // a stock without options, or the NFO list unreachable: the plan goes on without
+      }
+    }
+    const p = buildIntradayPlan({ daily: d.candles, forming, bars5, outlook: out, nifty: ix ? ix.candles : null, gift, marketOpen, costPct: DEFAULT_COST_PCT, options });
+    const res = { ...p, symbol, source: d.source, stale: Boolean(d.stale), marketOpen, outlookBasis: outlook && outlook.available ? "full" : "chart and odds", at: new Date(now).toISOString() };
+    if (this._planAt.size > 80) this._planAt.clear();
+    this._planAt.set(key, { at: now, out: res });
+    return res;
+  }
+
+  /** The NFO contract list (futures and options), once a day: several megabytes, one download for everyone. */
+  async derivatives() {
+    if (this.mode() !== "kite") return [];
+    const today = istDate(this.now());
+    const file = path.join(this.dir, "nfo.json");
+    if (!this._nfo) {
+      try {
+        this._nfo = JSON.parse(fs.readFileSync(file, "utf8"));
+      } catch (_) {
+        this._nfo = null;
+      }
+    }
+    if (this._nfo && this._nfo.fetchedOn === today) return this._nfo.list;
+    if (this._nfoBusy) return this._nfoBusy;
+    this._nfoBusy = (async () => {
+      try {
+        const list = await this._call((k) => k.derivatives());
+        if (list.length < 20) throw new Error("the NFO list looks incomplete");
+        this._nfo = { fetchedOn: today, list };
+        fs.writeFileSync(file, JSON.stringify(this._nfo));
+        return list;
+      } catch (err) {
+        if (this._nfo) return this._nfo.list; // yesterday's list is nearly all still right
+        throw err;
+      }
+    })().finally(() => {
+      this._nfoBusy = null;
+    });
+    return this._nfoBusy;
+  }
+
+  /**
+   * The option chain of one stock or index, read (options.js): every strike around the money with
+   * price, OI, OI change, volume, IV and delta, and PCR, max pain, the OI walls, fresh writing, build-up,
+   * the expected move, skew and a bias with its reasons. From Zerodha quotes on the NFO contracts —
+   * read-only. OI change compares with the last reading saved during the previous session.
+   */
+  async optionChain(symbol, { expiry = "", strikes = 12 } = {}) {
+    if (!SYMBOL_RE.test(symbol)) throw new MarketError("That is not a valid symbol.", "invalid");
+    if (this.mode() !== "kite") return { available: false, symbol, reason: "The option chain needs the Zerodha connection." };
+    const name = OPTION_NAME[symbol] || symbol;
+    const spotSym = SPOT_OF[name] || symbol;
+    const now = this.now();
+    const key = `${name}|${expiry || "near"}`;
+    if (!this._chainAt) this._chainAt = new Map();
+    const hit = this._chainAt.get(key);
+    if (hit && now - hit.at < (isMarketHours(now) ? 30000 : 600000)) return hit.out;
+    const list = await this.derivatives();
+    const mine = list.filter((x) => x.n === name);
+    const opts = mine.filter((x) => x.y === "CE" || x.y === "PE");
+    if (!opts.length) return { available: false, symbol, reason: `${symbol} has no options on NSE — it is not in the F&O list.` };
+    const today = istDate(now);
+    const ist = new Date(now + 5.5 * 3600 * 1000);
+    const closedToday = ist.getUTCHours() * 60 + ist.getUTCMinutes() > 930;
+    const expiries = [...new Set(opts.map((x) => x.e))].filter((e) => e > today || (e === today && !closedToday)).sort();
+    if (!expiries.length) return { available: false, symbol, reason: "No live option expiry was found." };
+    const exp = expiries.includes(expiry) ? expiry : expiries[0];
+    const spotQ = (await this.quotes([spotSym])).quotes[spotSym];
+    const spot = spotQ && spotQ.last > 0 ? spotQ.last : null;
+    if (!spot) return { available: false, symbol, reason: `No price for ${spotSym} right now.` };
+    const ofExp = opts.filter((x) => x.e === exp);
+    const ks = [...new Set(ofExp.map((x) => x.k))].sort((a, b) => a - b);
+    const ai = ks.reduce((b, k, i) => (Math.abs(k - spot) < Math.abs(ks[b] - spot) ? i : b), 0);
+    const pick = new Set(ks.slice(Math.max(0, ai - strikes), ai + strikes + 1));
+    const legs = ofExp.filter((x) => pick.has(x.k));
+    const futs = mine.filter((x) => x.y === "FUT" && x.e >= today).sort((a, b) => (a.e < b.e ? -1 : 1));
+    const fut = futs.find((x) => x.e === exp) || futs[0] || null;
+    const keys = [...legs.map((x) => `NFO:${x.s}`), ...(fut ? [`NFO:${fut.s}`] : [])];
+    const raw = await this._call((k) => k.quotes(keys));
+
+    // the saved OI reading of the previous session, and this session's (written at most once a minute)
+    const day = sessionDay(now);
+    const all = (this.store.docs && this.store.docs.read(OI_DOC, {})) || {};
+    let snap = all[`${name}|${exp}`];
+    if (!snap || snap.day !== day) snap = { day, at: null, oi: {}, prevDay: snap ? snap.day : null, prevAt: snap ? snap.at : null, prev: snap ? snap.oi : null };
+    const prevOi = (ts) => (snap.prev && Number.isFinite(snap.prev[ts]) ? snap.prev[ts] : null);
+    const nowOi = {};
+    for (const x of [...legs, ...(fut ? [fut] : [])]) {
+      const q = raw[`NFO:${x.s}`];
+      if (q && Number.isFinite(q.oi)) nowOi[x.s] = q.oi;
+    }
+    if (!snap.at || now - Date.parse(snap.at) > 60000) {
+      snap = { ...snap, at: new Date(now).toISOString(), oi: { ...snap.oi, ...nowOi } };
+      all[`${name}|${exp}`] = snap;
+      // only near expiries are kept
+      for (const k of Object.keys(all)) if (String(k.split("|")[1] || "") < today) delete all[k];
+      if (this.store.docs) this.store.docs.write(OI_DOC, all);
+    }
+    const leg = (x) => {
+      if (!x) return null;
+      const q = raw[`NFO:${x.s}`];
+      return q ? { last: q.last, prevClose: q.prevClose, oi: q.oi, volume: q.volume, prevOi: prevOi(x.s) } : null;
+    };
+    const rows = [...pick].map((k) => ({ strike: k, ce: leg(ofExp.find((x) => x.k === k && x.y === "CE")), pe: leg(ofExp.find((x) => x.k === k && x.y === "PE")) }));
+    let dayAtrPct = null;
+    try {
+      const d = await this.daily(spotSym);
+      const c = d.candles.slice(-21);
+      const rg = c.slice(1).map((b, i) => ((b.h - b.l) / c[i].c) * 100).sort((a, b) => a - b);
+      dayAtrPct = rg.length ? rg[Math.floor(rg.length / 2)] : null;
+    } catch (_) {
+      dayAtrPct = null;
+    }
+    const fq = fut ? raw[`NFO:${fut.s}`] : null;
+    const chain = buildOptionChain({ spot, future: fq ? { last: fq.last, prevClose: fq.prevClose, oi: fq.oi, prevOi: prevOi(fut.s) } : null, expiry: exp, now, lot: (legs[0] && legs[0].l) || 1, rows, dayAtrPct, prevOiAt: snap.prevAt });
+    const out = { ...chain, symbol, underlying: name, spotSymbol: spotSym, expiries: expiries.slice(0, 6), futureSymbol: fut ? fut.s : null, futureExpiry: fut ? fut.e : null, source: "kite", at: new Date(now).toISOString() };
+    if (this._chainAt.size > 60) this._chainAt.clear();
+    this._chainAt.set(key, { at: now, out });
+    return out;
+  }
+
   /** The market board: top gainers and losers, RSI, VWAP and more for any NSE index (universe.js). */
   async screenerBoard(params = {}) {
     if (this.mode() !== "kite") throw new MarketError("The market board needs the Zerodha connection: every price comes from it.", "not_connected", 409);
@@ -1821,4 +2013,4 @@ class MarketService {
   }
 }
 
-module.exports = { MarketService, MarketError, tokenExpiry, isMarketHours, tickQuote, SYMBOL_RE, INDEX_SYMBOL };
+module.exports = { MarketService, MarketError, tokenExpiry, isMarketHours, tickQuote, SYMBOL_RE, INDEX_SYMBOL, sessionDay };

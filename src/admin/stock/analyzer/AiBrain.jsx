@@ -1,5 +1,6 @@
 // AI Brain: the two buttons on the Desk — "AI Live" (the next 15–30 minutes of the open stock) and
-// "AI Research" (the next trading session).
+// "AI Research" (the next trading session) — and, beside them, the Intraday plan for the next session
+// (IntradayPlan.jsx: arithmetic only), which is what the card shows first while the market is shut.
 //
 // Underneath, the desk's own arithmetic (the Live Pulse and the Next-Session Outlook) is ALWAYS shown
 // and kept fresh by itself: it needs no AI and no key. A press of a button brings in the analysts —
@@ -11,6 +12,8 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../../api";
 import { inr, isNum, num } from "./format";
+import IntradayPlan, { KIND, useIntradayPlan } from "./IntradayPlan";
+import OptionChain, { biasTone, useOptionChain } from "./OptionChain";
 import "./brain.css";
 
 const enc = encodeURIComponent;
@@ -480,14 +483,19 @@ function Settings({ onClose }) {
  */
 export default function AiBrain({ symbol, live, marketHours, only = null }) {
   const wantLive = only !== "research";
-  const [view, setView] = useState(only || (live && marketHours ? "live" : "research"));
+  const wantIntra = only === null;
+  const first = () => only || (live && marketHours ? "live" : wantIntra ? "intraday" : "research");
+  const [view, setView] = useState(first);
   const [settings, setSettings] = useState(false);
   const liveRun = useRun("live", symbol, wantLive);
   const resRun = useRun("research", symbol);
   const liveFloor = useFloor("live", symbol, Boolean(live && marketHours), wantLive);
   const resFloor = useFloor("research", symbol, true);
+  const intra = useIntradayPlan(symbol, wantIntra);
+  const chain = useOptionChain(symbol, wantIntra);
+  const hasChain = Boolean(chain.data && chain.data.available);
   useEffect(() => {
-    setView(only || (live && marketHours ? "live" : "research"));
+    setView(first());
   }, [symbol]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const press = (kind) => {
@@ -532,13 +540,50 @@ export default function AiBrain({ symbol, live, marketHours, only = null }) {
           <button type="button" className="ab-mini-btn" onClick={() => setView("research")} aria-pressed={view === "research"} aria-label="Show the next-session read">
             {chip(resFloor, resRun, "research") || <span className="ab-mini ab-mini--flat"><small>Next session</small><b>—</b></span>}
           </button>
+          {wantIntra && (
+            <button type="button" className="ab-mini-btn" onClick={() => setView("intraday")} aria-pressed={view === "intraday"} aria-label="Show the intraday plan for the next session">
+              {intra.data && intra.data.available ? (
+                <span className={`ab-mini ab-mini--${{ up: "up", down: "down" }[(KIND[intra.data.decision.kind] || KIND.wait).tone] || "flat"}`}>
+                  <small>Intraday plan</small>
+                  <b>{(KIND[intra.data.decision.kind] || KIND.wait).word}</b>
+                  <small>{intra.data.decision.strength != null ? `strength ${intra.data.decision.strength}` : intra.data.decision.kind === "avoid" ? "skip it" : "no trade"}</small>
+                </span>
+              ) : (
+                <span className="ab-mini ab-mini--flat">
+                  <small>Intraday plan</small>
+                  <b>{intra.loading ? "…" : "—"}</b>
+                </span>
+              )}
+            </button>
+          )}
+          {wantIntra && hasChain && (
+            <button type="button" className="ab-mini-btn" onClick={() => setView("options")} aria-pressed={view === "options"} aria-label="Show the option chain">
+              <span className={`ab-mini ab-mini--${biasTone(chain.data.bias.score)}`}>
+                <small>Options</small>
+                <b>{chain.data.bias.label.toUpperCase()}</b>
+                <small>PCR {chain.data.pcr ?? "—"}</small>
+              </span>
+            </button>
+          )}
         </div>
         <button type="button" className="ab-gear" onClick={() => setSettings((v) => !v)} aria-expanded={settings} aria-label="Choose the analysts" data-tip="Which analysts run, the paid lead, limits and the track record.">
           ⚙
         </button>
       </div>
       {settings && <Settings onClose={() => setSettings(false)} />}
-      {view === "live" ? <Pane kind="live" floor={liveFloor} run={liveRun} symbol={symbol} /> : <Pane kind="research" floor={resFloor} run={resRun} symbol={symbol} />}
+      {view === "options" && wantIntra ? (
+        <OptionChain symbol={symbol} data={chain.data} />
+      ) : view === "intraday" && wantIntra ? (
+        intra.data ? (
+          <IntradayPlan symbol={symbol} data={intra.data} />
+        ) : (
+          <p className={intra.error ? "adm-alert adm-alert--info" : "ab-dim"}>{intra.loading ? "Building the intraday plan…" : intra.error || "The intraday plan is not available."}</p>
+        )
+      ) : view === "live" ? (
+        <Pane kind="live" floor={liveFloor} run={liveRun} symbol={symbol} />
+      ) : (
+        <Pane kind="research" floor={resFloor} run={resRun} symbol={symbol} />
+      )}
     </section>
   );
 }

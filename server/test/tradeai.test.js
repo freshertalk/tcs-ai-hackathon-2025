@@ -1,6 +1,7 @@
 "use strict";
-// TradeAI against FAKE companies and a fake market: the plan, the free-model mixture and merge, the
-// fallback one by one, and the desk's own answer when every model fails.
+// TradeAI against FAKE companies and a fake market: the plan, the router (instant data answers, one
+// fast model, one model for advice, the merged mixture for Deep), the fallback one by one, the learned
+// speeds, the paid model's limits, and the desk's own answer when every model fails.
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
@@ -70,38 +71,70 @@ test("the plan finds the stocks and the data a question needs", async () => {
   assert.ok(p3.tools.includes("market") && p3.tools.includes("outlook") && !p3.tools.includes("positions"));
 });
 
-test("a mixture of free models answers and the strongest merges, with the data in every prompt", async () => {
+test("a question of judgement goes to ONE model — the strongest free one with no paid key — and Deep brings the merged mixture", async () => {
   const { ai, calls } = boot();
   ai.setSettings({ provider: "nvidia", apiKey: KEY });
   const r = await ai.tradeai.answer("Should I hold SBIN?", { owner: true });
-  assert.match(r.answer, /^MERGED/);
-  assert.equal(r.meta.by.length, 3, "three models in the mixture");
-  assert.match(r.meta.mergedBy, /Ultra/);
+  assert.equal(r.meta.tier, "advice");
+  assert.equal(r.meta.by.length, 1, "one model answers");
+  assert.match(r.meta.by[0], /Ultra/, "with no paid key, the strongest free model");
+  assert.equal(calls.length, 1, "no other model was asked");
+  assert.match(r.answer, /SBIN looks firm/);
   assert.equal(r.forecast.lean, "up");
   assert.equal(r.actions[0].kind, "corrective");
   assert.ok(r.meta.used.includes("SBIN") && r.meta.used.includes("positions"));
-  const first = calls.find((c) => !c.merge);
-  assert.match(first.user, /"symbol":"SBIN"/);
-  assert.match(first.user, /"vwap":803.2/);
-  assert.match(first.user, /The trader asks: Should I hold SBIN\?/);
+  assert.match(calls[0].user, /"symbol":"SBIN"/);
+  assert.match(calls[0].user, /"vwap":803.2/);
+  assert.match(calls[0].user, /The trader asks: Should I hold SBIN\?/);
+  const d = await ai.tradeai.answer("Should I hold SBIN?", { owner: true, mode: "deep" });
+  assert.equal(d.meta.tier, "deep");
+  assert.match(d.answer, /^MERGED/);
+  assert.equal(d.meta.by.length, 3, "three models in the mixture");
 });
 
-test("when the first models fail, the others are tried one by one", async () => {
-  const { ai } = boot({ failModels: ["ultra", "mistral", "nemotron-3-super"] });
+test("Fast: the quickest model first, one at a time; when it fails the next is asked, and speeds are learned", async () => {
+  const fails = [];
+  const { ai, calls } = boot({ failModels: fails });
   ai.setSettings({ provider: "nvidia", apiKey: KEY });
+  const order = ai.tradeai._fastest();
+  assert.ok(order.length >= 2);
+  fails.push(order[0].model);
   const r = await ai.tradeai.answer("How is SBIN?", { owner: false });
+  assert.equal(r.meta.tier, "fast");
   assert.equal(r.meta.fallback, true);
-  assert.equal(r.meta.by.length, 1);
-  assert.match(r.answer, /SBIN looks firm/);
-  assert.ok(r.meta.models.filter((m) => !m.ok).length >= 3);
+  assert.deepEqual(r.meta.by, [order[1].name]);
+  assert.deepEqual(calls.map((c) => c.model), [order[0].model, order[1].model], "one model at a time, never in parallel");
+  const sp = ai.tradeai._speeds();
+  assert.ok(sp[order[1].id].ms >= 0 && sp[order[0].id].fail === 1, "the answer's speed and the failure are remembered");
+  assert.notEqual(ai.tradeai._fastest()[0].id, order[0].id, "a model that failed is no longer asked first");
 });
 
-test("with no AI at all the desk's own arithmetic answers — the chat never goes down", async () => {
+test("data questions are answered instantly from the desk's data — no model; and with no AI the desk's arithmetic answers", async () => {
+  const { ai, calls } = boot();
+  const r = await ai.tradeai.answer("Show my positions", { owner: true });
+  assert.equal(r.meta.tier, "instant");
+  assert.equal(calls.length, 0, "no model was asked");
+  assert.match(r.answer, /\| SBIN \| long \| 40 \|/);
+  const q = await ai.tradeai.answer("What is the price of SBIN?", { owner: false });
+  assert.equal(q.meta.tier, "instant");
+  assert.match(q.answer, /\*\*SBIN\*\* is at \*\*₹806.00\*\*/);
+  const f = await ai.tradeai.answer("Should I exit SBIN?", { owner: true });
+  assert.equal(f.meta.engineOnly, true);
+  assert.match(f.answer, /desk's own arithmetic/);
+  assert.match(f.answer, /SBIN long 40 @ ₹800 → ₹806/);
+});
+
+test("the paid model: used only when switched on and under the daily limit", async () => {
   const { ai } = boot();
-  const r = await ai.tradeai.answer("How are my positions?", { owner: true });
-  assert.equal(r.meta.engineOnly, true);
-  assert.match(r.answer, /desk's own arithmetic/);
-  assert.match(r.answer, /SBIN long 40 @ ₹800 → ₹806/);
+  ai.ensemble._lead = () => ({ id: "anthropic|claude-sonnet-5-5", provider: "anthropic", model: "claude-sonnet-5-5", name: "Claude Sonnet 5.5", lead: true });
+  assert.equal(ai.tradeai._paid().name, "Claude Sonnet 5.5");
+  ai.tradeai.setSettings({ paidDailyCap: 1 });
+  ai.tradeai._countPaid();
+  assert.equal(ai.tradeai._paid(), null, "the day's limit is reached");
+  ai.tradeai.setSettings({ paidDailyCap: 50, usePaid: false });
+  assert.equal(ai.tradeai._paid(), null, "switched off");
+  assert.throws(() => ai.tradeai.setSettings({ mode: "turbo" }), /auto, fast or deep/);
+  assert.equal(ai.tradeai.setSettings({ mode: "fast", usePaid: true }).mode, "fast");
 });
 
 const until = async (ai, job, owner) => {
@@ -144,7 +177,7 @@ test("rename, pin, search, edit from an earlier question, and delete — which r
   const pinned = await ai.tradeai.pin(b.conv, me, true);
   assert.equal(pinned.convs[0].id, b.conv, "pinned chats come first");
   assert.equal(pinned.convs.find((c) => c.id === a.conv).title, "SBIN check");
-  assert.deepEqual((await ai.tradeai.list(me, { q: "above vwap" })).convs.map((c) => c.id).sort(), [a.conv, b.conv].sort(), "search reads the messages too");
+  assert.deepEqual((await ai.tradeai.list(me, { q: "looks firm" })).convs.map((c) => c.id).sort(), [a.conv, b.conv].sort(), "search reads the messages too");
   assert.deepEqual((await ai.tradeai.list(me, { q: "sbin check" })).convs.map((c) => c.id), [a.conv]);
   // edit: go back to the first question and ask something else
   const e = await ai.tradeai.start({ conv: a.conv, text: "How is INFY?", owner: me, isOwner: true, from: 0 });

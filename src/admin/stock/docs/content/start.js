@@ -68,6 +68,9 @@ export const START = [
         ["Research Direction", "Seven lenses weighed into Buy / Watch / No trade / Caution / Avoid with a plan."],
         ["Live Pulse", "The next 15–30 minutes from nine pieces of evidence, with plans for both sides."],
         ["Next-Session Outlook", "Tomorrow’s lean, expected range, gap habit, pivots and if-then scenarios."],
+        ["Intraday Plan", "When the market is shut: tomorrow’s expected open and range, the stock’s intraday habits, a LONG / SHORT / range-break / WAIT / AVOID plan and that plan’s record on past sessions."],
+        ["Option Chain", "For F&O stocks and indices: OI, OI change, IV and delta of every strike, PCR, max pain, the call and put walls, fresh writing, futures build-up, the expected move and a bias — one factor in the decisions."],
+        ["Daily Goal", "Today’s target (3% of the morning’s margin) and stop (1.5%), always in the top bar, with live reminders when you give profits back — on screen and on your phone."],
         ["Replay (Debrief)", "Mechanical replay of the day’s calls at 5-minute closes, in R, with costs."],
         ["Risk Guard", "Server-side daily loss limit, profit lock and caps — never blocks an exit."],
         ["Paper Trader", "The same engine with play money, and findings that become text in the skills file."],
@@ -130,7 +133,7 @@ export const START = [
       { note: "None of the timers knows about exchange holidays. On a holiday there is simply no data and they find nothing. Check the Calendar." },
       { h: "A sensible way to use it" },
       { ol: [
-        "**Evening before:** read the Research sheets and the Next-Session Outlook for your watchlist; pick two or three stocks with a clear plan; decide your risk in rupees.",
+        "**Evening before:** run **Research → Intraday research** for your watchlist and read each plan’s record and checklist; read the Research sheets and the Next-Session Outlook; pick two or three stocks with a clear plan; decide your risk in rupees.",
         "**Morning:** log in to Kite, glance at the Market tide and the world brief, open the Desk on your stocks. Wait for 9:30.",
         "**While trading:** use the **Verdict** and the **Live Intraday Call** for the story, **Position size** or the ticket’s plan for the quantity, the **stop offered after the fill**, and the **Risk Guard** as your safety net.",
         "**After the close:** Debrief, the Journal tags (setup and mistakes), the 3:45 PM Trade Analysis. Read the “practices” honestly.",

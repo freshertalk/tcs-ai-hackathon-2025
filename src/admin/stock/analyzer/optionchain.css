@@ -1,0 +1,245 @@
+/* The option chain on the Desk (OptionChain.jsx). Text wears the ink tokens; OI bars and in-the-money
+   shading are light tints, so the numbers read in both themes. */
+
+.oc {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+  min-width: 0;
+}
+.oc-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-left-width: 4px;
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+.oc-head--up {
+  border-color: var(--up-line);
+  background: var(--up-bg);
+}
+.oc-head--down {
+  border-color: var(--down-line);
+  background: var(--down-bg);
+}
+.oc-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  min-width: 96px;
+  padding: 2px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--line-2);
+  background: var(--surface);
+  font-size: var(--t-small);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--ink);
+}
+.oc-head--up .oc-badge {
+  border-color: var(--up-line);
+  color: var(--up-ink);
+}
+.oc-head--down .oc-badge {
+  border-color: var(--down-line);
+  color: var(--down-ink);
+}
+.oc-head__t {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.oc-head__t b {
+  color: var(--ink);
+}
+.oc-head__t span {
+  font-size: var(--t-small);
+  color: var(--ink-2);
+}
+.oc-exp {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.oc-exp button {
+  min-height: 32px;
+  padding: 2px 12px;
+  border: 1px solid var(--line-2);
+  border-radius: 99px;
+  background: var(--surface);
+  color: var(--ink-2);
+  font: inherit;
+  font-size: var(--t-small);
+  cursor: pointer;
+}
+.oc-exp button[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--on-accent, #fff);
+  font-weight: 600;
+}
+.oc-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+}
+.oc-tiles > div {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.oc-tiles span {
+  font-size: var(--t-small);
+  color: var(--ink-2);
+}
+.oc-tiles b {
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.oc-tiles small {
+  font-size: var(--t-small);
+  color: var(--ink-2);
+}
+.oc .is-up {
+  color: var(--up-ink);
+}
+.oc .is-down {
+  color: var(--down-ink);
+}
+.oc-why ul {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.oc-why li {
+  padding: 6px 10px;
+  border-left: 3px solid var(--line-2);
+  border-radius: 6px;
+  background: var(--surface-2);
+  font-size: var(--t-small);
+  color: var(--ink-2);
+  line-height: 1.5;
+}
+.oc-why li b {
+  color: var(--ink);
+  margin-right: 4px;
+}
+.oc-why li.is-for {
+  border-left-color: var(--up);
+}
+.oc-why li.is-against {
+  border-left-color: var(--down);
+}
+.oc-cautions {
+  margin-top: 6px !important;
+}
+.oc-cautions li {
+  border-left-color: var(--warn-ink);
+  background: var(--warn-bg);
+  color: var(--ink);
+}
+.oc-tablewrap {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.oc-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--t-mid);
+  font-variant-numeric: tabular-nums;
+}
+.oc-table th,
+.oc-table td {
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--line);
+  text-align: right;
+  white-space: nowrap;
+  color: var(--ink);
+}
+.oc-table thead th {
+  position: sticky;
+  top: 0;
+  background: var(--surface-2);
+  font-size: var(--t-small);
+  font-weight: 600;
+  color: var(--ink-2);
+}
+.oc-sides th {
+  text-align: center !important;
+  color: var(--ink) !important;
+}
+.oc-strike {
+  text-align: center !important;
+  background: var(--surface-2);
+  font-weight: 700;
+}
+.oc-strike small {
+  display: block;
+  font-size: var(--t-tag);
+  font-weight: 500;
+  color: var(--ink-2);
+}
+.oc-table tr.is-atm td,
+.oc-table tr.is-atm .oc-strike {
+  border-top: 2px solid var(--accent);
+  border-bottom: 2px solid var(--accent);
+}
+/* in the money: calls below the price, puts above it */
+.oc-table tr.ce-itm td:nth-child(-n + 5),
+.oc-table tr.pe-itm td:nth-last-child(-n + 5) {
+  background: color-mix(in srgb, var(--warn-bg) 70%, var(--surface));
+}
+.oc-oi {
+  position: relative;
+  min-width: 84px;
+}
+.oc-oibar {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  border-radius: 3px;
+  opacity: 0.55;
+}
+.oc-oi--ce .oc-oibar {
+  background: var(--down-bg);
+  box-shadow: inset 0 0 0 1px var(--down-line);
+}
+.oc-oi--pe .oc-oibar {
+  background: var(--up-bg);
+  box-shadow: inset 0 0 0 1px var(--up-line);
+}
+.oc-oiv {
+  position: relative;
+}
+.oc-ltp b {
+  font-weight: 600;
+}
+.oc-ltp small {
+  display: block;
+  font-size: var(--t-tag);
+}
+.oc-none {
+  background: var(--surface-2);
+}
+.oc-foot {
+  margin: 0;
+}
+@media (max-width: 640px) {
+  .oc-head {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .oc-badge {
+    justify-self: start;
+  }
+}

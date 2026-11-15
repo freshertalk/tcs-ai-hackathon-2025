@@ -438,6 +438,25 @@ class Ensemble {
     return out;
   }
 
+  /**
+   * The Intraday Plan for the next session: the outlook above (research direction and measured odds
+   * included) enters whole; the market service adds the stock's intraday habits, the plan's replayed
+   * record, the expected open and the decision. No AI.
+   */
+  async intraday(symbol) {
+    let outlook = null;
+    try {
+      const { brief, verdict, sheet, ...o } = await this.outlook(symbol);
+      void brief;
+      void verdict;
+      void sheet;
+      outlook = o;
+    } catch (_) {
+      outlook = null;
+    }
+    return this.ai.market.intradayPlan(symbol, { outlook });
+  }
+
   /* ------------------------------------------------------------------------- the briefs */
 
   _web(symbol) {

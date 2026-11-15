@@ -194,6 +194,8 @@ function mountMarket(app, deps) {
   // method on each stock, and the forward record of every favourable call made since
   app.get("/api/admin/market/edge", requireAdmin, wrap(async () => market.edgeBoard()));
   app.get("/api/admin/market/edge/:symbol", requireAdmin, limiter(120, 60 * 1000), wrap(async (req) => market.edge(symbolOf(req), { refresh: req.query.refresh === "1" })));
+  // the option chain, read: OI, OI change, IV, delta, PCR, max pain, walls, build-up and a bias (options.js)
+  app.get("/api/admin/market/options/:symbol", requireAdmin, limiter(120, 60 * 1000), wrap(async (req) => market.optionChain(symbolOf(req), { expiry: /^\d{4}-\d{2}-\d{2}$/.test(String(req.query.expiry || "")) ? String(req.query.expiry) : "" })));
   // price alerts: notes kept in the database; the open page watches the price and reports a crossing
   app.get("/api/admin/market/alerts", requireAdmin, wrap(async () => market.alerts()));
   app.post("/api/admin/market/alerts", requireAdmin, limiter(60, 60 * 1000), wrap(async (req) => market.addAlert(req.body || {}, req.user ? req.user.email : "")));

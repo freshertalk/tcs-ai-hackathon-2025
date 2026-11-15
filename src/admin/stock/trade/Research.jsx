@@ -13,6 +13,7 @@ import { api } from "../../api";
 import { Alert, Loading } from "../../ui";
 import { useAiStatus } from "../../aiStatus";
 import AiBrain from "../analyzer/AiBrain";
+import IntradayResearch from "./IntradayResearch";
 import { inr, isNum, num, pct, when } from "../analyzer/format";
 import "./trade.css";
 
@@ -288,6 +289,7 @@ export default function Research({ onOpen = null }) {
 
   return (
     <div className="rs">
+      <IntradayResearch watchlist={watch} onOpen={onOpen} />
       <section className="an-card rs-controls">
         <header className="an-card__head">
           <div>

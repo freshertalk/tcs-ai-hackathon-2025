@@ -8,6 +8,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import { api } from "../../api";
 import { useAuth } from "../../auth";
 import OrderTicket from "./OrderTicket";
+import { useDailyGoal } from "./DailyGoal";
 import { stopTicket } from "./tradeMath";
 import "./trade.css";
 
@@ -79,6 +80,9 @@ export function TradeProvider({ children }) {
     };
   }, [allowed, connectedNow, version]);
 
+  // the daily goal (target, stop, profit protection): read every 15 s; a new reminder is also a toast
+  const { goal, reload: reloadGoal } = useDailyGoal(allowed && connectedNow, (e) => say(`${e.title} — ${e.text}`, e.level === "danger" ? "error" : e.level === "success" ? "ok" : "warn"));
+
   // order updates, straight from Zerodha's stream
   useEffect(() => {
     if (!allowed || typeof EventSource === "undefined") return undefined;
@@ -123,10 +127,12 @@ export function TradeProvider({ children }) {
             bump: () => setVersion((v) => v + 1),
             say,
             pulse,
+            goal,
+            reloadGoal,
             openTicket: (prefill) => setTicket({ ...prefill, key: Date.now() }),
           }
         : null,
-    [allowed, status, refresh, setSwitch, version, say, pulse]
+    [allowed, status, refresh, setSwitch, version, say, pulse, goal, reloadGoal]
   );
 
   return (

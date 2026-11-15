@@ -416,6 +416,38 @@ added on top of everything that already existed — no earlier logic was removed
   −1…+1 with a fixed weight; the lean is the weighted sum and the confidence is how much of the weight
   agrees. Plans for **both** a long and a short are always shown, and the trader's own position and
   available margin (read-only) shape the advice and the size by risk. Weak or split evidence reads "wait".
+- **The Intraday Plan (`server/market/intraplan.js`, `GET /api/admin/ai/intraday/:symbol`)** is the card's
+  third view and the one it opens on while the market is shut. On top of the Next-Session Outlook it
+  measures how the stock trades inside a day (normal range, the 9:15–9:30 opening range and how often its
+  first break holds, when the high and low come, trend days, VWAP, gap fills — from ~150 days of 5-minute
+  bars), replays its own plan rules on every past session with no look-ahead (in R, after costs), gives the
+  share of past sessions that closed up after a chart that read the same way, and estimates tomorrow's open
+  from GIFT Nifty × the stock's measured sensitivity to the Nifty's gaps. It ends in LONG / SHORT on a
+  trigger, the opening-range break, WAIT or AVOID, with reasons for and against and a checklist. The same
+  plan, for the watchlist plus any typed NSE symbols, is **Research → Intraday research**
+  (`src/admin/stock/trade/IntradayResearch.jsx`). Arithmetic only: no AI, no tokens, no orders.
+- **The option chain (`server/market/options.js`, `GET /api/admin/market/options/:symbol`)** — the card's
+  **Options** view for any stock or index with options: from Zerodha's quotes on the NFO contracts (the NFO
+  list downloaded once a day; NSE's website is not read), every strike around the money with OI, OI change
+  since the previous session's last saved reading, volume, IV and delta (Black-76 on the futures price), and
+  PCR, max pain, the call and put walls, fresh writing, futures build-up, the expected move, skew and a bias
+  with its reasons. The Intraday Plan and TradeAI use the bias as one factor.
+
+**Daily goal and profit protection (`server/trading/discipline.js`, `server/discipline-watch.js`,
+`src/admin/stock/trade/DailyGoal.jsx`).** Target = 3% and daily stop = 1.5% of the morning's available
+margin (fixed for the day). Once the day has been up 1%, at least half of the day's best must be kept;
+giving it back, a green day turning red, the target, the stop, and any open position that gave back half its
+best gain raise reminders — a banner and sound in the terminal, a desktop notification, and Telegram /
+WhatsApp — repeated every 10 minutes while they hold, checked every 15 s in market hours with no page
+open. Always visible as the Goal pill in the top bar and a chip on TradeAI; full card and settings on
+Positions. Reminders only; an optional switch copies the target and stop into the risk guard.
+
+**TradeAI routing (`server/ai/route.js`).** Data questions (positions, today vs the goal, margin, a price, the
+option chain, the intraday plan, orders, alerts) are answered instantly from the desk with no model; light
+questions by ONE model, the fastest free one by measured speed; questions of judgement by ONE model, the
+paid lead when allowed (daily cap, ⚙ on TradeAI), else the strongest free one; Deep (research, compare, the
+week ahead) by the free models merged by the paid lead. Auto / Fast / Deep in the composer; @ suggests
+stocks; voice input; export to Markdown.
 - **The buttons bring the analysts.** AI Live / AI Research start a run for the open stock: the paid
   "lead" (the company chosen on the AI page, else the first saved Anthropic / OpenAI / Gemini key) first
   does the web search — company news and world markets, kept 30 minutes so credits are not spent twice —

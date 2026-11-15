@@ -40,7 +40,7 @@ function clientFor(ai, a, timeoutMs) {
  * @returns { data, by, mergedBy, answers: [{ name, ok, ms, error }], tried, fallback, usage }
  */
 async function askMixture(ai, opts) {
-  const { system, user, schema, maxTokens = 3000, width = 3, merge = null, allowPaid = false, onStep = () => {} } = opts;
+  const { system, user, schema, maxTokens = 3000, width = 3, merge = null, allowPaid = false, onStep = () => {}, judge: judgeModel = null } = opts;
   const t = team(ai);
   const sec = opts.timeoutSec || t.settings.deadlineSec || 75;
   const tried = [];
@@ -55,10 +55,10 @@ async function askMixture(ai, opts) {
     try {
       const r = await clientFor(ai, a, (a.lead ? Math.max(sec, 120) : sec) * 1000).ask({ system: sys, user: usr, schema: sch, maxTokens: tok, effort: "low" });
       add(r.usage);
-      tried.push({ name: a.name, ok: true, ms: Date.now() - t0 });
+      tried.push({ id: a.id, name: a.name, ok: true, ms: Date.now() - t0, paid: Boolean(a.lead) });
       return { a, data: r.data };
     } catch (err) {
-      tried.push({ name: a.name, ok: false, ms: Date.now() - t0, error: err && err.message ? err.message.slice(0, 160) : "failed" });
+      tried.push({ id: a.id, name: a.name, ok: false, ms: Date.now() - t0, paid: Boolean(a.lead), error: err && err.message ? err.message.slice(0, 160) : "failed" });
       return null;
     }
   };
@@ -92,10 +92,41 @@ async function askMixture(ai, opts) {
     return { data: best.data, by: answers.map((x) => x.a.name), mergedBy: answers.length === 1 ? null : best.a.name, answers: tried, tried, fallback, usage, all: answers.map((x) => ({ name: x.a.name, data: x.data })) };
   }
   const judge = answers.slice().sort((x, y) => rankOf(x.a) - rankOf(y.a))[0];
-  onStep(`${judge.a.name} is merging ${answers.length} answers`);
-  const m = await ask(judge.a, merge.system, merge.build(answers.map((x) => ({ by: x.a.name, data: x.data }))), merge.schema || schema, maxTokens + 1000);
-  if (m && m.data) return { data: m.data, by: answers.map((x) => x.a.name), mergedBy: judge.a.name, answers: tried, tried, fallback, usage, all: answers.map((x) => ({ name: x.a.name, data: x.data })) };
+  // the paid lead merges when the caller hands it over (paid and free in combination); else the strongest free model
+  const merger = judgeModel || judge.a;
+  onStep(`${merger.name} is merging ${answers.length} answers`);
+  const m = await ask(merger, merge.system, merge.build(answers.map((x) => ({ by: x.a.name, data: x.data }))), merge.schema || schema, maxTokens + 1000);
+  if (m && m.data) return { data: m.data, by: answers.map((x) => x.a.name), mergedBy: merger.name, answers: tried, tried, fallback, usage, all: answers.map((x) => ({ name: x.a.name, data: x.data })) };
   return { data: judge.data, by: answers.map((x) => x.a.name), mergedBy: null, answers: tried, tried, fallback, usage, all: answers.map((x) => ({ name: x.a.name, data: x.data })) };
 }
 
-module.exports = { askMixture, team, rankOf };
+/**
+ * ONE model at a time: the candidates are asked in order and the first answer is used; the next is
+ * asked only when one fails. The fast way for TradeAI — no parallel calls, no merge.
+ * @param candidates [{ id, name, provider, model, lead? }] in the order to try
+ * @returns { data, by, mergedBy: null, answers, tried, fallback, usage }
+ */
+async function askOne(ai, candidates, opts) {
+  const { system, user, schema, maxTokens = 2500, onStep = () => {} } = opts;
+  const sec = opts.timeoutSec || 60;
+  const tried = [];
+  const usage = { input: 0, output: 0 };
+  for (let i = 0; i < candidates.length; i += 1) {
+    const a = candidates[i];
+    onStep(i === 0 ? `${a.name}${a.lead ? " (paid)" : ""} is answering` : `Falling back to ${a.name}${a.lead ? " (paid)" : ""}…`);
+    const t0 = Date.now();
+    try {
+      const r = await clientFor(ai, a, (a.lead ? Math.max(sec, 90) : sec) * 1000).ask({ system, user, schema, maxTokens, effort: "low" });
+      const u = r.usage || {};
+      usage.input += u.input_tokens || u.inputTokens || u.prompt_tokens || 0;
+      usage.output += u.output_tokens || u.outputTokens || u.completion_tokens || 0;
+      tried.push({ id: a.id, name: a.name, ok: true, ms: Date.now() - t0, paid: Boolean(a.lead) });
+      return { data: r.data, by: [a.name], mergedBy: null, answers: tried, tried, fallback: i > 0, usage };
+    } catch (err) {
+      tried.push({ id: a.id, name: a.name, ok: false, ms: Date.now() - t0, paid: Boolean(a.lead), error: err && err.message ? err.message.slice(0, 160) : "failed" });
+    }
+  }
+  return { data: null, by: [], mergedBy: null, answers: tried, tried, fallback: candidates.length > 1, usage };
+}
+
+module.exports = { askMixture, askOne, team, rankOf, clientFor };

@@ -1,4 +1,4 @@
-// Chapters: the trading switch and limits, the order ticket, exits, the risk guard, the journal,
+// Chapters: the trading switch and limits, the order ticket, exits, the daily goal, the risk guard, the journal,
 // paper trading, Trade Analysis, automatic research, and the terminal controls.
 // Written from server/trading/*, server/paper/*, server/analysis/*, server/research-auto.js and
 // the panels in src/admin/stock/{trade,paper,analysis,terminal}/.
@@ -163,6 +163,35 @@ export const TRADING = [
       ] },
       { h: "The AI position coach" },
       { p: "On the Positions tab, **Ask the coach** (a button — never automatic; needs an AI key; limited to 30 a hour) hands your positions, holdings, funds and orders as plain figures — with the desk’s live call, levels and warnings for each NSE stock — to the AI. For each position it returns an action (Hold, Tighten stop, Trim, Exit, Add, Wait, Review), urgency (act now, today, watch), confidence, reasoning, a stop and target taken from the engines’ levels, and “Changes if”. For Exit or Trim, a button **Open exit form** only opens the exit dialog for you to choose and confirm. It is advice only: the AI has no path to the broker." },
+    ],
+  },
+
+  {
+    id: "goal",
+    part: "trading",
+    title: "The Daily Goal and profit protection",
+    intro: "A target for the day, a stop for the day, and a guard against the habit of staying in a winning day for “more” until the gain — and then the capital — is gone.",
+    blocks: [
+      { p: "It is always in view: a **Goal pill** in the terminal’s top bar (today’s P&L against the target, with a small bar; amber while a reminder holds, red at the stop; on a phone it takes the P&L pill’s place), a chip in TradeAI’s header, and the **Daily goal** card at the top of Positions with its settings. It **never places, changes or cancels an order** — it tells you what happened and what to do." },
+      { logic: {
+        title: "Target, stop and the reminders",
+        who: "The server (server/trading/discipline.js), asked by the open terminal every 15 seconds and by its own watcher every 15 seconds during NSE hours (9:15–3:30, Monday–Friday) while Zerodha is connected — so reminders come with no page open.",
+        when: "Every read. The margin is read once a day.",
+        steps: [
+          "**Base:** the morning’s available margin — Zerodha’s opening balance plus collateral (or the live available margin when no opening balance is reported), fixed for the day so the target does not move as trades use margin. **Target** = 3% of it; **daily stop** = 1.5% (half the target). Day P&L is the sum of Zerodha’s m2m over all positions (as the risk guard counts it), before charges.",
+          "**Protection** starts once the day has been up **1%** of the margin: at least **50% of the day’s best** must be kept (the “keep at least” floor).",
+          "States, first that applies: **Daily stop reached** (P&L at or below −stop); **Target reached — stop here**; **A green day has turned red** (protection had started and P&L is now 0 or less); **Giving back** (below the floor); **Close to the target** (80% of it); **Protect mode**; **On plan**.",
+          "**Per position:** an open position whose gain reached ₹500 or a tenth of the target, whichever is more, and has given back **50%** of its best gain raises its own reminder with the stop price that keeps half the best gain (average ± half the best gain ÷ quantity).",
+          "**Reminders:** raised when a state or position alert first appears, and **repeated every 10 minutes while it holds** (the target is repeated only while positions stay open). Each shows as a banner under the top bar with **Got it** (quiet until it repeats), a toast, a short sound (switchable per device), a desktop notification when the tab is in the background and allowed, and — with “Remind me on my phone” — a Telegram / WhatsApp message.",
+          "**Lock new trades at the target and the stop** (off by default): copies today’s two figures into the risk guard as its daily loss limit and profit lock, so once either is reached new trades are refused until tomorrow. Exits always go through; nothing is sold for you.",
+        ],
+        limits: "Charges are not counted, so the net day is a little lower. Orders placed in the Kite app count in P&L but cannot be blocked. A reminder is not an order: the trader acts.",
+      } },
+      { h: "The settings" },
+      { ul: [
+        "Daily target (% of margin, default 3), daily stop (default 1.5), protect profits from (default 1), keep at least (% of the day’s best, default 50), position giveback (default 50%), position gain worth guarding (₹, default 500), repeat a reminder after (minutes, default 10).",
+        "Daily goal on; Remind me on my phone; Lock new trades at the target and the stop; Sound on this device; Allow desktop alerts.",
+      ] },
     ],
   },
 

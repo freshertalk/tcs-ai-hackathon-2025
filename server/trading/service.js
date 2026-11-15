@@ -24,6 +24,7 @@ const { FileDocs } = require("../docs");
 const { KiteError } = require("../market/kite");
 const { KiteBroker } = require("./broker");
 const risk = require("./risk");
+const discipline = require("./discipline");
 const { TradeJournal, excursion } = require("./journal");
 
 const EXCHANGES = ["NSE", "BSE", "NFO", "BFO", "MCX", "CDS", "BCD"];
@@ -155,6 +156,74 @@ class TradingService {
     });
     this._audit(by, "risk-rules", next, { ok: true });
     return this.status();
+  }
+
+  /* --------------------------------------------- daily goal and profit protection */
+
+  _discipline() {
+    return discipline.cleanDiscipline(this._state().discipline || {});
+  }
+
+  setDiscipline(input, by) {
+    const next = discipline.cleanDiscipline({ ...this._discipline(), ...(input || {}) });
+    this.store.update((d) => {
+      d.trading = { ...this._state(), discipline: next };
+    });
+    this._audit(by, "daily-goal", next, { ok: true });
+    this._goalAt = null; // the next read uses the new rules
+    return next;
+  }
+
+  /**
+   * Today's target, stop and profit protection (discipline.js), and the reminders they raise. The
+   * page and the background watcher both ask: one read at a time, and a fresh answer is reused for
+   * a few seconds, so a reminder is raised — and sent — once.
+   */
+  disciplineStatus() {
+    const now = this.now();
+    if (this._goalBusy) return this._goalBusy;
+    if (this._goalAt && now - this._goalAt.at < 5000) return Promise.resolve(this._goalAt.out);
+    this._goalBusy = this._discipline_()
+      .then((out) => {
+        this._goalAt = { at: this.now(), out };
+        return out;
+      })
+      .finally(() => {
+        this._goalBusy = null;
+      });
+    return this._goalBusy;
+  }
+
+  async _discipline_() {
+    const cfg = this._discipline();
+    const stored = this._state().disciplineDay || null;
+    const today = discipline.istDay(this.now());
+    // the margin is read once a day: the target must not move as the day's trades use margin
+    const needFunds = !stored || stored.day !== today || !(stored.base > 0);
+    const [positions, funds] = await Promise.all([this.positions(), needFunds ? this.funds().catch(() => null) : null]);
+    const out = discipline.assess({ cfg, day: stored, now: this.now(), funds, positions });
+    if (JSON.stringify(out.day) !== JSON.stringify(stored)) {
+      this.store.update((d) => {
+        d.trading = { ...this._state(), disciplineDay: out.day };
+      });
+    }
+    if (cfg.applyToGuard && out.standing.available) this._goalToGuard(out.standing);
+    if (out.fresh.length) {
+      for (const e of out.fresh) this.log.log(`[trading] daily goal: ${e.title}`);
+      if (cfg.notify && typeof this.onDiscipline === "function") for (const e of out.fresh) Promise.resolve().then(() => this.onDiscipline(e)).catch(() => {});
+    }
+    return out.standing;
+  }
+
+  /** With "lock at the target and the stop" on: the risk guard gets today's two figures. */
+  _goalToGuard(st) {
+    const cur = this._risk();
+    if (cur.enabled && cur.dailyLoss === st.stop && cur.profitLock === st.target) return;
+    try {
+      this.setRisk({ ...cur, enabled: true, dailyLoss: st.stop, profitLock: st.target }, "daily goal");
+    } catch (_) {
+      /* the day is locked: limits can be tightened, not loosened, until tomorrow */
+    }
   }
 
   /** Throws when the guard refuses an order that would add risk. */

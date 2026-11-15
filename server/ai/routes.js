@@ -114,6 +114,10 @@ function mountAi(app, { ai, requireAdmin, requireSuper = requireAdmin, limiter }
     return rest;
   }));
 
+  // the intraday plan for the next session: arithmetic only (the outlook, the stock's intraday habits,
+  // the plan's replayed record, the expected open) — no AI is called
+  app.get("/api/admin/ai/intraday/:symbol", requireAdmin, limiter(120, 60 * 1000), wrap(async (req) => ai.ensemble.intraday(symbolOf(req))));
+
   app.get("/api/admin/ai/ensemble/status", requireAdmin, wrap(async () => {
     await ai.ensemble.score();
     return ai.ensemble.status();

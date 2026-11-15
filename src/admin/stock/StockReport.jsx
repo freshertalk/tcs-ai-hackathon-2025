@@ -29,6 +29,7 @@ import Research from "./trade/Research";
 import Journal from "./trade/Journal";
 import Advisor from "./advisor/Advisor";
 import { TradeProvider, useTrade } from "./trade/TradeContext";
+import { GoalBanner } from "./trade/DailyGoal";
 import { useDeskTheme } from "./analyzer/theme";
 import { useAuth } from "../auth";
 import TopBar from "./terminal/TopBar";
@@ -245,6 +246,7 @@ function Terminal() {
   return (
     <div className={`tm tm--${view} ${bottomNav ? "tm--bnav" : ""} ${showDock ? `has-dock ${dock ? "dock-open" : ""}` : ""}`} onClick={onFold}>
       <TopBar views={views} view={view} onView={go} theme={theme} onTheme={toggleTheme} onHelp={() => setHelp(true)} onPalette={() => setPalette(true)} symbol={params.get("s") || ""} alertsOpen={alertsOpen} onAlerts={setAlertsOpen} />
+      {trade && trade.goal && <GoalBanner goal={trade.goal} onOpen={view === "account" ? null : () => go("account")} />}
       <main className="tm-work" id="tm-main">
         {/* one failing workspace never blanks the terminal: the top bar and the others stay usable */}
         <ErrorBoundary key={view} title={(views.find((v) => v.id === view) || {}).label}>

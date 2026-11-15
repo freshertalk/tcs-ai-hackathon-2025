@@ -1,6 +1,6 @@
 // Chapters: the live day — the intraday call, the 1-minute read, the chart, order flow, the tick
 // stream, tripwires and alerts; the Debrief; the behaviour profile; the Advisor (measured odds);
-// the research direction, Live Pulse and Next-Session Outlook.
+// the research direction, Live Pulse, Next-Session Outlook and the Intraday Plan.
 // Written from server/market/{intraday,flow,ticker,replay,profile,edge,direction,pulse,outlook}.js.
 
 export const LIVE = [
@@ -308,8 +308,8 @@ export const LIVE = [
   {
     id: "direction",
     part: "live",
-    title: "Research direction, Live Pulse and Next-Session Outlook",
-    intro: "Three engines that need no AI. They weigh the evidence the terminal already has and give a lean, a confidence, a plan for both directions and what would cancel it.",
+    title: "Research direction, Live Pulse, Next-Session Outlook and Intraday Plan",
+    intro: "Four engines that need no AI. They weigh the evidence the terminal already has and give a lean, a confidence, a plan for both directions and what would cancel it.",
     blocks: [
       { h: "Research direction — the lenses" },
       { p: "It weighs every reading through the “lenses” investors and traders use. It is pure arithmetic on the readings given to it. Each lens scores −100 to +100 (bullish at +20 or more, bearish at −20 or less)." },
@@ -363,6 +363,42 @@ export const LIVE = [
           "**If-then scenarios:** opens above the last high and holds 15 minutes; opens below the last low and stays; trades inside the last session’s range for the first half hour (let the opening range form); and, if the stock filled gaps 60% of the time, a “fade the gap” scenario.",
         ],
         limits: "A summary of evidence, not a forecast. No news or results. The gap habit is a past frequency.",
+      } },
+      { h: "Intraday Plan — the next session, for intraday" },
+      { p: "Built on top of the Next-Session Outlook for the evening and the morning, when the market is shut. It is what the Desk’s AI panel shows first outside market hours (the **Intraday plan** chip), and what **Research → Intraday research** builds for every stock you pick — the watchlist plus any NSE symbol you type, up to 20 at a time. Arithmetic only (`server/market/intraplan.js`, `GET /api/admin/ai/intraday/:symbol`); no AI, no tokens, no order." },
+      { logic: {
+        title: "From the stock’s own past to tomorrow’s plan",
+        who: "The server, cached per stock for 15 minutes outside market hours (the GIFT Nifty cue moves overnight) and 5 minutes during the session. The page refreshes it every 15 minutes while shown.",
+        when: "Needs 60 daily bars. Its habits and record need at least 15 past sessions of 5-minute bars (about 150 days are read from Zerodha); without them the plan rests on the daily chart only and says so.",
+        steps: [
+          "**The lean** is the Next-Session Outlook’s, with the research direction and the measured odds inside it. The chart-only lean (the outlook without those two) is drawn as well; if the two point opposite ways the evidence is **split**.",
+          "**The odds:** for each of the last 250 sessions the chart-only lean is drawn from the bars before it. Of the past sessions whose chart leaned the way tomorrow’s does (up at +22 or more, down at −22 or less), the share that closed above the previous close is shown with how many sessions it rests on.",
+          "**Habits** from each past session’s 5-minute bars: the normal high-to-low range (median, and the 20% and 80% marks), the 9:15–9:30 opening range — how often it broke, how often the first break was still beyond it at the close and how far it ran — how often the day’s high or low came before 10:15, trend days (a close in the top or bottom fifth of the range), whether the 10:15 side of VWAP held to the close, gaps of 0.3% or more filled, and how often the first fifteen minutes pointed the way of the whole day.",
+          "**The plan’s rules** (the same function draws tomorrow’s plan and replays the past): long above the larger of the previous high and the pivot, plus 3% of a normal day’s range; stop at the higher of the pivot and the previous low, held between 0.3 and 0.5 of a normal day’s range (the median of the last 20 daily ranges); target 1 the first resistance paying 1.2× to 3× the risk, else 1.5×; target 2 the next, else 2.5×. The short is the mirror image below the previous low and is intraday only. Entries only after 9:30 and before 3:00 PM; out at the stop, at target 1 or at 3:15 PM.",
+          "**The record:** every past session is planned with the daily bars up to the evening before only, then played on that day’s 5-minute bars. A bar that touches both the entry and the stop counts as a loss; a target counts only from the bar after the entry. Results are in R after a 0.1% round-trip cost, for: **followed the lean** (the long only after an up-leaning chart, the short only after a down-leaning one), **either side** (whichever triggered first; a bar that triggers both is skipped) and the **opening-range break** (the 9:15–9:30 high or low, stop at the other side held between 0.15 and 0.5 of a normal day, target 1.5×). Verdict: under 8 trades “too few to judge”; positive with t of 2 or more “held up”; positive “positive, not proven”; otherwise “did not pay”.",
+          "**The expected open:** outside the session, GIFT Nifty’s move from its last settlement × this stock’s measured sensitivity to the Nifty’s gaps (a regression of its opening gaps on the Nifty’s over the last 250 sessions, needs 40, held between 0 and 3), with a band of one normal spread of its opens (never under ±0.15%). With no cue it is centred on the last close. During the session the cue is not used.",
+          "**The expected range:** a normal day’s high-to-low span placed around the expected open, tilted toward the lean by up to a quarter of the range; a wide day uses the 80% mark. A **level ladder** lists R2, R1, the long trigger, the previous high, the pivot, the previous close, the expected open, the previous low, the short trigger, S1 and S2, each with its distance from the expected open.",
+          "**The decision:** **AVOID** if a 0.1% cost would take more than 45% of the planned risk. **LONG / SHORT** if the outlook calls a bias, the evidence is not split and these rules did not lose on this stock (8 trades or more with an average below 0R). Otherwise the **opening-range break** if it held up here (8 trades or more averaging +0.05R, and the first break held at least 55% of the time), else **WAIT**. If the expected open is beyond the trigger by more than half the risk, the trigger has been jumped: when even the low edge of the open band is past it the plan moves to the range break (if it held up) or WAIT; otherwise a checklist line says to drop the trigger if it opens there.",
+          "**Plan strength** (0–100) = half the outlook’s agreement + half the record (50 + 120 × average R, weighted by trades up to 20); 10 less when a gap may jump the trigger. It is not a probability.",
+          "Every plan carries **for** and **against** lines with their numbers and a **checklist** to tick before the order: the trigger after 9:30, no chasing a run-away open, the Nifty not moving hard against it, the stop with the order and size at most 1% of capital, part booked at target 1, everything out by 3:15 PM.",
+        ],
+        limits: "A measurement of this stock’s past and an overnight hint — not a forecast and not advice. Exchange holidays are taken from the hand-checked calendar on the page. GIFT Nifty is a future, not the Nifty; company news and results are not read. The simulator and tests use synthetic bars; real behaviour can differ.",
+      } },
+      { p: "**Options as a factor:** for a stock or index with options, the plan reads its option chain too. Its bias becomes a reason for or against (with its two strongest pieces of evidence), nudges the plan strength by up to 8 points either way, its option cautions are listed against, the call wall, put wall and max pain join the level ladder (within 6% of the expected open), and if a wall stands before target 1 the checklist says to book part at the wall." },
+      { h: "Option Chain — what the options market says" },
+      { logic: {
+        title: "From the NFO quotes to a bias",
+        who: "The server (server/market/options.js, `GET /api/admin/market/options/:symbol`): the Desk’s AI card shows it as the **Options** view (with an expiry picker and the full strike table) for any stock or index that has options; the Intraday Plan and TradeAI use it as one factor.",
+        when: "On demand; kept 30 seconds in market hours and 10 minutes otherwise. The NFO contract list is downloaded once a day.",
+        steps: [
+          "**Data:** Zerodha’s quotes on the NFO contracts — the nearest live expiry (or the one picked), the strike nearest the price and 12 strikes either side, calls and puts, and the expiry’s future: price, change, open interest, volume. Indices map to their NFO names (NIFTY 50 → NIFTY, NIFTY BANK → BANKNIFTY, NIFTY FIN SERVICE → FINNIFTY, NIFTY MID SELECT → MIDCPNIFTY, NIFTY NEXT 50 → NIFTYNXT50). It does **not** read NSE’s website.",
+          "**OI change:** each read of a session is saved (at most once a minute); the change is against the last reading saved during the **previous session** (before 9:15 and at weekends the previous session is the one the quotes describe). Until a previous reading exists, OI change and build-ups are not shown, and the page says so.",
+          "**Implied volatility and delta** of every strike from its price by Black-76 on the futures price (a 6.5% rate; time to 3:30 PM on expiry, at least an hour). **PCR** = puts’ OI ÷ calls’ OI over the strikes shown (also by volume). **Max pain** = the expiry price that pays option buyers the least. **Walls** = the strikes with the most call OI (resistance — the first at or above the price) and put OI (support — the first at or below). **Expected move** = the ATM straddle (to expiry) and ATM IV × price × √(1/252) (a day). **Skew** = IV of puts ~4% below minus calls ~4% above.",
+          "**Build-up** (futures and each option): price up + OI up = long build-up; price down + OI up = short build-up; price up + OI down = short covering; price down + OI down = long unwinding. **Fresh writing** = OI added since the previous session, ATM ± 4 strikes.",
+          "**The bias** (−100…+100): PCR (weight 1.5; (PCR − 1) ÷ 0.45, held at ±1, and only mildly at the crowded extremes ≥1.7 or ≤0.45), fresh writing (1.5; puts added minus calls added, as a share), futures build-up (1.2; long build-up +0.8, short covering +0.4, long unwinding −0.4, short build-up −0.8), room between the walls (1; near the put wall supportive, near the call wall capping) and the pull toward max pain (only within 5 days of expiry, growing as expiry nears). Bullish at +25, mildly at +10; the same downward; else neutral.",
+          "**Cautions:** ATM IV of 35% or more (wide swings), puts priced 6 or more volatility points above calls, expiry today or tomorrow, and no previous OI reading yet.",
+        ],
+        limits: "One factor among the desk’s readings, not a call. Open interest says where contracts are open, not who is right; walls move during the day; PCR readings differ by convention. Kite gives no IV or Greeks, so they are computed here.",
       } },
     ],
   },

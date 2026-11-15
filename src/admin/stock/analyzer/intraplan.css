@@ -1,0 +1,657 @@
+/* The Intraday Plan (IntradayPlan.jsx): on the Desk while the market is shut, and in Research →
+   Intraday research. Sizes from --t-*, colours from the desk's tokens; text always wears the ink
+   tokens (--ink, --ink-2, --up-ink, --down-ink, --warn-ink) so it reads in both themes. */
+
+.ip {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr); /* a wide table scrolls inside; it never widens the card */
+  gap: 12px;
+  min-width: 0;
+}
+
+/* ---------------------------------------------------------------- the call */
+.ip-call {
+  display: grid;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-left-width: 4px;
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+.ip-call--up {
+  border-color: var(--up-line);
+  background: var(--up-bg);
+}
+.ip-call--down {
+  border-color: var(--down-line);
+  background: var(--down-bg);
+}
+.ip-call--orb {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+}
+.ip-call--avoid {
+  border-color: var(--warn-line);
+  background: var(--warn-bg);
+}
+.ip-call__top {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+}
+.ip-call__word {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 92px;
+  min-height: 40px;
+  padding: 4px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line-2);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: var(--t-mid);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-align: center;
+}
+.ip-call--up .ip-call__word {
+  border-color: var(--up-line);
+  color: var(--up-ink);
+}
+.ip-call--down .ip-call__word {
+  border-color: var(--down-line);
+  color: var(--down-ink);
+}
+.ip-call--orb .ip-call__word {
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--line));
+  color: var(--accent);
+}
+.ip-call--avoid .ip-call__word {
+  border-color: var(--warn-line);
+  color: var(--warn-ink);
+}
+.ip-call__titles {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.ip-call__for {
+  font-size: var(--t-small);
+  color: var(--ink-2);
+}
+.ip-call__head {
+  font-size: var(--t-lead);
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1.35;
+}
+.ip-call__why {
+  font-size: var(--t-small);
+  color: var(--ink-2);
+}
+.ip-strength {
+  display: grid;
+  grid-template-columns: auto minmax(80px, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  max-width: 440px;
+  font-size: var(--t-small);
+  color: var(--ink-2);
+}
+.ip-strength__bar {
+  height: 8px;
+  border-radius: 99px;
+  background: var(--neutral-bar);
+  overflow: hidden;
+}
+.ip-strength__bar i {
+  display: block;
+  height: 100%;
+  border-radius: 99px;
+  background: var(--accent);
+}
+.ip-strength b {
+  color: var(--ink);
+}
+
+/* ---------------------------------------------------------------- the four tiles */
+.ip-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+}
+.ip-tile {
+  display: grid;
+  align-content: start;
+  gap: 3px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.ip-tile > span {
+  font-size: var(--t-small);
+  color: var(--ink-2);
+}
+.ip-tile > b {
+  font-size: var(--t-title);
+  font-weight: 600;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.ip-tile--up > b {
+  color: var(--up-ink);
+}
+.ip-tile--down > b {
+  color: var(--down-ink);
+}
+.ip-tile small {
+  font-size: var(--t-small);
+  color: var(--ink-2);
+  line-height: 1.4;
+}
+.ip-tile__basis {
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+  text-decoration-color: var(--line-2);
+}
+
+/* ---------------------------------------------------------------- the range line */
+.ip-rbar {
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px 8px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.ip-rbar__track {
+  position: relative;
+  height: 14px;
+  margin: 6px 4px;
+  border-radius: 99px;
+  background: var(--surface-2);
+}
+.ip-rbar__wide,
+.ip-rbar__norm {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: 99px;
+}
+.ip-rbar__wide {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+.ip-rbar__norm {
+  top: 3px;
+  bottom: 3px;
+  background: color-mix(in srgb, var(--accent) 45%, transparent);
+}
+.ip-rbar__m {
+  position: absolute;
+  top: -6px;
+  width: 4px;
+  height: 26px;
+  margin-left: -2px;
+  border-radius: 2px;
+  box-shadow: 0 0 0 2px var(--surface);
+}
+.ip-rbar__m--long,
+.ip-key--long {
+  background: var(--up);
+}
+.ip-rbar__m--short,
+.ip-key--short {
+  background: var(--down);
+}
+.ip-rbar__m--open,
+.ip-key--open {
+  background: var(--ink);
+}
+.ip-rbar__legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 6px 16px;
+  font-size: var(--t-small);
+  color: var(--ink-2);
+}
+.ip-rbar__legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.ip-key {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+
+/* ---------------------------------------------------------------- plans, ladder, lists */
+.ip-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  gap: 12px;
+}
+.ip-col {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-width: 0;
+}
+.ip-h {
+  margin: 2px 0 0;
+  font-size: var(--t-mid);
+  font-weight: 600;
+  color: var(--ink);
+}
+.ip-plan {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.ip-plan.is-called.ip-plan--long {
+  border-color: var(--up-line);
+  background: var(--up-bg);
+}
+.ip-plan.is-called.ip-plan--short {
+  border-color: var(--down-line);
+  background: var(--down-bg);
+}
+.ip-plan.is-called.ip-plan--orb {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+}
+.ip-plan header {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.ip-plan header b {
+  color: var(--ink);
+}
+.ip-plan header em {
+  padding: 1px 8px;
+  border-radius: 99px;
+  background: var(--surface);
+  border: 1px solid var(--line-2);
+  font-style: normal;
+  font-size: var(--t-tag);
+  font-weight: 600;
+  color: var(--ink);
+}
+.ip-plan header small,
+.ip-plan p {
+  margin: 0;
+  font-size: var(--t-small);
+  color: var(--ink-2);
+  line-height: 1.5;
+}
+.ip-plan dl {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px 10px;
+  margin: 0;
+}
+.ip-plan dt {
+  font-size: var(--t-tag);
+  color: var(--ink-2);
+}
+.ip-plan dd {
+  margin: 0;
+  font-size: var(--t-mid);
+  font-weight: 600;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.ip-plan dd small {
+  font-weight: 400;
+  color: var(--ink-2);
+}
+.ip .is-up {
+  color: var(--up-ink);
+}
+.ip .is-down {
+  color: var(--down-ink);
+}
+.ip-ladder {
+  display: grid;
+  gap: 3px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ip-lv {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto 56px;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 10px;
+  border-left: 3px solid var(--line-2);
+  border-radius: 6px;
+  background: var(--surface-2);
+  font-size: var(--t-mid);
+  color: var(--ink);
+}
+.ip-lv span {
+  color: var(--ink-2);
+}
+.ip-lv b {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.ip-lv small {
+  text-align: right;
+  font-size: var(--t-small);
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+.ip-lv--res {
+  border-left-color: var(--down-line);
+}
+.ip-lv--sup {
+  border-left-color: var(--up-line);
+}
+.ip-lv--long {
+  border-left-color: var(--up);
+  background: var(--up-bg);
+}
+.ip-lv--short {
+  border-left-color: var(--down);
+  background: var(--down-bg);
+}
+.ip-lv--open {
+  border-left-color: var(--ink);
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+}
+.ip-lv--long span,
+.ip-lv--short span,
+.ip-lv--open span {
+  color: var(--ink);
+  font-weight: 600;
+}
+.ip-list,
+.ip-check {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ip-list li {
+  position: relative;
+  padding-left: 22px;
+  font-size: var(--t-small);
+  color: var(--ink-2);
+  line-height: 1.5;
+}
+.ip-list li::before {
+  position: absolute;
+  left: 2px;
+  top: 0;
+  font-weight: 700;
+}
+.ip-list--for li::before {
+  content: "✓";
+  color: var(--up-ink);
+}
+.ip-list--against li::before {
+  content: "!";
+  left: 6px;
+  color: var(--down-ink);
+}
+.ip-check label {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  font-size: var(--t-small);
+  color: var(--ink);
+  line-height: 1.5;
+  cursor: pointer;
+}
+.ip-check input {
+  width: 18px;
+  height: 18px;
+  margin: 1px 0 0;
+  accent-color: var(--accent);
+}
+.ip-check input:checked + span {
+  color: var(--ink-2);
+  text-decoration: line-through;
+  text-decoration-color: var(--line-2);
+}
+
+/* ---------------------------------------------------------------- habits and the record */
+.ip-more {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.ip-more > summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  padding: 10px 12px;
+  cursor: pointer;
+  color: var(--ink);
+}
+.ip-more > summary small {
+  font-size: var(--t-small);
+  color: var(--ink-2);
+}
+.ip-more[open] > summary {
+  border-bottom: 1px solid var(--line);
+}
+.ip-more > :not(summary) {
+  margin: 10px 12px;
+}
+.ip-habits {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 8px;
+}
+.ip-habit {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+.ip-habit span {
+  font-size: var(--t-small);
+  color: var(--ink-2);
+}
+.ip-habit b {
+  font-size: var(--t-base);
+  color: var(--ink);
+}
+.ip-tablewrap {
+  overflow-x: auto;
+}
+.ip-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--t-mid);
+  font-variant-numeric: tabular-nums;
+}
+.ip-table caption {
+  padding: 4px 0 6px;
+  text-align: left;
+  font-size: var(--t-small);
+  color: var(--ink-2);
+}
+.ip-table th,
+.ip-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--line);
+  text-align: right;
+  white-space: nowrap;
+  color: var(--ink);
+}
+.ip-table thead th {
+  font-size: var(--t-small);
+  font-weight: 600;
+  color: var(--ink-2);
+}
+.ip-table th:first-child,
+.ip-table td:first-child {
+  text-align: left;
+}
+.ip-table tbody th {
+  font-weight: 500;
+}
+.ip-verdict {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 99px;
+  border: 1px solid var(--line-2);
+  font-size: var(--t-small);
+  color: var(--ink-2);
+}
+.ip-verdict--up {
+  border-color: var(--up-line);
+  background: var(--up-bg);
+  color: var(--up-ink);
+}
+.ip-verdict--down {
+  border-color: var(--down-line);
+  background: var(--down-bg);
+  color: var(--down-ink);
+}
+.ip-foot {
+  margin: 0;
+}
+
+/* ---------------------------------------------------------------- narrow screens */
+@media (max-width: 900px) {
+  .ip-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 600px) {
+  .ip-call__top {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .ip-call__word {
+    justify-self: start;
+  }
+  .ip-plan dl {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .ip-tiles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 380px) {
+  .ip-tiles {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ---------------------------------------------------------------- Research → Intraday research */
+.ir {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  min-width: 0;
+}
+.ir-add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.ir-add input {
+  flex: 1 1 220px;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--line-2);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  text-transform: uppercase;
+}
+.ir-add input::placeholder {
+  color: var(--ink-3);
+  text-transform: none;
+}
+.ir-table tbody tr {
+  cursor: pointer;
+}
+.ir-table tbody tr:hover,
+.ir-table tbody tr.is-open {
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+}
+.ir-table td.ir-plan {
+  text-align: left;
+  white-space: normal;
+  min-width: 220px;
+  color: var(--ink-2);
+}
+.ir-kind {
+  display: inline-block;
+  min-width: 84px;
+  padding: 2px 8px;
+  border-radius: 99px;
+  border: 1px solid var(--line-2);
+  font-size: var(--t-small);
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-align: center;
+  color: var(--ink-2);
+}
+.ir-kind--up {
+  border-color: var(--up-line);
+  background: var(--up-bg);
+  color: var(--up-ink);
+}
+.ir-kind--down {
+  border-color: var(--down-line);
+  background: var(--down-bg);
+  color: var(--down-ink);
+}
+.ir-kind--orb {
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--line));
+  color: var(--accent);
+}
+.ir-kind--avoid {
+  border-color: var(--warn-line);
+  background: var(--warn-bg);
+  color: var(--warn-ink);
+}
+.ir-detail {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+/* the option chain's reading, as one line of the plan */
+.ip-opt {
+  margin: 0;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+  font-size: var(--t-small);
+  color: var(--ink-2);
+  line-height: 1.5;
+}
+.ip-opt b {
+  color: var(--ink);
+}

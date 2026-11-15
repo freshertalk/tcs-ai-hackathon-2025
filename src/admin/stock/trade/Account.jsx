@@ -15,6 +15,7 @@ import { clock, inr, isNum, num, pct, tone, when } from "../analyzer/format";
 import { TickContext, useLiveTicks } from "../analyzer/liveTicks";
 import { useTrade, TradeButtons } from "./TradeContext";
 import RiskGuard from "./RiskGuard";
+import { DailyGoalCard } from "./DailyGoal";
 import { CASH, LIVE_STATUSES, holdingNumbers, newRef, positionDayChange, positionPnl, totals } from "./tradeMath";
 import "./trade.css";
 
@@ -510,6 +511,7 @@ export default function Account({ compact = false }) {
     <TickContext.Provider value={live.store}>
       <div className={`tr ${compact ? "tr--compact" : ""}`}>
         {!compact && <SwitchBar trade={trade} status={status} onExitAll={() => setDialog({ kind: "exit-all" })} />}
+        {!compact && trade.goal && <DailyGoalCard goal={trade.goal} onSaved={trade.reloadGoal} />}
         {!compact && <RiskGuard trade={trade} version={version} />}
 
         {state.loading && !d && <Loading label="Reading your account from Zerodha…" />}

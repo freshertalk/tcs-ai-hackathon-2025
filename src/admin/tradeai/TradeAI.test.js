@@ -67,3 +67,17 @@ test("searching chats asks the database with the words typed", async () => {
   await settle();
   expect(mockCalls.some(([u]) => u === "/api/admin/tradeai/convs?q=vwap")).toBe(true);
 });
+
+test("the answer mode goes with the question, and the instant chips ask at once", async () => {
+  window.localStorage.removeItem("tai.mode");
+  render(page());
+  await settle();
+  expect(screen.getByText("⚡ Instant")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: /Deep/ }));
+  fireEvent.click(screen.getByText("Show my positions"));
+  await settle();
+  const ask = mockCalls.find(([u, m]) => u === "/api/admin/tradeai/ask" && m === "POST");
+  expect(ask).toBeTruthy();
+  expect(ask[2]).toMatchObject({ text: "Show my positions", mode: "deep" });
+  expect(JSON.parse(window.localStorage.getItem("tai.mode"))).toBe("deep");
+});

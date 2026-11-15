@@ -70,6 +70,14 @@ function mountTrading(app, { trading, ai, requireSuper, limiter, capture = null 
   }));
   app.put("/api/admin/trading/risk", requireSuper, wrap(async (req) => trading.setRisk(req.body || {}, by(req))));
 
+  /* ---- the daily goal: target, stop and profit protection (reminders only; it never trades) */
+  app.get("/api/admin/trading/discipline", requireSuper, wrap(async () => {
+    const st = trading.status();
+    if (!st.connected) return { available: false, enabled: trading._discipline().enabled, config: trading._discipline(), reason: "Connect Zerodha to see today's target and stop: they come from your available margin." };
+    return trading.disciplineStatus();
+  }));
+  app.put("/api/admin/trading/discipline", requireSuper, wrap(async (req) => ({ config: trading.setDiscipline(req.body || {}, by(req)) })));
+
   /* ---- journal: every fill from Zerodha (Kite each day, Console tradebooks for the history) */
   const DAY = 86400000;
   const OLD = { "1w": 7, "1m": 31, "3m": 92, "6m": 183, "1y": 366 }; // the earlier page's ranges, still understood
