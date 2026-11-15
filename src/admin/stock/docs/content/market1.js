@@ -168,6 +168,7 @@ export const MARKET_DATA = [
         "**Risk:** worst peak-to-trough fall of the whole history with dates, current fall below the peak, and annualised volatility (needs 21 bars).",
         "**Liquidity:** average turnover (close × volume) of the last 20 bars in ₹ crore.",
         "**Against the index:** stock return minus NIFTY 50’s over 1, 3, 6 and 12 months in percentage points. If index data is missing the page says it is left out of the reading.",
+        "**Seasonality — month by month:** a grid of every calendar month’s return (last close of the month against the month before) for up to the last 10 years, coloured green or red with the number printed, the year’s total, and under it each month’s **average**, median (on hover) and how often it **rose**; the month still running is marked with a dot. Then the **weekdays** over the last three years: the average change and how often the day closed up. A past frequency, never a forecast.",
       ] },
       { h: "Candlestick patterns (latest bar only)" },
       { table: { label: "Candle patterns", head: ["Pattern", "Rule", "Kind"], rows: [

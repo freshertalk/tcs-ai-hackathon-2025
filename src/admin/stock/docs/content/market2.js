@@ -175,6 +175,21 @@ export const MARKET_VIEWS = [
         ["All", "A to Z"],
       ] } },
       { p: "Clicking any row opens that stock on the Desk. The board also has the **“AI, one by one”** bar, explained in the AI chapters." },
+      { h: "Heatmap view" },
+      { p: "**Table | Heatmap** beside the filter switches the board to a heatmap: one tile per stock of the tab you chose, its **size by value traded** (area grows with the square root of the value) and its **colour by today’s change** (green up, red down, stronger with size), with the symbol and change printed on it. Click a tile to open the stock. The choice is remembered on the device." },
+      { h: "The custom scanner" },
+      { logic: {
+        title: "Your own scans over the Nifty 500 (like Chartink or Streak)",
+        who: "You, on the Screener, in the “Custom scanner · NIFTY 500” card. Saved scans are shared by everyone signed in (up to 20).",
+        when: "On the Scan button. It uses the stored Nifty 500 history (download it once with the RSI search) with today’s live price as the newest close.",
+        steps: [
+          "Put together up to **6 conditions; all must hold**: RSI(period) at least / at most / between; price above or below its N-day SMA or EMA; an N-day average crossed above or below another within the last N sessions; the change over N days at least or at most X%; within X% of the 52-week high or low (closes of the last 250 sessions); closed up or down N days in a row; today’s change at least or at most X%.",
+          "Seven presets start you off: Golden cross this week, Pullback in an uptrend, Strong near the 52-week high, Sharp dip in an uptrend (RSI-2), Five up days in a row, Momentum up 10% in a month, Weak below the 200-day near the 52-week low.",
+          "A traded-value filter (any, ₹1, 5, 25 or 100 crore a day) and ETFs left out by default. Results are sorted by traded value (up to 600), with price, today’s change, RSI(14), volume and average traded value; click a symbol to open it on the Desk.",
+          "A series that no longer matches the exchange (split, bonus) is left out and downloaded again, exactly as in the RSI search.",
+        ],
+        limits: "Daily closes only — no intraday bars, no volume or high/low conditions, no fundamentals. A scan finds stocks that fit a description; it does not say they will move.",
+      } },
     ],
   },
 
@@ -184,8 +199,9 @@ export const MARKET_VIEWS = [
     title: "Watchlist, radar, scan and position sizer",
     intro: "The everyday tools around the Desk: your list of stocks, a quick “who is strong or weak today” ranking, a one-click scan, and the calculator that turns a stop-loss into a quantity.",
     blocks: [
-      { h: "Watchlist" },
-      { p: "Up to **40** symbols, kept in your account. Search adds them; any stock can also be opened without being on the list. Each row shows the symbol, the daily score and label (green at +20 or more, red at −20 or less), the price and percent change from the live tick or quote, and chips for triggered setups (▲) and warnings (▼)." },
+      { h: "Watchlist — several named lists" },
+      { p: "You can keep up to **10 named lists** (for example Swing ideas, Intraday, F&O), each up to 40 symbols. Pick one in the drop-down at the top of the watchlist; **+ New** makes and opens an empty list, ✎ renames, 🗑 deletes (never the last one). **The open list is “the watchlist”** for every engine — the scan, the Advisor, the Debrief, Paper trading and Research — and every add or remove goes into it. Demo mode keeps its single list of demo stocks." },
+      { p: "Each list holds up to **40** symbols, kept in your account. Search adds them; any stock can also be opened without being on the list. Each row shows the symbol, the daily score and label (green at +20 or more, red at −20 or less), the price and percent change from the live tick or quote, and chips for triggered setups (▲) and warnings (▼)." },
       { h: "Scan" },
       { p: "**Rescan** (and automatically when the Desk opens or the list changes) reads each watchlist stock in turn: the date, last price, change, daily score and label, RSI(14), triggered setups, bearish events on the latest bar and distance from the 52-week high. A stock that fails shows “No data” or its error without stopping the rest. In live mode a scan also starts the background learning of the Behaviour profile and the measured-odds Advisor." },
       { h: "Strong today / Weak today radar" },

@@ -133,4 +133,7 @@ class Review {
   }
 }
 
+// the owner's AI brains reach these instructions automatically (server/ai/brains.js)
+require("./brains").register("review", REVIEW_SYSTEM, "Journal review");
+
 module.exports = { Review, REVIEW_SYSTEM, REVIEW_SCHEMA };

@@ -477,6 +477,50 @@ class Universe {
       status: this.status(),
     };
   }
+
+  /**
+   * The custom scanner (market/scanner.js): every stock whose daily closes — with today's live price
+   * as the newest bar — pass all the conditions.
+   */
+  async customScan({ conditions, minTurnover = 0, funds = false } = {}) {
+    const S = require("./scanner");
+    const conds = S.validate(conditions);
+    const d = this._load();
+    const set = this.market.indexList ? this.market.indexList.symbols() : null;
+    const all = Object.entries(d.symbols).filter(([s]) => !set || set.has(s));
+    if (all.length === 0) return { ready: false, rows: [], matched: 0, status: this.status() };
+    const quotes = await this._liveQuotes(all.map(([s]) => s));
+    const nifty = await this.market.daily("NIFTY 50");
+    const cal = calendarFrom(nifty.candles, quotes["NIFTY 50"], istDate(this.market.now()));
+    if (!cal) throw new Error("The trading calendar could not be read from the Nifty's history.");
+    const rows = [];
+    const skipped = { noQuote: 0, outOfDate: 0 };
+    const mend = [];
+    let considered = 0;
+    for (const [s, rec] of all) {
+      if (rec.fund && !funds) continue;
+      considered += 1;
+      const q = quotes[s];
+      if (!q || !num(q.last) || q.last <= 0) {
+        skipped.noQuote += 1;
+        continue;
+      }
+      const r = resolveSeries(rec, q, cal);
+      if (r.stale) {
+        skipped.outOfDate += 1;
+        mend.push(s);
+        continue;
+      }
+      if (minTurnover > 0 && !(rec.to >= minTurnover)) continue;
+      const series = r.live ? [...r.base, q.last] : r.base;
+      if (!S.passes(series, num(q.changePct) ? q.changePct : NaN, conds)) continue;
+      const rs = S.rsi(series, 14);
+      rows.push({ symbol: s, name: rec.n, last: r2(q.last), changePct: r2(q.changePct), rsi: rs === null ? null : r1(rs), volume: q.volume ?? null, avgTurnoverCr: rec.to, fund: Boolean(rec.fund) });
+    }
+    this._heal(mend);
+    rows.sort((a, b) => (b.avgTurnoverCr || 0) - (a.avgTurnoverCr || 0));
+    return { ready: true, at: new Date(this.market.now()).toISOString(), session: cal.d0, live: cal.after, considered, matched: rows.length, truncated: rows.length > MAX_ROWS, rows: rows.slice(0, MAX_ROWS), skipped, mending: mend.length, conditions: conds.map(S.describe), status: this.status() };
+  }
 }
 
 /** The index's own row: its quote under whichever name Zerodha lists it. */

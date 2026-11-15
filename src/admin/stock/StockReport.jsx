@@ -21,6 +21,7 @@ import Screener from "./analyzer/Screener";
 import Paper from "./paper/Paper";
 import TradeAnalysis from "./analysis/TradeAnalysis";
 import Document from "./docs/Document";
+import AiEngine from "./engine/AiEngine";
 import Debrief from "./analyzer/Debrief";
 import ErrorBoundary from "./analyzer/ErrorBoundary";
 import Account from "./trade/Account";
@@ -50,6 +51,7 @@ const VIEWS = [
   { id: "debrief", label: "Debrief", tip: "After the close: if you had followed every live call by fixed rules, what would today have made or lost? A report card for the desk’s signals — no real trades." },
   { id: "calendar", label: "Calendar", tip: "World clock and upcoming exchange holidays." },
   { id: "analysis", label: "Trade Analysis", superOnly: true, tip: "Every trading day read back: profit, loss, charges and taxes, trades and margin, what went well and what did not — saved by itself at 3:45 PM IST, with analytics over many days." },
+  { id: "engine", label: "AI Engine", tip: "Everything about the AI: every feature, rule and condition — and, for the superadmin, the AI brains (standing instructions every AI feature follows), the real instructions and the skills file. Word download." },
   { id: "document", label: "Document", tip: "The complete guide to this advisor in plain English: every feature, who does what, and every rule — what it does, how and when." },
 ];
 const DOCK_KEY = "vpt.terminal.dock";
@@ -264,6 +266,8 @@ function Terminal() {
               <Paper />
             ) : view === "analysis" ? (
               <TradeAnalysis />
+            ) : view === "engine" ? (
+              <AiEngine />
             ) : view === "document" ? (
               <Document />
             ) : view === "debrief" ? (

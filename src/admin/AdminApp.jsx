@@ -18,6 +18,7 @@ import { Loading } from "./ui";
 import Shell from "./Shell";
 import TipLayer from "./help/TipLayer";
 import { DialogProvider } from "./dialog/DialogProvider";
+import { TempleProvider } from "./temple/Temple";
 
 
 import Login from "./Login";
@@ -174,6 +175,8 @@ export default function AdminApp() {
     <div data-theme="tech" className="adm">
       <AuthContext.Provider value={value}>
         <DialogProvider>
+        {/* the Mandir: devotional audio on every private page, once signed in */}
+        <TempleProvider>
         <Routes>
           <Route path={ADMIN_BASE} element={<Gate><Dashboard /></Gate>} />
           <Route path={`${ADMIN_BASE}/google`} element={<Gate><GoogleSettings /></Gate>} />
@@ -185,6 +188,7 @@ export default function AdminApp() {
           <Route path={`${ADMIN_BASE}/personal-access`} element={<Gate><PersonalAccess /></Gate>} />
           <Route path="*" element={<Navigate to={ADMIN_BASE} replace />} />
         </Routes>
+        </TempleProvider>
         </DialogProvider>
       </AuthContext.Provider>
       {/* hover help: one bubble for every label and button that has an explanation */}

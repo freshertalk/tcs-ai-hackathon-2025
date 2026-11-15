@@ -40,6 +40,9 @@ const { ResearchAuto } = require("./research-auto");
 const { PaperService, PaperError } = require("./paper/service");
 const { DayAnalysis } = require("./analysis/service");
 const { mountAnalysis } = require("./analysis/routes");
+const { Temple, mountTemple } = require("./temple");
+const { Notifier, mountNotify } = require("./notify");
+const { AlertWatch } = require("./alert-watch");
 const { chargeParts } = require("./trading/journal");
 const { TradingService } = require("./trading/service");
 const { mountTrading } = require("./trading/routes");
@@ -633,8 +636,30 @@ function createApp(opts = {}) {
   });
 
   /* ------------------------------------------- stock report: the AI strategist */
-  mountAi(app, { ai, requireAdmin, limiter });
+  mountAi(app, { ai, requireAdmin, requireSuper, limiter });
   mountAnalysis(app, { analysis, requireSuper, limiter });
+
+  /* ------------------------------------------------ the Mandir (devotional audio) */
+  const temple = opts.temple || new Temple({ docs, dir: dataDir });
+  mountTemple(app, { temple, requireAdmin, requireSuper, limiter });
+
+  /* ------------------------------------------------ messages to the owner's phone (Telegram) */
+  const notifier = opts.notifier || new Notifier({ docs, secrets: { encrypt: (t) => encrypt(t, settingsKey), decrypt: (b) => decrypt(b, settingsKey) }, fetchImpl: opts.notifyFetch || globalThis.fetch, now: opts.now, log: opts.log || console });
+  mountNotify(app, { notifier, requireSuper, limiter });
+  const inr = (x) => `${x < 0 ? "−" : x > 0 ? "+" : ""}₹${Math.abs(Math.round(x)).toLocaleString("en-IN")}`;
+  trading.onLock = (lock) => notifier.send(`🛑 Risk guard locked the day: ${lock.reason}
+New trades are refused until tomorrow; exits and cancels still work. (Drishti)`, "risk");
+  analysis.onReport = (d) => {
+    const s = d.summary || {};
+    return notifier.send(`📒 Trade Analysis · ${d.date}
+Net ${inr(s.net || 0)} · profit ${inr(s.grossProfit || 0)} · loss ${inr(-(s.grossLoss || 0))} · charges ${inr(-((s.charges && s.charges.total) || 0))}
+${s.trades || 0} trades, ${s.wins || 0} won · process score ${d.score === null || d.score === undefined ? "—" : d.score}
+(Drishti)`, "dayReport");
+  };
+  // price alerts checked on the server every 15 s in market hours, even with no page open
+  const alertWatch = opts.alertWatchService || new AlertWatch({ market, notifier, now: opts.now, log: opts.log || console });
+  if (opts.alertWatch !== false) alertWatch.start();
+  app.get("/api/admin/market/alerts/watch", requireAdmin, (req, res) => res.json(alertWatch.status()));
 
   // research that runs by itself before the open and after the close (server/research-auto.js)
   const researchAuto = new ResearchAuto({ ai, market, docs: store.docs, now: opts.now, log: opts.log || console });

@@ -282,6 +282,8 @@ class DayAnalysis {
       after.auto = { ...after.auto, done: t.date };
       this._save(after);
     }
+    // the saved report, to the owner's phone when notifications are set up (server/notify.js)
+    if (out && out.summary && typeof this.onReport === "function") Promise.resolve().then(() => this.onReport(out)).catch(() => {});
     return out;
   }
 

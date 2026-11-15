@@ -7,6 +7,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { PARTS, CHAPTERS } from "./chapters";
+import { downloadDocx } from "./docx";
 import "./document.css";
 
 /* ── inline text: **bold**, `code`, and a highlight for the search words ───────────── */
@@ -165,10 +166,14 @@ function Block({ b, words }) {
 
 /* ── the page ──────────────────────────────────────────────────────────────────── */
 
-export default function Document() {
+/**
+ * A long document with a contents list, search, anchors and a Word download. Used by the Document
+ * (the whole manual) and by the AI Engine (everything about the AI).
+ */
+export function DocView({ parts, chapters, kicker, title, lead, endNote, onWord, extra = null }) {
   const [query, setQuery] = useState("");
   const [tocOpen, setTocOpen] = useState(false);
-  const [active, setActive] = useState(CHAPTERS[0].id);
+  const [active, setActive] = useState(chapters[0] ? chapters[0].id : "");
   const [top, setTop] = useState(false);
   const rootRef = useRef(null);
   const tocRef = useRef(null);
@@ -178,12 +183,12 @@ export default function Document() {
   // the searchable text of each chapter, built once
   const index = useMemo(
     () =>
-      CHAPTERS.map((c) => ({
+      chapters.map((c) => ({
         c,
         title: `${c.title} ${c.intro || ""}`.toLowerCase(),
         blocks: c.blocks.map((b) => ({ b, text: blockText(b) })),
       })),
-    []
+    [chapters]
   );
 
   const shown = useMemo(() => {
@@ -250,18 +255,16 @@ export default function Document() {
     }, 30);
   };
 
-  const wordsTotal = useMemo(() => CHAPTERS.reduce((n, c) => n + c.blocks.reduce((m, b) => m + blockText(b).split(/\s+/).length, 0), 0), []);
+  const wordsTotal = useMemo(() => chapters.reduce((n, c) => n + c.blocks.reduce((m, b) => m + blockText(b).split(/\s+/).length, 0), 0), [chapters]);
 
   return (
     <div className="doc" ref={rootRef}>
       <header className="doc-hero">
-        <p className="doc-hero__kicker">The manual</p>
-        <h1>Drishti — the AI Trading Advisor for NSE · complete guide</h1>
-        <p className="doc-hero__lead">
-          This is the one document that explains everything the advisor does: every screen, who does what, and the reasoning behind each number — when it runs, how it is worked out and where it stops. Read it from the top as a story, or search for a word.
-        </p>
+        <p className="doc-hero__kicker">{kicker}</p>
+        <h1>{title}</h1>
+        <p className="doc-hero__lead">{lead}</p>
         <div className="doc-hero__facts">
-          <span><b>{CHAPTERS.length}</b> chapters</span>
+          <span><b>{chapters.length}</b> chapters</span>
           <span><b>{wordsTotal.toLocaleString("en-IN")}</b> words</span>
           <span>Written from the code itself</span>
         </div>
@@ -273,10 +276,16 @@ export default function Document() {
           <button type="button" className="adm-btn doc-tocbtn" aria-expanded={tocOpen} onClick={() => setTocOpen((o) => !o)}>
             Contents
           </button>
+          {onWord && (
+            <button type="button" className="adm-btn doc-printbtn" onClick={onWord} data-tip="Download this document as a Word file (.docx).">
+              Word ⤓
+            </button>
+          )}
           <button type="button" className="adm-btn doc-printbtn" onClick={() => window.print()}>
             Print
           </button>
         </div>
+        {extra}
         {words.length > 0 && (
           <p className="doc-hits" role="status">
             {hits ? `${hits} passage${hits === 1 ? "" : "s"} in ${shown.length} chapter${shown.length === 1 ? "" : "s"}` : "Nothing found — try fewer or simpler words."}
@@ -286,11 +295,11 @@ export default function Document() {
 
       <div className="doc-body">
         <nav ref={tocRef} className={`doc-toc ${tocOpen ? "is-open" : ""}`} aria-label="Contents">
-          {PARTS.map((p) => (
+          {parts.map((p) => (
             <div key={p.id} className="doc-toc__part">
               <h2>{p.title}</h2>
               <ol>
-                {CHAPTERS.filter((c) => c.part === p.id).map((c) => (
+                {chapters.filter((c) => c.part === p.id).map((c) => (
                   <li key={c.id}>
                     <a href={`#doc-${c.id}`} className={active === c.id ? "is-on" : ""} onClick={(e) => { e.preventDefault(); jump(c.id); }}>
                       <span>{c.no}</span>
@@ -318,9 +327,7 @@ export default function Document() {
           ))}
           {!words.length && (
             <footer className="doc-end">
-              <p>
-                That is the whole desk. It is a tool to read the market and keep your own discipline — it never promises a profit and it never decides for you. Every call it makes can be wrong; the stop-loss, the daily limit and your own judgement are what protect your money.
-              </p>
+              <p>{endNote}</p>
             </footer>
           )}
         </article>
@@ -332,5 +339,21 @@ export default function Document() {
         </button>
       )}
     </div>
+  );
+}
+
+/** The whole manual. */
+export default function Document() {
+  const word = () => downloadDocx("Drishti-complete-guide.docx", { title: "Drishti — the AI Trading Advisor for NSE", subtitle: "The complete guide", parts: PARTS, chapters: CHAPTERS });
+  return (
+    <DocView
+      parts={PARTS}
+      chapters={CHAPTERS}
+      kicker="The manual"
+      title="Drishti — the AI Trading Advisor for NSE · complete guide"
+      lead="This is the one document that explains everything the advisor does: every screen, who does what, and the reasoning behind each number — when it runs, how it is worked out and where it stops. Read it from the top as a story, or search for a word."
+      endNote="That is the whole desk. It is a tool to read the market and keep your own discipline — it never promises a profit and it never decides for you. Every call it makes can be wrong; the stop-loss, the daily limit and your own judgement are what protect your money."
+      onWord={word}
+    />
   );
 }

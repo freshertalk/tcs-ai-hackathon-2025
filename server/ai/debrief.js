@@ -261,4 +261,7 @@ class Debrief {
   }
 }
 
+// the owner's AI brains reach these instructions automatically (server/ai/brains.js)
+require("./brains").register("debrief", DEBRIEF_SYSTEM, "Day debrief");
+
 module.exports = { Debrief, DEBRIEF_SYSTEM, DEBRIEF_SCHEMA };

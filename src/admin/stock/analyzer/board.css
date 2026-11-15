@@ -303,3 +303,220 @@
   background: color-mix(in srgb, var(--down) 20%, transparent);
   color: var(--down);
 }
+
+/* ---------------------------------------------------------------- seasonality (Seasonality.jsx) */
+.ssn {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+  min-width: 0;
+}
+.ssn h4 {
+  margin: 6px 0 0;
+}
+.ssn__wrap {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.ssn__t {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 2px;
+  font-size: 0.74rem;
+  font-variant-numeric: tabular-nums;
+}
+.ssn__t th,
+.ssn__t td {
+  padding: 5px 4px;
+  text-align: center;
+  white-space: nowrap;
+  border-radius: 4px;
+}
+.ssn__t th {
+  color: var(--ink-3);
+  font-weight: 600;
+}
+.ssn__t td {
+  color: var(--ink);
+  min-width: 44px;
+}
+.ssn__t tfoot th,
+.ssn__t tfoot td {
+  font-weight: 700;
+}
+.ssn__tot {
+  font-weight: 700;
+}
+.ssn__wd {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ssn__wd li {
+  display: grid;
+  gap: 2px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  text-align: center;
+  font-size: var(--t-small);
+}
+.ssn__wd small {
+  color: var(--ink-3);
+}
+@media (max-width: 520px) {
+  .ssn__wd {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* ---------------------------------------------------------------- heatmap view of the board */
+.mb-view {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.mb-view button {
+  min-height: 30px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink-2);
+  font: inherit;
+  font-size: var(--t-small);
+  cursor: pointer;
+}
+.mb-view button[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
+  color: var(--ink);
+  font-weight: 600;
+}
+.mb-heat {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.mb-heat__t {
+  display: grid;
+  place-content: center;
+  gap: 2px;
+  min-height: 62px;
+  padding: 6px 4px;
+  border: 0;
+  border-radius: 6px;
+  color: var(--ink);
+  font: inherit;
+  text-align: center;
+  cursor: pointer;
+  overflow: hidden;
+}
+.mb-heat__t b {
+  font-size: var(--t-small);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mb-heat__t span {
+  font-size: var(--t-tag);
+  font-variant-numeric: tabular-nums;
+}
+.mb-heat__t:hover,
+.mb-heat__t:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: -2px;
+}
+
+/* ---------------------------------------------------------------- the custom scanner (CustomScan.jsx) */
+.cs {
+  display: grid;
+  gap: 10px;
+}
+.cs-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.cs-saved {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.cs-conds {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.cs-cond {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+  font-size: var(--t-small);
+}
+.cs-cond__k {
+  min-width: 130px;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+.cs-cond__b {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.cs-cond input,
+.cs-cond select,
+.cs-bar select,
+.cs-bar input {
+  min-height: 32px;
+  padding: 0 6px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--t-small);
+}
+.cs-x {
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+.cs-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.cs-liq {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--t-small);
+  color: var(--ink-2);
+}
+.cs-name {
+  flex: 1 1 160px;
+  min-width: 0;
+}

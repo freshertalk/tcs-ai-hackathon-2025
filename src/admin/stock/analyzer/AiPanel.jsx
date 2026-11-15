@@ -457,7 +457,7 @@ export default function AiPanel({ symbol, onSize }) {
         setSkills(d.text);
         setDraft(d.text);
       })
-      .catch((e) => setSkillMsg({ kind: "error", text: e.message }));
+      .catch((e) => setSkillMsg({ kind: "error", text: e.code === "forbidden" ? "The trading-skills file is shown to the superadmin only — in AI Engine → Skills file." : e.message }));
   };
   const saveSkills = (reset) => {
     setSkillMsg({ kind: "", text: "" });

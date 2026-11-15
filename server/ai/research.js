@@ -292,4 +292,8 @@ class Research {
   }
 }
 
+// the owner's AI brains reach these instructions automatically (server/ai/brains.js)
+require("./brains").register("research", RESEARCH_SYSTEM, "Research note (one stock)");
+require("./brains").register("research", SUMMARY_SYSTEM, "Research summary (the whole list)");
+
 module.exports = { Research, RESEARCH_SYSTEM, RESEARCH_SCHEMA, SUMMARY_SCHEMA, sheet };

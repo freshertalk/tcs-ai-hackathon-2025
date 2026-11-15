@@ -4448,3 +4448,38 @@
   padding-left: 18px;
   color: var(--ink-2);
 }
+
+/* several named watchlists (Watchlist.jsx · Lists) */
+.wl__lists {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.wl__lists-row {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  min-width: 0;
+}
+.wl__lists-row select,
+.wl__lists-row input {
+  flex: 1;
+  min-width: 0;
+  min-height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--t-small);
+}
+.wl__lists-row .adm-btn {
+  flex: none;
+  padding-inline: 8px;
+}
+.wl__lists-err {
+  margin: 0;
+  font-size: var(--t-tag);
+  color: var(--down);
+}

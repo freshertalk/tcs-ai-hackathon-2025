@@ -629,3 +629,19 @@ test("security headers on the private area, and request text cannot forge a log 
   assert.equal(logSafe("/api/x\r\n[slow] GET /fake took 0 s"), "/api/x  [slow] GET /fake took 0 s");
   assert.equal(logSafe("a".repeat(500)).length, 200);
 });
+
+test("the pre-trade check adds nudges — the breakeven after charges — and still places nothing", async (t) => {
+  const s = await boot();
+  t.after(s.close);
+  await s.connectKite();
+  const ask = (body) => s.request("POST", "/api/admin/trading/preview", { cookie: s.admin, body });
+  const r = await ask({ exchange: "NSE", symbol: "INFY", side: "BUY", type: "LIMIT", product: "CNC", quantity: 10, price: 1500 });
+  assert.equal(r.status, 200, JSON.stringify(r.json));
+  assert.ok(Array.isArray(r.json.nudges));
+  const be = r.json.nudges.find((n) => /Breakeven after charges/.test(n.text));
+  assert.ok(be, JSON.stringify(r.json.nudges));
+  assert.match(be.text, /₹2\.54 a share/); // 25.36 of charges over 10 shares
+  // an order that only closes what you hold gets no nudges: nothing should slow an exit
+  assert.ok(r.json.nudges.every((n) => n.level === "info" || n.level === "warn"));
+  assert.ok(s.kite.writes().every((w) => w.path === "/margins/orders"), "nothing but the margin calculator was asked");
+});

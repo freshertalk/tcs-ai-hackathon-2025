@@ -138,6 +138,8 @@ class TradingService {
       this._audit("risk guard", "risk-lock", { dayPnl: Math.round(dayPnl) }, { ok: true, reason: lock.reason });
       this.log.log(`[trading] risk guard locked the day: ${lock.reason}`);
       st.lock = lock;
+      // a message to the owner's phone, when notifications are set up (server/notify.js); never blocks
+      if (typeof this.onLock === "function") Promise.resolve().then(() => this.onLock(lock)).catch(() => {});
     }
     return { ...st, config: cfg, openSymbols: [...openSymbols] };
   }
@@ -483,7 +485,68 @@ class TradingService {
       check("risk", false, err.message);
     }
     out.ok = out.checks.every((c) => c.ok);
+    out.nudges = await this._nudges(order, out, refPrice).catch(() => []);
     return out;
+  }
+
+  /**
+   * Warnings at the moment of the order, the way a good desk reminds you (they never block it):
+   * the breakeven after charges, a price close to a circuit limit, a limit far from the last
+   * price, an intraday entry outside the 9:30 AM – 2:45 PM window, an order against the desk's
+   * live call, and a re-entry soon after a loss in the same stock.
+   */
+  async _nudges(order, out, refPrice) {
+    const n = [];
+    const say = (level, text) => n.push({ level, text });
+    const f = order.form;
+    const cash = order.exchange === "NSE" || order.exchange === "BSE";
+    const px = num(f.price) || refPrice || null;
+    if (out.reduces) return n; // closing what you hold: no nudges, nothing should slow an exit
+    if (out.charges && out.charges.total > 0 && order.quantity > 0 && px) {
+      const perShare = out.charges.total / order.quantity;
+      say("info", `Breakeven after charges: the price must move ₹${perShare.toFixed(2)} a share (${((perShare / px) * 100).toFixed(2)}%) in your favour before this trade makes anything.`);
+    }
+    let q = null;
+    if (cash && this.market && this.market.quotes) {
+      try {
+        q = (await this.market.quotes([order.symbol])).quotes[order.symbol] || null;
+      } catch (_) {
+        q = null;
+      }
+    }
+    const last = q && q.last > 0 ? q.last : refPrice;
+    if (q && last) {
+      if (q.upperCircuit > 0 && (q.upperCircuit - last) / last < 0.02) say("warn", `${order.symbol} is within 2% of its upper circuit (₹${q.upperCircuit}). Orders can stop filling there.`);
+      if (q.lowerCircuit > 0 && (last - q.lowerCircuit) / last < 0.02) say("warn", `${order.symbol} is within 2% of its lower circuit (₹${q.lowerCircuit}). Orders can stop filling there.`);
+    }
+    if (last && num(f.price) > 0 && f.order_type === "LIMIT" && Math.abs(num(f.price) - last) / last > 0.03) say("warn", `Your limit price is ${((Math.abs(num(f.price) - last) / last) * 100).toFixed(1)}% away from the last price (₹${last}). Check it is the price you meant.`);
+    if (order.product === "MIS" && cash) {
+      const d = new Date(this.now() + 5.5 * 3600000);
+      const m = d.getUTCHours() * 60 + d.getUTCMinutes();
+      if (m >= 555 && m < 570) say("warn", "The opening range is still forming (9:15–9:30 AM): the desk does not take intraday entries yet.");
+      else if (m >= 885 && m < 930) say("warn", m >= 915 ? "Square-off window: brokers close intraday positions around 3:15–3:20 PM." : "Last hour: the desk takes no fresh intraday entries after 2:45 PM.");
+    }
+    if (cash && this.market && this.market.verdict) {
+      try {
+        const v = await Promise.race([this.market.verdict(order.symbol), new Promise((r) => setTimeout(() => r(null), 2500))]);
+        const st = v && v.day && v.day.available ? v.day.state : "";
+        const buy = order.side === "BUY";
+        if (st && ((buy && /short/.test(st)) || (!buy && /long/.test(st)))) say("warn", `The desk's live call reads the other way (${v.day.headline || st}). Two methods disagreeing is a reason for a smaller size or no trade.`);
+      } catch (_) {
+        /* no live call: no nudge */
+      }
+    }
+    try {
+      const day = new Date(this.now() + 5.5 * 3600000).toISOString().slice(0, 10);
+      const lastLoss = this.journal
+        .trips({})
+        .filter((t) => !t.open && t.symbol === order.symbol && t.net < 0 && new Date(t.exitAt + 5.5 * 3600000).toISOString().slice(0, 10) === day)
+        .sort((a, b) => b.exitAt - a.exitAt)[0];
+      if (lastLoss && this.now() - lastLoss.exitAt < 15 * 60000) say("warn", `You closed ${order.symbol} at a loss ${Math.round((this.now() - lastLoss.exitAt) / 60000)} minutes ago. A quick re-entry after a loss is the classic revenge trade — is this in your plan?`);
+    } catch (_) {
+      /* the journal could not be read: no nudge */
+    }
+    return n;
   }
 
   async place(input, by) {

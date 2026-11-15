@@ -170,7 +170,57 @@ const ORDERS = [
   ["weak", "Weakest"],
 ];
 
-export default function Watchlist({ symbols, quotes, scan, selected, onSelect, onChange, mode, scanning, onRescan }) {
+/** Several named lists: pick one, make a new one, rename or delete it. The open list is "the watchlist". */
+function Lists({ lists, onAction }) {
+  const [edit, setEdit] = useState(null); // null | "create" | "rename"
+  const [name, setName] = useState("");
+  const [err, setErr] = useState("");
+  if (!lists) return null;
+  const cur = lists.lists.find((l) => l.id === lists.active) || lists.lists[0];
+  const go = async (body) => {
+    setErr("");
+    try {
+      await onAction(body);
+      setEdit(null);
+      setName("");
+    } catch (e) {
+      setErr(e.message);
+    }
+  };
+  return (
+    <div className="wl__lists">
+      <div className="wl__lists-row">
+        <select value={cur.id} onChange={(e) => go({ action: "open", id: e.target.value })} aria-label="Watchlist">
+          {lists.lists.map((l) => (
+            <option key={l.id} value={l.id}>
+              {l.name} ({l.count})
+            </option>
+          ))}
+        </select>
+        <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm" onClick={() => { setEdit(edit === "create" ? null : "create"); setName(""); }} disabled={lists.lists.length >= lists.max} data-tip="Make a new, empty list and open it.">
+          + New
+        </button>
+        <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm" onClick={() => { setEdit(edit === "rename" ? null : "rename"); setName(cur.name); }} data-tip="Rename this list." aria-label="Rename this list">
+          ✎
+        </button>
+        <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm" onClick={() => go({ action: "delete", id: cur.id })} disabled={lists.lists.length <= 1} data-tip="Delete this list (its stocks stay elsewhere if they are on other lists)." aria-label="Delete this list">
+          🗑
+        </button>
+      </div>
+      {edit && (
+        <form className="wl__lists-row" onSubmit={(e) => { e.preventDefault(); go(edit === "create" ? { action: "create", name } : { action: "rename", id: cur.id, name }); }}>
+          <input value={name} maxLength={30} onChange={(e) => setName(e.target.value)} placeholder={edit === "create" ? "Name, e.g. Swing ideas" : "New name"} aria-label="List name" autoFocus />
+          <button type="submit" className="adm-btn adm-btn--solid adm-btn--sm">
+            {edit === "create" ? "Create" : "Rename"}
+          </button>
+        </form>
+      )}
+      {err && <p className="wl__lists-err">{err}</p>}
+    </div>
+  );
+}
+
+export default function Watchlist({ symbols, quotes, scan, selected, onSelect, onChange, mode, scanning, onRescan, lists = null, onListAction = null }) {
   const [order, setOrder] = useState("mine");
   const rowFor = (s) => (scan || []).find((r) => r.symbol === s);
   // a live read of each stock against the index: where to look for a long, where for a short
@@ -187,6 +237,7 @@ export default function Watchlist({ symbols, quotes, scan, selected, onSelect, o
         </button>
       </div>
 
+      {mode !== "demo" && lists && onListAction && <Lists lists={lists} onAction={onListAction} />}
       {mode !== "demo" && <SymbolSearch onPick={(s) => onChange([...symbols, s])} disabled={mode !== "kite"} taken={symbols} />}
 
       {hasRadar && (

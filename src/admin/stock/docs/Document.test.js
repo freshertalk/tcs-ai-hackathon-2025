@@ -109,3 +109,49 @@ describe("Document page", () => {
     expect(screen.getByRole("status").textContent).toMatch(/Nothing found/);
   });
 });
+
+describe("Word download", () => {
+  // jsdom (in this test runner) lacks them; every browser has them
+  beforeAll(() => {
+    const u = require("util");
+    if (typeof global.TextEncoder === "undefined") global.TextEncoder = u.TextEncoder;
+    if (typeof global.TextDecoder === "undefined") global.TextDecoder = u.TextDecoder;
+  });
+  // read a stored ZIP back: name → bytes
+  const unzip = (bytes) => {
+    const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    const out = {};
+    let at = 0;
+    while (dv.getUint32(at, true) === 0x04034b50) {
+      const size = dv.getUint32(at + 18, true);
+      const nlen = dv.getUint16(at + 26, true);
+      const xlen = dv.getUint16(at + 28, true);
+      const name = new TextDecoder().decode(bytes.subarray(at + 30, at + 30 + nlen));
+      const start = at + 30 + nlen + xlen;
+      out[name] = { data: bytes.subarray(start, start + size), crc: dv.getUint32(at + 14, true) };
+      at = start + size;
+    }
+    return out;
+  };
+
+  test("CRC-32 is the standard one", () => {
+    const { crc32 } = require("./docx");
+    expect(crc32(new TextEncoder().encode("123456789"))).toBe(0xcbf43926);
+  });
+
+  test("the .docx holds every part Word needs, each well-formed XML, with the chapters in it", () => {
+    const { docxBytes, crc32 } = require("./docx");
+    const bytes = docxBytes({ title: "Drishti — test", subtitle: "Every chapter", parts: PARTS, chapters: CHAPTERS, appendix: [{ title: "Appendix", blocks: [{ pre: "line one\nline <two> & three" }] }] });
+    const files = unzip(bytes);
+    expect(Object.keys(files).sort()).toEqual(["[Content_Types].xml", "_rels/.rels", "docProps/core.xml", "word/_rels/document.xml.rels", "word/document.xml", "word/styles.xml"].sort());
+    Object.entries(files).forEach(([name, f]) => {
+      expect({ name, crc: crc32(f.data) }).toEqual({ name, crc: f.crc });
+      const xml = new TextDecoder().decode(f.data);
+      const doc = new DOMParser().parseFromString(xml, "application/xml");
+      expect({ name, broken: doc.getElementsByTagName("parsererror").length }).toEqual({ name, broken: 0 });
+    });
+    const body = new TextDecoder().decode(files["word/document.xml"].data);
+    CHAPTERS.slice(0, 5).forEach((c) => expect(body).toContain(c.title.replace(/&/g, "&amp;").replace(/</g, "&lt;")));
+    expect(body).toContain("line &lt;two&gt; &amp; three");
+  });
+});

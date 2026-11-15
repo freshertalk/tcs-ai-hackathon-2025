@@ -1,0 +1,405 @@
+/* The Mandir: the floating player (Temple.jsx) and its card on the dashboard (TempleCard.jsx). */
+
+/* ---------------------------------------------------------------- floating player */
+.tp,
+.tp-chip {
+  position: fixed;
+  left: 14px;
+  bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+  z-index: 2500;
+}
+/* above the terminal's bottom bar on phones and tablets */
+body:has(.tm--bnav) .tp,
+body:has(.tm--bnav) .tp-chip {
+  bottom: calc(78px + env(safe-area-inset-bottom, 0px));
+}
+.tp {
+  display: grid;
+  gap: 8px;
+  width: min(250px, calc(100vw - 28px));
+  padding: 10px;
+  border: 1px solid color-mix(in srgb, #e8b84a 45%, var(--line));
+  border-radius: 14px;
+  background:
+    radial-gradient(120% 80% at 50% 0%, rgba(232, 184, 74, 0.16), transparent 60%),
+    color-mix(in srgb, var(--surface) 96%, #2a1a05);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+  color: var(--ink);
+}
+.tp__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.tp__head img {
+  flex: none;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px #d9a93a;
+}
+.tp__title {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  line-height: 1.25;
+}
+.tp__title b {
+  font-size: var(--t-small);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tp__title small {
+  font-size: var(--t-tag);
+  color: var(--ink-3);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.tp__x {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+/* YouTube's player must be at least 200 × 200 while it plays */
+.tp__yt {
+  width: 100%;
+  min-height: 200px;
+  height: 200px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #000;
+}
+.tp__yt iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+.tp__verse {
+  margin: 0;
+  font-size: 0.86rem;
+  line-height: 1.5;
+  text-align: center;
+  color: #e8b84a;
+}
+.tp__err {
+  margin: 0;
+  font-size: var(--t-tag);
+  color: var(--down);
+}
+.tp__ctl {
+  display: grid;
+  grid-template-columns: 44px 36px 1fr 36px;
+  align-items: center;
+  gap: 6px;
+}
+.tp__ctl button {
+  height: 36px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--ink);
+  font-size: 1rem;
+  cursor: pointer;
+}
+.tp__ctl button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.tp__ctl .tp__play {
+  border-color: #d9a93a;
+  background: color-mix(in srgb, #d9a93a 25%, var(--surface-2));
+}
+.tp__vol {
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  font-size: var(--t-small);
+  color: var(--ink-2);
+}
+.tp button:focus-visible,
+.tp-chip:focus-visible {
+  outline: 2px solid #f0c35a;
+  outline-offset: 2px;
+}
+.tp-chip {
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: #1a1005;
+  box-shadow: 0 0 0 2px #d9a93a, 0 8px 24px rgba(0, 0, 0, 0.45);
+  cursor: pointer;
+  overflow: hidden;
+}
+.tp-chip img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.tp-chip.is-on {
+  animation: tp-glow 2.4s ease-in-out infinite;
+}
+@keyframes tp-glow {
+  50% {
+    box-shadow: 0 0 0 2px #f0c35a, 0 0 22px rgba(240, 195, 90, 0.75);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tp-chip.is-on {
+    animation: none;
+  }
+}
+@media print {
+  .tp,
+  .tp-chip {
+    display: none;
+  }
+}
+
+/* ---------------------------------------------------------------- the dashboard card */
+.mdr {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 14px;
+  border: 1px solid color-mix(in srgb, #e8b84a 38%, var(--line));
+  border-radius: 14px;
+  background:
+    radial-gradient(90% 120% at 0% 0%, rgba(232, 184, 74, 0.14), transparent 60%),
+    var(--surface);
+}
+.mdr__top {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+}
+@media (min-width: 760px) {
+  .mdr__top {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+}
+.mdr__img {
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px #d9a93a, 0 0 16px rgba(217, 169, 58, 0.45);
+}
+.mdr__main {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.mdr__main h3 {
+  margin: 0;
+  font-size: var(--t-title);
+}
+.mdr__k {
+  margin: 0;
+  font-size: var(--t-tag);
+  letter-spacing: 0.08em;
+  color: #d9a93a;
+}
+.mdr__state {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--t-small);
+  color: var(--ink-2);
+}
+.mdr__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ink-3);
+}
+.mdr__dot.is-on {
+  background: #2ebd85;
+  box-shadow: 0 0 8px #2ebd85;
+}
+.mdr__ctl {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  grid-column: 1 / -1;
+}
+@media (min-width: 760px) {
+  .mdr__ctl {
+    grid-column: auto;
+  }
+}
+.mdr__verse {
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: color-mix(in srgb, #d9a93a 10%, transparent);
+  color: #e8b84a;
+  text-align: center;
+  line-height: 1.6;
+}
+.mdr__err {
+  margin: 0;
+  font-size: var(--t-small);
+  color: var(--down);
+}
+.mdr-dim {
+  margin: 0;
+  font-size: var(--t-small);
+  color: var(--ink-3);
+  line-height: 1.5;
+}
+.mdr-change {
+  border-top: 1px solid var(--line);
+  padding-top: 8px;
+}
+.mdr-change summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: var(--t-small);
+}
+.mdr-change__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+  margin-top: 10px;
+}
+.mdr-change__grid section {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+}
+.mdr-change h4 {
+  margin: 0;
+  font-size: var(--t-mid);
+}
+.mdr-field {
+  display: grid;
+  gap: 4px;
+  font-size: var(--t-small);
+}
+.mdr-field input[type="text"],
+.mdr-field input:not([type]),
+.mdr-field input[inputmode] {
+  min-height: 38px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--ink);
+  font: inherit;
+}
+.mdr-check {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: var(--t-small);
+}
+.mdr-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.mdr-file {
+  position: relative;
+  overflow: hidden;
+  justify-self: start;
+  cursor: pointer;
+}
+.mdr-file input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.mdr-bar {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.mdr-bar span {
+  display: block;
+  height: 100%;
+  background: #d9a93a;
+}
+
+/* ---------------------------------------------------------------- Telegram card (NotifyCard.jsx) */
+.ntf {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+}
+.ntf__head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: flex-start;
+}
+.ntf__head h3 {
+  margin: 0;
+  font-size: var(--t-title);
+}
+.ntf__head p {
+  margin: 4px 0 0;
+  max-width: 80ch;
+  font-size: var(--t-small);
+  color: var(--ink-2);
+  line-height: 1.5;
+  text-align: justify;
+}
+.ntf__chip {
+  flex: none;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  font-size: var(--t-tag);
+  color: var(--ink-3);
+}
+.ntf__chip.is-on {
+  border-color: #2ebd85;
+  color: #2ebd85;
+}
+.ntf__how summary {
+  cursor: pointer;
+  font-size: var(--t-small);
+  font-weight: 600;
+}
+.ntf__how ol {
+  margin: 6px 0 0;
+  padding-left: 20px;
+  display: grid;
+  gap: 4px;
+  font-size: var(--t-small);
+  color: var(--ink-2);
+}
+.ntf__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+.ntf__grid input {
+  min-height: 38px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--ink);
+  font: inherit;
+}
+.ntf__kinds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}

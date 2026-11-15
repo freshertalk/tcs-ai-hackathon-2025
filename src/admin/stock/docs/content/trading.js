@@ -105,6 +105,8 @@ export const TRADING = [
         ["Limits", "Is it inside the per-order limits?"],
         ["Risk", "Does the risk guard allow it (or is it switched off)?"],
       ] },
+      { h: "Nudges — reminders at the moment of the order" },
+      { p: "Under the pre-trade check the ticket shows reminders (they never block the order, and an order that only closes what you hold gets none): the **breakeven after charges** (Zerodha’s charges ÷ quantity, in rupees and percent); a price within **2%** of a circuit limit; a limit price more than **3%** from the last price; an intraday entry in the first 15 minutes, the last hour or the square-off window; an order **against the desk’s live call**; and a re-entry within **15 minutes** of closing the same stock at a loss (the classic revenge trade). Warnings also appear on the confirm step." },
       { p: "A failed check (other than the switch) is shown as an amber note in the ticket and in the confirm step. **It does not disable the button** — the server enforces the rules regardless. The charges shown are Zerodha’s own calculation for that one order at the price entered; margin changes with price and volatility." },
       { h: "Plan the exit: stop, target and size by risk" },
       { logic: {
@@ -202,6 +204,7 @@ export const TRADING = [
       ] },
       { h: "What you see" },
       { p: "A banner: “Locked for today. <reason> Since <time>. New trades are refused until tomorrow; you can still exit and cancel.” and four gauge bars when the guard is on and Zerodha is connected: Daily loss, Profit lock, Orders today and Open positions — amber at 75% of the limit, red when locked by loss. The order ticket’s pre-trade check shows the guard’s verdict before sending." },
+      { p: "When Telegram is set up, the moment the guard locks the day a message reaches your phone with the reason." },
       { warn: "The guard applies only to orders sent from this site — orders placed in the Kite app are counted in P&L and orders but cannot be blocked. It has no auto-liquidation, and market orders can fill beyond your loss limit." },
     ],
   },
@@ -339,7 +342,7 @@ export const TRADING = [
         ],
         limits: "Re-capturing keeps your notes, hand-entered figures, an earlier AI write-up and an earlier margin when the broker cannot be read again. No holiday skip is wired — on a holiday it finds no trades and saves nothing.",
       } },
-      { p: "**Manual:** “Save today now”, “Save this day” / “Refresh from the journal” inside a day, and “Open any day” with a date picker (not a future day)." },
+      { p: "**Manual:** “Save today now”, “Save this day” / “Refresh from the journal” inside a day, and “Open any day” with a date picker (not a future day). When Telegram is set up, the automatic 3:45 PM report also arrives on your phone: net, profit, loss, charges, trades and the process score." },
       { h: "The definitions used everywhere" },
       { dl: [
         ["Profit", "The sum of round trips that closed **above zero, before charges**."],

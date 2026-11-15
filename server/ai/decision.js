@@ -174,4 +174,7 @@ class Decision {
   }
 }
 
+// the owner's AI brains reach these instructions automatically (server/ai/brains.js)
+require("./brains").register("decision", DECISION_SYSTEM, "AI decision");
+
 module.exports = { Decision, DECISION_SYSTEM, DECISION_SCHEMA, slimProfile, slimEdge };

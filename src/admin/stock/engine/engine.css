@@ -1,0 +1,313 @@
+/* AI Engine (AiEngine.jsx): tabs, brains, the real instructions and the skills file. The
+   explanation itself uses the Document's styles (docs/document.css). */
+
+.eng {
+  display: grid;
+  gap: 12px;
+  max-width: 1280px;
+  margin: 0 auto;
+  min-width: 0;
+}
+.eng-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.eng-tabs > button[aria-pressed] {
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink-2);
+  font: inherit;
+  font-size: var(--t-small);
+  cursor: pointer;
+}
+.eng-tabs > button[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+  color: var(--ink);
+  font-weight: 600;
+}
+.eng-grow {
+  flex: 1;
+}
+.eng-note {
+  margin: 0 4px;
+}
+.eng-dim {
+  margin: 0;
+  font-size: var(--t-small);
+  color: var(--ink-3);
+  line-height: 1.5;
+}
+.eng-card {
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  min-width: 0;
+}
+.eng-card h3 {
+  margin: 0;
+  font-size: var(--t-title);
+}
+.eng-card__h {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+}
+.eng-card__h p {
+  margin: 4px 0 0;
+  max-width: 80ch;
+  color: var(--ink-2);
+  font-size: var(--t-small);
+  line-height: 1.5;
+  text-align: justify;
+}
+.eng-brains {
+  display: grid;
+  gap: 12px;
+}
+.eng-list {
+  display: grid;
+  gap: 10px;
+}
+
+/* the editor */
+.eng-edit {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--line));
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+.eng-edit h4 {
+  margin: 0;
+}
+.eng-field {
+  display: grid;
+  gap: 4px;
+  font-size: var(--t-small);
+}
+.eng-field > span {
+  display: flex;
+  justify-content: space-between;
+  color: var(--ink-2);
+  font-weight: 600;
+}
+.eng-field small {
+  font-weight: 400;
+  color: var(--ink-3);
+}
+.eng-field input,
+.eng-field textarea {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--t-base);
+  line-height: 1.5;
+}
+.eng-scopes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.eng-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: var(--t-small);
+  cursor: pointer;
+}
+.eng-chip.is-on {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--line));
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+}
+.eng-opts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+.eng-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--t-small);
+}
+.eng-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* a brain */
+.eng-brain {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-left: 4px solid #d9a93a;
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+.eng-brain.is-off {
+  opacity: 0.6;
+  border-left-color: var(--ink-3);
+}
+.eng-brain header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.eng-brain h4 {
+  flex: 1;
+  margin: 0;
+  font-size: var(--t-mid);
+}
+.eng-brain__no {
+  display: grid;
+  place-items: center;
+  min-width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: color-mix(in srgb, #d9a93a 22%, transparent);
+  color: #d9a93a;
+  font-weight: 700;
+  font-size: var(--t-small);
+}
+.eng-switch {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  font-size: var(--t-small);
+}
+.eng-brain__text {
+  margin: 0;
+  white-space: pre-wrap;
+  line-height: 1.55;
+  text-align: justify;
+}
+.eng-brain__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0;
+}
+.eng-tag {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  font-size: var(--t-tag);
+}
+.eng-warn {
+  margin: 0;
+  padding: 6px 10px 6px 26px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--warn, #e0a030) 12%, transparent);
+  font-size: var(--t-small);
+}
+.eng-history {
+  margin: 0;
+  padding-left: 20px;
+  display: grid;
+  gap: 6px;
+  font-size: var(--t-small);
+}
+
+/* what the team did */
+.eng-team {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, #2ebd85 45%, var(--line));
+  border-radius: 12px;
+  background: color-mix(in srgb, #2ebd85 8%, var(--surface));
+}
+.eng-team header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+.eng-team p {
+  margin: 0;
+  font-size: var(--t-small);
+}
+.eng-versions {
+  display: grid;
+  gap: 8px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--t-small);
+}
+.eng-versions li {
+  padding: 8px;
+  border-radius: 8px;
+  background: var(--surface);
+}
+.eng-versions li.is-failed {
+  opacity: 0.7;
+}
+
+/* the real instructions */
+.eng-ins {
+  display: grid;
+  gap: 8px;
+}
+.eng-ins__f summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  align-items: baseline;
+  cursor: pointer;
+}
+.eng-ins__f summary small {
+  color: var(--ink-3);
+}
+.eng-ins h5 {
+  margin: 8px 0 4px;
+  font-size: var(--t-small);
+  color: var(--ink-2);
+}
+.eng-ins pre,
+.eng-skills {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--ink);
+  font-family: var(--f-code, ui-monospace, monospace);
+  font-size: 0.82rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 420px;
+  overflow: auto;
+}
+.eng-skills {
+  width: 100%;
+  max-height: none;
+  resize: vertical;
+}

@@ -26,7 +26,7 @@ export const PLATFORM = [
       { p: "Anyone who arrives by chance sees a courteous private notice (“Namaste, and thank you for visiting. This area is a personal workspace…”) and a link to the public website. **No email address appears** on the login page, the header, the footer or in any error. The signed-in person sees their name and a role badge, never an email." },
       { h: "Roles" },
       { table: { label: "Roles", head: ["Role", "Who", "What they can do"], rows: [
-        ["Superadmin", "The one address in `SUPERADMIN_EMAIL`. Recognised by address on every request; it cannot be removed", "Everything an admin can, plus: the Admin users page; Positions and all trading (switch, limits, risk guard, orders, AI coach); the Journal; Trade Analysis; and the automatic-research switch"],
+        ["Superadmin", "The one address in `SUPERADMIN_EMAIL`. Recognised by address on every request; it cannot be removed", "Everything an admin can, plus: the Admin users page; Positions and all trading (switch, limits, risk guard, orders, AI coach); the Journal; Trade Analysis; the automatic-research switch; the AI brains, the real instructions and the trading-skills file (AI Engine); the Telegram card; and changing the Mandir audio"],
         ["Admin", "Addresses the superadmin added", "The dashboard, Google sign-in settings, the AI settings and keys, the whole market side (Desk, Advisor, Research, Screener, Paper, Debrief, Calendar, alerts, Zerodha connect and disconnect, demo switch, watchlist). **No** Positions, Journal, Trade Analysis or Admin users"],
         ["Anyone else", "—", "Nothing"],
       ] } },
@@ -162,6 +162,30 @@ export const PLATFORM = [
     ],
   },
 
+  {
+    id: "mandir",
+    part: "platform",
+    title: "The Mandir — Shri Hanuman Chalisa on every page",
+    intro: "The whole desk rests on Lord Hanuman. Panchmukhi Hanuman Ji is the logo, the Darshan and the tab icon, and Shri Hanuman Chalisa plays softly while the private area is open.",
+    blocks: [
+      { p: "The Panchmukhi Hanuman Ji image is the **logo before “Drishti — the AI Trading Advisor for NSE”** in the header of every private page, the mark in the terminal’s top bar, the Darshan card and the tab icon of the private area. The **Mandir** card under Settings on the dashboard and a small floating player (bottom left) play the devotional audio — by default the owner’s choice, **Shri Hanuman Chalisa** — at a soft **15%** volume. Lines of the Chalisa (Goswami Tulsidas) are shown one at a time." },
+      { h: "Controls" },
+      { ul: [
+        "**Play / Pause**, **Volume − / +** (in steps of 5%), **Fold** the player into a round Hanuman Ji button, and **Close** it for this visit (open it again from the Mandir card).",
+        "A volume set with − and + stays on that device; the owner’s default volume and “start by itself” are set on the Mandir card (superadmin).",
+        "**Browsers allow sound only after the first tap or key press on a page.** Until then the player says “Tap anywhere to begin” and starts on that first touch.",
+        "**Several tabs:** the tab you are using plays and the others wait; when the playing tab closes, another one carries on — never two at once.",
+      ] },
+      { h: "Where the audio comes from" },
+      { table: { label: "Audio sources", head: ["Source", "How it plays", "Internet"], rows: [
+        ["**Uploaded file** (MP3, M4A, OGG, WAV, WEBM or FLAC, up to 40 MB)", "From this server, in the background, on every private page; continues while you move between pages", "Only the first play; the browser keeps it for a week"],
+        ["**Audio link** (https)", "In the background on every private page", "Streams from that address"],
+        ["**YouTube link** (the default: the owner’s Shri Hanuman Chalisa video)", "Through **YouTube’s own embedded player**, which must stay visible (at least 200 × 200) while it plays — folding it pauses it", "Streams from YouTube"],
+      ] } },
+      { warn: "The app never downloads or extracts the audio of a YouTube video: that would break YouTube’s terms and the recording’s copyright. For playback without streaming, upload an audio file you own or are allowed to use — the upload is chunked (2 MB parts), checked to be real audio by its first bytes, and kept on the server; the previous file is removed." },
+      { p: "Changing the audio, the default volume or autoplay is for the superadmin. Everyone signed in can play, pause, fold, close and set their own volume." },
+    ],
+  },
   {
     id: "chart",
     part: "platform",

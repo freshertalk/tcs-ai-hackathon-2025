@@ -194,8 +194,22 @@ export default function Analyzer() {
   const changeList = (next) => {
     setListError("");
     api("/api/admin/market/watchlist", { method: "PUT", body: { symbols: next } })
-      .then((d) => setSymbols(d.watchlist))
+      .then((d) => {
+        setSymbols(d.watchlist);
+        api("/api/admin/market/lists").then((x) => x && Array.isArray(x.lists) && setLists(x)).catch(() => {});
+      })
       .catch((e) => setListError(e.message));
+  };
+  // several named watchlists (not in demo mode): the open one is the watchlist
+  const [lists, setLists] = useState(null);
+  const realMode = status && status.mode !== "demo";
+  useEffect(() => {
+    if (realMode) api("/api/admin/market/lists").then((d) => setLists(d && Array.isArray(d.lists) ? d : null)).catch(() => setLists(null));
+  }, [realMode]);
+  const listAction = async (body) => {
+    const d = await api("/api/admin/market/lists", { method: "POST", body });
+    setLists(d);
+    setSymbols(d.watchlist);
   };
 
   if (error && !status) {
@@ -280,7 +294,7 @@ export default function Analyzer() {
       ) : (
         <div className="an__grid">
           <div>
-            <Watchlist symbols={symbols} quotes={merged} scan={scan.rows} selected={selected} onSelect={pick} onChange={changeList} mode={mode} scanning={scan.loading} onRescan={runScan} />
+            <Watchlist symbols={symbols} quotes={merged} scan={scan.rows} selected={selected} onSelect={pick} onChange={changeList} mode={mode} scanning={scan.loading} onRescan={runScan} lists={lists} onListAction={listAction} />
             <Alert>{listError}</Alert>
           </div>
           <div className="an__main">

@@ -106,6 +106,9 @@ function mountMarket(app, deps) {
 
   app.get("/api/admin/market/watchlist", requireAdmin, wrap(async () => ({ watchlist: market.watchlist() })));
 
+  // several named watchlists: one is open at a time and is "the watchlist" for every engine
+  app.get("/api/admin/market/lists", requireAdmin, wrap(async () => market.lists()));
+  app.post("/api/admin/market/lists", requireAdmin, wrap(async (req) => market.listAction(req.body || {})));
   app.put("/api/admin/market/watchlist", requireAdmin, wrap(async (req) => ({ watchlist: market.setWatchlist((req.body || {}).symbols) })));
 
   app.get("/api/admin/market/quotes", requireAdmin, wrap(async (req) => {
@@ -127,6 +130,11 @@ function mountMarket(app, deps) {
   // top gainers / losers, RSI, VWAP and the day's range for any NSE index in the catalogue (?index=nifty50) — live, or the last session
   app.get("/api/admin/market/screener/board", requireAdmin, limiter(240, 60 * 1000), wrap(async (req) => market.screenerBoard(req.query)));
 
+  // the custom scanner: conditions on daily closes over the Nifty 500, and the saved scans
+  app.post("/api/admin/market/screener/custom", requireAdmin, limiter(60, 60 * 1000), wrap(async (req) => market.screenerCustom(req.body || {})));
+  app.get("/api/admin/market/scans", requireAdmin, wrap(async () => market.scans()));
+  app.post("/api/admin/market/scans", requireAdmin, limiter(60, 15 * 60 * 1000), wrap(async (req) => market.saveScan(req.body || {})));
+  app.delete("/api/admin/market/scans/:id", requireAdmin, wrap(async (req) => market.removeScan(req.params.id)));
   app.get("/api/admin/market/screener/rsi", requireAdmin, limiter(120, 60 * 1000), wrap(async (req) => market.screenerRsi(req.query)));
 
   app.get("/api/admin/market/context", requireAdmin, wrap(async () => market.context()));
@@ -194,6 +202,11 @@ function mountMarket(app, deps) {
 
   app.get("/api/admin/market/signals", requireAdmin, wrap(async (req) => market.signals({ symbol: String(req.query.symbol || "").toUpperCase().slice(0, 25) })));
 
+  // how the stock has done in each month and on each weekday (server/market/seasonality.js)
+  app.get("/api/admin/market/seasonality/:symbol", requireAdmin, wrap(async (req) => {
+    const d = await market.daily(symbolOf(req));
+    return { ...require("./seasonality").seasonality(d.candles), stale: Boolean(d.stale), source: d.source };
+  }));
   app.get("/api/admin/market/analysis/:symbol", requireAdmin, wrap(async (req) => market.analysis(symbolOf(req), { chartBars: req.query.bars })));
 
   app.get("/api/admin/market/verdict/:symbol", requireAdmin, wrap(async (req) => market.verdict(symbolOf(req))));

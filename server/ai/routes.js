@@ -7,7 +7,7 @@ const { AiError } = require("./client");
 const { MarketError, SYMBOL_RE } = require("../market/service");
 const { KiteError } = require("../market/kite");
 
-function mountAi(app, { ai, requireAdmin, limiter }) {
+function mountAi(app, { ai, requireAdmin, requireSuper = requireAdmin, limiter }) {
   const kindOf = (req) => {
     const k = String(req.params.kind || "");
     if (k !== "live" && k !== "research") throw new AiError("Unknown kind: use live or research.", "invalid", 400);
@@ -128,9 +128,9 @@ function mountAi(app, { ai, requireAdmin, limiter }) {
 
   app.get("/api/admin/ai/ensemble/:kind/:symbol", requireAdmin, wrap(async (req) => ({ last: ai.ensemble.last(kindOf(req), symbolOf(req)) })));
 
-  app.get("/api/admin/ai/skills", requireAdmin, wrap(async () => ({ text: ai.playbook.read(), lessons: ai.playbook.lessons().length })));
+  app.get("/api/admin/ai/skills", requireSuper, wrap(async () => ({ text: ai.playbook.read(), lessons: ai.playbook.lessons().length })));
 
-  app.put("/api/admin/ai/skills", requireAdmin, wrap(async (req) => {
+  app.put("/api/admin/ai/skills", requireSuper, wrap(async (req) => {
     try {
       return { text: ai.playbook.write((req.body || {}).text), lessons: ai.playbook.lessons().length };
     } catch (err) {
@@ -138,7 +138,24 @@ function mountAi(app, { ai, requireAdmin, limiter }) {
     }
   }));
 
-  app.post("/api/admin/ai/skills/reset", requireAdmin, wrap(async () => ({ text: ai.playbook.reset(), lessons: 0 })));
+  app.post("/api/admin/ai/skills/reset", requireSuper, wrap(async () => ({ text: ai.playbook.reset(), lessons: 0 })));
+
+  /* ---- AI brains and the AI Engine (superadmin only: the owner's own instructions for the AI) */
+  const by = (req) => (req.user && req.user.email) || "";
+  const idOf = (req) => {
+    const id = String(req.params.id || "");
+    if (!/^[a-f0-9]{12}$/.test(id)) throw new AiError("That is not a brain.", "invalid", 400);
+    return id;
+  };
+  app.get("/api/admin/ai/brains", requireSuper, wrap(async () => ai.brains.list()));
+  // save (new or edited); with refine, the AI team writes it first (this can take a minute or two)
+  app.post("/api/admin/ai/brains", requireSuper, limiter(30, 60 * 60 * 1000), wrap(async (req) => ai.brains.save(req.body || {}, by(req))));
+  app.post("/api/admin/ai/brains/:id/revert", requireSuper, limiter(60, 15 * 60 * 1000), wrap(async (req) => ai.brains.revert(idOf(req), req.body || {}, by(req))));
+  app.put("/api/admin/ai/brains/:id/enabled", requireSuper, limiter(120, 15 * 60 * 1000), wrap(async (req) => ai.brains.setEnabled(idOf(req), (req.body || {}).enabled)));
+  app.post("/api/admin/ai/brains/:id/move", requireSuper, limiter(120, 15 * 60 * 1000), wrap(async (req) => ai.brains.move(idOf(req), (req.body || {}).dir === "up" ? "up" : "down")));
+  app.delete("/api/admin/ai/brains/:id", requireSuper, limiter(60, 15 * 60 * 1000), wrap(async (req) => ai.brains.remove(idOf(req))));
+  // every feature's real instructions as they are sent now, with the brains that are added to them
+  app.get("/api/admin/ai/engine", requireSuper, wrap(async () => ({ features: ai.brains.prompts(), skills: { text: ai.playbook.read(), lessons: ai.playbook.lessons().length }, team: ai.brains.teamStatus() })));
 }
 
 module.exports = { mountAi };

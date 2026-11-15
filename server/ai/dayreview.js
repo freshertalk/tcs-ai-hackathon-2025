@@ -79,4 +79,7 @@ class DayReview {
   }
 }
 
+// the owner's AI brains reach these instructions automatically (server/ai/brains.js)
+require("./brains").register("dayreview", SYSTEM, "Trade Analysis day review");
+
 module.exports = { DayReview, SCHEMA, SYSTEM };

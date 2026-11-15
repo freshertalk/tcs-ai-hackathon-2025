@@ -203,4 +203,7 @@ class Coach {
   }
 }
 
+// the owner's AI brains reach these instructions automatically (server/ai/brains.js)
+require("./brains").register("coach", COACH_SYSTEM, "Position coach");
+
 module.exports = { Coach, COACH_SYSTEM, COACH_SCHEMA };

@@ -10,6 +10,8 @@ import { adminPath } from "./paths";
 import Shell from "./Shell";
 import { useAiStatus } from "./aiStatus";
 import Darshan from "./Darshan";
+import TempleCard from "./temple/TempleCard";
+import NotifyCard from "./NotifyCard";
 import { IconArrow, IconChart, IconKey, IconUsers } from "./icons";
 
 const WORKSPACES = [
@@ -23,6 +25,7 @@ const WORKSPACES = [
   { view: "debrief", label: "Debrief", text: "Today’s calls, replayed" },
   { view: "calendar", label: "Calendar", text: "Holidays and time zones" },
   { view: "analysis", label: "Trade Analysis", text: "Every day: profit, loss, taxes", superOnly: true },
+  { view: "engine", label: "AI Engine", text: "Every AI rule, and the AI brains" },
   { view: "document", label: "Document", text: "The complete guide, in plain English" },
 ];
 const terminal = (view) => `${adminPath("/stock-report")}${view ? `?view=${view}` : ""}`;
@@ -246,6 +249,8 @@ export default function Dashboard() {
               status={ai && { on: ai.configured, label: ai.configured ? "On" : "Off" }}
             />
           </div>
+          {isSuper && <NotifyCard />}
+          <TempleCard />
         </section>
       </div>
     </Shell>

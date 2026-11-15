@@ -86,7 +86,58 @@ function Range({ r }) {
   );
 }
 
+/** The board as a heatmap: one tile per stock, its size by value traded, its colour by the day's change. */
+function Heatmap({ rows, onOpen }) {
+  const max = Math.max(1, ...rows.map((r) => Math.abs(isNum(r.changePct) ? r.changePct : 0)), 2);
+  const vals = rows.map((r) => (isNum(r.turnoverCr) && r.turnoverCr > 0 ? r.turnoverCr : 0.01));
+  const top = Math.max(...vals);
+  return (
+    <div className="mb-heat" role="list" aria-label="Heatmap: size is value traded, colour is the change today">
+      {rows.map((r, i) => {
+        const c = isNum(r.changePct) ? r.changePct : 0;
+        const a = Math.min(1, Math.abs(c) / max);
+        const size = Math.sqrt(vals[i] / top); // area follows value traded
+        return (
+          <button
+            key={r.symbol}
+            type="button"
+            role="listitem"
+            className="mb-heat__t"
+            style={{ flexGrow: Math.max(1, Math.round(size * 12)), flexBasis: `${Math.round(70 + size * 150)}px`, background: c === 0 ? "var(--surface-2)" : `color-mix(in srgb, ${c > 0 ? "var(--up)" : "var(--down)"} ${Math.round(18 + a * 62)}%, var(--surface))` }}
+            onClick={() => onOpen && onOpen(r.symbol)}
+            data-tip={`${r.symbol}: ${c > 0 ? "+" : ""}${num(c, 2)}% · ₹${num(r.last, 2)} · value ₹${num(r.turnoverCr, 1)} Cr`}
+          >
+            <b>{r.symbol}</b>
+            <span>
+              {c > 0 ? "+" : c < 0 ? "−" : ""}
+              {num(Math.abs(c), 2)}%
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+const VIEW_KEY = "vpt.board.view";
+const storedView = () => {
+  try {
+    return window.localStorage.getItem(VIEW_KEY) === "heat" ? "heat" : "table";
+  } catch (_) {
+    return "table";
+  }
+};
+
 export default function MarketBoard({ onOpen }) {
+  const [view, setViewState] = useState(storedView);
+  const setView = (v) => {
+    setViewState(v);
+    try {
+      window.localStorage.setItem(VIEW_KEY, v);
+    } catch (_) {
+      /* remembered for this visit only */
+    }
+  };
   const [b, setB] = useState(null);
   const [err, setErr] = useState("");
   const [tab, setTab] = useState(() => {
@@ -257,6 +308,14 @@ export default function MarketBoard({ onOpen }) {
           </button>
         ))}
         <input className="mb-find" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Filter by symbol or name" aria-label="Filter the board" spellCheck="false" />
+        <span className="mb-view" role="group" aria-label="View">
+          <button type="button" aria-pressed={view === "table"} onClick={() => setView("table")}>
+            Table
+          </button>
+          <button type="button" aria-pressed={view === "heat"} onClick={() => setView("heat")} data-tip="One tile per stock: its size is the value traded, its colour the change today.">
+            Heatmap
+          </button>
+        </span>
       </div>
 
       <div className="mb-ai-bar">
@@ -291,6 +350,8 @@ export default function MarketBoard({ onOpen }) {
 
       {rows.length === 0 ? (
         <p className="vd-note">No stock fits “{def.label}” right now.</p>
+      ) : view === "heat" ? (
+        <Heatmap rows={rows} onOpen={onOpen} />
       ) : (
         <div className="mb-scroll">
           <table className="an-table mb-table">

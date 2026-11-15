@@ -448,4 +448,7 @@ class Copilot {
   }
 }
 
+// the owner's AI brains reach these instructions automatically (server/ai/brains.js)
+require("./brains").register("copilot", LIVE_SYSTEM, "Live co-pilot");
+
 module.exports = { Copilot, LIVE_SYSTEM, LIVE_SCHEMA, REASONS, SCORE_AFTER_MIN, FLAT_PCT, DEFAULTS };

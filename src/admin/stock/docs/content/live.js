@@ -173,7 +173,17 @@ export const LIVE = [
         "Up to **60 waiting** alerts; the same waiting alert twice is refused; the latest 40 fired ones are kept. They are stored in the database, so they show on every device.",
         "**Firing:** while a terminal tab is open, live ticks are checked once a second; if the stream is off, quotes are polled every **15 seconds** (skipped while the tab is hidden). “Above” fires at or above the level, “below” at or below. The server records it once, so a second tab or device does not sound it again. You get a two-tone beep, a browser notification (if allowed) and a 15-second toast.",
       ] },
-      { warn: "Alerts are watched only while a terminal tab is open — there is no server-side watching." },
+      { logic: {
+        title: "Alerts that fire with no page open",
+        who: "The server’s alert watcher (outside the AI folder).",
+        when: "Every **15 seconds** on weekdays from 9:15 AM to 3:30 PM IST, while Zerodha is connected and alerts are waiting.",
+        steps: [
+          "It reads the quotes of the waiting alerts’ stocks and records a crossing **once** — the same record an open page uses, so nothing fires twice.",
+          "If Telegram is set up (the “Alerts on your phone” card under Settings), it sends the message: the stock, the price, the level and your note.",
+          "An open terminal shows alerts the server fired within the last 5 minutes as the usual toast, sound and notification (it re-reads the alerts every 30 seconds).",
+        ],
+        limits: "Exchange holidays are not known (a holiday simply has no moves). Nothing is traded — an alert is a message.",
+      } },
     ],
   },
 

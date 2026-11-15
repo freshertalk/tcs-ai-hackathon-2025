@@ -23,6 +23,7 @@ const crypto = require("crypto");
 const { AiError } = require("./client");
 const { PROVIDERS, providerOf, DEFAULT_PROVIDER, SEARCH_ORDER, checkKey, makeClient } = require("./providers");
 const { Playbook } = require("./playbook");
+const { Brains } = require("./brains");
 const { Journal, scorePlan, summarize, summarizeByModel, SWING_MAX_BARS } = require("./journal");
 const { Copilot } = require("./copilot");
 const { Debrief } = require("./debrief");
@@ -307,6 +308,7 @@ class AiService {
     this.decision = new Decision(this, checkPlan);
     this.dayReview = new DayReview(this); // Trade Analysis: one day's report, explained
     this.ensemble = new Ensemble(this, { checkPlan }); // AI Live / AI Research: the analysts, weighed with the desk's own arithmetic
+    this.brains = new Brains({ ai: this, docs: this.docs, now: this.now }); // the owner's standing instructions, added to every AI feature they belong to
   }
 
   /* ------------------------------------------------------------ settings */
@@ -526,7 +528,7 @@ class AiService {
     const pid = this._provider();
     const key = this._key(pid);
     if (!key) throw new AiError(`The AI strategist is not set up. Add ${providerOf(pid).name}'s API key in the AI settings.`, "not_configured", 409);
-    return makeClient({ providerId: pid, apiKey: key, model: model && this.validModel(pid, model) ? model : this._modelOf(pid), fetchImpl: this.fetch });
+    return this.brains.wrap(makeClient({ providerId: pid, apiKey: key, model: model && this.validModel(pid, model) ? model : this._modelOf(pid), fetchImpl: this.fetch }));
   }
 
   /** A client that can search the web: the company in use when it can, else one with a saved key that can. */
@@ -536,7 +538,7 @@ class AiService {
     if (!this._key(pid)) return this._client(); // the usual "not set up" message
     if (!by && providerOf(pid).free) throw new AiError("The free NVIDIA-hosted models have no web search, and while one is in use the app never borrows a paid company's key, so nothing is billed. The world brief and the news check need Anthropic, OpenAI or Gemini picked as the company.", "no_search", 409);
     if (!by) throw new AiError(`${providerOf(pid).name} has no web search in its API. The world brief and the news check need Anthropic, OpenAI or Gemini — save a key for one of them in the AI settings (the strategist can stay on ${providerOf(pid).name}).`, "no_search", 409);
-    return by === pid ? this._client() : makeClient({ providerId: by, apiKey: this._key(by), model: this._modelOf(by), fetchImpl: this.fetch });
+    return by === pid ? this._client() : this.brains.wrap(makeClient({ providerId: by, apiKey: this._key(by), model: this._modelOf(by), fetchImpl: this.fetch }));
   }
 
   async test(provider) {
@@ -944,5 +946,9 @@ class AiService {
     return { entries: this.journal.list({ symbol, limit }), stats: summarize(this.journal.all().filter((e) => e.source === "kite" && (!symbol || e.symbol === symbol))) };
   }
 }
+
+// the owner's AI brains reach these instructions automatically (server/ai/brains.js)
+require("./brains").register("strategist", SYSTEM, "AI strategist");
+require("./brains").register("learn", LEARN_SYSTEM, "Score & learn");
 
 module.exports = { AiService, AiError, checkPlan, SYSTEM, STRATEGY_SCHEMA, HORIZONS };

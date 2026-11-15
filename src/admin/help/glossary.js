@@ -468,6 +468,17 @@ const ENTRIES = [
   [["Entry", "Stop", "Targets", "Reward : risk"], "The plan for this direction, taken from the stock's own levels.", ".dir"],
   [["Time zone converter"], "Pick a date and time in one zone and see it in another. Every zone in the world, with daylight saving."],
 
+  /* ---- AI Engine, Mandir, new tools */
+  [["AI Engine"], "Everything about the AI: every feature, rule and condition — and, for the superadmin, the AI brains, the real instructions and the skills file. Word download."],
+  [["Brains", "+ Add a brain"], "Standing instructions for the AI. From the next request on, every AI feature a brain belongs to follows it. The AI team writes and places each one; only the superadmin sees them."],
+  [["Real instructions"], "Word for word, what each AI feature sends the AI now — its own instructions, then the brains added to it."],
+  [["Use my wording"], "Put back the words you wrote, instead of the AI team's version."],
+  [["Download Word ⤓", "Word ⤓"], "Download this page as a Word file (.docx)."],
+  [["Heatmap"], "One tile per stock: size by value traded, colour by today's change. Click a tile to open the stock."],
+  [["Custom scanner · NIFTY 500"], "Your own conditions over the Nifty 500's daily closes, with today's live price. All conditions must hold."],
+  [["Alerts on your phone (Telegram)"], "Price alerts the server sees with no page open, the risk guard locking the day and the 3:45 PM report, as Telegram messages."],
+  [["Seasonality — month by month"], "Each calendar month's return, year by year, with the average and how often it rose. A past frequency, not a forecast."],
+
   /* ---- Document */
   [["Document", "Drishti — the complete guide"], "The complete guide to this advisor in plain English: every feature, who does what, and every rule — what it does, how and when. Search it, or read it from the top."],
   [["How it works"], "One business rule in full: who does it, when, the steps, and its honest limits."],

@@ -293,6 +293,30 @@ fills (`source: "manual"`, ids `m:<batch>:1|2`) that pair, get the estimated cha
 on hover, focus or click, shows Profit / loss, Taxes and Brokerage + taxes for the day (the calendar days now carry `charges`,
 `brokerage` and `taxes`).
 
+**AI Engine and AI brains (the workspace before Document; a tile on `/me`; `src/admin/stock/engine/`, `server/ai/brains.js`).**
+Every AI feature, rule and condition in plain English (the AI chapters of the Document plus two of its own), and — for the
+superadmin only — **AI brains**: standing instructions added to the system prompt of every AI feature in their scope, from the
+next request on. Each AI file registers its system prompt(s) with `brains.register(feature, SYSTEM)`; the clients from
+`ai._client()` and the ensemble's analysts are wrapped (`brains.wrap`) so `ask()` appends the brains of that feature.
+Saving with "Let the AI team refine it" runs every free NVIDIA model in parallel (plus the paid lead when it is on, counted in
+the AI Live daily cap), then one model merges the versions and chooses the scopes; the owner's wording is kept ("Use my wording").
+The page also shows each feature's real instructions word for word and edits the trading-skills file (now superadmin-only), and
+downloads everything as a real .docx made in the browser (`docs/docx.js`: a stored ZIP, no library). The Document has the
+same Word download.
+
+**The Mandir (`server/temple.js`, `src/admin/temple/`).** Shri Hanuman Chalisa at 15% on every private page, with play,
+pause, volume, fold and close (one tab plays at a time; browsers need a first tap). Sources: an uploaded audio file (chunked
+upload, kept in `server/data/media`, served to signed-in people with a week of browser caching), an https audio link, or a
+YouTube link played through YouTube's own embedded player (visible while playing; its audio is never downloaded or extracted).
+The Panchmukhi Hanuman Ji logo stands before the name in the header.
+
+**Advisor tools from the comparison with other products (2026-11-15).** Price alerts checked on the server every 15 s in
+market hours (`server/alert-watch.js`) with Telegram messages (`server/notify.js`; token encrypted; also the risk-guard lock
+and the 3:45 PM report); a custom scanner over the Nifty 500 (`server/market/scanner.js`, saved scans in `market/scans.json`);
+up to 10 named watchlists (the open one is "the watchlist"); a heatmap view of the market board; seasonality on the History
+tab (`server/market/seasonality.js`); and nudges on the order ticket (breakeven after charges, circuits, far limits, the entry
+window, the live call, revenge re-entries) from `TradingService._nudges`.
+
 **Document (the workspace after Trade Analysis; a tile in the Stock Report section of `/me`; `src/admin/stock/docs/`).**
 The manual of the whole advisor in plain English — "the bible": what Drishti is, a map of every part with its name, a
 day with the advisor, then every engine and business rule (what it does, how and when) for the market readings,

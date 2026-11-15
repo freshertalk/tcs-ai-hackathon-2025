@@ -423,7 +423,7 @@ export default function StockView({ symbol, quote, status, streaming = false, in
           {tab === "size" && <PositionSizer seed={seed || { entry: px, stop: a.levels.atr ? Math.round((px - 1.5 * a.levels.atr.value) * 100) / 100 : null, at: symbol }} />}
           {tab === "ai" && <AiPanel symbol={symbol} onSize={sizeThis} />}
           {tab === "backtest" && <BacktestPanel symbol={symbol} />}
-          {tab === "history" && <History a={a} />}
+          {tab === "history" && <History a={a} symbol={symbol} />}
           {tab === "behaviour" && <Behaviour symbol={symbol} />}
         </div>
       </div>

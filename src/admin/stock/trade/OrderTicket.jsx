@@ -308,6 +308,12 @@ export default function OrderTicket({ prefill, enabled, connected, limits, onClo
                 {c.text}
               </p>
             ))}
+            {check && (check.nudges || []).map((x) => (
+              <p key={x.text} className={`tr-note ${x.level === "warn" ? "is-warn" : ""}`} data-tip="A reminder at the moment of the order. It never blocks it.">
+                {x.level === "warn" ? "⚠ " : ""}
+                {x.text}
+              </p>
+            ))}
 
             {(problem || blocked || (overLimit && !check) || error) && (
               <p className={`tr-note ${error || blocked ? "is-bad" : "is-warn"}`} role="alert">
@@ -329,6 +335,11 @@ export default function OrderTicket({ prefill, enabled, connected, limits, onClo
             {failed.map((c) => (
               <p key={c.id} className="tr-note is-warn">
                 {c.text}
+              </p>
+            ))}
+            {check && (check.nudges || []).filter((x) => x.level === "warn").map((x) => (
+              <p key={x.text} className="tr-note is-warn">
+                ⚠ {x.text}
               </p>
             ))}
             {planOut && pn && (

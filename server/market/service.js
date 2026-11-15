@@ -63,6 +63,7 @@ const HISTORY_DAYS = 3650; // ~10 years of daily bars
 const CHUNK_DAYS = 1800; // per historical request
 const DAILY_WAIT_MS = 2500; // how long a page waits on a daily top-up before it is shown the saved copy
 const SYMBOL_RE = /^[A-Z0-9][A-Z0-9&._ -]{0,24}$/;
+const MAX_LISTS = 10; // named watchlists
 const MAX_WATCHLIST = 40;
 const INDEX_SYMBOL = "NIFTY 50";
 
@@ -402,8 +403,71 @@ class MarketService {
       // keep the other mode's symbols untouched
       const others = (d.market.watchlist || []).filter((s) => demo.isDemoSymbol(s) !== demoMode);
       d.market.watchlist = [...others, ...clean.filter((s) => demo.isDemoSymbol(s) === demoMode)];
+      // the list that is open follows every edit
+      if (!demoMode && Array.isArray(d.market.lists)) {
+        const act = d.market.lists.find((l) => l.id === d.market.activeList) || d.market.lists[0];
+        if (act) act.symbols = d.market.watchlist.filter((s) => !demo.isDemoSymbol(s));
+      }
     });
     return this.watchlist();
+  }
+
+  /* -------------------------------------------------- several named watchlists */
+  // One list is open at a time; the open list is "the watchlist" every engine reads (scan,
+  // Advisor, Debrief, Paper, Research). Switching lists swaps which symbols that is.
+
+  lists() {
+    const m = this.store.data.market || {};
+    const real = (m.watchlist || []).filter((s) => !demo.isDemoSymbol(s));
+    const lists = Array.isArray(m.lists) && m.lists.length ? m.lists : [{ id: "main", name: "Main", symbols: real }];
+    const active = lists.some((l) => l.id === m.activeList) ? m.activeList : lists[0].id;
+    return { lists: lists.map((l) => ({ id: l.id, name: l.name, symbols: l.id === active ? real : l.symbols || [], count: (l.id === active ? real : l.symbols || []).length })), active, max: MAX_LISTS };
+  }
+
+  listAction({ action, id, name } = {}) {
+    if (this.mode() === "demo") throw new MarketError("Demo mode has one list of demo stocks.", "invalid");
+    const cur = this.lists();
+    const clean = String(name || "").trim().replace(/\s+/g, " ").slice(0, 30);
+    const exists = (x) => cur.lists.find((l) => l.id === x);
+    this.store.update((d) => {
+      const m = d.market;
+      const real = (m.watchlist || []).filter((s) => !demo.isDemoSymbol(s));
+      const demos = (m.watchlist || []).filter((s) => demo.isDemoSymbol(s));
+      let lists = cur.lists.map((l) => ({ id: l.id, name: l.name, symbols: l.id === cur.active ? real : l.symbols }));
+      let active = cur.active;
+      const open = (to) => {
+        lists = lists.map((l) => (l.id === active ? { ...l, symbols: real } : l));
+        active = to;
+        m.watchlist = [...demos, ...(lists.find((l) => l.id === to).symbols || [])];
+      };
+      if (action === "create") {
+        if (!clean) throw new MarketError("Give the list a name.", "invalid");
+        if (lists.length >= MAX_LISTS) throw new MarketError(`You can keep up to ${MAX_LISTS} lists.`, "invalid");
+        if (lists.some((l) => l.name.toLowerCase() === clean.toLowerCase())) throw new MarketError("A list with that name exists.", "invalid");
+        const nid = `l${this.now().toString(36)}`;
+        lists.push({ id: nid, name: clean, symbols: [] });
+        open(nid);
+      } else if (action === "rename") {
+        if (!exists(id)) throw new MarketError("That list is not there any more.", "not_found", 404);
+        if (!clean) throw new MarketError("Give the list a name.", "invalid");
+        lists = lists.map((l) => (l.id === id ? { ...l, name: clean } : l));
+      } else if (action === "delete") {
+        if (!exists(id)) throw new MarketError("That list is not there any more.", "not_found", 404);
+        if (lists.length <= 1) throw new MarketError("The last list cannot be deleted.", "invalid");
+        const wasOpen = id === active;
+        lists = lists.filter((l) => l.id !== id);
+        if (wasOpen) {
+          active = lists[0].id;
+          m.watchlist = [...demos, ...(lists[0].symbols || [])];
+        }
+      } else if (action === "open") {
+        if (!exists(id)) throw new MarketError("That list is not there any more.", "not_found", 404);
+        if (id !== active) open(id);
+      } else throw new MarketError("Unknown action.", "invalid");
+      m.lists = lists;
+      m.activeList = active;
+    });
+    return { ...this.lists(), watchlist: this.watchlist() };
   }
 
   /* ---------------------------------------------------------------- candles */
@@ -1076,6 +1140,46 @@ class MarketService {
       if (err instanceof MarketError || err instanceof KiteError) throw err;
       throw new MarketError(err && err.message ? err.message : "The screener could not run.", "screener_failed", 502);
     }
+  }
+
+  /** The custom scanner over the Nifty 500 (market/scanner.js). */
+  async screenerCustom(body = {}) {
+    if (this.mode() !== "kite") throw new MarketError("The scanner needs the Zerodha connection: every stock's price comes from it.", "not_connected", 409);
+    try {
+      const to = Number(body.minTurnover);
+      return await this.universe.customScan({ conditions: body.conditions, minTurnover: Number.isFinite(to) && to > 0 ? to : 0, funds: body.funds === true });
+    } catch (err) {
+      if (err instanceof MarketError || err instanceof KiteError) throw err;
+      throw new MarketError(err && err.message ? err.message : "The scanner could not run.", "invalid", 400);
+    }
+  }
+
+  /** Saved scans: a name and its conditions (up to 20). */
+  scans() {
+    const list = this.store.docs.read("market/scans.json", []);
+    return { scans: Array.isArray(list) ? list : [] };
+  }
+
+  saveScan({ name, conditions } = {}) {
+    const S = require("./scanner");
+    const clean = String(name || "").trim().slice(0, 60);
+    if (!clean) throw new MarketError("Give the scan a name.", "invalid");
+    let conds;
+    try {
+      conds = S.validate(conditions);
+    } catch (err) {
+      throw new MarketError(err.message, "invalid");
+    }
+    const list = this.scans().scans.filter((x) => x.name.toLowerCase() !== clean.toLowerCase());
+    if (list.length >= 20) throw new MarketError("You can keep up to 20 scans. Delete one first.", "invalid");
+    const scan = { id: `s${this.now().toString(36)}`, name: clean, conditions: conds, savedAt: new Date(this.now()).toISOString() };
+    this.store.docs.write("market/scans.json", [scan, ...list]);
+    return this.scans();
+  }
+
+  removeScan(id) {
+    this.store.docs.write("market/scans.json", this.scans().scans.filter((x) => x.id !== String(id)));
+    return this.scans();
   }
 
   /* --------------------------------------------------------- market context */

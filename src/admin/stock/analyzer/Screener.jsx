@@ -10,6 +10,7 @@ import { Alert, Loading } from "../../ui";
 import { clock, compact, day, inr, isNum, num, pct, when } from "./format";
 import "./analyzer.css";
 import MarketBoard from "./MarketBoard";
+import CustomScan from "./CustomScan";
 
 const CONDITIONS = [
   { id: "about", label: "about (± 2)" },
@@ -149,6 +150,7 @@ export default function Screener({ onOpen }) {
   return (
     <div className="scr">
       <MarketBoard onOpen={onOpen} />
+      <CustomScan onOpen={onOpen} />
       <section className="an-card">
         <header className="an-card__head">
           <div>

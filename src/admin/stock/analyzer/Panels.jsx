@@ -1,5 +1,6 @@
 import React from "react";
 import { compact, day, inr, isNum, num, pct, tone } from "./format";
+import Seasonality from "./Seasonality";
 
 /* ------------------------------------------------------------ score card */
 
@@ -365,7 +366,7 @@ export function Indicators({ ind, liquidity, volatilityPct }) {
 
 /* --------------------------------------------------------------- history */
 
-export function History({ a }) {
+export function History({ a, symbol }) {
   const r = a.returns;
   const cells = [
     ["1 day", r.d1],
@@ -412,6 +413,8 @@ export function History({ a }) {
         ))}
       </ul>
       <p className="adm-small">* part of a year: the first year starts where the data starts, the latest year is still running.</p>
+
+      {symbol && <Seasonality symbol={symbol} />}
 
       <div className="an-two">
         <div>

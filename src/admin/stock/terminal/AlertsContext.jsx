@@ -22,16 +22,29 @@ export function AlertsProvider({ children }) {
   const firing = useRef(new Set());
   const noteTimer = useRef(null);
 
+  // alerts the server fired while this page was not looking (server/alert-watch.js): announced once
+  const seenFired = useRef(null);
+  const announce = useRef(() => {});
   const reload = useCallback(
     () =>
       api("/api/admin/market/alerts")
-        .then((d) => setAlerts(d.alerts || []))
+        .then((d) => {
+          const list = d.alerts || [];
+          const fired = list.filter((x) => x.firedAt);
+          if (seenFired.current === null) seenFired.current = new Set(fired.map((x) => x.id));
+          else {
+            const fresh = fired.filter((x) => !seenFired.current.has(x.id) && !firing.current.has(x.id) && Date.now() - Date.parse(x.firedAt) < 5 * 60000);
+            fired.forEach((x) => seenFired.current.add(x.id));
+            fresh.forEach((x) => announce.current(x));
+          }
+          setAlerts(list);
+        })
         .catch(() => {}),
     []
   );
   useEffect(() => {
     reload();
-    const id = setInterval(reload, 60000); // an alert set on another device shows up here too
+    const id = setInterval(reload, 30000); // an alert set (or fired by the server) elsewhere shows up here too
     return () => clearInterval(id);
   }, [reload]);
   useEffect(() => () => clearTimeout(noteTimer.current), []);
@@ -47,6 +60,12 @@ export function AlertsProvider({ children }) {
     clearTimeout(noteTimer.current);
     noteTimer.current = setTimeout(() => setNote(null), 15000);
   }, []);
+  announce.current = (a) => {
+    beep();
+    const text = `${alertText(a)} — reached ₹${a.firedPrice}${a.note ? ` · ${a.note}` : ""} (seen by the server)`;
+    notify(`Price alert: ${a.symbol}`, text);
+    say(text);
+  };
 
   const check = useCallback(
     (priceOf) => {

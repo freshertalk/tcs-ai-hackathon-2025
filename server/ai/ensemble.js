@@ -636,7 +636,8 @@ class Ensemble {
           job.analysts[i].status = "reading";
           const t0 = Date.now();
           try {
-            const client = makeClient({ providerId: a.provider, apiKey: ai._key(a.provider), model: a.model, fetchImpl: ai.fetch, timeoutMs: (a.lead ? Math.max(sec, 120) : sec) * 1000, repair: false });
+            const raw = makeClient({ providerId: a.provider, apiKey: ai._key(a.provider), model: a.model, fetchImpl: ai.fetch, timeoutMs: (a.lead ? Math.max(sec, 120) : sec) * 1000, repair: false });
+            const client = ai.brains ? ai.brains.wrap(raw) : raw; // the owner's brains for AI Live / AI Research
             const r = await client.ask({ system, user, schema, maxTokens: 3500, effort: "low" });
             const v = { ...cleanVote(r.data), id: a.id, name: a.name, company: a.company, free: a.free, lead: Boolean(a.lead), usage: r.usage, ms: Date.now() - t0 };
             votes.push(v);
@@ -774,5 +775,9 @@ class Ensemble {
     return this._recordRows(this._state());
   }
 }
+
+// the owner's AI brains reach these instructions automatically (server/ai/brains.js)
+require("./brains").register("ensemble-live", LIVE_SYSTEM, "AI Live analysts");
+require("./brains").register("ensemble-research", RESEARCH_SYSTEM, "AI Research analysts");
 
 module.exports = { Ensemble, combine, weigh, cleanVote, consensusPlan, sanePlan, judge, weightFromRecord, LIVE_SCHEMA, RESEARCH_SCHEMA, LIVE_SYSTEM, RESEARCH_SYSTEM };
