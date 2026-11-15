@@ -1133,10 +1133,10 @@
 }
 
 /* ---- AI research, shared (ResearchPanel.jsx): the top bar's panel, read from every workspace */
-.rs {
+.shr {
   width: min(520px, calc(100vw - 24px));
 }
-.rs-tabs {
+.shr-tabs {
   display: inline-flex;
   gap: 2px;
   padding: 2px;
@@ -1145,7 +1145,7 @@
   background: var(--surface-2);
   justify-self: start;
 }
-.rs-tabs button {
+.shr-tabs button {
   min-height: 30px;
   padding: 2px 12px;
   border: 0;
@@ -1156,25 +1156,25 @@
   font-size: var(--t-small);
   cursor: pointer;
 }
-.rs-tabs button[aria-selected="true"] {
+.shr-tabs button[aria-selected="true"] {
   background: var(--surface);
   color: var(--ink);
   font-weight: 600;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
 }
-.rs-dim {
+.shr-dim {
   font-size: var(--t-small);
   color: var(--ink-3);
   line-height: 1.5;
 }
-.rs-list {
+.shr-list {
   display: grid;
   gap: 8px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
-.rs-f {
+.shr-f {
   display: grid;
   gap: 4px;
   padding: 9px 11px;
@@ -1186,45 +1186,45 @@
   color: var(--ink-2);
   line-height: 1.5;
 }
-.rs-f.is-old {
+.shr-f.is-old {
   border-left-color: var(--line-2);
 }
-.rs-f header {
+.shr-f header {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
   gap: 2px 8px;
 }
-.rs-f header b {
+.shr-f header b {
   color: var(--ink);
 }
-.rs-f header span {
+.shr-f header span {
   color: var(--ink-3);
 }
-.rs-f__sym {
+.shr-f__sym {
   padding: 0 6px;
   border: 1px solid var(--line-2);
   border-radius: 6px;
   background: var(--surface);
 }
-.rs-f p {
+.shr-f p {
   margin: 0;
   color: var(--ink);
 }
-.rs-f__facts {
+.shr-f__facts {
   display: flex;
   flex-wrap: wrap;
   gap: 2px 12px;
   color: var(--ink-2) !important;
 }
-.rs-f__facts b {
+.shr-f__facts b {
   color: var(--ink);
   font-variant-numeric: tabular-nums;
 }
-.rs-f__check {
+.shr-f__check {
   color: var(--up-ink) !important;
 }
-.rs-tag {
+.shr-tag {
   padding: 0 6px;
   border: 1px solid var(--line-2);
   border-radius: 6px;
@@ -1232,26 +1232,26 @@
   font-size: var(--t-tag);
   color: var(--ink-3);
 }
-.rs-tag.is-warn {
+.shr-tag.is-warn {
   border-color: var(--warn-line);
   background: var(--warn-bg);
   color: var(--warn-ink);
 }
-.rs-row {
+.shr-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   margin: 0;
 }
-.rs-learn {
+.shr-learn {
   display: grid;
   gap: 8px;
 }
-.rs-learn h4 {
+.shr-learn h4 {
   margin: 4px 0 0;
 }
-.rs-sr {
+.shr-sr {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -1259,20 +1259,20 @@
   clip-path: inset(50%);
   white-space: nowrap;
 }
-.rs-table {
+.shr-table {
   width: 100%;
   border-collapse: collapse;
   font-size: var(--t-small);
   color: var(--ink-2);
 }
-.rs-table th,
-.rs-table td {
+.shr-table th,
+.shr-table td {
   padding: 5px 6px;
   border-top: 1px solid var(--line);
   text-align: left;
   font-weight: 400;
 }
-.rs-table thead th {
+.shr-table thead th {
   border-top: 0;
   font-size: var(--t-tag);
   font-weight: 600;
@@ -1280,15 +1280,15 @@
   letter-spacing: 0.04em;
   color: var(--ink-3);
 }
-.rs-table tbody th {
+.shr-table tbody th {
   color: var(--ink);
 }
-.rs-table .is-num {
+.shr-table .is-num {
   text-align: right;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
-.rs-bar {
+.shr-bar {
   position: relative;
   display: block;
   width: 110px;
@@ -1297,13 +1297,13 @@
   background: var(--line);
   overflow: hidden;
 }
-.rs-bar i {
+.shr-bar i {
   position: absolute;
   inset: 0 auto 0 0;
   border-radius: 4px 0 0 4px;
   background: color-mix(in srgb, var(--accent) 45%, transparent);
 }
-.rs-bar em {
+.shr-bar em {
   position: relative;
   display: block;
   padding: 0 5px;
@@ -1314,7 +1314,7 @@
   font-variant-numeric: tabular-nums;
   color: var(--ink);
 }
-.rs-lessons {
+.shr-lessons {
   display: grid;
   gap: 4px;
   margin: 0;

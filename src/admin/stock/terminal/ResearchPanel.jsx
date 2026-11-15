@@ -20,19 +20,19 @@ function Finding({ f, showSymbol }) {
   const tags = Object.entries(f.tags || {}).filter(([, v]) => v !== "" && v !== null && v !== undefined);
   const facts = Object.entries(f.facts || {}).filter(([, v]) => typeof v === "number");
   return (
-    <li className={`rs-f ${f.fresh ? "" : "is-old"}`}>
+    <li className={`shr-f ${f.fresh ? "" : "is-old"}`}>
       <header>
-        {showSymbol && f.symbol !== "*" && <b className="rs-f__sym">{f.symbol}</b>}
+        {showSymbol && f.symbol !== "*" && <b className="shr-f__sym">{f.symbol}</b>}
         <b>{f.source}</b>
         <span>
           {f.by} · {f.clock} ({f.ageMin < 60 ? `${f.ageMin} min ago` : `${Math.round(f.ageMin / 60)} h ago`}){typeof f.last === "number" ? ` · at ₹${px(f.last)}` : ""}
         </span>
-        {!f.fresh && <em className="rs-tag">old</em>}
-        {f.moved && <em className="rs-tag is-warn">price has moved</em>}
+        {!f.fresh && <em className="shr-tag">old</em>}
+        {f.moved && <em className="shr-tag is-warn">price has moved</em>}
       </header>
       <p>{f.summary}</p>
       {(tags.length > 0 || facts.length > 0) && (
-        <p className="rs-f__facts">
+        <p className="shr-f__facts">
           {tags.map(([k, v]) => (
             <span key={k}>
               {k}: <b>{String(v)}</b>
@@ -45,7 +45,7 @@ function Finding({ f, showSymbol }) {
           ))}
         </p>
       )}
-      {f.detail && f.detail.checked && <p className="rs-f__check">✓ {f.detail.checked}</p>}
+      {f.detail && f.detail.checked && <p className="shr-f__check">✓ {f.detail.checked}</p>}
     </li>
   );
 }
@@ -73,16 +73,16 @@ function Learned({ symbol, isOwner }) {
     }
     setBusy(false);
   };
-  if (!d) return <p className="rs-dim">Reading what the desk has measured…</p>;
+  if (!d) return <p className="shr-dim">Reading what the desk has measured…</p>;
   return (
-    <div className="rs-learn">
+    <div className="shr-learn">
       {d.available ? (
         <>
-          <p className="rs-dim">
+          <p className="shr-dim">
             {d.days} trading day{d.days === 1 ? "" : "s"} ({d.from} to {d.to}) · {d.stocks} stocks · {d.tests.toLocaleString("en-IN")} tests of a level. Studied by itself after every close — no AI model is asked.
           </p>
-          <table className="rs-table">
-            <caption className="rs-sr">How often each kind of level held when the price tested it</caption>
+          <table className="shr-table">
+            <caption className="shr-sr">How often each kind of level held when the price tested it</caption>
             <thead>
               <tr>
                 <th scope="col">Kind of level</th>
@@ -103,7 +103,7 @@ function Learned({ symbol, isOwner }) {
                   <th scope="row">{r.name}</th>
                   <td>
                     {typeof r.pct === "number" ? (
-                      <span className="rs-bar" role="img" aria-label={`held ${r.pct}% of ${r.n} tests`}>
+                      <span className="shr-bar" role="img" aria-label={`held ${r.pct}% of ${r.n} tests`}>
                         <i style={{ width: `${r.pct}%` }} />
                         <em>{r.pct}%</em>
                       </span>
@@ -117,11 +117,11 @@ function Learned({ symbol, isOwner }) {
               ))}
             </tbody>
           </table>
-          <p className="rs-dim">{d.note}</p>
+          <p className="shr-dim">{d.note}</p>
           {d.findings.length > 1 && (
             <>
               <h4>In words (also written into the trading-skills file every AI feature reads)</h4>
-              <ul className="rs-lessons">
+              <ul className="shr-lessons">
                 {d.findings.slice(1).map((l) => (
                   <li key={l}>{l}</li>
                 ))}
@@ -130,19 +130,19 @@ function Learned({ symbol, isOwner }) {
           )}
         </>
       ) : (
-        <p className="rs-dim">{d.reason}</p>
+        <p className="shr-dim">{d.reason}</p>
       )}
-      {d.aiLevels && <p className="rs-dim">The AI’s exit levels, scored after each close: {d.aiLevels.text}</p>}
-      <p className="rs-row">
+      {d.aiLevels && <p className="shr-dim">The AI’s exit levels, scored after each close: {d.aiLevels.text}</p>}
+      <p className="shr-row">
         {isOwner && (
           <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm" onClick={study} disabled={busy} data-tip="Study the days not yet studied now (today after 3:40 PM). Arithmetic on Zerodha's 1-minute bars: no AI model, no cost.">
             {busy ? "Studying…" : "Study now"}
           </button>
         )}
-        {d.status && d.status.lastRun && <span className="rs-dim">Last study: {new Date(d.status.lastRun.at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}</span>}
+        {d.status && d.status.lastRun && <span className="shr-dim">Last study: {new Date(d.status.lastRun.at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}</span>}
       </p>
-      {msg && <p className="rs-dim" role="status">{msg}</p>}
-      <p className="rs-dim">Counts with their sample size — evidence about how levels have behaved, not a promise about the next test.</p>
+      {msg && <p className="shr-dim" role="status">{msg}</p>}
+      <p className="shr-dim">Counts with their sample size — evidence about how levels have behaved, not a promise about the next test.</p>
     </div>
   );
 }
@@ -181,9 +181,9 @@ function Panel({ symbol, onClose }) {
   }, [tab, symbol]);
   const list = (d && d.findings) || [];
   return (
-    <div className="tm-alerts rs" ref={box} role="dialog" aria-label="AI research, shared across the desk">
+    <div className="tm-alerts shr" ref={box} role="dialog" aria-label="AI research, shared across the desk">
       <h3>AI research, shared</h3>
-      <div className="rs-tabs" role="tablist">
+      <div className="shr-tabs" role="tablist">
         {symbol && (
           <button type="button" role="tab" aria-selected={tab === "stock"} onClick={() => setTab("stock")}>
             {symbol}
@@ -200,32 +200,32 @@ function Panel({ symbol, onClose }) {
         <Learned symbol={symbol} isOwner={isOwner} />
       ) : (
         <>
-          {err && <p className="rs-dim" role="alert">{err}</p>}
-          {!d && !err && <p className="rs-dim">Reading what the AI has already found…</p>}
+          {err && <p className="shr-dim" role="alert">{err}</p>}
+          {!d && !err && <p className="shr-dim">Reading what the AI has already found…</p>}
           {d && list.length === 0 && (
-            <p className="rs-dim">
+            <p className="shr-dim">
               {tab === "stock" ? `No AI finding on ${symbol} in the last 12 hours.` : "No AI finding in the last 12 hours."} A finding appears here the moment any feature asks the AI about a stock — AI Live, AI Research, the position coach, the Live board, TradeAI — and every other feature reads it instead of asking again.
             </p>
           )}
           {list.length > 0 && (
-            <ul className="rs-list">
+            <ul className="shr-list">
               {list.map((f) => (
                 <Finding key={f.id} f={f} showSymbol={tab === "all"} />
               ))}
             </ul>
           )}
           {d && d.stats && (
-            <p className="rs-dim">
+            <p className="shr-dim">
               {d.stats.fresh} fresh finding{d.stats.fresh === 1 ? "" : "s"} on {d.stats.stocks} stock{d.stats.stocks === 1 ? "" : "s"}; read {d.stats.readsToday} time{d.stats.readsToday === 1 ? "" : "s"} today by other features instead of a new AI request.
             </p>
           )}
         </>
       )}
-      <p className="rs-row">
+      <p className="shr-row">
         <Link className="adm-btn adm-btn--solid adm-btn--sm" to={adminPath("tradeai")} target="_blank" rel="noopener">
           Ask TradeAI{symbol ? ` about ${symbol}` : ""}
         </Link>
-        <span className="rs-dim">It starts from these findings — nothing is paid for twice.</span>
+        <span className="shr-dim">It starts from these findings — nothing is paid for twice.</span>
       </p>
     </div>
   );

@@ -3,7 +3,8 @@
 // trigger, stop and target, the plan's replayed record), ranked with the clearest plans first; open a
 // row for the whole plan. Arithmetic only (server/market/intraplan.js) — no AI, no tokens, no orders.
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { api } from "../../api";
 import IntradayPlan, { KIND, sessionOf } from "../analyzer/IntradayPlan";
 import { ForecastChip, useForecast } from "../analyzer/GlobalMarkets";
@@ -27,7 +28,11 @@ function trigger(p) {
   return `watch ${inr(p.plans.long.entry)} up / ${inr(p.plans.short.entry)} down after 9:45`;
 }
 
-export default function IntradayResearch({ watchlist = [], onOpen = null }) {
+/**
+ * @param slot      a DOM node to show the plans in (the Research page's wide pane); without it they follow the controls
+ * @param onResults told whether there are plans to show
+ */
+export default function IntradayResearch({ watchlist = [], onOpen = null, slot = null, onResults = null }) {
   const [picked, setPicked] = useState(() => new Set(watchlist.slice(0, MAX)));
   const [extra, setExtra] = useState([]);
   const [typed, setTyped] = useState("");
@@ -96,53 +101,12 @@ export default function IntradayResearch({ watchlist = [], onOpen = null }) {
   const anyPlan = ranked.find(([, p]) => p.available);
   const session = anyPlan ? sessionOf(anyPlan[1]) : null;
 
-  return (
-    <section className="an-card ir" aria-label="Intraday research">
-      <header className="an-card__head">
-        <div>
-          <h3>Intraday research · next session</h3>
-          <p>
-            For each stock: where it may open and trade, how it behaves inside a day, and a plan — long or short on a trigger, the opening-range break, wait or avoid — with the record of those exact rules on that stock's past sessions. Arithmetic only: no AI, no tokens. A measurement of the past, not a promise.
-          </p>
-        </div>
-      </header>
-      {fc.data && fc.data.available && (
-        <div className="ir-world">
-          <ForecastChip f={fc.data} />
-          <span>
-            <b>World markets:</b> {fc.data.headline}. Each stock's expected open below follows this, times its own measured sensitivity to the Nifty.
-          </span>
-        </div>
-      )}
-      {all.length > 0 && (
-        <div className="rs-picks" role="group" aria-label="Stocks for intraday research">
-          {all.map((s) => (
-            <label key={s} className={`rs-pick ${picked.has(s) ? "is-on" : ""}`}>
-              <input type="checkbox" checked={picked.has(s)} onChange={() => toggle(s)} /> {s}
-            </label>
-          ))}
-        </div>
-      )}
-      <form
-        className="ir-add"
-        onSubmit={(e) => {
-          e.preventDefault();
-          add();
-        }}
-      >
-        <input value={typed} onChange={(e) => setTyped(e.target.value)} placeholder="Add any NSE stock, e.g. TCS, INFY" aria-label="Add NSE symbols" autoCapitalize="characters" spellCheck="false" />
-        <button type="submit" className="adm-btn adm-btn--sm" disabled={!typed.trim()}>
-          Add
-        </button>
-        <button type="button" className="adm-btn adm-btn--solid" disabled={busy || picked.size === 0} onClick={run} data-tip="Build tomorrow's intraday plan for each picked stock. No AI is used.">
-          {busy ? `Planning ${progress.current}… (${progress.done + 1} of ${progress.of})` : `Plan ${picked.size} stock${picked.size === 1 ? "" : "s"} for intraday`}
-        </button>
-      </form>
-      {note && <p className="adm-alert adm-alert--info">{note}</p>}
-      {picked.size >= MAX && <p className="ab-dim">Up to {MAX} stocks at a time.</p>}
-
-      {ranked.length > 0 && (
-        <>
+  const hasPlans = ranked.length > 0;
+  useEffect(() => {
+    if (onResults) onResults(hasPlans);
+  }, [hasPlans, onResults]);
+  const results = hasPlans ? (
+    <>
           {session && <p className="ab-dim">Plans for {formatDate(session)}. Clearest plans first; open a row for the whole plan.</p>}
           <div className="ip-tablewrap">
             <table className="ip-table ir-table">
@@ -210,8 +174,70 @@ export default function IntradayResearch({ watchlist = [], onOpen = null }) {
               <IntradayPlan symbol={open} data={rows[open]} onOpen={onOpen} />
             </div>
           )}
-        </>
+    </>
+  ) : null;
+
+  return (
+    <>
+    <section className="an-card ir" aria-label="Intraday research">
+      <header className="an-card__head">
+        <div>
+          <h3>Intraday research · next session</h3>
+          <p>
+            For each stock: where it may open and trade, how it behaves inside a day, and a plan — long or short on a trigger, the opening-range break, wait or avoid — with the record of those exact rules on that stock's past sessions. Arithmetic only: no AI, no tokens. A measurement of the past, not a promise.
+          </p>
+        </div>
+      </header>
+      {fc.data && fc.data.available && (
+        <div className="ir-world">
+          <ForecastChip f={fc.data} />
+          <span>
+            <b>World markets:</b> {fc.data.headline}. Each stock's expected open below follows this, times its own measured sensitivity to the Nifty.
+          </span>
+        </div>
       )}
+      {all.length > 0 && (
+        <div className="rs-picks" role="group" aria-label="Stocks for intraday research">
+          {all.map((s) => (
+            <label key={s} className={`rs-pick ${picked.has(s) ? "is-on" : ""}`}>
+              <input type="checkbox" checked={picked.has(s)} onChange={() => toggle(s)} /> {s}
+            </label>
+          ))}
+        </div>
+      )}
+      <form
+        className="ir-add"
+        onSubmit={(e) => {
+          e.preventDefault();
+          add();
+        }}
+      >
+        <input value={typed} onChange={(e) => setTyped(e.target.value)} placeholder="Add any NSE stock, e.g. TCS, INFY" aria-label="Add NSE symbols" autoCapitalize="characters" spellCheck="false" />
+        <button type="submit" className="adm-btn adm-btn--sm" disabled={!typed.trim()}>
+          Add
+        </button>
+        <button type="button" className="adm-btn adm-btn--solid" disabled={busy || picked.size === 0} onClick={run} data-tip="Build tomorrow's intraday plan for each picked stock. No AI is used.">
+          {busy ? `Planning ${progress.current}… (${progress.done + 1} of ${progress.of})` : `Plan ${picked.size} stock${picked.size === 1 ? "" : "s"} for intraday`}
+        </button>
+      </form>
+      {note && <p className="adm-alert adm-alert--info">{note}</p>}
+      {picked.size >= MAX && <p className="ab-dim">Up to {MAX} stocks at a time.</p>}
+
+      {!slot && results}
     </section>
+      {slot &&
+        results &&
+        createPortal(
+          <section className="an-card ir ir-results" aria-label="Intraday plans">
+            <header className="an-card__head">
+              <div>
+                <h3>Intraday plans · next session</h3>
+              </div>
+            </header>
+            {results}
+          </section>,
+          slot
+        )}
+    </>
   );
 }

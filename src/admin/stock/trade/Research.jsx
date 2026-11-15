@@ -213,6 +213,8 @@ function ResearchAi({ symbol }) {
 export default function Research({ onOpen = null }) {
   const { user } = useAuth();
   const [st0, setSt] = useState(null);
+  const [slot, setSlot] = useState(null); // where the intraday plans are shown: the wide pane
+  const [hasPlans, setHasPlans] = useState(false);
   const aiNow = useAiStatus();
   const st = st0 && aiNow ? { ...st0, configured: aiNow.configured } : st0;
   const [error, setError] = useState("");
@@ -288,8 +290,10 @@ export default function Research({ onOpen = null }) {
     });
 
   return (
-    <div className="rs">
-      <IntradayResearch watchlist={watch} onOpen={onOpen} />
+    <div className="rs rs--panes">
+      {/* on a wide screen: what to prepare stays in view on the left; what was prepared fills the right */}
+      <div className="rs-side">
+      <IntradayResearch watchlist={watch} onOpen={onOpen} slot={slot} onResults={setHasPlans} />
       <section className="an-card rs-controls">
         <header className="an-card__head">
           <div>
@@ -358,7 +362,24 @@ export default function Research({ onOpen = null }) {
           </label>
         )}
       </section>
-
+      </div>
+      <div className="rs-main">
+        <div ref={setSlot} className="rs-slot" />
+        {!report && !hasPlans && (
+          <section className="an-card rs-empty">
+            <h3>Nothing is prepared for this session yet</h3>
+            <p>Pick the stocks, then choose what to prepare. Both appear here.</p>
+            <ol>
+              <li>
+                <b>Plan for intraday</b> — for each stock the expected open and range, the trigger to go long or short, the opening-range break, and the record of those exact rules on that stock’s past sessions. Arithmetic only: no AI, no cost.
+              </li>
+              <li>
+                <b>Research</b> — a data sheet per stock: indicators, levels, the seven setups with their backtests, and the verdict on three timeframes{st.configured ? ". With “AI notes” ticked the AI adds a note per stock and a summary across the list" : ""}.
+              </li>
+            </ol>
+            <p className="vd-note">Research also runs by itself at 08:45 and 16:00 IST while Zerodha is connected; the latest report opens here.</p>
+          </section>
+        )}
       {report && (
         <>
           {report.summary && (
@@ -411,6 +432,7 @@ export default function Research({ onOpen = null }) {
           <p className="vd-note">Research is preparation from the data shown, not a recommendation to trade. Notes never imply a probability or a profit; check the levels yourself at the open.</p>
         </>
       )}
+      </div>
     </div>
   );
 }

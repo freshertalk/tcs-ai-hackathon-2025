@@ -77,5 +77,19 @@ test("the top bar's lamp: the AI's findings on the open stock, shared by every w
   expect(screen.getByText("Studied 2026-11-13.")).toBeTruthy();
   // Escape closes it
   fireEvent.keyDown(document, { key: "Escape" });
+  await settle(); // the button counts the findings again once the panel is closed
   expect(screen.queryByRole("dialog")).toBeNull();
+});
+
+test("the panel's class names are its own: the terminal's sheet never styles the Research page's \"rs\" classes", () => {
+  // on 2026-11-16 this panel was first written with the prefix "rs", which is the Research page's:
+  // its width rule squeezed that whole page into 520px. The panel's prefix is "shr".
+  const fs = require("fs");
+  const path = require("path");
+  const css = fs.readFileSync(path.join(__dirname, "terminal.css"), "utf8");
+  const mine = css.split("\n").filter((l) => /^\.rs(\b|-)/.test(l.trim()));
+  expect(mine).toEqual([]);
+  const jsx = fs.readFileSync(path.join(__dirname, "ResearchPanel.jsx"), "utf8");
+  expect(/className=(\{`|")rs(-|"| )/.test(jsx)).toBe(false);
+  expect(jsx.includes('className="tm-alerts shr"')).toBe(true);
 });

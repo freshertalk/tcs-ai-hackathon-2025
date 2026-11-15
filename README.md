@@ -395,6 +395,12 @@ in `analysis/lab`, worked out by the hourly sweep (`labBackfill`, last 60 days) 
 - **Activity log:** `ai/tradeai-activity.json` (500 newest) — how each question was answered, what was read, agent steps,
   model, level, tokens, ms; `GET /api/admin/tradeai/activity` (super); today's totals in `status().today`.
 - Tests: `server/test/learn.test.js` (9), `server/test/tradeai.test.js` (+4), `server/test/route.test.js`.
+- **Class prefixes:** the shared-research panel uses `shr-` (`.tm-alerts.shr`). `rs-` belongs to the Research page
+  (`trade.css`); the panel was first written with `rs` and its width rule squeezed that page to 520px (fixed 2026-11-16,
+  guarded by `ResearchPanel.test.js`). Grep a prefix before using it for new styles.
+- **Research page layout** (`Research.jsx`, `IntradayResearch.jsx`, `trade.css` `.rs--panes`): from 1180px two panes — the
+  controls rail (`.rs-side`, 340–440px, sticky under the top bar) and the results pane (`.rs-main`): the intraday plans
+  (rendered there through a portal, `slot`), the report's summary and the stock notes; below 1180px they stack.
 
 **The Journal's Day book (Journal → Day book; `src/admin/stock/analysis/DayBook.jsx`, `server/analysis/`).** One
 report per trading day, kept in its own record (`analysis/days` — a collection of its own in MongoDB, a file otherwise).
