@@ -36,3 +36,14 @@ test("instant answers are tables from the data, or nothing when the data is miss
   const o = instantAnswer("options", { options: { available: false, reason: "SBIN has no options on NSE" } });
   assert.match(o.answer, /no options/);
 });
+
+test("world-market questions are answered at once from the forecast", () => {
+  for (const q of ["How will the market open tomorrow?", "What is GIFT Nifty saying?", "sgx nifty?", "How are US markets?", "Nikkei and Singapore markets today"]) assert.deepEqual([q, classify(q).tier, classify(q).intent], [q, "instant", "global"]);
+  assert.equal(classify("What should I expect from the market next week?").tier, "deep", "depth still goes to the merged mixture");
+  const f = { available: true, headline: "NSE likely to see a gap-up open (+0.60%); the day leans UP", for: "the session on 2026-11-17", lean: { word: "up" }, open: { expected: 24144, low: 24100, high: 24190, gapPct: 0.6, basis: "GIFT Nifty +0.60%." }, nifty: { prevClose: 24000 }, markets: [{ region: "Singapore", name: "Straits Times (STI)", last: 3900, changePct: 0.4, session: "live" }], votes: [{ label: "GIFT Nifty", vote: 1, why: "GIFT Nifty +0.60%" }], sectors: [], cautions: [], measured: { us: { beta: 0.32, days: 240, followedPct: 66, minMove: 0.5 } } };
+  const a = instantAnswer("global", { forecast: f });
+  assert.match(a.answer, /\*\*₹24,144\.00\*\*/);
+  assert.match(a.answer, /\| Singapore \| Straits Times \(STI\) \|/);
+  assert.match(a.answer, /moved 0\.32× the S&P 500/);
+  assert.equal(a.forecast.lean, "up");
+});

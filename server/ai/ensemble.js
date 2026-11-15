@@ -454,7 +454,14 @@ class Ensemble {
     } catch (_) {
       outlook = null;
     }
-    return this.ai.market.intradayPlan(symbol, { outlook });
+    const world = this.ai.worldSummary && this.ai.worldSummary() ? this.ai.world() : null;
+    return this.ai.market.intradayPlan(symbol, { outlook, world });
+  }
+
+  /** The NSE forecast from the world, with today's world brief (web search) when one is fresh. No AI is called. */
+  async forecast() {
+    const world = this.ai.worldSummary && this.ai.worldSummary() ? this.ai.world() : null;
+    return this.ai.market.marketForecast({ world });
   }
 
   /* ------------------------------------------------------------------------- the briefs */

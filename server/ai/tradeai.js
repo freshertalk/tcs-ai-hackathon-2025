@@ -61,6 +61,7 @@ How to answer:
 - The daily goal (DATA.goal, when shown): the trader's target is a share of the morning's margin (3% by default) and the daily stop half of it. Their known weakness: staying in a winning day for "more" until the gain, and then capital, is gone. So if the day has reached or nearly reached the target, is giving profits back, or turned red after being green, say that FIRST in one bold line with the rupee figures and tell them to book and stop. Never encourage a new trade after the target is reached or the stop is hit.
 - The option chain (DATA.options, when shown) is one factor among the others: quote its PCR, the call and put walls, max pain, ATM IV and its bias, and never make it the only reason.
 - The intraday plan (DATA.plan, when shown) is the desk's own plan for the next session with its measured record: build on its levels and say how strong its record is.
+- The world forecast (DATA.forecast, when shown) reads GIFT Nifty (the successor of SGX Nifty), the US, Europe, Japan, Singapore, Hong Kong, Korea, China, the rupee, crude, both VIXes, FII flows, the Nifty option chain and the world-news brief into an expected Nifty open and a lean: quote its figures and their times, say which cues agree and which do not, and remember overseas cues explain only part of the Nifty's moves.
 - If the question is not about trading, answer briefly and steer back.`;
 
 const SCHEMA = {
@@ -180,6 +181,8 @@ class TradeAI {
     if (has(q, ["option", "pcr", "put call", "put-call", "max pain", "open interest", " oi ", "call wall", "put wall", "expiry"]) || (symbols.length === 1 && tools.has("outlook"))) tools.add("options");
     // the intraday plan for the next session
     if (symbols.length && has(q, ["intraday", "plan", "tomorrow", "next session", "levels for", "trade plan", "setup"])) tools.add("plan");
+    // the NSE forecast from the world: GIFT Nifty, the US, Europe, Japan, Singapore and the rest
+    if (has(q, ["gift", "sgx", "global", "world", "overseas", "us market", "wall street", "nasdaq", "s&p", "dow", "nikkei", "japan", "singapore", "straits", "hang seng", "asia", "europe", "dax", "ftse", "open tomorrow", "pre-open", "preopen", "premarket", "pre-market", "market open", "will the market", "will nifty", "next week"]) || (tools.has("market") && tools.has("outlook"))) tools.add("global");
     return { symbols, tools: [...tools], positions };
   }
 
@@ -335,6 +338,19 @@ class TradeAI {
               const { rows, ...rest } = c;
               data.options = rows ? { ...rest, rows: rows.filter((r) => Math.abs(r.strike - c.spot) / c.spot <= 0.04).map((r) => ({ strike: r.strike, ceOi: r.ce && r.ce.oi, ceOiChg: r.ce && r.ce.oiChange, ceIv: r.ce && r.ce.iv, peOi: r.pe && r.pe.oi, peOiChg: r.pe && r.pe.oiChange, peIv: r.pe && r.pe.iv })) } : rest;
               used.push(`options ${u}`);
+            }
+          })
+          .catch(() => {}),
+      );
+    }
+    if (want("global") && this.ai.ensemble && this.ai.ensemble.forecast) {
+      onStep("Reading the world: GIFT Nifty, the US, Europe, Japan, Singapore, the rupee, crude, flows");
+      jobs.push(
+        this._within(this.ai.ensemble.forecast(), 12000)
+          .then((f) => {
+            if (f && !f.__timeout) {
+              data.forecast = f;
+              used.push("world markets");
             }
           })
           .catch(() => {}),
@@ -510,7 +526,7 @@ class TradeAI {
     // 1. instant: the desk's own data answers — no model
     if (route.tier === "instant") {
       onRoute({ ...route, model: null });
-      const need = { goal: ["goal", "positions"], positions: ["positions", "goal"], funds: ["funds", "goal"], orders: ["orders"], alerts: ["alerts"], quote: ["quote"], options: ["options"], plan: ["plan"] }[route.intent] || [];
+      const need = { goal: ["goal", "positions"], positions: ["positions", "goal"], funds: ["funds", "goal"], orders: ["orders"], alerts: ["alerts"], quote: ["quote"], options: ["options"], plan: ["plan"], global: ["global"] }[route.intent] || [];
       const { data, used } = await this.gather(plan, { owner, onStep, only: need });
       const r = instantAnswer(route.intent, data, { symbol: plan.symbols[0] || "" });
       if (r) return { ...r, related: this.related(q, r, data, plan), meta: { used, symbols: plan.symbols, tools: need, by: [], mergedBy: null, fallback: false, models: [], usage: { input: 0, output: 0 }, engineOnly: true, tier: "instant", intent: route.intent, why: route.why, ms: Date.now() - t0 } };

@@ -521,6 +521,17 @@ const ENTRIES = [
   [["Of the target"], "Today's P&L as a share of the daily target. At 80% a reminder says to trail the stops and add nothing new.", ".dg"],
   [["Today"], "Today's P&L on all positions, open and closed, as Zerodha reports it (before charges).", ".dg"],
 
+  /* ---- the Mandir's list */
+  [["The list"], "Every uploaded bhajan, in the order they play. Tap one to play it. With Auto ON they play one after another and start again after the last; with Auto OFF the one playing repeats.", ".mdr"],
+  [["Show video", "Hide video"], "Show the picture of the video playing, here in the card only. Without it, a video plays as sound in the background like the rest.", ".mdr"],
+
+  /* ---- world markets and the NSE forecast */
+  [["What the cues say"], "Every overseas and Indian cue, with which way it points and why: GIFT Nifty, the US, Asia, Europe, the rupee, crude, both VIXes, FII flows, the Nifty option chain and the world-news mood.", ".gm"],
+  [["World markets"], "The overseas indices (from your FMP key), GIFT Nifty, the rupee, crude and India VIX (from Zerodha), and figures from the world brief, with whether each market is trading now.", ".gm"],
+  [["Sectors in the way"], "The Indian sectors most exposed to tonight's cues: IT to the Nasdaq and the rupee, metals to China, oil-sensitive stocks to crude, banks to foreign flows.", ".gm"],
+  [["Market"], "The index or price, with its region and where the number came from.", ".gm-table"],
+  [["Status"], "Whether that exchange is trading now, opens later today, or is closed — from its own hours and time zone (holidays are not known).", ".gm-table"],
+
   /* ---- the option chain */
   [["OI"], "Open interest: how many contracts of that strike are open. Big call OI tends to act as a ceiling, big put OI as a floor.", ".oc"],
   [["OI chg"], "Open interest added (+) or closed (−) since the last reading of the previous session.", ".oc"],

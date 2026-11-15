@@ -114,7 +114,7 @@ export default function TopBar({ views, view, onView, theme, onTheme, onHelp, on
     <header className="tm-top">
       <Link to={adminPath()} className="tm-brand" data-tip="Back to the dashboard.">
         <span className="tm-brand__mark tm-brand__mark--img">
-          <img src="/img/hanuman-full-96.png" srcSet="/img/hanuman-full-96.png 1x, /img/hanuman-full-192.png 2x" alt="Panchmukhi Hanuman Ji" width="42" height="42" decoding="async" />
+          <img src="/img/panchmukhi-logo-96.png" srcSet="/img/panchmukhi-logo-96.png 1x, /img/panchmukhi-logo-192.png 2x" alt="Panchmukhi Hanuman Ji" width="42" height="42" decoding="async" />
         </span>
         <span className="tm-brand__name">{BRAND.name}</span>
       </Link>

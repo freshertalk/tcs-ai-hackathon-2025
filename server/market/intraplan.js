@@ -220,8 +220,9 @@ const bucketOf = (s) => (!num(s) ? null : s >= LEAN_AT ? "up" : s <= -LEAN_AT ? 
  * @param marketOpen true while the session is trading (the overnight cue is then not used)
  * @param costPct   assumed round-trip cost, % of the entry price
  * @param options   buildOptionChain(...) for the stock, or null (no options, or not read)
+ * @param marketCue the NSE forecast from the world ({ gapPct, label, basis, score, word, firm, headline }), or null
  */
-function buildIntradayPlan({ daily, forming = false, bars5 = [], outlook = null, nifty = null, gift = null, marketOpen = false, costPct = 0.1, options = null }) {
+function buildIntradayPlan({ daily, forming = false, bars5 = [], outlook = null, nifty = null, gift = null, marketOpen = false, costPct = 0.1, options = null, marketCue = null }) {
   if (!Array.isArray(daily) || daily.length < 60) return { available: false, reason: "Fewer than 60 daily bars: not enough history for an intraday plan." };
   const done = forming ? daily.slice(0, -1) : daily;
   const k = done.length - 1;
@@ -450,7 +451,8 @@ function buildIntradayPlan({ daily, forming = false, bars5 = [], outlook = null,
       gapSd = Math.sqrt(own.reduce((s, x) => s + (x - m) ** 2, 0) / (own.length - 1));
     }
   }
-  const cue = !marketOpen && gift && gift.available && num(gift.changePct) ? gift.changePct : null;
+  const fromForecast = !marketOpen && marketCue && num(marketCue.gapPct);
+  const cue = fromForecast ? marketCue.gapPct : !marketOpen && gift && gift.available && num(gift.changePct) ? gift.changePct : null;
   const gapPct = num(cue) ? (num(beta) ? beta : 1) * cue : 0;
   const sd = num(gapSd) ? Math.max(gapSd, 0.15) : 0.5; // never a band narrower than ±0.15%
   const openX = prev.c * (1 + gapPct / 100);
@@ -461,7 +463,9 @@ function buildIntradayPlan({ daily, forming = false, bars5 = [], outlook = null,
     gapPct: r2(gapPct),
     beta: r2(beta),
     cue: num(cue) ? r2(cue) : null,
-    basis: num(cue)
+    basis: fromForecast
+      ? `The NSE forecast from the world expects ${marketCue.label || `a Nifty gap of ${r2(cue)}%`} (${marketCue.basis || "from the overseas cues"}); ${num(beta) ? `this stock's opens have moved about ${r2(beta)}× the Nifty's gap` : "taken one-for-one"}. The band is one normal spread of its opens (±${r2(sd)}%).`
+      : num(cue)
       ? `GIFT Nifty is ${cue >= 0 ? "+" : ""}${r2(cue)}% from its last settlement; ${num(beta) ? `this stock's opens have moved about ${r2(beta)}× the Nifty's gap` : "taken one-for-one (too few Nifty sessions to measure this stock's sensitivity)"}. The band is one normal spread of its opens (±${r2(sd)}%). GIFT Nifty is a future: a hint for the open, not the Nifty itself.`
       : marketOpen
         ? "The session is trading: today's open is already known — this is the plan as it stood before the open."
@@ -552,6 +556,11 @@ function buildIntradayPlan({ daily, forming = false, bars5 = [], outlook = null,
     } else if (Math.abs(os) >= 10) reasonsFor.push(line);
     for (const c of opt.bias.cautions.slice(0, 2)) if (!/No earlier reading/.test(c)) reasonsAgainst.push(`Options: ${c}`);
   }
+  // the world's read of the session: one more reason, for or against
+  if (marketCue && marketCue.firm && sideSign) {
+    const line = `World markets: ${marketCue.headline}.`;
+    (Math.sign(marketCue.score) === sideSign ? reasonsFor : reasonsAgainst).push(line);
+  } else if (marketCue && marketCue.headline && !marketOpen) reasonsFor.length < 6 && (marketCue.firm ? reasonsFor : reasonsAgainst).push(`World markets: ${marketCue.headline}.`);
   if (habits && habits.firstHourExtremePct >= 65) reasonsFor.push(`The day's high or low came in the first hour on ${habits.firstHourExtremePct}% of days: the opening hour usually decides the day here.`);
 
   const sym = (x) => (num(x) ? `₹${x.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—");
@@ -655,6 +664,7 @@ function buildIntradayPlan({ daily, forming = false, bars5 = [], outlook = null,
     ladder,
     habits,
     record,
+    market: marketCue && !marketOpen ? { headline: marketCue.headline, gapPct: marketCue.gapPct, word: marketCue.word, firm: marketCue.firm, score: marketCue.score } : null,
     options: opt
       ? { expiry: opt.expiry, daysToExpiry: opt.daysToExpiry, label: opt.bias.label, score: opt.bias.score, pcr: opt.pcr, maxPain: opt.maxPain, resistance: opt.resistance && opt.resistance.strike, support: opt.support && opt.support.strike, atmIv: opt.atmIv, dayMove: opt.expectedMove && opt.expectedMove.day, toExpiry: opt.expectedMove && opt.expectedMove.toExpiry }
       : null,

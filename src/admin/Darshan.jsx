@@ -6,9 +6,11 @@ import "./darshan.css";
 // If the picture cannot be loaded for any reason the card still stands, with the mantra, and the
 // rest of the page is untouched: nothing here can block or break the dashboard.
 
-const SMALL = "/img/hanuman-darshan-640.jpg";
-const LARGE = "/img/hanuman-darshan-1200.jpg";
-const ALT = "Panchmukhi Hanuman Ji, with the five faces of Hanuman, Narasimha, Garuda, Varaha and Hayagriva, holding the gada, in a golden temple lit by diyas";
+// WebP for every current browser, a full-colour JPEG for any other; three sizes for screen and sharpness
+const SIZES = [640, 960, 1200];
+const at = (n, ext) => `/img/panchmukhi-darshan-${n}.${ext}`;
+const SET = (ext) => SIZES.map((n) => `${at(n, ext)} ${n}w`).join(", ");
+const ALT = "Panchmukhi Hanuman Ji with the five faces of Hanuman, Narasimha, Garuda, Varaha and Hayagriva, the right hand raised in blessing with Om on the palm, holding the gada, before a golden halo of “Jai Shri Ram”, with a temple bell, a diya, a saffron flag and a hilltop temple by a waterfall";
 
 /** Full-screen darshan: the picture as large as the screen allows. Esc, a click outside, or the close button. */
 function Lightbox({ onClose }) {
@@ -32,7 +34,10 @@ function Lightbox({ onClose }) {
         ×
       </button>
       <figure>
-        <img src={LARGE} alt={ALT} width="1200" height="1200" />
+        <picture>
+          <source type="image/webp" srcSet={at(1200, "webp")} />
+          <img src={at(1200, "jpg")} alt={ALT} width="1200" height="1200" />
+        </picture>
         <figcaption>
           <b>जय श्री हनुमान</b>
           <span>ॐ हं हनुमते नमः</span>
@@ -54,7 +59,10 @@ export default function Darshan() {
           </div>
         ) : (
           <button type="button" className="dsn__img" onClick={() => setFull(true)} aria-label="Open the darshan full screen" data-tip="Tap for a full-screen darshan.">
-            <img src={SMALL} srcSet={`${SMALL} 640w, ${LARGE} 1200w`} sizes="(max-width: 900px) 92vw, 380px" alt={ALT} width="640" height="640" onError={() => setBroken(true)} />
+            <picture>
+              <source type="image/webp" srcSet={SET("webp")} sizes="(max-width: 900px) 92vw, 380px" />
+              <img src={at(640, "jpg")} srcSet={SET("jpg")} sizes="(max-width: 900px) 92vw, 380px" alt={ALT} width="640" height="640" decoding="async" onError={() => setBroken(true)} />
+            </picture>
           </button>
         )}
         <figcaption>

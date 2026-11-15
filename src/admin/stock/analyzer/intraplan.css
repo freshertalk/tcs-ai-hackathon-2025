@@ -655,3 +655,20 @@
 .ip-opt b {
   color: var(--ink);
 }
+
+/* Research → Intraday research: the world's read of the session, above the stocks */
+.ir-world {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-2);
+  font-size: var(--t-small);
+  color: var(--ink-2);
+}
+.ir-world b {
+  color: var(--ink);
+}

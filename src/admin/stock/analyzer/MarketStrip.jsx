@@ -3,6 +3,7 @@
 // "tide"; and — on request — a world-markets brief gathered by web search.
 
 import React, { useEffect, useState } from "react";
+import GlobalMarkets, { ForecastChip, useForecast } from "./GlobalMarkets";
 import { api } from "../../api";
 import { adminPath } from "../../paths";
 import { Alert, Loading } from "../../ui";
@@ -172,6 +173,7 @@ function WorldBrief() {
 }
 
 export default function MarketStrip({ status }) {
+  const fc = useForecast(true); // the NSE forecast from the world (GlobalMarkets.jsx)
   const [ctx, setCtx] = useState(null);
   const [error, setError] = useState("");
   const [open, setOpen] = useState(false);
@@ -194,8 +196,27 @@ export default function MarketStrip({ status }) {
     };
   }, [status.marketHours]);
 
-  if (!ctx) return error ? <p className="adm-small mk__err">Market context: {error}</p> : null;
-  if (!ctx.available) return <p className="adm-small mk__err">Market context: {ctx.reason}</p>;
+  // without the Indian market context (no Nifty quote yet, early in the morning), the world's reading still shows
+  if (!ctx || !ctx.available) {
+    const why = ctx ? ctx.reason : error;
+    if (!(fc.data && fc.data.available)) return why ? <p className="adm-small mk__err">Market context: {why}</p> : null;
+    return (
+      <section className="mk" aria-label="Market context">
+        <div className="mk__row">
+          <ForecastChip f={fc.data} onClick={() => setOpen(true)} />
+          {why && <p className="adm-small mk__err">Market context: {why}</p>}
+          <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+            {open ? "Hide" : "World markets"}
+          </button>
+        </div>
+        {open && (
+          <div className="mk__panel">
+            <GlobalMarkets fc={fc} />
+          </div>
+        )}
+      </section>
+    );
+  }
 
   const t = ctx.tide;
   const shown = ctx.items.filter((x) => x.available);
@@ -219,6 +240,7 @@ export default function MarketStrip({ status }) {
             <b>{MOOD[ctx.world.mood] || "Mixed"}</b>
           </p>
         )}
+        <ForecastChip f={fc.data} onClick={() => setOpen(true)} />
         <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
           {open ? "Hide" : "Market & world"}
         </button>
@@ -227,6 +249,7 @@ export default function MarketStrip({ status }) {
 
       {open && (
         <div className="mk__panel">
+          <GlobalMarkets fc={fc} />
           <div>
             <h4>The tide — which way the Indian market is moving</h4>
             <p className="vd-note">{t.summary} A long gets a few points when the tide is rising and loses them when it is falling; a short the other way round.</p>

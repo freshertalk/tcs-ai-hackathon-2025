@@ -33,8 +33,9 @@ const { Universe } = require("./universe");
 const { IndexList } = require("./indexlist");
 const { buildPulse } = require("./pulse");
 const { buildOutlook } = require("./outlook");
-const { buildIntradayPlan } = require("./intraplan");
+const { buildIntradayPlan, nextWeekday } = require("./intraplan");
 const { buildOptionChain } = require("./options");
+const { buildMarketForecast } = require("./premarket");
 
 // option underlyings: the index's name on NSE ↔ its name on the NFO contracts
 const OPTION_NAME = { "NIFTY 50": "NIFTY", "NIFTY BANK": "BANKNIFTY", "NIFTY FIN SERVICE": "FINNIFTY", "NIFTY MID SELECT": "MIDCPNIFTY", "NIFTY NEXT 50": "NIFTYNXT50" };
@@ -1130,7 +1131,7 @@ class MarketService {
    * `outlook` is the Next-Session Outlook with the research direction and odds when the caller has
    * it (the AI service passes it); without it the outlook is drawn here from the chart and the odds.
    */
-  async intradayPlan(symbol, { outlook = null } = {}) {
+  async intradayPlan(symbol, { outlook = null, world = null } = {}) {
     if (!SYMBOL_RE.test(symbol)) throw new MarketError("That is not a valid symbol.", "invalid");
     const now = this.now();
     const phase = sessionPhase(now);
@@ -1178,7 +1179,17 @@ class MarketService {
         options = null; // a stock without options, or the NFO list unreachable: the plan goes on without
       }
     }
-    const p = buildIntradayPlan({ daily: d.candles, forming, bars5, outlook: out, nifty: ix ? ix.candles : null, gift, marketOpen, costPct: DEFAULT_COST_PCT, options });
+    // the NSE forecast from the world: its expected Nifty gap sets this stock's expected open
+    let marketCue = null;
+    if (!marketOpen && symbol !== INDEX_SYMBOL) {
+      try {
+        const f = await this.marketForecast({ world });
+        if (f && f.available) marketCue = { gapPct: f.open ? f.open.gapPct : null, label: f.open ? f.open.label : null, basis: f.open ? f.open.basis : null, score: f.lean.score, word: f.lean.word, firm: f.lean.firm, agreement: f.lean.agreement, headline: f.headline };
+      } catch (_) {
+        marketCue = null;
+      }
+    }
+    const p = buildIntradayPlan({ daily: d.candles, forming, bars5, outlook: out, nifty: ix ? ix.candles : null, gift, marketOpen, costPct: DEFAULT_COST_PCT, options, marketCue });
     const res = { ...p, symbol, source: d.source, stale: Boolean(d.stale), marketOpen, outlookBasis: outlook && outlook.available ? "full" : "chart and odds", at: new Date(now).toISOString() };
     if (this._planAt.size > 80) this._planAt.clear();
     this._planAt.set(key, { at: now, out: res });
@@ -1243,7 +1254,16 @@ class MarketService {
     if (!expiries.length) return { available: false, symbol, reason: "No live option expiry was found." };
     const exp = expiries.includes(expiry) ? expiry : expiries[0];
     const spotQ = (await this.quotes([spotSym])).quotes[spotSym];
-    const spot = spotQ && spotQ.last > 0 ? spotQ.last : null;
+    let spot = spotQ && spotQ.last > 0 ? spotQ.last : null;
+    if (!spot) {
+      // no quote yet (early morning): the last daily close stands in
+      try {
+        const d = await this.daily(spotSym);
+        spot = d.candles.length ? d.candles[d.candles.length - 1].c : null;
+      } catch (_) {
+        spot = null;
+      }
+    }
     if (!spot) return { available: false, symbol, reason: `No price for ${spotSym} right now.` };
     const ofExp = opts.filter((x) => x.e === exp);
     const ks = [...new Set(ofExp.map((x) => x.k))].sort((a, b) => a - b);
@@ -1293,6 +1313,93 @@ class MarketService {
     const out = { ...chain, symbol, underlying: name, spotSymbol: spotSym, expiries: expiries.slice(0, 6), futureSymbol: fut ? fut.s : null, futureExpiry: fut ? fut.e : null, source: "kite", at: new Date(now).toISOString() };
     if (this._chainAt.size > 60) this._chainAt.clear();
     this._chainAt.set(key, { at: now, out });
+    return out;
+  }
+
+  /**
+   * The NSE forecast from the world (premarket.js): before the open, the expected Nifty gap and the
+   * day's lean from GIFT Nifty, the US, Europe, Japan, Singapore, Hong Kong, Korea, China, the rupee,
+   * crude, both VIXes, FII flows, the Nifty's option chain and the world brief; in the session, the lean
+   * for the rest of the day. `world` is the AI service's world brief when the caller has a fresh one.
+   * Overseas indices come from the owner's FMP key when one is saved (`this.global`, global.js).
+   */
+  async marketForecast({ world = null } = {}) {
+    const now = this.now();
+    const phase = sessionPhase(now).split("|")[1];
+    // a new world brief, a Zerodha login or a new overseas key each start a fresh reading
+    const key = `${phase}|${world && world.at ? world.at : ""}|${this.mode()}|${this.global && this.global.configured() ? this.global.status().setAt : ""}`;
+    if (this._fcAt && this._fcAt.key === key && now - this._fcAt.at < (phase === "open" ? 30000 : 120000)) return this._fcAt.out;
+    let ctx = null;
+    try {
+      ctx = await this.context();
+    } catch (_) {
+      ctx = null;
+    }
+    const items = {};
+    for (const it of (ctx && ctx.items) || []) items[it.id] = it;
+    // without a market context (no Nifty quote yet), the overseas-linked prices are read directly
+    if (!(ctx && ctx.available) && this.mode() === "kite") {
+      try {
+        const plan = contextKeys(now);
+        const raw = await this._call((k) => k.quotes([plan.gift, plan.vix, ...plan.usdinr, ...plan.crude, ...plan.gold]));
+        const pick = (keys, id, name) => {
+          for (const k of [].concat(keys)) {
+            const q = raw[k];
+            if (q && q.last > 0) {
+              const chg = Number.isFinite(q.changePct) ? q.changePct : q.prevClose ? ((q.last - q.prevClose) / q.prevClose) * 100 : null;
+              items[id] = { id, name, available: true, last: q.last, changePct: chg === null ? null : Math.round(chg * 100) / 100 };
+              return;
+            }
+          }
+        };
+        pick(plan.gift, "gift", "GIFT Nifty");
+        pick(plan.vix, "vix", "India VIX");
+        pick(plan.usdinr, "usdinr", "USD / INR");
+        pick(plan.crude, "crude", "Crude oil (MCX)");
+        pick(plan.gold, "gold", "Gold (MCX)");
+      } catch (_) {
+        /* no overseas-linked prices: the forecast works with what it has */
+      }
+    }
+    const n = items.nifty;
+    const kite = { gift: items.gift, usdinr: items.usdinr, crude: items.crude, gold: items.gold, vix: items.vix };
+    let daily = null;
+    try {
+      const d = await this.daily(INDEX_SYMBOL);
+      daily = this._inProgress(d) ? d.candles.slice(0, -1) : d.candles;
+    } catch (_) {
+      daily = null;
+    }
+    let nifty = null;
+    if (n && n.available && Number.isFinite(n.last)) {
+      const prev = Number.isFinite(n.changePct) ? n.last / (1 + n.changePct / 100) : n.last;
+      nifty = { prevClose: phase === "open" ? prev : n.last, last: n.last, changePct: n.changePct, daily };
+    } else if (daily && daily.length) nifty = { prevClose: daily[daily.length - 1].c, last: daily[daily.length - 1].c, changePct: null, daily };
+    let global = null;
+    let history = null;
+    let feed = null;
+    if (this.global && this.global.configured()) {
+      try {
+        feed = await this.global.quotes();
+        global = feed.available ? feed.markets : null;
+        history = await this.global.history();
+      } catch (_) {
+        global = null;
+      }
+    }
+    let options = null;
+    if (this.mode() === "kite") {
+      try {
+        options = await this.optionChain(INDEX_SYMBOL);
+      } catch (_) {
+        options = null;
+      }
+    }
+    const today = istDate(now);
+    const nextSession = phase === "pre" ? today : phase === "open" ? null : nextWeekday(today);
+    const f = buildMarketForecast({ phase, nifty, kite, tide: ctx && ctx.tide, global, world, options, history, nextSession });
+    const out = { ...f, at: new Date(now).toISOString(), feed: this.global ? { configured: this.global.configured(), stale: Boolean(feed && feed.stale), error: feed && (feed.error || (!feed.available && feed.reason)) ? feed.error || feed.reason : "" } : { configured: false } };
+    this._fcAt = { key, at: now, out };
     return out;
   }
 

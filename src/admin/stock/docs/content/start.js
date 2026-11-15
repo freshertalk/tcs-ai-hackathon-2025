@@ -69,6 +69,7 @@ export const START = [
         ["Live Pulse", "The next 15–30 minutes from nine pieces of evidence, with plans for both sides."],
         ["Next-Session Outlook", "Tomorrow’s lean, expected range, gap habit, pivots and if-then scenarios."],
         ["Intraday Plan", "When the market is shut: tomorrow’s expected open and range, the stock’s intraday habits, a LONG / SHORT / range-break / WAIT / AVOID plan and that plan’s record on past sessions."],
+        ["NSE Forecast from the World", "Before 9:15: the expected Nifty open and the day’s lean from GIFT Nifty (formerly SGX Nifty), the US, Europe, Japan, Singapore, Hong Kong, Korea, China, the rupee, crude, VIX, FII flows, the option chain and world news. In the session: the lean for the rest of the day."],
         ["Option Chain", "For F&O stocks and indices: OI, OI change, IV and delta of every strike, PCR, max pain, the call and put walls, fresh writing, futures build-up, the expected move and a bias — one factor in the decisions."],
         ["Daily Goal", "Today’s target (3% of the morning’s margin) and stop (1.5%), always in the top bar, with live reminders when you give profits back — on screen and on your phone."],
         ["Replay (Debrief)", "Mechanical replay of the day’s calls at 5-minute closes, in R, with costs."],

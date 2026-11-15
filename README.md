@@ -344,7 +344,7 @@ header (one tab plays at a time; browsers need a first tap). Sources: an uploade
 `server/data/media`, served to signed-in people with a week of browser caching) or an https audio link. A YouTube source is
 kept as a link only: YouTube's terms allow neither audio without its player nor downloading, so it never plays in the
 background. The full (uncropped) Panchmukhi Hanuman Ji logo stands before the name in the header
-(`public/img/hanuman-full-96.png`, `-192.png`).
+(`public/img/panchmukhi-logo-96.png`, `-192.png`).
 
 **WhatsApp Trading (`server/whatsapp.js`, `server/ai/whatsapp-ai.js`, `src/admin/WhatsAppCard.jsx`; superadmin).** The
 official WhatsApp Business Cloud API (Graph v21.0). The webhook `GET|POST /api/whatsapp/webhook` is mounted before
@@ -432,6 +432,17 @@ added on top of everything that already existed — no earlier logic was removed
   since the previous session's last saved reading, volume, IV and delta (Black-76 on the futures price), and
   PCR, max pain, the call and put walls, fresh writing, futures build-up, the expected move, skew and a bias
   with its reasons. The Intraday Plan and TradeAI use the bias as one factor.
+
+**The NSE forecast from the world (`server/market/premarket.js`, `server/market/global.js`,
+`GET /api/admin/ai/forecast`, `src/admin/stock/analyzer/GlobalMarkets.jsx`).** Before the open: the expected
+Nifty open (GIFT Nifty — the successor of SGX Nifty — else the S&P 500 × the Nifty's measured sensitivity)
+and the day's lean from GIFT Nifty, the US close and futures, Asia (Nikkei, Straits Times, Hang Seng, KOSPI),
+Europe, US and India VIX, crude, the rupee, FII flows, the Nifty option chain and the world-news brief;
+during the session, the lean for the rest of the day (GIFT left out, the Nifty's own tide leads). Overseas
+indices come from the owner's own Financial Modeling Prep key (encrypted; calls capped at 240 a day);
+Zerodha supplies GIFT Nifty, USD/INR, crude, gold and India VIX; the paid model's web search supplies news,
+futures and flows. A chip in the market strip, the full reading under Market & world, the expected open of
+every Intraday plan, and instant answers in TradeAI.
 
 **Daily goal and profit protection (`server/trading/discipline.js`, `server/discipline-watch.js`,
 `src/admin/stock/trade/DailyGoal.jsx`).** Target = 3% and daily stop = 1.5% of the morning's available

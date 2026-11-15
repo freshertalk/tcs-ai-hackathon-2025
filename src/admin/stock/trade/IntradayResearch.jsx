@@ -6,6 +6,7 @@
 import React, { useMemo, useState } from "react";
 import { api } from "../../api";
 import IntradayPlan, { KIND, sessionOf } from "../analyzer/IntradayPlan";
+import { ForecastChip, useForecast } from "../analyzer/GlobalMarkets";
 import { inr, num, pct } from "../analyzer/format";
 import { formatDate } from "../holidays";
 import "../analyzer/intraplan.css";
@@ -35,6 +36,7 @@ export default function IntradayResearch({ watchlist = [], onOpen = null }) {
   const [progress, setProgress] = useState({ done: 0, of: 0, current: "" });
   const [open, setOpen] = useState("");
   const [note, setNote] = useState("");
+  const fc = useForecast(true);
 
   const all = useMemo(() => [...new Set([...watchlist, ...extra])], [watchlist, extra]);
   const toggle = (s) =>
@@ -104,6 +106,14 @@ export default function IntradayResearch({ watchlist = [], onOpen = null }) {
           </p>
         </div>
       </header>
+      {fc.data && fc.data.available && (
+        <div className="ir-world">
+          <ForecastChip f={fc.data} />
+          <span>
+            <b>World markets:</b> {fc.data.headline}. Each stock's expected open below follows this, times its own measured sensitivity to the Nifty.
+          </span>
+        </div>
+      )}
       {all.length > 0 && (
         <div className="rs-picks" role="group" aria-label="Stocks for intraday research">
           {all.map((s) => (

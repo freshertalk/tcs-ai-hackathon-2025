@@ -114,6 +114,10 @@ function mountAi(app, { ai, requireAdmin, requireSuper = requireAdmin, limiter }
     return rest;
   }));
 
+  // the NSE forecast from the world: GIFT Nifty, the US, Europe, Asia, the rupee, crude, VIX, FII flows,
+  // the Nifty option chain and today's world brief — arithmetic only, no AI is called
+  app.get("/api/admin/ai/forecast", requireAdmin, limiter(120, 60 * 1000), wrap(async () => ai.ensemble.forecast()));
+
   // the intraday plan for the next session: arithmetic only (the outlook, the stock's intraday habits,
   // the plan's replayed record, the expected open) — no AI is called
   app.get("/api/admin/ai/intraday/:symbol", requireAdmin, limiter(120, 60 * 1000), wrap(async (req) => ai.ensemble.intraday(symbolOf(req))));

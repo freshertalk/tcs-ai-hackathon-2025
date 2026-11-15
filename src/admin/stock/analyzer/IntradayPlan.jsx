@@ -299,6 +299,11 @@ export default function IntradayPlan({ symbol, data = null, onOpen = null }) {
         </div>
       </div>
 
+      {p.market && (
+        <p className="ip-opt">
+          <b>World markets:</b> {p.market.headline}
+        </p>
+      )}
       {p.options && (
         <p className="ip-opt">
           <b>Options ({Math.round(p.options.daysToExpiry) < 1 ? "expiry today" : `${Math.round(p.options.daysToExpiry)} days to expiry`}):</b> {p.options.label} · PCR {p.options.pcr ?? "—"} · max pain {inr(p.options.maxPain, 0)} · call wall {inr(p.options.resistance, 0)} · put wall {inr(p.options.support, 0)}

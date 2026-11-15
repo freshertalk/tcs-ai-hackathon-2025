@@ -209,3 +209,14 @@ test("the rules: a bar that triggers and touches the stop is a loss; a target on
   assert.equal(timed.how, "time");
   assert.equal(play(mk([["09:15", 100, 101, 99, 100], ["15:05", 104, L.entry + 1, 104, L.entry]]), L, "long", 0.1, 1), null, "no new entry after 3:00 PM");
 });
+
+test("the NSE forecast from the world sets the expected open, and its lean is a reason", () => {
+  const { daily, bars } = world({ n: 228, dayFn: trendUp });
+  const p = buildIntradayPlan({ daily, bars5: bars.slice(-120 * 75), marketCue: { gapPct: 0.8, label: "a gap-up open (+0.80%)", basis: "GIFT Nifty +0.80%", score: 45, word: "up", firm: true, headline: "NSE likely to see a gap-up open (+0.80%); the day leans UP" } });
+  assert.equal(p.open.gapPct, 0.8, "one-for-one without Nifty history to measure the stock's sensitivity");
+  assert.match(p.open.basis, /NSE forecast from the world/);
+  assert.ok([...p.decision.for, ...p.decision.against].some((x) => /^World markets:/.test(x)));
+  assert.equal(p.market.word, "up");
+  const live = buildIntradayPlan({ daily, bars5: bars.slice(-120 * 75), marketOpen: true, marketCue: { gapPct: 0.8, score: 45, word: "up", firm: true, headline: "x" } });
+  assert.equal(live.open.gapPct, 0, "during the session the open is known: no forecast gap");
+});

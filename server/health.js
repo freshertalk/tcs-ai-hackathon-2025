@@ -170,9 +170,11 @@ async function buildHealth(ctx, { secure = false, host = "" } = {}) {
   /* ---------------------------------------------------------------- the Mandir */
   await check("mandir", "Mandir", "Shri Hanuman Chalisa audio", () => {
     const s = ctx.temple.settings();
-    if (s.missing) return { status: "warn", detail: "The uploaded file is missing from this server.", hint: "Upload it again in the Mandir card." };
-    if (s.source.kind === "youtube") return { status: "warn", detail: "Only a YouTube link is set: it cannot play as background audio.", hint: "Upload the audio file in the Mandir card." };
-    return { status: "ok", detail: `${s.source.label} · ${s.source.kind === "file" ? "uploaded file" : "audio link"} · volume ${Math.round(s.volume * 100)}%${s.autoplay ? " · starts by itself" : ""}.` };
+    if (s.missing) return { status: "warn", detail: "An uploaded file is missing from this server and was left out of the list.", hint: "Upload it again in the Mandir card." };
+    if (s.source.kind === "youtube") return { status: "warn", detail: "Only a YouTube link is set: it cannot play as background audio.", hint: "Add audio or video files in the Mandir card." };
+    const n = (s.library || []).length;
+    const what = s.source.kind === "library" ? `${n} uploaded file${n === 1 ? "" : "s"}${n > 1 ? (s.auto ? " · Auto: one after another" : " · Auto off: one repeats") : ""}` : `${s.source.label} · audio link`;
+    return { status: "ok", detail: `${what} · volume ${Math.round(s.volume * 100)}%${s.autoplay ? " · starts by itself" : ""}.` };
   });
 
   const rank = { error: 3, warn: 2, ok: 1, off: 0 };

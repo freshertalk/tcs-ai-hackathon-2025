@@ -225,3 +225,9 @@
     radial-gradient(120% 90% at 50% 0%, rgba(232, 184, 74, 0.18), transparent 62%),
     linear-gradient(180deg, color-mix(in srgb, #2a1a05 55%, var(--surface)), var(--surface));
 }
+
+/* the <picture> around each image adds no box of its own */
+.dsn picture,
+.dsn-full picture {
+  display: contents;
+}

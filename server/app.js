@@ -45,6 +45,7 @@ const { Temple, mountTemple } = require("./temple");
 const { Notifier, mountNotify } = require("./notify");
 const { AlertWatch } = require("./alert-watch");
 const { DisciplineWatch } = require("./discipline-watch");
+const { GlobalFeed } = require("./market/global");
 const { JournalCapture } = require("./journal-capture");
 const { WhatsAppService, mountWhatsApp } = require("./whatsapp");
 const { buildHealth } = require("./health");
@@ -180,6 +181,10 @@ function createApp(opts = {}) {
       screenerIndex: opts.screenerIndex || "nse",
       indexFetch: opts.indexFetch !== undefined ? opts.indexFetch : opts.marketFetch ? null : globalThis.fetch,
     });
+
+  // overseas indices (US, Europe, Japan, Singapore, Hong Kong, Korea, China) from the owner's own
+  // Financial Modeling Prep key, kept encrypted like the other secrets (server/market/global.js)
+  if (!market.global) market.global = opts.globalFeed || new GlobalFeed({ docs: store.docs, secrets: { encrypt: (t) => encrypt(t, settingsKey), decrypt: (b) => decrypt(b, settingsKey) }, fetchImpl: opts.globalFetch || globalThis.fetch, now: opts.now });
 
   // the AI strategist (Anthropic, OpenAI, Gemini, DeepSeek, Moonshot or NVIDIA). Optional: without a key every other feature works as before.
   const ai =
@@ -698,6 +703,18 @@ ${e.text}
   const disciplineWatch = opts.disciplineWatchService || new DisciplineWatch({ trading, now: opts.now, log: opts.log || console });
   if (opts.disciplineWatch !== false && opts.alertWatch !== false) disciplineWatch.start();
   app.get("/api/admin/trading/discipline/watch", requireAdmin, (req, res) => res.json(disciplineWatch.status()));
+
+  // overseas markets: the feed's state and its numbers; the key is written by the superadmin only and never read back
+  const gWrap = (fn) => async (req, res) => {
+    try {
+      res.json(await fn(req));
+    } catch (err) {
+      res.status(err.status || 400).json({ error: err.code || "global_failed", message: err.message || "The overseas feed failed." });
+    }
+  };
+  app.get("/api/admin/market/global", requireAdmin, limiter(120, 60 * 1000), gWrap(async () => ({ feed: market.global.status(), quotes: await market.global.quotes() })));
+  app.post("/api/admin/market/global/refresh", requireAdmin, limiter(20, 60 * 60 * 1000), gWrap(async () => ({ feed: market.global.status(), quotes: await market.global.quotes({ refresh: true }) })));
+  app.put("/api/admin/market/global/key", requireSuper, limiter(20, 60 * 60 * 1000), gWrap(async (req) => ({ feed: market.global.setKey(req.body || {}) })));
 
   // research that runs by itself before the open and after the close (server/research-auto.js)
   const researchAuto = new ResearchAuto({ ai, market, docs: store.docs, now: opts.now, log: opts.log || console });

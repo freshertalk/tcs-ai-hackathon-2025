@@ -25,6 +25,7 @@ const INTENTS = [
   ["funds", /\b(margin|funds|available (cash|balance)|buying power|how much (cash|money) (do )?i have)\b/],
   ["orders", /\b((my|pending|open) orders?|orders? (pending|open|today))\b/],
   ["alerts", /\b(my (price )?alerts?|alerts? (set|waiting))\b/],
+  ["global", /\b(gift ?nifty|sgx ?nifty|global (markets?|cues?)|world markets?|overseas|us markets?|wall street|dow jones|s&p ?500|nasdaq|nikkei|japan(ese)? markets?|singapore markets?|straits times|hang seng|asian? markets?|europe(an)? markets?|dax|ftse|how will (the )?(market|nifty) open|(market|nifty) open(ing)? (tomorrow|today)|pre.?open|pre.?market)\b/],
   ["options", /\b(option.?chain|options? (data|chain|oi)|pcr|put.?call ratio|max.?pain|open interest|call wall|put wall)\b/],
   ["plan", /\b(intraday plan|plan for|trade plan|trading plan|intraday (setup|levels)|levels for)\b/],
   ["quote", /\b(price|ltp|quote|rate|trading at|how much is)\b/],
@@ -49,7 +50,7 @@ function classify(question, { symbols = [], mode = "auto" } = {}) {
   const judge = JUDGE.test(q);
   if (m === "deep") return { tier: "deep", intent, why: "Deep was chosen: the free models answer together and the paid lead merges them." };
   // a plan or the option chain is the desk's own analysis: shown at once even when phrased as "should"
-  const analytic = intent === "plan" || intent === "options";
+  const analytic = intent === "plan" || intent === "options" || intent === "global";
   if (intent && (!judge || analytic || m === "fast") && !(DEEP.test(q) && m === "auto")) return { tier: "instant", intent, why: "The desk's own data answers this — no model needed." };
   if (m === "fast") return { tier: "fast", intent, why: "Fast was chosen: one model, the quickest." };
   if (DEEP.test(q)) return { tier: "deep", intent, why: "A question for depth: the free models answer together and the paid lead merges them." };
@@ -144,6 +145,26 @@ function instantAnswer(intent, d, { symbol = "" } = {}) {
       ].join("\n"),
       { followups: [`What is the intraday plan for ${c.underlying}?`, `Should I trade ${c.underlying} tomorrow?`] },
     );
+  }
+  if (intent === "global") {
+    const f = d.forecast;
+    if (!f) return null;
+    if (!f.available) return reply(`No overseas reading is available right now. ${(f.cautions || []).join(" ")}`, { confidence: "high" });
+    const lines = [`**${f.headline}** — for ${f.for}.`, ""];
+    if (f.open && f.nifty) lines.push("| Nifty last close | Expected open | Range of the open | Gap |", "|---|---|---|---|", `| ${rs(f.nifty.prevClose)} | **${rs(f.open.expected)}** | ${rs(f.open.low)} – ${rs(f.open.high)} | ${pc(f.open.gapPct)} |`, "", `_${f.open.basis}_`, "");
+    const mk = (f.markets || []).filter((m) => num(m.changePct) || m.flowCr);
+    if (mk.length) {
+      lines.push("### World markets", "", "| Region | Market | Last | Change | Status |", "|---|---|---|---|---|");
+      for (const m of mk.slice(0, 16)) lines.push(`| ${m.region} | ${m.name} | ${typeof m.last === "number" ? Number(m.last).toLocaleString("en-IN", { maximumFractionDigits: 2 }) : m.last || "—"} | ${num(m.changePct) ? pc(m.changePct) : m.flowCr ? `₹${Math.round(m.flowCr).toLocaleString("en-IN")} cr` : "—"} | ${m.session || m.asOf || m.source} |`);
+      lines.push("");
+    }
+    lines.push("### Why", ...f.votes.slice(0, 8).map((v) => `- **${v.label}** (${v.vote > 0 ? "+" : ""}${v.vote}): ${v.why}`));
+    if (f.measured && f.measured.us) lines.push("", `_Measured: the Nifty's opening gap moved ${f.measured.us.beta}× the S&P 500's previous session over ${f.measured.us.days} days${num(f.measured.us.followedPct) ? `; after a move of ${f.measured.us.minMove}% or more it opened the same way ${f.measured.us.followedPct}% of the time` : ""}._`);
+    if (f.sectors && f.sectors.length) lines.push("", "### Sectors", ...f.sectors.slice(0, 6).map((x) => `- **${x.sector}** — ${x.bias}: ${x.why}`));
+    if (f.news && f.news.headline) lines.push("", "### News", `- ${f.news.headline}`, ...(f.news.indiaRead ? [`- ${f.news.indiaRead}`] : []), ...(f.news.events || []).slice(0, 3).map((e) => `- 📅 ${e}`));
+    for (const c of f.cautions || []) lines.push(`- ⚠️ ${c}`);
+    lines.push("", "_A reading of the cues, not a promise._");
+    return reply(lines.join("\n"), { forecast: { lean: f.lean.word === "up" ? "up" : f.lean.word === "down" ? "down" : "sideways", horizon: f.for, scenarios: [] }, followups: ["Which of my watchlist stocks gain most if the market opens like this?", "What could change this before the open?", "Show the option chain of NIFTY"] });
   }
   if (intent === "plan") {
     const p = d.plan;

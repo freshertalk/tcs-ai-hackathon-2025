@@ -109,10 +109,10 @@ function stripConflicting(template) {
 // its title and search-engine tags) before the admin app mounted.
 function writeAdminShell(template) {
   // the private area wears Panchmukhi Hanuman Ji as its icon; the public pages keep theirs
-  const ICONS = `  <link rel="icon" type="image/png" sizes="32x32" href="/img/hanuman-icon-32.png" data-private="1" />
-    <link rel="icon" type="image/png" sizes="48x48" href="/img/hanuman-icon-48.png" data-private="1" />
-    <link rel="icon" type="image/png" sizes="192x192" href="/img/hanuman-icon-192.png" data-private="1" />
-    <link rel="apple-touch-icon" sizes="180x180" href="/img/hanuman-icon-180.png" data-private="1" />`;
+  const ICONS = `  <link rel="icon" type="image/png" sizes="32x32" href="/img/panchmukhi-icon-32.png" data-private="1" />
+    <link rel="icon" type="image/png" sizes="48x48" href="/img/panchmukhi-icon-48.png" data-private="1" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/img/panchmukhi-icon-192.png" data-private="1" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/img/panchmukhi-icon-180.png" data-private="1" />`;
   const html = template
     .replace(/<link\s+rel="(?:icon|shortcut icon|apple-touch-icon|manifest)"[^>]*>\s*/gi, "")
     .replace(

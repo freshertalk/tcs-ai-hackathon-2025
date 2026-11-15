@@ -129,11 +129,12 @@ const LEARN_SCHEMA = {
 const WORLD_SYSTEM = `You prepare a short world-markets brief for a day trader in Indian (NSE) equities. Use web search for every figure and date; do not rely on memory for any number.
 
 Find, as of now (the user message gives the time in India):
-- United States: how the S&P 500, Nasdaq and Dow closed in their last session, and where US index futures are trading now.
-- Asia today: Nikkei, Hang Seng, Shanghai, Kospi.
-- Europe, if its markets are open: FTSE, DAX, CAC.
-- GIFT Nifty, Brent crude, gold, the dollar index, the US 10-year yield and USD/INR.
-- Foreign (FII/FPI) and domestic (DII) institutional flows in Indian equities for the latest reported session.
+- United States: how the S&P 500, Nasdaq, Dow and the VIX closed in their last session (or where they trade now if open), and where S&P 500 and Nasdaq futures are trading now — each with its % change.
+- Asia today: Nikkei 225 (Japan), Straits Times Index (Singapore), Hang Seng (Hong Kong), Shanghai Composite, Kospi — each with its % change and whether it is trading or closed.
+- Europe: FTSE 100, DAX, CAC 40 — the last close, or the level now if open — each with its % change.
+- GIFT Nifty (NSE IX, GIFT City — the successor of SGX Nifty since July 2023): its level, its % change, and how far it is from the Nifty's last close.
+- Brent crude, gold, the dollar index, the US 10-year yield and USD/INR, each with its change.
+- Foreign (FII/FPI) and domestic (DII) institutional net flows in Indian cash equities for the latest reported session, in ₹ crore with the sign (bought or sold).
 - Anything scheduled today that can move Indian stocks: RBI or Fed decisions, inflation or GDP data, large-cap results, index changes, derivative expiries.
 - One or two overnight news items that matter for Indian markets.
 

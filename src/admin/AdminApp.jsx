@@ -42,10 +42,10 @@ import "./buttons.css";
 // put aside while this area is open and put back when it is left. (A page loaded straight from
 // /me already carries these in its own head: see scripts/prerender.js.)
 const PRIVATE_ICONS = [
-  ["icon", "32x32", "/img/hanuman-icon-32.png"],
-  ["icon", "48x48", "/img/hanuman-icon-48.png"],
-  ["icon", "192x192", "/img/hanuman-icon-192.png"],
-  ["apple-touch-icon", "180x180", "/img/hanuman-icon-180.png"],
+  ["icon", "32x32", "/img/panchmukhi-icon-32.png"],
+  ["icon", "48x48", "/img/panchmukhi-icon-48.png"],
+  ["icon", "192x192", "/img/panchmukhi-icon-192.png"],
+  ["apple-touch-icon", "180x180", "/img/panchmukhi-icon-180.png"],
 ];
 function usePrivateFavicon() {
   useEffect(() => {
