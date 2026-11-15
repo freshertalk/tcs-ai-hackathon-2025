@@ -49,7 +49,7 @@ const SCHEMA = {
 
 const LEVELS_SYSTEM = `You are the level researcher on a private NSE (India) intraday trading desk. One trader holds ONE open intraday (MIS) position. Your job: research where this trade should be EXITED — the levels to take profit at, and the level whose break proves the trade wrong. The trader decides and acts; you never place orders. Intraday positions are squared off by the broker around 3:15–3:20 PM.
 
-You are given a snapshot: the position; "levelMap" — every price level the desk has worked out from its own data (today's high, low and open, the opening range, VWAP, the previous day's high, low and close and the pivots from them, 5- and 20-day highs and lows, today's swing highs and lows, the busiest price of the day, round numbers, a wall of orders in the book, the edges of the desk's pulse window, the desk's ladder, the entry, the best price since it). Each level has an "id" (A1, A2 … above the last price, nearest first; B1, B2 … below it, nearest first), its price, what it is, "strength" (how many kinds of evidence sit there), "touches" (how many times today's bars turned there) and "touchOddsPct" (the no-trend odds that the price touches it before the square-off, from today's one-minute moves). You also get the session in 5-minute bars, the last twenty 1-minute bars, the previous days' bars, the order book in numbers, the desk's exit coach (its signal, stop and target), the pulse for the next 15–30 minutes, the desk's live call, the market's tide, the NSE forecast from the world (GIFT Nifty, overseas markets), the news about this stock, the minutes left, and — when there is one — your own record on this desk (how often your first target came before your stop).
+You are given a snapshot: the position; "levelMap" — every price level the desk has worked out from its own data (today's high, low and open, the opening range, VWAP, the previous day's high, low and close and the pivots from them, 5- and 20-day highs and lows, today's swing highs and lows, the busiest price of the day, round numbers, a wall of orders in the book, the edges of the desk's pulse window, the desk's ladder, the entry, the best price since it). Each level has an "id" (A1, A2 … above the last price, nearest first; B1, B2 … below it, nearest first), its price, what it is, "strength" (how many kinds of evidence sit there), "touches" (how many times today's bars turned there), "touchOddsPct" (the no-trend odds that the price touches it before the square-off, from today's one-minute moves) and, where the desk has measured it, "heldPct" with "heldOfTests" (how often levels of that kind held when tested — prefer a level with a good record over one without). "otherAiFindings", when shown, is what the desk's other AI features already found on this stock: build on it, and discount a finding marked moved. You also get the session in 5-minute bars, the last twenty 1-minute bars, the previous days' bars, the order book in numbers, the desk's exit coach (its signal, stop and target), the pulse for the next 15–30 minutes, the desk's live call, the market's tide, the NSE forecast from the world (GIFT Nifty, overseas markets), the news about this stock, the minutes left, and — when there is one — your own record on this desk (how often your first target came before your stop).
 
 How to answer:
 - Choose levels ONLY from levelMap, by "anchor" id, and copy that level's price exactly. Never invent a price, never adjust one, never name a level that is not on the map. If no level on the map qualifies as a target, return an empty "targets" list and say why in "summary" — that is a correct answer.
@@ -78,6 +78,8 @@ const LEVELS_SCHEMA = {
 const str = (x, n) => String(x == null ? "" : x).trim().slice(0, n);
 const price = (x) => (typeof x === "number" && Number.isFinite(x) && x > 0 ? Math.round(x * 100) / 100 : null);
 
+const subjectOf = (snapshot) => (snapshot && snapshot.position ? { symbol: snapshot.position.symbol, last: snapshot.position.last } : null);
+
 class ExitAdvisor {
   constructor(ai) {
     this.ai = ai;
@@ -92,7 +94,7 @@ class ExitAdvisor {
    * @returns { action, exitPrice, stop, confidence, reason, watch, by, cached } or null when no model answered
    */
   async advise(snapshot, { fresh = false } = {}) {
-    const r = await askDefault(this.ai, { system: SYSTEM, user: `The position now:\n${JSON.stringify(snapshot)}\n\nKeep it, or leave?`, schema: SCHEMA, maxTokens: 3000, effort: "low", timeoutSec: 45, fresh });
+    const r = await askDefault(this.ai, { system: SYSTEM, user: `The position now:\n${JSON.stringify(snapshot)}\n\nKeep it, or leave?`, schema: SCHEMA, maxTokens: 3000, effort: "low", timeoutSec: 45, fresh, subject: subjectOf(snapshot) });
     if (!r.data) return null;
     const d = r.data;
     return {
@@ -115,7 +117,7 @@ class ExitAdvisor {
    *            outlook, confidence, summary, by, cached } or null when no model answered
    */
   async research(snapshot, { fresh = false } = {}) {
-    const r = await askDefault(this.ai, { system: LEVELS_SYSTEM, user: `The position and the desk's level map now:\n${JSON.stringify(snapshot)}\n\nWhere should this trade be exited?`, schema: LEVELS_SCHEMA, maxTokens: 4000, effort: "medium", timeoutSec: 60, fresh });
+    const r = await askDefault(this.ai, { system: LEVELS_SYSTEM, user: `The position and the desk's level map now:\n${JSON.stringify(snapshot)}\n\nWhere should this trade be exited?`, schema: LEVELS_SCHEMA, maxTokens: 4000, effort: "medium", timeoutSec: 60, fresh, subject: subjectOf(snapshot) });
     if (!r.data) return null;
     const d = r.data;
     const one = (x) => (x && typeof x === "object" ? { anchor: str(x.anchor, 8), price: price(x.price), why: str(x.why, 240) } : null);

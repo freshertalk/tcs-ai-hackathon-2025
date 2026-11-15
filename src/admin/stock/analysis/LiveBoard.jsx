@@ -116,14 +116,14 @@ function ExitLevels({ p, onResearch, busy, aiReady, record }) {
   const set = p.levels || null;
   const shown = liveSet(p);
   const anchors = (p.map && p.map.anchors) || [];
-  const rows = anchors.map((x) => ({ price: x.price, label: x.label, touchPct: x.touchPct, strength: x.strength, awayPct: typeof m.last === "number" ? ((x.price - m.last) / m.last) * 100 : x.awayPct }));
+  const rows = anchors.map((x) => ({ price: x.price, label: x.label, touchPct: x.touchPct, strength: x.strength, held: x.held || null, awayPct: typeof m.last === "number" ? ((x.price - m.last) / m.last) * 100 : x.awayPct }));
   const tagged = (price, patch) => {
     const r = rows.find((x) => same(x.price, price));
     if (r) Object.assign(r, patch);
     else rows.push({ price, awayPct: ((price - m.last) / m.last) * 100, touchPct: null, strength: null, ...patch });
   };
   if (shown) {
-    for (const t of shown.targets) tagged(t.level, { tag: `T${t.n}`, kind: "target", label: t.label, why: t.why, status: t.status, at: t.reachedAt, r: t.r, limit: t.price, touchPct: t.touchPct, reach: t.reach });
+    for (const t of shown.targets) tagged(t.level, { tag: `T${t.n}`, kind: "target", label: t.label, why: t.why, status: t.status, at: t.reachedAt, r: t.r, limit: t.price, touchPct: t.touchPct, reach: t.reach, ...(t.held ? { held: t.held } : {}) });
     if (shown.reversal && !shown.targets.some((t) => same(t.level, shown.reversal.price))) tagged(shown.reversal.price, { tag: "TURN", kind: "turn", label: shown.reversal.label, why: shown.reversal.sign });
   }
   const st = set && set.stop ? set.stop : null;
@@ -203,6 +203,13 @@ function ExitLevels({ p, onResearch, busy, aiReady, record }) {
                       </small>
                     )}
                     {r.kind === "stop" && r.status === "hit" && <small> — broken {istClock(r.at)}</small>}
+                    {r.held && (
+                      <small className="fb-lv__held" data-tip="Counted by the desk after every close: how often a level of this kind held when the price tested it (it fell back one step before closing beyond).">
+                        {" "}
+                        · levels like it held {r.held.pct}% of {r.held.n} tests{r.held.scope === "this stock" ? " on this stock" : ""}
+                        {r.held.hour ? ` (${r.held.hour.name}, all stocks: ${r.held.hour.pct}% of ${r.held.hour.n})` : ""}
+                      </small>
+                    )}
                     {r.why && <small className="fb-lv__why">{r.why}</small>}
                     <small className="fb-lv__m">
                       {pc(r.awayPct)} away{typeof r.touchPct === "number" ? ` · reach ${r.touchPct}%` : ""}

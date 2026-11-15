@@ -1487,3 +1487,53 @@ h5.md-h {
     animation: none;
   }
 }
+
+/* ---- the model and the thinking level, beside the question (the trader's control over tokens) */
+.tai-ctl {
+  display: inline-flex;
+  flex: none;
+  gap: 6px;
+  min-width: 0;
+}
+.tai-ctl__sel {
+  min-height: 32px;
+  max-width: 190px;
+  padding: 2px 8px;
+  border: 1px solid var(--line-2);
+  border-radius: 99px;
+  background: var(--surface);
+  color: var(--ink-2);
+  font: inherit;
+  font-size: var(--t-small);
+  cursor: pointer;
+}
+.tai-ctl__sel:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.tai-proc__agent {
+  display: grid;
+  gap: 4px;
+  list-style: none;
+  padding-left: 0 !important;
+}
+.tai-proc__agent b {
+  color: var(--ink);
+}
+.tai-proc__agent small {
+  color: var(--ink-3);
+}
+@media (max-width: 720px) {
+  .tai-comp__row {
+    flex-wrap: wrap;
+  }
+  .tai-ctl {
+    order: 5;
+    flex: 1 1 100%;
+  }
+  .tai-ctl__sel {
+    flex: 1 1 0;
+    max-width: none;
+    min-height: 40px;
+  }
+}

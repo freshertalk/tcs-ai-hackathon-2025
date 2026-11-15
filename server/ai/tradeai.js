@@ -30,9 +30,14 @@ const crypto = require("node:crypto");
 const { askOne, team } = require("./mixture");
 const { ChatStore } = require("./chats");
 const { classify, instantAnswer, MODES } = require("./route");
+const { DeskAgent } = require("./agent");
 
 const SETTINGS_DOC = "ai/tradeai-settings.json";
 const SPEED_DOC = "ai/tradeai-speed.json";
+const ACTIVITY_DOC = "ai/tradeai-activity.json"; // every question: how it was answered, what was read, what it cost
+// the thinking level: auto (by the kind of question), or the trader's own choice
+const EFFORTS = ["auto", "low", "medium", "high"];
+const EXITISH = /\b(exit|book|square.?off|get out|trail|stop.?loss|my stop|my target|hold|close (my|the)|sell my|cover my|average)\b/i;
 // usePaid: TradeAI may use the AI model (every model is paid); paidDailyCap: model answers a day
 const TRADEAI_DEFAULTS = { usePaid: true, paidDailyCap: 150, mode: "auto" };
 // how much each tier may write and think, and how long it may take
@@ -65,6 +70,12 @@ How to answer:
 - The option chain (DATA.options, when shown) is one factor among the others: quote its PCR, the call and put walls, max pain, ATM IV and its bias, and never make it the only reason.
 - The intraday plan (DATA.plan, when shown) is the desk's own plan for the next session with its measured record: build on its levels and say how strong its record is.
 - The world forecast (DATA.forecast, when shown) reads GIFT Nifty (the successor of SGX Nifty), the US, Europe, Japan, Singapore, Hong Kong, Korea, China, the rupee, crude, both VIXes, FII flows, the Nifty option chain and the world-news brief into an expected Nifty open and a lean: quote its figures and their times, say which cues agree and which do not, and remember overseas cues explain only part of the Nifty's moves.
+- An open position (DATA.position_SYMBOL, when shown) carries the desk's exit coach as it reads the position right now: its word (HOLD, TIGHTEN, BOOK PART, EXIT NOW), the exit pressure, the price to exit at, the stop, the next target, why leave and why stay, the P&L and its best, the order book, and the AI's exit levels that passed the desk's check. Answer for THIS position, not from a textbook: use its entry price, its size, the minutes it has been open and the minutes left to the 3:15 PM square-off. Give one plan: where to take profit (a price from the coach or the level map), where the stop belongs (never further from the price than the coach's stop), and what would make you leave at once. If the trade is losing, say how to keep the loss small; never suggest averaging it or widening the stop. If you disagree with the coach, say what it is missing.
+- The tape (DATA.tape_SYMBOL): RSI on 1 and 5 minutes and any divergence, VWAP and its bands, the Bollinger bands (%B, a squeeze, a close outside), volume against the usual, momentum, 5-minute price action, the bid, the offer and who holds the order book. Quote the numbers that decide the answer.
+- The level map (DATA.levels_SYMBOL): every level above and below the price with its strength, the odds of a touch before the square-off (no trend assumed) and, where the desk has measured it, how often levels of that kind have HELD (with the number of tests). Prefer a level with a record over one without; always quote the sample size and never call a level certain.
+- Shared research (DATA.shared_SYMBOL): what the desk's other AI features already found on the stock, with their time and the price they were made at. Build on them instead of repeating the work; say where you agree or disagree, and discount a finding marked moved.
+- What the desk has measured (DATA.learned…): counts from its own history. They are evidence with a sample size, not a promise.
+- The agent's web findings (DATA.web_…): facts from outside the desk with their sources; say they come from the web.
 - If the question is not about trading, answer briefly and steer back.`;
 
 const SCHEMA = {
@@ -102,6 +113,8 @@ class TradeAI {
     this.jobs = new Map();
     this.chats = new ChatStore(ai.docs); // every conversation is its own record in the database
     this._reuse = new Map(); // question key → { at, dkey, reply }: an answer reused while the question and data are unchanged
+    this.desk = null; // set by app.js: read-only { reading, tape, levels, lab, learned } — the flight deck, the tape, the level learner
+    this.agent = new DeskAgent(this); // decides what else to read, and reads it (agent.js)
   }
 
   /* -------------------------------------------------------------------- conversations */
@@ -189,7 +202,8 @@ class TradeAI {
     if (has(q, ["gift", "sgx", "global", "world", "overseas", "us market", "wall street", "nasdaq", "s&p", "dow", "nikkei", "japan", "singapore", "straits", "hang seng", "asia", "europe", "dax", "ftse", "open tomorrow", "pre-open", "preopen", "premarket", "pre-market", "market open", "will the market", "will nifty", "next week"]) || (tools.has("market") && tools.has("outlook"))) tools.add("global");
     // the Social Media page's organised news and posts (news sites, X, Reddit, NSE announcements)
     if (tools.has("news") || has(q, ["tweet", "twitter", "x post", "social", "headline", "buzz", "trending", "talked about", "rumour", "rumor", "sentiment", "reddit", "what's the news", "latest news", "market news"])) tools.add("social");
-    return { symbols, tools: [...tools], positions };
+    // named: the stocks the question itself names (gathering later adds the stocks you hold to `symbols`)
+    return { symbols, named: symbols.slice(), tools: [...tools], positions };
   }
 
   /* ------------------------------------------------------------------------- gathering */
@@ -463,6 +477,7 @@ class TradeAI {
       usePaid: d.usePaid === undefined ? TRADEAI_DEFAULTS.usePaid : Boolean(d.usePaid),
       paidDailyCap: Number.isFinite(cap) && cap >= 0 ? Math.min(2000, Math.round(cap)) : TRADEAI_DEFAULTS.paidDailyCap,
       mode: MODES.includes(d.mode) ? d.mode : TRADEAI_DEFAULTS.mode,
+      effort: EFFORTS.includes(d.effort) ? d.effort : "auto",
       paidToday: d.paid && d.paid.day === istDay(this.ai.now()) ? d.paid.n : 0,
     };
   }
@@ -478,6 +493,10 @@ class TradeAI {
       if (!MODES.includes(patch.mode)) throw Object.assign(new Error("Mode is auto, fast or deep."), { code: "invalid", status: 400 });
       d.mode = patch.mode;
     }
+    if (patch.effort !== undefined) {
+      if (!EFFORTS.includes(patch.effort)) throw Object.assign(new Error("The thinking level is auto, low, medium or high."), { code: "invalid", status: 400 });
+      d.effort = patch.effort;
+    }
     this.ai.docs.write(SETTINGS_DOC, d);
     return this.status();
   }
@@ -487,11 +506,59 @@ class TradeAI {
     d.paid = d.paid && d.paid.day === day ? { day, n: d.paid.n + 1 } : { day, n: 1 };
     this.ai.docs.write(SETTINGS_DOC, d);
   }
-  /** The models TradeAI may ask now: the default model, then the fallbacks — none when switched off or today's limit is reached. */
-  _models() {
+  /**
+   * The models TradeAI may ask now: the trader's pick for this question first (when its company's key is
+   * saved), then the default model and the fallbacks — none when switched off or today's limit is reached.
+   */
+  _models(pick = null) {
     const st = this.settings();
     if (!st.usePaid || st.paidToday >= st.paidDailyCap) return [];
-    return team(this.ai).models;
+    const base = team(this.ai).models;
+    const chosen = this._pick(pick);
+    return chosen ? [chosen, ...base.filter((m) => m.id !== chosen.id)] : base;
+  }
+  /** A model the trader picked in the chat, as the Engine wants it — or null when it cannot be asked. */
+  _pick(pick) {
+    if (!pick || typeof pick !== "object") return null;
+    const provider = String(pick.provider || "");
+    const model = String(pick.model || "");
+    if (!provider || !model || typeof this.ai._key !== "function" || !this.ai._key(provider)) return null;
+    const list = typeof this.ai.modelsFor === "function" ? this.ai.modelsFor(provider) || [] : [];
+    const m = list.find((x) => x.id === model);
+    if (!m) return null; // only a model the saved key is known to reach
+    const company = this.choices().models.find((x) => x.provider === provider);
+    return { id: `${provider}|${model}`, provider, model, name: m.name || model, company: company ? company.company : provider, lead: true };
+  }
+  /** What the trader may choose in the chat: every model of every company whose key is saved, and the thinking levels. */
+  choices() {
+    let models = [];
+    try {
+      const st = typeof this.ai.status === "function" ? this.ai.status() : null;
+      const def = st && st.defaultModel ? `${st.defaultModel.provider}|${st.defaultModel.model}` : "";
+      models = ((st && st.providers) || [])
+        .filter((p) => p.configured)
+        .flatMap((p) => (p.models || []).slice(0, 10).map((m) => ({ provider: p.id, model: m.id, name: m.name || m.id, company: p.name, isDefault: `${p.id}|${m.id}` === def })));
+    } catch (_) {
+      models = [];
+    }
+    return {
+      models,
+      efforts: [
+        { id: "auto", name: "Auto", text: "By the question: data questions cost nothing; advice thinks briefly with one agent step; deep questions think longer." },
+        { id: "low", name: "Low", text: "One brief answer from what the desk gathered. No agent steps. The fewest tokens." },
+        { id: "medium", name: "Medium", text: "The agent may read once more (the web when needed), then a considered answer." },
+        { id: "high", name: "High", text: "Up to three agent steps with the full data and the web, and the model thinks hardest. The most tokens." },
+      ],
+    };
+  }
+  /** How hard the model thinks and how far the agent may go: the trader's level, or by the kind of question. */
+  _level(tier, effort) {
+    if (effort === "low") return { effort: "low", steps: 0, seeData: false, web: false, tier: {} };
+    if (effort === "medium") return { effort: "medium", steps: 1, seeData: false, web: true, tier: { maxTokens: 8000, timeoutSec: 120, data: 32000, rules: 3500 } };
+    if (effort === "high") return { effort: "high", steps: 3, seeData: true, web: true, tier: { maxTokens: 16000, timeoutSec: 180, data: 48000, rules: 3500 } };
+    if (tier === "deep") return { effort: "medium", steps: 2, seeData: true, web: true, tier: {} };
+    if (tier === "advice") return { effort: "low", steps: 1, seeData: false, web: false, tier: {} };
+    return { effort: "low", steps: 0, seeData: false, web: false, tier: {} };
   }
   _speeds() {
     return (this.ai.docs && this.ai.docs.read(SPEED_DOC, null)) || {};
@@ -518,43 +585,100 @@ class TradeAI {
       ...st,
       lead: chain[0] ? { name: chain[0].name, company: chain[0].company } : null,
       // the default model first, then the fallbacks, with their measured answer time
+      choices: this.choices(),
+      today: this.activity({ limit: 0 }).today,
+      readers: this.agent.catalogue({ owner: true, web: true }).length,
       models: chain.slice(0, 4).map((a, i) => ({ name: a.name, company: a.company, fallback: i > 0, avgSec: sp[a.id] && sp[a.id].ms !== null ? Math.round(sp[a.id].ms / 100) / 10 : null })),
     };
   }
 
   /** One question, answered now (used by the chat's jobs and by WhatsApp's ASK). */
-  async answer(question, { owner = false, history = [], onStep = () => {}, onRoute = () => {}, mode = null, fresh = false } = {}) {
+  async answer(question, opts = {}) {
+    const reply = await this._answer(question, opts);
+    this._log(question, reply, opts);
+    return reply;
+  }
+
+  /** Every question is written down: how it was answered, what was read, by which model, at what cost. */
+  _log(question, reply, opts = {}) {
+    if (!this.ai.docs || !reply || !reply.meta) return;
+    try {
+      const m = reply.meta;
+      const d = this.ai.docs.read(ACTIVITY_DOC, null) || { items: [] };
+      const item = {
+        at: this.ai.now(),
+        q: String(question || "").replace(/\s+/g, " ").trim().slice(0, 160),
+        owner: Boolean(opts.owner),
+        how: m.reused ? "reused" : m.tier === "instant" ? "instant" : m.engineOnly ? "desk only" : "model",
+        tier: m.tier,
+        intent: m.intent || null,
+        effort: m.effort || null,
+        model: (m.by && m.by[0]) || null,
+        symbols: (m.symbols || []).slice(0, 4),
+        read: (m.used || []).slice(0, 16),
+        agent: m.agent ? m.agent.steps.map((x) => ({ thought: x.thought, calls: x.calls.map((c) => `${c.tool}${c.symbol ? ` ${c.symbol}` : ""}${c.ok ? "" : " (nothing)"}`) })) : [],
+        tokensIn: (m.usage && m.usage.input) || 0,
+        tokensOut: (m.usage && m.usage.output) || 0,
+        ms: m.ms || 0,
+      };
+      d.items = [item, ...(Array.isArray(d.items) ? d.items : [])].slice(0, 500);
+      this.ai.docs.write(ACTIVITY_DOC, d);
+    } catch (_) {
+      /* the log never fails an answer */
+    }
+  }
+
+  /** The log, newest first, with today's totals. */
+  activity({ limit = 50 } = {}) {
+    const d = (this.ai.docs && this.ai.docs.read(ACTIVITY_DOC, null)) || { items: [] };
+    const items = Array.isArray(d.items) ? d.items : [];
+    const day = istDay(this.ai.now());
+    const mine = items.filter((x) => istDay(x.at) === day);
+    const count = (how) => mine.filter((x) => x.how === how).length;
+    return {
+      today: { questions: mine.length, instant: count("instant"), reused: count("reused"), model: count("model"), deskOnly: count("desk only"), agentSteps: mine.reduce((a, x) => a + (x.agent ? x.agent.length : 0), 0), tokensIn: mine.reduce((a, x) => a + (x.tokensIn || 0), 0), tokensOut: mine.reduce((a, x) => a + (x.tokensOut || 0), 0) },
+      items: items.slice(0, Math.max(0, Math.min(200, limit))).map((x) => ({ ...x, clock: new Date(x.at + 5.5 * 3600000).toISOString().slice(0, 16).replace("T", " ") })),
+    };
+  }
+
+  async _answer(question, { owner = false, history = [], onStep = () => {}, onRoute = () => {}, mode = null, fresh = false, model = null, effort = null } = {}) {
     const q = String(question || "").trim().slice(0, 1500);
     if (!q) throw Object.assign(new Error("Ask a question."), { code: "invalid", status: 400 });
     const t0 = Date.now();
     onStep("Working out what this needs");
     const plan = await this.plan(q, { owner });
     const route = classify(q, { symbols: plan.symbols, mode: mode || this.settings().mode });
+    // the thinking level: this question's, else the saved one, else by the kind of question
+    const saved = this.settings().effort;
+    const eff = EFFORTS.includes(effort) && effort !== "auto" ? effort : saved !== "auto" ? saved : null;
+    // "when should I exit?" is answered at once from the exit coach — unless the trader asked the model to think
+    if (route.tier === "instant" && route.intent === "exit" && (eff === "medium" || eff === "high")) Object.assign(route, { tier: "advice", why: "You asked the model to think about it: the exit coach's reading goes to the model with the tape and the levels." });
 
     // 1. instant: the desk's own data answers — no model
     if (route.tier === "instant") {
       onRoute({ ...route, model: null });
-      const need = { goal: ["goal", "positions"], positions: ["positions", "goal"], funds: ["funds", "goal"], orders: ["orders"], alerts: ["alerts"], quote: ["quote"], options: ["options"], plan: ["plan"], global: ["global"], social: ["social"], levels: ["snapshot"], call: ["snapshot"], outlook: ["snapshot", "outlook"], market: ["market"], pnl: ["pnl"] }[route.intent] || [];
+      const need = { goal: ["goal", "positions"], positions: ["positions", "goal"], funds: ["funds", "goal"], orders: ["orders"], alerts: ["alerts"], exit: ["goal"], quote: ["quote"], options: ["options"], plan: ["plan"], global: ["global"], social: ["social"], levels: ["snapshot"], call: ["snapshot"], outlook: ["snapshot", "outlook"], market: ["market"], pnl: ["pnl"] }[route.intent] || [];
       const { data, used } = await this.gather(plan, { owner, onStep, only: need });
+      if (route.intent === "exit") await this.agent.seed(plan, data, used, { owner, onStep, exit: true }).catch(() => []);
       const r = instantAnswer(route.intent, data, { symbol: plan.symbols[0] || "" });
       if (r) return { ...r, related: this.related(q, r, data, plan), meta: { used, symbols: plan.symbols, tools: need, by: [], mergedBy: null, fallback: false, models: [], usage: { input: 0, output: 0 }, engineOnly: true, tier: "instant", intent: route.intent, why: route.why, ms: Date.now() - t0 } };
-      route.tier = "fast"; // the data was not there: one quick model with what could be read
+      route.tier = route.intent === "exit" ? "advice" : "fast"; // the data was not there: the model answers with what could be read
       route.why = "The data for an instant answer was not available: one quick model answers instead.";
     }
 
     const { data, used } = await this.gather(plan, { owner, onStep });
-    const tier = TIER[route.tier] || TIER.advice;
-    let json = JSON.stringify(data);
-    const cap = Math.min(tier.data, MAX_DATA);
-    if (json.length > cap) json = `${json.slice(0, cap)}…(cut)`;
+    // free, and nearly always what matters: the exit coach, the tape and the level map of the positions
+    // the question is about, and what the desk's other AI features have already found (agent.js)
+    await this.agent.seed(plan, data, used, { owner, onStep, exit: route.intent === "exit" || EXITISH.test(q) }).catch(() => []);
+    const level = this._level(route.tier, eff);
+    const tier = { ...(TIER[route.tier] || TIER.advice), ...level.tier };
     const convo = history.slice(-6).map((m) => `${m.role === "user" ? "Trader" : "TradeAI"}: ${String(m.text).slice(0, 800)}`).join("\n");
     const rules = this.ai.playbook ? String(this.ai.playbook.read() || "").slice(0, Math.min(tier.rules, MAX_RULES)) : "";
-    const user = `${rules ? `THE DESK'S TRADING RULES (the skills file every AI feature reads, first part):\n${rules}\n\n` : ""}${convo ? `The conversation so far:\n${convo}\n\n` : ""}DATA (gathered now):\n${json}\n\nThe trader asks: ${q}`;
     // the same question on the same data (or within three minutes, while prices tick) is answered with
-    // the answer already paid for — no new AI call. Retry and edited questions always ask again.
-    // (the models in the key: a new default model, or the fallback switched, asks again)
-    const models = this._models();
-    const ckey = crypto.createHash("sha256").update(JSON.stringify([q.toLowerCase().replace(/\s+/g, " "), route.tier, plan.symbols, history.slice(-2).map((m) => String(m.text).slice(0, 400)), owner, models.map((x) => x.id)])).digest("hex");
+    // the answer already paid for — no new AI call, and no agent step. Retry and edited questions always
+    // ask again. (the models and the thinking level are in the key: another model or level asks again)
+    const models = this._models(model);
+    const ckey = crypto.createHash("sha256").update(JSON.stringify([q.toLowerCase().replace(/\s+/g, " "), route.tier, level.effort, level.steps, plan.symbols, history.slice(-2).map((m) => String(m.text).slice(0, 400)), owner, models.map((x) => x.id)])).digest("hex");
     const dkey = crypto.createHash("sha256").update(JSON.stringify(data, (k, v) => (k === "asOf" ? undefined : v))).digest("hex");
     const prev = this._reuse.get(ckey);
     const age = prev ? this.ai.now() - prev.at : Infinity;
@@ -562,14 +686,30 @@ class TradeAI {
       onRoute({ ...route, model: null, reused: true });
       return { ...prev.reply, meta: { ...prev.reply.meta, reused: true, reusedAt: new Date(prev.at).toISOString(), sameData: prev.dkey === dkey, models: [], usage: { input: 0, output: 0 }, ms: Date.now() - t0 } };
     }
-    onRoute({ ...route, model: models[0] ? models[0].name : null });
-    const r = models.length ? await askOne(this.ai, models, { system: SYSTEM, user, schema: SCHEMA, maxTokens: tier.maxTokens, effort: tier.effort, timeoutSec: tier.timeoutSec, onStep, fresh }) : { data: null, by: [], mergedBy: null, tried: [], fallback: false, usage: { input: 0, output: 0 } };
-    this._learn(r.tried);
-    if ((r.tried || []).some((t) => t.ok && !t.cached)) this._countPaid();
+    onRoute({ ...route, model: models[0] ? models[0].name : null, effort: level.effort, steps: level.steps });
+    // the agent: the model names what else it needs and the desk reads it, as many steps as the level gives
+    const ag = await this.agent.run(q, { data, used, models, level, owner, history, onStep, fresh }).catch(() => ({ steps: [], usage: { input: 0, output: 0 }, tried: [] }));
+    // the position, the tape, the levels and the shared research go first: a long answer is cut from the end
+    const first = Object.keys(data).filter((k) => /^(position|tape|levels|shared)_/.test(k));
+    const ordered = { asOf: data.asOf, plan: data.plan };
+    for (const k of first) ordered[k] = data[k];
+    for (const k of Object.keys(data)) if (ordered[k] === undefined) ordered[k] = data[k];
+    let json = JSON.stringify(ordered);
+    const cap = Math.min(tier.data, Math.max(MAX_DATA, level.tier.data || 0));
+    if (json.length > cap) json = `${json.slice(0, cap)}…(cut)`;
+    const user = `${rules ? `THE DESK'S TRADING RULES (the skills file every AI feature reads, first part):\n${rules}\n\n` : ""}${convo ? `The conversation so far:\n${convo}\n\n` : ""}DATA (gathered now):\n${json}\n\nThe trader asks: ${q}`;
+    // what this answer is about, for the shared research: the first stock of the question — or nothing
+    const s0 = (plan.named || plan.symbols)[0] || "";
+    const lastOf = s0 ? (data[`position_${s0}`] && data[`position_${s0}`].numbers ? data[`position_${s0}`].numbers.last : data[`stock_${s0}`] && data[`stock_${s0}`].quote ? data[`stock_${s0}`].quote.last : null) : null;
+    const r = models.length ? await askOne(this.ai, models, { system: SYSTEM, user, schema: SCHEMA, maxTokens: tier.maxTokens, effort: level.effort, timeoutSec: tier.timeoutSec, onStep, fresh, subject: s0 ? { symbol: s0, last: lastOf } : { none: true } }) : { data: null, by: [], mergedBy: null, tried: [], fallback: false, usage: { input: 0, output: 0 } };
+    const tried = [...ag.tried, ...(r.tried || [])];
+    this._learn(tried);
+    if (tried.some((t) => t.ok && !t.cached)) this._countPaid();
+    const usage = { input: (r.usage ? r.usage.input : 0) + ag.usage.input, output: (r.usage ? r.usage.output : 0) + ag.usage.output };
     const st = this.settings();
     const why = models.length ? "The AI model did not answer just now" : !st.usePaid ? "TradeAI's AI model is switched off (TradeAI settings)" : st.paidToday >= st.paidDailyCap ? `Today's limit of ${st.paidDailyCap} model answers is reached (TradeAI settings)` : "No AI key is saved — the default model is Claude Sonnet 5.5; save the Anthropic key on the AI page";
     const ai = r.data ? this._clean(r.data) : this.fallbackAnswer(q, data, why);
-    const out = { ...ai, related: this.related(q, ai, data, plan), meta: { used, symbols: plan.symbols, tools: plan.tools, by: r.by, mergedBy: r.mergedBy, fallback: r.fallback, models: r.tried, usage: r.usage, engineOnly: !r.data, tier: route.tier, why: route.why, ms: Date.now() - t0 } };
+    const out = { ...ai, related: this.related(q, ai, data, plan), meta: { used, symbols: plan.symbols, tools: plan.tools, by: r.by, mergedBy: r.mergedBy, fallback: r.fallback, models: r.tried, usage, engineOnly: !r.data, tier: route.tier, intent: route.intent || null, why: route.why, effort: level.effort, agent: { steps: ag.steps, allowed: level.steps }, picked: this._pick(model) ? models[0].name : null, ms: Date.now() - t0 } };
     if (r.data) {
       this._reuse.set(ckey, { at: this.ai.now(), dkey, reply: out });
       if (this._reuse.size > 200) this._reuse.delete(this._reuse.keys().next().value);
@@ -719,7 +859,7 @@ class TradeAI {
    * Start a chat turn as a background job (the page polls it). With from (the index of one of your
    * earlier questions), the chat goes back to that point first: that is how "edit" and "retry" work.
    */
-  async start({ conv = null, text, owner = "", isOwner = false, from = null, mode = null }) {
+  async start({ conv = null, text, owner = "", isOwner = false, from = null, mode = null, model = null, effort = null }) {
     const running = [...this.jobs.values()].filter((j) => !j.finishedAt).length;
     if (running >= 3) throw Object.assign(new Error("TradeAI is already answering three questions. Try again in a moment."), { code: "busy", status: 429 });
     const question = String(text || "").trim().slice(0, 1500);
@@ -740,7 +880,7 @@ class TradeAI {
     const history = c.messages.slice(0, -1);
     const t0 = Date.now();
     // Retry or an edited question asks for a new answer: never the reused one
-    this.answer(question, { owner: isOwner, history, fresh: from !== null, mode: MODES.includes(mode) ? mode : null, onStep: (s) => job.steps.push({ at: Date.now(), text: s }), onRoute: (r) => (job.route = r) })
+    this.answer(question, { owner: isOwner, history, fresh: from !== null, mode: MODES.includes(mode) ? mode : null, model, effort: EFFORTS.includes(effort) ? effort : null, onStep: (s) => job.steps.push({ at: Date.now(), text: s }), onRoute: (r) => (job.route = r) })
       .then(async (reply) => {
         if (job.cancelled) return;
         reply.meta = { ...reply.meta, sec: Math.round((Date.now() - t0) / 100) / 10, steps: job.steps.map((x) => x.text) };
@@ -780,4 +920,4 @@ class TradeAI {
 
 require("./brains").register("tradeai", SYSTEM, "TradeAI chat");
 
-module.exports = { TradeAI, SYSTEM, SCHEMA, short };
+module.exports = { TradeAI, SYSTEM, SCHEMA, short, EFFORTS };

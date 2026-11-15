@@ -607,6 +607,9 @@
 .fb-lv__t .fb-lv__m {
   display: none;
 }
+.fb-lv__t .fb-lv__held {
+  color: var(--ink-2);
+}
 .fb-lv__t .fb-lv__why {
   display: block;
   margin-top: 2px;

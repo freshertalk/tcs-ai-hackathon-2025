@@ -147,7 +147,7 @@ function useMention(value) {
   return { term, list };
 }
 
-function Composer({ value, onChange, onSend, onStop, busy, disabled, big, inputRef, hint, mode, onMode }) {
+function Composer({ value, onChange, onSend, onStop, busy, disabled, big, inputRef, hint, mode, onMode, choices = null, model = "", onModel, effort = "auto", onEffort, defaultName = "" }) {
   const [listening, setListening] = useState(false);
   const [pick, setPick] = useState(0);
   const rec = useRef(null);
@@ -245,6 +245,25 @@ function Composer({ value, onChange, onSend, onStop, busy, disabled, big, inputR
             ))}
           </div>
         )}
+        {choices && onModel && onEffort && (
+          <div className="tai-ctl">
+            <select className="tai-ctl__sel" value={choices.models.some((m) => `${m.provider}|${m.model}` === model) ? model : ""} onChange={(e) => onModel(e.target.value)} aria-label="AI model for this chat" data-tip="The AI model that answers: the default one, or any model of a company whose key is saved on the AI page.">
+              <option value="">Default{defaultName ? ` — ${defaultName}` : " model"}</option>
+              {choices.models.map((m) => (
+                <option key={`${m.provider}|${m.model}`} value={`${m.provider}|${m.model}`}>
+                  {m.name} · {m.company}
+                </option>
+              ))}
+            </select>
+            <select className="tai-ctl__sel" value={effort} onChange={(e) => onEffort(e.target.value)} aria-label="Thinking level" data-tip={(choices.efforts.find((x) => x.id === effort) || {}).text || "How hard the model thinks and how far the agent may read: your control over tokens."}>
+              {choices.efforts.map((x) => (
+                <option key={x.id} value={x.id}>
+                  Thinking: {x.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         <span className="tai-comp__hint">{hint}</span>
         {value.length > 1200 && <span className="tai-comp__count">{value.length}/1500</span>}
         {SR && !busy && (
@@ -293,6 +312,10 @@ function Process({ meta }) {
   const used = meta.used || [];
   const n = (meta.by || []).length;
   const sec = Number.isFinite(meta.ms) ? Math.round(meta.ms / 100) / 10 : null;
+  const u = meta.usage || {};
+  const tokens = u.input || u.output ? ` · ${(u.input || 0).toLocaleString("en-IN")} in / ${(u.output || 0).toLocaleString("en-IN")} out tokens` : "";
+  const agentSteps = (meta.agent && meta.agent.steps) || [];
+  const agentRead = agentSteps.reduce((a, x) => a + x.calls.filter((c) => c.ok).length, 0);
   const label =
     meta.tier === "instant"
       ? `⚡ Instant — from the desk’s data (${used.length ? used.join(", ") : "the desk"}), no AI model${sec !== null ? ` · ${sec}s` : ""}`
@@ -300,7 +323,7 @@ function Process({ meta }) {
         ? `♻ Reused — the same question on ${meta.sameData ? "the same data" : "nearly the same data (within 3 minutes)"}, answered ${meta.reusedAt ? new Date(meta.reusedAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }) : "earlier"} — no new AI call (Retry asks again)`
         : meta.engineOnly
         ? "Answered with the desk’s own arithmetic (no AI model answered)"
-        : `Read ${used.length ? used.join(", ") : "the desk"} · ${n > 1 ? `${n} models${meta.mergedBy ? ` · merged by ${meta.mergedBy}` : ""}` : `answered by ${(meta.by || [])[0] || "a model"}${meta.tier === "deep" ? " · thinking longer" : ""}`}${meta.fallback ? " · after a fallback" : ""}`;
+        : `Read ${used.length ? used.join(", ") : "the desk"} · ${n > 1 ? `${n} models${meta.mergedBy ? ` · merged by ${meta.mergedBy}` : ""}` : `answered by ${(meta.by || [])[0] || "a model"}${meta.tier === "deep" ? " · thinking longer" : ""}`}${meta.fallback ? " · after a fallback" : ""}${meta.effort ? ` · thinking: ${meta.effort}` : ""}${agentSteps.length ? ` · agent: ${agentSteps.length} step${agentSteps.length === 1 ? "" : "s"}${agentRead ? `, read ${agentRead} more` : ""}` : ""}${tokens}`;
   return (
     <details className="tai-proc">
       <summary>
@@ -315,6 +338,16 @@ function Process({ meta }) {
               <li key={i}>{s}</li>
             ))}
           </ol>
+        )}
+        {agentSteps.length > 0 && (
+          <ul className="tai-proc__agent">
+            {agentSteps.map((x) => (
+              <li key={x.n}>
+                <b>Agent step {x.n}:</b> {x.thought || "checked what was still missing."}
+                {x.calls.length > 0 && <small> Read: {x.calls.map((c) => `${c.tool}${c.symbol ? ` ${c.symbol}` : ""}${c.ok ? "" : " (nothing there)"}`).join(", ")}.</small>}
+              </li>
+            ))}
+          </ul>
         )}
         {meta.models && meta.models.length > 0 && (
           <ul className="tai-proc__models">
@@ -632,6 +665,17 @@ export default function TradeAI() {
     setModeState(m);
     store.set("tai.mode", m);
   };
+  // the trader's control over tokens: which model answers, and how hard it thinks (kept on this device)
+  const [picked, setPickedState] = useState(() => store.get("tai.model", ""));
+  const [effort, setEffortState] = useState(() => store.get("tai.effort", "auto"));
+  const setPicked = (m) => {
+    setPickedState(m);
+    store.set("tai.model", m);
+  };
+  const setEffort = (e) => {
+    setEffortState(e);
+    store.set("tai.effort", e);
+  };
   useEffect(() => {
     api("/api/admin/tradeai/settings")
       .then(setTset)
@@ -778,7 +822,7 @@ export default function TradeAI() {
     const msgs = from !== null ? base.messages.slice(0, from) : base.messages;
     setConv({ ...base, messages: [...msgs, { id: `tmp-${Date.now()}`, role: "user", text: question, at: new Date().toISOString() }] });
     try {
-      const d = await api("/api/admin/tradeai/ask", { method: "POST", body: { conv: base.id, text: question, from, mode } });
+      const d = await api("/api/admin/tradeai/ask", { method: "POST", body: { conv: base.id, text: question, from, mode, ...(isOwner ? { effort, ...(picked ? { model: { provider: picked.split("|")[0], model: picked.split("|").slice(1).join("|") } } : {}) } : {}) } });
       openRef.current = d.conv;
       setUrl(d.conv);
       if (!base.id) {
@@ -908,8 +952,9 @@ export default function TradeAI() {
     "Show the option chain of NIFTY",
     sugg && sugg.suggestions && (sugg.suggestions.find((x) => x.symbol) || {}).symbol ? `Intraday plan for ${sugg.suggestions.find((x) => x.symbol).symbol}` : null,
   ].filter(Boolean);
-  const model = tset && tset.lead && tset.usePaid ? tset.lead.name : "desk's data only";
-  const badge = tset ? `${mode === "fast" ? "Fast" : mode === "deep" ? "Deep" : "Auto"} · ${model}` : "Auto";
+  const pickedName = isOwner && picked && tset && tset.choices ? (tset.choices.models.find((m) => `${m.provider}|${m.model}` === picked) || {}).name : null;
+  const model = tset && tset.lead && tset.usePaid ? pickedName || tset.lead.name : "desk's data only";
+  const badge = tset ? `${mode === "fast" ? "Fast" : mode === "deep" ? "Deep" : "Auto"} · ${model}${isOwner && effort !== "auto" ? ` · thinking ${effort}` : ""}` : "Auto";
 
   return (
     <Shell crumb="TradeAI" fluid>
@@ -993,7 +1038,15 @@ export default function TradeAI() {
             )}
             {isOwner && (
               <span className="tai-setwrap">
-                <button type="button" className="tai-icon" onClick={() => setSetOpen((o) => !o)} aria-expanded={setOpen} aria-label="How TradeAI answers" data-tip="How TradeAI answers: the default mode and the AI model's daily limit">
+                <button
+                  type="button"
+                  className="tai-icon"
+                  onClick={() => {
+                    setSetOpen((o) => !o);
+                    api("/api/admin/tradeai/settings").then(setTset).catch(() => {});
+                  }}
+                  aria-expanded={setOpen}
+                  aria-label="How TradeAI answers" data-tip="How TradeAI answers: the default mode and the AI model's daily limit">
                   <IcGear />
                 </button>
                 {setOpen && tset && (
@@ -1009,6 +1062,16 @@ export default function TradeAI() {
                         ))}
                       </select>
                     </label>
+                    <label className="tai-set__row">
+                      <span>Thinking level, when a chat picks none</span>
+                      <select value={tset.effort || "auto"} onChange={(e) => saveSet({ effort: e.target.value })}>
+                        {((tset.choices && tset.choices.efforts) || []).map((x) => (
+                          <option key={x.id} value={x.id}>
+                            {x.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
                     <label className="tai-set__row tai-set__check">
                       <input type="checkbox" checked={tset.usePaid} onChange={(e) => saveSet({ usePaid: e.target.checked })} />
                       <span>Use the AI model{tset.lead ? ` (${tset.lead.name}, the default model)` : " — no key saved on the AI page"}; off, TradeAI answers from the desk’s data only</span>
@@ -1017,7 +1080,11 @@ export default function TradeAI() {
                       <span>Model answers a day, at most</span>
                       <input type="number" min="0" max="2000" step="10" defaultValue={tset.paidDailyCap} onBlur={(e) => saveSet({ paidDailyCap: Number(e.target.value) })} />
                     </label>
-                    <p className="tai-dim">Model answers today: {tset.paidToday}. The default model is picked on the AI page.</p>
+                    <p className="tai-dim">
+                      Model answers today: {tset.paidToday}.
+                      {tset.today ? ` ${tset.today.questions} question${tset.today.questions === 1 ? "" : "s"}: ${tset.today.instant} instant, ${tset.today.reused} reused, ${tset.today.model} by the model (${tset.today.agentSteps} agent step${tset.today.agentSteps === 1 ? "" : "s"}) · ${tset.today.tokensIn.toLocaleString("en-IN")} in / ${tset.today.tokensOut.toLocaleString("en-IN")} out tokens.` : ""} The default model is picked on the AI page; a chat can pick another beside the question.
+                    </p>
+                    <p className="tai-dim">The agent has {tset.readers || 0} readers (the exit coach, the tape, the level map, the Lab, the shared research, the web…). Low thinking asks once; Medium lets it read once more; High up to three times.</p>
                     {tset.models && tset.models.length > 0 && (
                       <>
                         <h5>Models, in order (measured answer time)</h5>
@@ -1058,7 +1125,7 @@ export default function TradeAI() {
                   {greeting()}, {firstName(user)}
                 </h1>
                 <p className="tai-welcome__sub">What would you like to know about your trading today?</p>
-                <Composer value={text} onChange={setText} onSend={(v) => send(v)} onStop={stop} busy={busy} big inputRef={inputRef} hint={hint} mode={mode} onMode={setMode} />
+                <Composer value={text} onChange={setText} onSend={(v) => send(v)} onStop={stop} busy={busy} big inputRef={inputRef} hint={hint} mode={mode} onMode={setMode} choices={isOwner && tset ? tset.choices : null} model={picked} onModel={setPicked} effort={effort} onEffort={setEffort} defaultName={tset && tset.lead ? tset.lead.name : ""} />
                 {instantChips.length > 0 && (
                   <div className="tai-instant" aria-label="Instant answers">
                     <span>⚡ Instant</span>
@@ -1129,7 +1196,7 @@ export default function TradeAI() {
           )}
           {conv && (
             <div className="tai-foot">
-              <Composer value={text} onChange={setText} onSend={(v) => send(v)} onStop={stop} busy={busy} inputRef={inputRef} hint={hint} mode={mode} onMode={setMode} />
+              <Composer value={text} onChange={setText} onSend={(v) => send(v)} onStop={stop} busy={busy} inputRef={inputRef} hint={hint} mode={mode} onMode={setMode} choices={isOwner && tset ? tset.choices : null} model={picked} onModel={setPicked} effort={effort} onEffort={setEffort} defaultName={tset && tset.lead ? tset.lead.name : ""} />
               <p className="tai-dim">TradeAI can be wrong and never places orders — a second opinion, not advice. You decide.</p>
             </div>
           )}

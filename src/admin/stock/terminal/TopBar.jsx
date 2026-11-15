@@ -14,6 +14,7 @@ import { num } from "../analyzer/format";
 import { useAlerts } from "./AlertsContext";
 import { TempleButton } from "../../temple/Temple";
 import AlertsPanel from "./AlertsPanel";
+import ResearchButton from "./ResearchPanel";
 import { GoalPill } from "../trade/DailyGoal";
 
 const IST = 5.5 * 3600 * 1000;
@@ -198,6 +199,7 @@ export default function TopBar({ views, view, onView, theme, onTheme, onHelp, on
             {alertsOpen && <AlertsPanel symbol={symbol} onClose={() => onAlerts(false)} />}
           </span>
         )}
+        <ResearchButton symbol={symbol} />
         <TempleButton />
         <button type="button" className="tm-icon" onClick={onTheme} aria-label={theme === "dark" ? "Light theme" : "Dark theme"} data-tip="Switch between dark and light. Shortcut: T.">
           {theme === "dark" ? "☀" : "☾"}

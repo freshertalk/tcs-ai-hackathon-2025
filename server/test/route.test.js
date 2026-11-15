@@ -16,13 +16,21 @@ test("data questions are instant; judgement goes to one model; depth to the merg
   assert.equal(c("option chain of RELIANCE", { symbols: ["RELIANCE"] }).intent, "options");
   assert.equal(c("should I buy as per the option chain of SBIN?", { symbols: ["SBIN"] }).tier, "instant", "the chain is the desk's own analysis");
   assert.equal(c("intraday plan for TATASTEEL", { symbols: ["TATASTEEL"] }).intent, "plan");
-  assert.equal(c("should I exit my positions now?").tier, "advice", "judgement words need a model");
+  // managing an open position is answered at once from the exit coach's live reading (when there is
+  // none, TradeAI sends the question on to the model)
+  assert.deepEqual([c("should I exit my positions now?").tier, c("should I exit my positions now?").intent], ["instant", "exit"]);
+  assert.equal(c("when should I book SBIN?", { symbols: ["SBIN"] }).intent, "exit");
+  assert.equal(c("where do I trail my stop on INFY", { symbols: ["INFY"] }).intent, "exit");
+  assert.equal(c("what should I do with my SBIN long?", { symbols: ["SBIN"] }).intent, "exit");
+  assert.equal(c("should I buy more SBIN?", { symbols: ["SBIN"] }).tier, "advice", "judgement words need a model");
+  assert.equal(c("should I exit my positions now?", { mode: "deep" }).tier, "deep", "Deep chosen: the model thinks about it");
   assert.equal(c("why is SBIN falling?", { symbols: ["SBIN"] }).tier, "advice");
   assert.equal(c("what should I expect from the market next week?").tier, "deep");
   assert.equal(c("compare SBIN and HDFCBANK", { symbols: ["SBIN", "HDFCBANK"] }).tier, "deep");
   assert.equal(c("hello there").tier, "fast");
   assert.equal(c("show my positions", { mode: "deep" }).tier, "deep", "Deep chosen: always the combination");
-  assert.equal(c("should I hold SBIN?", { mode: "fast", symbols: ["SBIN"] }).tier, "fast", "Fast chosen: one quick model");
+  assert.equal(c("should I buy more SBIN?", { mode: "fast", symbols: ["SBIN"] }).tier, "fast", "Fast chosen: one quick model");
+  assert.equal(c("should I hold SBIN?", { mode: "fast", symbols: ["SBIN"] }).tier, "instant", "a position to manage: the exit coach answers at once");
 });
 
 test("instant answers are tables from the data, or nothing when the data is missing", () => {

@@ -146,7 +146,8 @@ class Engine {
       }
     };
     w.ask = async (args = {}) => {
-      const { fresh = false, ...a } = args || {};
+      // subject: { symbol, last, by } — what the request is about, for the shared research (never sent to the model)
+      const { fresh = false, subject = null, ...a } = args || {};
       const sent = compose && this.ai.brains ? { ...a, system: this.ai.brains.compose(a.system || "") } : a;
       const key = this._key([pid, model || client.model || "", sent.system || "", sent.user || "", sent.schema || null]);
       const now = Date.now();
@@ -158,6 +159,15 @@ class Engine {
       }
       if (!fresh && this.inflight.has(key)) return this.inflight.get(key);
       const p = run("ask", a, () => client.ask(sent)).then((r) => {
+        // what was just paid for is kept where every other feature can read it (ai/shared.js)
+        if (this.ai.shared) {
+          try {
+            const extra = EXTRA.get(a.system || "");
+            this.ai.shared.capture(featureOf(a.system || "") || (extra && extra.id) || feature || "other", a, r, subject);
+          } catch (_) {
+            /* sharing never fails a request */
+          }
+        }
         this.cache.set(key, { at: Date.now(), r });
         if (this.cache.size > CACHE_MAX) this.cache.delete(this.cache.keys().next().value);
         return r;

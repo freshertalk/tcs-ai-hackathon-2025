@@ -28,6 +28,7 @@ const { Engine, tag } = require("./engine");
 const { TradeAI } = require("./tradeai");
 const { SocialAI } = require("./social");
 const { ExitAdvisor } = require("./exitadvisor");
+const { SharedResearch } = require("./shared");
 const whatsappAi = require("./whatsapp-ai");
 const { Journal, scorePlan, summarize, summarizeByModel, SWING_MAX_BARS } = require("./journal");
 const { Copilot } = require("./copilot");
@@ -315,6 +316,7 @@ class AiService {
     this.dayReview = new DayReview(this); // Trade Analysis: one day's report, explained
     this.ensemble = new Ensemble(this, { checkPlan }); // AI Live / AI Research: the analysts, weighed with the desk's own arithmetic
     this.brains = new Brains({ ai: this, docs: this.docs, now: this.now }); // the owner's standing instructions, added to every AI feature they belong to
+    this.shared = new SharedResearch({ docs: this.docs, now: this.now }); // what the AI has already found, for every feature to read
     this.engine = new Engine(this); // the one door to every model: brains on the way out, shared lanes, the live board
     this.tradeai = new TradeAI(this); // the agentic chat (its own page), on the default model
     this.social = new SocialAI(this); // the social and news digest: the default model organises posts and headlines

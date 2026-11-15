@@ -10,7 +10,9 @@
 //            low and close and the floor pivots from them, the highs and lows of the last 5 and 20
 //            days, today's swing highs and lows on 5-minute bars, the busiest price of the day
 //            (most volume), the nearest round numbers, the wall of orders in the book, the edges of
-//            the Live Pulse's window, the desk's ladder, the entry and the best price since it.
+//            the Live Pulse's window, the desk's ladder, the 5-minute Bollinger bands, the entry and
+//            the best price since it. Where the level learner has a record for that kind of level
+//            (how often it held when tested), the level carries it.
 //            Levels that sit together are merged into one stronger level. Each gets an id
 //            (A1, A2 … above the price, B1, B2 … below it) and the no-trend odds of a touch before
 //            the square-off, from today's one-minute moves.
@@ -26,6 +28,8 @@
 //
 // Pure arithmetic: no AI, no network, no timer, no order.
 
+const { bollinger } = require("../market/tape");
+
 const IST = 5.5 * 3600 * 1000;
 const TICK = 0.05;
 const num = (x) => typeof x === "number" && Number.isFinite(x);
@@ -37,7 +41,7 @@ const istDate = (ms) => new Date(ms + IST).toISOString().slice(0, 10);
 const str = (x, n) => String(x == null ? "" : x).replace(/\s+/g, " ").trim().slice(0, n);
 
 // how much one source counts when levels are merged, and how it is named
-const WEIGHT = { "day-high": 3, "day-low": 3, "prev-high": 3, "prev-low": 3, "prev-close": 2, vwap: 3, "n-day": 3, swing: 2, "opening-range": 2, pivot: 2, volume: 2, wall: 2, ladder: 2, open: 1, round: 1, pulse: 1, entry: 1, peak: 1 };
+const WEIGHT = { "day-high": 3, "day-low": 3, "prev-high": 3, "prev-low": 3, "prev-close": 2, vwap: 3, "n-day": 3, swing: 2, "opening-range": 2, pivot: 2, volume: 2, wall: 2, ladder: 2, open: 1, round: 1, pulse: 1, entry: 1, peak: 1, bollinger: 1 };
 const MAX_AWAY = 0.03; // levels further than 3% from the price are no use to an intraday exit
 const PER_SIDE = 10;
 
@@ -113,8 +117,9 @@ function sigmaOf(bars, last) {
  * @param pos   { side, avg, entryAt }
  * @param bars  today's 1-minute bars [{ t, o, h, l, c, v }], oldest first, up to now
  * @param opts  { now, last, daily: [{ t, o, h, l, c }] (earlier days, oldest first), ladder: [{ label, price }],
- *                vwap, wall: { side, price, qty }, pulse: { window: { low, high } }, peak, squareOffAt }
- * @returns { at, last, sigma1, minutesLeft, anchors: [{ id, price, label, sources, strength, side, awayPct, touches, touchPct }] }
+ *                vwap, wall: { side, price, qty }, pulse: { window: { low, high } }, peak, squareOffAt,
+ *                learned(sources) → { pct, n, scope, name, hour } — the level learner's record, when there is one }
+ * @returns { at, last, sigma1, minutesLeft, anchors: [{ id, price, label, sources, strength, side, awayPct, touches, touchPct, held }] }
  */
 function levelMap(pos, bars, opts = {}) {
   const now = opts.now || Date.now();
@@ -146,6 +151,12 @@ function levelMap(pos, bars, opts = {}) {
       if (around.every((x) => b.l <= x.l) && around.some((x) => b.l < x.l)) sw.push({ price: b.l, label: `Swing low ${clock(b.t)}` });
     }
     sw.slice(-8).forEach((x) => put(x.price, "swing", x.label));
+    // the 5-minute Bollinger bands (20 bars, 2 deviations) as they stand now
+    const bb = bollinger(five.map((b) => b.c));
+    if (bb) {
+      put(bb.upper, "bollinger", "Upper Bollinger band (5-min)");
+      put(bb.lower, "bollinger", "Lower Bollinger band (5-min)");
+    }
     // the busiest price of the day: the price band that has traded the most volume
     const bin = Math.max(TICK, last * 0.001);
     const vol = new Map();
@@ -236,6 +247,8 @@ function levelMap(pos, bars, opts = {}) {
       awayPct: r2(((price - last) / last) * 100),
       touches: touchesOf(price),
       touchPct: touchOdds(Math.abs(price - last), sigma1, minutesLeft),
+      // what levels of this kind have done before, counted by the level learner (trading/levellearn.js)
+      held: typeof opts.learned === "function" ? opts.learned(sources) || null : null,
     };
   });
   merged = merged.filter((a) => Math.abs(a.price - last) >= TICK);
@@ -338,6 +351,7 @@ function verify(answer, map, pos, opts = {}) {
       price: onTick(a.price - s * front),
       strength: a.strength,
       touches: a.touches,
+      held: a.held || null,
       awayPct: r2(((a.price - last) / last) * 100),
       gainPct: r2(((s * (a.price - pos.avg)) / pos.avg) * 100),
       touchPct: a.touchPct,

@@ -365,6 +365,37 @@ in `analysis/lab`, worked out by the hourly sweep (`labBackfill`, last 60 days) 
   least three): what to prevent (again / new / keeps coming back, with its cost and one rule), what to keep, similar days and trades.
 - Tests: `server/test/flight.test.js` (18), `src/admin/stock/analysis/TradeAnalysis.test.js` (6).
 
+**TradeAI's agent, shared research and the level learner (2026-11-16; `server/ai/agent.js`, `server/ai/shared.js`,
+`server/desk-readers.js`, `server/market/tape.js`, `server/trading/levellearn.js`, `server/learn.js`;
+`src/admin/stock/terminal/ResearchPanel.jsx`, `TradeAI.jsx`).** Added on top of the existing engines; nothing was removed.
+- **Agent** (`DeskAgent`): after the keyword plan, a free *seed* (for a held stock the question names: the exit coach's
+  reading, the tape, the level map; for any stock: the shared research), then the model names more *readers* from a list of 18
+  (`READERS`; up to four a step) and the desk runs them — `tradeai.desk` is `makeDeskReaders({ market, flight, analysis, learn })`,
+  built in `app.js` because `server/ai` cannot load the broker or anything with a timer. Paid readers (`news`, `web`) only when
+  the level allows, one per question.
+- **Thinking level and model** (owner only; `effort` and `model` on `POST /api/admin/tradeai/ask`, saved default in
+  `PUT /api/admin/tradeai/settings`): `_level` — low: 0 agent steps; medium: 1 + web; high: 3 with the data + web, effort high,
+  16k output; auto: fast 0 / advice 1 / deep 2. `_pick` accepts only a model the saved key lists. Each answer's `meta` carries
+  `effort`, `agent.steps`, `usage` (planning + answer), `picked`.
+- **Instant exit answer:** intent `exit` in `route.js` (“when should I exit…”, “should I book…”, “trail my stop…”) is answered
+  from the coach's reading with no model; Medium/High or Deep sends it to the model with the same reading.
+- **Shared research** (`SharedResearch`, doc `ai/shared-research.json`, newest 400): the Engine's `wrap().ask` calls
+  `shared.capture(feature, sent, result, subject)` for strategist / copilot / decision / research / ensemble-live /
+  ensemble-research / coach / tradeai / exit; the flight deck publishes `exit-levels` itself, after `verify`. TTL per feature;
+  `moved` when the price is 0.6% away; findings about the owner's positions are owner-only (`PRIVATE`). Read by the agent
+  (`shared` reader, seeded), the exit advisor's snapshot (`otherAiFindings`) and `GET /api/admin/ai/shared[?symbol=]` (the lamp
+  button in the terminal's top bar, every workspace).
+- **Level learner** (`LearnWatch`, timer outside `server/ai`, no AI): from 15:40 IST studies today plus up to three unseen
+  earlier days (traded + filmed + watchlist stocks, 30 max): `studyDay` counts every test of a level as held / broke / none
+  with its context (time bucket, volume, RSI stretch, Bollinger band, order book from the recorder's frames) — no look-ahead.
+  Docs `learn/levels/DATE.json`, `learn/levels-summary.json` (60 days), `learn/index.json`, `learn/runs.json`. `holdOf` feeds
+  `levelMap({ learned })` → `anchor.held` (Live board ladder, the AI's level map, TradeAI); `lessons` are written into the
+  skills file section “What the desk has measured” via `playbook.setSection`. Routes `GET /api/admin/learn`,
+  `POST /api/admin/learn/run` (super).
+- **Activity log:** `ai/tradeai-activity.json` (500 newest) — how each question was answered, what was read, agent steps,
+  model, level, tokens, ms; `GET /api/admin/tradeai/activity` (super); today's totals in `status().today`.
+- Tests: `server/test/learn.test.js` (9), `server/test/tradeai.test.js` (+4), `server/test/route.test.js`.
+
 **The Journal's Day book (Journal → Day book; `src/admin/stock/analysis/DayBook.jsx`, `server/analysis/`).** One
 report per trading day, kept in its own record (`analysis/days` — a collection of its own in MongoDB, a file otherwise).
 **Nothing is saved by hand** (the "Save this day" / "Save today now" buttons and `POST /api/admin/analysis/day/:date`

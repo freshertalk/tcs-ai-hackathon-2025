@@ -51,6 +51,8 @@ const { previewFor, previewTags, injectPreview } = require("./previews");
 const { readingOf: socialReading } = require("./social/extract");
 const { SocialWatch } = require("./social-watch");
 const { FlightDeck, FlightError } = require("./flight");
+const { LearnWatch } = require("./learn");
+const { makeDeskReaders } = require("./desk-readers");
 const { JournalCapture } = require("./journal-capture");
 const { WhatsAppService, mountWhatsApp } = require("./whatsapp");
 const { buildHealth } = require("./health");
@@ -860,6 +862,11 @@ ${e.text}
     opts.flightDeck ||
     new FlightDeck({ trading, market, ai, docs: store.docs, notifier, goal: () => (disciplineWatch.status().state || null), now: opts.now, log: opts.log || console });
   if (opts.flightWatch !== false && opts.alertWatch !== false) flight.start();
+  // the level learner: after every close the day's tests of each level are counted (server/learn.js);
+  // the flight deck's level map and TradeAI read its record. Arithmetic only — it asks no model.
+  const learn = opts.learn || new LearnWatch({ market, docs: store.docs, flight, trading, playbook: ai.playbook, now: opts.now, log: opts.log || console });
+  flight.learn = learn;
+  if (opts.learnWatch !== false && opts.alertWatch !== false) learn.start();
   const fWrap = (fn) => async (req, res) => {
     try {
       res.json(await fn(req));
@@ -879,6 +886,17 @@ ${e.text}
   app.get("/api/admin/flight/day/:date", requireSuper, limiter(60, 60 * 1000), fWrap(async (req) => {
     await flight.settleLevels(req.params.date).catch(() => {}); // a finished day's AI levels are scored on its bars the first time it is opened
     return flight.day(req.params.date);
+  }));
+  // what the desk has learned about levels, and Study now
+  app.get("/api/admin/learn", requireAdmin, limiter(120, 60 * 1000), fWrap(async (req) => ({ ...learn.view(/^[A-Z][A-Z0-9&-]{1,19}$/.test(String(req.query.symbol || "")) ? String(req.query.symbol) : null), status: learn.status() })));
+  app.post("/api/admin/learn/run", requireSuper, limiter(6, 10 * 60 * 1000), fWrap(async () => learn.run({ force: true })));
+  // the shared research: what the AI has already found, for every workspace to read (findings about
+  // the owner's own positions go to the owner only)
+  app.get("/api/admin/ai/shared", requireAdmin, limiter(240, 60 * 1000), fWrap(async (req) => {
+    const owner = req.user.role === "superadmin";
+    const sym = String(req.query.symbol || "").toUpperCase();
+    const one = /^[A-Z][A-Z0-9&-]{1,19}$/.test(sym);
+    return { symbol: one ? sym : null, findings: one ? ai.shared.forSymbol(sym, { all: true, limit: 12, owner }) : ai.shared.recent({ all: true, owner }), stats: ai.shared.stats() };
   }));
   // the Live board's stream: the whole board on connecting, then every look at every open position
   // as it happens (Server-Sent Events; at most four a second per position)
@@ -993,6 +1011,8 @@ ${e.text}
       return trading.journal.trips({ from: dayStart }).filter((t) => !t.open).map((t) => ({ symbol: t.symbol, side: t.side, net: t.net, exitAt: t.exitAt }));
     },
   };
+  // the agent's readers outside the AI folder: the exit coach's reading, the tape, the level map, the Lab, the learner
+  ai.tradeai.desk = makeDeskReaders({ market, flight, analysis, learn, now: opts.now || (() => Date.now()) });
   const taWrap = (fn) => async (req, res) => {
     try {
       res.json(await fn(req));
@@ -1006,9 +1026,10 @@ ${e.text}
     const text = String(b.text || "").trim();
     if (!text) throw Object.assign(new Error("Ask a question."), { status: 400 });
     const from = Number.isInteger(b.from) ? b.from : null; // edit / retry: go back to this question first
-    return ai.tradeai.start({ conv: b.conv ? String(b.conv) : null, text, owner: who(req), isOwner: req.user.role === "superadmin", from, mode: ["auto", "fast", "deep"].includes(b.mode) ? b.mode : null });
+    return ai.tradeai.start({ conv: b.conv ? String(b.conv) : null, text, owner: who(req), isOwner: req.user.role === "superadmin", from, mode: ["auto", "fast", "deep"].includes(b.mode) ? b.mode : null, ...(req.user.role === "superadmin" ? { model: b.model && typeof b.model === "object" ? { provider: String(b.model.provider || "").slice(0, 40), model: String(b.model.model || "").slice(0, 80) } : null, effort: ["auto", "low", "medium", "high"].includes(b.effort) ? b.effort : null } : {}) }); // the model and the thinking level are the owner's to choose: their key, their tokens
   }));
   // how TradeAI answers: the default mode, and whether (and how often a day) the paid model may be used
+  app.get("/api/admin/tradeai/activity", requireSuper, limiter(60, 60 * 1000), taWrap(async () => ai.tradeai.activity({ limit: 60 })));
   app.get("/api/admin/tradeai/settings", requireAdmin, limiter(120, 60 * 1000), taWrap(async () => ai.tradeai.status()));
   app.put("/api/admin/tradeai/settings", requireSuper, limiter(30, 10 * 60 * 1000), taWrap(async (req) => ai.tradeai.setSettings(req.body || {})));
   app.get("/api/admin/tradeai/job/:id", requireAdmin, limiter(600, 60 * 1000), taWrap(async (req) => ai.tradeai.job(String(req.params.id), who(req))));

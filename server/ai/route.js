@@ -22,7 +22,9 @@ const STRONG = /\b(why|should|shall|would|could|recommend|advi[sc]e|suggest|buy|
 const DEEP = /\b(deep|detailed|in.?depth|research|full analysis|compare|comparison|every stock|week ahead|next week|portfolio review|review (my|all)|all my (stocks|positions|trades)|thorough)\b/;
 
 const INTENTS = [
-  ["goal", /\b((daily|today'?s|my) (target|goal|stop)|how am i doing|how is my day|(my )?(p&l|pnl|profit|loss) today|today'?s (p&l|pnl|profit|loss)|giving back|given back)\b/],
+  // managing an open position: answered at once from the exit coach's live reading (tradeai.js seeds it)
+  ["exit", /\b(when (should|do|can|to) (i )?(exit|sell|book|close|get out|square off|cover)|where (should|do|can|to) (i )?(exit|book|sell|cover|trail|put (my|the) stop)|should i (exit|book|hold|close|sell|cover|keep holding|stay in|get out)|(exit|booking) (price|level|point|plan)|best (price|time|level) to (exit|sell|book|cover)|trail(ing)? (my |the )?stop|(stop|target) for my|what (do i|should i|to) do with my|manage my (position|trade)s?)\b/],
+  ["goal",/\b((daily|today'?s|my) (target|goal|stop)|how am i doing|how is my day|(my )?(p&l|pnl|profit|loss) today|today'?s (p&l|pnl|profit|loss)|giving back|given back)\b/],
   ["positions", /\b((my|open) positions?|positions? (now|today)|what do i (hold|have)|my holdings?|my portfolio)\b/],
   ["funds", /\b(margin|funds|available (cash|balance)|buying power|how much (cash|money) (do )?i have)\b/],
   ["orders", /\b((my|pending|open) orders?|orders? (pending|open|today))\b/],
@@ -61,7 +63,7 @@ function classify(question, { symbols = [], mode = "auto" } = {}) {
   // a plan or the option chain is the desk's own analysis: shown at once even when phrased as "should"
   // the desk's own analysis is shown at once even when phrased as "should"; readings of the market,
   // a stock's indicators or your results too, unless the question asks for a judgement (why, should…)
-  const analytic = ["plan", "options", "global", "social", "levels", "outlook"].includes(intent) || (["market", "call", "pnl"].includes(intent) && !STRONG.test(q));
+  const analytic = ["exit", "plan", "options", "global", "social", "levels", "outlook"].includes(intent) || (["market", "call", "pnl"].includes(intent) && !STRONG.test(q));
   if (intent && (!judge || analytic || m === "fast") && !(DEEP.test(q) && m === "auto")) return { tier: "instant", intent, why: "The desk's own data answers this — no model needed." };
   if (m === "fast") return { tier: "fast", intent, why: "Fast was chosen: a brief answer from the default model." };
   if (DEEP.test(q)) return { tier: "deep", intent, why: "A question for depth: the default model thinks longer and writes a fuller answer." };
@@ -84,6 +86,52 @@ function goalLine(g) {
 
 /** The instant answer for an intent, from the gathered data — or null when the data is not there. */
 function instantAnswer(intent, d, { symbol = "" } = {}) {
+  if (intent === "exit") {
+    // the exit coach's live reading of each open position the question is about (DATA.position_SYMBOL)
+    const all = Object.keys(d)
+      .filter((k) => k.startsWith("position_"))
+      .map((k) => d[k])
+      .filter((p) => p && p.coach && p.numbers);
+    const list = symbol && all.some((p) => p.symbol === symbol) ? all.filter((p) => p.symbol === symbol) : all;
+    if (!list.length) return null;
+    const lines = [];
+    for (const p of list) {
+      const c = p.coach;
+      const n = p.numbers;
+      const mark = c.state === "exit-now" ? "🛑 " : c.state === "book-part" ? "◆ " : c.state === "tighten" ? "▲ " : "";
+      if (list.length > 1) lines.push(`### ${p.symbol}`);
+      lines.push(`${mark}**${p.symbol} ${p.side} ${p.qty} @ ${rs(p.avg)} — ${c.word}** · exit pressure ${c.pressure}/100`);
+      lines.push(`Now **${rs(n.last)}**: **${signed(n.pnl)}** (${pc(n.gainPct)})${n.best ? `, best ${signed(n.best.pnl)} at ${n.best.clock}` : ""}${num(n.givenBackPct) ? `, ${n.givenBackPct}% given back` : ""} · ${n.minutesIn} min in${num(n.minutesToSquareOff) && n.minutesToSquareOff > 0 ? `, ${n.minutesToSquareOff} to the 3:15 square-off` : ""}.`);
+      lines.push("", "| | Price | Note |", "|---|---|---|");
+      const first = c.state === "exit-now" ? "Exit now at" : c.state === "book-part" ? `Book ${c.exit.qty} at` : "Take profit at";
+      lines.push(`| **${first}** | **${rs(c.exit.price)}** | ${String(c.exit.note || "").replace(/\|/g, "/")} |`);
+      lines.push(`| **Stop** | **${rs(c.stop)}** | ${c.stopKind} — only ever moved towards the price |`);
+      if (c.state !== "exit-now") lines.push(`| Next target | ${rs(c.target)} | ${pc(((c.target - n.last) / n.last) * 100)} from here |`);
+      const lv = p.aiLevels;
+      for (const t of (lv && lv.targets) || []) {
+        const rec = t.held ? ` · levels like it held ${t.held.pct}% of ${t.held.n} tests` : "";
+        lines.push(`| AI target ${t.n} | ${rs(t.level)} | ${t.label}${t.status === "reached" ? " — **reached**" : ` · limit ${rs(t.limit)}${num(t.r) ? ` · ${t.r}R` : ""}${num(t.reachPct) ? ` · reach ${t.reachPct}%` : ""}`}${rec} |`);
+      }
+      lines.push("");
+      if (c.whyLeave.length) lines.push(`**Why leave:** ${c.whyLeave.slice(0, 3).join(" ")}`);
+      if (c.whyStay.length) lines.push(`**Why stay:** ${c.whyStay.slice(0, 3).join(" ")}`);
+      if (!c.whyLeave.length && !c.whyStay.length) lines.push("Nothing is pressing against the position, and nothing on the tape argues for more.");
+      const ob = n.orderBook;
+      if (ob) lines.push(`**Order book:** buyers ${ob.buyersPct}% of the five best levels · ${ob.label}${ob.lean && !/none|learning/.test(ob.lean) ? ` · next 30 seconds leans ${String(ob.lean).toUpperCase()}` : ""}.`);
+      if (lv && lv.turn) lines.push(`**Watch for a turn at ${rs(lv.turn.price)}** (${lv.turn.label})${lv.turn.sign ? `: ${lv.turn.sign}` : "."}`);
+      if (lv && lv.summary) lines.push(`_AI levels (${lv.by}, ${lv.at}; ${lv.passed} of its choices passed the desk's check):_ ${lv.summary}`);
+      if (p.aiOpinion) lines.push(`_AI's second opinion (${p.aiOpinion.by}, ${p.aiOpinion.at}):_ ${String(p.aiOpinion.action).replace("-", " ").toUpperCase()} — ${p.aiOpinion.reason}`);
+      lines.push("");
+    }
+    if (d.goal && d.goal.available && d.goal.enabled) lines.push(goalLine(d.goal), "");
+    lines.push("_The exit coach's live reading — arithmetic on the tape, the order book, the levels and the forecasts — with the AI's levels the desk has checked. A reading with its reasons, not a promise; nothing is traded by itself._");
+    const p0 = list[0];
+    return reply(lines.join("\n"), {
+      datapoints: list.slice(0, 4).map((p) => ({ label: `${p.symbol} ${p.coach.word}`, value: `exit ${rs(p.coach.exit.price)} · stop ${rs(p.coach.stop)}` })),
+      actions: list.slice(0, 4).map((p) => ({ kind: p.coach.state === "hold" ? "watch" : "corrective", text: p.coach.headline })),
+      followups: [`Give me the AI's second opinion on my ${p0.symbol} ${p0.side}`, `What do the order book and volume say about ${p0.symbol} now?`, `Why would ${p0.symbol} reverse from here?`, list.length > 1 ? "Which of my positions is the riskiest right now?" : "How am I doing against my daily goal?"],
+    });
+  }
   if (intent === "goal") {
     const g = d.goal;
     if (!g || !g.available) return null;

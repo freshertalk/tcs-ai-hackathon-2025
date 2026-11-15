@@ -89,6 +89,7 @@ class FlightDeck extends EventEmitter {
     this.docs = docs;
     this.notifier = notifier;
     this.goal = goal;
+    this.learn = null; // set by app.js: the level learner (server/learn.js) — how often each kind of level has held
     this.now = now;
     this.log = log;
     this.slots = new Map(); // key → the open position being flown
@@ -359,6 +360,7 @@ class FlightDeck extends EventEmitter {
         wall: a && a.metrics.book ? a.metrics.book.wall : null,
         pulse: slot.ctx.pulse,
         peak: slot.memory ? slot.memory.peak : null,
+        learned: this.learn ? (sources) => this.learn.holdOf(slot.symbol, sources, { at: this.now() }) : undefined,
       });
     } catch (_) {
       return null;
@@ -516,6 +518,18 @@ class FlightDeck extends EventEmitter {
     return op;
   }
 
+  /** What the desk's other AI features have already found on a position's stock, for the model's snapshot. */
+  _shared(slot) {
+    try {
+      if (!this.ai || !this.ai.shared) return null;
+      const last = slot.advice ? slot.advice.metrics.last : null;
+      const found = this.ai.shared.forSymbol(slot.symbol, { last, reader: "live board" }).filter((f) => f.feature !== "exit-levels" && f.feature !== "exit");
+      return found.length ? found.slice(0, 4).map((f) => ({ from: f.source, model: f.by, minutesAgo: f.ageMin, madeAtPrice: f.last, moved: f.moved, summary: f.summary, ...(Object.keys(f.tags).length ? { call: f.tags } : {}) })) : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   /** One paid AI request against the day's limit (an answer reused from the Engine's cache costs nothing). */
   _countAi(cached) {
     if (cached) return;
@@ -540,6 +554,7 @@ class FlightDeck extends EventEmitter {
       deskLiveCall: slot.ctx.liveCall,
       market: { tide: this.mkt.tide, nseForecastFromTheWorld: this.mkt.forecast, newsMood: this.mkt.mood },
       newsOnThisStock: slot.ctx.news,
+      otherAiFindings: this._shared(slot),
     };
   }
 
@@ -606,7 +621,8 @@ class FlightDeck extends EventEmitter {
         ...this._snapshot(slot),
         minutesLeftToSquareOff: map.minutesLeft,
         oneMinuteMoveRupees: map.sigma1,
-        levelMap: map.anchors.map((x) => ({ id: x.id, price: x.price, what: x.label, strength: x.strength, touchesToday: x.touches, awayPct: x.awayPct, touchOddsPct: x.touchPct })),
+        levelMap: map.anchors.map((x) => ({ id: x.id, price: x.price, what: x.label, strength: x.strength, touchesToday: x.touches, awayPct: x.awayPct, touchOddsPct: x.touchPct, ...(x.held ? { heldPct: x.held.pct, heldOfTests: x.held.n } : {}) })),
+        // what the desk's other AI features have already found on this stock (paid for once, read by all)
         sessionIn5MinuteBars: { columns: ["time", "open", "high", "low", "close", "volume"], rows: fiveMinute(slot.ctx.bars).slice(-75).map((b) => [clock(b.t), b.o, b.h, b.l, b.c, b.v]) },
         previousDays: { columns: ["date", "open", "high", "low", "close"], rows: slot.daily.filter((c) => c.t < istDate(now)).slice(-5).map((c) => [c.t, c.o, c.h, c.l, c.c]) },
         yourRecordOnThisDesk: rec.judged >= 5 ? { setsScored: rec.judged, firstTargetBeforeStopPct: rec.t1Pct, secondTargetPct: rec.t2Pct, stopCameFirst: rec.stoppedFirst } : null,
@@ -638,6 +654,14 @@ class FlightDeck extends EventEmitter {
       });
       slot.levelsBusy = false; // before the strip is pushed, so the board's button is free again
       this.emit("pos", this._view(slot));
+      // only levels that passed the desk's check are shared with the rest of the desk
+      if (this.ai && this.ai.shared && !set.failed) {
+        try {
+          this.ai.shared.publish({ feature: "exit-levels", symbol: slot.symbol, by: r.by, last: lastNow, summary: `${slot.side === "long" ? "Long" : "Short"} from ${rs(slot.avg)}: ${said}${v.stop ? `, stop ${rs(v.stop.price)}` : ""}. ${r.summary}`, tags: { outlook: r.outlook, confidence: r.confidence }, facts: { ...(v.targets[0] ? { target1: v.targets[0].level } : {}), ...(v.targets[1] ? { target2: v.targets[1].level } : {}), ...(v.stop ? { stop: v.stop.price } : {}) }, detail: { checked: `${v.checks.passed} of ${v.checks.asked} choices passed the desk's check`, turn: v.reversal ? { price: v.reversal.price, sign: v.reversal.sign } : null } });
+        } catch (_) {
+          /* sharing never fails the research */
+        }
+      }
       return set;
     } finally {
       slot.levelsBusy = false;

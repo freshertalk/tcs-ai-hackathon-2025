@@ -30,7 +30,8 @@ function clientFor(ai, a, timeoutMs) {
  * ONE model at a time: the candidates are asked in order and the first answer is used; the next is
  * asked only when one fails.
  * @param candidates [{ id, name, provider, model }] in the order to try
- * @param opts { system, user, schema, maxTokens, effort = "low", timeoutSec = 60, onStep(label) }
+ * @param opts { system, user, schema, maxTokens, effort = "low", timeoutSec = 60, onStep(label),
+ *               subject: { symbol, last } — what the request is about, for the shared research }
  * @returns { data, by, mergedBy: null, answers, tried, fallback, usage }
  */
 async function askOne(ai, candidates, opts) {
@@ -43,7 +44,7 @@ async function askOne(ai, candidates, opts) {
     onStep(i === 0 ? `${a.name} is answering` : `Falling back to ${a.name}…`);
     const t0 = Date.now();
     try {
-      const r = await clientFor(ai, a, sec * 1000).ask({ system, user, schema, maxTokens, effort, fresh: Boolean(opts.fresh) });
+      const r = await clientFor(ai, a, sec * 1000).ask({ system, user, schema, maxTokens, effort, fresh: Boolean(opts.fresh), ...(opts.subject ? { subject: { ...opts.subject, by: a.name } } : {}) });
       const u = r.usage || {};
       usage.input += u.input_tokens || u.inputTokens || u.prompt_tokens || 0;
       usage.output += u.output_tokens || u.outputTokens || u.completion_tokens || 0;

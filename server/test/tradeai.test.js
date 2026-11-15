@@ -16,14 +16,22 @@ const KEYS = { anthropic: "sk-ant-api03-TESTONLYtestonlyTESTONLY1234567890abcd",
 const json = (status, obj) => new Response(JSON.stringify(obj), { status, headers: { "content-type": "application/json" } });
 const REPLY = (by) => ({ answer: `${by}: SBIN looks firm.`, datapoints: [{ label: "VWAP", value: "803.2" }], actions: [{ kind: "corrective", text: "Keep the stop at 799." }], forecast: { lean: "up", horizon: "next 30 minutes", scenarios: ["Above 809: 813"] }, confidence: "medium", followups: ["What if it breaks 799?"] });
 
-function boot({ fail = {} } = {}) {
+function boot({ fail = {}, steps = [] } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "vpt-tai-"));
-  const calls = [];
+  const calls = []; // the answers asked of a model
+  const plans = []; // the agent's planning steps (ai/agent.js), answered from `steps` in order
+  const isPlan = (text) => String(text || "").startsWith("READERS:");
+  const nextStep = () => JSON.stringify(steps.length ? steps.shift() : { thought: "", calls: [], enough: true });
   const fetchImpl = async (url, init = {}) => {
     const u = String(url);
     const body = init.body ? JSON.parse(init.body) : {};
     if (u.includes("api.anthropic.com")) {
       // the default model (the Messages API)
+      if (isPlan(body.messages[0].content)) {
+        plans.push({ company: "anthropic", model: body.model, maxTokens: body.max_tokens, effort: body.output_config && body.output_config.effort, user: body.messages[0].content });
+        if (fail.anthropic) return json(400, { type: "error", error: { type: "invalid_request_error", message: "down" } });
+        return json(200, { id: "p", type: "message", role: "assistant", model: body.model, content: [{ type: "text", text: nextStep() }], stop_reason: "end_turn", stop_sequence: null, usage: { input_tokens: 300, output_tokens: 40 } });
+      }
       calls.push({ company: "anthropic", model: body.model, maxTokens: body.max_tokens, effort: body.output_config && body.output_config.effort, user: body.messages[0].content });
       if (fail.anthropic) return json(400, { type: "error", error: { type: "invalid_request_error", message: "down" } });
       return json(200, { id: "m", type: "message", role: "assistant", model: body.model, content: [{ type: "text", text: JSON.stringify(REPLY(body.model)) }], stop_reason: "end_turn", stop_sequence: null, usage: { input_tokens: 500, output_tokens: 120 } });
@@ -31,6 +39,11 @@ function boot({ fail = {} } = {}) {
     if (u.includes("api.openai.com")) {
       // the fallback company (OpenAI-style chat completions)
       const user = (body.messages || []).find((m) => m.role === "user");
+      if (isPlan(user.content)) {
+        plans.push({ company: "openai", model: body.model, user: user.content });
+        if (fail.openai) return json(400, { error: { message: "down" } });
+        return json(200, { model: body.model, choices: [{ message: { role: "assistant", content: nextStep() }, finish_reason: "stop" }], usage: { prompt_tokens: 300, completion_tokens: 40 } });
+      }
       calls.push({ company: "openai", model: body.model, user: user.content });
       if (fail.openai) return json(400, { error: { message: "down" } });
       return json(200, { model: body.model, choices: [{ message: { role: "assistant", content: JSON.stringify(REPLY(body.model)) }, finish_reason: "stop" }], usage: { prompt_tokens: 500, completion_tokens: 120 } });
@@ -64,7 +77,7 @@ function boot({ fail = {} } = {}) {
     funds: async () => ({ equity: { net: 50000, used: 6400 } }),
     history: async () => ({ last30: { days: 5, net: 1200 } }),
   };
-  return { ai, calls };
+  return { ai, calls, plans };
 }
 
 test("the plan finds the stocks and the data a question needs", async () => {
@@ -346,4 +359,164 @@ test("the same question on unchanged data is answered with the answer already pa
   ai.setSettings({ provider: "anthropic", model: "claude-opus-5-5" });
   await ai.tradeai.answer(q, { owner: true });
   assert.equal(calls.length, 4, "a new default model answers afresh");
+});
+
+/* ------------------------------------------------- the agent, the thinking level, the shared research */
+
+const READING = {
+  symbol: "SBIN", exchange: "NSE", product: "MIS", side: "long", qty: 40, avg: 800, enteredAt: "09:40",
+  coach: { word: "HOLD", state: "hold", pressure: 12, headline: "HOLD — stop ₹803.10, next target ₹809.40.", exit: { price: 809.4, qty: 40, how: "limit", limit: 809.4, note: "The next place to take profit is ₹809.40 (R1); the stop is ₹803.10." }, stop: 803.1, stopKind: "trailing stop", target: 809.4, whyLeave: [], whyStay: ["Above VWAP ₹803.20 (+0.35%)."] },
+  numbers: { last: 806, pnl: 240, gainPct: 0.75, best: { price: 807.2, clock: "10:20", pnl: 288, gainPct: 0.9 }, givenBackPct: 17, minutesIn: 62, minutesToSquareOff: 250, vwap: 803.2, vsVwapPct: 0.35, rsi1min: 58, orderBook: { buyersPct: 61, label: "Buyers pressing", pressure: 34, lean: "up", wall: null } },
+  aiLevels: { at: "10:22", by: "Claude Sonnet 5.5", passed: "2 of 3", summary: "Take profit into R1.", targets: [{ n: 1, level: 809.4, limit: 809.2, label: "R1 + Previous day's high", r: 1.2, reachPct: 48, status: "open", held: { pct: 64, n: 22 } }], stop: { price: 803.1, label: "the coach's stop" }, turn: { price: 809.4, label: "R1", sign: "Sellers above 60% of the book." } },
+  aiOpinion: null,
+};
+function desk(seen = []) {
+  return {
+    reading: async (sym) => (seen.push(`reading ${sym || "all"}`), [READING].filter((p) => !sym || p.symbol === sym)),
+    tape: async (sym) => (seen.push(`tape ${sym}`), { symbol: sym, available: true, rsi: { m1: 58, m5: 55 }, vwap: { price: 803.2, side: "above" }, bollinger: { pctB: 0.71, squeeze: false }, volume: { rel5: 1.4 } }),
+    levels: async (sym) => (seen.push(`levels ${sym}`), { symbol: sym, last: 806, above: [{ price: 809.4, what: "R1 + Previous day's high", reachPct: 48, held: "64% of 22 tests (this stock)" }], below: [{ price: 803.2, what: "VWAP", reachPct: 60 }] }),
+    learned: (sym) => (seen.push(`learned ${sym || "all"}`), { available: true, days: 21, tests: 640, levels: [{ source: "prev-high", name: "The previous day's high", pct: 61, n: 88 }], findings: ["The previous day's high held on 61% of 88 tests."] }),
+    lab: async () => (seen.push("lab"), { available: true, date: "2026-11-12", summary: { net: -331, efficiency: 4 } }),
+  };
+}
+
+test("the agent: what is free is read first, the model names what else it needs, the desk reads it, and the answer is written from all of it", async () => {
+  const { ai, calls, plans } = boot({ steps: [{ thought: "The record of this kind of level and the option chain are missing.", calls: [{ tool: "learned", symbol: "SBIN", query: "" }, { tool: "position", symbol: "SBIN", query: "" }, { tool: "web", symbol: "", query: "SBIN quarterly results date" }, { tool: "no-such-reader", symbol: "", query: "" }], enough: true }] });
+  ai.setSettings({ provider: "anthropic", apiKey: KEYS.anthropic });
+  const seen = [];
+  ai.tradeai.desk = desk(seen);
+  const steps = [];
+  const r = await ai.tradeai.answer("Will SBIN bounce from here? Should I add?", { owner: true, onStep: (s) => steps.push(s) });
+  assert.equal(r.meta.tier, "advice");
+  // the seed: the held stock's position, tape and level map — no model asked for them
+  assert.deepEqual(seen.slice(0, 3).sort(), ["levels SBIN", "reading SBIN", "tape SBIN"]);
+  // one planning step: it is shown the readers and what was read already, not the data itself
+  assert.equal(plans.length, 1);
+  assert.deepEqual([plans[0].maxTokens, plans[0].effort], [1500, "low"]);
+  assert.match(plans[0].user, /^READERS:\n- shared \(needs symbol\)/);
+  assert.match(plans[0].user, /- position \(needs symbol\): The exit coach's live reading/);
+  assert.doesNotMatch(plans[0].user, /\[PAID\]/, "advice: the web is not offered");
+  assert.match(plans[0].user, /ALREADY READ:[\s\S]*- position_SBIN: the exit coach's live reading of the open position — SBIN/);
+  assert.doesNotMatch(plans[0].user, /DATA SO FAR/);
+  assert.match(plans[0].user, /The trader asks: Will SBIN bounce from here\? Should I add\?\n\nStep 1 of 1\.$/);
+  // what it asked for: the learner is read; the position is not read twice; the web was not on offer
+  assert.deepEqual(seen.slice(3), ["learned SBIN"]);
+  assert.deepEqual(r.meta.agent.steps[0].calls.map((c) => [c.tool, c.ok]), [["learned", true]]);
+  assert.match(r.meta.agent.steps[0].thought, /record of this kind of level/);
+  assert.ok(steps.some((s) => /^Agent: The record of this kind of level/.test(s)), "the trader sees the agent's step");
+  // the answer is written from everything, the position first
+  assert.equal(calls.length, 1);
+  assert.deepEqual([calls[0].maxTokens, calls[0].effort], [8000, "low"]);
+  const at = (k) => calls[0].user.indexOf(`"${k}"`);
+  assert.ok(at("position_SBIN") > 0 && at("tape_SBIN") > 0 && at("levels_SBIN") > 0 && at("learned_SBIN") > 0);
+  assert.ok(at("position_SBIN") < at("stock_SBIN"), "the position goes before the engines' snapshot");
+  assert.ok(r.meta.used.includes("exit coach SBIN") && r.meta.used.includes("what the desk has measured"));
+  assert.deepEqual(r.meta.usage, { input: 800, output: 160 }, "the planning step and the answer, added up");
+  assert.equal(r.meta.effort, "low");
+});
+
+test("the thinking level and the model are the trader's to choose: Low asks once, High lets the agent go further, and a picked model answers", async () => {
+  const { ai, calls, plans } = boot({ steps: [{ thought: "News may explain it.", calls: [{ tool: "tape", symbol: "INFY", query: "" }], enough: false }, { thought: "Enough.", calls: [], enough: true }] });
+  ai.setSettings({ provider: "anthropic", apiKey: KEYS.anthropic });
+  ai.tradeai.desk = desk();
+  // Low: no agent step, one brief request
+  await ai.tradeai.answer("Will INFY recover today?", { owner: true, effort: "low" });
+  assert.equal(plans.length, 0);
+  assert.deepEqual([calls.length, calls[0].effort], [1, "low"]);
+  // High: the planner sees the data, may take three steps, and the model thinks hardest
+  const r = await ai.tradeai.answer("Will INFY recover this afternoon?", { owner: true, effort: "high" });
+  assert.equal(plans.length, 2, "it stopped when it said it had enough");
+  assert.match(plans[0].user, /DATA SO FAR:\n\{/);
+  assert.match(plans[0].user, /Step 1 of 3\.$/);
+  assert.match(plans[1].user, /- tape_INFY: the tape/);
+  assert.deepEqual([calls[1].effort, calls[1].maxTokens], ["high", 16000]);
+  assert.equal(r.meta.effort, "high");
+  assert.equal(r.meta.agent.allowed, 3);
+  // the saved level applies when a question brings none; a wrong one is refused
+  assert.equal(ai.tradeai.setSettings({ effort: "low" }).effort, "low");
+  await ai.tradeai.answer("Will TCS recover today?", { owner: true });
+  assert.equal(plans.length, 2, "saved Low: no planning step");
+  assert.throws(() => ai.tradeai.setSettings({ effort: "max" }), /auto, low, medium or high/);
+  ai.tradeai.setSettings({ effort: "auto" });
+  // the choices: every model of every company with a saved key; a picked one answers first
+  ai.setSettings({ provider: "openai", apiKey: KEYS.openai });
+  ai.setSettings({ provider: "anthropic" });
+  const ch = ai.tradeai.status().choices;
+  assert.deepEqual(ch.efforts.map((e) => e.id), ["auto", "low", "medium", "high"]);
+  assert.ok(ch.models.some((m) => m.provider === "anthropic" && m.isDefault) && ch.models.some((m) => m.provider === "openai"));
+  const pick = ch.models.find((m) => m.provider === "openai");
+  const p = await ai.tradeai.answer("Will SBIN close green?", { owner: false, effort: "low", model: { provider: pick.provider, model: pick.model } });
+  assert.equal(calls[calls.length - 1].company, "openai");
+  assert.equal(p.meta.picked, pick.name);
+  // a model whose company has no saved key, or that the key does not list, is not asked: the default answers
+  const d = await ai.tradeai.answer("Will SBIN close red?", { owner: false, effort: "low", model: { provider: "gemini", model: "x" } });
+  assert.equal(calls[calls.length - 1].company, "anthropic");
+  assert.equal(d.meta.picked, null);
+});
+
+test("an open position: \"when should I exit?\" is answered at once from the exit coach — and by the model, with the same reading, when asked to think", async () => {
+  const { ai, calls, plans } = boot();
+  ai.setSettings({ provider: "anthropic", apiKey: KEYS.anthropic });
+  ai.tradeai.desk = desk();
+  const r = await ai.tradeai.answer("When should I exit SBIN?", { owner: true });
+  assert.deepEqual([r.meta.tier, r.meta.intent, calls.length, plans.length], ["instant", "exit", 0, 0]);
+  assert.match(r.answer, /\*\*SBIN long 40 @ ₹800\.00 — HOLD\*\* · exit pressure 12\/100/);
+  assert.match(r.answer, /Now \*\*₹806\.00\*\*: \*\*\+₹240\*\* \(\+0\.75%\), best \+₹288 at 10:20, 17% given back · 62 min in, 250 to the 3:15 square-off\./);
+  assert.match(r.answer, /\| \*\*Take profit at\*\* \| \*\*₹809\.40\*\* \|/);
+  assert.match(r.answer, /\| \*\*Stop\*\* \| \*\*₹803\.10\*\* \| trailing stop — only ever moved towards the price \|/);
+  assert.match(r.answer, /\| AI target 1 \| ₹809\.40 \| R1 \+ Previous day's high · limit ₹809\.20 · 1\.2R · reach 48% · levels like it held 64% of 22 tests \|/);
+  assert.match(r.answer, /\*\*Why stay:\*\* Above VWAP/);
+  assert.match(r.answer, /\*\*Order book:\*\* buyers 61% of the five best levels · Buyers pressing · next 30 seconds leans UP\./);
+  assert.match(r.answer, /not a promise; nothing is traded by itself/);
+  assert.match(r.followups[0], /second opinion on my SBIN long/);
+  assert.deepEqual(r.meta.usage, { input: 0, output: 0 });
+  // no symbol named: every open position
+  const all = await ai.tradeai.answer("should I book now?", { owner: true });
+  assert.equal(all.meta.tier, "instant");
+  assert.match(all.answer, /SBIN long 40/);
+  // asked to think: the model gets the same reading, the tape and the level map
+  const m = await ai.tradeai.answer("When should I exit SBIN?", { owner: true, effort: "medium" });
+  assert.equal(m.meta.tier, "advice");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].effort, "medium");
+  assert.match(calls[0].user, /"position_SBIN":\{"symbol":"SBIN"/);
+  assert.match(calls[0].user, /"coach":\{"word":"HOLD"/);
+  // someone who is not the owner has no positions: the question goes to the model without them
+  const o = await ai.tradeai.answer("When should I exit SBIN?", { owner: false, effort: "low" });
+  assert.equal(o.meta.tier, "advice");
+  assert.doesNotMatch(calls[calls.length - 1].user, /position_SBIN/);
+});
+
+test("what one feature paid for, every feature reads: an answer becomes a finding, the next question starts from it, and every question is logged", async () => {
+  const { ai, calls } = boot();
+  ai.setSettings({ provider: "anthropic", apiKey: KEYS.anthropic });
+  await ai.tradeai.answer("Will SBIN go up today?", { owner: true, effort: "low" });
+  const f = ai.shared.forSymbol("SBIN");
+  assert.equal(f.length, 1);
+  assert.deepEqual([f[0].feature, f[0].source, f[0].symbol, f[0].last, f[0].fresh, f[0].moved], ["tradeai", "TradeAI", "SBIN", 806, true, false]);
+  assert.match(f[0].summary, /SBIN looks firm/);
+  assert.equal(f[0].by, "Claude Sonnet 5.5");
+  assert.equal(f[0].tags.confidence, "medium");
+  // the next question on the stock carries it — for the owner; not for another admin (it speaks of the owner's trades)
+  await ai.tradeai.answer("Is SBIN a short tomorrow?", { owner: true, effort: "low" });
+  assert.match(calls[1].user, /"shared_SBIN":\{"note":"Findings of the desk's other AI features/);
+  assert.match(calls[1].user, /"from":"TradeAI","model":"Claude Sonnet 5\.5"/);
+  await ai.tradeai.answer("Is SBIN strong this week?", { owner: false, effort: "low" });
+  assert.doesNotMatch(calls[2].user, /shared_SBIN/);
+  assert.equal(ai.shared.forSymbol("SBIN", { owner: false }).length, 0);
+  // a question about no single stock is not filed under one
+  await ai.tradeai.answer("Will the market fall tomorrow?", { owner: true, effort: "low" });
+  assert.equal(ai.shared.recent().length, 1);
+  // a finding made at another price is marked; an old one is no longer fresh
+  assert.equal(ai.shared.forSymbol("SBIN", { last: 815 })[0].moved, true);
+  assert.equal(ai.shared.latest("SBIN", "tradeai", { last: 815 }), null);
+  // every question is written down with how it was answered and what it cost
+  await ai.tradeai.answer("show my positions", { owner: true });
+  const act = ai.tradeai.activity({ limit: 10 });
+  assert.deepEqual([act.today.questions, act.today.model, act.today.instant], [5, 4, 1]);
+  assert.equal(act.today.tokensIn, 2000);
+  assert.deepEqual([act.items[0].how, act.items[0].tokensIn], ["instant", 0]);
+  assert.deepEqual([act.items[1].how, act.items[1].model, act.items[1].effort], ["model", "Claude Sonnet 5.5", "low"]);
+  assert.ok(act.items[4].read.includes("SBIN"));
+  assert.equal(ai.tradeai.status().today.questions, 5);
 });
