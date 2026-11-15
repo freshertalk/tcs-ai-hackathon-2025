@@ -330,6 +330,41 @@ chased, costs) and an execution score; a period adds them up with plain-word les
 in `analysis/lab`, worked out by the hourly sweep (`labBackfill`, last 60 days) or on opening a day; routes
 `GET /api/admin/analysis/lab/:date` (`?refresh=1`) and `GET /api/admin/analysis/lab?from&to`.
 
+**The Lab's Live board, exit coach and flight recorder (2026-11-15; `server/flight.js`, `server/trading/exitcoach.js`,
+`server/trading/exitlevels.js`, `server/ai/exitadvisor.js`, `server/analysis/compare.js`; `LiveBoard.jsx`, `LabExtras.jsx`,
+`flight.css`).** The Lab has four parts: **Live board** (opens here in NSE hours), **A day**, **Coach**, **A period**.
+- **Flight deck** (`FlightDeck`, started in `app.js`, outside `server/ai`): reads positions every 10 s in NSE hours; an open
+  NSE/BSE cash position becomes a *flight*, its instrument is followed on the ticker with depth (`market.followBook`), and on
+  every tick (at most 4 looks a second) the **exit coach** answers HOLD / TIGHTEN / BOOK PART / EXIT NOW with an exit pressure
+  0–100, the exit price, its own stop (first stop → break-even → trailing, only ever towards the price), the next target and the
+  reasons — from the position, the tape, the order-flow engine, the ladder, the Live Pulse, the tide, the NSE forecast from the
+  world, the news and the day's goal. Pure arithmetic; hysteresis keeps the word steady. EXIT NOW goes to the phone once per
+  10 minutes. It reads only: the board's Exit button opens the order ticket for the trader to confirm.
+- **Stream:** `GET /api/admin/flight/stream` (Server-Sent Events: `board` on connect and every 15 s, `pos` per look); the page
+  falls back to `GET /api/admin/flight` every 2 s. Also `POST /flight/sync`, `POST /flight/ai`, `POST /flight/levels`,
+  `GET|PUT /flight/settings`, `GET /flight/days`, `GET /flight/day/:date` — all superadmin.
+- **AI on the board, sparingly** (one daily limit, default 30; `aiMode` change / ask / off): a **second opinion**
+  (`ExitAdvisor.advise`) when the word steps up to BOOK PART or EXIT NOW (5 min per position) or on request (30 s); and
+  **exit levels** (`ExitAdvisor.research`) when a position comes onto the board, when its targets are reached or its stop
+  broken, when the set is an hour old and the price has moved, or on request (60 s).
+- **Accuracy of the AI's levels is enforced, not hoped for.** `levelMap` works out every level from the desk's own data (day and
+  previous-day highs/lows/close, opening range, VWAP, pivots, 5/20-day extremes, 5-minute swings, the busiest price, round
+  numbers, the order wall, the pulse window, the ladder, the entry, the peak), merges those that sit together and gives each an
+  id (A1… above, B1… below) and a no-trend touch-odds figure. The model may only choose **by id**; `verify` throws out unknown
+  ids and misquoted prices (the desk's price is always the one shown), targets that are not ahead, not worth the costs or out of
+  reach (< 8% odds), and clamps a stop to the coach's own when the AI's is further away; R and the take-profit limit are computed
+  by the desk. Rejections are shown with their reason. `track` marks a level the moment the price reaches it (event + phone
+  reminder); after the close `settleLevels` scores each set on the day's 1-minute bars (first target before the stop? a tie
+  counts as stopped) into `flight/ai-levels.json` — that record is shown on the board and fed back to the model.
+- **Recorder:** `flight/DATE.json` (180 days): a frame every 15 s per position and every event (entry, each change of the
+  word, AI levels and opinions, levels reached, alerts, exit).
+- **A day** adds, per trade, the best moment to have left with its time (least loss when it never paid), the gap to the
+  trader's exit, exit efficiency, the best up to 3:15, and the coach replayed on the bars (`replay`; a square-off exit is not
+  reported as the coach having said EXIT). `LAB_VER = 2`.
+- **Coach** (`GET /api/admin/analysis/compare/:date`, `compareDay`): the day against the replays of the 60 days before it (at
+  least three): what to prevent (again / new / keeps coming back, with its cost and one rule), what to keep, similar days and trades.
+- Tests: `server/test/flight.test.js` (18), `src/admin/stock/analysis/TradeAnalysis.test.js` (6).
+
 **The Journal's Day book (Journal → Day book; `src/admin/stock/analysis/DayBook.jsx`, `server/analysis/`).** One
 report per trading day, kept in its own record (`analysis/days` — a collection of its own in MongoDB, a file otherwise).
 **Nothing is saved by hand** (the "Save this day" / "Save today now" buttons and `POST /api/admin/analysis/day/:date`

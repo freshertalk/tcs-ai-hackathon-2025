@@ -395,7 +395,7 @@ test("the Execution Lab: a day replayed from the journal and that day's 1-minute
   assert.equal(lab.summary.trades, 3);
   assert.equal(lab.summary.replayed, 3);
   assert.equal(fetched, 1, "one stock: one read of its bars");
-  assert.ok(lab.rules.length === 5 && lab.best);
+  assert.ok(lab.rules.length === 6 && lab.best, "your exits, four fixed rules and the exit coach");
   assert.ok(lab.trades.find((t) => t.key === "c").flags.includes("revenge") || lab.trades.find((t) => t.key === "b").net >= 0);
   await b.svc.lab(day);
   assert.equal(fetched, 1, "kept once worked out: no second read");

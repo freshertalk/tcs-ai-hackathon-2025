@@ -1,8 +1,11 @@
-// Trade Analysis — the Execution Lab. Every closed intraday trade replayed on that day's 1-minute
-// bars (server/analysis/lab.js): how far it went for you and against you, the share of the best move
-// you kept, what the price did after you left, where you came in (VWAP, the opening range, chasing),
-// what other exits would have made on the very same entry, the habits that cost money, and an
-// execution score — for one day, or added up over a period with the lessons in plain words.
+// Trade Analysis — the Execution Lab, in four parts:
+//   Live board  every open position watched tick by tick by the exit coach (LiveBoard.jsx)
+//   A day       every closed intraday trade replayed on that day's 1-minute bars (server/analysis/
+//               lab.js): how far it went for you and against you, the share of the best move you
+//               kept, the best moment to have left with its time, when the coach would have said
+//               EXIT, where you came in, what other exits would have made, the habits that cost money
+//   Coach       the day against your own history: what to prevent, what to keep (LabExtras.jsx)
+//   A period    the days added up, with the lessons in plain words
 //
 // The daily profit-and-loss reports now live in the Journal's Day book. Everything here is worked out
 // by the server by itself (the hourly sweep replays every recent day with trades) — no AI, no
@@ -13,6 +16,8 @@ import { api } from "../../api";
 import { Alert, Loading } from "../../ui";
 import { DateField } from "../../DatePicker";
 import { HBars, Spark, dayLong, rs, rsSigned, tone } from "./charts";
+import LiveBoard from "./LiveBoard";
+import { CoachView, ExitTiming, TradeChart, aiLevelsOf, flightOf, useFlightDay } from "./LabExtras";
 import "./analysis.css";
 
 const IST = 5.5 * 3600 * 1000;
@@ -152,7 +157,7 @@ function RunBar({ t }) {
 
 const FLAG_SHORT = { revenge: "revenge", afterStop: "after stop", afterTarget: "after target", overtrading: "over-trading", heldLoser: "held loser", cutWinner: "cut winner", firstMinutes: "first 5 min", late: "late", againstVwap: "vs VWAP", chased: "chased", costs: "costs" };
 
-function Trades({ trades }) {
+function Trades({ trades, flights = [] }) {
   const [open, setOpen] = useState("");
   return (
     <section className="ta-card ta-wide">
@@ -223,11 +228,12 @@ function Trades({ trades }) {
                 {open === t.key && (
                   <tr className="lab-more">
                     <td colSpan={7}>
+                      {t.read && <TradeChart t={t} flight={flightOf(flights, t)} />}
                       {Object.keys(t.whatIf || {}).length ? (
                         <ul className="lab-whatif">
                           {Object.entries(t.whatIf).map(([id, w]) => (
                             <li key={id}>
-                              <b>{{ fixed: "Stop 0.5% · target 1%", trail: "Trailing 0.5%", breakeven: "Break-even stop", close: "Hold to 3:15" }[id] || id}</b> — out at {w.exit} ({w.how}) · <span className={tone(w.net)}>{rsSigned(w.net)}</span>
+                              <b>{{ fixed: "Stop 0.5% · target 1%", trail: "Trailing 0.5%", breakeven: "Break-even stop", close: "Hold to 3:15", coach: "The exit coach" }[id] || id}</b> — out at {w.exit} ({w.how}) · <span className={tone(w.net)}>{rsSigned(w.net)}</span>
                               <small> ({rsSigned(w.net - t.net)} against yours)</small>
                             </li>
                           ))}
@@ -267,6 +273,8 @@ function DayLab({ date, setDate }) {
     load();
   }, [load]);
   const l = st.lab;
+  const { flights, record } = useFlightDay(date);
+  const ai = aiLevelsOf(flights);
   return (
     <>
       <div className="lab-bar">
@@ -287,12 +295,18 @@ function DayLab({ date, setDate }) {
             <Kpi label="Share of the move kept" value={typeof l.summary.capture === "number" ? `${l.summary.capture}%` : "—"} sub="your profit ÷ the best move while in" tip="All replayed trades together: the profit you took against the most the price offered while you were in (MFE)." />
             <Kpi label="Ran on after your exits" value={rs(l.summary.ranOn)} sub={`leaving spared you up to ${rs(l.summary.avoided)}`} tip="How much further the price went your way after each exit, up to 3:15 PM — and how far it went against you (what leaving spared you)." />
             <Kpi label="Best other exit" value={l.best ? rsSigned(l.best.vsActual) : "—"} cls={l.best ? tone(l.best.vsActual) : ""} sub={l.best ? l.best.name : "no replay"} />
+            <Kpi label="Exit efficiency" value={typeof l.summary.efficiency === "number" ? `${l.summary.efficiency}%` : "—"} sub={typeof l.summary.bestPossible === "number" ? `of ${rs(l.summary.bestPossible)} on offer · ${rs(l.summary.leftOnTable)} left` : "no replay"} tip="Your profit as a share of the most that was on offer while you were in each trade (hindsight's ceiling)." />
+            <Kpi label="Exit timing" value={`${l.summary.late || 0} late · ${l.summary.onTime || 0} on time`} sub={typeof l.summary.avgGapMin === "number" ? `on average ${l.summary.avgGapMin} min after the best moment${l.summary.early ? ` · ${l.summary.early} left before a bigger move` : ""}` : ""} tip="Late: you stayed more than two minutes past the trade's best moment." />
+            <Kpi label="The coach against you" value={typeof l.summary.coachVsYours === "number" ? rsSigned(l.summary.coachVsYours) : "—"} cls={tone(l.summary.coachVsYours)} sub="the same entries closed at the coach's EXIT NOW" tip="What the day would have made had every trade been closed where the exit coach, replayed on the bars, first said EXIT NOW (or at 3:15 PM)." />
+            {ai.given > 0 && <Kpi label="The AI's exit levels" value={ai.sets ? `${ai.reached} of ${ai.sets} reached` : "not scored yet"} sub={ai.sets ? `first target before the stop · the stop came first on ${ai.stopped}` : "scored after the close, on the day's bars"} tip={record && record.judged ? `All days: ${record.text}` : "Each set of levels the AI researched live is scored after the close on the day's 1-minute bars: which came first, its first target or its stop."} />}
           </div>
+          <ExitTiming trades={l.trades} />
           <div className="lab-grid">
             <Rules rules={l.rules} best={l.best} />
             <Habits flags={l.flags} empty="No costly habit showed on this day." />
           </div>
-          <Trades trades={l.trades} />
+          <Trades trades={l.trades} flights={flights} />
+          {flights.length > 0 && <p className="ta-dim">The flight deck recorded {flights.length} position{flights.length === 1 ? "" : "s"} on this day (a frame every 15 seconds, every signal and alert): open a trade to see the signals as they were given live.</p>}
           {l.limits && (
             <p className="ta-dim">
               The day&rsquo;s limits from your daily goal: stop {rs(l.limits.stop)}, target {rs(l.limits.target)}.
@@ -352,9 +366,15 @@ function PeriodLab() {
             <Kpi label="Net after charges" value={rsSigned(r.summary.net)} cls={tone(r.summary.net)} sub={`${r.summary.trades} trades · charges ${rs(r.summary.charges)}`} />
             <Kpi label="Share of the move kept" value={typeof r.summary.capture === "number" ? `${r.summary.capture}%` : "—"} sub={`${r.summary.replayed} trades replayed`} />
             <Kpi label="Ran on after your exits" value={rs(r.summary.ranOn)} sub={`spared up to ${rs(r.summary.avoided)}`} />
+            <Kpi label="Exit efficiency" value={typeof r.summary.efficiency === "number" ? `${r.summary.efficiency}%` : "—"} sub={typeof r.summary.leftOnTable === "number" ? `${rs(r.summary.leftOnTable)} left on the table · ${r.summary.late || 0} exits late` : ""} tip="Your profit as a share of the most that was on offer while you were in each trade." />
+            <Kpi label="The coach against you" value={typeof r.summary.coachVsYours === "number" ? rsSigned(r.summary.coachVsYours) : "—"} cls={tone(r.summary.coachVsYours)} sub="the same entries closed at the coach's EXIT NOW" />
             <div className="ta-kpi">
               <span className="ta-kpi__l">Score, day by day</span>
               <Spark values={r.trend.map((x) => x.score)} c="b" />
+            </div>
+            <div className="ta-kpi">
+              <span className="ta-kpi__l">Exit efficiency, day by day</span>
+              <Spark values={r.trend.map((x) => x.efficiency)} c="a" />
             </div>
           </div>
           {r.lessons.length > 0 && (
@@ -394,8 +414,25 @@ function PeriodLab() {
   );
 }
 
+/** NSE hours on a weekday (IST): the Live board is the first thing shown while the market is open. */
+const marketOpenNow = () => {
+  const d = new Date(Date.now() + IST);
+  const m = d.getUTCHours() * 60 + d.getUTCMinutes();
+  return d.getUTCDay() >= 1 && d.getUTCDay() <= 5 && m >= 555 && m <= 930;
+};
+const PARTS = [
+  { id: "live", label: "Live board", tip: "Every open position, tick by tick: HOLD, TIGHTEN, BOOK PART or EXIT NOW, with the price." },
+  { id: "day", label: "A day", tip: "The day replayed: the best moment to have left each trade, with its time." },
+  { id: "coach", label: "Coach", tip: "The day against your own history: what to prevent and what to keep." },
+  { id: "period", label: "A period", tip: "The days added up, with the lessons." },
+];
+
 export default function TradeAnalysis() {
-  const [mode, setMode] = useState(() => (read(MODE_KEY, "day") === "period" ? "period" : "day"));
+  const [mode, setMode] = useState(() => {
+    if (marketOpenNow()) return "live";
+    const m = read(MODE_KEY, "live");
+    return PARTS.some((p) => p.id === m) ? m : "live";
+  });
   const [date, setDate] = useState(null);
   // open on the latest day with trades: the newest replayed day or the Day book's newest day, else the last weekday
   useEffect(() => {
@@ -421,20 +458,32 @@ export default function TradeAnalysis() {
         <div>
           <h2>Trade Analysis — Execution Lab</h2>
           <p className="ta-dim">
-            How you traded, not only what you made: every closed intraday trade replayed on Zerodha&rsquo;s 1-minute bars — the share of the move you kept, where you came in, what other exits would have made on the same entries, and the habits that cost money. Worked out by
-            the server by itself; your daily profit-and-loss reports are in the Journal&rsquo;s <b>Day book</b>.
+            Your trading&rsquo;s flight recorder. While you are in a trade the <b>Live board</b> says when to leave, tick by tick; after the close every trade is replayed on Zerodha&rsquo;s 1-minute bars — the best moment to have left with its time, where you came in, the habits that cost money — and
+            the <b>Coach</b> sets the day against your own history. Daily profit-and-loss reports are in the Journal&rsquo;s <b>Day book</b>.
           </p>
         </div>
         <div className="ta-seg" role="group" aria-label="Execution Lab">
-          <button type="button" aria-pressed={mode === "day"} onClick={() => pick("day")}>
-            A day
-          </button>
-          <button type="button" aria-pressed={mode === "period"} onClick={() => pick("period")}>
-            A period
-          </button>
+          {PARTS.map((p) => (
+            <button key={p.id} type="button" aria-pressed={mode === p.id} onClick={() => pick(p.id)} data-tip={p.tip}>
+              {p.label}
+            </button>
+          ))}
         </div>
       </section>
-      {mode === "day" ? date ? <DayLab key={date} date={date} setDate={setDate} /> : <Loading label="Opening the lab…" /> : <PeriodLab />}
+      {mode === "live" && <LiveBoard onReplay={() => pick("day")} />}
+      {mode === "day" && (date ? <DayLab key={date} date={date} setDate={setDate} /> : <Loading label="Opening the lab…" />)}
+      {mode === "coach" &&
+        (date ? (
+          <>
+            <div className="lab-bar">
+              <DateField value={date} max={todayIst()} onChange={setDate} label="Day" />
+            </div>
+            <CoachView key={date} date={date} />
+          </>
+        ) : (
+          <Loading label="Opening the coach…" />
+        ))}
+      {mode === "period" && <PeriodLab />}
       <p className="ta-dim ta-foot">A replay of the past on 1-minute bars (Zerodha keeps about 60 days of them): it measures how trades were handled; it does not predict the next one and is not advice. Charges are the journal&rsquo;s estimate.</p>
     </div>
   );

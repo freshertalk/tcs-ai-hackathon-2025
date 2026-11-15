@@ -19,11 +19,12 @@
 
 const { buildDay, analytics } = require("./day");
 const { labDay, labRange } = require("./lab");
+const { compareDay } = require("./compare");
 
 const NAME = "analysis/days";
 const LAB = "analysis/lab"; // the Execution Lab, one replay per day (computed by itself on the sweep)
 const LAB_DAYS = 60; // Zerodha keeps about 60 days of 1-minute bars
-const LAB_VER = 1;
+const LAB_VER = 2; // 2: the best exit with its time, the timing of each exit, the exit coach replayed
 const IST = 5.5 * 3600 * 1000;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const AUTO_AT = 15 * 60 + 45; // 3:45 PM IST
@@ -347,6 +348,21 @@ class DayAnalysis {
     for (const k of Object.keys(doc.days)) if (!keep.includes(k)) delete doc.days[k];
     this.docs.write(LAB, doc);
     return { available: true, ...lab, cachedAt: doc.days[date].at };
+  }
+
+  /**
+   * One day set against the trader's own earlier days (the last LAB_DAYS on record): today against
+   * the usual, the habits to prevent, what to keep, the days and the trades most like it.
+   */
+  async compare(date) {
+    const today = await this.lab(date);
+    if (!today.available) return { available: false, date, reason: today.reason };
+    const from = new Date(Date.parse(`${date}T00:00:00Z`) - LAB_DAYS * 86400000).toISOString().slice(0, 10);
+    const history = Object.values(this._labDoc().days)
+      .filter((x) => x.ver === LAB_VER)
+      .map((x) => x.lab)
+      .filter((l) => l && l.date < date && l.date >= from);
+    return { available: true, ...compareDay(today, history) };
   }
 
   /** The lab added up over the days already worked out between `from` and `to`. */

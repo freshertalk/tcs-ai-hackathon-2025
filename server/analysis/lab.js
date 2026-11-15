@@ -8,6 +8,10 @@
 //               what other exits would have made on the very same entry: a fixed 0.5% stop with a 1%
 //               target (2R), a 0.5% trailing stop, a 0.5% stop moved to break-even at +0.5%, and
 //               holding to 3:15 PM
+//   the best    the best moment to have left, with its time and price — while you were in, and up to
+//   exit        3:15 PM — which is the least loss when the trade never paid; how many minutes before
+//               or after it you left; and when the desk's exit coach (trading/exitcoach.js) would
+//               have said EXIT NOW on the same bars
 //   behaviour   revenge trades (in within 10 minutes of a loss), trading after the day's stop or
 //               target was reached, over-trading, the first five minutes, the last 30 minutes,
 //               holding a loser, cutting a winner early, costs eating the profit
@@ -17,6 +21,8 @@
 //
 // Pure arithmetic on Zerodha's own fills and bars: no AI, no orders, no network (the bars are handed
 // in). A replay is a measurement of the past, not a promise about the next trade.
+
+const { replay: coachReplay } = require("../trading/exitcoach");
 
 const IST = 5.5 * 3600 * 1000;
 const num = (x) => typeof x === "number" && Number.isFinite(x);
@@ -36,6 +42,7 @@ const RULES = [
   { id: "trail", name: "Trailing stop 0.5%", trailPct: 0.5 },
   { id: "breakeven", name: "Stop 0.5%, to break-even at +0.5%", stopPct: 0.5, bePct: 0.5 },
   { id: "close", name: "Hold to 3:15 PM" },
+  { id: "coach", name: "The exit coach's EXIT NOW" },
 ];
 
 const FLAGS = {
@@ -137,7 +144,66 @@ function readTrade(trade, bars, date) {
     }
   }
   out.minutesIn = Math.round((trade.entryAt - OPEN(date)) / 60000);
+
+  // the best moment to have left: the bar where the position was worth most (the least loss when it never paid)
+  const best = (list) => {
+    let top = null;
+    for (const b of list) {
+      const px = s > 0 ? b.h : b.l;
+      const v = s * (px - e) * q;
+      if (!top || v > top.pnl) top = { at: b.t, clock: istClock(b.t), price: r2(px), pnl: r2(v) };
+    }
+    return top ? { ...top, kind: top.pnl > 0 ? "profit" : "least-loss" } : null;
+  };
+  const held = bars.filter((b) => b.t >= trade.entryAt && b.t <= trade.exitAt);
+  const toClose = bars.filter((b) => b.t >= trade.entryAt && b.t <= SQUARE(date));
+  out.bestExit = best(held.length ? held : inside);
+  out.bestExitDay = best(toClose);
+  let worst = null;
+  for (const b of held.length ? held : inside) {
+    const px = s > 0 ? b.l : b.h;
+    const v = s * (px - e) * q;
+    if (!worst || v < worst.pnl) worst = { at: b.t, clock: istClock(b.t), price: r2(px), pnl: r2(v) };
+  }
+  out.worst = worst;
+  if (out.bestExit) {
+    out.timing = {
+      gapMin: Math.round((trade.exitAt - out.bestExit.at) / 60000), // minutes you stayed after the best moment
+      leftOnTable: r2(out.bestExit.pnl - trade.pnl),
+      efficiency: out.bestExit.pnl > 0 ? Math.max(-100, Math.min(100, Math.round((trade.pnl / out.bestExit.pnl) * 100))) : null,
+    };
+  }
+  // the price path around the trade, for the chart (one point a minute)
+  const from = trade.entryAt - 15 * 60000;
+  const to = Math.min(SQUARE(date), Math.max(trade.exitAt, out.bestExitDay ? out.bestExitDay.at : 0) + 20 * 60000);
+  out.path = bars.filter((b) => b.t >= from && b.t <= to).map((b) => [b.t, r2(b.c)]);
   return out;
+}
+
+/**
+ * The timing of the exits over a set of replayed trades: the most that was on offer while you were in
+ * (hindsight's ceiling), the share of it you took, what was left, how many exits came before and
+ * after the best moment, and the same entries closed where the exit coach said EXIT NOW.
+ */
+function exitStats(replayed) {
+  const xs = replayed.filter((t) => t.read && t.read.bestExit);
+  if (!xs.length) return { bestPossible: null, efficiency: null, leftOnTable: null, early: 0, late: 0, onTime: 0, avgGapMin: null, coachNet: null, coachVsYours: null };
+  const bestSum = xs.reduce((a, t) => a + Math.max(0, t.read.bestExit.pnl), 0);
+  const took = xs.reduce((a, t) => a + t.pnl, 0);
+  const gaps = xs.map((t) => t.read.timing.gapMin);
+  const withCoach = xs.filter((t) => t.whatIf && t.whatIf.coach);
+  const coachNet = withCoach.reduce((a, t) => a + t.whatIf.coach.net, 0);
+  return {
+    bestPossible: r2(bestSum),
+    efficiency: bestSum > 0 ? Math.max(-100, Math.min(100, Math.round((took / bestSum) * 100))) : null,
+    leftOnTable: r2(xs.reduce((a, t) => a + Math.max(0, t.read.timing.leftOnTable), 0)),
+    late: gaps.filter((g) => g > 2).length, // stayed more than two minutes past the best moment
+    onTime: gaps.filter((g) => g <= 2).length,
+    early: xs.filter((t) => t.read.bestExitDay && t.read.bestExitDay.at > t.exitAt + 2 * 60000 && t.read.bestExitDay.pnl > Math.max(0, t.read.bestExit.pnl) * 1.2 + 1).length, // the bigger move came after you left
+    avgGapMin: Math.round(gaps.reduce((a, g) => a + g, 0) / gaps.length),
+    coachNet: withCoach.length ? r2(coachNet) : null,
+    coachVsYours: withCoach.length ? r2(coachNet - withCoach.reduce((a, t) => a + t.net, 0)) : null,
+  };
 }
 
 /**
@@ -161,8 +227,16 @@ function labDay({ date, trips = [], bars = {}, limits = null, maxTrades = 6 }) {
     const whatIf = {};
     if (same && b.length) {
       for (const rule of RULES.slice(1)) {
+        if (rule.id === "coach") continue;
         const sim = simulate(rule, { ...t, qty }, b, date);
         if (sim) whatIf[rule.id] = { ...sim, net: r2(sim.pnl - base.charges) };
+      }
+      // the desk's exit coach on the same bars: its signals minute by minute, and where it said EXIT NOW
+      const cr = coachReplay({ symbol: t.symbol, side: t.side, qty, entryAvg: t.entryAvg, entryAt: t.entryAt }, b);
+      const end = cr.exit || (whatIf.close ? { at: whatIf.close.at, clock: istClock(whatIf.close.at), price: whatIf.close.exit, pnl: whatIf.close.pnl, why: "No EXIT NOW before 3:15 PM." } : null);
+      if (end) {
+        whatIf.coach = { exit: end.price, how: cr.exit && cr.exit.kind !== "time" ? "coach" : "time", at: end.at, pnl: end.pnl, net: r2(end.pnl - base.charges) };
+        read.coach = { exit: { ...end, said: Boolean(cr.exit && cr.exit.kind !== "time") }, changes: cr.changes.slice(0, 12), gapMin: Math.round((t.exitAt - end.at) / 60000), vsYours: r2(end.pnl - t.pnl) };
       }
     }
     trades.push({ ...base, read, whatIf, flags: [] });
@@ -222,7 +296,7 @@ function labDay({ date, trips = [], bars = {}, limits = null, maxTrades = 6 }) {
   return {
     date,
     trades,
-    summary: { trades: trades.length, replayed: replayed.length, gross, charges, net, capture, ranOn: sum(replayed, (t) => t.read.ranOn), avoided: sum(replayed, (t) => t.read.avoided), score, label: score === null ? "—" : score >= 75 ? "Disciplined" : score >= 50 ? "Mixed" : "Leaky" },
+    summary: { trades: trades.length, replayed: replayed.length, gross, charges, net, capture, ranOn: sum(replayed, (t) => t.read.ranOn), avoided: sum(replayed, (t) => t.read.avoided), score, label: score === null ? "—" : score >= 75 ? "Disciplined" : score >= 50 ? "Mixed" : "Leaky", ...exitStats(replayed) },
     rules,
     best: rules.slice(1).filter((r) => r.trades).sort((a, b) => b.net - a.net)[0] || null,
     flags: flagRows,
@@ -288,15 +362,15 @@ function labRange(labs) {
   if (num(capture) && capture < 40 && replayed.length >= 5) lessons.push(`You kept ${capture}% of the best move on average; after your exits the price ran on by ${rs(sum(replayed, (t) => t.read.ranOn))} in all.`);
   return {
     days: days.length,
-    summary: { trades: trades.length, replayed: replayed.length, net: sum(trades, (t) => t.net), gross: sum(trades, (t) => t.pnl), charges: sum(trades, (t) => t.charges), capture, ranOn: sum(replayed, (t) => t.read.ranOn), avoided: sum(replayed, (t) => t.read.avoided), score: scores.length ? Math.round(scores.reduce((a, x) => a + x, 0) / scores.length) : null },
+    summary: { trades: trades.length, replayed: replayed.length, net: sum(trades, (t) => t.net), gross: sum(trades, (t) => t.pnl), charges: sum(trades, (t) => t.charges), capture, ranOn: sum(replayed, (t) => t.read.ranOn), avoided: sum(replayed, (t) => t.read.avoided), score: scores.length ? Math.round(scores.reduce((a, x) => a + x, 0) / scores.length) : null, ...exitStats(replayed) },
     rules,
     best,
     flags,
     byHour,
     context,
     lessons,
-    trend: days.map((d) => ({ date: d.date, net: d.summary.net, score: d.summary.score, capture: d.summary.capture })).sort((a, b) => (a.date < b.date ? -1 : 1)),
+    trend: days.map((d) => ({ date: d.date, net: d.summary.net, score: d.summary.score, capture: d.summary.capture, efficiency: d.summary.efficiency ?? null, leftOnTable: d.summary.leftOnTable ?? null })).sort((a, b) => (a.date < b.date ? -1 : 1)),
   };
 }
 
-module.exports = { labDay, labRange, simulate, readTrade, vwapAt, RULES, FLAGS };
+module.exports = { labDay, labRange, simulate, readTrade, vwapAt, exitStats, RULES, FLAGS };

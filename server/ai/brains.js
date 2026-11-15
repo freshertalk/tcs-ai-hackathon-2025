@@ -43,6 +43,8 @@ const FEATURES = [
   { id: "tradeai", name: "TradeAI chat", trigger: "A question in the TradeAI chat (its own page), or ASK on WhatsApp" },
   { id: "whatsapp", name: "WhatsApp updates", trigger: "The timed updates on WhatsApp while WhatsApp Trading is on" },
   { id: "social", name: "Social & news digest", trigger: "New posts and headlines from the Social Media sources (every few minutes), or Digest now on the Social Media page" },
+  { id: "exit", name: "Exit advisor (Execution Lab)", trigger: "A step up of the exit coach's signal on an open position (one opinion per position every five minutes, within the daily limit), or Ask the AI on the Live board" },
+  { id: "exit-levels", name: "Exit levels research (Execution Lab)", trigger: "A position coming onto the Live board, its first AI target being reached or its levels going stale (at most one per position every ten minutes, within the same daily limit), or Research levels on the Live board" },
 ];
 const FEATURE_IDS = FEATURES.map((f) => f.id);
 

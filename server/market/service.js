@@ -726,6 +726,29 @@ class MarketService {
     return { d30: diff(ago(30000)), d60: diff(ago(60000)), d180: diff(ago(180000)), seconds: Math.round((endAt - tr[0][0]) / 1000) };
   }
 
+  /**
+   * Keep the order book and the order-flow reading running for one instrument with no page in focus
+   * (the exit coach follows every open position this way). Returns a function that lets it go.
+   */
+  followBook(token) {
+    if (!this.ticker || !token) return () => {};
+    this._focus.set(token, (this._focus.get(token) || 0) + 1);
+    this._syncTicker();
+    this.ticker.subscribe([token]);
+    let done = false;
+    return () => {
+      if (done) return;
+      done = true;
+      this.ticker.unsubscribe([token]);
+      const left = (this._focus.get(token) || 1) - 1;
+      if (left > 0) this._focus.set(token, left);
+      else {
+        this._focus.delete(token);
+        this.flow.reset(token);
+      }
+    };
+  }
+
   /** The order-flow reading for a symbol, when a page has it in focus on the live stream. */
   flowSnapshot(symbol) {
     if (!this.ticker || !this.ticker.isLive()) return null;

@@ -50,6 +50,7 @@ const { SocialService } = require("./social/service");
 const { previewFor, previewTags, injectPreview } = require("./previews");
 const { readingOf: socialReading } = require("./social/extract");
 const { SocialWatch } = require("./social-watch");
+const { FlightDeck, FlightError } = require("./flight");
 const { JournalCapture } = require("./journal-capture");
 const { WhatsAppService, mountWhatsApp } = require("./whatsapp");
 const { buildHealth } = require("./health");
@@ -851,6 +852,60 @@ ${e.text}
     console.log(`[social] X token ${(req.body || {}).remove === "x" ? "removed" : "saved"}`);
     return { settings: out };
   }));
+
+  /* ------------------------------------------------ the flight deck (server/flight.js) */
+  // every open position watched tick by tick by the exit coach, pushed to the Execution Lab's Live
+  // board, and recorded (the CCTV). It reads the account and the market; it cannot place an order.
+  const flight =
+    opts.flightDeck ||
+    new FlightDeck({ trading, market, ai, docs: store.docs, notifier, goal: () => (disciplineWatch.status().state || null), now: opts.now, log: opts.log || console });
+  if (opts.flightWatch !== false && opts.alertWatch !== false) flight.start();
+  const fWrap = (fn) => async (req, res) => {
+    try {
+      res.json(await fn(req));
+    } catch (err) {
+      if (!(err instanceof FlightError)) console.error("[flight]", err && err.message ? err.message : err);
+      res.status(err.status || 500).json({ error: err.code || "flight_failed", message: err.message || "The flight deck failed." });
+    }
+  };
+  app.get("/api/admin/flight", requireSuper, limiter(240, 60 * 1000), fWrap(async () => flight.board()));
+  app.post("/api/admin/flight/sync", requireSuper, limiter(60, 60 * 1000), fWrap(async () => flight.sync()));
+  app.post("/api/admin/flight/ai", requireSuper, limiter(40, 10 * 60 * 1000), fWrap(async (req) => ({ opinion: await flight.askAi(String((req.body || {}).key || "")), settings: flight.settings() })));
+  app.get("/api/admin/flight/settings", requireSuper, fWrap(async () => flight.settings()));
+  app.put("/api/admin/flight/settings", requireSuper, limiter(40, 10 * 60 * 1000), fWrap(async (req) => flight.setSettings(req.body || {})));
+  app.get("/api/admin/flight/days", requireSuper, fWrap(async () => ({ days: flight.days() })));
+  // the AI Engine researches one position's exit levels (chosen from the desk's level map, checked before they are shown)
+  app.post("/api/admin/flight/levels", requireSuper, limiter(30, 10 * 60 * 1000), fWrap(async (req) => ({ levels: await flight.researchLevels(String((req.body || {}).key || "")), settings: flight.settings(), record: flight.levelsRecord() })));
+  app.get("/api/admin/flight/day/:date", requireSuper, limiter(60, 60 * 1000), fWrap(async (req) => {
+    await flight.settleLevels(req.params.date).catch(() => {}); // a finished day's AI levels are scored on its bars the first time it is opened
+    return flight.day(req.params.date);
+  }));
+  // the Live board's stream: the whole board on connecting, then every look at every open position
+  // as it happens (Server-Sent Events; at most four a second per position)
+  const boards = new Set();
+  const fPush = (event, data) => {
+    for (const res of boards) {
+      try {
+        res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+      } catch (_) {
+        boards.delete(res);
+      }
+    }
+  };
+  flight.on("pos", (v) => boards.size && fPush("pos", v));
+  flight.on("board", (b) => boards.size && fPush("board", b));
+  const fBeat = setInterval(() => boards.size && fPush("board", flight.board()), 15000); // the paths, frames and events, and a heartbeat
+  if (fBeat.unref) fBeat.unref();
+  app.get("/api/admin/flight/stream", requireSuper, (req, res) => {
+    if (boards.size >= 10) return res.status(429).json({ error: "busy", message: "Too many open Live boards." });
+    res.set({ "Content-Type": "text/event-stream; charset=utf-8", "Cache-Control": "no-cache, no-transform", Connection: "keep-alive", "X-Accel-Buffering": "no" });
+    res.flushHeaders && res.flushHeaders();
+    res.write("retry: 2000\n\n");
+    res.write(`event: board\ndata: ${JSON.stringify(flight.board())}\n\n`);
+    boards.add(res);
+    flight.sync().catch(() => {}); // a page just opened: read the positions now rather than at the next round
+    req.on("close", () => boards.delete(res));
+  });
 
   // research that runs by itself before the open and after the close (server/research-auto.js)
   const researchAuto = new ResearchAuto({ ai, market, docs: store.docs, now: opts.now, log: opts.log || console });

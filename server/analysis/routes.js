@@ -31,6 +31,7 @@ function mountAnalysis(app, { analysis, requireSuper, limiter }) {
   app.put("/api/admin/analysis/day/:date", requireSuper, limiter(60, 10 * 60 * 1000), wrap(async (req) => analysis.edit(req.params.date, req.body || {})));
   // the Execution Lab (Trade Analysis): one day replayed, and a period added up
   app.get("/api/admin/analysis/lab/:date", requireSuper, limiter(60, 60 * 1000), wrap(async (req) => analysis.lab(req.params.date, { refresh: req.query.refresh === "1" })));
+  app.get("/api/admin/analysis/compare/:date", requireSuper, limiter(60, 60 * 1000), wrap(async (req) => analysis.compare(req.params.date)));
   app.get("/api/admin/analysis/lab", requireSuper, limiter(120, 60 * 1000), wrap(async (req) => analysis.labRange(range(req))));
   app.post("/api/admin/analysis/day/:date/ai", requireSuper, limiter(20, 60 * 60 * 1000), wrap(async (req) => analysis.writeAi(req.params.date)));
   app.delete("/api/admin/analysis/day/:date", requireSuper, limiter(30, 10 * 60 * 1000), wrap(async (req) => analysis.remove(req.params.date)));
