@@ -53,6 +53,7 @@ const { SocialWatch } = require("./social-watch");
 const { FlightDeck, FlightError } = require("./flight");
 const { LearnWatch } = require("./learn");
 const { makeDeskReaders } = require("./desk-readers");
+const { IndexHistory, IndexError } = require("./index-history");
 const { JournalCapture } = require("./journal-capture");
 const { WhatsAppService, mountWhatsApp } = require("./whatsapp");
 const { buildHealth } = require("./health");
@@ -984,6 +985,26 @@ ${e.text}
   // price alerts, the risk-guard lock and the 3:45 PM report go to WhatsApp as well as Telegram
   notifier.also = (text, kind) => (kind === "alerts" || kind === "risk" || kind === "dayReport" ? whatsapp.send(text, { kind }) : null);
 
+  /* --------------------------------------- the Indices page (server/index-history.js) */
+  // NIFTY 50 and SENSEX year by year and month by month, the desk's and the AI's projections, and the
+  // ledger that scores them. Reads the market only.
+  const indices = opts.indexHistory || new IndexHistory({ market, ai, docs: store.docs, now: opts.now, log: opts.log || console });
+  if (opts.indexWatch !== false && opts.alertWatch !== false) indices.start();
+  const ixWrap = (fn) => async (req, res) => {
+    try {
+      res.json(await fn(req));
+    } catch (err) {
+      if (!(err instanceof IndexError)) console.error("[indices]", err && err.message ? err.message : err);
+      res.status(err.status || 500).json({ error: err.code || "indices_failed", message: err.message || "The index history failed." });
+    }
+  };
+  const ixId = (x) => (String(x || "").toUpperCase() === "SENSEX" ? "SENSEX" : "NIFTY");
+  app.get("/api/admin/indices", requireAdmin, limiter(120, 60 * 1000), ixWrap(async (req) => indices.view(ixId(req.query.index))));
+  app.get("/api/admin/indices/compare", requireAdmin, limiter(60, 60 * 1000), ixWrap(async () => indices.compare()));
+  app.post("/api/admin/indices/refresh", requireAdmin, limiter(20, 10 * 60 * 1000), ixWrap(async (req) => indices.view(ixId((req.body || {}).index), { refresh: true })));
+  app.post("/api/admin/indices/ai", requireSuper, limiter(12, 10 * 60 * 1000), ixWrap(async (req) => ({ entry: await indices.askAi(ixId((req.body || {}).index), (req.body || {}).horizon === "year" ? "year" : "month"), settings: indices.settings() })));
+  app.put("/api/admin/indices/settings", requireSuper, limiter(30, 10 * 60 * 1000), ixWrap(async (req) => indices.setSettings(req.body || {})));
+
   /* ------------------------------------------------ TradeAI (server/ai/tradeai.js) */
   // the chat reads the account through these read-only functions (the AI folder cannot load the broker)
   ai.tradeai.account = {
@@ -1013,6 +1034,8 @@ ${e.text}
   };
   // the agent's readers outside the AI folder: the exit coach's reading, the tape, the level map, the Lab, the learner
   ai.tradeai.desk = makeDeskReaders({ market, flight, analysis, learn, now: opts.now || (() => Date.now()) });
+  // …and the index history: NIFTY 50 and SENSEX month by month, the projections and their record
+  ai.tradeai.desk.indices = (name) => indices.brief(/SENSEX|BSE/i.test(String(name || "")) ? "SENSEX" : "NIFTY");
   const taWrap = (fn) => async (req, res) => {
     try {
       res.json(await fn(req));

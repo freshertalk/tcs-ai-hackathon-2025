@@ -20,6 +20,7 @@ import Analyzer from "./analyzer/Analyzer";
 import Screener from "./analyzer/Screener";
 import Paper from "./paper/Paper";
 import TradeAnalysis from "./analysis/TradeAnalysis";
+import Indices from "./indices/Indices";
 import Document from "./docs/Document";
 import AiEngine from "./engine/AiEngine";
 import Debrief from "./analyzer/Debrief";
@@ -52,6 +53,7 @@ const VIEWS = [
   { id: "debrief", label: "Debrief", tip: "After the close: if you had followed every live call by fixed rules, what would today have made or lost? A report card for the desk’s signals — no real trades." },
   { id: "calendar", label: "Calendar", tip: "World clock and upcoming exchange holidays." },
   { id: "analysis", label: "Trade Analysis", superOnly: true, tip: "The Execution Lab: every intraday trade replayed on 1-minute bars — the share of the move you kept, where you came in, what other exits would have made, and the habits that cost money. (Daily P&L reports are in the Journal's Day book.)" },
+  { id: "indices", label: "Indices", tip: "NIFTY 50 and SENSEX year by year and month by month: points and percent, how each calendar month behaves, the patterns traders watch, and projections for this month and year kept beside what happened — the desk's and the AI's, backtested." },
   { id: "engine", label: "AI Engine", tip: "Everything about the AI: every feature, rule and condition — and, for the superadmin, the AI brains (standing instructions every AI feature follows), the real instructions and the skills file. Word download." },
   { id: "document", label: "Document", tip: "The complete guide to this advisor in plain English: every feature, who does what, and every rule — what it does, how and when." },
 ];
@@ -268,6 +270,8 @@ function Terminal() {
               <Paper />
             ) : view === "analysis" ? (
               <TradeAnalysis />
+            ) : view === "indices" ? (
+              <Indices />
             ) : view === "engine" ? (
               <AiEngine />
             ) : view === "document" ? (

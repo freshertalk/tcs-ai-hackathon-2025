@@ -402,6 +402,30 @@ in `analysis/lab`, worked out by the hourly sweep (`labBackfill`, last 60 days) 
   controls rail (`.rs-side`, 340–440px, sticky under the top bar) and the results pane (`.rs-main`): the intraday plans
   (rendered there through a portal, `slot`), the report's summary and the stock notes; below 1180px they stack.
 
+**Indices — NIFTY 50 and SENSEX (2026-11-16; `server/market/indices.js`, `server/index-history.js`, `server/ai/indexai.js`,
+`src/admin/stock/indices/`; view `indices` after Trade Analysis, tile on /me; not superadmin-only, the AI button is).**
+- **Data:** `MarketService.indexDaily(id)` — Kite daily candles, NIFTY 50 token from the NSE list (fallback 256265), SENSEX
+  token 265 (BSE), from 1995 in 1800-day chunks (`_download`); saved as `indices/candles-ID.json` ([d,o,h,l,c]) and topped up
+  from ten days before the last saved day (20 min in market hours, once after the close). Demo mode: `demo.demoIndexHistory`
+  (2005–, named “Demo index A/B”, never in the ledger).
+- **Analysis** (`analyze`): `monthsOf`/`yearsOf` (move from the previous close, best/worst point inside, ranges, deepest fall),
+  `monthStats` (seasonality), `heat`, `seasonalPath`, `dayOfWeek`, `turnOfMonth`, `afterMonths`, `streaks`, `drawdowns`,
+  `elections` (Lok Sabha years), `compare` (side by side).
+- **Projection** (`projectMonth`/`projectYear`, model `desk-v1`): long-run mean + shrunk adjustments (calendar month k=12,
+  regime above/below the 10-month average k=40, after an extreme period k=20; yearly: regime/extreme/election k=8/8/6), capped
+  at ±1σ; band = ½ recent daily vol × √sessions + ½ σ of past periods → 68/90/98%; inside the period carried forward from
+  today's close with P(end above start). `walkForward` runs it on every past month/year with no look-ahead (tested).
+- **Ledger** (`indices/ledger.json`, 800 newest): desk start-of-period projections frozen on first sight, AI projections frozen
+  when made; `_settle` adds actual, dirHit (vs the start level), in68/in90, error. AI answers are checked (`_check`): close
+  beyond the desk's 98% band or range not containing its close → refused; too wide → cut; < ½ the desk's 68% width →
+  “overconfident”. Auto AI: first week of the month / first ten days of January from 08:45, once per index and period,
+  never on demo; manual: 3 h gap per index+horizon, 12/day.
+- **Routes:** `GET /api/admin/indices?index=NIFTY|SENSEX`, `GET /api/admin/indices/compare`, `POST /api/admin/indices/refresh`,
+  `POST /api/admin/indices/ai {index, horizon}` (super), `PUT /api/admin/indices/settings {aiAuto}` (super). TradeAI's agent
+  reader `indices` → `IndexHistory.brief`.
+- **Page colours:** the two series are the dataviz reference blue/orange (`--ix-a`/`--ix-b`, validated for both themes), up/down
+  tokens for diverging cells and bars. Tests: `server/test/indices.test.js` (10), `src/admin/stock/indices/Indices.test.js` (3).
+
 **The Journal's Day book (Journal → Day book; `src/admin/stock/analysis/DayBook.jsx`, `server/analysis/`).** One
 report per trading day, kept in its own record (`analysis/days` — a collection of its own in MongoDB, a file otherwise).
 **Nothing is saved by hand** (the "Save this day" / "Save today now" buttons and `POST /api/admin/analysis/day/:date`

@@ -567,6 +567,66 @@ export const TRADING = [
   },
 
   {
+    id: "indices",
+    part: "trading",
+    title: "Indices — NIFTY 50 and SENSEX, month by month, with projections",
+    intro: "Every month and every year of NIFTY 50 and SENSEX — the move in points and percent, how each calendar month has behaved, the patterns traders watch — and where each index may close this month and this year: the desk’s projection and the AI’s, kept side by side and scored against what happened.",
+    blocks: [
+      { p: "Stock Report → **Indices** (after Trade Analysis on the top bar; also a tile on /me). Three tabs: **NIFTY 50**, **SENSEX** and **Side by side**; every table and chart can show moves in **%** or in **points**. The history is Zerodha’s daily candles for the two indices (NIFTY 50 on NSE, SENSEX on BSE), read with the owner’s Kite connection as far back as Kite keeps them, saved in the database and topped up — every 20 minutes in market hours while the page is open, and once after the close by itself. Without Zerodha the saved copy is shown with its date. In demo mode two synthetic series stand in, clearly named, and nothing is recorded." },
+      { logic: {
+        title: "The history, worked out",
+        who: "server/market/indices.js — arithmetic on the daily candles; no AI.",
+        when: "Each time the page is opened (kept while the series is unchanged).",
+        steps: [
+          "**Every month and year:** open, high, low, close; the move from the previous close in points and percent; the best and the worst point inside the period (how far it ran above and below the previous close); the range; the average daily range. For a year also: up and down months, the best and worst month, and the deepest fall from a high inside the year. The first month and year on record have no previous close and show “—”. The period in progress is marked “so far”.",
+          "**The table of every year × every month**, coloured green or red by the size of the move, with the average, the median, how often it rose, the best and the worst of each calendar month beneath. **E** marks a general-election year (Lok Sabha).",
+          "**Each calendar month over the years:** how many years, how often it rose, the average and the median move, the spread (standard deviation), the best and the worst year, the average best and worst point inside the month, the average daily range, and the last ten years on their own.",
+          "**The average year:** the year-to-date move at each month end, averaged over the complete years, with the middle half of the years as a band — and this year drawn over it.",
+          "**Patterns:** the day of the week; the turn of the month (the last three and first three sessions against every other day, and the first session); what followed a big up month, an up month, a down month and a big down month (big = beyond one standard deviation); the longest runs of up and down months and the run now; the all-time high, the fall from it now, and every fall of 10% or more with when it recovered; election years against the others.",
+        ],
+        limits: "History describes what happened. Small samples (a calendar month has one case a year) are shown with their count; a pattern from a few cases is a curiosity, not a rule.",
+      } },
+      { logic: {
+        title: "The projection for this month and this year",
+        who: "The desk’s model (desk-v1), server/market/indices.js — arithmetic.",
+        when: "Worked out each time the page is opened; the projection for the start of each period is also frozen in the ledger.",
+        steps: [
+          "**From the data before the period began:** the long-run average month (or year), adjusted by the calendar month’s own record (a trimmed mean that drops its best and worst year once there are six), by the trend regime (the previous close above or below the average of the last ten month closes — how months or years that began so did), by what followed an extreme period (beyond 1.5 standard deviations for a month, one for a year) and, for a year, by election years. Each adjustment is shrunk towards the long-run average by how few cases it rests on, and the whole is capped at one standard deviation.",
+          "**The range:** half the index’s own recent volatility (63 sessions for a month, 126 for a year) scaled to the sessions in the period, half the spread of all past months or years — giving the 68% and 90% ranges.",
+          "**Inside the period** the projection is carried forward from today’s close: the expected drift for the sessions left, a narrower range, and the chance the period ends above where it began, from the move so far. **The lean** is “up” at a 58% chance or more with the expected close above the start, “down” at 42% or less below it, and otherwise “no firm lean”.",
+          "**The fan chart** shows the period so far, the expected path (dashed), the 68% and 90% ranges to the period’s end, the projection the desk made at the start (grey) and the AI’s projection (orange).",
+        ],
+        limits: "A reading of the history with a measured record — never a promise. The model does not know news, policy or events.",
+      } },
+      { logic: {
+        title: "The backtest: walk-forward, and the live ledger",
+        who: "server/market/indices.js (walk-forward) and server/index-history.js (the ledger, in the database: indices/ledger.json).",
+        when: "Walk-forward: on every view. Ledger: the desk’s start-of-period projection is frozen the first time a period is seen; every projection is scored when its period ends.",
+        steps: [
+          "**Walk-forward:** every past month (from the third year on) and every past year (from the sixth) projected again with only the data that existed before it began — no look-ahead — and scored.",
+          "**The scores:** how often the lean was right, beside the plain base rate of always saying “it rises” (the bar to beat); how often the close fell inside the 68% and the 90% ranges (a fair range holds about 68% and 90% — far above means too wide, far below too narrow); the average error against simply expecting no change (skill above 0% beats “no change”).",
+          "**The live ledger** keeps each projection frozen: the desk’s for each month and year (made from the data up to the end of the period before, so recording it later cannot use what happened since) and each AI projection (made at a moment, from the level of that moment). Only the actual close and the score are ever added. The desk’s and the AI’s records are shown side by side, so the AI is backtested, not trusted.",
+        ],
+        limits: "Live scores need time: one month at a time. Demo data is never recorded.",
+      } },
+      { logic: {
+        title: "The AI’s projection",
+        who: "server/ai/indexai.js (the default model, through the AI Engine), checked and kept by server/index-history.js.",
+        when: "By itself (when switched on in the Backtest card): the month’s projection on a weekday in its first week, the year’s in the first ten days of January, from 8:45 AM — once each, for each index, never on demo data. Or **Ask the AI for its projection** (the owner): one per index and period every three hours, at most 12 a day.",
+        steps: [
+          "**It is shown the desk’s work:** the level now and at the start, the sessions left and one standard move for them, the calendar month year by year, the regime, the last months and years, the average year, the fall from the high, what followed big months, the desk’s projection with its reasons and its walk-forward record, the NSE forecast from the world and the news mood.",
+          "**It answers:** a lean, a close, the range it expects the close in (about 70%), the chance of an up period, two to four reasons and up to three risks, with a confidence.",
+          "**The desk checks it before it is kept:** a close beyond the 98% range the index’s volatility allows in the time left is refused, with the reason; a range that does not contain its own close is refused; a range wider than plausible is cut to it; a range narrower than half of what the volatility allows is marked overconfident; a lean that disagrees with its own chance is noted.",
+        ],
+        limits: "One paid request each time. The AI does not see anything the desk did not give it; its record on this page is counted, not assumed.",
+      } },
+      { h: "Side by side" },
+      { p: "NIFTY 50 and SENSEX together: the correlation of their monthly moves, how often they moved the same way, how many months and years each did better, the average monthly gap; their yearly moves as paired bars; month by month for a chosen year (closes, moves and the gap); the months they parted most; and every year with both indices in each cell." },
+      { p: "**TradeAI reads it too:** its agent can read either index in history (this month in past years, the projections and their record, the AI’s latest projection) when a question needs it — free, from the same numbers." },
+    ],
+  },
+
+  {
     id: "research",
     part: "trading",
     title: "Research — before the open and after the close",

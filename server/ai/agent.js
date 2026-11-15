@@ -64,6 +64,7 @@ const READERS = [
   { id: "positions", owner: true, via: ["positions", "goal"], about: "Every open position with its P&L, the funds, and the day's goal (target, daily stop, giveback guard)." },
   { id: "pnl", owner: true, via: ["pnl"], about: "The trader's results: the last 30 days, the last seven days one by one, and journal statistics (win rate, expectancy, by hour, mistakes)." },
   { id: "orders", owner: true, via: ["orders"], about: "Orders still waiting at the broker." },
+  { id: "indices", needs: "query", about: "NIFTY 50 or SENSEX in history (query: NIFTY or SENSEX): month to date and year to date, how this calendar month has done each year (win rate, average, median, best and worst), the desk's projection for the month and the year with its 68% and 90% ranges and its measured walk-forward record, the AI's latest projection, the fall from the all-time high. Free." },
   { id: "lab", needs: "query", owner: true, about: "The Execution Lab's replay of a trading day (query: YYYY-MM-DD, or empty for the latest): every trade's best moment to have left, exit efficiency, habits that cost money, and the Coach's comparison with earlier days — what to prevent and what to keep." },
   { id: "news", needs: "symbol", paid: true, via: ["news"], about: "A web search on the company's news today and whether it explains the move (kept for 30 minutes)." },
   { id: "web", needs: "query", paid: true, about: "An open web search for a fact from outside the desk (results, policy, a global event, a sector story). The query must be specific." },
@@ -84,6 +85,8 @@ const GIST = {
   plan: "the intraday plan",
   news: "the company's news today",
   lab: "the Execution Lab's replay and the Coach's comparison",
+  indices_NIFTY: "NIFTY 50 in history, its projections and their record",
+  indices_SENSEX: "SENSEX in history, its projections and their record",
   learned: "what the desk has measured about levels",
 };
 const gistOf = (key) => {
@@ -106,7 +109,7 @@ class DeskAgent {
       if (r.owner && !owner) return false;
       if (r.paid && !web) return false;
       if (r.id === "shared") return Boolean(this.ai.shared);
-      if (["position", "tape", "levels", "lab", "learned"].includes(r.id)) return typeof desk[r.id === "position" ? "reading" : r.id] === "function";
+      if (["position", "tape", "levels", "lab", "learned", "indices"].includes(r.id)) return typeof desk[r.id === "position" ? "reading" : r.id] === "function";
       if (r.id === "web" || r.id === "news") return Boolean(this.ai._searchProvider && this.ai._searchProvider());
       return true;
     });
@@ -168,6 +171,13 @@ class DeskAgent {
       if (typeof desk.learned !== "function") return [];
       const v = await within(desk.learned(sym || null), 5000);
       return v && v.available !== false ? put(sym ? `learned_${sym}` : "learned", v, "what the desk has measured") : [];
+    }
+    if (r.id === "indices") {
+      if (typeof desk.indices !== "function") return [];
+      const which = /SENSEX|BSE/i.test(String(query || symbol || "")) ? "SENSEX" : "NIFTY";
+      onStep(`Reading ${which === "SENSEX" ? "SENSEX" : "NIFTY 50"} in history: this month in past years, the projections and their record`);
+      const v = await within(desk.indices(which), 20000);
+      return v && v.available !== false ? put(`indices_${which}`, v, `${which} history`) : [];
     }
     if (r.id === "lab") {
       if (!owner || typeof desk.lab !== "function") return [];

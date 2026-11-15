@@ -68,6 +68,47 @@ function demoCandles(symbol, todayIso) {
 
 const demoIndex = (todayIso) => ({ name: INDEX.name, candles: generate(INDEX.symbol, INDEX, todayIso) });
 
+// two long synthetic series for the Indices page in demo mode (never the real NIFTY 50 or SENSEX)
+const INDEX_DEMOS = {
+  NIFTY: { symbol: "DEMO-NIFTY-HISTORY", name: "Demo index A", start: 2000, drift: 0.05, noise: 0.95, wave: 0.05 },
+  SENSEX: { symbol: "DEMO-SENSEX-HISTORY", name: "Demo index B", start: 6500, drift: 0.05, noise: 0.95, wave: 0.05 },
+};
+function demoIndexHistory(id, todayIso) {
+  const p = INDEX_DEMOS[id];
+  if (!p) return [];
+  // the same generator, started in 2005 so there are twenty years to read
+  return generateFrom(Date.UTC(2005, 0, 3), p.symbol, p, todayIso);
+}
+function generateFrom(startMs, symbol, profile, todayIso) {
+  let s = seedOf(symbol);
+  const rnd = () => {
+    s ^= s << 13;
+    s >>>= 0;
+    s ^= s >>> 17;
+    s ^= s << 5;
+    s >>>= 0;
+    return s / 4294967296;
+  };
+  const end = Date.parse(`${todayIso}T00:00:00Z`);
+  const out = [];
+  let p = profile.start;
+  let k = 0;
+  for (let t = startMs; t <= end; t += 86400000) {
+    const dow = new Date(t).getUTCDay();
+    if (dow === 0 || dow === 6) continue;
+    const regime = Math.sin(k / 55) * profile.wave + Math.sin(k / 190) * profile.wave * 0.8;
+    const shock = (rnd() + rnd() + rnd() - 1.5) * 1.6 * profile.noise;
+    const o = p * (1 + (rnd() - 0.5) * 0.004 * profile.noise);
+    p = Math.max(1, p * (1 + (profile.drift + regime + shock) / 100));
+    const h = Math.max(o, p) * (1 + rnd() * 0.006 * profile.noise);
+    const l = Math.min(o, p) * (1 - rnd() * 0.006 * profile.noise);
+    const r = (x) => Math.round(x * 100) / 100;
+    out.push({ t: new Date(t).toISOString().slice(0, 10), o: r(o), h: r(h), l: r(l), c: r(p) });
+    k += 1;
+  }
+  return out;
+}
+
 const demoInstruments = () => Object.entries(PROFILES).map(([s, p]) => ({ s, n: p.name, t: 0, k: "EQ" }));
 
-module.exports = { demoCandles, demoIndex, demoInstruments, isDemoSymbol, DEMO_SYMBOLS: Object.keys(PROFILES) };
+module.exports = { demoCandles, demoIndex, demoIndexHistory, demoInstruments, isDemoSymbol, DEMO_SYMBOLS: Object.keys(PROFILES), INDEX_DEMOS };

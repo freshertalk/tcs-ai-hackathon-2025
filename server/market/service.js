@@ -86,6 +86,8 @@ const SYMBOL_RE = /^[A-Z0-9][A-Z0-9&._ -]{0,24}$/;
 const MAX_LISTS = 10; // named watchlists
 const MAX_WATCHLIST = 40;
 const INDEX_SYMBOL = "NIFTY 50";
+// Kite instrument tokens of the indices on the Indices page (NIFTY 50 is also looked up in the NSE list)
+const INDEX_TOKENS = { NIFTY: 256265, SENSEX: 265 };
 
 const istIso = (ms) => new Date(ms + IST).toISOString();
 const istDate = (ms) => istIso(ms).slice(0, 10);
@@ -626,6 +628,28 @@ class MarketService {
       }
       throw err;
     }
+  }
+
+  /**
+   * The daily history of NIFTY 50 or SENSEX from Zerodha (the owner's Kite connection), as far back as
+   * Kite keeps it, for the Indices page. NIFTY 50's token is read from the NSE instrument list; SENSEX
+   * is a BSE index (Kite token 265). Read-only. @returns [{ t: "YYYY-MM-DD", o, h, l, c }]
+   */
+  async indexDaily(id, { fromMs } = {}) {
+    if (this.mode() !== "kite") throw new MarketError("The index history needs the Zerodha connection.", "not_connected", 409);
+    let token = INDEX_TOKENS[id];
+    if (!token) throw new MarketError("Unknown index.", "invalid");
+    if (id === "NIFTY") {
+      try {
+        const it = (await this.instruments()).find((x) => x.s === INDEX_SYMBOL);
+        if (it && it.t) token = it.t;
+      } catch (_) {
+        /* the known token stands */
+      }
+    }
+    const from = Number.isFinite(fromMs) ? fromMs : Date.UTC(1995, 0, 1);
+    const rows = await this._download(token, from, this.now());
+    return rows.map((c) => ({ t: String(c.t).slice(0, 10), o: c.o, h: c.h, l: c.l, c: c.c })).filter((c) => /^\d{4}-\d{2}-\d{2}$/.test(c.t));
   }
 
   /** The benchmark for relative strength. Never fatal: without it the factor is simply dropped. */

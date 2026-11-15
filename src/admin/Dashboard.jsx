@@ -27,6 +27,7 @@ const WORKSPACES = [
   { view: "debrief", label: "Debrief", text: "Today’s calls, replayed" },
   { view: "calendar", label: "Calendar", text: "Holidays and time zones" },
   { view: "analysis", label: "Trade Analysis", text: "Every day: profit, loss, taxes", superOnly: true },
+  { view: "indices", label: "Indices", text: "NIFTY & SENSEX by month and year, projected" },
   { view: "engine", label: "AI Engine", text: "Every AI rule, and the AI brains" },
   { view: "document", label: "Document", text: "The complete guide, in plain English" },
 ];

@@ -29,6 +29,7 @@ const { TradeAI } = require("./tradeai");
 const { SocialAI } = require("./social");
 const { ExitAdvisor } = require("./exitadvisor");
 const { SharedResearch } = require("./shared");
+const { IndexForecaster } = require("./indexai");
 const whatsappAi = require("./whatsapp-ai");
 const { Journal, scorePlan, summarize, summarizeByModel, SWING_MAX_BARS } = require("./journal");
 const { Copilot } = require("./copilot");
@@ -320,7 +321,8 @@ class AiService {
     this.engine = new Engine(this); // the one door to every model: brains on the way out, shared lanes, the live board
     this.tradeai = new TradeAI(this); // the agentic chat (its own page), on the default model
     this.social = new SocialAI(this); // the social and news digest: the default model organises posts and headlines
-    this.exitAdvisor = new ExitAdvisor(this); // the Execution Lab's second opinion on an open position (asked sparingly by server/flight.js)
+    this.exitAdvisor = new ExitAdvisor(this);
+    this.indexAi = new IndexForecaster(this); // the AI's projection for NIFTY 50 / SENSEX (checked and scored outside this folder) // the Execution Lab's second opinion on an open position (asked sparingly by server/flight.js)
     this.whatsappAi = whatsappAi; // the default model's advice for the WhatsApp updates
     this._moveToDefaultModel();
   }
