@@ -310,7 +310,14 @@ they came by `server/trading/uploads.js` (MongoDB collection `journal_files`, or
 bytes): `GET …/journal/files`, `GET …/files/:id` (download), `POST …/files/:id/reimport`, `DELETE …/files/:id`. Fills now live
 one record each (`docs.items/putItems/removeItems` in `server/docs.js`; MongoDB collection `journal_fills`, read once at start)
 because a single MongoDB record caps at 16 MB; the old in-record fills migrate once; up to 300,000 fills; round trips are memoised
-until something changes. The page: period chips + past-FY select + custom range + saved
+until something changes. **Analytics and the Retrospective** (2026-11-16): `analytics()` adds `retro.deeper()` (days, curve with
+drawdown, costs by kind, holding buckets, P&L-size buckets, rolling 20-trade win rate, trade mix, sides), `retro.health()` (0–100
+from six parts) and `prev` (the same-length period before); `retrospective()` (`server/trading/retro.js`) ranks findings by money
+into wentWell / wentWrong / keepDoing / stopDoing / tryNext with a verdict and headline, saved in the journal record (last 30):
+`POST …/journal/retro`, `GET …/journal/retros[/:id]`, `DELETE …/journal/retros/:id`. The page's charts are in
+`JournalCharts.jsx` (SVG, no library; categorical palette validated with the dataviz checker). **Date pickers** everywhere are
+`src/admin/DatePicker.jsx` (Material-style DateField / DateRangeField / TimeField; keyboard; a portal sheet on phones) — no native
+date inputs remain. The page: period chips + past-FY select + custom range + saved
 views, the period table, an FY bar chart, a month heatmap (FY × Apr–Mar), month-by-month and day-by-day tables, CSV downloads
 (periods, months, days, trades, snapshot history), and "Where the history comes from". The P&L calendar shows the period's
 months (from the first with a trade, up to 12) and Profit / loss, Taxes and Brokerage + taxes per day.

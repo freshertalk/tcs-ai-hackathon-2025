@@ -9,6 +9,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../../api";
 import { Alert, Loading } from "../../ui";
 import { useDialog } from "../../dialog/DialogProvider";
+import { DateField, DateRangeField } from "../../DatePicker";
 import { Calendar, DailyBars, Donut, HBars, LineChart, Spark, Waterfall, dayLabel, dayLong, rs, rsSigned, tone } from "./charts";
 import "./analysis.css";
 
@@ -918,15 +919,13 @@ export default function TradeAnalysis() {
             </div>
             {range === "custom" && (
               <span className="ta-dates">
-                <input type="date" value={custom.from} max={custom.to || todayIst()} onChange={(e) => setCustom({ ...custom, from: e.target.value })} aria-label="From" />
-                <span>to</span>
-                <input type="date" value={custom.to} min={custom.from} max={todayIst()} onChange={(e) => setCustom({ ...custom, to: e.target.value })} aria-label="To" />
+                <DateRangeField value={custom} max={todayIst()} label="Dates" onChange={(r) => setCustom({ from: r.from, to: r.to })} />
               </span>
             )}
           </div>
         )}
         <div className="ta-open">
-          <input type="date" value={pick} max={todayIst()} onChange={(e) => setPick(e.target.value)} aria-label="Open any day" />
+          <DateField value={pick} max={todayIst()} onChange={setPick} label="Open any day" />
           <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm" disabled={!pick} onClick={() => openDay(pick)}>
             Open this day
           </button>

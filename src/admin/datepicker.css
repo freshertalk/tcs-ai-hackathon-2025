@@ -1,0 +1,375 @@
+/* Date pickers in the style of Google's Material design (DatePicker.jsx): an outlined field with a
+   floating label, a rounded calendar card with circular days, a year grid and text buttons. Colours
+   come from the site's tokens, so the light and dark themes both work. */
+
+.dp-field {
+  position: relative;
+  display: inline-block;
+  min-width: 0;
+}
+.dp-input {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 176px;
+  min-height: 44px;
+  padding: 10px 12px 8px 14px;
+  border: 1px solid color-mix(in srgb, var(--ink) 30%, transparent);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--t-base);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.dp-input:hover:not(:disabled) {
+  border-color: var(--ink);
+}
+.dp-field.is-open .dp-input,
+.dp-input:focus-visible {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+  outline: none;
+}
+.dp-input:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.dp-input svg {
+  flex: none;
+  margin-left: auto;
+  color: var(--ink-2);
+}
+.dp-label {
+  position: absolute;
+  top: -8px;
+  left: 10px;
+  padding: 0 4px;
+  background: var(--surface);
+  color: var(--ink-2);
+  font-size: var(--t-tag);
+  line-height: 16px;
+}
+.dp-field.is-open .dp-label {
+  color: var(--accent);
+}
+.dp-value {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dp-value.is-empty {
+  color: var(--ink-3);
+}
+.dp-field--range .dp-input {
+  min-width: 250px;
+}
+
+/* the card */
+.dp-pop {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 90;
+}
+.dp-pop.is-right {
+  left: auto;
+  right: 0;
+}
+.dp-scrim {
+  display: none;
+}
+.dp-card {
+  width: 328px;
+  padding: 0 0 8px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--accent) 6%, var(--surface));
+  color: var(--ink);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18), 0 10px 30px rgba(0, 0, 0, 0.28);
+  animation: dp-in 0.16s ease-out;
+  font-size: var(--t-base);
+}
+.dp-card.is-two {
+  width: 620px;
+}
+@keyframes dp-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+}
+.dp-head {
+  display: grid;
+  gap: 4px;
+  padding: 16px 24px 12px;
+  border-bottom: 1px solid var(--line);
+}
+.dp-head small {
+  color: var(--ink-2);
+  font-size: var(--t-small);
+}
+.dp-head b {
+  font-size: 1.6rem;
+  font-weight: 400;
+  line-height: 1.2;
+}
+.dp-card.is-two .dp-head b {
+  font-size: 1.25rem;
+}
+.dp-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px 0 16px;
+}
+.dp-my {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 8px 8px 10px;
+  border: 0;
+  border-radius: 99px;
+  background: transparent;
+  color: var(--ink-2);
+  font: inherit;
+  font-size: var(--t-mid);
+  font-weight: 600;
+  cursor: pointer;
+}
+.dp-my:hover {
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
+}
+.dp-my[aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}
+.dp-arrows {
+  display: inline-flex;
+  gap: 4px;
+}
+.dp-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+.dp-icon:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
+}
+.dp-icon:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+.dp-months {
+  display: flex;
+  gap: 16px;
+  padding: 0 12px;
+}
+.dp-month {
+  flex: 1;
+}
+.dp-mtitle {
+  margin: 4px 0 0 !important;
+  text-align: center;
+  font-size: var(--t-small);
+  font-weight: 600;
+  color: var(--ink-2);
+}
+.dp-grid {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+.dp-grid th {
+  height: 40px;
+  font-size: var(--t-small);
+  font-weight: 400;
+  color: var(--ink-2);
+  text-align: center;
+}
+.dp-grid td {
+  height: 40px;
+  padding: 0;
+  text-align: center;
+}
+/* the band between the first and last day of a range */
+.dp-grid td.is-band {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+}
+.dp-grid td.is-start {
+  background: linear-gradient(90deg, transparent 50%, color-mix(in srgb, var(--accent) 18%, transparent) 50%);
+}
+.dp-grid td.is-end {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 18%, transparent) 50%, transparent 50%);
+}
+.dp-day {
+  width: 36px;
+  height: 36px;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--t-mid);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+.dp-day:hover:not(:disabled):not(.is-sel) {
+  background: color-mix(in srgb, var(--ink) 9%, transparent);
+}
+.dp-day.is-today {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.dp-day.is-sel {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--paper, #fff);
+  font-weight: 600;
+}
+.dp-day:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.dp-day:disabled {
+  color: var(--ink-3);
+  opacity: 0.4;
+  cursor: default;
+}
+.dp-years {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px 4px;
+  max-height: 280px;
+  overflow-y: auto;
+  padding: 8px 16px;
+}
+.dp-years button {
+  height: 36px;
+  border: 1px solid transparent;
+  border-radius: 99px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--t-mid);
+  cursor: pointer;
+}
+.dp-years button:hover {
+  background: color-mix(in srgb, var(--ink) 9%, transparent);
+}
+.dp-years button.is-today {
+  border-color: var(--accent);
+}
+.dp-years button.is-sel {
+  background: var(--accent);
+  color: var(--paper, #fff);
+  font-weight: 600;
+}
+.dp-foot {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px 0;
+}
+.dp-grow {
+  flex: 1;
+}
+.dp-text {
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 99px;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-size: var(--t-mid);
+  font-weight: 600;
+  cursor: pointer;
+}
+.dp-text:hover {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+/* time: two selects inside the same outlined field */
+.dp-input.is-static {
+  cursor: default;
+  min-width: 132px;
+}
+.dp-time__sel {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.dp-time__sel select {
+  padding: 2px 4px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--t-base);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.dp-time__sel select:hover,
+.dp-time__sel select:focus-visible {
+  background: color-mix(in srgb, var(--ink) 9%, transparent);
+  outline: none;
+}
+
+/* a phone: the calendar is a sheet from the bottom */
+@media (max-width: 599px) {
+  .dp-pop,
+  .dp-pop.is-sheet {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    display: grid;
+    align-items: end;
+  }
+  .dp-scrim {
+    display: block;
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+  }
+  .dp-card,
+  .dp-card.is-two {
+    position: relative;
+    width: 100%;
+    border-radius: 24px 24px 0 0;
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+    animation: dp-up 0.2s ease-out;
+  }
+  .dp-field--range .dp-input,
+  .dp-input {
+    min-width: 0;
+    width: 100%;
+  }
+  .dp-field {
+    display: block;
+  }
+}
+@keyframes dp-up {
+  from {
+    transform: translateY(40px);
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dp-card,
+  .dp-day,
+  .dp-input {
+    animation: none;
+    transition: none;
+  }
+}

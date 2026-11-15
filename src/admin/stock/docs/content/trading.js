@@ -233,6 +233,25 @@ export const TRADING = [
         "**Every month since the start:** a heatmap, financial years down and April to March across, each month’s net written in it, with the year’s total.",
         "**For the open period:** the figures (net, win rate, profit factor, expectancy, drawdown, green days, best and worst day, charges as a share of gross, best and worst month), the equity curve, the P&L calendar (its months, from the first with a trade, up to twelve), **month by month** and **day by day** tables, the breakdowns and the round trips.",
       ] },
+      { h: "The analytics page — made for anyone to read" },
+      { ul: [
+        "**Your result:** one big line — “You made ₹…” or “You lost ₹…” after all costs — with the trades and days, the change against the same number of days before, how many trades won, what the costs were, and the best and worst day.",
+        "**Trading health (0–100):** a gauge from six simple checks, each shown with its own bar and figure — how often you win, win size against loss size, money won for every ₹1 lost, control of falls (largest fall against what the winners made), costs against what the winners made, and the share of days in profit. 70+ is “Strong”, 50–69 “Mixed”, below 50 “Needs work”; with fewer than 10 trades it says to read it lightly. It looks back only.",
+        "**Charts, each with one line saying what it shows:** how often you win (a ring, with average win and loss and the longest runs); where your money went (profit, loss, costs, what is left); your money over time and the falls from your best point; each day’s result; what the costs were (a ring: brokerage, STT, GST, exchange charges, stamp duty, SEBI fee and DP charge); kinds of trades (intraday, delivery, F&O); buy first or sell first; how long you kept trades; the size of each win and loss; the win rate of the last 20 trades over time; the best days of the week and times of day; your best and worst stocks; what tagged mistakes cost. Every amount is written beside the drawing, and the colours of the rings were checked for colour-blind readers in both themes.",
+        "Below them: the calendar of every day, month by month and day by day, “All the numbers” (every figure, group by group), the period table, the financial-year chart, the month heatmap and the round trips.",
+      ] },
+      { logic: {
+        title: "Retrospective analysis",
+        who: "You, with the big button under your result (the server works it out from your own trades).",
+        when: "Whenever you press it, for the period and filters on the screen. Each one is saved (the last 30) and can be opened again from “Earlier”.",
+        steps: [
+          "**What went well** and **what went wrong**, ranked by how much money each made or cost: the result after costs, costs turning a profit into a loss, the win rate, average win against average loss, one loss much bigger than the others, losing trades held longer than winners, the best and worst hour, weekday and stock, very busy days, jumping back into the same stock within 15 minutes of a loss, trading on after two losses in a row, costs against what the winners made, good days, a big fall from the top, your setup and mistake tags, and the period before.",
+          "**Keep doing** and **stop doing**: the habits behind those findings, in a few words each.",
+          "**Try next**: one to four small experiments for your own trading — trade only in your best hour for two weeks, a daily trade limit, a 30-minute pause after a loss, stopping after two losses — never which stock to buy.",
+          "A one-line verdict (a good, mixed or losing period, and the main reasons), the health score, the comparison with the period before, and **Copy as text**.",
+        ],
+        limits: "Arithmetic on your closed trades only: it describes what happened, does not predict the next trade, and is not investment advice. Findings need a few trades each (usually 3 or more).",
+      } },
       { h: "Saved for your own analysis" },
       { ul: [
         "**Saved views:** a period (or custom range) with the kind, side and setup filters, under a name, kept in the database (up to 40; the same name replaces the view). Open one from **Your saved views**.",

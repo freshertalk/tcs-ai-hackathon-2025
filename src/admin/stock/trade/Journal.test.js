@@ -65,9 +65,15 @@ test("the period buttons, a past financial year, a row of the table and a custom
   await settle();
   expect(mockCalls.some(([u]) => u === "/api/admin/trading/journal?period=fy-2025")).toBe(true);
   fireEvent.click(screen.getByRole("button", { name: "Custom…" }));
-  fireEvent.change(screen.getByLabelText("From"), { target: { value: "2026-06-01" } });
-  fireEvent.change(screen.getByLabelText("To"), { target: { value: "2026-06-30" } });
-  fireEvent.click(screen.getByRole("button", { name: "Show" }));
+  // the Material range picker: open it, click a first and a last day, OK
+  fireEvent.click(screen.getByRole("button", { name: /Your dates/ }));
+  fireEvent.click(screen.getByRole("button", { name: "Previous month" }));
+  const days = screen.getAllByRole("button").filter((b) => b.getAttribute("data-day"));
+  const first = days[0].getAttribute("data-day");
+  const last = days[9].getAttribute("data-day");
+  fireEvent.click(days[0]);
+  fireEvent.click(days[9]);
+  fireEvent.click(screen.getByRole("button", { name: "OK" }));
   await settle();
-  expect(mockCalls.some(([u]) => u === "/api/admin/trading/journal?period=custom&from=2026-06-01&to=2026-06-30")).toBe(true);
+  expect(mockCalls.some(([u]) => u === `/api/admin/trading/journal?period=custom&from=${first}&to=${last}`)).toBe(true);
 });

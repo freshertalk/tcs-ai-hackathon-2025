@@ -8,6 +8,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../../api";
 import { Alert } from "../../ui";
 import { useDialog } from "../../dialog/DialogProvider";
+import { DateField, DateRangeField } from "../../DatePicker";
 import { isNum, num } from "../analyzer/format";
 
 export const sMoney = (x) => (isNum(x) ? `${x > 0 ? "+" : x < 0 ? "−" : ""}₹${num(Math.abs(x))}` : "—");
@@ -125,25 +126,18 @@ export function PeriodBar({ sel, setSel, fys, views, filters, onViews }) {
         </button>
       </div>
       {showCustom && (
-        <form
-          className="jp-custom"
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (custom.from && custom.to) setSel({ period: "custom", from: custom.from, to: custom.to });
-          }}
-        >
-          <label>
-            <span>From</span>
-            <input type="date" value={custom.from} max={custom.to || today} onChange={(e) => setCustom((c) => ({ ...c, from: e.target.value }))} required />
-          </label>
-          <label>
-            <span>To</span>
-            <input type="date" value={custom.to} min={custom.from || undefined} max={today} onChange={(e) => setCustom((c) => ({ ...c, to: e.target.value }))} required />
-          </label>
-          <button type="submit" className="adm-btn adm-btn--solid adm-btn--sm" disabled={!custom.from || !custom.to || custom.from > custom.to}>
-            Show
-          </button>
-        </form>
+        <div className="jp-custom">
+          <DateRangeField
+            value={custom}
+            max={today}
+            label="Your dates"
+            title="Pick the first and last day"
+            onChange={(r) => {
+              setCustom({ from: r.from, to: r.to });
+              if (r.from && r.to) setSel({ period: "custom", from: r.from, to: r.to });
+            }}
+          />
+        </div>
       )}
       <div className="jp-views">
         {views.length > 0 && (
@@ -809,10 +803,7 @@ export function Sources({ per, ignoredManual, onChanged }) {
               run("since", () => api("/api/admin/trading/journal/account-since", { method: "PUT", body: { date: since } }));
             }}
           >
-            <label>
-              <span>Account opened</span>
-              <input type="date" value={since} max={today} onChange={(e) => setSince(e.target.value)} />
-            </label>
+            <DateField value={since} max={today} onChange={setSince} label="Account opened" />
             <button type="submit" className="adm-btn adm-btn--ghost adm-btn--sm" disabled={Boolean(busy) || since === (per.accountSince || "")}>
               {busy === "since" ? "Saving…" : "Save"}
             </button>

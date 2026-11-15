@@ -336,3 +336,69 @@ test("fills live one record each; the old journal record is moved out once; a Ki
   const imp = j.view().imports[0];
   assert.deepEqual([imp.name, imp.kind, imp.file, imp.added], ["fy25.csv", "csv", "1111222233334444", 1]);
 });
+
+/* ---------------------------------------------------- deeper figures and the retrospective */
+
+const tripAt = (sym, dayStr, inT, outT, qty, buy, sell, product = "MIS") => trip(sym, `${dayStr} ${inT}`, `${dayStr} ${outT}`, qty, buy, sell, product);
+
+test("the deeper figures: day by day, running total and falls, costs by kind, holding time, spread, rolling win rate, mix, health, the period before", () => {
+  const j = freshJournal();
+  j.ingestKite([
+    ...tripAt("SBIN", "2026-10-05", "10:05:00", "10:09:00", 100, 800, 806), // +600, 4 min
+    ...tripAt("INFY", "2026-10-05", "11:00:00", "11:40:00", 10, 1500, 1480), // −200, 40 min
+    ...tripAt("TCS", "2026-10-06", "09:30:00", "13:30:00", 5, 3900, 3920), // +100, 4 h
+    ...trip("ITC", "2026-10-06 10:00:00", "2026-10-09 10:00:00", 100, 400, 410, "CNC"), // +1000, overnight
+    ...tripAt("SBIN", "2026-09-10", "10:00:00", "10:30:00", 10, 800, 790), // before the period: −100
+  ]);
+  const p = periodRange("custom", NOW, { from: "2026-10-01", to: "2026-10-31" });
+  const a = j.analytics({ from: p.from, to: p.to });
+  assert.deepEqual(a.days.map((d) => [d.date, d.trades]), [["2026-10-05", 2], ["2026-10-06", 1], ["2026-10-09", 1]]);
+  assert.equal(a.days[0].grossProfit, 600);
+  assert.equal(a.days[0].grossLoss, 200);
+  assert.equal(a.curve.length, 3);
+  assert.ok(a.curve.every((c) => c.drawdown <= 0));
+  assert.ok(a.costs.brokerage > 0 && a.costs.stt > 0 && a.costs.dp > 0, "the delivery trade pays the DP charge");
+  const hold = Object.fromEntries(a.holding.map((h) => [h.key, h.trades]));
+  assert.deepEqual(hold, { lt5: 1, "15to60": 1, gt3h: 1, multi: 1 });
+  assert.equal(a.spread.reduce((s, b) => s + b.trades, 0), 4);
+  assert.equal(a.rolling[a.rolling.length - 1].n, 4);
+  assert.deepEqual(a.mix.map((m) => [m.key, m.trades]), [["intraday", 3], ["delivery", 1]]);
+  assert.ok(a.health.score >= 0 && a.health.score <= 100 && a.health.parts.length === 6);
+  assert.equal(a.health.enough, false, "4 trades are too few to score with confidence");
+  assert.equal(a.prev.trades, 1, "September, the month before");
+  assert.ok(a.prev.net < 0);
+});
+
+test("the retrospective: a losing period names what went wrong — revenge trades, busy days, a big loss — and what to try; it is saved", () => {
+  const j = freshJournal();
+  const fills = [];
+  // three busy days with losses and quick re-entries in the same stock after each loss
+  for (const dd of ["2026-11-02", "2026-11-03", "2026-11-04"]) {
+    const times = [["10:00", "10:05"], ["10:10", "10:15"], ["10:20", "10:25"], ["10:30", "10:35"], ["10:40", "10:45"], ["10:50", "10:55"], ["11:00", "11:05"]];
+    times.forEach(([i, o], k) => fills.push(...tripAt("INFY", dd, `${i}:00`, `${o}:00`, 10, 1500, k % 3 === 0 ? 1503 : 1496)));
+  }
+  fills.push(...tripAt("SBIN", "2026-11-05", "10:00:00", "14:00:00", 100, 800, 760)); // one big loss
+  for (let k = 0; k < 4; k += 1) fills.push(...tripAt("TCS", `2026-11-0${6 + (k % 3)}`, `1${k}:00:00`, `1${k}:20:00`, 5, 3900, 3910));
+  j.ingestKite(fills);
+  const p = periodRange("month", NOW);
+  const r = j.retrospective({ from: p.from, to: p.to, period: { id: p.id, label: p.label, fromDay: p.fromDay, toDay: p.toDay } }, NOW);
+  assert.equal(r.verdict, "bad");
+  assert.match(r.headline, /^A losing period/);
+  const wrong = r.wentWrong.map((x) => x.text).join("\n");
+  assert.match(wrong, /You lost money/);
+  assert.match(wrong, /jumped back into the same stock within 15 minutes/);
+  assert.match(wrong, /very busy day/);
+  assert.match(wrong, /One trade lost ₹4,0\d\d \(SBIN/, "the loss after costs");
+  assert.match(r.wentWell.map((x) => x.text).join("\n"), /TCS made you/);
+  assert.ok(r.stopDoing.length >= 2 && r.tryNext.length >= 2);
+  assert.ok(r.tryNext.some((x) => /wait 30 minutes/.test(x.text)));
+  assert.match(r.note, /not investment advice/);
+  // saved, listed, opened, removed
+  assert.equal(j.retros()[0].id, r.id);
+  assert.equal(j.retro(r.id).headline, r.headline);
+  assert.equal(j.removeRetro(r.id).length, 0);
+  // an empty period says so
+  const none = j.retrospective({ from: Date.parse("2020-01-01T00:00:00+05:30"), to: Date.parse("2020-01-31T23:59:59+05:30"), period: { label: "Jan 2020" } }, NOW);
+  assert.equal(none.verdict, "none");
+  assert.match(none.headline, /No closed trades/);
+});

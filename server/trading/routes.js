@@ -115,6 +115,15 @@ function mountTrading(app, { trading, ai, requireSuper, limiter, capture = null 
     return { ...r, status: capture.status() };
   }));
   app.get("/api/admin/trading/journal/snapshots", requireSuper, wrap(async () => trading.journal.snapshots()));
+  // the Retrospective: what went well, what went wrong, what to keep, stop and try — for the period shown (saved)
+  app.post("/api/admin/trading/journal/retro", requireSuper, limiter(60, 10 * 60 * 1000), wrap(async (req) => trading.journal.retrospective(filtersOf(req.body || {}), nowMs())));
+  app.get("/api/admin/trading/journal/retros", requireSuper, wrap(async () => ({ retros: trading.journal.retros() })));
+  app.get("/api/admin/trading/journal/retros/:id", requireSuper, wrap(async (req) => {
+    const r = trading.journal.retro(String(req.params.id));
+    if (!r) throw new TradingError("That retrospective is not kept any more.", "not_found", 404);
+    return r;
+  }));
+  app.delete("/api/admin/trading/journal/retros/:id", requireSuper, wrap(async (req) => ({ retros: trading.journal.removeRetro(String(req.params.id)) })));
   app.put("/api/admin/trading/journal/account-since", requireSuper, wrap(async (req) => {
     const r = trading.journal.setAccountSince((req.body || {}).date);
     if (r.error) throw new TradingError(r.error);

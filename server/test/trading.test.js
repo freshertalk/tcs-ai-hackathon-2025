@@ -708,3 +708,28 @@ test("tradebook upload in parts: .xlsx and .csv read into the journal, the files
   assert.match(bad.json.message, /does not look like a Zerodha Console tradebook/);
   assert.equal((await s.request("GET", "/api/admin/trading/journal/files")).status, 401);
 });
+
+test("the Retrospective through the routes: for the period shown, saved, listed, opened and removed", async (t) => {
+  const s = await boot();
+  t.after(s.close);
+  let csv = "symbol,exchange,trade_type,quantity,price,trade_id,order_id,order_execution_time\n";
+  for (let d = 3; d <= 14; d += 1) {
+    const day = `2025-11-${String(d).padStart(2, "0")}`;
+    csv += `SBIN,NSE,buy,100,800,R${d}a,O${d}a,${day}T10:00:00\nSBIN,NSE,sell,100,${d % 3 ? 806 : 795},R${d}b,O${d}b,${day}T10:30:00\n`;
+  }
+  const res = await fetch(`http://127.0.0.1:${s.port}/api/admin/trading/journal/import`, { method: "POST", headers: { cookie: s.admin, "x-requested-with": "vpt", "content-type": "text/csv" }, body: csv });
+  assert.equal(res.status, 200);
+  const r = await s.request("POST", "/api/admin/trading/journal/retro", { cookie: s.admin, body: { period: "custom", from: "2025-11-01", to: "2025-11-30" } });
+  assert.equal(r.status, 200, JSON.stringify(r.json));
+  assert.equal(r.json.period.label, "1 Nov 2025 – 30 Nov 2025");
+  assert.ok(["good", "mixed", "bad"].includes(r.json.verdict));
+  assert.ok(r.json.wentWell.length + r.json.wentWrong.length >= 2);
+  const list = (await s.request("GET", "/api/admin/trading/journal/retros", { cookie: s.admin })).json.retros;
+  assert.equal(list[0].id, r.json.id);
+  assert.equal((await s.request("GET", `/api/admin/trading/journal/retros/${r.json.id}`, { cookie: s.admin })).json.headline, r.json.headline);
+  assert.equal((await s.request("DELETE", `/api/admin/trading/journal/retros/${r.json.id}`, { cookie: s.admin })).json.retros.length, 0);
+  assert.equal((await s.request("GET", "/api/admin/trading/journal/retros/zzz", { cookie: s.admin })).status, 404);
+  const an = (await s.request("GET", "/api/admin/trading/journal?period=custom&from=2025-11-01&to=2025-11-30", { cookie: s.admin })).json.analytics;
+  assert.equal(an.days.length, 12, "every day with a closed trade");
+  assert.ok(an.health && an.costs.stt > 0 && an.holding.length === 1);
+});

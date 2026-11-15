@@ -2,6 +2,7 @@
 // zone database supplies the rules, so daylight saving is always right.
 
 import React, { useMemo, useState } from "react";
+import { DateField, TimeField } from "../DatePicker";
 import { allZones, currentZoneName, dateToWallTime, formatUtcOffset, tzOffsetMinutes, wallTimeToDate } from "./timezones";
 
 const label = (tz) => tz.replace(/_/g, " ").replace(/\//g, " / ");
@@ -63,10 +64,10 @@ export default function TimeConverter() {
         <p>Pick a date and time in one zone; see it in another. Every zone in the world, daylight saving included.</p>
       </header>
       <div className="tzc__row">
-        <label className="tzc__when" htmlFor="tzc-when">
-          <span>Date and time</span>
-          <input id="tzc-when" type="datetime-local" value={when} onChange={(e) => setWhen(e.target.value)} />
-        </label>
+        <div className="tzc__when" role="group" aria-label="Date and time">
+          <DateField value={(when || "").slice(0, 10)} label="Date" onChange={(d) => d && setWhen(`${d}T${(when || "T09:15").slice(11, 16) || "09:15"}`)} />
+          <TimeField value={(when || "").slice(11, 16)} label="Time" id="tzc-when" onChange={(t) => setWhen(`${(when || "").slice(0, 10) || new Date().toISOString().slice(0, 10)}T${t}`)} />
+        </div>
         <ZonePick id="tzc-from" title="From" value={from} onChange={setFrom} zones={zones} />
         <button type="button" className="tzc__swap" onClick={swap} aria-label="Swap the two zones" data-tip="Swap the two zones, keeping the same moment.">
           ⇄

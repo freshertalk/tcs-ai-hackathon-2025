@@ -489,6 +489,8 @@ const ENTRIES = [
   [["Net P&L by financial year"], "One bar per financial year (1 April to 31 March); the current one so far. Point at a year for its figures, click to open it.", ".jr"],
   [["Every month since the start"], "Each month's net profit or loss, financial years down and April to March across, with the year's total. Deeper colour, larger result.", ".jr"],
   [["Where the history comes from"], "Kite's API gives only today's trades, so the server reads them every 5 minutes on weekdays while Zerodha is connected; earlier years come from Zerodha Console tradebook files, imported once.", ".jr"],
+  [["Retrospective analysis"], "What went well, what went wrong, what to keep doing, what to stop and what to try next — worked out from your own trades in the period shown, and saved.", ".jr"],
+  [["Trading health"], "A score from 0 to 100 from six simple checks of the period's trades. Higher is better. It looks back; it does not predict.", ".jr"],
   [["Drop tradebook files here, or click to choose"], "Upload Zerodha Console tradebooks (.xlsx or .csv, many at once). Every trade is saved with all its columns, each file is kept as it came, and repeats are ignored.", ".jr"],
   [["Read again"], "Read a kept tradebook file again: only trades the journal does not have yet are added.", ".jr"],
   [["Delete copy"], "Delete the kept copy of an uploaded file. Its trades stay in the journal.", ".jr"],

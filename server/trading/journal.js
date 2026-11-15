@@ -23,6 +23,7 @@
 
 const crypto = require("node:crypto");
 const { readXlsx } = require("./xlsx");
+const retro = require("./retro");
 
 const IST = 5.5 * 3600 * 1000;
 const NAME = "trading/journal.json";
@@ -661,7 +662,7 @@ class TradeJournal {
   _load() {
     const d = this.docs.read(NAME, null);
     this._migrate();
-    const out = { tags: (d && d.tags) || {}, excursions: (d && d.excursions) || {}, imports: (d && d.imports) || [], captured: (d && d.captured) || {}, accountSince: (d && d.accountSince) || "", views: (d && d.views) || [] };
+    const out = { tags: (d && d.tags) || {}, excursions: (d && d.excursions) || {}, imports: (d && d.imports) || [], captured: (d && d.captured) || {}, accountSince: (d && d.accountSince) || "", views: (d && d.views) || [], retros: (d && d.retros) || [] };
     if (!this._itemMode()) out.fills = (d && d.fills) || {};
     return out;
   }
@@ -901,13 +902,68 @@ class TradeJournal {
     };
   }
 
-  /** The deeper figures of one period: its summary, month by month, best and worst month. */
+  /** The period just before one of the same length (for "compared with before"), or null. */
+  _prevOf(filters) {
+    if (!filters.from || !filters.to) return null;
+    const len = filters.to - filters.from;
+    const from = filters.from - len - 1;
+    const to = filters.from - 1;
+    const closed = this.trips({ ...filters, from, to }).filter((t) => !t.open);
+    return { ...summarize(closed), fromDay: istDay(from), toDay: istDay(to) };
+  }
+
+  /**
+   * The deeper figures of one period: its summary, month by month, best and worst month, day by day,
+   * the running total and its falls, costs by kind, holding time, the spread of results, the rolling
+   * win rate, the kinds of trade, the health score, and the period before for comparison.
+   */
   analytics(filters = {}) {
     const closed = this.trips(filters).filter((t) => !t.open);
     const months = byMonth(closed);
     const best = months.reduce((a, x) => (!a || x.net > a.net ? x : a), null);
     const worst = months.reduce((a, x) => (!a || x.net < a.net ? x : a), null);
-    return { summary: summarize(closed), months, bestMonth: best && best.net > 0 ? { month: best.month, net: best.net } : null, worstMonth: worst && worst.net < 0 ? { month: worst.month, net: worst.net } : null };
+    const summary = summarize(closed);
+    return {
+      summary,
+      months,
+      bestMonth: best && best.net > 0 ? { month: best.month, net: best.net } : null,
+      worstMonth: worst && worst.net < 0 ? { month: worst.month, net: worst.net } : null,
+      ...retro.deeper(closed, { chargeParts }),
+      health: retro.health(summary),
+      prev: this._prevOf(filters),
+    };
+  }
+
+  /* -------------------------------------------------------------- the retrospective */
+
+  /** What went well, what went wrong, what to keep, stop and try — for one period, saved in the database. */
+  retrospective(filters = {}, now = Date.now()) {
+    const closed = this.trips(filters).filter((t) => !t.open);
+    const summary = summarize(closed);
+    const period = filters.period || { id: "all", label: "All time", fromDay: closed.length ? istDay(Math.min(...closed.map((t) => t.exitAt))) : null, toDay: istDay(now) };
+    const r = retro.retrospective({ trips: closed, summary, prev: this._prevOf(filters), period });
+    const rec = { id: crypto.randomBytes(6).toString("hex"), at: new Date(now).toISOString(), filters: { kind: filters.kind || "", side: filters.side || "", setup: filters.setup || "", symbol: filters.symbol || "" }, ...r };
+    const d = this._load();
+    d.retros = [rec, ...(d.retros || [])].slice(0, 30);
+    this._save(d);
+    return rec;
+  }
+
+  /** Earlier retrospectives (newest first), light for a list. */
+  retros() {
+    return this._load().retros.map((r) => ({ id: r.id, at: r.at, period: r.period, verdict: r.verdict, headline: r.headline, score: r.score, net: r.summary ? r.summary.net : null, filters: r.filters }));
+  }
+
+  retro(id) {
+    return this._load().retros.find((r) => r.id === String(id)) || null;
+  }
+
+  removeRetro(id) {
+    const d = this._load();
+    const before = d.retros.length;
+    d.retros = d.retros.filter((r) => r.id !== String(id));
+    if (d.retros.length !== before) this._save(d);
+    return this.retros();
   }
 
   /**

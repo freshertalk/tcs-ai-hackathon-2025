@@ -1355,3 +1355,22 @@
     min-width: 0;
   }
 }
+
+/* the converter's Material date and time fields (DatePicker.jsx) */
+.tzc__when {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 8px;
+  min-width: 0;
+}
+.tzc__when .dp-input {
+  min-width: 150px;
+}
+.tzc__row .dp-time__sel select {
+  width: auto;
+  height: auto;
+  padding: 2px 4px;
+  border: 0;
+  background: transparent;
+}

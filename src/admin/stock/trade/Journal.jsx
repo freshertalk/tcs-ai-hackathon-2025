@@ -13,6 +13,7 @@ import { Alert, Loading } from "../../ui";
 import { useAiStatus } from "../../aiStatus";
 import { isNum, num, when } from "../analyzer/format";
 import { DayTable, FyChart, MonthHeatmap, MonthTable, PeriodBar, PeriodTable, Sources, dayLabel, downloadCsv, monthLabel } from "./JournalPeriods";
+import { Dashboard, Hero, Retro, useRetro } from "./JournalCharts";
 import "./trade.css";
 const IST = 5.5 * 3600 * 1000;
 const day = (ms) => new Date(ms + IST).toISOString().slice(0, 10);
@@ -22,47 +23,6 @@ const tone = (x) => (!isNum(x) || x === 0 ? "" : x > 0 ? "is-up" : "is-down");
 const hold = (m) => (!isNum(m) ? "open" : m < 60 ? `${m}m` : m < 60 * 24 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${Math.round(m / 1440)}d`);
 
 /* ---------------------------------------------------------- equity curve */
-function Equity({ curve }) {
-  if (curve.length < 2) return <p className="tr-empty">The equity curve appears after two closed trades.</p>;
-  const W = 800;
-  const H = 180;
-  const pad = { l: 78, r: 10, t: 10, b: 22 };
-  const axis = (v) => `${v > 0 ? "+" : v < 0 ? "−" : ""}₹${Math.round(Math.abs(v)).toLocaleString("en-IN")}`;
-  const ys = curve.map((p) => p.equity);
-  const lo = Math.min(0, ...ys);
-  const hi = Math.max(0, ...ys);
-  const span = hi - lo || 1;
-  const x = (i) => pad.l + (i / (curve.length - 1)) * (W - pad.l - pad.r);
-  const y = (v) => pad.t + (1 - (v - lo) / span) * (H - pad.t - pad.b);
-  const d = curve.map((p, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(p.equity).toFixed(1)}`).join(" ");
-  const last = curve[curve.length - 1];
-  const ticks = [lo, (lo + hi) / 2, hi];
-  return (
-    <svg className="jr-eq" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Equity curve: ${curve.length} trades, ending at ${sMoney(last.equity)}`}>
-      {ticks.map((t) => (
-        <g key={t}>
-          <line x1={pad.l} x2={W - pad.r} y1={y(t)} y2={y(t)} className="jr-eq__grid" />
-          <text x={pad.l - 6} y={y(t) + 4} textAnchor="end" className="jr-eq__axis">
-            {axis(t)}
-          </text>
-        </g>
-      ))}
-      <line x1={pad.l} x2={W - pad.r} y1={y(0)} y2={y(0)} className="jr-eq__zero" />
-      <path d={d} className={`jr-eq__line ${last.equity >= 0 ? "is-up" : "is-down"}`} />
-      {curve.map((p, i) => (
-        <circle key={i} cx={x(i)} cy={y(p.equity)} r="6" className="jr-eq__hit">
-          <title>{`${day(p.at)} ${p.symbol}: ${sMoney(p.net)} → ${sMoney(p.equity)}`}</title>
-        </circle>
-      ))}
-      <text x={pad.l} y={H - 4} className="jr-eq__axis">
-        {day(curve[0].at)}
-      </text>
-      <text x={W - pad.r} y={H - 4} textAnchor="end" className="jr-eq__axis">
-        {day(last.at)}
-      </text>
-    </svg>
-  );
-}
 
 const TRIP_ROWS = 25;
 
@@ -438,6 +398,7 @@ export default function Journal() {
     setBusy("");
   };
 
+  const retro = useRetro(sel, { kind, side, setup });
   const d = state.data;
   const s = d ? d.stats : null;
   const a = d ? d.analytics : null;
@@ -497,7 +458,7 @@ export default function Journal() {
         {period && (
           <p className="jp-now">
             <b>{label}</b>
-            {period.fromDay ? <span> · {period.fromDay === period.toDay ? dayLabel(period.toDay) : `${dayLabel(period.fromDay)} – ${dayLabel(period.toDay)}`}</span> : null}
+            {period.fromDay && period.id !== "custom" ? <span> · {period.fromDay === period.toDay ? dayLabel(period.toDay) : `${dayLabel(period.fromDay)} – ${dayLabel(period.toDay)}`}</span> : null}
             {sel.view ? <span className="jr-chip">view: {sel.view.name}</span> : null}
           </p>
         )}
@@ -511,100 +472,101 @@ export default function Journal() {
 
       {s && s.trades > 0 && (
         <>
-          <dl className="tr-tiles jr-tiles">
-            <div className={tone(s.net)} data-tip="Profit after estimated charges on trades closed in this period.">
-              <dt>Net P&amp;L</dt>
-              <dd>{sMoney(s.net)}</dd>
-              <small>
-                gross {sMoney(s.gross)} · charges {sMoney(-s.charges)}
-              </small>
-            </div>
-            <div data-tip="Share of closed trades that made money after charges.">
-              <dt>Win rate</dt>
-              <dd>{num(s.winRate, 1)}%</dd>
-              <small>
-                {s.wins} won · {s.losses} lost · {s.trades} trades
-              </small>
-            </div>
-            <div className={s.profitFactor !== null && s.profitFactor < 1 ? "is-down" : ""} data-tip="Money won divided by money lost. Above 1 the trades made money overall; below 1 they lost it.">
-              <dt>Profit factor</dt>
-              <dd>{s.profitFactor === null ? "∞" : num(s.profitFactor)}</dd>
-              <small>payoff {s.payoff === null ? "—" : num(s.payoff)} (avg win ÷ avg loss)</small>
-            </div>
-            <div className={tone(s.expectancy)} data-tip="The average result per trade after charges: what one more trade like these has been worth.">
-              <dt>Expectancy</dt>
-              <dd>{sMoney(s.expectancy)}</dd>
-              <small>
-                avg win {sMoney(s.avgWin)} · avg loss {sMoney(s.avgLoss)}
-              </small>
-            </div>
-            <div className="is-down" data-tip="The largest fall of the equity curve from a high, in this period.">
-              <dt>Max drawdown</dt>
-              <dd>{sMoney(-s.maxDrawdown)}</dd>
-              <small>
-                largest loss {sMoney(s.largestLoss)} · best {sMoney(s.largestWin)}
-              </small>
-            </div>
-            <div data-tip="Days with a net gain out of days traded, and the longest runs of wins and losses.">
-              <dt>Green days</dt>
-              <dd>
-                {s.greenDays} / {s.tradingDays}
-              </dd>
-              <small>
-                streaks +{s.bestStreak} / −{s.worstStreak} · hold {hold(s.avgHoldMin)}
-              </small>
-            </div>
-            {a && (
-              <>
-                <div data-tip="The best and the worst day of the period, after charges.">
-                  <dt>Best / worst day</dt>
-                  <dd>
-                    <span className="is-up">{a.summary.bestDay ? sMoney(a.summary.bestDay.net) : "—"}</span>
-                  </dd>
-                  <small>
-                    {a.summary.bestDay ? dayLabel(a.summary.bestDay.day) : ""}
-                    {a.summary.worstDay ? ` · worst ${sMoney(a.summary.worstDay.net)} on ${dayLabel(a.summary.worstDay.day)}` : ""}
-                  </small>
-                </div>
-                <div className={a.summary.chargesPct !== null && a.summary.chargesPct > 30 ? "is-down" : ""} data-tip="Brokerage and taxes as a share of the gross profit: how much of what you made the costs took.">
-                  <dt>Charges vs gross</dt>
-                  <dd>{a.summary.chargesPct === null ? "—" : `${num(a.summary.chargesPct, 1)}%`}</dd>
-                  <small>
-                    brokerage {sMoney(-a.summary.brokerage)} · taxes {sMoney(-a.summary.taxes)}
-                  </small>
-                </div>
-                {(a.bestMonth || a.worstMonth) && a.months.length > 1 && (
-                  <div data-tip="The best and the worst calendar month inside the period.">
-                    <dt>Best / worst month</dt>
-                    <dd>
-                      <span className="is-up">{a.bestMonth ? sMoney(a.bestMonth.net) : "—"}</span>
-                    </dd>
-                    <small>
-                      {a.bestMonth ? monthLabel(a.bestMonth.month) : ""}
-                      {a.worstMonth ? ` · worst ${sMoney(a.worstMonth.net)} in ${monthLabel(a.worstMonth.month)}` : ""}
-                    </small>
-                  </div>
-                )}
-              </>
-            )}
-          </dl>
+          <Hero s={s} a={a} label={label} period={period} onRetro={retro.run} busy={retro.busy} />
+          <Alert>{retro.err}</Alert>
+          {retro.r && <Retro r={retro.r} list={retro.list} onOpen={retro.open} onClose={retro.close} />}
+          <Dashboard s={s} a={a} />
 
-          <div className="jr-two">
-            <section className="an-card">
-              <h3 className="jr-h">Equity curve</h3>
-              <Equity curve={s.curve} />
-            </section>
-            <section className="an-card">
-              <h3 className="jr-h">P&amp;L calendar</h3>
-              <Calendar days={s.calendar} fromDay={period && period.fromDay} toDay={period && period.toDay} />
-            </section>
-          </div>
+          <section className="an-card jr-calcard">
+            <h3 className="jr-h">📆 Every day on a calendar</h3>
+            <p className="jc-info">Green days made money, red days lost money; the deeper the colour, the bigger the amount. Point at a day for its figures.</p>
+            <Calendar days={s.calendar} fromDay={period && period.fromDay} toDay={period && period.toDay} />
+          </section>
 
           {a && <MonthTable months={a.months} label={fileTag} />}
           <DayTable days={s.calendar} label={fileTag} />
 
-          <section className="an-card jr-bdcard">
-            <h3 className="jr-h">Where the money is made and lost</h3>
+          <details className="an-card jr-more-card">
+            <summary>
+              <b>All the numbers</b> <small>— every figure of this period, group by group, for a closer look</small>
+            </summary>
+            <dl className="tr-tiles jr-tiles">
+              <div className={tone(s.net)} data-tip="Profit after estimated charges on trades closed in this period.">
+                <dt>Net P&amp;L</dt>
+                <dd>{sMoney(s.net)}</dd>
+                <small>
+                  gross {sMoney(s.gross)} · charges {sMoney(-s.charges)}
+                </small>
+              </div>
+              <div data-tip="Share of closed trades that made money after charges.">
+                <dt>Win rate</dt>
+                <dd>{num(s.winRate, 1)}%</dd>
+                <small>
+                  {s.wins} won · {s.losses} lost · {s.trades} trades
+                </small>
+              </div>
+              <div className={s.profitFactor !== null && s.profitFactor < 1 ? "is-down" : ""} data-tip="Money won divided by money lost. Above 1 the trades made money overall; below 1 they lost it.">
+                <dt>Profit factor</dt>
+                <dd>{s.profitFactor === null ? "∞" : num(s.profitFactor)}</dd>
+                <small>payoff {s.payoff === null ? "—" : num(s.payoff)} (avg win ÷ avg loss)</small>
+              </div>
+              <div className={tone(s.expectancy)} data-tip="The average result per trade after charges: what one more trade like these has been worth.">
+                <dt>Expectancy</dt>
+                <dd>{sMoney(s.expectancy)}</dd>
+                <small>
+                  avg win {sMoney(s.avgWin)} · avg loss {sMoney(s.avgLoss)}
+                </small>
+              </div>
+              <div className="is-down" data-tip="The largest fall of the equity curve from a high, in this period.">
+                <dt>Max drawdown</dt>
+                <dd>{sMoney(-s.maxDrawdown)}</dd>
+                <small>
+                  largest loss {sMoney(s.largestLoss)} · best {sMoney(s.largestWin)}
+                </small>
+              </div>
+              <div data-tip="Days with a net gain out of days traded, and the longest runs of wins and losses.">
+                <dt>Green days</dt>
+                <dd>
+                  {s.greenDays} / {s.tradingDays}
+                </dd>
+                <small>
+                  streaks +{s.bestStreak} / −{s.worstStreak} · hold {hold(s.avgHoldMin)}
+                </small>
+              </div>
+              {a && (
+                <>
+                  <div data-tip="The best and the worst day of the period, after charges.">
+                    <dt>Best / worst day</dt>
+                    <dd>
+                      <span className="is-up">{a.summary.bestDay ? sMoney(a.summary.bestDay.net) : "—"}</span>
+                    </dd>
+                    <small>
+                      {a.summary.bestDay ? dayLabel(a.summary.bestDay.day) : ""}
+                      {a.summary.worstDay ? ` · worst ${sMoney(a.summary.worstDay.net)} on ${dayLabel(a.summary.worstDay.day)}` : ""}
+                    </small>
+                  </div>
+                  <div className={a.summary.chargesPct !== null && a.summary.chargesPct > 30 ? "is-down" : ""} data-tip="Brokerage and taxes as a share of the gross profit: how much of what you made the costs took.">
+                    <dt>Charges vs gross</dt>
+                    <dd>{a.summary.chargesPct === null ? "—" : `${num(a.summary.chargesPct, 1)}%`}</dd>
+                    <small>
+                      brokerage {sMoney(-a.summary.brokerage)} · taxes {sMoney(-a.summary.taxes)}
+                    </small>
+                  </div>
+                  {(a.bestMonth || a.worstMonth) && a.months.length > 1 && (
+                    <div data-tip="The best and the worst calendar month inside the period.">
+                      <dt>Best / worst month</dt>
+                      <dd>
+                        <span className="is-up">{a.bestMonth ? sMoney(a.bestMonth.net) : "—"}</span>
+                      </dd>
+                      <small>
+                        {a.bestMonth ? monthLabel(a.bestMonth.month) : ""}
+                        {a.worstMonth ? ` · worst ${sMoney(a.worstMonth.net)} in ${monthLabel(a.worstMonth.month)}` : ""}
+                      </small>
+                    </div>
+                  )}
+                </>
+              )}
+            </dl>
             <p className="vd-note">Groups with fewer than 8 trades are greyed: too few to trust.</p>
             <div className="jr-bds">
               <Breakdown title="By stock" rows={bySym} tip="Net after charges per stock: best first, the worst at the end." />
@@ -615,7 +577,7 @@ export default function Journal() {
               <Breakdown title="By setup" rows={s.by.setup} tip="The setup tag you put on trades." />
               <Breakdown title="Cost of mistakes" rows={s.by.mistake} tip="Net of the trades carrying each mistake tag, worst first." />
             </div>
-          </section>
+          </details>
         </>
       )}
 
