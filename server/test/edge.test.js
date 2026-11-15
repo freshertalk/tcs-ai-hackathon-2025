@@ -413,7 +413,9 @@ test("the board shows the watchlist from the database and builds what is missing
   const a = second.rows.find((r) => r.symbol === "AAA");
   assert.equal(a.available, true);
   assert.equal(a.fresh, true);
-  assert.equal(a.best.grade, "A");
+  // an intraday desk: a graded day trade leads the headline, even when the swing reading grades higher
+  assert.equal(a.best.kind, "day");
+  assert.ok(["A", "B", "C"].includes(a.best.grade));
   const bad = second.rows.find((r) => r.symbol === "BAD");
   assert.match(bad.error, /did not answer/);
   assert.equal(m._edgeRunning, null, "a failing stock is not retried at once");
@@ -470,7 +472,7 @@ test("the AI decision is given the measured odds as a third input, and works wit
   assert.match(asked[0].user, /"forwardTest"/);
   assert.match(asked[0].system, /past frequencies with a sample size, not a probability of profit/);
   assert.deepEqual(withOdds.oddsEvidence, ["50 similar days, 64% won"]);
-  assert.equal(withOdds.odds.best.grade, "A");
+  assert.equal(withOdds.odds.best.kind, "day", "the day trade leads: an intraday desk");
   // the engine failing, or missing altogether, never stops a decision
   const broken = await new Decision(ai({ behaviour: async () => profile, edge: async () => Promise.reject(new Error("down")) }), checkPlan).decide("AAA");
   assert.equal(broken.odds, null);

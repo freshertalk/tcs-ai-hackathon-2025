@@ -14,6 +14,7 @@ import { useAiStatus } from "../../aiStatus";
 import { isNum, num, when } from "../analyzer/format";
 import { DayTable, FyChart, MonthHeatmap, MonthTable, PeriodBar, PeriodTable, Sources, dayLabel, downloadCsv, monthLabel } from "./JournalPeriods";
 import { Dashboard, Hero, Retro, useRetro } from "./JournalCharts";
+import DayBook from "../analysis/DayBook";
 import "./trade.css";
 const IST = 5.5 * 3600 * 1000;
 const day = (ms) => new Date(ms + IST).toISOString().slice(0, 10);
@@ -339,9 +340,46 @@ function ReviewPanel({ sel, label }) {
 const TRIP_HEAD = ["Entry", "Exit", "Symbol", "Exchange", "Side", "Product", "Qty", "Entry avg", "Exit avg", "Hold (min)", "Gross P&L", "Brokerage", "Charges", "Net P&L", "Setup", "Mistakes", "Note", "Rating"];
 const stamp = (ms) => (ms ? new Date(ms + IST).toISOString().slice(0, 16).replace("T", " ") : "");
 
+const PART_KEY = "vpt.journal.part";
+
+/**
+ * The Journal: its trades and analytics, and the Day book — every trading day's report, saved by
+ * itself at 3:45 PM (and any missed day within the hour). Nothing in either is saved by hand.
+ */
 export default function Journal() {
+  const [part, setPart] = useState(() => {
+    try {
+      return window.localStorage.getItem(PART_KEY) === "days" ? "days" : "trades";
+    } catch (_) {
+      return "trades";
+    }
+  });
+  const pick = (p) => {
+    setPart(p);
+    try {
+      window.localStorage.setItem(PART_KEY, p);
+    } catch (_) {
+      /* remembered for this visit only */
+    }
+  };
+  return (
+    <div className="jr-wrap">
+      <div className="jr-parts" role="tablist" aria-label="Journal">
+        <button type="button" role="tab" aria-selected={part === "trades"} onClick={() => pick("trades")}>
+          Trades &amp; analytics
+        </button>
+        <button type="button" role="tab" aria-selected={part === "days"} onClick={() => pick("days")} data-tip="Every trading day's report — profit, loss, charges, margin, what went well — saved by itself at 3:45 PM, and any missed day within the hour.">
+          Day book <small>saved by itself</small>
+        </button>
+      </div>
+      {part === "days" ? <DayBook /> : <TradesJournal />}
+    </div>
+  );
+}
+
+function TradesJournal() {
   const [sel, setSel] = useState({ period: "fy", from: "", to: "" });
-  const [kind, setKind] = useState("");
+  const [kind, setKind] = useState("intraday"); // an intraday desk: intraday trades first
   const [side, setSide] = useState("");
   const [setup, setSetup] = useState("");
   const [state, setState] = useState({ loading: true, data: null, error: "" });

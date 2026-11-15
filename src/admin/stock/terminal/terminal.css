@@ -700,28 +700,85 @@
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.42);
 }
 .tm-pal__in {
+  padding: 12px 12px 10px;
+  border-bottom: 1px solid var(--line);
+}
+/* the search field: icon, input, clear and Esc inside one box that shows the focus ring */
+.tm-pal__field {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 0 14px;
-  border-bottom: 1px solid var(--line);
+  height: 48px;
+  padding: 0 8px 0 12px;
+  border: 1px solid var(--line-2);
+  border-radius: 10px;
+  background: var(--paper);
   color: var(--ink-3);
-  font-size: var(--t-lead);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
-.tm-pal__in input {
+.tm-pal__field:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+  color: var(--ink-2);
+}
+.tm-pal__icon {
+  flex: none;
+}
+.tm-pal__field input {
   flex: 1;
   min-width: 0;
-  height: 50px;
+  height: 100%;
+  padding: 0;
   border: 0;
   outline: 0;
   background: transparent;
   color: var(--ink);
   font: inherit;
   font-size: var(--t-lead);
+  text-overflow: ellipsis;
 }
-.tm-pal__in input::placeholder {
+/* the terminal's own focus outline belongs to the field, not to the input inside it */
+.tm .tm-pal__field input:focus-visible {
+  outline: none;
+}
+.tm-pal__field input::placeholder {
   color: var(--ink-3);
-  font-size: var(--t-base);
+  opacity: 1;
+}
+.tm-pal__clear,
+.tm-pal__esc {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  height: 28px;
+  border: 1px solid var(--line-2);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--ink-3);
+  font: inherit;
+  cursor: pointer;
+}
+.tm-pal__clear {
+  width: 28px;
+  border-color: transparent;
+  background: transparent;
+  font-size: 20px;
+  line-height: 1;
+}
+.tm-pal__esc {
+  padding: 0 8px;
+  font-size: var(--t-tag);
+  font-weight: 600;
+}
+.tm-pal__clear:hover,
+.tm-pal__esc:hover {
+  color: var(--ink);
+  border-color: var(--line-2);
+}
+@media (max-width: 600px) {
+  .tm-pal__field input {
+    font-size: 16px; /* no zoom-in on focus on a phone */
+  }
 }
 .tm-pal__list {
   flex: 1;

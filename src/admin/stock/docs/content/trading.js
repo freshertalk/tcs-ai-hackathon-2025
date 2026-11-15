@@ -391,14 +391,14 @@ export const TRADING = [
   {
     id: "analysis",
     part: "trading",
-    title: "Trade Analysis — every day read back",
-    intro: "One record per trading day: profit, loss, charges and taxes, what went well and what did not, advice for tomorrow — saved by itself at 3:45 PM IST, with analytics over many days.",
+    title: "The Journal’s Day book — every day read back, saved by itself",
+    intro: "One record per trading day: profit, loss, charges and taxes, what went well and what did not, advice for tomorrow — saved by itself at 3:45 PM IST (and any missed day within the hour), with analytics over many days. It is part of the Journal (Journal → Day book); Trade Analysis is now the Execution Lab (next chapter).",
     blocks: [
       { p: "Only the superadmin sees it. Reports are stored in their own document (**analysis/days** — a collection in MongoDB, a file otherwise), apart from the journal, so a report survives anything that happens to the journal. It cannot place orders." },
       { h: "Automatic capture" },
       { logic: {
         title: "The 3:45 PM report",
-        who: "The server’s analysis timer (not the AI) — switch “Auto-save 3:45 PM”, ON by default.",
+        who: "The server’s analysis timer (not the AI) — always on: there is no switch and no button to save a day by hand.",
         when: "Checked every minute, weekdays only, from 15:45 to 23:30 IST, once a day. If the capture errors or the trades could not be read it retries at least 10 minutes later, up to **4 attempts** a day.",
         steps: [
           "It first copies Zerodha’s trades of the day into the journal, then reads the day’s **closed round trips whose exit was that day**.",
@@ -407,7 +407,7 @@ export const TRADING = [
         ],
         limits: "Re-capturing keeps your notes, hand-entered figures, an earlier AI write-up and an earlier margin when the broker cannot be read again. No holiday skip is wired — on a holiday it finds no trades and saves nothing.",
       } },
-      { p: "**Manual:** “Save today now”, “Save this day” / “Refresh from the journal” inside a day, and “Open any day” with a date picker (not a future day). When Telegram is set up, the automatic 3:45 PM report also arrives on your phone: net, profit, loss, charges, trades and the process score." },
+      { p: "**Nothing is saved by hand.** Besides the 3:45 PM capture, an **hourly sweep** saves every day of the last 400 that has closed trades in the journal and no report yet — newest first, up to 20 a sweep, without the AI write-up (it can be asked for on any day). So a day the server missed (it was down at 3:45) or a past period imported from a Console tradebook appears by itself within the hour. “Open any day” opens a saved day. When Telegram is set up, the automatic 3:45 PM report also arrives on your phone." },
       { h: "The definitions used everywhere" },
       { dl: [
         ["Profit", "The sum of round trips that closed **above zero, before charges**."],
@@ -465,8 +465,8 @@ export const TRADING = [
       { ul: [
         "**Notes:** free text (4,000 characters), a 1–5 star “How well did you stick to your rules?”, mood (calm, confident, anxious, impatient, tired, angry, greedy) and up to 8 lessons of 300 characters. They change no figure.",
         "**Figures come only from Zerodha:** the day’s closed round trips in the journal (read from Kite every day by the server, and from Console tradebooks for the history), the margin and the open positions read from the broker. Editing figures by hand was removed. Days whose figures were typed in by an earlier version were rebuilt once from the journal; the old figures are kept on the record but not used.",
-        "**Any day:** open a date with the picker (“Open any day”) and press **Save this day** to build it from the journal. If the journal has no trades for that day, import that financial year’s Console tradebook on the Journal first.",
-        "**Refresh from the journal** builds the day again (after an import, for example); notes and the AI write-up are kept. **Delete** removes only that day’s report; the trades stay in the journal and the day can be saved again.",
+        "**Any day:** open a date with the picker (“Open any day”). A day with trades in the journal is saved by itself within the hour; if the journal has no trades for that day, import that financial year’s Console tradebook on the Journal and the day follows by itself.",
+        "**Delete** removes only that day’s report; the trades stay in the journal, so the sweep saves the day again within the hour (built afresh from the journal; your notes go with the deleted report).",
       ] },
       { h: "The pages" },
       { ul: [
@@ -475,6 +475,32 @@ export const TRADING = [
         "**Daily reports table** (sortable; badges Auto 3:45 / On request, AI; a total row) and a **single-day view** with KPIs, why, practices, advice, waterfall, by hour, by stock, every trade and your notes.",
       ] },
       { warn: "Charges are estimates, and accuracy depends on the journal holding every fill. This page describes what happened; it does not predict the next day and is not advice." },
+    ],
+  },
+
+  {
+    id: "lab",
+    part: "trading",
+    title: "Trade Analysis — the Execution Lab",
+    intro: "How you traded, not only what you made: every closed intraday trade replayed on Zerodha’s 1-minute bars — the share of the move you kept, where you came in, what other exits would have made on the same entries, the habits that cost money, and an execution score — for one day or a period. Worked out by the server by itself; no AI.",
+    blocks: [
+      { p: "Only the superadmin sees it (Stock Report → Trade Analysis). The daily profit-and-loss reports moved to the Journal’s Day book; this page measures the handling of each trade. It reads the journal’s round trips and the 1-minute bars of that day (Zerodha keeps about 60 days of them) and stores one replay per day (**analysis/lab**). The hourly sweep replays every recent day with trades by itself, so the page is ready when you open it; “Replay again” works a day out afresh." },
+      { logic: {
+        title: "One trade, replayed",
+        who: "server/analysis/lab.js — arithmetic on your fills and the bars; no AI, no orders.",
+        when: "The hourly sweep (days with trades in the last 60 days, a few per sweep; today after 3:45 PM), or when a day is opened.",
+        steps: [
+          "**How far it went:** the best move for you while you were in (MFE) and the worst against you (MAE), in ₹ and %; **kept** = your profit ÷ the MFE.",
+          "**After you left:** how much further the price went your way up to 3:15 PM (“ran on”), and how far it went against you (“leaving spared you”).",
+          "**Where you came in:** your entry against VWAP (computed from the day’s 1-minute bars), against the 9:15–9:30 opening range (above, inside, below; a break in your direction), where in the day’s range so far (0% = its low, 100% = its high), and minutes after the open.",
+          "**Other exits on the same entry and quantity**, after the same charges, walking the bars to 3:15 PM: a fixed 0.5% stop with a 1% target (2R), a 0.5% trailing stop, a 0.5% stop moved to break-even at +0.5%, and holding to 3:15. When one minute touches both the stop and the target, the stop is taken (the cautious reading).",
+          "**Habits:** revenge trade (in within 10 minutes of closing a loss), after the daily stop or the daily target (from your daily-goal percentages and that morning’s margin, when the Day book has it), over-trading (beyond the sixth trade), held a loser (1% against you and held over 30 minutes), cut a winner early (under 30% of a 1%+ move), the first five minutes, the last 30 minutes, against VWAP, chasing (a long in the top 10% of the day’s range, a short in the bottom 10%), costs eating half the gross.",
+          "**The execution score** (0–100): 70 to start; the share kept adds or takes up to 20; each costly habit takes 8, each minor one 3; charges over 40% of the gross take 10. 75+ Disciplined, 50–74 Mixed, below 50 Leaky.",
+        ],
+        limits: "Trades held overnight are counted but not replayed. Without the Zerodha connection (or older than the bars Zerodha keeps), a trade is counted without the replay. A replay measures the past; it is not a forecast and not advice.",
+      } },
+      { h: "A period" },
+      { p: "7, 30 or 60 days added up from the replays: the average score, net, the share kept, what ran on after your exits, which exit rule would have paid best on your own entries (against your exits), what each habit cost (trades and net), net by the hour you came in and by how you came in (with or against VWAP, opening-range breaks, chasing, longs, shorts), and the lessons in plain words — for example “a 0.5% trailing stop would have made ₹X more on the same 40 entries”, or “against VWAP you made −₹Y on 12 trades”." },
     ],
   },
 

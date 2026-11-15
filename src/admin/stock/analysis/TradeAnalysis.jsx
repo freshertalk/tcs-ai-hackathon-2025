@@ -1,953 +1,441 @@
-// Trade Analysis: every trading day read back — profit, loss, charges and taxes, trades, margin —
-// with what went well and what did not, and the analytics over many days.
+// Trade Analysis — the Execution Lab. Every closed intraday trade replayed on that day's 1-minute
+// bars (server/analysis/lab.js): how far it went for you and against you, the share of the best move
+// you kept, what the price did after you left, where you came in (VWAP, the opening range, chasing),
+// what other exits would have made on the very same entry, the habits that cost money, and an
+// execution score — for one day, or added up over a period with the lessons in plain words.
 //
-// A report is saved by itself at 3:45 PM IST (server/analysis) and can be built again from the
-// journal for any day. Its figures come only from Zerodha's fills — they are never typed in; your
-// notes, rating, lessons and mood are yours to write. Nothing on this page can place an order.
+// The daily profit-and-loss reports now live in the Journal's Day book. Everything here is worked out
+// by the server by itself (the hourly sweep replays every recent day with trades) — no AI, no
+// typing, no orders.
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../../api";
 import { Alert, Loading } from "../../ui";
-import { useDialog } from "../../dialog/DialogProvider";
-import { DateField, DateRangeField } from "../../DatePicker";
-import { Calendar, DailyBars, Donut, HBars, LineChart, Spark, Waterfall, dayLabel, dayLong, rs, rsSigned, tone } from "./charts";
+import { DateField } from "../../DatePicker";
+import { HBars, Spark, dayLong, rs, rsSigned, tone } from "./charts";
 import "./analysis.css";
 
 const IST = 5.5 * 3600 * 1000;
 const todayIst = () => new Date(Date.now() + IST).toISOString().slice(0, 10);
 const addDays = (d, n) => new Date(Date.parse(`${d}T00:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
-const RANGES = [
+const PERIODS = [
   { id: "7", label: "7 days", days: 7 },
   { id: "30", label: "30 days", days: 30 },
-  { id: "90", label: "90 days", days: 90 },
-  { id: "365", label: "1 year", days: 365 },
-  { id: "all", label: "All", days: null },
-  { id: "custom", label: "Custom", days: null },
+  { id: "60", label: "60 days", days: 60 },
 ];
-const KEY = "vpt.analysis.range";
-const LABEL = { brokerage: "Brokerage", stt: "STT / CTT", exchange: "Exchange transaction charges", sebi: "SEBI turnover fee", gst: "GST", stamp: "Stamp duty", dp: "DP charges" };
-const pct1 = (x) => (typeof x === "number" ? `${x.toFixed(1)}%` : "—");
-const num = (x, d = 0) => (typeof x === "number" ? x.toLocaleString("en-IN", { minimumFractionDigits: d, maximumFractionDigits: d }) : "—");
+const MODE_KEY = "vpt.lab.mode";
+/** Today, or the Friday before it at a weekend. */
+const lastWeekday = () => {
+  let d = todayIst();
+  for (let i = 0; i < 3; i += 1) {
+    const dow = new Date(`${d}T12:00:00Z`).getUTCDay();
+    if (dow !== 0 && dow !== 6) break;
+    d = addDays(d, -1);
+  }
+  return d;
+};
+const pc = (x) => (typeof x === "number" ? `${x > 0 ? "+" : ""}${x.toFixed(2)}%` : "—");
+const read = (k, d) => {
+  try {
+    return window.localStorage.getItem(k) || d;
+  } catch (_) {
+    return d;
+  }
+};
+const keep = (k, v) => {
+  try {
+    window.localStorage.setItem(k, v);
+  } catch (_) {
+    /* remembered for this visit only */
+  }
+};
 
-/** The change since the period before, in words and a colour. */
-function delta(cur, prev, { good = "up", money = true } = {}) {
-  if (typeof cur !== "number" || typeof prev !== "number") return null;
-  const d = cur - prev;
-  if (d === 0) return { text: "same as before", cls: "" };
-  const p = prev !== 0 ? Math.round((d / Math.abs(prev)) * 100) : null;
-  const better = good === "up" ? d > 0 : d < 0;
-  return { text: `${d > 0 ? "▲" : "▼"} ${money ? rs(Math.abs(d)) : num(Math.abs(d), 1)}${p !== null ? ` (${Math.abs(p)}%)` : ""} vs before`, cls: better ? "is-up" : "is-down" };
-}
-
-function Kpi({ label, value, cls = "", sub, change, spark, c = "a", tip }) {
+function Kpi({ label, value, cls = "", sub, tip }) {
   return (
     <div className="ta-kpi" data-tip={tip}>
       <span className="ta-kpi__l">{label}</span>
       <b className={`ta-kpi__v ${cls}`}>{value}</b>
       {sub && <small className="ta-kpi__s">{sub}</small>}
-      {change && <small className={`ta-kpi__d ${change.cls}`}>{change.text}</small>}
-      {spark && <Spark values={spark} c={c} />}
     </div>
   );
 }
 
-/* ------------------------------------------------------------------------------------ dashboard */
-
-function Dashboard({ an, days, onOpen, settings }) {
-  const [metric, setMetric] = useState("net");
-  const d = an.data;
-  if (!d) return <Loading label="Working out the analytics…" />;
-  const t = d.totals;
-  const p = d.previous;
-  if (!t.days) {
-    return (
-      <section className="ta-card ta-first">
-        <h3>No days saved in this period yet</h3>
-        <p>
-          Your first report is saved by itself at <b>3:45 PM IST</b> on the next trading day{settings && !settings.auto ? " (automatic saving is switched OFF — turn it on above)" : ""}. To start now, press <b>Save today now</b>, or open any past day below
-          and save it: the journal holds the trades it has seen, and a tradebook CSV from Zerodha Console (imported on the Journal page) brings in the history.
-        </p>
-      </section>
-    );
-  }
-  const s = d.series;
-  const xs = s.map((r) => r.date);
-  const curve = metric === "gross" ? [{ label: "Gross (before charges)", values: s.map((r) => r.cumGross), c: "b", area: false }] : metric === "both" ? [{ label: "Net (after charges & taxes)", values: s.map((r) => r.cumNet), c: "a", area: true }, { label: "Gross (before charges)", values: s.map((r) => r.cumGross), c: "b", dashed: true }] : [{ label: "Net (after charges & taxes)", values: s.map((r) => r.cumNet), c: "a", area: true }];
-  const c = t.charges;
-  const donut = [
-    { label: "Government taxes & statutory (STT, GST, stamp duty, SEBI)", value: c.statutory, c: "warn" },
-    { label: "Exchange transaction charges", value: c.exchange, c: "b" },
-    { label: "Brokerage & DP charges", value: c.brokerAndOther, c: "a" },
-  ].filter((x) => x.value > 0);
-  return (
-    <>
-      <div className="ta-kpis">
-        <Kpi label="Net profit / loss" value={rsSigned(t.net)} cls={tone(t.net)} sub={`${t.days} trading day${t.days === 1 ? "" : "s"}`} change={p ? delta(t.net, p.net) : null} spark={s.map((r) => r.cumNet)} tip="Total profit − total loss − charges and taxes, for the days shown." />
-        <Kpi label="Total profit" value={rs(t.grossProfit)} cls="is-up" sub={`${t.wins} winning trades`} change={p ? delta(t.grossProfit, p.grossProfit) : null} spark={s.map((r) => r.grossProfit)} c="up" tip="The sum of every trade that closed above zero, before charges." />
-        <Kpi label="Total loss" value={rs(-t.grossLoss)} cls="is-down" sub={`${t.losses} losing trades`} change={p ? delta(t.grossLoss, p.grossLoss, { good: "down" }) : null} spark={s.map((r) => -r.grossLoss)} c="down" tip="The sum of every trade that closed below zero, before charges." />
-        <Kpi label="Charges & taxes" value={rs(-c.total)} cls="is-warn" sub={t.chargesPctOfGross !== null ? `${pct1(t.chargesPctOfGross)} of gross profit` : `${rs(c.statutory)} government taxes`} change={p ? delta(c.total, p.charges.total, { good: "down" }) : null} spark={s.map((r) => -r.charges)} c="warn" tip="Brokerage, STT, exchange fees, SEBI fee, GST, stamp duty and DP charges. An estimate from Zerodha's published rates; the contract note is the truth." />
-        <Kpi label="Win rate" value={pct1(t.winRatePct)} sub={`${t.wins} of ${t.trades} trades`} change={p && p.winRatePct !== null ? delta(t.winRatePct, p.winRatePct, { money: false }) : null} spark={s.map((r) => r.rollingWinPct)} tip="Trades that closed above zero, before charges. The line is the rolling 10-day rate." />
-        <Kpi label="Trades" value={num(t.trades)} sub={`${t.avgTradesPerDay} a day`} change={p ? delta(t.trades, p.trades, { good: "none", money: false }) : null} spark={s.map((r) => r.trades)} />
-        <Kpi label="Profitable days" value={pct1(t.greenDaysPct)} sub={`${t.greenDays} green · ${t.redDays} red`} spark={s.map((r) => (r.net > 0 ? 1 : 0))} />
-        <Kpi label="Profit factor" value={t.profitFactor === null ? "—" : num(t.profitFactor, 2)} sub={t.payoff !== null ? `average win ${num(t.payoff, 2)}× average loss` : "needs a loss"} tip="Total profit ÷ total loss. Above 1 means the profits outweighed the losses before charges." />
-        <Kpi label="Average per day" value={rsSigned(t.avgNetPerDay)} cls={tone(t.avgNetPerDay)} sub={`${rsSigned(t.expectancyPerTrade)} per trade`} />
-        <Kpi label="Best day" value={rsSigned(t.bestDay.net)} cls={tone(t.bestDay.net)} sub={dayLabel(t.bestDay.date)} />
-        <Kpi label="Worst day" value={rsSigned(t.worstDay.net)} cls={tone(t.worstDay.net)} sub={dayLabel(t.worstDay.date)} />
-        <Kpi label="Deepest fall" value={rs(-t.maxDrawdown)} cls={t.maxDrawdown ? "is-down" : ""} sub={`${t.worstStreak}-day worst losing streak`} tip="The largest fall of the running net total from an earlier high." />
-        <Kpi label="Process score" value={t.avgScore === null ? "—" : `${t.avgScore}/100`} sub="how the days were traded, not what they made" tip="From the good and bad practices found each day. A reminder about habits, not a grade of the result." />
-      </div>
-
-      <section className="ta-card ta-wide">
-        <header className="ta-card__h">
-          <h3>Cumulative profit & loss</h3>
-          <div className="ta-seg" role="group" aria-label="Which curve">
-            {[["net", "Net"], ["gross", "Gross"], ["both", "Both"]].map(([id, l]) => (
-              <button key={id} type="button" aria-pressed={metric === id} onClick={() => setMetric(id)}>
-                {l}
-              </button>
-            ))}
-          </div>
-        </header>
-        <Legend items={curve.map((x) => ({ label: x.label, c: x.c }))} />
-        <LineChart xs={xs} series={curve} label="Cumulative profit and loss by day" height={250} />
-      </section>
-
-      <div className="ta-two">
-        <section className="ta-card">
-          <header className="ta-card__h">
-            <h3>Daily profit and loss</h3>
-          </header>
-          <Legend items={[{ label: "Profit", c: "up" }, { label: "Loss", c: "down" }, { label: "Net", c: "a" }]} />
-          <DailyBars days={s} height={230} />
-        </section>
-        <section className="ta-card">
-          <header className="ta-card__h">
-            <h3>Where the money went</h3>
-          </header>
-          <Waterfall profit={t.grossProfit} loss={t.grossLoss} charges={c.total} net={t.net} />
-          <div className="ta-split">
-            <Donut parts={donut} size={132} center={[rs(c.total), "charges & taxes"]} />
-            <ul className="ta-ch">
-              {d.charges.map((x) => (
-                <li key={x.key}>
-                  <span>{LABEL[x.key]}</span>
-                  <b>{rs(x.amount, 2)}</b>
-                  <small>{x.pct}%</small>
-                </li>
-              ))}
-              <li className="is-sum">
-                <span>Government taxes & statutory</span>
-                <b>{rs(c.statutory, 2)}</b>
-                <small>{c.total ? Math.round((c.statutory / c.total) * 100) : 0}%</small>
-              </li>
-            </ul>
-          </div>
-        </section>
-      </div>
-
-      <div className="ta-three">
-        <section className="ta-card">
-          <header className="ta-card__h">
-            <h3>By weekday</h3>
-          </header>
-          <HBars rows={d.weekday.map((w) => ({ label: w.key, value: w.net, sub: `${w.days} day${w.days === 1 ? "" : "s"} · ${w.greenDaysPct}% green` }))} />
-        </section>
-        <section className="ta-card">
-          <header className="ta-card__h">
-            <h3>By hour of entry</h3>
-          </header>
-          <HBars rows={d.hours.map((h) => ({ label: h.key, value: h.net, sub: `${h.trades} trades · ${h.winRatePct}% won` }))} />
-        </section>
-        <section className="ta-card">
-          <header className="ta-card__h">
-            <h3>Win rate and process</h3>
-          </header>
-          <Legend items={[{ label: "Rolling 10-day win rate %", c: "up" }, { label: "Process score", c: "a" }]} />
-          <LineChart xs={xs} height={170} zero={false} fmt={(v) => `${v}`} valueFmt={(v) => `${Math.round(v)}`} label="Rolling win rate and process score" series={[{ label: "Win rate %", values: s.map((r) => r.rollingWinPct), c: "up" }, { label: "Process score", values: s.map((r) => r.score), c: "a" }]} />
-        </section>
-      </div>
-
-      <div className="ta-two">
-        <section className="ta-card">
-          <header className="ta-card__h">
-            <h3>Every day at a glance</h3>
-          </header>
-          <Calendar days={days.filter((x) => x.date >= (d.range.from || "") && x.date <= (d.range.to || "9999"))} onPick={onOpen} />
-        </section>
-        <section className="ta-card">
-          <header className="ta-card__h">
-            <h3>Drawdown</h3>
-          </header>
-          <LineChart xs={xs} height={170} label="Fall from the running peak" series={[{ label: "Below the peak", values: s.map((r) => -r.drawdown), c: "down", area: true }]} />
-        </section>
-      </div>
-
-      <div className="ta-two">
-        <section className="ta-card">
-          <header className="ta-card__h">
-            <h3>Stocks that made money</h3>
-          </header>
-          <HBars rows={d.symbols.best.map((x) => ({ label: x.symbol, value: x.net, sub: `${x.trades} trades · ${x.winRatePct}% won` }))} empty="No stock finished in profit." />
-        </section>
-        <section className="ta-card">
-          <header className="ta-card__h">
-            <h3>Stocks that cost money</h3>
-          </header>
-          <HBars rows={d.symbols.worst.map((x) => ({ label: x.symbol, value: x.net, sub: `${x.trades} trades · ${x.winRatePct}% won` }))} empty="No stock finished in loss." />
-        </section>
-      </div>
-
-      <section className="ta-card ta-wide">
-        <header className="ta-card__h">
-          <h3>Habits across the days</h3>
-          <small>How often each practice showed up, and what those days netted against the others</small>
-        </header>
-        <div className="ta-habits">
-          <PracticeTable title="Bad practices — to fix" kind="bad" rows={d.practices.bad} total={t.days} />
-          <PracticeTable title="Good practices — to keep" kind="good" rows={d.practices.good} total={t.days} />
-        </div>
-      </section>
-    </>
-  );
+function ScoreKpi({ score, label }) {
+  const cls = typeof score !== "number" ? "" : score >= 75 ? "is-up" : score >= 50 ? "is-warn" : "is-down";
+  return <Kpi label="Execution score" value={typeof score === "number" ? `${score} / 100` : "—"} cls={cls} sub={label} tip="70 to start; the share of the move you kept adds or takes up to 20; each costly habit takes 8, each minor one 3; costs over 40% of the gross take 10." />;
 }
 
-function Legend({ items }) {
-  return (
-    <ul className="ta-legend">
-      {items.map((i) => (
-        <li key={i.label}>
-          <i className={`ta-sw ta-sw--${i.c}`} />
-          {i.label}
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-function PracticeTable({ title, kind, rows, total }) {
-  return (
-    <div className="ta-scroll">
-      <table className="an-table ta-table">
-        <caption>{title}</caption>
-        <thead>
-          <tr>
-            <th scope="col">Practice</th>
-            <th scope="col" className="is-num">Days</th>
-            <th scope="col" className="is-num">Avg net on those days</th>
-            <th scope="col" className="is-num">Avg net on the others</th>
-            {kind === "bad" && <th scope="col" className="is-num">Cost</th>}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.length === 0 && (
-            <tr>
-              <td colSpan={kind === "bad" ? 5 : 4} className="ta-dim">
-                {kind === "bad" ? "None found." : "None yet."}
-              </td>
-            </tr>
-          )}
-          {rows.map((r) => (
-            <tr key={r.id}>
-              <th scope="row">
-                <span className={kind === "bad" ? "ta-x" : "ta-ok"} aria-hidden="true">
-                  {kind === "bad" ? "✗" : "✓"}
-                </span>{" "}
-                {r.title}
-              </th>
-              <td className="is-num">
-                {r.days} <small>of {total} ({r.pctDays}%)</small>
-              </td>
-              <td className={`is-num ${tone(r.avgOnThoseDays)}`}>{rsSigned(r.avgOnThoseDays)}</td>
-              <td className={`is-num ${tone(r.avgOnOtherDays)}`}>{rsSigned(r.avgOnOtherDays)}</td>
-              {kind === "bad" && <td className={`is-num ${tone(r.impact)}`}>{r.impact ? rsSigned(r.impact) : "—"}</td>}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------------------- daily reports */
-
-const COLS = [
-  { id: "date", label: "Date" },
-  { id: "trades", label: "Trades", num: true, get: (d) => d.summary.trades },
-  { id: "win", label: "Win %", num: true, get: (d) => d.summary.winRatePct },
-  { id: "profit", label: "Profit", num: true, get: (d) => d.summary.grossProfit },
-  { id: "loss", label: "Loss", num: true, get: (d) => d.summary.grossLoss },
-  { id: "charges", label: "Charges & taxes", num: true, get: (d) => d.summary.charges.total },
-  { id: "net", label: "Net", num: true, get: (d) => d.summary.net },
-  { id: "netpct", label: "Net % of margin", num: true, get: (d) => d.summary.netPctOfMargin },
-  { id: "margin", label: "Margin left", num: true, get: (d) => (d.margin ? d.margin.available : null) },
-  { id: "score", label: "Process", num: true, get: (d) => d.score },
-];
-
-function DaysTable({ days, onOpen }) {
-  const [sort, setSort] = useState(["date", -1]);
-  const rows = useMemo(() => {
-    const col = COLS.find((c) => c.id === sort[0]);
-    return [...days].sort((a, b) => {
-      const x = col.get ? col.get(a) : a.date;
-      const y = col.get ? col.get(b) : b.date;
-      if (x === y) return 0;
-      if (x === null || x === undefined) return 1;
-      if (y === null || y === undefined) return -1;
-      return (x < y ? -1 : 1) * sort[1];
-    });
-  }, [days, sort]);
-  const tot = useMemo(() => {
-    const t = { trades: 0, wins: 0, profit: 0, loss: 0, charges: 0, net: 0 };
-    for (const d of days) {
-      t.trades += d.summary.trades;
-      t.wins += d.summary.wins;
-      t.profit += d.summary.grossProfit;
-      t.loss += d.summary.grossLoss;
-      t.charges += d.summary.charges.total;
-      t.net += d.summary.net;
-    }
-    return t;
-  }, [days]);
-  if (!days.length) return <p className="ta-empty">No reports saved in this period.</p>;
-  return (
-    <div className="ta-scroll">
-      <table className="an-table ta-table ta-days">
-        <thead>
-          <tr>
-            {COLS.map((c) => (
-              <th key={c.id} scope="col" className={c.num ? "is-num" : ""} aria-sort={sort[0] === c.id ? (sort[1] > 0 ? "ascending" : "descending") : "none"}>
-                <button type="button" onClick={() => setSort([c.id, sort[0] === c.id ? -sort[1] : c.id === "date" ? -1 : -1])}>
-                  {c.label}
-                  {sort[0] === c.id ? (sort[1] > 0 ? " ▲" : " ▼") : ""}
-                </button>
-              </th>
-            ))}
-            <th scope="col">Practices</th>
-            <th scope="col">Report</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((d) => (
-            <tr key={d.date} onClick={() => onOpen(d.date)} className="is-link">
-              <th scope="row">
-                {dayLong(d.date)}
-              </th>
-              <td className="is-num">{d.summary.trades}</td>
-              <td className="is-num">{pct1(d.summary.winRatePct)}</td>
-              <td className="is-num is-up">{rs(d.summary.grossProfit)}</td>
-              <td className="is-num is-down">{rs(-d.summary.grossLoss)}</td>
-              <td className="is-num is-warn">{rs(-d.summary.charges.total)}</td>
-              <td className={`is-num ta-netv ${tone(d.summary.net)}`}>{rsSigned(d.summary.net)}</td>
-              <td className={`is-num ${tone(d.summary.netPctOfMargin)}`}>{d.summary.netPctOfMargin === null ? "—" : `${d.summary.netPctOfMargin > 0 ? "+" : ""}${d.summary.netPctOfMargin}%`}</td>
-              <td className="is-num">{d.margin && d.margin.available !== null ? rs(d.margin.available) : "—"}</td>
-              <td className="is-num">{d.score === null ? "—" : d.score}</td>
-              <td>
-                <span className="ta-ok" data-tip="Good practices found">✓ {d.good}</span> <span className="ta-x" data-tip="Bad practices found">✗ {d.bad}</span>
-              </td>
-              <td>
-                <span className="ta-badge" data-tip={d.source === "auto" ? "Saved by itself at 3:45 PM" : "Built from the journal when you pressed Save"}>{d.source === "auto" ? "Auto 3:45" : "On request"}</span>
-                {d.hasAi && <span className="ta-badge is-ai">AI</span>}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-        <tfoot>
-          <tr>
-            <th scope="row">Total · {days.length} day{days.length === 1 ? "" : "s"}</th>
-            <td className="is-num">{tot.trades}</td>
-            <td className="is-num">{tot.trades ? pct1((tot.wins / tot.trades) * 100) : "—"}</td>
-            <td className="is-num is-up">{rs(tot.profit)}</td>
-            <td className="is-num is-down">{rs(-tot.loss)}</td>
-            <td className="is-num is-warn">{rs(-tot.charges)}</td>
-            <td className={`is-num ta-netv ${tone(tot.net)}`}>{rsSigned(tot.net)}</td>
-            <td colSpan="5" />
-          </tr>
-        </tfoot>
-      </table>
-    </div>
-  );
-}
-
-/* --------------------------------------------------------------------------------------- a day */
-
-function NotesEditor({ d, onSaved }) {
-  const n = d.notes || { text: "", rating: null, lessons: [], mood: "" };
-  const [text, setText] = useState(n.text || "");
-  const [rating, setRating] = useState(n.rating);
-  const [mood, setMood] = useState(n.mood || "");
-  const [lessons, setLessons] = useState(n.lessons && n.lessons.length ? n.lessons : [""]);
-  const [msg, setMsg] = useState({ kind: "", text: "" });
-  const [busy, setBusy] = useState(false);
-  const save = async () => {
-    setBusy(true);
-    setMsg({ kind: "", text: "" });
-    try {
-      onSaved(await api(`/api/admin/analysis/day/${d.date}`, { method: "PUT", body: { notes: { text, rating, mood, lessons: lessons.filter((x) => x.trim()) } } }), "Notes saved.");
-    } catch (e) {
-      setMsg({ kind: "error", text: e.message });
-    }
-    setBusy(false);
-  };
+/** The exit rules replayed on your own entries, against your exits. */
+function Rules({ rules, best }) {
   return (
     <section className="ta-card">
       <header className="ta-card__h">
-        <h3>Your notes</h3>
-        <small>Saved with the day</small>
+        <h3>Other exits on the same entries</h3>
+        <small>after the same charges · a stop and a target in one minute counts as the stop</small>
       </header>
-      <label className="ta-field">
-        <span>What happened, in your words</span>
-        <textarea rows="3" value={text} maxLength="4000" onChange={(e) => setText(e.target.value)} placeholder="What you saw, what you felt, what you would do differently." />
-      </label>
-      <div className="ta-row">
-        <div className="ta-field">
-          <span>How well did you stick to your rules?</span>
-          <div className="ta-stars" role="radiogroup" aria-label="Rating">
-            {[1, 2, 3, 4, 5].map((i) => (
-              <button key={i} type="button" role="radio" aria-checked={rating === i} className={rating >= i ? "is-on" : ""} onClick={() => setRating(rating === i ? null : i)} aria-label={`${i} of 5`}>
-                ★
-              </button>
+      <div className="lab-scroll">
+        <table className="ta-table lab-table">
+          <thead>
+            <tr>
+              <th scope="col">Exit rule</th>
+              <th scope="col" className="is-num">
+                Trades
+              </th>
+              <th scope="col" className="is-num">
+                Net
+              </th>
+              <th scope="col" className="is-num">
+                Against yours
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {rules.map((r) => (
+              <tr key={r.id} className={best && best.id === r.id ? "is-best" : r.id === "actual" ? "is-yours" : ""}>
+                <th scope="row">
+                  {r.name}
+                  {best && best.id === r.id ? <small> · best</small> : null}
+                </th>
+                <td className="is-num">{r.trades}</td>
+                <td className={`is-num ${tone(r.net)}`}>{rsSigned(r.net)}</td>
+                <td className={`is-num ${r.id === "actual" ? "" : tone(r.vsActual)}`}>{r.id === "actual" ? "—" : rsSigned(r.vsActual)}</td>
+              </tr>
             ))}
-          </div>
-        </div>
-        <label className="ta-field">
-          <span>Mood</span>
-          <select value={mood} onChange={(e) => setMood(e.target.value)}>
-            {["", "calm", "confident", "anxious", "impatient", "tired", "angry", "greedy"].map((m) => (
-              <option key={m} value={m}>
-                {m || "—"}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
-      <div className="ta-field">
-        <span>Lessons to remember</span>
-        {lessons.map((l, i) => (
-          <div key={i} className="ta-lesson">
-            <input value={l} maxLength="300" onChange={(e) => setLessons(lessons.map((x, k) => (k === i ? e.target.value : x)))} placeholder="One sentence you want to read again" />
-            <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm" onClick={() => setLessons(lessons.length > 1 ? lessons.filter((_, k) => k !== i) : [""])} aria-label="Remove this lesson">
-              ×
-            </button>
-          </div>
-        ))}
-        {lessons.length < 8 && (
-          <button type="button" className="ta-link" onClick={() => setLessons([...lessons, ""])}>
-            + Add a lesson
-          </button>
-        )}
-      </div>
-      <Alert kind={msg.kind === "ok" ? "ok" : "error"}>{msg.text}</Alert>
-      <div className="ta-actions">
-        <button type="button" className="adm-btn adm-btn--solid adm-btn--sm" disabled={busy} onClick={save}>
-          {busy ? "Saving…" : "Save notes"}
-        </button>
+          </tbody>
+        </table>
       </div>
     </section>
   );
 }
 
-function DayView({ date, onBack, onChanged }) {
-  const ask = useDialog();
-  const [st, setSt] = useState({ loading: true, d: null, error: "", missing: false });
-  const [msg, setMsg] = useState({ kind: "", text: "" });
-  const [busy, setBusy] = useState("");
-  const load = useCallback(() => {
-    setSt((s) => ({ ...s, loading: true }));
-    return api(`/api/admin/analysis/day/${date}`)
-      .then((d) => setSt({ loading: false, d, error: "", missing: false }))
-      .catch((e) => setSt({ loading: false, d: null, error: e.message, missing: /No report is saved/.test(e.message) }));
-  }, [date]);
-  useEffect(() => {
-    load();
-  }, [load]);
-  const act = async (what, fn, ok) => {
-    setBusy(what);
-    setMsg({ kind: "", text: "" });
-    try {
-      const d = await fn();
-      if (d && d.summary) setSt({ loading: false, d, error: "", missing: false });
-      if (ok) setMsg({ kind: "ok", text: ok });
-      onChanged();
-    } catch (e) {
-      setMsg({ kind: "error", text: e.message });
-    }
-    setBusy("");
-  };
-  const saved = (d, ok) => {
-    setSt({ loading: false, d, error: "", missing: false });
-    setMsg({ kind: "ok", text: ok });
-    onChanged();
-  };
-  const del = async () => {
-    const yes = await ask({ tone: "danger", title: "Delete this day's report?", body: <><p>The saved report for <b>{dayLong(date)}</b>, with your notes and any figures you entered, will be removed from the analytics.</p><p>The trades themselves stay in the journal; you can save the day again at any time.</p></>, confirmText: "Delete the report", cancelText: "Keep it" });
-    if (!yes) return;
-    await act("del", () => api(`/api/admin/analysis/day/${date}`, { method: "DELETE" }).then(() => { onBack(); return null; }));
-  };
-  const d = st.d;
+function Habits({ flags, empty }) {
   return (
-    <div className="ta-day">
-      <header className="ta-dayhead">
-        <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm" onClick={onBack}>
-          ← All days
-        </button>
-        <h3>{dayLong(date)}</h3>
-        {d && (
-          <span className="ta-badges">
-            <span className="ta-badge">{d.source === "auto" ? "Saved automatically at 3:45 PM" : "Built from the journal on request"}</span>
-            {d.ai && <span className="ta-badge is-ai">AI analysis</span>}
-          </span>
-        )}
-        <span className="ta-grow" />
-        <button type="button" className="adm-btn adm-btn--solid adm-btn--sm" disabled={Boolean(busy)} onClick={() => act("cap", () => api(`/api/admin/analysis/day/${date}`, { method: "POST", body: {} }), "Saved again from the journal and the broker's readings.")}>
-          {busy === "cap" ? "Reading…" : d ? "Refresh from the journal" : "Save this day"}
-        </button>
-        {d && (
-          <>
-            <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm" disabled={Boolean(busy)} onClick={() => act("ai", () => api(`/api/admin/analysis/day/${date}/ai`, { method: "POST" }), "AI analysis written.")}>
-              {busy === "ai" ? "Writing…" : d.ai ? "Rewrite the AI analysis" : "Write the AI analysis"}
-            </button>
-            <button type="button" className="adm-btn adm-btn--danger adm-btn--sm" disabled={Boolean(busy)} onClick={del}>
-              Delete
-            </button>
-          </>
-        )}
+    <section className="ta-card">
+      <header className="ta-card__h">
+        <h3>Habits that showed</h3>
+        <small>trades flagged · their net</small>
       </header>
-      <Alert kind={msg.kind === "ok" ? "ok" : "error"}>{msg.text}</Alert>
-      {st.loading && !d && <Loading label="Opening the day…" />}
-      {st.error && !st.missing && <Alert>{st.error}</Alert>}
-      {st.missing && (
-        <>
-        <section className="ta-card ta-first">
-          <h3>No report is saved for this day</h3>
-          <p>
-            Press <b>Save this day</b> to build it from the journal — Zerodha’s own trades for that day. Figures are never typed in. If the journal has no trades for that day, it was before the server read your account each day: import that financial year’s tradebook from Zerodha Console on the <b>Journal</b> (“Where the history comes from”), then press <b>Save this day</b>. Notes can be added once the day is saved.
-          </p>
-        </section>
-        </>
+      {!flags.length ? (
+        <p className="ta-empty">{empty}</p>
+      ) : (
+        <ul className="lab-flags">
+          {flags.map((f) => (
+            <li key={f.id} className={f.major ? "is-major" : ""}>
+              <span className="lab-flag__n">
+                <b>{f.name}</b> <small>× {f.count}</small>
+              </span>
+              <span className={`lab-flag__v ${tone(f.net)}`}>{rsSigned(f.net)}</span>
+              <small className="lab-flag__t">{f.text}</small>
+            </li>
+          ))}
+        </ul>
       )}
-      {d && <DayBody d={d} onSaved={saved} />}
-    </div>
+    </section>
   );
 }
 
-function DayBody({ d, onSaved }) {
-  const s = d.summary;
-  const c = s.charges;
-  const ai = d.ai;
+/** A trade's run: how far against (left, red) and for (right, green) it went, and where it closed. */
+function RunBar({ t }) {
+  const r = t.read;
+  if (!r || typeof r.mfePct !== "number") return <span className="ta-dim">—</span>;
+  const span = Math.max(0.5, r.mfePct, -r.maePct);
+  const closePct = (t.side === "long" ? t.exitAvg - t.entryAvg : t.entryAvg - t.exitAvg) / t.entryAvg * 100;
+  const pos = (x) => `${50 + (Math.max(-span, Math.min(span, x)) / span) * 50}%`;
+  return (
+    <span className="lab-run" role="img" aria-label={`Went ${r.maePct}% against and ${r.mfePct}% for; closed ${pc(closePct)}`} title={`Against ${r.maePct}% · for +${r.mfePct}% · closed ${pc(closePct)}`}>
+      <i className="lab-run__adv" style={{ left: pos(r.maePct), right: "50%" }} />
+      <i className="lab-run__fav" style={{ left: "50%", right: `${100 - parseFloat(pos(r.mfePct))}%` }} />
+      <i className="lab-run__x" style={{ left: pos(closePct) }} />
+    </span>
+  );
+}
+
+const FLAG_SHORT = { revenge: "revenge", afterStop: "after stop", afterTarget: "after target", overtrading: "over-trading", heldLoser: "held loser", cutWinner: "cut winner", firstMinutes: "first 5 min", late: "late", againstVwap: "vs VWAP", chased: "chased", costs: "costs" };
+
+function Trades({ trades }) {
+  const [open, setOpen] = useState("");
+  return (
+    <section className="ta-card ta-wide">
+      <header className="ta-card__h">
+        <h3>Every trade, replayed</h3>
+        <small>bar: how far it went against you (red) and for you (green); the mark is where you closed</small>
+      </header>
+      <div className="lab-scroll">
+        <table className="ta-table lab-table">
+          <thead>
+            <tr>
+              <th scope="col">Trade</th>
+              <th scope="col" className="is-num">
+                Net
+              </th>
+              <th scope="col">Run</th>
+              <th scope="col" className="is-num" data-tip="Your profit as a share of the best move while you were in (MFE).">
+                Kept
+              </th>
+              <th scope="col" className="is-num" data-tip="How much further the price went your way after you left, up to 3:15 PM.">
+                Ran on
+              </th>
+              <th scope="col">Entry</th>
+              <th scope="col">Habits</th>
+            </tr>
+          </thead>
+          <tbody>
+            {trades.map((t) => (
+              <React.Fragment key={t.key}>
+                <tr className={open === t.key ? "is-open" : ""}>
+                  <th scope="row">
+                    <button type="button" className="lab-trade" onClick={() => setOpen(open === t.key ? "" : t.key)} aria-expanded={open === t.key}>
+                      <b>
+                        {t.side === "long" ? "▲" : "▼"} {t.symbol}
+                      </b>
+                      <small>
+                        {t.entryClock}–{t.exitClock} · {t.qty} @ {t.entryAvg} → {t.exitAvg}
+                      </small>
+                    </button>
+                  </th>
+                  <td className={`is-num ${tone(t.net)}`}>{rsSigned(t.net)}</td>
+                  <td>
+                    <RunBar t={t} />
+                  </td>
+                  <td className="is-num">{t.read && typeof t.read.capture === "number" ? `${t.read.capture}%` : "—"}</td>
+                  <td className="is-num">{t.read && typeof t.read.ranOn === "number" ? rs(t.read.ranOn) : "—"}</td>
+                  <td>
+                    {t.read ? (
+                      <small className="lab-ctx">
+                        {typeof t.read.vsVwapPct === "number" ? `${pc(t.read.vsVwapPct)} vs VWAP` : ""}
+                        {t.read.opening ? ` · ${t.read.opening}` : ""}
+                        {typeof t.read.rangePos === "number" ? ` · at ${t.read.rangePos}% of the day's range` : ""}
+                      </small>
+                    ) : (
+                      <small className="ta-dim">{t.intraday ? "no bars" : "held overnight"}</small>
+                    )}
+                  </td>
+                  <td>
+                    <span className="lab-chips">
+                      {t.flags.map((f) => (
+                        <span key={f} className="lab-chip">
+                          {FLAG_SHORT[f] || f}
+                        </span>
+                      ))}
+                    </span>
+                  </td>
+                </tr>
+                {open === t.key && (
+                  <tr className="lab-more">
+                    <td colSpan={7}>
+                      {Object.keys(t.whatIf || {}).length ? (
+                        <ul className="lab-whatif">
+                          {Object.entries(t.whatIf).map(([id, w]) => (
+                            <li key={id}>
+                              <b>{{ fixed: "Stop 0.5% · target 1%", trail: "Trailing 0.5%", breakeven: "Break-even stop", close: "Hold to 3:15" }[id] || id}</b> — out at {w.exit} ({w.how}) · <span className={tone(w.net)}>{rsSigned(w.net)}</span>
+                              <small> ({rsSigned(w.net - t.net)} against yours)</small>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="ta-dim">No replay for this trade.</p>
+                      )}
+                      {t.read && typeof t.read.mfe === "number" && (
+                        <p className="ta-dim">
+                          Best while in: {rsSigned(t.read.mfe)} ({pc(t.read.mfePct)}) · worst: {rsSigned(t.read.mae)} ({pc(t.read.maePct)}) · held {t.holdMin} min{typeof t.read.avoided === "number" && t.read.avoided > 0 ? ` · leaving spared you up to ${rs(t.read.avoided)}` : ""}
+                        </p>
+                      )}
+                    </td>
+                  </tr>
+                )}
+              </React.Fragment>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+function DayLab({ date, setDate }) {
+  const [st, setSt] = useState({ loading: true, lab: null, error: "" });
+  const load = useCallback(
+    (refresh = false) => {
+      setSt((s) => ({ ...s, loading: true, error: "" }));
+      return api(`/api/admin/analysis/lab/${date}${refresh ? "?refresh=1" : ""}`)
+        .then((lab) => setSt({ loading: false, lab, error: "" }))
+        .catch((e) => setSt({ loading: false, lab: null, error: e.message }));
+    },
+    [date]
+  );
+  useEffect(() => {
+    load();
+  }, [load]);
+  const l = st.lab;
   return (
     <>
-      <div className="ta-kpis ta-kpis--day">
-        <Kpi label="Net profit / loss" value={rsSigned(s.net)} cls={tone(s.net)} sub={s.netPctOfMargin !== null ? `${s.netPctOfMargin > 0 ? "+" : ""}${s.netPctOfMargin}% of opening margin` : null} />
-        <Kpi label="Total profit" value={rs(s.grossProfit)} cls="is-up" sub={`${s.wins} winning trade${s.wins === 1 ? "" : "s"}`} />
-        <Kpi label="Total loss" value={rs(-s.grossLoss)} cls="is-down" sub={`${s.losses} losing trade${s.losses === 1 ? "" : "s"}`} />
-        <Kpi label="Charges & taxes" value={rs(-c.total)} cls="is-warn" sub={s.chargesPctOfGross !== null ? `${pct1(s.chargesPctOfGross)} of gross profit` : "estimate"} />
-        <Kpi label="Trades" value={s.trades} sub={`${pct1(s.winRatePct)} won · ${s.long} long · ${s.short} short`} />
-        <Kpi label="Margin left" value={d.margin && d.margin.available !== null ? rs(d.margin.available) : "—"} sub={d.margin && d.margin.opening ? `of ${rs(d.margin.opening)} at the open${d.margin.used ? ` · ${rs(d.margin.used)} used` : ""}` : "not read"} />
-        <Kpi label="Profit factor" value={s.profitFactor === null ? "—" : num(s.profitFactor, 2)} sub={s.payoff !== null ? `win ${rs(s.avgWin)} · loss ${rs(s.avgLoss)}` : null} />
-        <Kpi label="Process score" value={d.score === null ? "—" : `${d.score}/100`} sub={`✓ ${d.practices.good.length} · ✗ ${d.practices.bad.length}`} />
+      <div className="lab-bar">
+        <DateField value={date} max={todayIst()} onChange={setDate} label="Day" />
+        <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm" disabled={st.loading} onClick={() => load(true)} data-tip="Replay the day again from Zerodha's 1-minute bars (it is kept once worked out).">
+          {st.loading ? "Replaying…" : "↻ Replay again"}
+        </button>
       </div>
-
-      <section className="ta-card ta-wide">
-        <header className="ta-card__h">
-          <h3>Why {s.net >= 0 ? "profit" : "loss"} today</h3>
-          {ai && <small>AI analysis · {ai.model} · {new Date(ai.at).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</small>}
-        </header>
-        {ai ? (
-          <>
-            <p className="ta-ai__h">{ai.headline}</p>
-            <p>{ai.why}</p>
-            <div className="ta-two ta-two--tight">
-              {ai.worked.length > 0 && (
-                <div>
-                  <h4>What worked</h4>
-                  <ul className="ta-list ta-list--ok">
-                    {ai.worked.map((x) => (
-                      <li key={x}>{x}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              {ai.hurt.length > 0 && (
-                <div>
-                  <h4>What hurt</h4>
-                  <ul className="ta-list ta-list--bad">
-                    {ai.hurt.map((x) => (
-                      <li key={x}>{x}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-            {ai.advice.length > 0 && (
-              <>
-                <h4>Advice for tomorrow</h4>
-                <ol className="ta-list">
-                  {ai.advice.map((x) => (
-                    <li key={x}>{x}</li>
-                  ))}
-                </ol>
-              </>
-            )}
-            {ai.tomorrow.length > 0 && (
-              <p className="ta-dim">
-                <b>Before the first trade:</b> {ai.tomorrow.join(" · ")}
-              </p>
-            )}
-            <p className="ta-dim">{ai.caveat}</p>
-          </>
-        ) : (
-          <>
-            <ul className="ta-list">
-              {d.why.map((x) => (
-                <li key={x}>{x}</li>
-              ))}
-            </ul>
-            <p className="ta-dim">{d.aiError || "This is the desk's own arithmetic. Press “Write the AI analysis” above for a fuller reading by the AI model you chose."}</p>
-          </>
-        )}
-      </section>
-
-      <div className="ta-two">
-        <section className="ta-card">
-          <header className="ta-card__h">
-            <h3>Good practices</h3>
-            <small>to remember</small>
-          </header>
-          <div className="ta-scroll">
-            <table className="an-table ta-table">
-              <thead>
-                <tr>
-                  <th scope="col">Practice</th>
-                  <th scope="col">What the numbers show</th>
-                </tr>
-              </thead>
-              <tbody>
-                {d.practices.good.length === 0 && (
-                  <tr>
-                    <td colSpan="2" className="ta-dim">
-                      None stood out today.
-                    </td>
-                  </tr>
-                )}
-                {d.practices.good.map((p) => (
-                  <tr key={p.id}>
-                    <th scope="row">
-                      <span className="ta-ok" aria-hidden="true">✓</span> {p.title}
-                    </th>
-                    <td className="ta-detail">{p.detail}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      {st.loading && !l && <Loading label="Replaying the day…" />}
+      <Alert>{st.error}</Alert>
+      {l && !l.available && <p className="ta-empty">{l.reason}</p>}
+      {l && l.available && (
+        <>
+          <p className="ta-dim">{dayLong(l.date)}</p>
+          <div className="ta-kpis">
+            <ScoreKpi score={l.summary.score} label={l.summary.label} />
+            <Kpi label="Net after charges" value={rsSigned(l.summary.net)} cls={tone(l.summary.net)} sub={`${l.summary.trades} trade${l.summary.trades === 1 ? "" : "s"} · gross ${rsSigned(l.summary.gross)} · charges ${rs(l.summary.charges)}`} />
+            <Kpi label="Share of the move kept" value={typeof l.summary.capture === "number" ? `${l.summary.capture}%` : "—"} sub="your profit ÷ the best move while in" tip="All replayed trades together: the profit you took against the most the price offered while you were in (MFE)." />
+            <Kpi label="Ran on after your exits" value={rs(l.summary.ranOn)} sub={`leaving spared you up to ${rs(l.summary.avoided)}`} tip="How much further the price went your way after each exit, up to 3:15 PM — and how far it went against you (what leaving spared you)." />
+            <Kpi label="Best other exit" value={l.best ? rsSigned(l.best.vsActual) : "—"} cls={l.best ? tone(l.best.vsActual) : ""} sub={l.best ? l.best.name : "no replay"} />
           </div>
-        </section>
-        <section className="ta-card">
-          <header className="ta-card__h">
-            <h3>Bad practices</h3>
-            <small>to fix</small>
-          </header>
-          <div className="ta-scroll">
-            <table className="an-table ta-table">
-              <thead>
-                <tr>
-                  <th scope="col">Practice</th>
-                  <th scope="col">What the numbers show</th>
-                  <th scope="col" className="is-num">Cost</th>
-                </tr>
-              </thead>
-              <tbody>
-                {d.practices.bad.length === 0 && (
-                  <tr>
-                    <td colSpan="3" className="ta-dim">
-                      None found today.
-                    </td>
-                  </tr>
-                )}
-                {d.practices.bad.map((p) => (
-                  <tr key={p.id}>
-                    <th scope="row">
-                      <span className="ta-x" aria-hidden="true">✗</span> {p.title}
-                    </th>
-                    <td className="ta-detail">
-                      {p.detail}
-                      <small className="ta-do"> Do instead: {p.advice}</small>
-                    </td>
-                    <td className={`is-num ${tone(p.impact)}`}>{p.impact ? rsSigned(p.impact) : "—"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="lab-grid">
+            <Rules rules={l.rules} best={l.best} />
+            <Habits flags={l.flags} empty="No costly habit showed on this day." />
           </div>
-        </section>
-      </div>
-
-      {d.advice.length > 0 && (
-        <section className="ta-card ta-wide">
-          <header className="ta-card__h">
-            <h3>Advice from the data</h3>
-            <small>from today’s winning and losing trades</small>
-          </header>
-          <ol className="ta-list">
-            {d.advice.map((x) => (
-              <li key={x}>{x}</li>
-            ))}
-          </ol>
-        </section>
+          <Trades trades={l.trades} />
+          {l.limits && (
+            <p className="ta-dim">
+              The day&rsquo;s limits from your daily goal: stop {rs(l.limits.stop)}, target {rs(l.limits.target)}.
+            </p>
+          )}
+          {(l.notes || []).map((n) => (
+            <p key={n} className="ta-dim">
+              {n}
+            </p>
+          ))}
+        </>
       )}
-
-      <div className="ta-two">
-        <section className="ta-card">
-          <header className="ta-card__h">
-            <h3>Where the money went</h3>
-          </header>
-          <Waterfall profit={s.grossProfit} loss={s.grossLoss} charges={c.total} net={s.net} />
-          <ul className="ta-ch ta-ch--table">
-            {["brokerage", "stt", "exchange", "sebi", "gst", "stamp", "dp"].map((k) => (
-              <li key={k}>
-                <span>{LABEL[k]}</span>
-                <b>{rs(c[k], 2)}</b>
-                <small>{c.total ? Math.round((c[k] / c.total) * 100) : 0}%</small>
-              </li>
-            ))}
-            <li className="is-sum">
-              <span>Government taxes & statutory (STT + GST + stamp + SEBI)</span>
-              <b>{rs(c.statutory, 2)}</b>
-              <small>{c.total ? Math.round((c.statutory / c.total) * 100) : 0}%</small>
-            </li>
-            <li className="is-sum">
-              <span>Total charges & taxes</span>
-              <b>{rs(c.total, 2)}</b>
-              <small>estimate</small>
-            </li>
-          </ul>
-        </section>
-        <section className="ta-card">
-          <header className="ta-card__h">
-            <h3>By hour of entry</h3>
-          </header>
-          <HBars rows={d.hours.map((h) => ({ label: `${h.hour}:00`, value: h.net, sub: `${h.trades} trade${h.trades === 1 ? "" : "s"} · ${h.wins} won` }))} />
-          <header className="ta-card__h ta-gap">
-            <h3>By stock</h3>
-          </header>
-          <HBars rows={d.symbols.map((x) => ({ label: x.symbol, value: x.net, sub: `${x.trades} trade${x.trades === 1 ? "" : "s"} · ${x.wins} won` }))} />
-        </section>
-      </div>
-
-      <section className="ta-card ta-wide">
-        <header className="ta-card__h">
-          <h3>Every trade</h3>
-          <small>{d.trades.length} round trips closed this day{d.market ? ` · Nifty ${d.market.niftyChangePct >= 0 ? "+" : ""}${d.market.niftyChangePct}%` : ""}</small>
-        </header>
-        {d.trades.length === 0 ? (
-          <p className="ta-dim">The journal holds no closed trades for this day. If you traded it, import that period’s Console tradebook on the Journal, then press Refresh from the journal.</p>
-        ) : (
-          <div className="ta-scroll">
-            <table className="an-table ta-table">
-              <thead>
-                <tr>
-                  <th scope="col">Stock</th>
-                  <th scope="col">Side</th>
-                  <th scope="col" className="is-num">Qty</th>
-                  <th scope="col">In</th>
-                  <th scope="col">Out</th>
-                  <th scope="col" className="is-num">Held</th>
-                  <th scope="col" className="is-num">Entry</th>
-                  <th scope="col" className="is-num">Exit</th>
-                  <th scope="col" className="is-num">Profit / loss</th>
-                  <th scope="col" className="is-num">Charges</th>
-                  <th scope="col" className="is-num">Net</th>
-                </tr>
-              </thead>
-              <tbody>
-                {d.trades.map((t) => (
-                  <tr key={t.key}>
-                    <th scope="row">{t.symbol}</th>
-                    <td className={t.side === "long" ? "is-up" : "is-down"}>{t.side === "long" ? "Long" : "Short"}</td>
-                    <td className="is-num">{num(t.qty)}</td>
-                    <td>{t.entryAt}</td>
-                    <td>{t.exitAt}</td>
-                    <td className="is-num">{t.holdMin} min</td>
-                    <td className="is-num">{num(t.entryAvg, 2)}</td>
-                    <td className="is-num">{num(t.exitAvg, 2)}</td>
-                    <td className={`is-num ${tone(t.pnl)}`}>{rsSigned(t.pnl, 2)}</td>
-                    <td className="is-num is-warn">{rs(-t.charges, 2)}</td>
-                    <td className={`is-num ta-netv ${tone(t.net)}`}>{rsSigned(t.net, 2)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
-
-      {d.readNotes && d.readNotes.length > 0 && <p className="ta-dim">Not read when this report was saved: {d.readNotes.join(" ")}</p>}
-      {d.formerOverrides && <p className="ta-dim">Figures typed in by hand for this day in an earlier version are kept on record but no longer used: every figure above comes from Zerodha’s trades in the journal.</p>}
-      <NotesEditor key={`${d.date}-${d.editedAt || d.capturedAt}`} d={d} onSaved={onSaved} />
     </>
   );
 }
 
-/* -------------------------------------------------------------------------------------- the page */
-
-export default function TradeAnalysis() {
-  const [list, setList] = useState({ loading: true, days: [], settings: null, error: "" });
-  const [range, setRange] = useState(() => {
-    try {
-      return window.localStorage.getItem(KEY) || "30";
-    } catch (_) {
-      return "30";
-    }
-  });
-  const [custom, setCustom] = useState({ from: addDays(todayIst(), -29), to: todayIst() });
-  const [an, setAn] = useState({ data: null, error: "" });
-  const [view, setView] = useState("dashboard");
-  const [open, setOpen] = useState(null);
-  const [pick, setPick] = useState(todayIst());
-  const [msg, setMsg] = useState({ kind: "", text: "" });
-  const [busy, setBusy] = useState("");
-
+function PeriodLab() {
+  const [p, setP] = useState(() => read("vpt.lab.period", "30"));
+  const [st, setSt] = useState({ loading: true, r: null, error: "" });
   const bounds = useMemo(() => {
-    const today = todayIst();
-    if (range === "custom") return { from: custom.from || null, to: custom.to || today };
-    const r = RANGES.find((x) => x.id === range);
-    return r && r.days ? { from: addDays(today, -(r.days - 1)), to: today } : { from: null, to: null };
-  }, [range, custom]);
-
-  const loadList = useCallback(
-    () =>
-      api("/api/admin/analysis/days")
-        .then((d) => setList({ loading: false, days: d.days, settings: d.settings, error: "" }))
-        .catch((e) => setList((l) => ({ ...l, loading: false, error: e.message }))),
-    []
-  );
+    const per = PERIODS.find((x) => x.id === p) || PERIODS[1];
+    return { from: addDays(todayIst(), -(per.days - 1)), to: todayIst() };
+  }, [p]);
   useEffect(() => {
-    loadList();
-  }, [loadList]);
-  const loadAn = useCallback(() => {
-    const q = new URLSearchParams();
-    if (bounds.from) q.set("from", bounds.from);
-    if (bounds.to) q.set("to", bounds.to);
-    return api(`/api/admin/analysis/analytics?${q}`)
-      .then((d) => setAn({ data: d, error: "" }))
-      .catch((e) => setAn({ data: null, error: e.message }));
+    setSt((s) => ({ ...s, loading: true }));
+    api(`/api/admin/analysis/lab?from=${bounds.from}&to=${bounds.to}`)
+      .then((r) => setSt({ loading: false, r, error: "" }))
+      .catch((e) => setSt({ loading: false, r: null, error: e.message }));
   }, [bounds]);
-  useEffect(() => {
-    loadAn();
-  }, [loadAn, list.days.length]);
-
-  const changed = useCallback(() => {
-    loadList();
-    loadAn();
-  }, [loadList, loadAn]);
-  const setR = (id) => {
-    setRange(id);
-    try {
-      window.localStorage.setItem(KEY, id);
-    } catch (_) {
-      /* remembered for this visit only */
-    }
-  };
-  const openDay = (d) => {
-    setOpen(d);
-    setView("day");
-    window.scrollTo && window.scrollTo({ top: 0 });
-  };
-  const setting = async (patch) => {
-    try {
-      const s = await api("/api/admin/analysis/settings", { method: "PUT", body: patch });
-      setList((l) => ({ ...l, settings: s }));
-    } catch (e) {
-      setMsg({ kind: "error", text: e.message });
-    }
-  };
-  const saveToday = async () => {
-    setBusy("today");
-    setMsg({ kind: "", text: "" });
-    try {
-      const d = await api(`/api/admin/analysis/day/${todayIst()}`, { method: "POST", body: {} });
-      changed();
-      openDay(d.date);
-    } catch (e) {
-      setMsg({ kind: "error", text: e.message });
-    }
-    setBusy("");
-  };
-
-  const inRange = useMemo(() => list.days.filter((d) => (!bounds.from || d.date >= bounds.from) && (!bounds.to || d.date <= bounds.to)), [list.days, bounds]);
-  const s = list.settings;
-
-  if (list.loading) return <Loading label="Opening Trade Analysis…" />;
+  const r = st.r;
   return (
-    <div className="ta">
-      <section className="ta-card ta-head">
-        <div>
-          <h2>Trade Analysis</h2>
-          <p className="ta-dim">
-            Every trading day read back: profit, loss, charges and taxes, trades and margin — what went well, what did not, and what to do about it. Saved by itself at <b>3:45 PM IST</b>.
-          </p>
-        </div>
-        <div className="ta-ctrl">
-          <label className="ta-chk" data-tip="Save each trading day's report automatically at 3:45 PM IST, after the market has closed.">
-            <input type="checkbox" checked={Boolean(s && s.auto)} onChange={(e) => setting({ auto: e.target.checked })} /> Auto-save 3:45 PM
-          </label>
-          <label className="ta-chk" data-tip={s && s.aiReady ? "Also write the AI analysis with the automatic report (uses the AI model you chose)." : "No AI key is saved: reports use the desk's own arithmetic."}>
-            <input type="checkbox" checked={Boolean(s && s.withAi)} disabled={!s || !s.aiReady} onChange={(e) => setting({ withAi: e.target.checked })} /> AI analysis
-          </label>
-          <button type="button" className="adm-btn adm-btn--solid adm-btn--sm" disabled={Boolean(busy)} onClick={saveToday}>
-            {busy === "today" ? "Reading…" : "Save today now"}
-          </button>
-        </div>
-      </section>
-      <Alert kind={msg.kind === "ok" ? "ok" : "error"}>{msg.text || list.error}</Alert>
-
-      <div className="ta-toolbar">
-        <div className="ta-tabs" role="tablist" aria-label="Trade Analysis">
-          {[["dashboard", "Dashboard"], ["days", `Daily reports (${list.days.length})`], ...(open ? [["day", dayLabel(open)]] : [])].map(([id, l]) => (
-            <button key={id} type="button" role="tab" aria-selected={view === id} onClick={() => setView(id)}>
-              {l}
+    <>
+      <div className="lab-bar">
+        <div className="ta-seg" role="group" aria-label="Period">
+          {PERIODS.map((x) => (
+            <button
+              key={x.id}
+              type="button"
+              aria-pressed={p === x.id}
+              onClick={() => {
+                setP(x.id);
+                keep("vpt.lab.period", x.id);
+              }}
+            >
+              {x.label}
             </button>
           ))}
         </div>
-        {view !== "day" && (
-          <div className="ta-range">
-            <div className="ta-seg" role="group" aria-label="Period">
-              {RANGES.map((r) => (
-                <button key={r.id} type="button" aria-pressed={range === r.id} onClick={() => setR(r.id)}>
-                  {r.label}
-                </button>
-              ))}
+      </div>
+      {st.loading && !r && <Loading label="Adding up the days…" />}
+      <Alert>{st.error}</Alert>
+      {r && !r.days && <p className="ta-empty">No day in this period has been replayed yet. The server replays every recent day with trades by itself within the hour; or open a day above.</p>}
+      {r && r.days > 0 && (
+        <>
+          <div className="ta-kpis">
+            <ScoreKpi score={r.summary.score} label={`average of ${r.days} day${r.days === 1 ? "" : "s"}`} />
+            <Kpi label="Net after charges" value={rsSigned(r.summary.net)} cls={tone(r.summary.net)} sub={`${r.summary.trades} trades · charges ${rs(r.summary.charges)}`} />
+            <Kpi label="Share of the move kept" value={typeof r.summary.capture === "number" ? `${r.summary.capture}%` : "—"} sub={`${r.summary.replayed} trades replayed`} />
+            <Kpi label="Ran on after your exits" value={rs(r.summary.ranOn)} sub={`spared up to ${rs(r.summary.avoided)}`} />
+            <div className="ta-kpi">
+              <span className="ta-kpi__l">Score, day by day</span>
+              <Spark values={r.trend.map((x) => x.score)} c="b" />
             </div>
-            {range === "custom" && (
-              <span className="ta-dates">
-                <DateRangeField value={custom} max={todayIst()} label="Dates" onChange={(r) => setCustom({ from: r.from, to: r.to })} />
-              </span>
-            )}
           </div>
-        )}
-        <div className="ta-open">
-          <DateField value={pick} max={todayIst()} onChange={setPick} label="Open any day" />
-          <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm" disabled={!pick} onClick={() => openDay(pick)}>
-            Open this day
+          {r.lessons.length > 0 && (
+            <section className="ta-card lab-lessons">
+              <header className="ta-card__h">
+                <h3>What your own trades say</h3>
+                <small>measured on your fills and Zerodha&rsquo;s bars — no AI</small>
+              </header>
+              <ul>
+                {r.lessons.map((x) => (
+                  <li key={x}>{x}</li>
+                ))}
+              </ul>
+            </section>
+          )}
+          <div className="lab-grid">
+            <Rules rules={r.rules} best={r.best} />
+            <Habits flags={r.flags} empty="No costly habit showed in this period." />
+          </div>
+          <div className="lab-grid">
+            <section className="ta-card">
+              <header className="ta-card__h">
+                <h3>Net by the hour you came in</h3>
+              </header>
+              <HBars rows={r.byHour.map((h) => ({ label: `${h.label} · ${h.trades}`, value: h.net }))} />
+            </section>
+            <section className="ta-card">
+              <header className="ta-card__h">
+                <h3>Net by how you came in</h3>
+              </header>
+              <HBars rows={r.context.map((c) => ({ label: `${c.name} · ${c.trades}`, value: c.net }))} />
+            </section>
+          </div>
+        </>
+      )}
+    </>
+  );
+}
+
+export default function TradeAnalysis() {
+  const [mode, setMode] = useState(() => (read(MODE_KEY, "day") === "period" ? "period" : "day"));
+  const [date, setDate] = useState(null);
+  // open on the latest day with trades: the newest replayed day or the Day book's newest day, else the last weekday
+  useEffect(() => {
+    let on = true;
+    const from = addDays(todayIst(), -59);
+    Promise.all([api(`/api/admin/analysis/lab?from=${from}&to=${todayIst()}`).catch(() => null), api("/api/admin/analysis/days").catch(() => null)]).then(([lab, days]) => {
+      if (!on) return;
+      const a = lab && lab.trend && lab.trend.length ? lab.trend[lab.trend.length - 1].date : "";
+      const b = days && days.days && days.days[0] ? days.days[0].date : "";
+      setDate([a, b].filter(Boolean).sort().pop() || lastWeekday());
+    });
+    return () => {
+      on = false;
+    };
+  }, []);
+  const pick = (m) => {
+    setMode(m);
+    keep(MODE_KEY, m);
+  };
+  return (
+    <div className="ta lab">
+      <section className="ta-card ta-head">
+        <div>
+          <h2>Trade Analysis — Execution Lab</h2>
+          <p className="ta-dim">
+            How you traded, not only what you made: every closed intraday trade replayed on Zerodha&rsquo;s 1-minute bars — the share of the move you kept, where you came in, what other exits would have made on the same entries, and the habits that cost money. Worked out by
+            the server by itself; your daily profit-and-loss reports are in the Journal&rsquo;s <b>Day book</b>.
+          </p>
+        </div>
+        <div className="ta-seg" role="group" aria-label="Execution Lab">
+          <button type="button" aria-pressed={mode === "day"} onClick={() => pick("day")}>
+            A day
+          </button>
+          <button type="button" aria-pressed={mode === "period"} onClick={() => pick("period")}>
+            A period
           </button>
         </div>
-      </div>
-
-      {view === "dashboard" && <>{an.error ? <Alert>{an.error}</Alert> : <Dashboard an={an} days={list.days} onOpen={openDay} settings={s} />}</>}
-      {view === "days" && (
-        <section className="ta-card ta-wide">
-          <header className="ta-card__h">
-            <h3>Daily reports</h3>
-            <small>{inRange.length} day{inRange.length === 1 ? "" : "s"} in this period · click a row to open it</small>
-          </header>
-          <DaysTable days={inRange} onOpen={openDay} />
-        </section>
-      )}
-      {view === "day" && open && <DayView key={open} date={open} onBack={() => setView("days")} onChanged={changed} />}
-
-      <p className="ta-dim ta-foot">
-        Charges and taxes are an estimate from Zerodha's published equity rates (brokerage, STT, exchange fee, SEBI fee, GST, stamp duty, DP charge); the contract note is the truth. A trade counts on the day it closed. This page describes what
-        happened; it does not predict the next day and is not advice.
-      </p>
+      </section>
+      {mode === "day" ? date ? <DayLab key={date} date={date} setDate={setDate} /> : <Loading label="Opening the lab…" /> : <PeriodLab />}
+      <p className="ta-dim ta-foot">A replay of the past on 1-minute bars (Zerodha keeps about 60 days of them): it measures how trades were handled; it does not predict the next one and is not advice. Charges are the journal&rsquo;s estimate.</p>
     </div>
   );
 }

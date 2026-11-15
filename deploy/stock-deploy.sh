@@ -7,6 +7,7 @@
 #   stock-deploy --doctor   check the wiring: pm2, the app's port, and whether the public address reaches the app
 #   stock-deploy --nginx    print the nginx rules that pass /api and /me to the app
 #   stock-deploy --nginx-limits  print nginx's flood limits (they go in /etc/nginx/conf.d)
+#   stock-deploy --keepalive  check the three restart layers (pm2, reboot, watchdog); print what is missing
 #   stock-deploy --help     this text
 #
 # What it does, in order, stopping at the first thing that fails:
@@ -50,8 +51,9 @@ main() {
     --doctor) mode="doctor" ;;
     --nginx) mode="nginx" ;;
     --nginx-limits) mode="limits" ;;
+    --keepalive) mode="keepalive" ;;
     -h | --help)
-      sed -n '2,23p' "$self" | sed 's/^# \{0,1\}//'
+      sed -n '2,24p' "$self" | sed 's/^# \{0,1\}//'
       return 0
       ;;
     *) die "unknown option '$1'. Try: stock-deploy --help" ;;
@@ -187,6 +189,50 @@ NGINX
   if [ "$mode" = "limits" ]; then
     nginx_limits
     return 0
+  fi
+
+  # ---- stock-deploy --keepalive: are all three restart layers in place? (read-only)
+  #   pm2 restarts the app when it crashes or grows too big · systemd starts pm2 again after a
+  #   reboot · the watchdog restarts the app when it hangs (README → "Staying up")
+  if [ "$mode" = "keepalive" ]; then
+    say "Checking what keeps the site up"
+    local todo=0 pm2bin nodebin
+    pm2bin="$(command -v pm2 || true)"
+    nodebin="$(command -v node || true)"
+    if [ -z "$pm2bin" ]; then
+      note "1. pm2 ............................... ${R}not installed${N}  (npm i -g pm2)"
+      return 1
+    fi
+    if pm2 describe "$app" > /dev/null 2>&1; then
+      note "1. pm2 runs $app ................ ${G}yes${N} (restarts it on a crash or above 600 MB)"
+    else
+      note "1. pm2 runs $app ................ ${R}NO${N} — start it:  stock-deploy --force"
+      todo=1
+    fi
+    if systemctl is-enabled "pm2-$(id -un)" > /dev/null 2>&1; then
+      note "2. pm2 starts again after a reboot ... ${G}yes${N} (systemd: pm2-$(id -un))"
+    else
+      note "2. pm2 starts again after a reboot ... ${R}NO${N} — run this, then copy and run the sudo line it prints:"
+      note "       pm2 startup systemd -u $(id -un) --hp $HOME"
+      note "   and afterwards:  pm2 save"
+      todo=1
+    fi
+    if crontab -l 2> /dev/null | grep -q "deploy/watchdog.sh"; then
+      note "3. The watchdog runs every minute .... ${G}yes${N} (log: ~/.pm2/logs/watchdog.log)"
+    else
+      note "3. The watchdog runs every minute .... ${R}NO${N} — add it with this one line:"
+      note "       ( crontab -l 2>/dev/null | grep -v deploy/watchdog.sh; echo \"* * * * * PATH=$(dirname "$pm2bin"):$(dirname "${nodebin:-/usr/bin/node}"):/usr/bin:/bin bash $app_dir/deploy/watchdog.sh >> $HOME/.pm2/logs/watchdog.log 2>&1\" ) | crontab -"
+      todo=1
+    fi
+    if pm2 ls 2> /dev/null | grep -q "pm2-logrotate"; then
+      note "4. Logs are rotated .................. ${G}yes${N} (pm2-logrotate)"
+    else
+      note "4. Logs are rotated .................. ${Y}no${N} — optional but wise:"
+      note "       pm2 install pm2-logrotate && pm2 set pm2-logrotate:max_size 10M && pm2 set pm2-logrotate:retain 14 && pm2 set pm2-logrotate:compress true"
+    fi
+    bash "$app_dir/deploy/watchdog.sh" --status 2> /dev/null | sed 's/^/    /' || true
+    if [ "$todo" = 0 ]; then printf '\n%s    All three layers are in place.%s\n' "$G" "$N"; fi
+    return "$todo"
   fi
 
   # What to do when the public address does not reach the app. It looks at how far the nginx

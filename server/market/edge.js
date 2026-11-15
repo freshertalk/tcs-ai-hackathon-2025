@@ -525,16 +525,18 @@ function read(model, { open = null, last = null } = {}) {
     out.kinds[kind.id] = kout;
   }
 
-  // the headline: the best graded, tradeable reading (a swing short cannot be held in the cash market)
+  // the headline: the best graded, tradeable reading (a swing short cannot be held in the cash market).
+  // The desk is an INTRADAY desk: a graded day trade always leads; a swing reading only when no day
+  // trade is graded.
   const rank = { A: 3, B: 2, C: 1 };
   const cands = [
-    ["swing", "long"],
     ["day", "long"],
     ["day", "short"],
+    ["swing", "long"],
   ]
     .map(([k, s]) => ({ kind: k, side: s, ...out.kinds[k][s] }))
     .filter((x) => x.grade);
-  cands.sort((a, b) => rank[b.grade] - rank[a.grade] || b.live.expRLo - a.live.expRLo);
+  cands.sort((a, b) => (a.kind === "day" ? 0 : 1) - (b.kind === "day" ? 0 : 1) || rank[b.grade] - rank[a.grade] || b.live.expRLo - a.live.expRLo);
   out.best = cands[0] ? { kind: cands[0].kind, side: cands[0].side, grade: cands[0].grade, winPct: cands[0].live.winPct, expR: cands[0].live.expR, n: cands[0].live.n } : null;
   const down = out.kinds.swing.short;
   out.warning = down.grade === "A" || down.grade === "B" ? `Downside edge over the next sessions (grade ${down.grade}): similar days fell more often than not. A reason to avoid new longs and to tighten stops.` : null;

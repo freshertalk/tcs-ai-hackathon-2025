@@ -113,13 +113,20 @@ function writeAdminShell(template) {
     <link rel="icon" type="image/png" sizes="48x48" href="/img/panchmukhi-icon-48.png" data-private="1" />
     <link rel="icon" type="image/png" sizes="192x192" href="/img/panchmukhi-icon-192.png" data-private="1" />
     <link rel="apple-touch-icon" sizes="180x180" href="/img/panchmukhi-icon-180.png" data-private="1" />`;
+  // the link preview (title, description, Open Graph, the X card) of the dashboard, between markers:
+  // the server swaps the block for each page's own (server/previews.js), so a shared address previews
+  // as that page; the private area stays noindex
+  const { previewFor, previewTags, START, END } = require("../server/previews");
+  const preview = `${START}
+    ${previewTags(previewFor("/me"), ORIGIN)}
+    ${END}`;
   const html = template
     .replace(/<link\s+rel="(?:icon|shortcut icon|apple-touch-icon|manifest)"[^>]*>\s*/gi, "")
+    .replace(/<meta\s+name="(?:application-name|apple-mobile-web-app-title)"[^>]*>\s*/gi, "")
     .replace(
       "</head>",
       `${ICONS}
-    <title>DrishtiAI</title>
-    <meta name="robots" content="noindex, nofollow, noarchive" />
+    ${preview}
   </head>`
     )
     .replace(/<noscript>[\s\S]*?<\/noscript>/i, "<noscript>This private area needs JavaScript.</noscript>");

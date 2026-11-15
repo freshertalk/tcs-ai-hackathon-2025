@@ -283,11 +283,29 @@ test("3:45 PM: on a trading day the report saves itself once, and not before, no
   // Saturday
   const sat = boot({ trips, now: at("2026-11-14", "16:00") });
   assert.equal(await sat.svc.tick(), null);
-  // switched off
+  // the old "auto" switch is ignored: every day is saved by itself
   const off = boot({ trips, now: at(D, "16:00") });
   off.svc.setSettings({ auto: false });
-  assert.equal(await off.svc.tick(), null);
-  assert.equal(off.svc.list({}).length, 0);
+  assert.equal((await off.svc.tick()).source, "auto");
+  assert.equal(off.svc.settings().auto, true);
+});
+
+test("missed days are saved by themselves on the hourly sweep: every day with closed trades and no record, newest first, without the AI", async () => {
+  const days = ["2026-11-09", "2026-11-10", "2026-11-11"];
+  const mk = (date, i) => ({ symbol: "SBIN", exchange: "NSE", side: "long", product: "MIS", intraday: true, entryAt: Date.parse(`${date}T04:00:00Z`), exitAt: Date.parse(`${date}T05:00:00Z`), entryAvg: 800, exitAvg: 804, maxQty: 10, qty: 10, pnl: 40 + i, charges: 12, net: 28 + i, holdMin: 60, key: `k${i}`, parts: { brokerage: 0, stt: 2, exchange: 1, sebi: 0, gst: 1, stamp: 0, dp: 0 } });
+  const trips = days.map(mk);
+  const b = boot({ trips, now: at("2026-11-12", "11:00") });
+  b.svc.source.daysWithTrips = async (from, to) => days.filter((d) => d >= from && d <= to);
+  const saved = await b.svc.backfill();
+  assert.deepEqual(saved, ["2026-11-11", "2026-11-10", "2026-11-09"]);
+  assert.deepEqual(b.svc.list({}).map((d) => d.date), ["2026-11-11", "2026-11-10", "2026-11-09"]);
+  assert.ok(b.svc.list({}).every((d) => d.source === "auto" && !d.hasAi));
+  assert.deepEqual(await b.svc.backfill(), [], "nothing left to save");
+  // the minute timer runs the sweep at most once an hour, outside the 3:45 window too
+  const c = boot({ trips, now: at("2026-11-12", "11:00") });
+  c.svc.source.daysWithTrips = async (from, to) => days.filter((d) => d >= from && d <= to);
+  await c.svc.tick();
+  assert.equal(c.svc.list({}).length, 3);
 });
 
 test("3:45 PM with no trades saves nothing; with the broker unreachable it tries again, a few times", async () => {
@@ -347,4 +365,50 @@ test("Trade Analysis reads and reports; the folder holds no broker and no order 
   }
   const ai = fs.readFileSync(path.join(__dirname, "..", "ai", "dayreview.js"), "utf8");
   assert.ok(!/setInterval|setTimeout|cron/i.test(ai));
+});
+
+test("the Execution Lab: a day replayed from the journal and that day's 1-minute bars, kept once worked out, and added up over a period", async () => {
+  const day = "2026-11-12";
+  const t0 = Date.parse(`${day}T09:15:00+05:30`);
+  const bars = [];
+  for (let i = 0; i <= 375; i += 1) {
+    const px = 800 + Math.sin(i / 40) * 6 + i * 0.02;
+    bars.push({ t: t0 + i * 60000, o: px, h: px + 0.4, l: px - 0.4, c: px, v: 500 });
+  }
+  const mk = (k, inMin, outMin, side) => {
+    const e = bars[inMin].c;
+    const x = bars[outMin].c;
+    const pnl = (side === "long" ? x - e : e - x) * 50;
+    return { key: k, symbol: "SBIN", exchange: "NSE", side, product: "MIS", intraday: true, entryAt: bars[inMin].t, exitAt: bars[outMin].t, entryAvg: e, exitAvg: x, maxQty: 50, qty: 50, pnl, charges: 30, net: pnl - 30, holdMin: outMin - inMin, parts: { brokerage: 0, stt: 10, exchange: 5, sebi: 0, gst: 2, stamp: 1, dp: 0 } };
+  };
+  const trips = [mk("a", 20, 50, "long"), mk("b", 60, 70, "short"), mk("c", 75, 120, "long")];
+  const b = boot({ trips, now: at("2026-11-13", "11:00") });
+  let fetched = 0;
+  b.svc.source.minuteBars = async (sym, from, to) => {
+    fetched += 1;
+    return bars.filter((x) => x.t >= from && x.t <= to);
+  };
+  b.svc.source.discipline = () => ({ targetPct: 3, stopPct: 1.5 });
+  b.svc.source.daysWithTrips = async () => [day];
+  const lab = await b.svc.lab(day);
+  assert.equal(lab.available, true);
+  assert.equal(lab.summary.trades, 3);
+  assert.equal(lab.summary.replayed, 3);
+  assert.equal(fetched, 1, "one stock: one read of its bars");
+  assert.ok(lab.rules.length === 5 && lab.best);
+  assert.ok(lab.trades.find((t) => t.key === "c").flags.includes("revenge") || lab.trades.find((t) => t.key === "b").net >= 0);
+  await b.svc.lab(day);
+  assert.equal(fetched, 1, "kept once worked out: no second read");
+  await b.svc.lab(day, { refresh: true });
+  assert.equal(fetched, 2, "refresh replays it again");
+  const r = b.svc.labRange({ from: "2026-11-01", to: "2026-11-30" });
+  assert.equal(r.days, 1);
+  assert.equal(r.summary.trades, 3);
+  assert.equal((await b.svc.lab("2026-11-11")).available, false, "a day without trades says so");
+  // the sweep replays the recent days by itself
+  const c = boot({ trips, now: at("2026-11-13", "11:00") });
+  c.svc.source.minuteBars = async (sym, from, to) => bars.filter((x) => x.t >= from && x.t <= to);
+  c.svc.source.daysWithTrips = async () => [day];
+  assert.deepEqual(await c.svc.labBackfill(), [day]);
+  assert.deepEqual(await c.svc.labBackfill(), [], "already replayed");
 });

@@ -393,7 +393,7 @@ function News({ symbol, aiNow }) {
 export default function AiPanel({ symbol, onSize }) {
   const status = useAiStatus(); // shared: a company or model change applies here at once
   const [error, setError] = useState("");
-  const [horizon, setHorizon] = useState("both");
+  const [horizon, setHorizon] = useState("intraday"); // an intraday desk: intraday unless asked
   const [busy, setBusy] = useState("");
   const [result, setResult] = useState(null);
   const [journal, setJournal] = useState({ entries: [], stats: null });

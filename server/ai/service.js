@@ -53,7 +53,7 @@ const istDate = (ms) => new Date(ms + IST).toISOString().slice(0, 10);
 
 /* ------------------------------------------------------------- prompts */
 
-const SYSTEM = `You are the strategist on a private trading desk for NSE (India) cash equities. A single trader reads your output and decides for themselves; you never place orders.
+const SYSTEM = `You are the strategist on a private trading desk for NSE (India) cash equities. A single trader reads your output and decides for themselves; you never place orders. The trader is an intraday trader: the intraday plan is the main one; a swing plan is written only when it is asked for.
 
 You will receive a JSON brief for one stock, built from live and historical exchange data: the quote, today's 5-minute tape, daily bars, indicators, support and resistance, circuit limits, a rule-based engine's own reading on three horizons, backtests of seven rule-based setups on this stock, and the scored results of your own earlier plans for it. You will also receive the desk's trading-skills file. Follow it.
 
@@ -853,7 +853,7 @@ class AiService {
 
   /* ------------------------------------------------------------ strategy */
 
-  async strategy(symbol, horizon = "both") {
+  async strategy(symbol, horizon = "intraday") {
     const h = HORIZONS.includes(horizon) ? horizon : "both";
     const cacheKey = `${symbol}|${h}`;
     const hit = this._recent.get(cacheKey);

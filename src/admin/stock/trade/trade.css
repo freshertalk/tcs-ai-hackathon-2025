@@ -2310,3 +2310,49 @@
 .jp-table tbody tr.is-sel {
   background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
+
+/* the Journal's two parts: trades & analytics, and the Day book */
+.jr-wrap {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.jr-parts {
+  display: inline-flex;
+  justify-self: start;
+  max-width: 100%;
+  padding: 3px;
+  border: 1px solid var(--line-2);
+  border-radius: 10px;
+  background: var(--surface);
+  overflow-x: auto;
+}
+.jr-parts button {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--ink-2);
+  font: inherit;
+  font-size: var(--t-mid);
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.jr-parts button small {
+  font-weight: 400;
+  font-size: var(--t-tag);
+  color: var(--ink-3);
+}
+.jr-parts button[aria-selected="true"] {
+  background: var(--accent);
+  color: var(--on-accent, #fff);
+}
+.jr-parts button[aria-selected="true"] small {
+  color: inherit;
+  opacity: 0.85;
+}

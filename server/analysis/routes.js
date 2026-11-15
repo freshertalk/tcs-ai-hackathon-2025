@@ -1,6 +1,8 @@
 "use strict";
-// HTTP routes for Trade Analysis. The figures are the owner's own profit and loss, so every route
-// needs the superadmin (like the Journal and Positions); nothing here can reach an order.
+// HTTP routes for the Journal's Day book (the daily reports). The figures are the owner's own profit
+// and loss, so every route needs the superadmin (like the Journal and Positions); nothing here can
+// reach an order. There is no route to save a day by hand: every day is saved by itself (3:45 PM, and
+// the hourly sweep for missed days).
 
 const { AnalysisError } = require("./service");
 
@@ -25,14 +27,11 @@ function mountAnalysis(app, { analysis, requireSuper, limiter }) {
   app.get("/api/admin/analysis/days", requireSuper, wrap(async (req) => ({ days: analysis.list(range(req)), settings: analysis.settings() })));
   app.get("/api/admin/analysis/analytics", requireSuper, limiter(120, 60 * 1000), wrap(async (req) => analysis.analytics(range(req))));
   app.get("/api/admin/analysis/day/:date", requireSuper, wrap(async (req) => analysis.get(req.params.date)));
-  // save (or refresh) a day's report now, from the journal and the broker's readings
-  app.post("/api/admin/analysis/day/:date", requireSuper, limiter(40, 10 * 60 * 1000), wrap(async (req) => {
-    const r = await analysis.capture(req.params.date, { by: "manual", withAi: Boolean((req.body || {}).ai) });
-    if (r && r.skipped) throw new AnalysisError("No closed trades were found for that day, so nothing was saved. If you traded it, import that period's tradebook from Zerodha Console on the Journal, then save the day again.", "no_trades", 404);
-    return r;
-  }));
   // your notes on a day (a note, a rating, lessons, a mood) — the figures are never edited by hand
   app.put("/api/admin/analysis/day/:date", requireSuper, limiter(60, 10 * 60 * 1000), wrap(async (req) => analysis.edit(req.params.date, req.body || {})));
+  // the Execution Lab (Trade Analysis): one day replayed, and a period added up
+  app.get("/api/admin/analysis/lab/:date", requireSuper, limiter(60, 60 * 1000), wrap(async (req) => analysis.lab(req.params.date, { refresh: req.query.refresh === "1" })));
+  app.get("/api/admin/analysis/lab", requireSuper, limiter(120, 60 * 1000), wrap(async (req) => analysis.labRange(range(req))));
   app.post("/api/admin/analysis/day/:date/ai", requireSuper, limiter(20, 60 * 60 * 1000), wrap(async (req) => analysis.writeAi(req.params.date)));
   app.delete("/api/admin/analysis/day/:date", requireSuper, limiter(30, 10 * 60 * 1000), wrap(async (req) => analysis.remove(req.params.date)));
 }

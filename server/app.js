@@ -47,6 +47,7 @@ const { AlertWatch } = require("./alert-watch");
 const { DisciplineWatch } = require("./discipline-watch");
 const { GlobalFeed } = require("./market/global");
 const { SocialService } = require("./social/service");
+const { previewFor, previewTags, injectPreview } = require("./previews");
 const { readingOf: socialReading } = require("./social/extract");
 const { SocialWatch } = require("./social-watch");
 const { JournalCapture } = require("./journal-capture");
@@ -259,6 +260,20 @@ function createApp(opts = {}) {
             .filter((t) => !t.open && t.exitAt && istDay(t.exitAt) === date)
             .map((t) => ({ ...t, parts: chargeParts(t) }));
         },
+        // that day's 1-minute bars, for the Execution Lab's replay
+        minuteBars: (symbol, fromMs, toMs) => market.minuteBarsBetween(symbol, fromMs, toMs),
+        // the daily goal's percentages (target and stop), for the lab's "after the stop / target" flags
+        discipline: () => trading._discipline(),
+        // the days that have closed trades in the journal (for saving the days that were missed)
+        daysWithTrips(fromDate, toDate) {
+          const set = new Set();
+          for (const t of trading.journal.trips({})) {
+            if (t.open || !t.exitAt) continue;
+            const d = istDay(t.exitAt);
+            if (d >= fromDate && d <= toDate) set.add(d);
+          }
+          return [...set].sort();
+        },
         async funds() {
           const f = await trading.funds();
           return f && f.equity ? f.equity : null;
@@ -275,6 +290,11 @@ function createApp(opts = {}) {
       },
     });
   if (opts.analysisAuto !== false) analysis.start();
+  // a tradebook import: the Day book saves the new days, and the lab replays the recent ones, at once (not on the next hourly sweep)
+  trading.onJournalImport = async () => {
+    for (let i = 0; i < 25; i += 1) if (!(await analysis.backfill()).length) break; // 20 days a round, until none is missing
+    await analysis.labBackfill({ max: 10 });
+  };
   // figures are no longer entered by hand: days edited by hand in an earlier version are rebuilt from the journal once
   if (typeof analysis.dropHandFigures === "function") analysis.dropHandFigures().catch((err) => (opts.log || console).error(`[analysis] ${err.message}`));
 
@@ -947,6 +967,14 @@ ${e.text}
   app.put("/api/admin/tradeai/convs/:id/pin", requireAdmin, limiter(60, 60 * 1000), taWrap(async (req) => ai.tradeai.pin(String(req.params.id), who(req), (req.body || {}).pinned)));
   app.delete("/api/admin/tradeai/convs/:id", requireAdmin, limiter(60, 60 * 1000), taWrap(async (req) => ai.tradeai.remove(String(req.params.id), who(req))));
 
+  /* ------------------------------------------------ liveness (deploy/watchdog.sh) */
+  // Is the process alive and answering? No sign-in, no database, nothing private: the watchdog asks
+  // it every minute and restarts the app when it stops answering (a hang pm2 cannot see).
+  app.get("/api/live", (req, res) => {
+    res.set("Cache-Control", "no-store");
+    res.json({ ok: true, up: Math.round(process.uptime()), at: new Date().toISOString() });
+  });
+
   /* ------------------------------------------------ site health (server/health.js) */
   app.get("/api/admin/health", requireAdmin, limiter(60, 60 * 1000), async (req, res) => {
     try {
@@ -981,9 +1009,33 @@ ${e.text}
     // the private area gets a bare shell (see scripts/prerender.js); any other
     // path is the single-page app, which sends unknown URLs to "/"
     const adminFile = path.join(buildDir, "admin.html");
-    app.get("*", (req, res) =>
-      res.sendFile(isAdminPath(req.path) && fs.existsSync(adminFile) ? adminFile : indexFile)
-    );
+    // Each private-area address carries its own link preview (server/previews.js): WhatsApp,
+    // Telegram, Slack, X, LinkedIn and iMessage read the HTML without running it, so the page's title,
+    // description and picture are written into the shell here. The shell is read once and again only
+    // when a new build replaces it. The headers set above (no-store, noindex, no framing) still apply.
+    let shell = { mtime: 0, html: "" };
+    const shellHtml = () => {
+      const m = fs.statSync(adminFile).mtimeMs;
+      if (m !== shell.mtime) shell = { mtime: m, html: fs.readFileSync(adminFile, "utf8") };
+      return shell.html;
+    };
+    // the address the preview points at: the configured public origin, else this request's host
+    // (https unless it is a development machine, since nginx may hand us plain http)
+    const previewOrigin = (req) => {
+      if (env.PUBLIC_ORIGIN) return String(env.PUBLIC_ORIGIN).replace(/\/$/, "");
+      const host = String(req.get("host") || "").replace(/[^A-Za-z0-9.:[\]-]/g, "").slice(0, 255);
+      if (!host) return "https://vinaytiwari.org";
+      return `${req.protocol === "https" || !isLocalHost(host) ? "https" : "http"}://${host}`;
+    };
+    app.get("*", (req, res) => {
+      if (!isAdminPath(req.path) || !fs.existsSync(adminFile)) return res.sendFile(indexFile);
+      try {
+        const html = injectPreview(shellHtml(), previewTags(previewFor(req.path, req.query), previewOrigin(req)));
+        res.type("html").send(html);
+      } catch (_) {
+        res.sendFile(adminFile); // a preview is a convenience: the page itself must always open
+      }
+    });
   } else {
     app.get("/", (req, res) =>
       res.type("text").send("API is running. The site has not been built yet — run `npm run build`, or use `npm start` for development.")

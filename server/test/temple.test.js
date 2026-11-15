@@ -44,12 +44,12 @@ test("audio and video are recognised by their first bytes; the browser's type on
   assert.equal(sniff(Buffer.from("<html><body>hello")), "");
 });
 
-test("the default is the owner's Chalisa link, very soft (5%), on, with Auto on and an empty list", () => {
+test("the default is the owner's Chalisa link, barely there (1%), on, with Auto on and an empty list", () => {
   const { temple } = fresh();
   const s = temple.settings();
   assert.equal(s.source.kind, "youtube");
   assert.equal(s.source.videoId, DEFAULT_VIDEO);
-  assert.equal(s.volume, 0.05);
+  assert.equal(s.volume, 0.01);
   assert.equal(s.autoplay, true);
   assert.equal(s.auto, true);
   assert.deepEqual(s.library, []);
@@ -151,4 +151,17 @@ test("a file missing from the disk drops out of the list; with none left, the de
   const s = temple.settings();
   assert.equal(s.source.kind, "youtube");
   assert.equal(s.missing, true);
+});
+
+test("once: a saved volume at the old default (5%) becomes 1%; a volume the owner chose stays", () => {
+  const a = fresh();
+  a.docs.write("temple/settings.json", { volume: 0.05 });
+  assert.equal(new Temple({ docs: a.docs, dir: a.dir }).settings().volume, 0.01);
+  const b = fresh();
+  b.docs.write("temple/settings.json", { volume: 0.2 });
+  assert.equal(new Temple({ docs: b.docs, dir: b.dir }).settings().volume, 0.2);
+  // and after the move, a 5% chosen by hand is kept
+  const t = new Temple({ docs: a.docs, dir: a.dir });
+  t.set({ volume: 0.05 });
+  assert.equal(t.settings().volume, 0.05);
 });

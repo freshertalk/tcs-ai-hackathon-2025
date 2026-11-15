@@ -362,6 +362,16 @@ const ENTRIES = [
   [["Default model"], "The one AI model every feature uses: TradeAI, AI Live and AI Research, Social Media, WhatsApp, the brains and the strategist. Claude Sonnet 5.5 unless you pick another.", ".ais"],
   [["AI company"], "The company of the default model: Anthropic, OpenAI, Google Gemini, DeepSeek or Moonshot (Kimi). Each keeps its own saved key; a switch applies to every page at once.", ".ais"],
   [["Fallback", "Fallback (AI)"], "When the default model fails, the other companies whose keys are saved are tried one at a time. Off: only the default model is asked.", ".ais"],
+  // Trade Analysis — the Execution Lab
+  [["Execution score"], "0–100: 70 to start; the share of the move you kept adds or takes up to 20; each costly habit takes 8, each minor one 3; charges over 40% of the gross take 10.", ".lab"],
+  [["Share of the move kept", "Kept"], "Your profit as a share of the best move while you were in the trade (MFE).", ".lab"],
+  [["Ran on after your exits", "Ran on"], "How much further the price went your way after you left, up to 3:15 PM.", ".lab"],
+  [["Best other exit"], "Of the exit rules replayed on your own entries, the one that would have made the most — and by how much more (or less) than your exits.", ".lab"],
+  [["Other exits on the same entries"], "Your entries replayed with a 0.5% stop and 1% target, a 0.5% trailing stop, a break-even stop, and holding to 3:15 PM — after the same charges.", ".lab"],
+  [["Habits that showed"], "Revenge trades, trading after the daily stop or target, over-trading, holding losers, cutting winners, against VWAP, chasing, the first 5 and last 30 minutes, costs.", ".lab"],
+  [["Run"], "How far the trade went against you (red) and for you (green) while you were in; the mark is where you closed.", ".lab"],
+  [["↻ Replay again"], "Work the day out again from Zerodha's 1-minute bars (the replay is kept once worked out).", ".lab"],
+  [["Day book", "Day book saved by itself"], "Every trading day's report — profit, loss, charges, margin, what went well — saved by itself at 3:45 PM, and any missed day within the hour. Nothing is saved by hand.", ".jr-wrap"],
   // Social Media (/me/social)
   [["↻ Read now", "Read now"], "Read every source now. They are also read by themselves every few minutes, with no page open.", ".soc"],
   [["Sources & settings", "⚙ Sources & settings"], "Add or remove sources, choose what to track, the AI's hourly budget and the X API token (superadmin).", ".soc"],

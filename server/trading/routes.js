@@ -157,6 +157,8 @@ function mountTrading(app, { trading, ai, requireSuper, limiter, capture = null 
     const kept = await files.keep({ name, buf, result: { added: r.added, read: r.read, skipped: r.skipped, kind: r.kind, segments: r.segments, fromDay: r.fromDay, toDay: r.toDay } });
     trading.journal.snapshot(nowMs());
     console.log(`[trading] journal upload by ${req.user.email}: ${name} (${r.kind}) — ${r.added} new of ${r.read}${kept.duplicate ? ", file already kept" : ""}`);
+    // LISTENER: new trades in the journal — the Day book saves their days and the lab replays them at once
+    if (r.added && typeof trading.onJournalImport === "function") Promise.resolve().then(() => trading.onJournalImport(r)).catch(() => {});
     return { ...r, name, file: kept.meta, duplicate: kept.duplicate };
   }));
   app.get("/api/admin/trading/journal/files", requireSuper, wrap(async () => ({ files: await files.list(), store: files.col ? "MongoDB (collection journal_files)" : "server files (data/journal-files)" })));

@@ -1,12 +1,14 @@
 "use strict";
-// Trade Analysis: one record per trading day, kept in the database, read back to the trader.
+// The Journal's Day book: one record per trading day, kept in the database, read back to the trader.
 //
 //   • At 3:45 PM IST on trading days (after the 3:30 PM close and the square-off) the day is captured
 //     by itself: the day's closed round trips from the journal, the margin that is left, what is still
 //     open, and the Nifty's move — built into the report in day.js. With an AI model switched on, one
 //     more call writes the "why" in words (dayreview.js); without one, the report is the same arithmetic.
-//   • Any day can be built again from the journal ("Save this day"), and given a note, a rating, lessons
-//     and a mood. The figures themselves are never typed in: they come only from Zerodha's fills (the
+//   • Nothing is saved by hand: a day the server missed (it was down at 3:45, or the trades came later
+//     from a Console tradebook) is saved by itself on the next hourly sweep — every day with closed
+//     trades in the journal and no record yet, newest first. Each day can be given a note, a rating,
+//     lessons and a mood. The figures themselves are never typed in: they come only from Zerodha's fills (the
 //     journal reads them from Kite every day, and from Console tradebooks for the history). Figures
 //     entered by hand in an earlier version are kept on the record ("formerOverrides") but not used.
 //   • The records live in their own document, "analysis/days" (a collection of its own in MongoDB, a
@@ -16,8 +18,12 @@
 // change or cancel an order, and it holds the only timer (once a minute, started by the app).
 
 const { buildDay, analytics } = require("./day");
+const { labDay, labRange } = require("./lab");
 
 const NAME = "analysis/days";
+const LAB = "analysis/lab"; // the Execution Lab, one replay per day (computed by itself on the sweep)
+const LAB_DAYS = 60; // Zerodha keeps about 60 days of 1-minute bars
+const LAB_VER = 1;
 const IST = 5.5 * 3600 * 1000;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const AUTO_AT = 15 * 60 + 45; // 3:45 PM IST
@@ -25,6 +31,9 @@ const AUTO_UNTIL = 23 * 60 + 30;
 const RETRY_MS = 10 * 60000;
 const MAX_ATTEMPTS = 4;
 const MAX_NOTE = 4000;
+const SWEEP_MS = 60 * 60000; // the sweep for missed days: once an hour
+const SWEEP_DAYS = 400; // how far back it looks
+const SWEEP_MAX = 20; // days saved per sweep (a long imported history fills in over a few hours)
 
 const num = (x) => typeof x === "number" && Number.isFinite(x);
 const istParts = (ms) => {
@@ -70,7 +79,7 @@ class DayAnalysis {
 
   settings() {
     const s = this._doc().settings;
-    return { auto: Boolean(s.auto), withAi: Boolean(s.withAi), at: "15:45", aiReady: Boolean(this.ai && this.ai.configured()) };
+    return { auto: true, withAi: Boolean(s.withAi), at: "15:45", aiReady: Boolean(this.ai && this.ai.configured()) };
   }
 
   setSettings(patch = {}) {
@@ -251,10 +260,138 @@ class DayAnalysis {
 
   /* ---------------------------------------------------------------------- the clock */
 
-  /** Called every minute: capture today once, after 3:45 PM IST on a weekday, with a few tries. */
+  /**
+   * The days with closed trades in the journal but no record — saved by themselves, newest first, at
+   * most SWEEP_MAX per call, without the AI write-up (it can be asked for on any day). Today is left to
+   * the 3:45 PM capture. Returns the dates saved.
+   */
+  async backfill({ max = SWEEP_MAX } = {}) {
+    if (!this.source || typeof this.source.daysWithTrips !== "function") return [];
+    const today = istParts(this.now()).date;
+    const from = new Date(Date.parse(`${today}T00:00:00Z`) - SWEEP_DAYS * 86400000).toISOString().slice(0, 10);
+    let dates;
+    try {
+      dates = await this.source.daysWithTrips(from, today);
+    } catch (_) {
+      return [];
+    }
+    const have = this._doc().days;
+    const missing = (dates || []).filter((d) => d < today && !have[d]).sort().reverse().slice(0, max);
+    const saved = [];
+    for (const d of missing) {
+      try {
+        const r = await this.capture(d, { by: "auto" });
+        if (r && r.summary) saved.push(d);
+      } catch (err) {
+        this.log.log(`[analysis] could not save ${d}: ${err.message}`);
+      }
+    }
+    if (saved.length) this.log.log(`[analysis] saved ${saved.length} missed day(s) by itself: ${saved.join(", ")}`);
+    return saved;
+  }
+
+  /* ------------------------------------------------------------- the Execution Lab */
+
+  _labDoc() {
+    const d = this.docs.read(LAB, null);
+    return { days: (d && d.days && typeof d.days === "object" ? d.days : {}) || {} };
+  }
+
+  /** The day's limits in ₹ from the daily-goal percentages and that morning's margin (when the Day book has it). */
+  _limits(date, net) {
+    if (!this.source || typeof this.source.discipline !== "function") return null;
+    let cfg;
+    try {
+      cfg = this.source.discipline();
+    } catch (_) {
+      return null;
+    }
+    const rec = this._doc().days[date];
+    const m = rec && rec.margin;
+    const closeEquity = m ? (typeof m.net === "number" ? m.net : typeof m.available === "number" ? m.available + (m.used || 0) : null) : null;
+    if (!cfg || !num(closeEquity)) return null;
+    const base = closeEquity - (net || 0);
+    if (!(base > 0)) return null;
+    return { stop: (base * (cfg.stopPct || 0)) / 100, target: (base * (cfg.targetPct || 0)) / 100 };
+  }
+
+  /**
+   * The lab for one day: its closed trades replayed on that day's 1-minute bars. Kept once worked out;
+   * worked out again only when the day's trades change (or on refresh). Reads only.
+   */
+  async lab(date, { refresh = false } = {}) {
+    this._check(date);
+    const trips = (await this.source.closedTrips(date)) || [];
+    if (!trips.length) return { available: false, date, reason: "No closed trades in the journal for that day." };
+    const sig = trips.map((t) => `${t.key || t.symbol}:${t.exitAt}:${t.net}`).sort().join("|");
+    const have = this._labDoc().days[date];
+    if (!refresh && have && have.sig === sig && have.ver === LAB_VER && !(have.lab.notes || []).some((n) => /could not be read/.test(n))) return { available: true, ...have.lab, cachedAt: have.at };
+    const bars = {};
+    const open = Date.parse(`${date}T03:45:00Z`);
+    const close = Date.parse(`${date}T10:00:00Z`);
+    if (typeof this.source.minuteBars === "function") {
+      for (const sym of [...new Set(trips.map((t) => t.symbol))]) {
+        try {
+          bars[sym] = await this.source.minuteBars(sym, open, close);
+        } catch (_) {
+          /* that stock is counted without the replay */
+        }
+      }
+    }
+    const net = trips.reduce((a, t) => a + (num(t.net) ? t.net : 0), 0);
+    const lab = labDay({ date, trips, bars, limits: this._limits(date, net) });
+    const doc = this._labDoc();
+    doc.days[date] = { ver: LAB_VER, sig, at: new Date(this.now()).toISOString(), lab };
+    // only the last LAB_DAYS * 2 days are kept
+    const keep = Object.keys(doc.days).sort().slice(-LAB_DAYS * 2);
+    for (const k of Object.keys(doc.days)) if (!keep.includes(k)) delete doc.days[k];
+    this.docs.write(LAB, doc);
+    return { available: true, ...lab, cachedAt: doc.days[date].at };
+  }
+
+  /** The lab added up over the days already worked out between `from` and `to`. */
+  labRange({ from = null, to = null } = {}) {
+    const doc = this._labDoc();
+    const labs = Object.values(doc.days)
+      .map((x) => x.lab)
+      .filter((l) => l && (!from || l.date >= from) && (!to || l.date <= to));
+    return { ...labRange(labs), from, to, worked: labs.length };
+  }
+
+  /** The days in the last LAB_DAYS with closed trades whose lab is missing: worked out by themselves (a few per sweep). */
+  async labBackfill({ max = 5 } = {}) {
+    if (!this.source || typeof this.source.daysWithTrips !== "function") return [];
+    const today = istParts(this.now()).date;
+    const from = new Date(Date.parse(`${today}T00:00:00Z`) - LAB_DAYS * 86400000).toISOString().slice(0, 10);
+    let dates;
+    try {
+      dates = await this.source.daysWithTrips(from, today);
+    } catch (_) {
+      return [];
+    }
+    const have = this._labDoc().days;
+    const todo = (dates || []).filter((d) => !have[d] || (d === today && istParts(this.now()).mins >= AUTO_AT)).sort().reverse().slice(0, max);
+    const done = [];
+    for (const d of todo) {
+      try {
+        const r = await this.lab(d);
+        if (r && r.available) done.push(d);
+      } catch (_) {
+        /* the next sweep tries again */
+      }
+    }
+    return done;
+  }
+
+  /** Called every minute: capture today once, after 3:45 PM IST on a weekday, with a few tries; and once an hour, the missed days. */
   async tick() {
     const doc = this._doc();
-    if (!doc.settings.auto) return null;
+    // every day is saved by itself now (the Journal's Day book has no manual save): the old switch is ignored
+    if (this.now() - (this._sweptAt || 0) >= SWEEP_MS) {
+      this._sweptAt = this.now();
+      await this.backfill();
+      await this.labBackfill();
+    }
     const t = istParts(this.now());
     if (t.dow === 0 || t.dow === 6 || t.mins < AUTO_AT || t.mins > AUTO_UNTIL) return null;
     if (this.isHoliday(t.date)) return null;

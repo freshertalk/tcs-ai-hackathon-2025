@@ -29,7 +29,7 @@ const MAX_PART = 2.5 * 1024 * 1024; // each upload part stays under the proxy's 
 const ITEM_RE = /^[a-f0-9]{12}$/;
 const DEFAULTS = {
   source: { kind: "youtube", videoId: DEFAULT_VIDEO, label: "Shri Hanuman Chalisa", url: `https://www.youtube.com/watch?v=${DEFAULT_VIDEO}` },
-  volume: 0.05, // very soft, in the background
+  volume: 0.01, // 1%: barely there, in the background (the owner's choice, 2026-11-15)
   autoplay: true,
   auto: true, // play the uploaded list one after another
 };
@@ -108,6 +108,12 @@ class Temple {
     if (d.source && d.source.kind === "file") {
       if (d.source.fileName && !d.library.some((x) => x.fileName === d.source.fileName)) d.library.unshift({ id: crypto.randomBytes(6).toString("hex"), fileName: d.source.fileName, mime: d.source.mime, size: d.source.size || 0, label: d.source.label || "Uploaded audio", uploadedAt: d.source.uploadedAt || new Date(this.now()).toISOString(), setBy: d.source.setBy || "" });
       d.source = { kind: "library" };
+      this.docs.write(NAME, d);
+    }
+    // once: the old default of 5% becomes the new default of 1% (a volume the owner set by hand stays)
+    if (!d.volume1pct) {
+      if (d.volume === undefined || d.volume === 0.05) d.volume = DEFAULTS.volume;
+      d.volume1pct = true;
       this.docs.write(NAME, d);
     }
     return d;

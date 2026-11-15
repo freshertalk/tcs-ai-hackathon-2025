@@ -127,8 +127,12 @@ export default function Palette({ views, actions, onView, onOpenStock, onClose }
     <div className="tr-modal tm-pal" role="dialog" aria-modal="true" aria-label="Command palette" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="tm-pal__box">
         <div className="tm-pal__in">
-          <span aria-hidden="true">⌕</span>
-          <input
+          <div className="tm-pal__field">
+            <svg className="tm-pal__icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
+              <circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" strokeWidth="2" />
+              <path d="M20 20l-3.6-3.6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            </svg>
+            <input
             ref={input}
             value={q}
             onChange={(e) => setQ(e.target.value)}
@@ -141,8 +145,25 @@ export default function Palette({ views, actions, onView, onOpenStock, onClose }
             aria-label="Search or type a command"
             autoComplete="off"
             spellCheck="false"
+            enterKeyHint="go"
           />
-          <kbd>Esc</kbd>
+            {q && (
+              <button
+                type="button"
+                className="tm-pal__clear"
+                aria-label="Clear the search"
+                onClick={() => {
+                  setQ("");
+                  if (input.current) input.current.focus();
+                }}
+              >
+                ×
+              </button>
+            )}
+            <button type="button" className="tm-pal__esc" onClick={onClose} aria-label="Close (Esc)">
+              Esc
+            </button>
+          </div>
         </div>
         <ul className="tm-pal__list" id="tm-pal-list" role="listbox" ref={list}>
           {items.length === 0 && <li className="tm-pal__none">{term.length >= 2 ? "Nothing matches. Stocks are searched once Zerodha is connected." : "Type to search."}</li>}

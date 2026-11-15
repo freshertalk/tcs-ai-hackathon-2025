@@ -46,7 +46,7 @@ function mountAi(app, { ai, requireAdmin, requireSuper = requireAdmin, limiter }
   app.post("/api/admin/ai/models", requireAdmin, limiter(30, 10 * 60 * 1000), wrap(async (req) => ai.refreshModels((req.body || {}).provider)));
 
   // builds one strategy: the only route that reads the market AND calls the model
-  app.post("/api/admin/ai/strategy/:symbol", requireAdmin, limiter(30, 60 * 60 * 1000), wrap(async (req) => ai.strategy(symbolOf(req), String((req.body || {}).horizon || "both"))));
+  app.post("/api/admin/ai/strategy/:symbol", requireAdmin, limiter(30, 60 * 60 * 1000), wrap(async (req) => ai.strategy(symbolOf(req), String((req.body || {}).horizon || "intraday"))));
 
   app.get("/api/admin/ai/journal", requireAdmin, wrap(async (req) => {
     const s = String(req.query.symbol || "").trim().toUpperCase();

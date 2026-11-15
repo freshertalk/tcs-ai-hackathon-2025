@@ -7,6 +7,8 @@
 // off or not set up — by choice).
 
 const fs = require("node:fs");
+const path = require("node:path");
+const lifecycle = require("./lifecycle");
 
 
 const IST = 5.5 * 3600 * 1000;
@@ -38,7 +40,26 @@ async function buildHealth(ctx, { secure = false, host = "" } = {}) {
     const m = process.memoryUsage();
     const up = process.uptime();
     const rss = Math.round(m.rss / 1048576);
-    return { status: rss > 550 ? "warn" : "ok", detail: `Up ${up > 86400 ? `${Math.floor(up / 86400)} d ` : ""}${Math.floor((up % 86400) / 3600)} h ${Math.floor((up % 3600) / 60)} min · memory ${rss} MB${rss > 550 ? " (pm2 restarts it at 600 MB)" : ""} · Node ${process.versions.node}` };
+    const parts = [`Up ${up > 86400 ? `${Math.floor(up / 86400)} d ` : ""}${Math.floor((up % 86400) / 3600)} h ${Math.floor((up % 3600) / 60)} min`, `memory ${rss} MB${rss > 550 ? " (pm2 restarts it at 600 MB)" : ""}`, `Node ${process.versions.node}`];
+    let status = rss > 550 ? "warn" : "ok";
+    let hint;
+    // pm2 passes its own facts in the environment: how often it has restarted this app
+    const pm2 = lifecycle.pm2Facts();
+    parts.push(pm2 ? `pm2 restarts so far: ${pm2.restarts ?? "?"}` : "not run by pm2");
+    // the last crash this process's predecessor wrote down before it left (server/lifecycle.js)
+    const crash = ctx.dataDir ? lifecycle.lastCrash(path.join(ctx.dataDir, "last-crash.json")) : null;
+    if (crash && crash.at && now - Date.parse(crash.at) < 86400000) {
+      status = "warn";
+      parts.push(`last crash ${ago(crash.at, now)}: ${String(crash.message).slice(0, 140)} (restarted automatically)`);
+      hint = "See what happened:  pm2 logs --err --lines 100";
+    }
+    const st = lifecycle.stats;
+    if (st.stalls.count && st.stalls.date === istDate(now)) {
+      parts.push(`event loop blocked ${st.stalls.count}× today, longest ${(st.stalls.maxMs / 1000).toFixed(1)} s`);
+      if (st.stalls.maxMs >= 10000) status = "warn";
+    }
+    if (st.rejections.count) parts.push(`${st.rejections.count} unhandled promise rejection${st.rejections.count === 1 ? "" : "s"} logged since the start`);
+    return { status, detail: `${parts.join(" · ")}.`, ...(hint ? { hint } : {}) };
   });
   await check("database", "Platform", "Database", () => {
     const docs = ctx.docs;

@@ -25,6 +25,8 @@ jest.mock("../../api", () => ({
     if (url.startsWith("/api/admin/trading/journal/periods")) return Promise.resolve(mockPer);
     if (url.startsWith("/api/admin/trading/journal/reviews")) return Promise.resolve({ configured: false, reviews: [] });
     if (url.startsWith("/api/admin/trading/journal?")) return Promise.resolve(mockView);
+    if (url === "/api/admin/analysis/days") return Promise.resolve({ days: [{ date: "2026-11-13", weekday: "Fri", source: "auto", summary: { trades: 3, net: 1200, gross: 1400, charges: 200, wins: 2, losses: 1 }, score: 62, good: 2, bad: 1 }], settings: { auto: true, withAi: false, aiReady: false } });
+    if (url.startsWith("/api/admin/analysis/analytics")) return Promise.resolve({ count: 1, totals: { days: 0 }, previous: null });
     return Promise.resolve({});
   },
 }));
@@ -37,7 +39,7 @@ beforeEach(() => {
 test("profit and loss for every period and every financial year, from Zerodha only — no way to type a trade in", async () => {
   render(<Journal />);
   await settle();
-  expect(mockCalls.some(([u]) => u === "/api/admin/trading/journal?period=fy")).toBe(true);
+  expect(mockCalls.some(([u]) => u === "/api/admin/trading/journal?period=fy&kind=intraday")).toBe(true);
   const table = screen.getByText("Profit and loss by period").closest("section");
   expect(within(table).getByText("FY 2024-25")).toBeTruthy();
   expect(within(table).getByText("Since the first trade")).toBeTruthy();
@@ -57,13 +59,13 @@ test("the period buttons, a past financial year, a row of the table and a custom
   await settle();
   fireEvent.click(screen.getByRole("button", { name: "Yesterday" }));
   await settle();
-  expect(mockCalls.some(([u]) => u === "/api/admin/trading/journal?period=yesterday")).toBe(true);
+  expect(mockCalls.some(([u]) => u === "/api/admin/trading/journal?period=yesterday&kind=intraday")).toBe(true);
   fireEvent.change(screen.getByLabelText("Past financial year"), { target: { value: "fy-2024" } });
   await settle();
-  expect(mockCalls.some(([u]) => u === "/api/admin/trading/journal?period=fy-2024")).toBe(true);
+  expect(mockCalls.some(([u]) => u === "/api/admin/trading/journal?period=fy-2024&kind=intraday")).toBe(true);
   fireEvent.click(screen.getAllByLabelText(/^FY 2025-26: net/)[0]); // the table row (the chart bar has the same name)
   await settle();
-  expect(mockCalls.some(([u]) => u === "/api/admin/trading/journal?period=fy-2025")).toBe(true);
+  expect(mockCalls.some(([u]) => u === "/api/admin/trading/journal?period=fy-2025&kind=intraday")).toBe(true);
   fireEvent.click(screen.getByRole("button", { name: "Custom…" }));
   // the Material range picker: open it, click a first and a last day, OK
   fireEvent.click(screen.getByRole("button", { name: /Your dates/ }));
@@ -75,5 +77,18 @@ test("the period buttons, a past financial year, a row of the table and a custom
   fireEvent.click(days[9]);
   fireEvent.click(screen.getByRole("button", { name: "OK" }));
   await settle();
-  expect(mockCalls.some(([u]) => u === `/api/admin/trading/journal?period=custom&from=${first}&to=${last}`)).toBe(true);
+  expect(mockCalls.some(([u]) => u === `/api/admin/trading/journal?period=custom&from=${first}&to=${last}&kind=intraday`)).toBe(true);
+});
+
+test("the Day book is part of the Journal: every day saved by itself, with no button to save one by hand", async () => {
+  window.localStorage.clear();
+  render(<Journal />);
+  await settle();
+  fireEvent.click(screen.getByRole("tab", { name: /Day book/ }));
+  await settle();
+  expect(mockCalls.some(([u]) => u === "/api/admin/analysis/days")).toBe(true);
+  expect(screen.getByRole("heading", { name: "Day book" })).toBeTruthy();
+  expect(screen.getByText(/nothing is saved or typed by hand/)).toBeTruthy();
+  expect(screen.queryByRole("button", { name: /Save today now|Save this day/ })).toBeNull();
+  expect(screen.queryByText(/Auto-save 3:45 PM/)).toBeNull();
 });

@@ -125,7 +125,8 @@ holidays) stay as files, and so do the two encryption keys unless `SETTINGS_KEY`
 4. `pm2 start deploy/ecosystem.config.cjs && pm2 save && pm2 startup` — one process on port 5100
    (change it in that file if the port is taken). The first start prints a one-time setup token
    (`pm2 logs vinaytiwari`); open `https://vinaytiwari.org/me` and paste it with the Google
-   Client ID and Secret.
+   Client ID and Secret. Then the watchdog and log rotation: see **Staying up** below
+   (`stock-deploy --keepalive` checks all of it).
 5. nginx: pass `/api` and `/me` to the process (it can go on serving the built site itself).
    `stock-deploy --nginx | sudo tee /etc/nginx/snippets/vinaytiwari-app.conf > /dev/null`, then add the
    one line `include snippets/vinaytiwari-app.conf;` inside the site's HTTPS `server` block, above its
@@ -153,6 +154,61 @@ and waits for it to answer. `stock-deploy --check` shows what is waiting without
 anything; `stock-deploy --force` reinstalls, rebuilds and restarts regardless. It never touches
 `server/.env`, the database or `server/data`. By hand, the same thing is
 `git pull && npm ci && npm run server:install && npm run build && pm2 restart vinaytiwari`.
+
+**Staying up — what restarts what.** Three layers, each catching what the one before cannot:
+
+| Trouble | What notices | What happens |
+|---|---|---|
+| A crash (an exception nothing caught; a burst of 20+ unhandled promise rejections in a minute) | the process itself (`server/lifecycle.js`) | logged, written to `server/data/last-crash.json`, the database flushed (≤ 1.5 s), the process exits — pm2 starts a clean one at once |
+| The process exits, or grows past 600 MB | pm2 (`deploy/ecosystem.config.cjs`) | restarted; a crash loop backs off (200 ms → 15 s) and after 15 starts that die within 30 s pm2 stops trying |
+| A hang: the process is up but no longer answers | the watchdog (`deploy/watchdog.sh`, every minute) | 3 failed `GET /api/live` in a row → `pm2 restart`; pm2 gave up (errored) → restart; pm2 lost the app → `pm2 resurrect`. Never during a `stock-deploy`, never when the app was stopped on purpose |
+| The machine reboots | systemd (`pm2 startup`) | pm2 starts again with the saved process list (`pm2 save`) |
+
+A stop or restart is clean: new connections are refused, requests in flight finish, the live streams
+are closed after 3 s, the database is closed, and after 8 s the process leaves regardless (pm2 waits
+10 s), so a restart can never hang. pm2 counts the process as up only when it says it is listening
+(`wait_ready`). A single unhandled promise rejection is logged and counted, not fatal. A blocked event
+loop (2 s or more) is logged. **Site health → Server** shows the uptime, memory, pm2's restart count,
+any crash in the last 24 hours with its message, event-loop stalls today and rejections logged.
+`GET /api/live` (`{ ok, up, at }`, no sign-in, no database, nothing private) is the watchdog's question.
+One process only (`instances: 1`): the trading guard rails and the live price stream live in its memory,
+so a restart briefly drops open streams (pages reconnect by themselves) — there is no zero-downtime
+reload with one process, and that is the deliberate trade.
+
+One-time setup on the VPS, after the next `stock-deploy` (which applies the new process file by itself).
+Check what is already in place — it prints any command still needed:
+
+```bash
+stock-deploy --keepalive
+```
+
+Start pm2 again after a reboot — this prints one `sudo …` line: copy and run it, then save the list:
+
+```bash
+pm2 startup systemd -u "$USER" --hp "$HOME"
+```
+
+```bash
+pm2 save
+```
+
+Run the watchdog every minute (one line; it fills in where pm2 and node live, since cron's PATH is bare):
+
+```bash
+( crontab -l 2>/dev/null | grep -v deploy/watchdog.sh; echo "* * * * * PATH=$(dirname "$(command -v pm2)"):$(dirname "$(command -v node)"):/usr/bin:/bin bash $HOME/tcs-ai-hackathon-2025/deploy/watchdog.sh >> $HOME/.pm2/logs/watchdog.log 2>&1" ) | crontab -
+```
+
+Rotate the logs so they never fill the disk:
+
+```bash
+pm2 install pm2-logrotate && pm2 set pm2-logrotate:max_size 10M && pm2 set pm2-logrotate:retain 14 && pm2 set pm2-logrotate:compress true
+```
+
+See what the watchdog sees, and its log:
+
+```bash
+bash ~/tcs-ai-hackathon-2025/deploy/watchdog.sh --status; tail -n 20 ~/.pm2/logs/watchdog.log
+```
 
 **Welcome on the dashboard** was removed on 13 Nov 2026 at the owner's request (no picture, no audio).
 
@@ -264,14 +320,26 @@ target under 1.5× the risk also holds it back. Research also **runs by itself**
 no cost, or with AI notes, company news and the world brief when switched on (that uses Anthropic
 tokens). It is a summary of evidence, not a forecast and not advice.
 
-**Trade Analysis (the last workspace on the terminal bar; a tile in the Stock Report section of `/me`;
-`server/analysis/`, `src/admin/stock/analysis/`; superadmin only).** One report per trading day, kept in its own
-record (`analysis/days` — a collection of its own in MongoDB, a file otherwise).
+**Trade Analysis — the Execution Lab (the last workspace on the terminal bar; `server/analysis/lab.js`,
+`src/admin/stock/analysis/TradeAnalysis.jsx`; superadmin only; 2026-11-15).** Every closed intraday trade replayed
+on that day's 1-minute bars (`minuteBarsBetween`): MFE / MAE, the share of the move kept, what ran on after the exit,
+the entry context (VWAP, the opening range, place in the day's range), the same entries with other exits (0.5% stop
+/ 1% target, 0.5% trail, break-even stop, hold to 3:15; stop first when a minute touches both), habits (revenge,
+after the daily stop / target, over-trading, held loser, cut winner, first 5 / last 30 minutes, against VWAP,
+chased, costs) and an execution score; a period adds them up with plain-word lessons. No AI. One replay per day
+in `analysis/lab`, worked out by the hourly sweep (`labBackfill`, last 60 days) or on opening a day; routes
+`GET /api/admin/analysis/lab/:date` (`?refresh=1`) and `GET /api/admin/analysis/lab?from&to`.
+
+**The Journal's Day book (Journal → Day book; `src/admin/stock/analysis/DayBook.jsx`, `server/analysis/`).** One
+report per trading day, kept in its own record (`analysis/days` — a collection of its own in MongoDB, a file otherwise).
+**Nothing is saved by hand** (the "Save this day" / "Save today now" buttons and `POST /api/admin/analysis/day/:date`
+were removed; the auto switch is always on).
 - **Saved by itself at 3:45 PM IST** on trading days (`DayAnalysis.tick`, once a minute, outside `server/ai`
   because that folder holds no timers): the day's closed round trips from the journal, the margin that
   is left, any position still open, and the Nifty's move. It tries again every ten minutes (four times)
-  if the broker cannot be read, and saves nothing for a day with no trades. Any day can be built again from the
-  journal or deleted; notes, a rating, lessons and a mood survive a refresh. **Figures are never typed in** (removed
+  if the broker cannot be read, and saves nothing for a day with no trades. An **hourly sweep** (`backfill`)
+  saves every day of the last 400 with closed trades and no report (newest first, 20 a sweep, no AI), so a day
+  the server missed or an imported Console period appears by itself. A deleted day is rebuilt by the sweep. **Figures are never typed in** (removed
   2026-11-16): `edit()` takes notes only and refuses `overrides`; `buildDay` has no overrides; days edited by hand
   earlier are rebuilt once at start (`dropHandFigures`, old figures kept as `formerOverrides`).
 - **Profit, loss and taxes are separate everywhere** — the cards, the table, the charts: *profit* is the sum of
@@ -1067,6 +1135,22 @@ against a fake Anthropic API, and the day replay and debrief, and trading: the s
 - The link-preview card (WhatsApp, LinkedIn, X, Facebook) is
   `public/og-image.jpg`, 1200×630: portrait, name, the opening line and the
   Hindi motto. Regenerate it if the photo or tagline changes.
+- **The private area previews page by page** (`server/previews.js`): every
+  `/me` address — the dashboard, Stock Report and each workspace
+  (`?view=journal`, `analysis`, `engine`…), TradeAI, Social Media, the AI model,
+  the Pro Chart (`/me/chart/SBIN`), the settings pages — gets its own title,
+  description, canonical, Open Graph and large X card, written by the server into
+  the bare admin shell (crawlers do not run JavaScript; `prerender.js` bakes the
+  dashboard's tags between `<!--preview-->` markers and `app.js` swaps the block
+  per request, escaped, with the public origin — `PUBLIC_ORIGIN`, else the
+  request's host over https). Unknown addresses preview as the dashboard; only the
+  desk's `view` is taken from the query. The area stays `noindex`; previews name
+  a page and what it is for — never an account, price or person.
+- Its pictures are `public/img/og/<page>.png` (1200×630, 256 colours, under
+  300 KB): Panchmukhi Hanuman Ji beside the page name and two lines. After adding
+  or renaming a page in `server/previews.js`, redraw them with
+  `node scripts/og-images.js` (needs ffmpeg — `FFMPEG=` its path — and Segoe UI,
+  or `OG_FONT` / `OG_FONT_BOLD`).
 
 ## Editing content
 

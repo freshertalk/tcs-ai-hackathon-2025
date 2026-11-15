@@ -551,3 +551,65 @@ test("Social Media live: the stream says hello to a signed-in admin, and high-im
   assert.match(sent[0].text, /📰 .*SBIN — high-impact news/);
   assert.match(sent[0].text, /nothing was traded/);
 });
+
+test("liveness: /api/live answers without sign-in, with nothing private — the watchdog's question", async (t) => {
+  const s = await boot();
+  t.after(s.close);
+  const r = await s.request("GET", "/api/live");
+  assert.equal(r.status, 200);
+  assert.deepEqual(Object.keys(r.json).sort(), ["at", "ok", "up"]);
+  assert.equal(r.json.ok, true);
+  assert.ok(Number.isInteger(r.json.up) && r.json.up >= 0);
+  assert.match(r.headers["cache-control"] || "", /no-store/);
+});
+
+test("site health, Server: uptime and memory, whether pm2 runs it, and a crash written down by the last process", async (t) => {
+  const s = await boot();
+  t.after(s.close);
+  await s.configure();
+  const boss = (await s.login(SUPERADMIN_EMAIL)).session;
+  let r = await s.request("GET", "/api/admin/health", { cookie: boss });
+  let srv = r.json.checks.find((c) => c.id === "server");
+  assert.match(srv.detail, /Up .* min · memory \d+ MB/);
+  assert.match(srv.detail, /not run by pm2/);
+  // the process before this one crashed an hour ago (server/lifecycle.js wrote it down)
+  fs.writeFileSync(path.join(s.dir, "last-crash.json"), JSON.stringify({ at: new Date(Date.now() - 3600000).toISOString(), kind: "uncaughtException", message: "Cannot read properties of undefined", stack: "TypeError: …" }));
+  r = await s.request("GET", "/api/admin/health", { cookie: boss });
+  srv = r.json.checks.find((c) => c.id === "server");
+  assert.equal(srv.status, "warn");
+  assert.match(srv.detail, /last crash (60 min|1 h) ago: Cannot read properties of undefined \(restarted automatically\)/);
+  assert.match(srv.hint, /pm2 logs/);
+});
+
+test("a tradebook import fills the Journal's Day book at once — no button, no waiting for the hourly sweep", async (t) => {
+  const s = await boot({ app: { socialWatch: false } });
+  t.after(s.close);
+  await s.configure();
+  const boss = (await s.login(SUPERADMIN_EMAIL)).session;
+  const csv = ["trade_id,order_id,symbol,exchange,segment,trade_type,quantity,price,product,order_execution_time", "1,O1,SBIN,NSE,EQ,buy,10,800,MIS,2026-10-20T09:40:00", "2,O2,SBIN,NSE,EQ,sell,10,806,MIS,2026-10-20T10:10:00", "3,O3,INFY,NSE,EQ,sell,5,1500,MIS,2026-10-21T11:00:00", "4,O4,INFY,NSE,EQ,buy,5,1490,MIS,2026-10-21T11:30:00"].join("\n");
+  const bytes = Buffer.from(csv);
+  let r = await s.request("POST", "/api/admin/trading/journal/upload", { cookie: boss, body: { name: "tradebook.csv", size: bytes.length } });
+  assert.equal(r.status, 200, r.text);
+  const id = r.json.id;
+  const put = await new Promise((resolve, reject) => {
+    const req = http.request({ host: "127.0.0.1", port: s.port, method: "PUT", path: `/api/admin/trading/journal/upload/${id}/0`, headers: { cookie: boss, "x-requested-with": "vpt", "content-type": "application/octet-stream", "content-length": bytes.length } }, (res) => {
+      res.resume();
+      res.on("end", () => resolve(res.statusCode));
+    });
+    req.on("error", reject);
+    req.end(bytes);
+  });
+  assert.equal(put, 200);
+  r = await s.request("POST", `/api/admin/trading/journal/upload/${id}/finish`, { cookie: boss, body: {} });
+  assert.equal(r.status, 200, r.text);
+  assert.equal(r.json.added, 4);
+  let days = [];
+  for (let i = 0; i < 40 && days.length < 2; i += 1) {
+    await new Promise((res) => setTimeout(res, 50));
+    days = (await s.request("GET", "/api/admin/analysis/days", { cookie: boss })).json.days;
+  }
+  assert.deepEqual(days.map((d) => d.date), ["2026-10-21", "2026-10-20"]);
+  assert.ok(days.every((d) => d.source === "auto"));
+  r = await s.request("POST", "/api/admin/analysis/day/2026-10-20", { cookie: boss, body: {} });
+  assert.equal(r.status, 404, "there is no route to save a day by hand");
+});

@@ -26,7 +26,7 @@ const CUR_KEY = "vpt.temple.cur"; // the file playing, on this device
 const AUTO_KEY = "vpt.temple.auto"; // an admin's own Auto choice, on this device (the owner's is saved on the server)
 const CLOSED_KEY = "vpt.temple.closed"; // this visit only (sessionStorage)
 const CHANNEL = "vpt-temple";
-export const DEFAULT_VOLUME = 0.05; // very soft, in the background
+export const DEFAULT_VOLUME = 0.01; // 1%: barely there, in the background
 
 /** Lines of the Shri Hanuman Chalisa (Goswami Tulsidas), shown one at a time. */
 export const VERSES = [
