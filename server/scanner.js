@@ -607,6 +607,18 @@ class Scanner extends EventEmitter {
     return this._view;
   }
 
+  /** The latest reading of one stock in short form (the paper robot reads it to see whether the call has flipped). */
+  rowOf(symbol) {
+    const r = this.rows.get(String(symbol || "").toUpperCase());
+    return r && r.ready ? { symbol: r.symbol, eligible: r.eligible, side: r.side, score: r.score, agree: r.agree } : null;
+  }
+
+  /** The last price seen on the stream for one stock. */
+  priceOf(symbol) {
+    const st = this.states.get(String(symbol || "").toUpperCase());
+    return st && st.tick && num(st.tick.last) ? st.tick.last : null;
+  }
+
   /** Everything about one stock in the buffer. */
   detail(symbol) {
     const s = String(symbol || "").toUpperCase();

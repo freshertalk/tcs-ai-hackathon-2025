@@ -20,8 +20,14 @@
 const { buildDay, analytics } = require("./day");
 const { labDay, labRange } = require("./lab");
 const { compareDay } = require("./compare");
+const SNAP = require("./snapshot");
 
 const NAME = "analysis/days";
+// three tables of their own (a collection each in MongoDB, one file each otherwise), apart from the day reports
+const SNAPS = "analysis_snapshots"; // one record per day: the timeline of the day with its timestamps
+const OUTS = "analysis_outcomes"; // one record per trade: what became of its peak
+const LEARN = "analysis_learnings"; // the trader's status and notes on each learning, and their own lessons
+const SNAP_KEEP = 800; // snapshots kept (about three years of trading days); the outcomes stay
 const LAB = "analysis/lab"; // the Execution Lab, one replay per day (computed by itself on the sweep)
 const LAB_DAYS = 60; // Zerodha keeps about 60 days of 1-minute bars
 const LAB_VER = 2; // 2: the best exit with its time, the timing of each exit, the exit coach replayed
@@ -327,6 +333,22 @@ class DayAnalysis {
     const sig = trips.map((t) => `${t.key || t.symbol}:${t.exitAt}:${t.net}`).sort().join("|");
     const have = this._labDoc().days[date];
     if (!refresh && have && have.sig === sig && have.ver === LAB_VER && !(have.lab.notes || []).some((n) => /could not be read/.test(n))) return { available: true, ...have.lab, cachedAt: have.at };
+    const bars = await this._bars(date, trips);
+    const net = trips.reduce((a, t) => a + (num(t.net) ? t.net : 0), 0);
+    const lab = labDay({ date, trips, bars, limits: this._limits(date, net) });
+    const doc = this._labDoc();
+    doc.days[date] = { ver: LAB_VER, sig, at: new Date(this.now()).toISOString(), lab };
+    // only the last LAB_DAYS * 2 days are kept
+    const keep = Object.keys(doc.days).sort().slice(-LAB_DAYS * 2);
+    for (const k of Object.keys(doc.days)) if (!keep.includes(k)) delete doc.days[k];
+    this.docs.write(LAB, doc);
+    // the day's snapshot, its outcomes and the learnings are written from the same replay (the bars are in hand)
+    await this._storeSnapshot(date, lab, bars, sig);
+    return { available: true, ...lab, cachedAt: doc.days[date].at };
+  }
+
+  /** That day's 1-minute bars of every stock traded ({ SYMBOL: [bars] }); a stock whose bars cannot be read is left out. */
+  async _bars(date, trips) {
     const bars = {};
     const open = Date.parse(`${date}T03:45:00Z`);
     const close = Date.parse(`${date}T10:00:00Z`);
@@ -339,15 +361,165 @@ class DayAnalysis {
         }
       }
     }
-    const net = trips.reduce((a, t) => a + (num(t.net) ? t.net : 0), 0);
-    const lab = labDay({ date, trips, bars, limits: this._limits(date, net) });
-    const doc = this._labDoc();
-    doc.days[date] = { ver: LAB_VER, sig, at: new Date(this.now()).toISOString(), lab };
-    // only the last LAB_DAYS * 2 days are kept
-    const keep = Object.keys(doc.days).sort().slice(-LAB_DAYS * 2);
-    for (const k of Object.keys(doc.days)) if (!keep.includes(k)) delete doc.days[k];
-    this.docs.write(LAB, doc);
-    return { available: true, ...lab, cachedAt: doc.days[date].at };
+    return bars;
+  }
+
+  /* ------------------------------------------- snapshots, outcomes and learnings (snapshot.js) */
+
+  _tbl(name) {
+    return typeof this.docs.items === "function" ? this.docs.items(name) : [];
+  }
+
+  _put(name, list) {
+    if (list.length && typeof this.docs.putItems === "function") this.docs.putItems(name, list);
+  }
+
+  _drop(name, ids) {
+    if (ids.length && typeof this.docs.removeItems === "function") this.docs.removeItems(name, ids);
+  }
+
+  /** The recorded flights of a day (the live board's CCTV), when the app gave the door; never an error. */
+  async _flights(date) {
+    if (!this.source || typeof this.source.flightDay !== "function") return [];
+    try {
+      const d = await this.source.flightDay(date);
+      return d && d.available && Array.isArray(d.flights) ? d.flights : [];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /** Build the day's snapshot and keep it, with one outcome row per trade (the day's old rows are replaced). A failure never breaks the lab. */
+  async _storeSnapshot(date, lab, bars, sig) {
+    try {
+      const snap = SNAP.buildSnapshot({ date, lab, bars, flights: await this._flights(date) });
+      this._put(SNAPS, [{ id: date, ver: SNAP.VER, sig, at: new Date(this.now()).toISOString(), snap }]);
+      const rows = SNAP.outcomeRows(snap);
+      const fresh = new Set(rows.map((r) => r.id));
+      this._drop(OUTS, this._tbl(OUTS).filter((r) => r.date === date && !fresh.has(r.id)).map((r) => r.id));
+      this._put(OUTS, rows);
+      const old = this._tbl(SNAPS).map((x) => x.id).sort();
+      if (old.length > SNAP_KEEP) this._drop(SNAPS, old.slice(0, old.length - SNAP_KEEP));
+      return snap;
+    } catch (err) {
+      this.log.log(`[analysis] could not record the snapshot of ${date}: ${err && err.message ? err.message : err}`);
+      return null;
+    }
+  }
+
+  /**
+   * The snapshot of a day: its timeline with timestamps, the day's profit curve, and what became of each trade's
+   * peak. Kept for good once worked out (the 1-minute bars it needs are gone from Zerodha after about 60 days).
+   */
+  async snapshot(date, { refresh = false } = {}) {
+    this._check(date);
+    const lab = await this.lab(date, { refresh });
+    if (!lab.available) return { available: false, date, reason: lab.reason };
+    const labRec = this._labDoc().days[date];
+    let rec = this._tbl(SNAPS).find((x) => x.id === date) || null;
+    if (!rec || rec.ver !== SNAP.VER || (labRec && rec.sig !== labRec.sig)) {
+      const trips = (await this.source.closedTrips(date)) || [];
+      await this._storeSnapshot(date, lab, await this._bars(date, trips), labRec ? labRec.sig : "");
+      rec = this._tbl(SNAPS).find((x) => x.id === date) || null;
+    }
+    if (!rec) return { available: false, date, reason: "The snapshot could not be built for that day." };
+    return { available: true, ...rec.snap, cachedAt: rec.at };
+  }
+
+  /** The recorded days, newest first, light enough for a list. */
+  snapshots({ from = null, to = null } = {}) {
+    return this._tbl(SNAPS)
+      .filter((x) => (!from || x.id >= from) && (!to || x.id <= to))
+      .sort((a, b) => (a.id < b.id ? 1 : -1))
+      .map((x) => ({ date: x.id, at: x.at, headline: x.snap.headline, summary: x.snap.summary }));
+  }
+
+  /** The outcomes table: one row per trade, newest first, with what the outcomes add up to. */
+  outcomes({ from = null, to = null, outcome = null, symbol = null, limit = 1500 } = {}) {
+    const all = this._tbl(OUTS)
+      .filter((r) => (!from || r.date >= from) && (!to || r.date <= to) && (!symbol || r.symbol === symbol))
+      .sort((a, b) => (a.date === b.date ? b.entryAt - a.entryAt : a.date < b.date ? 1 : -1));
+    const shown = outcome ? all.filter((r) => r.outcome === outcome) : all;
+    return { rows: shown.slice(0, limit), total: shown.length, summary: SNAP.outcomeSummary(all), outcomes: Object.keys(SNAP.OUTCOMES).map((id) => ({ id, name: SNAP.OUTCOMES[id].name, tone: SNAP.OUTCOMES[id].tone })), days: new Set(all.map((r) => r.date)).size, from, to };
+  }
+
+  /** The register of learnings: what not to repeat (and what to keep), counted from every outcome, with the trader's own status on each. */
+  learnings() {
+    const rows = this._tbl(OUTS);
+    const dates = this._tbl(SNAPS).map((x) => x.id);
+    const list = SNAP.learnings(rows, this._tbl(LEARN), dates);
+    return { learnings: list, days: new Set(rows.map((r) => r.date)).size, trades: rows.length, statuses: SNAP.STATUSES };
+  }
+
+  /** The trader's own lesson, written in words ("I will not …"). */
+  addLearning({ text, rule = "", title = "" } = {}) {
+    const t = str(text, 600);
+    if (t.length < 4) throw new AnalysisError("Write the lesson in a few words (at least four characters).");
+    if (this._tbl(LEARN).filter((m) => m.kind === "own").length >= 100) throw new AnalysisError("You have 100 lessons of your own already: remove one before adding another.", "too_many", 400);
+    const id = `own:${this.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+    const rec = { id, kind: "own", title: str(title, 120) || str(t, 80), text: t, rule: str(rule, 600), status: "open", note: "", masteredAt: null, createdAt: new Date(this.now()).toISOString() };
+    this._put(LEARN, [rec]);
+    return this.learnings();
+  }
+
+  /** Your status and note on a learning (measured or your own); marking one "mastered" dates it, so a later repeat is flagged. */
+  setLearning(id, patch = {}) {
+    const key = String(id || "");
+    const pattern = SNAP.PATTERNS.find((p) => p.id === key);
+    const own = this._tbl(LEARN).find((m) => m.id === key);
+    if (!pattern && !(own && own.kind === "own")) throw new AnalysisError("There is no such learning.", "not_found", 404);
+    const cur = own || { id: key, kind: "pattern", status: "open", note: "", masteredAt: null };
+    const next = { ...cur };
+    if (patch.status !== undefined) {
+      if (!SNAP.STATUSES.includes(patch.status)) throw new AnalysisError(`The status is one of: ${SNAP.STATUSES.join(", ")}.`);
+      next.status = patch.status;
+      next.masteredAt = patch.status === "mastered" ? (cur.status === "mastered" && cur.masteredAt) || istParts(this.now()).date : null;
+    }
+    if (patch.note !== undefined) next.note = str(patch.note, 600);
+    if (own && own.kind === "own") {
+      if (patch.text !== undefined) {
+        const t = str(patch.text, 600);
+        if (t.length < 4) throw new AnalysisError("Write the lesson in a few words (at least four characters).");
+        next.text = t;
+        next.title = str(patch.title, 120) || str(t, 80);
+      }
+      if (patch.rule !== undefined) next.rule = str(patch.rule, 600);
+    }
+    next.updatedAt = new Date(this.now()).toISOString();
+    this._put(LEARN, [next]);
+    return this.learnings();
+  }
+
+  /** Remove a lesson of your own. The measured ones come from your trades and stay: mark them "ignored" to set them aside. */
+  removeLearning(id) {
+    const key = String(id || "");
+    const own = this._tbl(LEARN).find((m) => m.id === key);
+    if (!own || own.kind !== "own") {
+      if (SNAP.PATTERNS.some((p) => p.id === key)) throw new AnalysisError("A measured learning comes from your own trades and cannot be deleted: mark it ignored to set it aside.", "read_only", 400);
+      throw new AnalysisError("There is no such lesson.", "not_found", 404);
+    }
+    this._drop(LEARN, [key]);
+    return this.learnings();
+  }
+
+  /** The days with a replay but no snapshot yet (or an old one): snapshots built by themselves, a few per sweep. */
+  async snapshotBackfill({ max = 5 } = {}) {
+    const have = new Map(this._tbl(SNAPS).map((x) => [x.id, x]));
+    const todo = Object.keys(this._labDoc().days)
+      .filter((d) => d <= istParts(this.now()).date && (!have.has(d) || have.get(d).ver !== SNAP.VER))
+      .sort()
+      .reverse()
+      .slice(0, max);
+    const done = [];
+    for (const d of todo) {
+      try {
+        const r = await this.snapshot(d);
+        if (r && r.available) done.push(d);
+      } catch (_) {
+        /* the next sweep tries again */
+      }
+    }
+    return done;
   }
 
   /**
@@ -407,6 +579,7 @@ class DayAnalysis {
       this._sweptAt = this.now();
       await this.backfill();
       await this.labBackfill();
+      await this.snapshotBackfill();
     }
     const t = istParts(this.now());
     if (t.dow === 0 || t.dow === 6 || t.mins < AUTO_AT || t.mins > AUTO_UNTIL) return null;

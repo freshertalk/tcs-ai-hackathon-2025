@@ -99,10 +99,106 @@ const mockCompare = {
   similarDays: [{ date: "2026-11-06", net: -900, text: "6 Nov: 4 trades, −₹900 net, score 44 — the same revenge trade." }],
   similarTrades: [{ key: "a", good: true, text: "Longs with VWAP around 9 AM: 7 earlier trades, 5 won, ₹1,900 net." }],
 };
+const T = (hhmm) => Date.parse(`2026-11-13T${hhmm}:00+05:30`);
+const mockSnap = {
+  available: true,
+  date: "2026-11-13",
+  summary: { trades: 2, net: 840, leftOnTable: 730, booked: 1, gaveBack: 1, leftEarly: 0, neverPaid: 0, cutInTime: 0, peak: { at: T("10:20"), clock: "10:20", pnl: 2640, holding: ["SBIN"] }, givenBack: 1800 },
+  headline: ["The day's profit peaked at +₹2,640 at 10:20; it closed at +₹840, so ₹1,800 of the peak was given back."],
+  day: { measured: true, peak: { at: T("10:20"), clock: "10:20", pnl: 2640, holding: ["SBIN"] }, trough: { at: T("09:44"), clock: "09:44", pnl: -40, holding: ["SBIN"] }, close: 840, givenBack: 1800, curve: Array.from({ length: 60 }, (_, i) => [T("09:15") + i * 5 * 60000, i < 24 ? i * 110 : 2640 - (i - 24) * 50]) },
+  trades: [{ key: "a", symbol: "SBIN", side: "long", qty: 50, entryAt: T("09:40"), exitAt: T("10:05"), entryClock: "09:40", exitClock: "10:05", entryAvg: 800, exitAvg: 826, net: 1270, peak: { clock: "10:00", pnl: 2000, pct: 5 }, leftOnTable: 730, gapMin: 5, outcome: { id: "gave-back", name: "Stayed past the peak", tone: "bad", text: "The best moment was +₹2,000 at 10:00; you stayed 5 min longer." } }],
+  moments: [{ at: T("09:40"), clock: "09:40", kind: "entry", text: "Bought 50 SBIN at ₹800.00." }, { at: T("10:00"), clock: "10:00", kind: "peak", text: "SBIN at its best while you were in: +₹2,000." }, { at: T("10:02"), clock: "10:02", kind: "signal", text: "SBIN: TIGHTEN — the buyers are tiring." }, { at: T("10:05"), clock: "10:05", kind: "exit", text: "You closed SBIN at ₹826.00." }],
+  notes: [],
+};
+const mockOutcomes = {
+  rows: [{ id: "2026-11-13:a", date: "2026-11-13", key: "a", symbol: "SBIN", side: "long", entryClock: "09:40", exitClock: "10:05", net: 1270, peakClock: "10:00", peakPnl: 2000, leftOnTable: 730, outcome: "gave-back", tone: "bad", text: "The best moment was +₹2,000 at 10:00." }, { id: "2026-11-13:b", date: "2026-11-13", key: "b", symbol: "INFY", side: "short", entryClock: "10:10", exitClock: "10:30", net: -430, peakClock: null, peakPnl: null, leftOnTable: null, outcome: "never-paid", tone: "bad", text: "The price never went meaningfully your way." }],
+  total: 2,
+  days: 1,
+  summary: { trades: 2, net: 840, leftOnTable: 730, missedAfter: 0, peakOnOffer: 2000, took: 1270, byOutcome: [{ id: "gave-back", name: "Stayed past the peak", tone: "bad", count: 1, net: 1270, left: 730 }, { id: "never-paid", name: "Never paid", tone: "bad", count: 1, net: -430, left: 0 }] },
+  outcomes: [{ id: "gave-back", name: "Stayed past the peak", tone: "bad" }, { id: "never-paid", name: "Never paid", tone: "bad" }],
+};
+const mockLearn = {
+  days: 5,
+  trades: 23,
+  statuses: ["open", "working", "mastered", "ignored"],
+  learnings: [
+    { id: "o:gave-back", kind: "avoid", source: "measured", title: "Stayed past the peak", text: "A winner held well past its best moment.", rule: "Trail the stop under the move.", count: 3, days: 2, wins: 3, cost: 1450, net: 900, firstSeen: "2026-11-06", lastSeen: "2026-11-13", daysSince: 0, state: "repeating", status: "open", note: "", relapse: false, recent: [{ date: "2026-11-13", symbol: "SBIN", clock: "09:40", net: 1270, id: "x" }] },
+    { id: "o:never-paid", kind: "avoid", source: "measured", title: "Never paid", text: "A trade the price never moved your way.", rule: "Wait for confirmation.", count: 2, days: 2, wins: 0, cost: 800, net: -800, firstSeen: "2026-11-05", lastSeen: "2026-11-13", daysSince: 0, state: "new", status: "mastered", note: "", masteredAt: "2026-11-10", relapse: true, recent: [] },
+    { id: "k:near-best", kind: "keep", source: "measured", title: "Booked near the best", text: "You left within minutes of the best moment.", rule: "Keep doing this.", count: 4, days: 3, wins: 4, cost: 5200, net: 5200, firstSeen: "2026-11-05", lastSeen: "2026-11-12", daysSince: 1, state: "strength", status: "open", note: "", relapse: false, recent: [] },
+  ],
+};
+const mockOutcome = { id: "gave-back", name: "Stayed past the peak", tone: "bad", text: "The best moment was +₹900 at 10:42; you stayed 12 min longer." };
+const mockRobotBoard = {
+  at: "2026-11-13T05:12:00Z",
+  date: "2026-11-13",
+  paperOnly: true,
+  live: true,
+  settings: { on: true, withAi: true, aiReady: true, capital: 1000000, riskPct: 0.5 },
+  open: [{ id: "2026-11-13:ICICIBANK:2", symbol: "ICICIBANK", side: "long", qty: 400, qty0: 400, entryClock: "11:02", entryAvg: 1250.4, last: 1255.2, stop: 1246.1, stop0: 1246.1, t1: 1257, t2: 1261, risk: 4.3, pnl: 1920, r: 1.1, peak: { price: 1256, at: 1, clock: "11:20" }, peakR: 1.3, score: 62, agree: 80, why: ["above VWAP"], level: { name: "Pivot point" }, t1Hit: false, events: [] }],
+  closed: [{ id: "2026-11-13:SBIN:1", symbol: "SBIN", side: "long", qty: 500, entryClock: "09:45", exitClock: "10:54", entryAvg: 800, exitAvg: 805, net: 1900, netR: 0.95, why: "giveback", peakClock: "10:42", peakPnl: 2800, outcome: mockOutcome, score: 58 }],
+  decisions: [{ at: 1, clock: "11:30", symbol: "TCS", side: "short", action: "skip", why: "score 38 is under the 53 needed in the midday lull" }],
+  day: { trades: 2, net: 3820, wins: 1, winPct: 100, netPct: 0.38 },
+  log: [{ at: "x", text: "SBIN long: giveback, +₹1,900 (0.95R) — Stayed past the peak." }],
+};
+const mockRobotDay = {
+  available: true,
+  date: "2026-11-13",
+  trades: [{ id: "2026-11-13:SBIN:1", symbol: "SBIN", side: "long", qty0: 500, entryClock: "09:45", exitClock: "10:54", entryAt: 1000, exitAt: 5000, entryAvg: 800, exitAvg: 805, net: 1900, stop0: 797, t1: 804.5, t2: 807, peak: { price: 807, at: 3000, clock: "10:42" }, peakR: 2.3, score: 58, agree: 70, outcome: mockOutcome, level: { name: "Yesterday's low", ev: 0.21, hit: 54 }, events: [{ at: 1000, clock: "09:45", kind: "entry", text: "Bought 500 SBIN at ₹800.24." }, { at: 4000, clock: "10:50", kind: "exit", text: "Gave back 52% of its best gain." }], frames: [[1000, 800, 0, 58], [2000, 803, 1500, 58], [3000, 807, 3500, 57], [4000, 805, 2500, 55]] }],
+  decisions: [{ at: 1, clock: "09:50", symbol: "INFY", side: "long", action: "skip", why: "before 9:30: the opening range is still forming" }],
+};
+const mockRobotCompare = {
+  date: "2026-11-13",
+  available: true,
+  you: { trades: 2, net: -100, winPct: 50, efficiency: 40 },
+  robot: { trades: 2, net: 300, winPct: 100, efficiency: 70 },
+  gap: 400,
+  pairs: [{ symbol: "SBIN", side: "long", you: { key: "a", entryClock: "09:57", exitClock: "10:58", net: 400 }, robot: { entryClock: "09:45", exitClock: "10:54", net: 1900 }, youLaterMin: 12, entryEdgePct: -0.4, exitEdgePct: 0.1, netDiff: -1500, better: "robot" }],
+  robotOnly: [{ key: "r1", symbol: "ICICIBANK", side: "long", entryClock: "11:02", exitClock: "11:50", net: 600, outcome: { name: "Booked near the best" } }],
+  youOnly: [{ key: "y1", symbol: "TCS", side: "short", entryClock: "12:00", exitClock: "12:20", net: -500, reason: "score 38 is under the 53 needed in the midday lull" }],
+  habits: [{ id: "revenge", name: "Revenge trade", count: 1, net: -500, answer: "The robot waits 30 minutes before it enters the same stock again." }],
+  lessons: ["The robot took 2 trades and made +₹300; you took 2 and made −₹100 — the robot made ₹400 more."],
+  sample: "One day is a small sample. The comparison says what happened on this day, not what will happen next.",
+};
+const mockRobotLearning = {
+  trades: 24,
+  sessions: 9,
+  curve: [{ date: "2026-11-12", cum: 1200, rollBad: 40 }, { date: "2026-11-13", cum: 3100, rollBad: 33 }],
+  mistakes: [{ id: "gave-back", title: "A winner held until it gave part back", text: "The trade stayed past its best moment.", count: 6, recent: 5, cost: 4200, lastSeen: "2026-11-13", state: "relapse", correction: { id: "c1", date: "2026-11-09", summary: "Give-back exit 50% → 45%" } }],
+  corrections: [{ id: "c1", date: "2026-11-09", status: "active", title: "Take profit sooner on a winner", summary: "Give-back exit 50% → 45%", why: "6 of the last 24 trades stayed past their best moment." }, { id: "c0", date: "2026-11-02", status: "reverted", title: "Ask for a higher score", summary: "Minimum score 45 → 48", why: "x", result: { n: 8, avgR: -0.3, baseline: 0.1 } }],
+  rules: { rows: [{ param: "giveBackPct", value: 45, start: 50, changed: true }, { param: "minScore", value: 45, start: 45, changed: false }] },
+  notes: [{ date: "2026-11-13", review: "A fair day: two trades, one gave back part of its peak.", lessons: ["SBIN gave back 52% of +₹3,500."] }],
+  skill: { series: [{ date: "2026-11-10", evaluated: true, avgR: 0.12, allAvgR: 0.02 }, { date: "2026-11-11", evaluated: true, avgR: 0.1, allAvgR: 0.03 }], graduation: { target: 15, studied: 7, marked: 2, tests: 20, meanGap: null, better: 0, of: 2, state: "learning", text: "7 of 15 sessions studied. It is not asked to suggest with confidence until it has seen 15." }, studied: 7, live: 1, backfilled: 6, from: "2026-11-05", to: "2026-11-13" },
+  job: null,
+};
+const mockLevelBook = {
+  available: true,
+  basedOn: "2026-11-13",
+  sessions: 7,
+  from: "2026-11-05",
+  to: "2026-11-13",
+  graduation: mockRobotLearning.skill.graduation,
+  rows: [{ symbol: "RELIANCE", kind: "pdl", kindName: "Yesterday's low", level: 1280.5, play: "bounce", side: "long", entry: 1280.5, stop: 1276.9, target: 1285.9, riskPct: 0.28, trigger: "falls to 1280.5 and holds", key: "pdl|bounce|long", ev: 0.18, hit: 56, n: 9, pooledN: 410, pooledEv: 0.07, pooledHit: 52, own: true }],
+  kinds: [{ key: "pdl|bounce|long", name: "Yesterday's low", play: "bounce", side: "long", n: 410, hitPct: 52, avgR: 0.07 }],
+  symbols: ["RELIANCE", "SBIN"],
+  symbol: null,
+  stock: null,
+};
 const mockCalls = [];
+const mockWrites = [];
 jest.mock("../../api", () => ({
-  api: (url) => {
+  api: (url, opts) => {
     mockCalls.push(url);
+    if (opts && opts.method) mockWrites.push({ url, method: opts.method, body: opts.body });
+    if (url === "/api/admin/robot") return Promise.resolve(mockRobotBoard);
+    if (url.startsWith("/api/admin/robot/days")) return Promise.resolve({ days: [{ date: "2026-11-13", trades: 2, net: 3820, compared: true, you: -100, gap: 400, corrected: 1 }], summary: { days: 2, robotNet: 5000, youNet: 1200, gap: 3800, robotAhead: 2, youAhead: 0 } });
+    if (url.startsWith("/api/admin/robot/day/")) return Promise.resolve(mockRobotDay);
+    if (url.startsWith("/api/admin/robot/compare/")) return Promise.resolve(mockRobotCompare);
+    if (url.startsWith("/api/admin/robot/learning")) return Promise.resolve(mockRobotLearning);
+    if (url.startsWith("/api/admin/robot/levels")) return Promise.resolve(mockLevelBook);
+    if (url.startsWith("/api/admin/robot/")) return Promise.resolve({});
+    if (url.startsWith("/api/admin/analysis/snapshot/")) return Promise.resolve(mockSnap);
+    if (url.startsWith("/api/admin/analysis/outcomes")) return Promise.resolve(mockOutcomes);
+    if (url.startsWith("/api/admin/analysis/learnings")) return Promise.resolve(mockLearn);
     if (url === "/api/admin/analysis/days") return Promise.resolve({ days: [{ date: "2026-11-13" }] });
     if (url === "/api/admin/flight") return Promise.resolve(mockBoard);
     if (url === "/api/admin/flight/ai") return Promise.resolve({ opinion: { at: 1, clock: "10:43", action: "exit-now", exitPrice: 805.9, stop: 806.4, confidence: "high", reason: "Half the gain is gone and sellers lead the book.", watch: "A reclaim of 808.", by: "Claude Sonnet 5.5", agrees: true, deskSaid: "exit-now" }, settings: mockBoard.settings });
@@ -126,6 +222,7 @@ const outsideMarketHours = () => {
 };
 beforeEach(() => {
   mockCalls.length = 0;
+  mockWrites.length = 0;
   window.localStorage.clear();
 });
 afterEach(() => {
@@ -242,4 +339,133 @@ test("a recorded trade's replay: the AI's exit levels as they were given, each s
   // no recording, no list
   const { container } = render(<TradeChart t={t} flight={null} />);
   expect(container.querySelector(".lx-ai")).toBeNull();
+});
+
+test("a day's snapshot: the peak with its time, what became of each best moment, and the timeline with a timestamp on every moment", async () => {
+  outsideMarketHours();
+  window.localStorage.setItem("vpt.lab.mode", "snap");
+  render(<TradeAnalysis />);
+  await settle();
+  expect(mockCalls).toContain("/api/admin/analysis/snapshot/2026-11-13");
+  expect(screen.getByText("+₹2,640")).toBeTruthy(); // the day's peak
+  expect(screen.getByText(/at 10:20 · open: SBIN/)).toBeTruthy();
+  expect(screen.getByText(/₹1,800 of the peak was given back/)).toBeTruthy();
+  expect(screen.getByRole("img", { name: /peaked at \+₹2,640 at 10:20 and closed at \+₹840/ })).toBeTruthy();
+  expect(screen.getByText("Stayed past the peak")).toBeTruthy();
+  expect(screen.getByText(/you stayed 5 min longer/)).toBeTruthy();
+  expect(screen.getByText("Bought 50 SBIN at ₹800.00.")).toBeTruthy();
+  expect(screen.getByText("09:40", { selector: "time" })).toBeTruthy();
+  // the live board's signals are behind a switch
+  expect(screen.queryByText(/TIGHTEN/)).toBeNull();
+  fireEvent.click(screen.getByLabelText(/live-board signals \(1\)/));
+  expect(screen.getByText(/TIGHTEN — the buyers are tiring/)).toBeTruthy();
+});
+
+test("the outcomes table: every trade with what became of its best moment, filtered by pressing an outcome", async () => {
+  outsideMarketHours();
+  window.localStorage.setItem("vpt.lab.mode", "outcomes");
+  render(<TradeAnalysis />);
+  await settle();
+  expect(mockCalls.some((u) => u.startsWith("/api/admin/analysis/outcomes?from="))).toBe(true);
+  expect(screen.getByText("The best moment was +₹2,000 at 10:00.")).toBeTruthy();
+  expect(screen.getByText("The price never went meaningfully your way.")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: /Never paid/ }));
+  expect(screen.queryByText("The best moment was +₹2,000 at 10:00.")).toBeNull();
+  expect(screen.getByText("The price never went meaningfully your way.")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: /Never paid/ }));
+  expect(screen.getByText("The best moment was +₹2,000 at 10:00.")).toBeTruthy();
+});
+
+test("the register of learnings: each habit with its cost and rule, a flag for one that came back, your status saved, a lesson of your own added", async () => {
+  outsideMarketHours();
+  window.localStorage.setItem("vpt.lab.mode", "learn");
+  render(<TradeAnalysis />);
+  await settle();
+  expect(screen.getByText("Trail the stop under the move.", { exact: false })).toBeTruthy();
+  expect(screen.getByText("₹1,450")).toBeTruthy();
+  expect(screen.getByText("Repeating")).toBeTruthy();
+  expect(screen.getByText(/Back after you marked it mastered/, { selector: "p b" })).toBeTruthy();
+  expect(screen.getByText("Keep doing", { selector: "h3" })).toBeTruthy();
+  fireEvent.change(screen.getByLabelText("Your status on: Stayed past the peak"), { target: { value: "working" } });
+  await settle();
+  expect(mockWrites).toContainEqual({ url: "/api/admin/analysis/learnings/o%3Agave-back", method: "PUT", body: { status: "working" } });
+  fireEvent.change(screen.getByLabelText("What I will not repeat"), { target: { value: "adding to a loser after 2 PM" } });
+  fireEvent.click(screen.getByRole("button", { name: "Add lesson" }));
+  await settle();
+  expect(mockWrites.find((w) => w.method === "POST").body.text).toBe("adding to a loser after 2 PM");
+});
+
+test("the robot today: its open position, what finished and how, what it skipped — and the flight recorder of the day", async () => {
+  outsideMarketHours();
+  window.localStorage.setItem("vpt.lab.mode", "robot");
+  render(<TradeAnalysis />);
+  await settle();
+  expect(screen.getByText(/The paper robot is/)).toBeTruthy();
+  expect(screen.getByText("on", { selector: "b" })).toBeTruthy();
+  expect(screen.getByText(/play money/i, { selector: "b" })).toBeTruthy();
+  expect(screen.getByText("+₹3,820")).toBeTruthy();
+  expect(screen.getByText(/ICICIBANK/)).toBeTruthy();
+  expect(screen.getAllByText("Stayed past the peak").length).toBeGreaterThan(0);
+  expect(screen.getByText(/score 38 is under the 53 needed/)).toBeTruthy();
+  // the recorder: open the trade to see its frames and events
+  expect(mockCalls).toContain("/api/admin/robot/day/2026-11-13");
+  fireEvent.click(screen.getByRole("button", { name: /SBIN.*09:45–10:54/ }));
+  expect(screen.getByText("Bought 500 SBIN at ₹800.24.")).toBeTruthy();
+  expect(screen.getByText(/4 frames/)).toBeTruthy();
+  expect(screen.getByRole("img", { name: /SBIN from 09:45: entry 800\.00, best 807\.00 at 10:42/ })).toBeTruthy();
+  // the switch
+  fireEvent.click(screen.getByRole("button", { name: "Switch off" }));
+  await settle();
+  expect(mockWrites).toContainEqual({ url: "/api/admin/robot/settings", method: "PUT", body: { on: false } });
+});
+
+test("the robot against you: the gap, what happened, the stocks you both traded, the calls you skipped and why the robot skipped yours", async () => {
+  outsideMarketHours();
+  window.localStorage.setItem("vpt.lab.mode", "robot");
+  window.localStorage.setItem("vpt.robot.view", "versus");
+  render(<TradeAnalysis />);
+  await settle();
+  await settle();
+  expect(mockCalls).toContain("/api/admin/robot/compare/2026-11-13");
+  expect(screen.getByText(/the robot made ₹400 more/)).toBeTruthy();
+  expect(screen.getByText("+₹400", { selector: ".ta-kpi__v" })).toBeTruthy();
+  expect(screen.getByText(/you 12 min later, 0\.4% worse/)).toBeTruthy();
+  expect(screen.getByText("Advisor calls you did not take")).toBeTruthy();
+  expect(screen.getByText(/ICICIBANK/)).toBeTruthy();
+  expect(screen.getByText(/the robot: score 38 is under the 53 needed/)).toBeTruthy();
+  expect(screen.getByText(/waits 30 minutes before it enters the same stock again/)).toBeTruthy();
+  expect(screen.getByText(/One day is a small sample/)).toBeTruthy();
+});
+
+test("the robot's learning: where it is in its fifteen sessions, its mistakes, its corrections and how each fared — and Study now", async () => {
+  outsideMarketHours();
+  window.localStorage.setItem("vpt.lab.mode", "robot");
+  window.localStorage.setItem("vpt.robot.view", "learning");
+  render(<TradeAnalysis />);
+  await settle();
+  expect(screen.getByText(/session 7 of 15/)).toBeTruthy();
+  expect(screen.getByRole("progressbar", { name: "Sessions studied" })).toBeTruthy();
+  expect(screen.getByText(/7 of 15 sessions studied\. It is not asked to suggest/)).toBeTruthy();
+  expect(screen.getByText("Back after its fix")).toBeTruthy();
+  expect(screen.getAllByText(/Give-back exit 50% → 45%/).length).toBeGreaterThan(0);
+  expect(screen.getByText("Measured: undone")).toBeTruthy();
+  expect(screen.getByText(/the trades since averaged|Since: 8 trades averaged −0\.30R against \+0\.10R before/)).toBeTruthy();
+  expect(screen.getByText(/A fair day: two trades/)).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: /Study the NIFTY 100 now/ }));
+  await settle();
+  expect(mockWrites.find((w) => w.url === "/api/admin/robot/study" && w.method === "POST")).toBeTruthy();
+});
+
+test("the Level Book: the best levels for the next session, with the record each rests on", async () => {
+  outsideMarketHours();
+  window.localStorage.setItem("vpt.lab.mode", "robot");
+  window.localStorage.setItem("vpt.robot.view", "levels");
+  render(<TradeAnalysis />);
+  await settle();
+  expect(screen.getByText("Best levels for the next session")).toBeTruthy();
+  expect(screen.getByText(/RELIANCE/, { selector: "b" })).toBeTruthy();
+  expect(screen.getByText(/falls to 1280\.5 and holds/)).toBeTruthy();
+  expect(screen.getByText("+0.18R")).toBeTruthy();
+  expect(screen.getByText(/9 of its own tests · 410 across the NIFTY 100/)).toBeTruthy();
+  expect(screen.getByText(/it has not yet shown skill out of sample/)).toBeTruthy();
 });

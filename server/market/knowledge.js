@@ -267,6 +267,7 @@ const PACKS = {
   social: ["macro-india", "macro-sectors", "st-news"],
   tradeai: ["honest-odds", "risk-sizing", "psy-discipline"],
   whatsapp: ["risk-stops", "honest-odds"],
+  robot: ["risk-stops", "risk-expectancy", "psy-discipline", "honest-odds"],
 };
 const PACK_CHARS = 1800;
 const packs = new Map();

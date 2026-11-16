@@ -4,6 +4,12 @@
 //               lab.js): how far it went for you and against you, the share of the best move you
 //               kept, the best moment to have left with its time, when the coach would have said
 //               EXIT, where you came in, what other exits would have made, the habits that cost money
+//   Snapshots   the day as a timeline with a timestamp on every moment — the best moment of each trade and
+//               what you did about it, the day's own profit curve (Snapshots.jsx)
+//   Outcomes    every trade of every recorded day and what became of its best moment (Snapshots.jsx)
+//   Do not repeat  the register of learnings: each costly habit with its price, its rule and your status
+//   Robot       the AI paper trader: takes the advisor's calls with play money, flight-records them, is compared
+//               with your day, corrects its own mistakes, studies the NIFTY 100's levels (Robot.jsx)
 //   Coach       the day against your own history: what to prevent, what to keep (LabExtras.jsx)
 //   A period    the days added up, with the lessons in plain words
 //
@@ -18,6 +24,8 @@ import { DateField } from "../../DatePicker";
 import { HBars, Spark, dayLong, rs, rsSigned, tone } from "./charts";
 import LiveBoard from "./LiveBoard";
 import { CoachView, ExitTiming, TradeChart, aiLevelsOf, flightOf, useFlightDay } from "./LabExtras";
+import { DaySnapshot, Learnings, Outcomes } from "./Snapshots";
+import Robot from "./Robot";
 import "./analysis.css";
 
 const IST = 5.5 * 3600 * 1000;
@@ -423,6 +431,10 @@ const marketOpenNow = () => {
 const PARTS = [
   { id: "live", label: "Live board", tip: "Every open position, tick by tick: HOLD, TIGHTEN, BOOK PART or EXIT NOW, with the price." },
   { id: "day", label: "A day", tip: "The day replayed: the best moment to have left each trade, with its time." },
+  { id: "snap", label: "Snapshots", tip: "The day as a timeline: the time of each trade's best moment, whether you booked it, and the day's own profit curve." },
+  { id: "outcomes", label: "Outcomes", tip: "Every trade, every day, and what became of its best moment: booked, given back, left early, never paid." },
+  { id: "learn", label: "Don't repeat", tip: "The register of costly habits: how often, what each cost, the rule to follow, and your own status on each." },
+  { id: "robot", label: "Robot", tip: "The AI paper trader: it takes the advisor's calls with play money, records every frame, is compared with your day after the close, corrects its own mistakes and learns the NIFTY 100's levels." },
   { id: "coach", label: "Coach", tip: "The day against your own history: what to prevent and what to keep." },
   { id: "period", label: "A period", tip: "The days added up, with the lessons." },
 ];
@@ -452,6 +464,11 @@ export default function TradeAnalysis() {
     setMode(m);
     keep(MODE_KEY, m);
   };
+  // a trade or a learning opens its day's snapshot
+  const openDay = (d) => {
+    setDate(d);
+    pick("snap");
+  };
   return (
     <div className="ta lab">
       <section className="ta-card ta-head">
@@ -459,7 +476,7 @@ export default function TradeAnalysis() {
           <h2>Trade Analysis — Execution Lab</h2>
           <p className="ta-dim">
             Your trading&rsquo;s flight recorder. While you are in a trade the <b>Live board</b> says when to leave, tick by tick; after the close every trade is replayed on Zerodha&rsquo;s 1-minute bars — the best moment to have left with its time, where you came in, the habits that cost money — and
-            the <b>Coach</b> sets the day against your own history. Daily profit-and-loss reports are in the Journal&rsquo;s <b>Day book</b>.
+            the <b>Coach</b> sets the day against your own history. <b>Snapshots</b> keep each day as a timeline with a timestamp on every moment, <b>Outcomes</b> tabulate what became of every best moment, and <b>Don&rsquo;t repeat</b> counts the habits that cost you. Daily profit-and-loss reports are in the Journal&rsquo;s <b>Day book</b>.
           </p>
         </div>
         <div className="ta-seg" role="group" aria-label="Execution Lab">
@@ -472,6 +489,10 @@ export default function TradeAnalysis() {
       </section>
       {mode === "live" && <LiveBoard onReplay={() => pick("day")} />}
       {mode === "day" && (date ? <DayLab key={date} date={date} setDate={setDate} /> : <Loading label="Opening the lab…" />)}
+      {mode === "snap" && (date ? <DaySnapshot key={date} date={date} setDate={setDate} /> : <Loading label="Opening the snapshots…" />)}
+      {mode === "outcomes" && <Outcomes onOpenDay={openDay} />}
+      {mode === "learn" && <Learnings onOpenDay={openDay} />}
+      {mode === "robot" && <Robot />}
       {mode === "coach" &&
         (date ? (
           <>

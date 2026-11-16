@@ -33,6 +33,14 @@ function mountAnalysis(app, { analysis, requireSuper, limiter }) {
   app.get("/api/admin/analysis/lab/:date", requireSuper, limiter(60, 60 * 1000), wrap(async (req) => analysis.lab(req.params.date, { refresh: req.query.refresh === "1" })));
   app.get("/api/admin/analysis/compare/:date", requireSuper, limiter(60, 60 * 1000), wrap(async (req) => analysis.compare(req.params.date)));
   app.get("/api/admin/analysis/lab", requireSuper, limiter(120, 60 * 1000), wrap(async (req) => analysis.labRange(range(req))));
+  // the day's snapshot (the timeline with its timestamps), the outcomes table and the register of learnings
+  app.get("/api/admin/analysis/snapshot/:date", requireSuper, limiter(60, 60 * 1000), wrap(async (req) => analysis.snapshot(req.params.date, { refresh: req.query.refresh === "1" })));
+  app.get("/api/admin/analysis/snapshots", requireSuper, limiter(120, 60 * 1000), wrap(async (req) => ({ days: analysis.snapshots(range(req)) })));
+  app.get("/api/admin/analysis/outcomes", requireSuper, limiter(120, 60 * 1000), wrap(async (req) => analysis.outcomes({ ...range(req), outcome: String(req.query.outcome || "").slice(0, 30) || null, symbol: String(req.query.symbol || "").toUpperCase().slice(0, 30) || null })));
+  app.get("/api/admin/analysis/learnings", requireSuper, limiter(120, 60 * 1000), wrap(async () => analysis.learnings()));
+  app.post("/api/admin/analysis/learnings", requireSuper, limiter(60, 10 * 60 * 1000), wrap(async (req) => analysis.addLearning(req.body || {})));
+  app.put("/api/admin/analysis/learnings/:id", requireSuper, limiter(120, 10 * 60 * 1000), wrap(async (req) => analysis.setLearning(req.params.id, req.body || {})));
+  app.delete("/api/admin/analysis/learnings/:id", requireSuper, limiter(60, 10 * 60 * 1000), wrap(async (req) => analysis.removeLearning(req.params.id)));
   app.post("/api/admin/analysis/day/:date/ai", requireSuper, limiter(20, 60 * 60 * 1000), wrap(async (req) => analysis.writeAi(req.params.date)));
   app.delete("/api/admin/analysis/day/:date", requireSuper, limiter(30, 10 * 60 * 1000), wrap(async (req) => analysis.remove(req.params.date)));
 }

@@ -1,0 +1,386 @@
+/* Trade Analysis — snapshots, outcomes and learnings. Colours come from the desk's tokens, so both themes follow the switch. */
+.snp-chip {
+  display: inline-block;
+  width: fit-content;
+  padding: 1px 8px;
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  background: var(--surface-2);
+  color: var(--ink-2);
+  font-size: var(--t-small);
+  font-weight: 600;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+.snp-chip--good {
+  border-color: var(--up-line);
+  background: var(--up-bg);
+  color: var(--up-ink);
+}
+.snp-chip--bad {
+  border-color: var(--down-line);
+  background: var(--down-bg);
+  color: var(--down-ink);
+}
+.snp-chip--warn {
+  border-color: var(--warn-line);
+  background: var(--warn-bg);
+  color: var(--warn-ink);
+}
+
+/* the tables */
+.snp-table {
+  min-width: 640px;
+}
+.snp-table th small,
+.snp-sub {
+  display: block;
+  font-size: var(--t-small);
+  font-weight: 400;
+  color: var(--ink-3);
+}
+/* the lab's own table style tints the small text in a row header green: these are not gains */
+.snp-table th small.snp-sub {
+  color: var(--ink-3);
+}
+.snp-table th small.snp-rule {
+  color: var(--ink-2);
+}
+.snp-table th small.snp-relapse {
+  color: var(--down-ink);
+}
+.snp-what {
+  display: grid;
+  gap: 3px;
+  justify-items: start;
+  min-width: 220px;
+}
+.snp-what small {
+  font-size: var(--t-small);
+  color: var(--ink-2);
+  line-height: 1.4;
+}
+.snp-sort {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.snp-sort[aria-pressed="true"] {
+  color: var(--ink);
+  text-decoration: underline;
+}
+
+/* the day's curve */
+.snp-curvewrap {
+  overflow-x: auto;
+  min-width: 0;
+}
+.snp-curve {
+  display: block;
+  width: 100%;
+  min-width: 560px;
+  height: auto;
+}
+.snp-zero {
+  stroke: var(--line-2, var(--line));
+  stroke-width: 1;
+  stroke-dasharray: 4 3;
+}
+.snp-hour line {
+  stroke: var(--line);
+  stroke-width: 1;
+}
+.snp-hour text,
+.snp-pk text,
+.snp-lo text {
+  font-size: 11px;
+  fill: var(--ink-2);
+}
+.snp-line {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+.snp-pk circle {
+  fill: var(--up);
+  stroke: var(--surface);
+  stroke-width: 2;
+}
+.snp-lo circle {
+  fill: var(--down);
+  stroke: var(--surface);
+  stroke-width: 2;
+}
+.snp-span rect {
+  fill: var(--ink-3);
+}
+.snp-span--good rect {
+  fill: var(--up);
+}
+.snp-span--bad rect {
+  fill: var(--down);
+}
+
+/* the timeline */
+.snp-timeline {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.snp-m {
+  display: grid;
+  grid-template-columns: 52px 74px minmax(0, 1fr);
+  gap: 4px 10px;
+  align-items: baseline;
+  padding: 6px 4px;
+  border-top: 1px solid var(--line);
+  font-size: var(--t-small);
+}
+.snp-m:first-child {
+  border-top: 0;
+}
+.snp-m__t {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: var(--ink);
+}
+.snp-m__k {
+  justify-self: start;
+  padding: 0 7px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface-2);
+  color: var(--ink-2);
+  font-size: var(--t-tag);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.snp-m__x {
+  min-width: 0;
+  color: var(--ink);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.snp-m--peak .snp-m__k,
+.snp-m--day-peak .snp-m__k,
+.snp-m--target .snp-m__k {
+  border-color: var(--up-line);
+  background: var(--up-bg);
+  color: var(--up-ink);
+}
+.snp-m--worst .snp-m__k,
+.snp-m--day-trough .snp-m__k,
+.snp-m--stop .snp-m__k {
+  border-color: var(--down-line);
+  background: var(--down-bg);
+  color: var(--down-ink);
+}
+.snp-m--coach .snp-m__k,
+.snp-m--after .snp-m__k,
+.snp-m--alert .snp-m__k {
+  border-color: var(--warn-line);
+  background: var(--warn-bg);
+  color: var(--warn-ink);
+}
+.snp-m--signal,
+.snp-m--level,
+.snp-m--ai,
+.snp-m--alert {
+  opacity: 0.92;
+}
+.snp-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--t-small);
+  color: var(--ink-2);
+  cursor: pointer;
+}
+
+/* the outcome filters */
+.snp-outs {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.snp-out {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-left-width: 4px;
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--t-small);
+  text-align: left;
+  cursor: pointer;
+}
+.snp-out span {
+  color: var(--ink-2);
+}
+.snp-out i {
+  font-style: normal;
+  font-weight: 600;
+}
+.snp-out--good {
+  border-left-color: var(--up-line);
+}
+.snp-out--bad {
+  border-left-color: var(--down-line);
+}
+.snp-out--flat {
+  border-left-color: var(--line);
+}
+.snp-out[aria-pressed="true"] {
+  background: var(--accent-soft);
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+
+/* the register of learnings */
+.snp-table--learn {
+  min-width: 720px;
+}
+.snp-lbtn {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.snp-lbtn:disabled {
+  cursor: default;
+}
+.snp-lbtn:not(:disabled):hover b {
+  text-decoration: underline;
+}
+.snp-rule {
+  display: block;
+  margin-top: 3px;
+  font-size: var(--t-small);
+  font-weight: 400;
+  color: var(--ink-2);
+  line-height: 1.4;
+}
+.snp-rule b {
+  color: var(--ink);
+}
+.snp-relapse {
+  display: block;
+  margin-top: 3px;
+  font-size: var(--t-small);
+  font-weight: 700;
+  color: var(--down-ink);
+}
+.snp-l.is-relapse th,
+.snp-l.is-relapse td {
+  background: var(--down-bg);
+}
+.snp-l.is-aside {
+  opacity: 0.6;
+}
+.snp-back {
+  margin: 0;
+  padding: 8px 12px;
+  border: 1px solid var(--down-line);
+  border-radius: 8px;
+  background: var(--down-bg);
+  color: var(--down-ink);
+  font-size: var(--t-small);
+}
+.snp-sel,
+.snp-note,
+.snp-add input {
+  width: 100%;
+  min-width: 0;
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--t-small);
+}
+.snp-note {
+  margin-top: 4px;
+}
+.snp-x {
+  margin-top: 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--down-ink);
+  font: inherit;
+  font-size: var(--t-small);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.snp-add {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: end;
+}
+.snp-add label {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  font-size: var(--t-small);
+  color: var(--ink-2);
+}
+.snp-recent {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--t-small);
+}
+.snp-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent-2, var(--accent));
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+@media (max-width: 720px) {
+  .snp-m {
+    grid-template-columns: 46px minmax(0, 1fr);
+  }
+  .snp-m__k {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .snp-m__x {
+    grid-column: 1 / -1;
+  }
+  .snp-add {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* seven parts in the Execution Lab's switch: they wrap rather than run off the page */
+.ta-head .ta-seg {
+  flex-wrap: wrap;
+  max-width: 100%;
+}

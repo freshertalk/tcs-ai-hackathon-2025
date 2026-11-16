@@ -1,0 +1,226 @@
+/* Trade Analysis → Robot. Colours come from the desk's tokens, so both themes follow the switch. */
+.rbt-views {
+  justify-content: space-between;
+}
+.rbt-head {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px 16px;
+}
+.rbt-head h3 small {
+  font-weight: 400;
+  color: var(--ink-3);
+}
+.rbt-switch {
+  display: grid;
+  gap: 6px;
+  justify-items: start;
+}
+.rbt-pick {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--t-small);
+  color: var(--ink-2);
+}
+.rbt-pick select,
+.rbt-pick input {
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--t-small);
+}
+.rbt-flights {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.rbt-flights > li {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.rbt-flights > li > button {
+  display: grid;
+  grid-template-columns: minmax(80px, 0.6fr) minmax(0, 1.4fr) auto auto;
+  gap: 4px 12px;
+  align-items: center;
+  width: 100%;
+  padding: 8px 12px;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--t-small);
+  text-align: left;
+  cursor: pointer;
+}
+.rbt-flights > li > button span {
+  color: var(--ink-2);
+}
+.rbt-flights > li > button i {
+  font-style: normal;
+  font-weight: 600;
+}
+.rbt-flights > li.is-open {
+  border-color: var(--accent);
+}
+.rbt-flight {
+  display: grid;
+  gap: 8px;
+  padding: 0 12px 12px;
+}
+.rbt-outcome {
+  margin: 0;
+  font-size: var(--t-small);
+  color: var(--ink-2);
+}
+.rbt-chartwrap {
+  overflow-x: auto;
+  min-width: 0;
+}
+.rbt-chart {
+  display: block;
+  width: 100%;
+  min-width: 520px;
+  height: auto;
+}
+.rbt-path {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+.rbt-ln line {
+  stroke-width: 1;
+  stroke-dasharray: 4 3;
+}
+.rbt-ln text,
+.rbt-peak text {
+  font-size: 11px;
+  fill: var(--ink-2);
+}
+.rbt-ln--in line {
+  stroke: var(--ink-3);
+}
+.rbt-ln--stop line {
+  stroke: var(--down);
+}
+.rbt-ln--t line {
+  stroke: var(--up);
+}
+.rbt-peak circle {
+  fill: var(--up);
+  stroke: var(--surface);
+  stroke-width: 2;
+}
+.rbt-out {
+  stroke: var(--ink-3);
+  stroke-width: 1;
+}
+.rbt-dec {
+  padding: 10px 14px;
+  font-size: var(--t-small);
+}
+.rbt-dec summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--ink);
+}
+.rbt-dec ul {
+  display: grid;
+  gap: 3px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  color: var(--ink-2);
+}
+.rbt-dec li.is-in {
+  color: var(--up-ink);
+}
+.rbt-dec time {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: var(--ink);
+}
+.rbt-list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--t-small);
+  color: var(--ink);
+}
+.rbt-list small {
+  color: var(--ink-3);
+}
+.rbt-grad {
+  border-left: 4px solid var(--line);
+}
+.rbt-grad--graduated {
+  border-left-color: var(--up-line);
+}
+.rbt-grad--not-yet {
+  border-left-color: var(--warn-line);
+}
+.rbt-grad p {
+  margin: 0;
+  font-size: var(--t-small);
+  color: var(--ink);
+}
+.rbt-bar {
+  height: 8px;
+  border-radius: 99px;
+  background: var(--neutral-bar);
+  overflow: hidden;
+}
+.rbt-bar i {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+.rbt-cors {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--t-small);
+}
+.rbt-cors li {
+  display: grid;
+  grid-template-columns: 52px auto minmax(0, 1fr);
+  gap: 6px 10px;
+  align-items: baseline;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+.rbt-cors li:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+.rbt-cors__d {
+  font-weight: 700;
+  color: var(--ink);
+}
+.rbt-cors small {
+  color: var(--ink-3);
+}
+@media (max-width: 720px) {
+  .rbt-head {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .rbt-flights > li > button {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .rbt-cors li {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

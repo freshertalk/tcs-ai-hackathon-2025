@@ -48,6 +48,8 @@ const { DisciplineWatch } = require("./discipline-watch");
 const { LiveBook } = require("./trading/livebook");
 const { Scanner, ScannerError } = require("./scanner");
 const { SetupLab, SetupLabError } = require("./setuplab");
+const { PaperRobot } = require("./robot/service");
+const { mountRobot } = require("./robot/routes");
 const knowledge = require("./market/knowledge");
 const { GlobalFeed } = require("./market/global");
 const { SocialService } = require("./social/service");
@@ -271,6 +273,9 @@ function createApp(opts = {}) {
         },
         // that day's 1-minute bars, for the Execution Lab's replay
         minuteBars: (symbol, fromMs, toMs) => market.minuteBarsBetween(symbol, fromMs, toMs),
+        // the live board's recorded flights of that day (signals, levels, alerts), for the day snapshot's timeline.
+        // `flight` is created further down; this is only called later, by the sweep or a request.
+        flightDay: (date) => flight.day(date),
         // the daily goal's percentages (target and stop), for the lab's "after the stop / target" flags
         discipline: () => trading._discipline(),
         // the days that have closed trades in the journal (for saving the days that were missed)
@@ -303,6 +308,7 @@ function createApp(opts = {}) {
   trading.onJournalImport = async () => {
     for (let i = 0; i < 25; i += 1) if (!(await analysis.backfill()).length) break; // 20 days a round, until none is missing
     await analysis.labBackfill({ max: 10 });
+    await analysis.snapshotBackfill({ max: 10 });
   };
   // figures are no longer entered by hand: days edited by hand in an earlier version are rebuilt from the journal once
   if (typeof analysis.dropHandFigures === "function") analysis.dropHandFigures().catch((err) => (opts.log || console).error(`[analysis] ${err.message}`));
@@ -1088,6 +1094,36 @@ ${e.text}
   app.get("/api/admin/scanner/stock/:symbol", requireAdmin, limiter(240, 60 * 1000), scWrap(async (req) => scanner.detail(String(req.params.symbol || "").slice(0, 25))));
   app.post("/api/admin/scanner/ai", requireSuper, limiter(10, 10 * 60 * 1000), scWrap(async () => ({ ai: await scanner.review("you asked"), view: scanner.view() })));
   app.put("/api/admin/scanner/settings", requireSuper, limiter(30, 10 * 60 * 1000), scWrap(async (req) => scanner.setSettings(req.body || {})));
+
+  // The paper robot (server/robot): takes the live scanner's calls with play money, records everything like a
+  // flight recorder, is compared with the trader's real day after the close, corrects its own mistakes and
+  // studies the NIFTY 100's levels each evening. It reads the scanner through this narrow door and has no way
+  // to reach the broker, the trading switch or an order.
+  const robot =
+    opts.robot ||
+    new PaperRobot({
+      docs: store.docs,
+      market,
+      ai,
+      now: opts.now,
+      log: opts.log || console,
+      gapMs: opts.robotGapMs,
+      feed: {
+        live: () => scanner.state === "live" && scanner._live(),
+        picks: () => scanner.view().picks,
+        rowOf: (s) => scanner.rowOf(s),
+        priceOf: (s) => scanner.priceOf(s),
+        detail: (s) => scanner.detail(s),
+        lean: () => (scanner.lean && typeof scanner.lean.score === "number" ? scanner.lean.score : null),
+      },
+      // the trader's real trades of a day, from Trade Analysis's snapshot (the comparison after the close)
+      actual: async (date) => {
+        const s = await analysis.snapshot(date);
+        return s && s.available ? s.trades : [];
+      },
+    });
+  if (market.ticker && opts.robotAuto !== false && opts.alertWatch !== false) robot.start();
+  mountRobot(app, { robot, requireSuper, limiter });
 
   // The desk's intraday knowledge base (market/knowledge.js) and the set-up lab (server/setuplab.js):
   // every classic set-up measured on the NIFTY 100's recent sessions after costs, each weekday evening.

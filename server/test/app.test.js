@@ -616,3 +616,33 @@ test("a tradebook import fills the Journal's Day book at once — no button, no 
   r = await s.request("POST", "/api/admin/analysis/day/2026-10-20", { cookie: boss, body: {} });
   assert.equal(r.status, 404, "there is no route to save a day by hand");
 });
+
+test("Trade Analysis's memory over HTTP: snapshots, outcomes and the register of learnings — superadmin only, and a lesson of your own can be added, marked and removed", async (t) => {
+  const s = await boot({ app: { socialWatch: false } });
+  t.after(s.close);
+  await s.configure();
+  const boss = (await s.login(SUPERADMIN_EMAIL)).session;
+  for (const url of ["/api/admin/analysis/learnings", "/api/admin/analysis/outcomes", "/api/admin/analysis/snapshots", "/api/admin/analysis/snapshot/2026-10-20"]) {
+    const r = await s.request("GET", url, {});
+    assert.ok(r.status === 401 || r.status === 403, `${url} needs the superadmin (got ${r.status})`);
+  }
+  let r = await s.request("GET", "/api/admin/analysis/learnings", { cookie: boss });
+  assert.equal(r.status, 200, r.text);
+  assert.deepEqual(r.json.learnings, [], "nothing recorded yet");
+  r = await s.request("POST", "/api/admin/analysis/learnings", { cookie: boss, body: { text: "No new trade for 15 minutes after a loss", rule: "Wait." } });
+  assert.equal(r.status, 200, r.text);
+  const own = r.json.learnings.find((x) => x.source === "own");
+  assert.equal(own.rule, "Wait.");
+  r = await s.request("PUT", `/api/admin/analysis/learnings/${encodeURIComponent(own.id)}`, { cookie: boss, body: { status: "working", note: "day 1" } });
+  assert.equal(r.json.learnings.find((x) => x.id === own.id).status, "working");
+  r = await s.request("POST", "/api/admin/analysis/learnings", { cookie: boss, body: { text: "x" } });
+  assert.equal(r.status, 400);
+  r = await s.request("DELETE", "/api/admin/analysis/learnings/o%3Agave-back", { cookie: boss });
+  assert.equal(r.status, 400, "a measured learning cannot be deleted");
+  r = await s.request("DELETE", `/api/admin/analysis/learnings/${encodeURIComponent(own.id)}`, { cookie: boss });
+  assert.deepEqual(r.json.learnings, []);
+  r = await s.request("GET", "/api/admin/analysis/outcomes?outcome=gave-back", { cookie: boss });
+  assert.equal(r.status, 200);
+  assert.equal(r.json.total, 0);
+  assert.equal((await s.request("GET", "/api/admin/analysis/snapshot/2026-10-20", { cookie: boss })).json.available, false, "a day without trades says so");
+});
