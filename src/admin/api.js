@@ -15,17 +15,76 @@ export function peek(path, maxAgeMs = 5 * 60 * 1000) {
   return hit && Date.now() - hit.at <= maxAgeMs ? hit.data : null;
 }
 
+// ---- being a good neighbour when the terminal is open in several tabs
+// The web server in front counts requests and open connections per visitor, across every tab. So:
+//  · one tab keeps at most MAX_ACTIVE requests in flight; the rest wait their turn (a slow one —
+//    an AI answer can take minutes — gives its turn back after SLOW_MS, so it never blocks the page);
+//  · a read refused as "too many" (429) or "busy" (503) is tried again after the wait the server
+//    asks for (Retry-After), or a short random one, instead of failing on screen; and while one
+//    such wait is running, this tab's other reads wait for it too rather than piling on.
+// Orders and other writes are never sent twice by this: only GETs are retried.
+export const apiTuning = { maxActive: 8, slowMs: 4000, retries: 2, waitMs: 1200 };
+let active = 0;
+const queue = [];
+let coolUntil = 0;
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+function acquire() {
+  if (active < apiTuning.maxActive) {
+    active += 1;
+    return Promise.resolve();
+  }
+  return new Promise((resolve) => queue.push(resolve));
+}
+function release() {
+  const next = queue.shift();
+  if (next) next();
+  else active = Math.max(0, active - 1);
+}
+
+async function send(path, method, body) {
+  await acquire();
+  let freed = false;
+  const free = () => {
+    if (freed) return;
+    freed = true;
+    release();
+  };
+  const slow = setTimeout(free, apiTuning.slowMs);
+  try {
+    return await fetch(path, {
+      method,
+      credentials: "same-origin",
+      headers: {
+        Accept: "application/json",
+        "X-Requested-With": "vpt",
+        ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
+      },
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+  } finally {
+    clearTimeout(slow);
+    free();
+  }
+}
+
+/** How long the server asks us to wait (Retry-After, in seconds), else a short random wait. */
+function waitFor(res, attempt) {
+  const h = res.headers && typeof res.headers.get === "function" ? Number(res.headers.get("retry-after")) : NaN;
+  const base = Number.isFinite(h) && h > 0 ? Math.min(h, 30) * 1000 : apiTuning.waitMs * (attempt + 1);
+  return base + Math.round(Math.random() * apiTuning.waitMs);
+}
+
 export async function api(path, { method = "GET", body } = {}) {
-  const res = await fetch(path, {
-    method,
-    credentials: "same-origin",
-    headers: {
-      Accept: "application/json",
-      "X-Requested-With": "vpt",
-      ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
-    },
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-  });
+  let res;
+  for (let attempt = 0; ; attempt += 1) {
+    if (method === "GET" && coolUntil > Date.now()) await sleep(coolUntil - Date.now());
+    res = await send(path, method, body);
+    const busy = res.status === 429 || res.status === 503;
+    if (!busy || method !== "GET" || attempt >= apiTuning.retries) break;
+    const wait = waitFor(res, attempt);
+    coolUntil = Math.max(coolUntil, Date.now() + wait);
+    await sleep(wait);
+  }
 
   let data = null;
   try {
@@ -48,12 +107,14 @@ export async function api(path, { method = "GET", body } = {}) {
   if (!res.ok) {
     const err = new Error(
       (data && data.message) ||
-        (res.status === 404 || res.status === 502 || res.status === 504
-          ? "The server is not reachable."
-          : `Request failed (${res.status}).`)
+        (res.status === 429
+          ? "The server is busy with many requests just now (the terminal may be open in several tabs). This fills in by itself in a moment."
+          : res.status === 404 || res.status === 502 || res.status === 504
+            ? "The server is not reachable."
+            : `Request failed (${res.status}).`)
     );
     err.status = res.status;
-    err.code = data && data.error;
+    err.code = (data && data.error) || (res.status === 429 ? "rate_limited" : undefined);
     throw err;
   }
   if (method === "GET" && data && keeps(path)) {

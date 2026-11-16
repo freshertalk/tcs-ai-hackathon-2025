@@ -11,6 +11,7 @@ import { api } from "../../api";
 import { useLiveTicks } from "../analyzer/liveTicks";
 import { beep, notify } from "../analyzer/useVerdict";
 import { alertText, due } from "./alerts";
+import { everyVisible } from "../../visible";
 
 const Ctx = createContext(null);
 /** { alerts, waiting, add(input), remove(id), error, reload } */
@@ -44,8 +45,9 @@ export function AlertsProvider({ children }) {
   );
   useEffect(() => {
     reload();
-    const id = setInterval(reload, 30000); // an alert set (or fired by the server) elsewhere shows up here too
-    return () => clearInterval(id);
+    // an alert set (or fired by the server) elsewhere shows up here too: every 15 s while in view,
+    // and at once when the tab is shown again
+    return everyVisible(reload, 15000);
   }, [reload]);
   useEffect(() => () => clearTimeout(noteTimer.current), []);
 

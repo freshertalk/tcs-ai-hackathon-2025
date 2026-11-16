@@ -150,8 +150,11 @@ location ^~ /api/ {
     proxy_buffering off;      # live prices and order updates are streams: pass them on at once
     proxy_read_timeout 1h;    # a stream stays open; research and AI answers can take minutes
     client_max_body_size 8m;  # a tradebook CSV for the journal can be a few megabytes
-    limit_req zone=__APP___api burst=120 nodelay;   # flood limits: see stock-deploy --nginx-limits
-    limit_conn __APP___conn 60;
+    # flood limits (see stock-deploy --nginx-limits), wide enough for the terminal open in several
+    # tabs: each tab opens a burst of reads when it loads and keeps two or three live streams open
+    # (over HTTP/2 every open stream counts as a connection here)
+    limit_req zone=__APP___api burst=400 nodelay;
+    limit_conn __APP___conn 200;
 }
 location = /me {
     limit_req zone=__APP___pages burst=30 nodelay;
@@ -175,7 +178,7 @@ NGINX
     sed "s/__APP__/$app/g" << 'NGINX'
 # Flood limits for __APP__, per visitor address. Printed by:  stock-deploy --nginx-limits
 # Save as /etc/nginx/conf.d/__APP__-limits.conf (nginx reads that folder in its http section).
-limit_req_zone $binary_remote_addr zone=__APP___api:10m rate=20r/s;
+limit_req_zone $binary_remote_addr zone=__APP___api:10m rate=40r/s;
 limit_req_zone $binary_remote_addr zone=__APP___pages:10m rate=5r/s;
 limit_conn_zone $binary_remote_addr zone=__APP___conn:10m;
 limit_req_status 429;

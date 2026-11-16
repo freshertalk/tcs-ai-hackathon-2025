@@ -12,6 +12,7 @@ import { Link } from "react-router-dom";
 import { api } from "../../api";
 import { useAuth } from "../../auth";
 import { adminPath } from "../../paths";
+import { everyVisible } from "../../visible";
 
 const px = (x) => (typeof x === "number" ? x.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "—");
 const FACT = { entry: "entry", stop: "stop", stopLoss: "stop", stop_loss: "stop", target: "target", target1: "target 1", target2: "target 2", exit_price: "exit", exitPrice: "exit", support: "support", resistance: "resistance", invalidation: "invalid below/above" };
@@ -173,10 +174,10 @@ function Panel({ symbol, onClose }) {
         .catch((e) => on && setErr(e.message));
     setD(null);
     load();
-    const id = setInterval(load, 20000);
+    const stop = everyVisible(load, 20000);
     return () => {
       on = false;
-      clearInterval(id);
+      stop();
     };
   }, [tab, symbol]);
   const list = (d && d.findings) || [];

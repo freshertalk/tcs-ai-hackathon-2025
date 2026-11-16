@@ -10,6 +10,7 @@ import { Alert, Loading } from "../../ui";
 import { useAiStatus } from "../../aiStatus";
 import { useTick } from "./liveTicks";
 import { clock, isNum, num, pct, when } from "./format";
+import { everyVisible } from "../../visible";
 
 const MOOD = { risk_on: "Risk-on", risk_off: "Risk-off", mixed: "Mixed" };
 const MOOD_TONE = { risk_on: "up", risk_off: "down", mixed: "flat" };
@@ -189,10 +190,10 @@ export default function MarketStrip({ status }) {
         })
         .catch((e) => alive && setError(e.message));
     pull();
-    const id = setInterval(pull, status.marketHours ? 10000 : 60000);
+    const stop = everyVisible(pull, status.marketHours ? 10000 : 60000);
     return () => {
       alive = false;
-      clearInterval(id);
+      stop();
     };
   }, [status.marketHours]);
 

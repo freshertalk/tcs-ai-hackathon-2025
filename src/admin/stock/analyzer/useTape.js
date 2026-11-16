@@ -4,6 +4,7 @@
 
 import { useEffect, useState } from "react";
 import { api } from "../../api";
+import { everyVisible } from "../../visible";
 
 /**
  * @param interval  1 or 5 (minutes per bar)
@@ -33,10 +34,10 @@ export default function useTape(symbol, interval, enabled, polling) {
         });
     };
     pull(false);
-    const id = polling ? setInterval(() => pull(true), 10000) : null;
+    const stop = polling ? everyVisible(() => pull(true), 10000) : null;
     return () => {
       alive = false;
-      if (id) clearInterval(id);
+      if (stop) stop();
     };
   }, [symbol, interval, enabled, polling]);
 

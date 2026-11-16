@@ -6,6 +6,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { api } from "../../api";
 import { Alert } from "../../ui";
 import { num, when } from "../analyzer/format";
+import { everyVisible } from "../../visible";
 
 const money = (x) => `₹${num(Math.abs(x || 0), 0)}`;
 
@@ -37,8 +38,7 @@ export default function RiskGuard({ trade, version }) {
   }, []);
   useEffect(() => {
     load();
-    const id = setInterval(load, 15000);
-    return () => clearInterval(id);
+    return everyVisible(load, 15000);
   }, [load, version]);
 
   const save = async (e) => {

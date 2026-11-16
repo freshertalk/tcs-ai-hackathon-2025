@@ -21,6 +21,7 @@ import { AI } from "../docs/content/ai";
 import { ENGINE } from "../docs/content/engine";
 import "../docs/document.css";
 import "./engine.css";
+import { everyVisible } from "../../visible";
 
 const PARTS = [
   { id: "ai", title: "How the AI works" },
@@ -422,10 +423,10 @@ function LiveEngine() {
         .catch((e) => alive && setErr(e.message));
     };
     read();
-    const id = setInterval(read, 3000);
+    const stop = everyVisible(read, 3000);
     return () => {
       alive = false;
-      clearInterval(id);
+      stop();
     };
   }, []);
   if (!d) return err ? <Alert>{err}</Alert> : <Loading label="Reading the engine…" />;

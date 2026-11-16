@@ -8,6 +8,8 @@
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../../api";
+import { everyVisible } from "../../visible";
+import { bookStore, useLiveGoal } from "./liveBook";
 import "./goal.css";
 
 const rs = (x) => `₹${Math.round(Math.abs(Number(x) || 0)).toLocaleString("en-IN")}`;
@@ -58,41 +60,56 @@ export function chime(level) {
   }
 }
 
+const calm = (g) => JSON.stringify({ ...g, pnl: 0, progressPct: 0, peak: 0, at: 0 });
+const sameBut = (a, b) => calm(a) === calm(b);
+
 /**
- * Today's goal, read every 15 seconds while `enabled` (Zerodha connected, owner signed in). New
- * reminders go to `onEvent` once each, with a sound unless muted and a desktop notification when the
- * tab is in the background and the browser allows it.
+ * Today's goal. The server pushes each new standing over the trading stream the moment it is worked
+ * out (every 5 seconds in market hours, on the live P&L) — `push` takes it; a read every minute while
+ * the tab is in view (and at once when it is shown again) is only the fallback. New reminders go to
+ * `onEvent` once each, with a sound unless muted and a desktop notification when the tab is in the
+ * background and the browser allows it.
  */
-export function useDailyGoal(enabled, onEvent) {
+export function useDailyGoal(enabled, onEvent, every = 60000) {
   const [goal, setGoal] = useState(null);
   const seen = useRef(null); // ids of reminders already told (null until the first read)
   const cb = useRef(onEvent);
   cb.current = onEvent;
-  const load = useCallback(() => {
-    if (typeof document !== "undefined" && document.visibilityState === "hidden" && seen.current) return Promise.resolve(null);
-    return api("/api/admin/trading/discipline")
-      .then((g) => {
-        setGoal(g);
-        const events = (g && g.events) || [];
-        if (seen.current === null) {
-          seen.current = new Set(events.map((e) => e.id)); // what happened before the page opened is not re-told
-          return g;
-        }
-        const fresh = events.filter((e) => !seen.current.has(e.id)).reverse();
-        for (const e of fresh) {
-          seen.current.add(e.id);
-          if (!read(MUTE_KEY, false)) chime(e.level);
-          try {
-            if (typeof Notification !== "undefined" && Notification.permission === "granted" && document.visibilityState === "hidden") new Notification(e.title, { body: e.text, tag: e.kind });
-          } catch (_) {
-            /* no desktop notifications here */
-          }
-          if (cb.current) cb.current(e);
-        }
-        return g;
-      })
-      .catch(() => null);
+  const on = useRef(enabled);
+  on.current = enabled;
+  const take = useCallback((g) => {
+    if (!on.current || !g) return g;
+    // a standing that differs only in the P&L figures (which the live book already shows) keeps the
+    // same object, so the page is not redrawn every few seconds for nothing
+    setGoal((cur) => {
+      const book = bookStore.get();
+      return cur && book && book.available && sameBut(cur, g) ? cur : g;
+    });
+    const events = g.events || [];
+    if (seen.current === null) {
+      seen.current = new Set(events.map((e) => e.id)); // what happened before the page opened is not re-told
+      return g;
+    }
+    const fresh = events.filter((e) => !seen.current.has(e.id)).reverse();
+    for (const e of fresh) {
+      seen.current.add(e.id);
+      if (!read(MUTE_KEY, false)) chime(e.level);
+      try {
+        if (typeof Notification !== "undefined" && Notification.permission === "granted" && document.visibilityState === "hidden") new Notification(e.title, { body: e.text, tag: e.kind });
+      } catch (_) {
+        /* no desktop notifications here */
+      }
+      if (cb.current) cb.current(e);
+    }
+    return g;
   }, []);
+  const load = useCallback(
+    () =>
+      api("/api/admin/trading/discipline")
+        .then(take)
+        .catch(() => null),
+    [take]
+  );
   useEffect(() => {
     if (!enabled) {
       setGoal(null);
@@ -100,10 +117,9 @@ export function useDailyGoal(enabled, onEvent) {
       return undefined;
     }
     load();
-    const id = setInterval(load, 15000);
-    return () => clearInterval(id);
-  }, [enabled, load]);
-  return { goal, reload: load };
+    return everyVisible(load, every);
+  }, [enabled, load, every]);
+  return { goal, reload: load, push: take };
 }
 
 /** −stop … 0 … +target on one line: today's P&L, the day's best and the amount to keep. */
@@ -137,7 +153,8 @@ export function GoalBar({ g, compact = false }) {
 const toneOf = (g) => (!g || !g.available ? "flat" : g.state === "target-hit" ? "success" : g.level === "danger" ? "danger" : g.level === "warning" ? "warning" : g.pnl > 0 ? "up" : g.pnl < 0 ? "down" : "flat");
 
 /** The top bar's pill: today's P&L against the target, always in view. */
-export function GoalPill({ goal, onClick }) {
+export function GoalPill({ goal: given, onClick }) {
+  const goal = useLiveGoal(given); // the P&L moves with every tick, between the server's readings
   if (!goal || !goal.available || !goal.enabled) return null;
   const t = toneOf(goal);
   return (
@@ -204,7 +221,8 @@ const FIELDS = [
 ];
 
 /** The full card on the Positions view: where today stands, what to do, and the settings. */
-export function DailyGoalCard({ goal, onSaved }) {
+export function DailyGoalCard({ goal: given, onSaved }) {
+  const goal = useLiveGoal(given);
   const cfg = goal && goal.config;
   const [form, setForm] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -353,7 +371,8 @@ export function DailyGoalCard({ goal, onSaved }) {
 
 /** A small self-reading chip (TradeAI's header), for pages outside the terminal. */
 export function GoalChip() {
-  const { goal } = useDailyGoal(true);
+  // outside the terminal there is no trading stream: this chip reads by itself, every 15 s in view
+  const { goal } = useDailyGoal(true, undefined, 15000);
   if (!goal || !goal.available || !goal.enabled) return null;
   const t = toneOf(goal);
   return (

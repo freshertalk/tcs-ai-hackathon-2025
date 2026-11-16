@@ -16,6 +16,8 @@ import { TempleButton } from "../../temple/Temple";
 import AlertsPanel from "./AlertsPanel";
 import ResearchButton from "./ResearchPanel";
 import { GoalPill } from "../trade/DailyGoal";
+import { pulseOf, useLiveBook } from "../trade/liveBook";
+import { everyVisible } from "../../visible";
 
 const IST = 5.5 * 3600 * 1000;
 function istNow() {
@@ -46,10 +48,10 @@ export function useKite() {
         .then((s) => alive && setK({ mode: s.mode, user: s.kite && s.kite.user, expiresAt: s.kite && s.kite.expiresAt }))
         .catch(() => alive && setK(null));
     read();
-    const id = setInterval(read, 60000);
+    const stop = everyVisible(read, 60000);
     return () => {
       alive = false;
-      clearInterval(id);
+      stop();
     };
   }, []);
   return k;
@@ -109,7 +111,9 @@ export default function TopBar({ views, view, onView, theme, onTheme, onHelp, on
   const clock = useClock();
   const kite = useKite();
   const trade = useTrade();
-  const pulse = trade && trade.pulse;
+  // today's P&L from the live book: it moves with every streamed tick (liveBook.js)
+  const book = useLiveBook();
+  const pulse = trade ? pulseOf(book) || trade.pulse : null;
   const connected = Boolean(kite && kite.mode === "kite");
   return (
     <header className="tm-top">
@@ -180,7 +184,7 @@ export default function TopBar({ views, view, onView, theme, onTheme, onHelp, on
           </button>
         )}
         {trade && pulse && (
-          <button type="button" className={`tm-pill tm-pill--btn tm-pnl ${pulse.pnl > 0 ? "is-up" : pulse.pnl < 0 ? "is-down" : ""}`} onClick={() => onView("account")} data-tip="Today’s P&L on all positions, open and closed, as Zerodha reports it (refreshed every 15 seconds).">
+          <button type="button" className={`tm-pill tm-pill--btn tm-pnl ${pulse.pnl > 0 ? "is-up" : pulse.pnl < 0 ? "is-down" : ""}`} onClick={() => onView("account")} data-tip={`Today’s P&L on all positions, open and closed (the day’s M2M, by Zerodha’s own formula)${pulse.live ? ", live: it moves with every streamed price" : ", as Zerodha last reported it"}.`}>
             <span className="tm-x">P&amp;L </span>
             <b>{`${pulse.pnl > 0 ? "+" : pulse.pnl < 0 ? "−" : ""}₹${num(Math.abs(pulse.pnl))}`}</b>
             <small className="tm-x">{pulse.open} open</small>

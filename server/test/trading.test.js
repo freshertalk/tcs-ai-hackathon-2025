@@ -733,3 +733,27 @@ test("the Retrospective through the routes: for the period shown, saved, listed,
   assert.equal(an.days.length, 12, "every day with a closed trade");
   assert.ok(an.health && an.costs.stt > 0 && an.holding.length === 1);
 });
+
+test("the live book: one read gives every position with the day's totals, for the superadmin only", async (t) => {
+  const s = await boot();
+  t.after(s.close);
+  await s.connectKite();
+  const r = await s.request("GET", "/api/admin/trading/live", { cookie: s.admin });
+  assert.equal(r.status, 200, JSON.stringify(r.json));
+  assert.equal(r.json.available, true);
+  assert.equal(r.json.positions.length, 3);
+  assert.equal(r.json.open, 2);
+  assert.equal(r.json.pnl, 40150); // Zerodha's own P&L on each: 100 + 40 000 + 50
+  assert.equal(r.json.day, 40100); // the day's M2M, as the daily goal counts it (ITC reports no M2M)
+  assert.ok(r.json.positions.every((p) => p.key && p.live === false), "no stream in the test: Zerodha's prices stand");
+  // the same figures feed the daily goal's check
+  const g = await s.request("GET", "/api/admin/trading/discipline", { cookie: s.admin });
+  assert.equal(g.status, 200);
+  if (g.json.available) assert.equal(g.json.pnl, 40100);
+  // the owner only
+  await s.request("POST", "/api/admin/admins", { cookie: s.admin, body: { email: "helper2@example.com" } });
+  const helper = await s.login("helper2@example.com");
+  assert.equal((await s.request("GET", "/api/admin/trading/live", { cookie: helper })).status, 403);
+  // nothing here sends anything to Zerodha's order endpoints
+  assert.equal(s.kite.writes().length, 0);
+});

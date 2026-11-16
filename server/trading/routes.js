@@ -227,11 +227,17 @@ function mountTrading(app, { trading, ai, requireSuper, limiter, capture = null 
     res.write("retry: 3000\n\n");
     let open = true;
     const off = trading.stream((ev) => open && res.write(`event: ${ev.type}\ndata: ${JSON.stringify(ev)}\n\n`));
+    // the same connection carries the live book (positions at streamed prices) and the daily goal's
+    // standing as they change: one stream per page for everything about the account
+    const offBook = trading.liveBook ? trading.liveBook.watch((v) => open && res.write(`event: book\ndata: ${JSON.stringify(v)}\n\n`)) : () => {};
+    const offGoal = typeof trading.watchGoal === "function" ? trading.watchGoal((g) => open && res.write(`event: goal\ndata: ${JSON.stringify(g)}\n\n`)) : () => {};
     const beat = setInterval(() => open && res.write(": keep-alive\n\n"), 15000);
     req.on("close", () => {
       open = false;
       clearInterval(beat);
       off();
+      offBook();
+      offGoal();
     });
   });
 }

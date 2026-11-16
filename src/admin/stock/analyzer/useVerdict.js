@@ -4,6 +4,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, peek } from "../../api";
+import { everyVisible } from "../../visible";
 
 const ALERT_KEY = "vpt.desk.alerts";
 const WORD = { long: "LONG in play", short: "SHORT in play", "wait-long": "WAIT · long side", "wait-short": "WAIT · short side", wait: "WAIT · no edge", "no-trade": "NO TRADE" };
@@ -102,8 +103,8 @@ export default function useVerdict(symbol, status) {
 
   useEffect(() => {
     if (!live) return undefined;
-    const id = setInterval(() => load(true), status.marketHours ? 2000 : 5 * 60000);
-    return () => clearInterval(id);
+    // a tab in the background stops asking; shown again, it asks at once
+    return everyVisible(() => load(true), status.marketHours ? 2000 : 5 * 60000);
   }, [live, status.marketHours, load]);
 
   const toggleAlerts = useCallback(() => {

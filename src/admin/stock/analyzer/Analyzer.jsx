@@ -20,6 +20,7 @@ import { TickContext, useLiveTicks } from "./liveTicks";
 import { clock } from "./format";
 import "./analyzer.css";
 import "./desk.css";
+import { everyVisible } from "../../visible";
 
 const SYMBOL_RE = /^[A-Z0-9][A-Z0-9&._ -]{0,24}$/;
 export default function Analyzer() {
@@ -85,8 +86,7 @@ export default function Analyzer() {
 
   // re-check the connection every 5 minutes: the Kite token dies at 6 AM by itself
   useEffect(() => {
-    const id = setInterval(loadStatus, 5 * 60 * 1000);
-    return () => clearInterval(id);
+    return everyVisible(loadStatus, 5 * 60 * 1000);
   }, [loadStatus]);
 
   const mode = status ? status.mode : "none";
@@ -177,10 +177,10 @@ export default function Analyzer() {
     pull();
     if (mode !== "kite") return () => (alive = false);
     // while ticks stream, polling only has to bring what the stream lacks (circuit limits)
-    const id = setInterval(pull, status.marketHours ? (streaming ? 15000 : 5000) : 60000);
+    const stop = everyVisible(pull, status.marketHours ? (streaming ? 15000 : 5000) : 60000);
     return () => {
       alive = false;
-      clearInterval(id);
+      stop();
     };
   }, [mode, symbolKey, extra, streaming, status && status.marketHours]); // eslint-disable-line react-hooks/exhaustive-deps
 

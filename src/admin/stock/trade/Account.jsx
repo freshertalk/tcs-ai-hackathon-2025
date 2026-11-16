@@ -17,6 +17,8 @@ import { useTrade, TradeButtons } from "./TradeContext";
 import RiskGuard from "./RiskGuard";
 import { DailyGoalCard } from "./DailyGoal";
 import { CASH, LIVE_STATUSES, holdingNumbers, newRef, positionDayChange, positionPnl, totals } from "./tradeMath";
+import { useLiveBook } from "./liveBook";
+import { everyVisible } from "../../visible";
 import "./trade.css";
 
 const TABS = [
@@ -449,8 +451,9 @@ export default function Account({ compact = false }) {
     }
   };
 
+  const hasTrade = Boolean(trade);
   const load = useCallback(() => {
-    if (!trade) return undefined;
+    if (!hasTrade) return undefined;
     let alive = true;
     api("/api/admin/trading/summary")
       .then((d) => alive && setState({ loading: false, data: d, error: "" }))
@@ -458,19 +461,19 @@ export default function Account({ compact = false }) {
     return () => {
       alive = false;
     };
-  }, [trade]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [hasTrade]);
   useEffect(() => load(), [load, version]);
-  // the book changes as orders fill: read it again every few seconds while the page is in view
-  useEffect(() => {
-    const id = setInterval(() => {
-      if (typeof document === "undefined" || document.visibilityState === "visible") load();
-    }, 5000);
-    return () => clearInterval(id);
-  }, [load]);
+  // orders, holdings and funds: read again every 10 s while the page is in view (and at once when it is
+  // shown again, or when an order changes). The positions and their P&L come live from the book below.
+  useEffect(() => everyVisible(load, 10000), [load]);
 
   const d = state.data;
   const status = (trade && trade.status) || (d && d.status) || null;
-  const positions = useMemo(() => (d && d.positions ? d.positions.net : []), [d]);
+  // the positions at streamed prices (the live book, pushed by the server on every price or fill);
+  // the summary's own copy only until the first push arrives
+  const book = useLiveBook();
+  const bookOn = Boolean(book && book.available && Array.isArray(book.positions));
+  const positions = useMemo(() => (bookOn ? book.positions : d && d.positions ? d.positions.net : []), [bookOn, book, d]);
   const holdings = useMemo(() => (d && d.holdings) || [], [d]);
   const orders = useMemo(() => (d && d.orders) || [], [d]);
   const trades = useMemo(() => (d && d.trades) || [], [d]);
@@ -480,8 +483,13 @@ export default function Account({ compact = false }) {
   // live prices for NSE stocks held or open
   const symbols = useMemo(() => [...new Set([...positions.filter((p) => p.exchange === "NSE").map((p) => p.symbol), ...holdings.map((h) => h.symbol)])].sort().slice(0, 60), [positions, holdings]);
   const live = useLiveTicks(symbols, Boolean(status && status.connected));
-  const liveOf = useCallback((x) => (x.exchange === "NSE" || CASH.has(x.exchange) ? (live.slow[x.symbol] && isNum(live.slow[x.symbol].last) ? live.slow[x.symbol].last : null) : null), [live.slow]);
+  const liveOf = useCallback(
+    (x) => (bookOn && x.key ? x.last : x.exchange === "NSE" || CASH.has(x.exchange) ? (live.slow[x.symbol] && isNum(live.slow[x.symbol].last) ? live.slow[x.symbol].last : null) : null),
+    [live.slow, bookOn]
+  );
   const tot = totals({ positions, holdings }, liveOf);
+  // today's figure, the same one the top bar and the dock show (Zerodha's day M2M, live)
+  const dayPnl = bookOn ? book.day : tot.posPnl;
   const canTrade = Boolean(status && status.enabled && status.connected);
   const done = (msg) => {
     setDialog(null);
@@ -526,11 +534,12 @@ export default function Account({ compact = false }) {
           <>
             {!compact && (
             <dl className="tr-tiles">
-              <div className={`is-${tone(tot.posPnl)}`} data-tip="Today’s profit or loss on all positions, open and closed, at live prices where the stream has them.">
+              <div className={`is-${tone(dayPnl)}`} data-tip="Today’s profit or loss on all positions, open and closed (the day’s M2M, by Zerodha’s own formula) — the same figure as the top bar and the dock, live with every streamed price.">
                 <dt>Positions P&amp;L</dt>
-                <dd>{signedMoney(tot.posPnl)}</dd>
+                <dd>{signedMoney(dayPnl)}</dd>
                 <small>
                   {tot.open} open · {positions.length - tot.open} closed today
+                  {bookOn && Math.abs(book.pnl - book.day) >= 1 ? ` · ${signedMoney(book.pnl)} since entry` : ""}
                 </small>
               </div>
               <div className={`is-${tone(tot.holdPnl)}`} data-tip="Profit or loss on your delivery holdings against what you paid for them.">
@@ -563,7 +572,7 @@ export default function Account({ compact = false }) {
                 </button>
               ))}
               <span className="tr-tabs__at">
-                updated {clock(d.at)} · {live.state === "live" ? "prices streaming" : "prices every 5 s"}
+                updated {clock(d.at)} · {bookOn ? (book.live && book.streaming ? "P&L live with every price" : `P&L as Zerodha reported at ${clock(book.baseAt)}`) : live.state === "live" ? "prices streaming" : "prices every 10 s"}
               </span>
             </div>
 

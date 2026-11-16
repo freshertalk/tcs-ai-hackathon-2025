@@ -116,12 +116,25 @@ jest.mock("../../api", () => ({
 }));
 jest.mock("../../DatePicker", () => ({ DateField: ({ value, label }) => <span>{`${label}: ${value}`}</span> }));
 const settle = () => act(async () => new Promise((r) => setTimeout(r, 30)));
+// While NSE is open the page always opens on the Live board, whatever was picked last time. The tests
+// that open another part pin the clock to a Saturday, so they pass at any hour.
+let clockSpy = null;
+const outsideMarketHours = () => {
+  const real = Date.now.bind(Date);
+  const offset = Date.parse("2026-11-14T06:30:00Z") - real();
+  clockSpy = jest.spyOn(Date, "now").mockImplementation(() => real() + offset);
+};
 beforeEach(() => {
   mockCalls.length = 0;
   window.localStorage.clear();
 });
+afterEach(() => {
+  if (clockSpy) clockSpy.mockRestore();
+  clockSpy = null;
+});
 
 test("a day replayed: the score, the share kept, the best other exit, the habits and every trade", async () => {
+  outsideMarketHours();
   window.localStorage.setItem("vpt.lab.mode", "day");
   render(<TradeAnalysis />);
   await settle();
@@ -139,6 +152,7 @@ test("a day replayed: the score, the share kept, the best other exit, the habits
 });
 
 test("a period: the lessons, the exit rules and the habits added up", async () => {
+  outsideMarketHours();
   window.localStorage.setItem("vpt.lab.mode", "day");
   render(<TradeAnalysis />);
   await settle();
@@ -198,6 +212,7 @@ test("the Live board's exit levels: the desk's level map, and the AI's research 
 });
 
 test("the Coach: what to prevent with its cost and a rule, what to keep, and the day against the usual", async () => {
+  outsideMarketHours();
   window.localStorage.setItem("vpt.lab.mode", "coach");
   render(<TradeAnalysis />);
   await settle();

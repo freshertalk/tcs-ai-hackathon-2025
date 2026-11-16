@@ -11,6 +11,7 @@ import { clock, compact, day, inr, isNum, num, pct, when } from "./format";
 import "./analyzer.css";
 import MarketBoard from "./MarketBoard";
 import CustomScan from "./CustomScan";
+import { everyVisible } from "../../visible";
 
 const CONDITIONS = [
   { id: "about", label: "about (± 2)" },
@@ -101,8 +102,7 @@ export default function Screener({ onOpen }) {
   const running = Boolean(status && status.job.running);
   useEffect(() => {
     if (!running) return undefined;
-    const id = setInterval(loadStatus, 2000);
-    return () => clearInterval(id);
+    return everyVisible(loadStatus, 2000);
   }, [running, loadStatus]);
 
   const act = (path, body) => {

@@ -31,6 +31,7 @@ import Journal from "./trade/Journal";
 import Advisor from "./advisor/Advisor";
 import { TradeProvider, useTrade } from "./trade/TradeContext";
 import { GoalBanner } from "./trade/DailyGoal";
+import { pulseOf, useLiveBook } from "./trade/liveBook";
 import { useDeskTheme } from "./analyzer/theme";
 import { useAuth } from "../auth";
 import TopBar from "./terminal/TopBar";
@@ -95,8 +96,9 @@ function ShortcutsDialog({ onClose }) {
 /** Positions along the bottom of the Desk: open for a glance, closed out of the way. */
 function Dock({ open, onToggle }) {
   const trade = useTrade();
+  const book = useLiveBook(); // today's P&L, moving with every streamed price
   if (!trade) return null;
-  const p = trade.pulse;
+  const p = pulseOf(book) || trade.pulse;
   return (
     <section className={`tm-dock ${open ? "is-open" : ""}`} aria-label="Positions dock">
       <button type="button" className="tm-dock__bar" aria-expanded={open} onClick={onToggle} data-tip="Show or hide your positions, holdings and orders here on the Desk. Shortcut: D.">

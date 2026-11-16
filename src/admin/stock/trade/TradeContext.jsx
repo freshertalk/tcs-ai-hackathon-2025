@@ -10,6 +10,8 @@ import { useAuth } from "../../auth";
 import OrderTicket from "./OrderTicket";
 import { useDailyGoal } from "./DailyGoal";
 import { stopTicket } from "./tradeMath";
+import { bookStore, pulseOf } from "./liveBook";
+import { everyVisible } from "../../visible";
 import "./trade.css";
 
 const TradeContext = createContext(null);
@@ -50,43 +52,79 @@ export function TradeProvider({ children }) {
   useEffect(() => {
     if (!allowed) return undefined;
     refresh();
-    const id = setInterval(refresh, 20000);
-    return () => clearInterval(id);
+    return everyVisible(refresh, 20000);
   }, [allowed, refresh]);
 
-  // the day's P&L for the terminal's top bar: one light read every 15 s while connected and in view
+  // The live book (liveBook.js): the positions at streamed prices, pushed by the server over the order
+  // stream below on every price or position change. Read here once when the page opens and whenever
+  // an order changes, and again only if the stream has gone quiet for a while.
   const connectedNow = Boolean(status && status.connected);
+  const bookAt = useRef(0);
+  const takeBook = useCallback((b) => {
+    if (!b) return;
+    bookAt.current = Date.now();
+    bookStore.set(b);
+    // the context's own copy (trade.pulse) is only the fallback for a screen without the book: it
+    // changes when the open count does, so the whole page is not redrawn on every price
+    setPulse((p) => {
+      const n = pulseOf(b);
+      if (!n) return null;
+      return p && p.open === n.open ? p : n;
+    });
+  }, []);
   useEffect(() => {
     if (!allowed || !connectedNow) {
       setPulse(null);
+      bookStore.set(null);
       return undefined;
     }
     let alive = true;
-    const read = () => {
-      if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
-      api("/api/admin/trading/positions")
-        .then((d) => {
-          if (!alive) return;
-          const net = (d && d.net) || [];
-          setPulse({ pnl: net.reduce((a, p) => a + (Number(p.pnl) || 0), 0), open: net.filter((p) => p.quantity !== 0).length, at: Date.now() });
-        })
-        .catch(() => alive && setPulse(null));
+    const read = (force) => {
+      if (!force && Date.now() - bookAt.current < 20000) return; // the stream is bringing it
+      api("/api/admin/trading/live")
+        .then((b) => alive && takeBook(b))
+        .catch(() => {});
     };
-    read();
-    const id = setInterval(read, 15000);
+    read(true);
+    const stop = everyVisible(() => read(false), 15000);
     return () => {
       alive = false;
-      clearInterval(id);
+      stop();
     };
-  }, [allowed, connectedNow, version]);
+  }, [allowed, connectedNow, version, takeBook]);
 
-  // the daily goal (target, stop, profit protection): read every 15 s; a new reminder is also a toast
-  const { goal, reload: reloadGoal } = useDailyGoal(allowed && connectedNow, (e) => say(`${e.title} — ${e.text}`, e.level === "danger" ? "error" : e.level === "success" ? "ok" : "warn"));
+  // the daily goal (target, stop, profit protection): pushed by the server as it is worked out (every
+  // 5 s in market hours), with a slow read as the fallback; a new reminder is also a toast
+  const { goal, reload: reloadGoal, push: pushGoal } = useDailyGoal(allowed && connectedNow, (e) => say(`${e.title} — ${e.text}`, e.level === "danger" ? "error" : e.level === "success" ? "ok" : "warn"));
 
   // order updates, straight from Zerodha's stream
   useEffect(() => {
     if (!allowed || typeof EventSource === "undefined") return undefined;
     const es = new EventSource("/api/admin/trading/stream");
+    // the live book and the goal's standing ride on the same connection as the order updates
+    es.addEventListener("book", (e) => {
+      try {
+        takeBook(JSON.parse(e.data));
+      } catch (_) {
+        /* the next push replaces it */
+      }
+    });
+    es.addEventListener("goal", (e) => {
+      try {
+        pushGoal(JSON.parse(e.data));
+      } catch (_) {
+        /* the next push replaces it */
+      }
+    });
+    // (re)connected: the switch and connection state as the server has them now
+    es.addEventListener("hello", (e) => {
+      try {
+        const d = JSON.parse(e.data);
+        if (d && d.status) setStatus(d.status);
+      } catch (_) {
+        /* the next status read catches up */
+      }
+    });
     es.addEventListener("order", (e) => {
       try {
         const { update: u } = JSON.parse(e.data);
@@ -102,7 +140,7 @@ export function TradeProvider({ children }) {
       }
     });
     return () => es.close();
-  }, [allowed, say]);
+  }, [allowed, say, takeBook, pushGoal]);
 
   const setSwitch = useCallback(
     async (on) => {

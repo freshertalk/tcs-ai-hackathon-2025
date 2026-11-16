@@ -22,6 +22,7 @@ import Behaviour from "./Behaviour";
 import ProChart from "../chart/ProChart";
 import AiBrain from "./AiBrain";
 import { callLabel as oddsLabel } from "../advisor/advisorMath";
+import { everyVisible } from "../../visible";
 
 const TABS = [
   { id: "overview", label: "Overview" },
@@ -216,8 +217,7 @@ export default function StockView({ symbol, quote, status, streaming = false, in
   // while the market is open, refresh the reading once a minute without flicker
   useEffect(() => {
     if (!live || !status.marketHours) return undefined;
-    const id = setInterval(() => load(true), 60000);
-    return () => clearInterval(id);
+    return everyVisible(() => load(true), 60000);
   }, [live, status.marketHours, load]);
 
   // the verdict tab only exists on narrower screens

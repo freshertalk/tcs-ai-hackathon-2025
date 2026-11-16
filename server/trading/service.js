@@ -200,7 +200,10 @@ class TradingService {
     const today = discipline.istDay(this.now());
     // the margin is read once a day: the target must not move as the day's trades use margin
     const needFunds = !stored || stored.day !== today || !(stored.base > 0);
-    const [positions, funds] = await Promise.all([this.positions(), needFunds ? this.funds().catch(() => null) : null]);
+    // the live book (livebook.js) when the app has one: the positions at the streamed prices, so the
+    // goal judges the P&L of this second, not of the last read
+    const live = typeof this.livePositions === "function" ? this.livePositions : () => this.positions();
+    const [positions, funds] = await Promise.all([live(), needFunds ? this.funds().catch(() => null) : null]);
     const out = discipline.assess({ cfg, day: stored, now: this.now(), funds, positions });
     if (JSON.stringify(out.day) !== JSON.stringify(stored)) {
       this.store.update((d) => {
@@ -212,7 +215,16 @@ class TradingService {
       for (const e of out.fresh) this.log.log(`[trading] daily goal: ${e.title}`);
       if (cfg.notify && typeof this.onDiscipline === "function") for (const e of out.fresh) Promise.resolve().then(() => this.onDiscipline(e)).catch(() => {});
     }
+    // every open page gets the new standing at once (its reminders included), without waiting to poll
+    if (this._goalListeners) for (const fn of this._goalListeners) Promise.resolve().then(() => fn(out.standing)).catch(() => {});
     return out.standing;
+  }
+
+  /** `send(standing)` whenever the daily goal is worked out again, until the returned function is called. */
+  watchGoal(send) {
+    if (!this._goalListeners) this._goalListeners = new Set();
+    this._goalListeners.add(send);
+    return () => this._goalListeners.delete(send);
   }
 
   /** With "lock at the target and the stop" on: the risk guard gets today's two figures. */

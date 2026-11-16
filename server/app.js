@@ -45,6 +45,7 @@ const { Temple, mountTemple } = require("./temple");
 const { Notifier, mountNotify } = require("./notify");
 const { AlertWatch } = require("./alert-watch");
 const { DisciplineWatch } = require("./discipline-watch");
+const { LiveBook } = require("./trading/livebook");
 const { GlobalFeed } = require("./market/global");
 const { SocialService } = require("./social/service");
 const { previewFor, previewTags, injectPreview } = require("./previews");
@@ -383,16 +384,17 @@ function createApp(opts = {}) {
     next();
   });
 
-  // Flood control in front of the API, per client address. Someone who is not signed in gets
-  // a small budget (enough to sign in, far too little to hammer the server); a signed-in
-  // session gets room for the live pages' polling. The long-lived streams count once.
+  // Flood control in front of the API. Someone who is not signed in gets a small budget per
+  // address (enough to sign in, far too little to hammer the server); a signed-in person gets room
+  // for the live pages' polling — counted per person, not per address, and wide enough for the
+  // terminal open in several tabs at once. The long-lived streams count once.
   // (Behind nginx, TRUST_PROXY makes req.ip the visitor's address, not nginx's.)
   const anonBudget = budget(Number(env.RATE_ANON_PER_MIN) || 90, 60000);
-  const userBudget = budget(Number(env.RATE_USER_PER_MIN) || 1500, 60000);
+  const userBudget = budget(Number(env.RATE_USER_PER_MIN) || 3000, 60000);
   app.use("/api", (req, res, next) => {
     if (opts.rateLimit === false) return next();
-    const signedIn = Boolean(parseCookies(req.headers.cookie)[SESSION_COOKIE]) && Boolean(currentUser(req));
-    const wait = (signedIn ? userBudget : anonBudget)(`${signedIn ? "u" : "a"}:${req.ip || "?"}`);
+    const user = parseCookies(req.headers.cookie)[SESSION_COOKIE] ? currentUser(req) : null;
+    const wait = user ? userBudget(`u:${user.email}`) : anonBudget(`a:${req.ip || "?"}`);
     if (!wait) return next();
     res.set("Retry-After", String(wait));
     res.status(429).json({ error: "rate_limited", message: "Too many requests. Please wait a moment." });
@@ -729,7 +731,30 @@ ${s.trades || 0} trades, ${s.wins || 0} won · process score ${d.score === null 
   trading.onDiscipline = (e) => notifier.send(`${e.level === "danger" ? "🛑" : e.level === "success" ? "🎯" : "⚠️"} ${e.title}
 ${e.text}
 (${BRAND.name} · a reminder — nothing was traded)`, "risk");
-  const disciplineWatch = opts.disciplineWatchService || new DisciplineWatch({ trading, now: opts.now, log: opts.log || console });
+  // the live book (trading/livebook.js): Zerodha's positions re-priced on every streamed tick — the one
+  // source of the day's P&L for every screen and for the goal check below. It reaches the pages over
+  // the trading stream (/api/admin/trading/stream), so a page opens no extra connection for it.
+  const liveBook = opts.liveBookService || new LiveBook({ trading, market, now: opts.now, log: opts.log || console });
+  liveBook.needed = () => {
+    try {
+      return Boolean(trading._discipline().enabled);
+    } catch (_) {
+      return false;
+    }
+  };
+  trading.liveBook = liveBook;
+  trading.livePositions = () => liveBook.fresh();
+  if (opts.liveBook !== false && opts.alertWatch !== false) liveBook.start();
+  app.get("/api/admin/trading/live", requireSuper, async (req, res) => {
+    try {
+      if (!liveBook.base || req.query.fresh === "1") await liveBook.refresh();
+      res.json(liveBook.view());
+    } catch (err) {
+      res.status(502).json({ error: "no_data", message: err && err.message ? err.message : "Could not read the positions." });
+    }
+  });
+  // with the live book the check is cheap (no call to Zerodha unless its base is old): every 5 seconds
+  const disciplineWatch = opts.disciplineWatchService || new DisciplineWatch({ trading, now: opts.now, log: opts.log || console, every: 5000 });
   if (opts.disciplineWatch !== false && opts.alertWatch !== false) disciplineWatch.start();
   app.get("/api/admin/trading/discipline/watch", requireAdmin, (req, res) => res.json(disciplineWatch.status()));
 
@@ -817,7 +842,7 @@ ${e.text}
   const beat = setInterval(() => push("ping", { at: new Date().toISOString() }), 25000);
   if (beat.unref) beat.unref();
   app.get("/api/admin/social/stream", requireAdmin, (req, res) => {
-    if (streams.size >= 20) return res.status(429).json({ error: "busy", message: "Too many open live streams." });
+    if (streams.size >= 60) return res.status(429).json({ error: "busy", message: "Too many open live streams." });
     res.set({ "Content-Type": "text/event-stream", "Cache-Control": "no-cache, no-transform", Connection: "keep-alive", "X-Accel-Buffering": "no" });
     res.flushHeaders && res.flushHeaders();
     res.write(`event: hello\ndata: ${JSON.stringify({ at: new Date().toISOString() })}\n\n`);
@@ -917,7 +942,7 @@ ${e.text}
   const fBeat = setInterval(() => boards.size && fPush("board", flight.board()), 15000); // the paths, frames and events, and a heartbeat
   if (fBeat.unref) fBeat.unref();
   app.get("/api/admin/flight/stream", requireSuper, (req, res) => {
-    if (boards.size >= 10) return res.status(429).json({ error: "busy", message: "Too many open Live boards." });
+    if (boards.size >= 30) return res.status(429).json({ error: "busy", message: "Too many open Live boards." });
     res.set({ "Content-Type": "text/event-stream; charset=utf-8", "Cache-Control": "no-cache, no-transform", Connection: "keep-alive", "X-Accel-Buffering": "no" });
     res.flushHeaders && res.flushHeaders();
     res.write("retry: 2000\n\n");
