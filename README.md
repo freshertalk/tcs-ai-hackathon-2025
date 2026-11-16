@@ -426,6 +426,30 @@ in `analysis/lab`, worked out by the hourly sweep (`labBackfill`, last 60 days) 
 - **Page colours:** the two series are the dataviz reference blue/orange (`--ix-a`/`--ix-b`, validated for both themes), up/down
   tokens for diverging cells and bars. Tests: `server/test/indices.test.js` (10), `src/admin/stock/indices/Indices.test.js` (3).
 
+**Research: the Top 10 and the RSI watch (2026-11-16; `server/market/picks.js`, `server/picks.js`, `server/ai/picksai.js`,
+`src/admin/stock/trade/TopPicks.jsx`).** Added at the top of Research's results pane (first below 1180px); nothing removed.
+- **Schedule** (`TopPicks.tick`, outside `server/ai`): pre 08:35–09:14 (once, for today), live 09:16–15:25 every 5 min, post
+  from 15:45 (once, for the next weekday). Universe: `indexList.list("nifty100")` + watchlist + `social.signal().stocks`;
+  sector from the sectoral index lists. Daily features once a day (`market.daily`, completed bars only in the session) and the
+  NIFTY's 20-session move cached; live = one batch of quotes (≤100 per call) + verdict/edge/pulse for the shortlist; the
+  intraday plan (`ensemble.intraday`) once a day per name.
+- **Scoring** (`score` → `deepen` → `rank`): points per side with the reason text; exclusions: two-sided (margin < 8), ATR < 0.6%,
+  turnover < ₹20 cr, plan says avoid; max 3 per sector (stocks with no known sector are not capped). Live plan status:
+  waiting / triggered / target / stop.
+- **AI on need** (`_aiNeed`): pre/post once per phase, the first live list, then only after ≥3 names changed since the last
+  live review (60 min apart) or the world/tide sign flipped; `aiDailyCap` 6, `aiMode` need|off, never on demo. `_review` keeps
+  only candidate symbols, AI order first then the desk's; notes carried through re-ranks. Feature `picks` in brains; each name
+  is published to the shared research (`feature: "picks"`); TradeAI reader `picks` (list + RSI extremes).
+- **Record** (`picks/record.json`): the pre list and the previous evening's list for each session, scored after the close
+  (`scoreList`: open→close in direction, best/worst, vs the universe with the same side mix; `record`: overall, longs/shorts,
+  by reason); ≥10 sessions → skills-file section “What the desk's daily Top 10 has done”. Docs: `picks/latest.json`,
+  `picks/day-DATE.json` (snapshots, pre/post lists), `picks/settings.json`.
+- **RSI watch** (`rsiExtremes`, `GET /api/admin/picks/rsi`): `screenerRsi` with max 15 and min 80, period 14, minTurnover 100;
+  starts the NIFTY 500 history download (`screenerStart`) by itself once a day when it is missing; 30 s cache. The Screener's
+  RSI search now defaults to ₹100 crore a day.
+- **Routes:** `GET /api/admin/picks`, `POST /api/admin/picks/refresh` (super), `PUT /api/admin/picks/settings` (super),
+  `GET /api/admin/picks/rsi`. Tests: `server/test/picks.test.js` (11), `src/admin/stock/trade/TopPicks.test.js` (2).
+
 **The Journal's Day book (Journal → Day book; `src/admin/stock/analysis/DayBook.jsx`, `server/analysis/`).** One
 report per trading day, kept in its own record (`analysis/days` — a collection of its own in MongoDB, a file otherwise).
 **Nothing is saved by hand** (the "Save this day" / "Save today now" buttons and `POST /api/admin/analysis/day/:date`

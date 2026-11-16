@@ -633,6 +633,32 @@ export const TRADING = [
     intro: "A prepared sheet for every watchlist stock: direction, plan, levels, news and a one-page summary. It runs by itself twice a day and costs nothing unless you switch the AI notes on.",
     blocks: [
       { logic: {
+        title: "The Top 10 — made and re-ranked by itself",
+        who: "server/picks.js with server/market/picks.js (arithmetic); the AI's review in server/ai/picksai.js. Shown at the top of Research (first on a phone).",
+        when: "Weekdays while Zerodha is connected: **before the open** from 8:35 AM (for today's session), **every five minutes in the session** (9:16 AM–3:25 PM), and **after the close** from 3:45 PM (for the next session). **Refresh now** (the owner) makes one on request.",
+        steps: [
+          "**The universe:** NIFTY 100, your watchlist and the stocks in the news (from the Social Media feed).",
+          "**First pass, every stock** — from its daily candles (read once a day, again after the close) and one batch of quotes. Each item adds points to the long or the short side with its reason and number: the trend (above or below the 20-, 50- and 200-day averages, the 20-day average's slope), strength against the NIFTY over 20 sessions, a close through the 20-day high or low on volume or a price within 1% of it, the 52-week high or low, a narrow range (NR7, inside day), heavy volume closing at an extreme, enough daily range to trade (ATR 1–4%), and a stretch penalty (RSI 75 or more for a long, 25 or less for a short). In the session also: the move against the NIFTY, VWAP, the place in today's range, the volume so far against its usual, a gap that holds or fades. And the context: the NSE forecast from the world (GIFT Nifty, the US, Asia), the market's tide, the stock's sector against the NIFTY, the news about it.",
+          "**Second pass, the best twenty** — the desk's own engines: the daily verdict and the live call, the measured odds of today's set-ups (grade A or B on the stock's own history), the intraday plan with its entry, stop and target and the record of those exact rules, and the Live Pulse for the next 15–30 minutes.",
+          "**The list:** the side with more points is the trade; a stock whose two sides are within 8 points (two-sided), that is too quiet (ATR under 0.6%), too thin (under ₹20 crore a day) or whose plan says avoid is left out. Best score first, at most three from one sector; ten names and five on deck. In the session each name shows how it moved since the last list (▲▼, NEW), the names that left, and where the price stands against the plan's levels (waiting, entry passed, target reached, stop).",
+          "**The AI, on need only:** the AI Engine reviews the candidates before the open, after the close and on the first list of the session; later in the session only when three or more names changed since its last review (an hour apart) or the world's lean or the tide turned — within a daily limit (6, set beside the list). It may only order the candidates, keep or drop each with a reason, and write each one's thesis and risk; it cannot add a stock or flip a side. Without a key, or with the review off, the desk's ranking stands.",
+          "**Shared:** each name is published to the shared research, so TradeAI, the Desk and every workspace read it; TradeAI's agent can read the whole list.",
+          "**The record:** each list made before the open, and each list made the evening before for the session, is scored after the close — every pick from the open to the close in its direction, against the same move for the whole universe — overall, longs and shorts, and by reason (which reasons paid). After ten sessions the findings are written into the trading-skills file every AI feature reads.",
+        ],
+        limits: "A ranking of evidence with its reasons — not advice and not a promise. The plan's levels are set from completed bars before the session. Exchange holidays are not known to the schedule.",
+      } },
+      { logic: {
+        title: "The RSI watch — NIFTY 500, live",
+        who: "server/picks.js running the Screener's RSI search (server/market/universe.js) by itself.",
+        when: "Whenever Research is open: refreshed every minute in market hours, every five minutes otherwise (the server keeps each reading 30 seconds).",
+        steps: [
+          "Every NIFTY 500 stock with a **14-day RSI of 15 or less** (oversold) or **80 or more** (overbought) that trades **₹100 crore a day or more** (20-day average), with today's live price as the newest bar; lowest and highest first.",
+          "The daily history it needs is downloaded once, by itself, when Zerodha is connected (a few minutes for the NIFTY 500); after that it rolls forward with every quote.",
+          "Other RSI searches stay on the Screener, whose traded-value filter now starts at ₹100 crore a day.",
+        ],
+        limits: "An RSI this far from 50 measures how stretched a move is, not that it must turn: strong trends stay overbought or oversold for a long time.",
+      } },
+      { logic: {
         title: "Automatic research",
         who: "The server’s research timer, outside the AI folder. Enabled by default; only the superadmin can change the toggles.",
         when: "Weekdays only: **pre-market any minute from 8:45 to 9:14 AM**, **post-market from 4:00 to 6:00 PM**. Checked once a minute; at most one run per phase per day. It needs Zerodha connected, otherwise nothing runs (and is not marked done, so it can still run later in the window). If a run you started is in progress it tries again next minute.",

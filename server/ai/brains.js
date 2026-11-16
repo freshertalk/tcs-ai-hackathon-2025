@@ -46,6 +46,7 @@ const FEATURES = [
   { id: "exit", name: "Exit advisor (Execution Lab)", trigger: "A step up of the exit coach's signal on an open position (one opinion per position every five minutes, within the daily limit), or Ask the AI on the Live board" },
   { id: "exit-levels", name: "Exit levels research (Execution Lab)", trigger: "A position coming onto the Live board, its first AI target being reached or its levels going stale (at most one per position every ten minutes, within the same daily limit), or Research levels on the Live board" },
   { id: "indices", name: "Index projections (NIFTY 50 / SENSEX)", trigger: "The first weekday of each month for the month and January for the year (when switched on), or Ask the AI on the Indices page" },
+  { id: "picks", name: "Top 10 review (Research)", trigger: "Before the open and after the close, and in the session only when the list has really changed (three or more names in an hour) or the world's lean or the tide turned — within a daily limit; or Refresh now" },
 ];
 const FEATURE_IDS = FEATURES.map((f) => f.id);
 

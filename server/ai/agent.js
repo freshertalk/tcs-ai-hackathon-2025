@@ -64,6 +64,7 @@ const READERS = [
   { id: "positions", owner: true, via: ["positions", "goal"], about: "Every open position with its P&L, the funds, and the day's goal (target, daily stop, giveback guard)." },
   { id: "pnl", owner: true, via: ["pnl"], about: "The trader's results: the last 30 days, the last seven days one by one, and journal statistics (win rate, expectancy, by hour, mistakes)." },
   { id: "orders", owner: true, via: ["orders"], about: "Orders still waiting at the broker." },
+  { id: "picks", about: "The Research tab's Top 10: the desk's ranked stocks to trade in this session (or the next), each with its side, score, reasons with numbers, the plan's entry, stop and target, and the AI's note; the names that just left the list; the list's measured record; and the live RSI extremes of the NIFTY 500 (14-day RSI 15 or less, 80 or more, ₹100 crore a day or more). Free." },
   { id: "indices", needs: "query", about: "NIFTY 50 or SENSEX in history (query: NIFTY or SENSEX): month to date and year to date, how this calendar month has done each year (win rate, average, median, best and worst), the desk's projection for the month and the year with its 68% and 90% ranges and its measured walk-forward record, the AI's latest projection, the fall from the all-time high. Free." },
   { id: "lab", needs: "query", owner: true, about: "The Execution Lab's replay of a trading day (query: YYYY-MM-DD, or empty for the latest): every trade's best moment to have left, exit efficiency, habits that cost money, and the Coach's comparison with earlier days — what to prevent and what to keep." },
   { id: "news", needs: "symbol", paid: true, via: ["news"], about: "A web search on the company's news today and whether it explains the move (kept for 30 minutes)." },
@@ -85,6 +86,7 @@ const GIST = {
   plan: "the intraday plan",
   news: "the company's news today",
   lab: "the Execution Lab's replay and the Coach's comparison",
+  picks: "the Research tab's Top 10 and the RSI extremes",
   indices_NIFTY: "NIFTY 50 in history, its projections and their record",
   indices_SENSEX: "SENSEX in history, its projections and their record",
   learned: "what the desk has measured about levels",
@@ -109,7 +111,7 @@ class DeskAgent {
       if (r.owner && !owner) return false;
       if (r.paid && !web) return false;
       if (r.id === "shared") return Boolean(this.ai.shared);
-      if (["position", "tape", "levels", "lab", "learned", "indices"].includes(r.id)) return typeof desk[r.id === "position" ? "reading" : r.id] === "function";
+      if (["position", "tape", "levels", "lab", "learned", "indices", "picks"].includes(r.id)) return typeof desk[r.id === "position" ? "reading" : r.id] === "function";
       if (r.id === "web" || r.id === "news") return Boolean(this.ai._searchProvider && this.ai._searchProvider());
       return true;
     });
@@ -171,6 +173,12 @@ class DeskAgent {
       if (typeof desk.learned !== "function") return [];
       const v = await within(desk.learned(sym || null), 5000);
       return v && v.available !== false ? put(sym ? `learned_${sym}` : "learned", v, "what the desk has measured") : [];
+    }
+    if (r.id === "picks") {
+      if (typeof desk.picks !== "function") return [];
+      onStep("Reading the Research tab's Top 10 and the RSI extremes");
+      const v = await within(desk.picks(), 15000);
+      return v && v.available !== false ? put("picks", v, "Top 10") : [];
     }
     if (r.id === "indices") {
       if (typeof desk.indices !== "function") return [];

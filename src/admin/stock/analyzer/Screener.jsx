@@ -77,7 +77,7 @@ export default function Screener({ onOpen }) {
   const [a, setA] = useState("");
   const [b, setB] = useState("");
   const [period, setPeriod] = useState("14");
-  const [liquid, setLiquid] = useState("5");
+  const [liquid, setLiquid] = useState("100"); // ₹100 crore a day by default (the owner's choice, 2026-11-16)
   const [funds, setFunds] = useState(false);
   const [sort, setSort] = useState("rsi");
   const [busy, setBusy] = useState(false);

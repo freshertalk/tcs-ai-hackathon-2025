@@ -54,6 +54,7 @@ const { FlightDeck, FlightError } = require("./flight");
 const { LearnWatch } = require("./learn");
 const { makeDeskReaders } = require("./desk-readers");
 const { IndexHistory, IndexError } = require("./index-history");
+const { TopPicks, PicksError } = require("./picks");
 const { JournalCapture } = require("./journal-capture");
 const { WhatsAppService, mountWhatsApp } = require("./whatsapp");
 const { buildHealth } = require("./health");
@@ -1005,6 +1006,27 @@ ${e.text}
   app.post("/api/admin/indices/ai", requireSuper, limiter(12, 10 * 60 * 1000), ixWrap(async (req) => ({ entry: await indices.askAi(ixId((req.body || {}).index), (req.body || {}).horizon === "year" ? "year" : "month"), settings: indices.settings() })));
   app.put("/api/admin/indices/settings", requireSuper, limiter(30, 10 * 60 * 1000), ixWrap(async (req) => indices.setSettings(req.body || {})));
 
+  /* -------------------------------------------- the Research tab's Top 10 (server/picks.js) */
+  // ranked by itself before the open, every five minutes in the session and after the close; the AI
+  // reviews it on need; each list is scored on its session. Also the live RSI extremes of the NIFTY 500.
+  const picks = opts.topPicks || new TopPicks({ market, ai, docs: store.docs, now: opts.now, log: opts.log || console });
+  if (opts.picksWatch !== false && opts.alertWatch !== false) picks.start();
+  const pkWrap = (fn) => async (req, res) => {
+    try {
+      res.json(await fn(req));
+    } catch (err) {
+      if (!(err instanceof PicksError)) console.error("[picks]", err && err.message ? err.message : err);
+      res.status(err.status || 500).json({ error: err.code || "picks_failed", message: err.message || "The Top 10 failed." });
+    }
+  };
+  app.get("/api/admin/picks", requireAdmin, limiter(240, 60 * 1000), pkWrap(async () => picks.view()));
+  app.post("/api/admin/picks/refresh", requireSuper, limiter(12, 10 * 60 * 1000), pkWrap(async () => {
+    picks.build({ trigger: "asked" }).catch(() => {});
+    return picks.view();
+  }));
+  app.put("/api/admin/picks/settings", requireSuper, limiter(30, 10 * 60 * 1000), pkWrap(async (req) => picks.setSettings(req.body || {})));
+  app.get("/api/admin/picks/rsi", requireAdmin, limiter(240, 60 * 1000), pkWrap(async () => picks.rsiExtremes()));
+
   /* ------------------------------------------------ TradeAI (server/ai/tradeai.js) */
   // the chat reads the account through these read-only functions (the AI folder cannot load the broker)
   ai.tradeai.account = {
@@ -1035,6 +1057,7 @@ ${e.text}
   // the agent's readers outside the AI folder: the exit coach's reading, the tape, the level map, the Lab, the learner
   ai.tradeai.desk = makeDeskReaders({ market, flight, analysis, learn, now: opts.now || (() => Date.now()) });
   // …and the index history: NIFTY 50 and SENSEX month by month, the projections and their record
+  ai.tradeai.desk.picks = async () => ({ ...picks.brief(), rsiExtremes: await picks.rsiExtremes().then((r) => (r.available ? { rule: r.rule, oversold: r.oversold.slice(0, 10), overbought: r.overbought.slice(0, 10) } : { available: false, reason: r.reason })).catch(() => null) });
   ai.tradeai.desk.indices = (name) => indices.brief(/SENSEX|BSE/i.test(String(name || "")) ? "SENSEX" : "NIFTY");
   const taWrap = (fn) => async (req, res) => {
     try {
