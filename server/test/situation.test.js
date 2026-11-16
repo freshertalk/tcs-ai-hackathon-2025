@@ -208,3 +208,17 @@ test("the checks are market text and arithmetic: no trading module, no clock, no
   assert.doesNotMatch(src, /require\(["'][./]*trading/);
   assert.doesNotMatch(src, /Date\.now|new Date\(|setTimeout|setInterval|fetch\(/);
 });
+
+test("two more checks from the working knowledge: a round number close by, and a volume climax far from VWAP", () => {
+  const near = KC.check({ horizon: "intraday", live: true, last: 2000.8, relVol: 1 });
+  const rn = near.notes.find((n) => n.id === "round-number");
+  assert.ok(rn && rn.stance === "info" && /round number 2000/.test(rn.text), "within 0.12% of 2,000");
+  assert.equal(near.vote, null, "an information note moves no vote");
+  assert.equal(KC.check({ horizon: "intraday", live: true, last: 2033, relVol: 1 }).notes.find((n) => n.id === "round-number"), undefined, "1.6% away: not near");
+  const up = KC.check({ horizon: "intraday", live: true, last: 100, relVol: 4.2, vsVwapAtr: 3, minsIn: 90 });
+  const cl = up.notes.find((n) => n.id === "climax");
+  assert.ok(cl && cl.stance === "against" && cl.side === "long" && /exhaustion/.test(cl.text));
+  const dn = KC.check({ horizon: "intraday", live: true, last: 100, relVol: 4.2, vsVwapAtr: -3, minsIn: 90 });
+  assert.equal(dn.notes.find((n) => n.id === "climax").side, "short");
+  assert.equal(KC.check({ horizon: "intraday", live: true, last: 100, relVol: 1.2, vsVwapAtr: 3 }).notes.find((n) => n.id === "climax"), undefined, "ordinary volume is not a climax");
+});

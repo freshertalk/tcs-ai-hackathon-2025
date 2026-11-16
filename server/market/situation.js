@@ -183,6 +183,28 @@ const CHECKS = [
     },
   },
   {
+    id: "round-number",
+    topic: "tr-levels-hacks",
+    run(f) {
+      if (!f.live || !num(f.last) || f.last <= 0) return null;
+      const step = f.last < 200 ? 10 : f.last < 1000 ? 50 : f.last < 5000 ? 100 : 500;
+      const near = Math.round(f.last / step) * step;
+      const d = (Math.abs(f.last - near) / f.last) * 100;
+      if (!(near > 0) || d > 0.12) return null;
+      return { stance: "info", side: "both", text: `Price is within ${d.toFixed(2)}% of the round number ${near}: round numbers attract orders and are where moves stall or reverse, so the textbook takes profit a little sooner or waits for a clean break through it.` };
+    },
+  },
+  {
+    id: "climax",
+    topic: "vol-analysis",
+    counts: true,
+    run(f) {
+      if (!f.live || !num(f.relVol) || f.relVol < 3 || !num(f.vsVwapAtr) || Math.abs(f.vsVwapAtr) < 2.5) return null;
+      const up = f.vsVwapAtr > 0;
+      return { stance: "against", side: up ? "long" : "short", text: `Volume at ${f.relVol.toFixed(1)}× the usual with price ${sg(f.vsVwapAtr)} ATRs ${up ? "above" : "below"} VWAP: a burst like this is often exhaustion rather than the start of a move — the textbook does not chase a climax, it waits for the first pullback to hold.` };
+    },
+  },
+  {
     id: "chase",
     topic: "psy-biases",
     counts: true,

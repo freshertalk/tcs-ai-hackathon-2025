@@ -1,0 +1,292 @@
+/* ==========================================================================
+   Smooth and soft. The private area keeps its fonts, colours, theme and layout; this layer, loaded last,
+   only changes how things MOVE and how their edges feel: one easing curve for everything, surfaces that
+   settle in instead of snapping, controls that answer a press, a theme change that cross-fades, and the
+   floating notes in the corner that glide in and out like a system banner.
+
+   Everything that moves sits inside prefers-reduced-motion: no-preference.
+   ========================================================================== */
+
+.adm {
+  --ease: cubic-bezier(0.22, 1, 0.36, 1); /* a long, soft landing */
+  --ease-io: cubic-bezier(0.4, 0, 0.2, 1);
+  --soft-shadow: 0 1px 2px rgba(15, 25, 45, 0.05), 0 12px 28px -20px rgba(15, 25, 45, 0.32);
+  --soft-shadow-up: 0 2px 4px rgba(15, 25, 45, 0.06), 0 18px 36px -18px rgba(15, 25, 45, 0.36);
+}
+.adm[data-desk="dark"] {
+  --soft-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 14px 30px -20px rgba(0, 0, 0, 0.7);
+  --soft-shadow-up: 0 2px 4px rgba(0, 0, 0, 0.34), 0 20px 40px -18px rgba(0, 0, 0, 0.78);
+}
+
+/* ------------------------------------------------------------------ soft surfaces (no motion) */
+.adm .an-card,
+.adm .ta-card,
+.adm .ta-kpi,
+.adm .jp2-tile {
+  box-shadow: var(--soft-shadow);
+}
+.adm :where(.an-card, .ta-card, .ta-kpi, .jp2-tile, .adm-btn, input, select, textarea) {
+  border-radius: max(var(--r, 0px), 10px);
+}
+.adm {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--ink-3) 45%, transparent) transparent;
+}
+.adm ::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+.adm ::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 99px;
+  background: color-mix(in srgb, var(--ink-3) 45%, transparent);
+  background-clip: padding-box;
+}
+.adm ::-webkit-scrollbar-track {
+  background: transparent;
+}
+/* the focus ring is a soft halo rather than a hard outline */
+.adm :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 38%, transparent);
+}
+
+/* ------------------------------------------------------------------ the floating notes */
+.adm .tr-toast,
+.tr-toast {
+  --toast-c: var(--up-bright, #2fa36b);
+  right: max(16px, env(safe-area-inset-right, 0px));
+  bottom: max(16px, env(safe-area-inset-bottom, 0px));
+  align-items: center;
+  gap: 12px;
+  max-width: min(400px, calc(100vw - 32px));
+  padding: 12px 12px 12px 14px;
+  border: 0.5px solid rgba(255, 255, 255, 0.16);
+  border-left: 0.5px solid rgba(255, 255, 255, 0.16);
+  border-radius: 18px;
+  background: rgba(26, 32, 43, 0.74);
+  -webkit-backdrop-filter: saturate(180%) blur(22px);
+  backdrop-filter: saturate(180%) blur(22px);
+  color: #f5f7fa;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.08) inset, 0 26px 50px -18px rgba(0, 0, 0, 0.6), 0 8px 18px -8px rgba(0, 0, 0, 0.4);
+  font-size: var(--t-mid);
+  line-height: 1.45;
+  transform-origin: bottom right;
+}
+.adm .tr-toast--error {
+  --toast-c: #ff5d73;
+}
+.adm .tr-toast--warn {
+  --toast-c: #ffb340;
+}
+.adm .tr-toast::before {
+  content: "";
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--toast-c);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--toast-c) 24%, transparent), 0 0 14px color-mix(in srgb, var(--toast-c) 60%, transparent);
+}
+.adm .tr-toast > p {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+}
+.adm .tr-toast > button {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(245, 247, 250, 0.85);
+  line-height: 1;
+}
+.adm .tr-toast > button:hover {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+/* the follow-the-order bar and the other floating bars share the glass */
+.adm .tr-follow {
+  border: 0.5px solid rgba(255, 255, 255, 0.16);
+  border-radius: 18px;
+  background: rgba(26, 32, 43, 0.78);
+  -webkit-backdrop-filter: saturate(180%) blur(22px);
+  backdrop-filter: saturate(180%) blur(22px);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.08) inset, 0 26px 50px -18px rgba(0, 0, 0, 0.6);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* the theme change cross-fades */
+  .adm,
+  .adm :where(.an-card, .ta-card, .ta-kpi, .jp2-tile, .adm-btn, input, select, textarea, table, th, td, header, nav, section) {
+    transition: background-color 0.4s var(--ease-io), border-color 0.3s var(--ease-io), color 0.3s var(--ease-io), box-shadow 0.4s var(--ease);
+  }
+
+  /* a page, and the cards in it, settle in */
+  @keyframes sm-rise {
+    from {
+      opacity: 0;
+      transform: translate3d(0, 10px, 0);
+    }
+  }
+  @keyframes sm-fade {
+    from {
+      opacity: 0;
+    }
+  }
+  .adm .adm-main > *,
+  .adm .tm-page > * {
+    animation: sm-rise 0.6s var(--ease) backwards;
+  }
+  .adm .adm-main > *:nth-child(2),
+  .adm .tm-page > *:nth-child(2) {
+    animation-delay: 0.04s;
+  }
+  .adm .adm-main > *:nth-child(3),
+  .adm .tm-page > *:nth-child(3) {
+    animation-delay: 0.08s;
+  }
+  .adm .adm-main > *:nth-child(4),
+  .adm .tm-page > *:nth-child(4) {
+    animation-delay: 0.12s;
+  }
+  .adm .adm-main > *:nth-child(n + 5),
+  .adm .tm-page > *:nth-child(n + 5) {
+    animation-delay: 0.16s;
+  }
+  /* the sticky bars and the floating bits are never animated away from where they must be */
+  .adm .tm-page > .jr-cmd,
+  .adm .tm-page > .dg-banner,
+  .adm .adm-main > .dg-banner {
+    animation: none;
+  }
+  /* inside a page: the cards of a tab as it opens */
+  .adm :where(.ta, .jr, .jp2, .sv, .an__main) > :where(.an-card, .ta-card, .ta-kpis, .jp2-tiles, .lab-grid, .jc, .jc-hero) {
+    animation: sm-rise 0.55s var(--ease) backwards;
+  }
+  .adm :where(.ta, .jr, .jp2) > :nth-child(2) {
+    animation-delay: 0.03s;
+  }
+  .adm :where(.ta, .jr, .jp2) > :nth-child(3) {
+    animation-delay: 0.06s;
+  }
+  .adm :where(.ta, .jr, .jp2) > :nth-child(n + 4) {
+    animation-delay: 0.09s;
+  }
+  .adm .jr > .jr-cmd {
+    animation: none;
+  }
+
+  /* controls answer a press */
+  .adm :where(button, .adm-btn, a.adm-btn, [role="tab"], summary) {
+    transition: transform 0.2s var(--ease), background-color 0.25s var(--ease-io), border-color 0.25s var(--ease-io), color 0.25s var(--ease-io), box-shadow 0.3s var(--ease), opacity 0.25s var(--ease-io);
+  }
+  .adm :where(button, .adm-btn, a.adm-btn):active:not(:disabled) {
+    transform: scale(0.97);
+  }
+  .adm :where(.adm-btn, a.adm-btn):hover:not(:disabled) {
+    box-shadow: var(--soft-shadow);
+  }
+  /* tiles that can be pressed lift a little towards you */
+  .adm :where(a, button)[class*="tile"],
+  .adm :where(a, button)[class*="hub-"] {
+    transition: transform 0.35s var(--ease), box-shadow 0.35s var(--ease), border-color 0.25s var(--ease-io), background-color 0.25s var(--ease-io);
+  }
+  .adm :where(a, button)[class*="tile"]:hover,
+  .adm :where(a, button)[class*="hub-"]:hover {
+    transform: translate3d(0, -2px, 0);
+    box-shadow: var(--soft-shadow-up);
+  }
+  .adm .ta-kpi:hover,
+  .adm .jp2-tile:hover {
+    transform: translate3d(0, -1px, 0);
+    box-shadow: var(--soft-shadow-up);
+    transition: transform 0.35s var(--ease), box-shadow 0.35s var(--ease);
+  }
+
+  /* tables and lists respond to the pointer */
+  .adm :where(tbody tr, .snp-m, .rbt-flights > li) {
+    transition: background-color 0.2s var(--ease-io), box-shadow 0.3s var(--ease);
+  }
+  .adm tbody tr:hover > :where(td, th) {
+    background-color: color-mix(in srgb, var(--accent) 6%, transparent);
+  }
+
+  /* the selected tab's underline and the segmented pickers slide rather than blink */
+  .adm :where(.jr-tabs, .ta-seg, .tm-tabs) button {
+    transition: color 0.25s var(--ease-io), background-color 0.3s var(--ease), box-shadow 0.3s var(--ease);
+  }
+  .adm .jr-tabs button[aria-selected="true"]::after {
+    animation: sm-underline 0.4s var(--ease) both;
+    transform-origin: center;
+  }
+  @keyframes sm-underline {
+    from {
+      transform: scaleX(0.2);
+      opacity: 0;
+    }
+  }
+
+  /* menus, dialogs and the palette open with a small spring instead of a cut */
+  @keyframes sm-pop {
+    from {
+      opacity: 0;
+      transform: translate3d(0, 8px, 0) scale(0.96);
+    }
+  }
+  .adm :where(.tm-menu, .tm-alerts, .tm-palette, .tr-modal > *, .dlg, [role="dialog"], [role="menu"], [role="listbox"]):not(.dg-banner) {
+    animation: sm-pop 0.42s var(--ease) backwards;
+  }
+  .adm :where(.tr-modal, .dlg__veil) {
+    animation: sm-fade 0.3s var(--ease-io) backwards;
+  }
+  .adm :where(.tr-modal, .dlg__veil) {
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+  }
+
+  /* the floating notes glide in from the corner, and out */
+  @keyframes sm-toast-in {
+    from {
+      opacity: 0;
+      transform: translate3d(28px, 14px, 0) scale(0.94);
+    }
+  }
+  @keyframes sm-toast-out {
+    to {
+      opacity: 0;
+      transform: translate3d(20px, 10px, 0) scale(0.95);
+    }
+  }
+  .adm .tr-toast,
+  .adm .tr-follow {
+    animation: sm-toast-in 0.6s var(--ease) both;
+  }
+  .adm .tr-toast.is-leaving {
+    animation: sm-toast-out 0.3s cubic-bezier(0.5, 0, 1, 1) forwards;
+    pointer-events: none;
+  }
+
+  /* things that appear because data arrived */
+  .adm :where(.jc-hero, .ta-empty, .adm-alert) {
+    animation: sm-fade 0.5s var(--ease-io) backwards;
+  }
+  /* bars and rings fill rather than appear */
+  .adm :where(.rbt-bar > i, .jr-bd__bar i, .jr-bar i) {
+    transition: width 0.8s var(--ease);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .adm .tr-toast.is-leaving {
+    opacity: 0;
+  }
+}

@@ -2,6 +2,7 @@
 // open, Zerodha connected, trading switch, the day's P&L) and the few controls that apply
 // everywhere (theme, shortcuts, hover help, sign out).
 
+import "./brandmark.css";
 import React, { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../../api";
@@ -126,7 +127,7 @@ export default function TopBar({ views, view, onView, theme, onTheme, onHelp, on
     <header className="tm-top">
       <Link to={adminPath()} className="tm-brand" data-tip="Back to the dashboard.">
         <span className="tm-brand__mark tm-brand__mark--img">
-          <img src="/img/panchmukhi-logo-96.png" srcSet="/img/panchmukhi-logo-96.png 1x, /img/panchmukhi-logo-192.png 2x" alt="Panchmukhi Hanuman Ji" width="42" height="42" decoding="async" />
+          <img src="/logo/logo-96.png" srcSet="/logo/logo-96.png 1x, /logo/logo-192.png 2x" alt="DrishtiAI" width="42" height="42" decoding="async" />
         </span>
         <span className="tm-brand__name">{BRAND.name}</span>
       </Link>

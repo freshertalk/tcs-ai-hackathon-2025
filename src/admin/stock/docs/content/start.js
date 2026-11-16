@@ -97,7 +97,7 @@ export const START = [
       ] },
       { h: "Around the terminal" },
       { ul: [
-        "**Dashboard** with the Darshan card, status chips and tiles into every workspace.",
+        "**Dashboard** with the status chips and tiles into every workspace.",
         "**Command palette** (Ctrl K), **keyboard shortcuts**, **price alerts**, the **positions dock**, the **phone bottom bar** and the **top bar** with the live status pills.",
         "**The full chart** (also in its own tab), **hover help**, light and dark themes, the site’s own dialogs.",
         "**Settings on /me:** Site health, WhatsApp Trading, Telegram messages and the Mandir (Shri Hanuman Chalisa softly in the background, with the ॐ button in every header).",

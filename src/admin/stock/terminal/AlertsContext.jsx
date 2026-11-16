@@ -11,6 +11,7 @@ import { api } from "../../api";
 import { useHubEvent, useLiveTicks } from "../analyzer/liveTicks";
 import { beep, notify } from "../analyzer/useVerdict";
 import { alertText, due } from "./alerts";
+import SoftToast from "../../SoftToast";
 import { everyVisible } from "../../visible";
 
 const Ctx = createContext(null);
@@ -134,18 +135,13 @@ export function AlertsProvider({ children }) {
   return (
     <Ctx.Provider value={value}>
       {children}
-      {note && (
-        <div className="tr-toast tr-toast--warn tm-alert-note" role="alert">
-          <p>
-            <b>Price alert</b>
-            <br />
-            {note.text}
-          </p>
-          <button type="button" aria-label="Dismiss" onClick={() => setNote(null)}>
-            ×
-          </button>
-        </div>
-      )}
+      <SoftToast show={Boolean(note)} kind="warn" role="alert" className="tm-alert-note" onClose={() => setNote(null)}>
+        <p>
+          <b>Price alert</b>
+          <br />
+          {note ? note.text : ""}
+        </p>
+      </SoftToast>
     </Ctx.Provider>
   );
 }

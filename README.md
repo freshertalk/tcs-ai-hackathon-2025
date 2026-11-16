@@ -535,8 +535,8 @@ floating window) at 5% on every private page, controlled from the Mandir card un
 header (one tab plays at a time; browsers need a first tap). Sources: an uploaded audio file (chunked upload, kept in
 `server/data/media`, served to signed-in people with a week of browser caching) or an https audio link. A YouTube source is
 kept as a link only: YouTube's terms allow neither audio without its player nor downloading, so it never plays in the
-background. The full (uncropped) Panchmukhi Hanuman Ji logo stands before the name in the header
-(`public/img/panchmukhi-logo-96.png`, `-192.png`).
+background. The DrishtiAI logo stands before the name in the header
+(`public/logo/logo.png`, sized copies `public/logo/logo-96.png`, `-192.png`).
 
 **WhatsApp Trading (`server/whatsapp.js`, `server/ai/whatsapp-ai.js`, `src/admin/WhatsAppCard.jsx`; superadmin).** The
 official WhatsApp Business Cloud API (Graph v21.0). The webhook `GET|POST /api/whatsapp/webhook` is mounted before
@@ -1271,7 +1271,7 @@ against a fake Anthropic API, and the day replay and debrief, and trading: the s
   desk's `view` is taken from the query. The area stays `noindex`; previews name
   a page and what it is for — never an account, price or person.
 - Its pictures are `public/img/og/<page>.png` (1200×630, 256 colours, under
-  300 KB): Panchmukhi Hanuman Ji beside the page name and two lines. After adding
+  300 KB): the DrishtiAI logo (`public/logo/logo.png`) beside the page name and two lines. After adding
   or renaming a page in `server/previews.js`, redraw them with
   `node scripts/og-images.js` (needs ffmpeg — `FFMPEG=` its path — and Segoe UI,
   or `OG_FONT` / `OG_FONT_BOLD`).

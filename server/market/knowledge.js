@@ -186,7 +186,7 @@ function relevant(ctx = {}, maxChars = 3500) {
 // the indicators, price action and patterns, volume and open interest, strategies, risk, psychology,
 // testing, macro and sectors, fundamentals, and the documented methods of well-known traders and
 // investors. The desk's own essentials above come first.
-const ENCYCLOPEDIA = [...require("./kb/market"), ...require("./kb/technical"), ...require("./kb/method"), ...require("./kb/masters")];
+const ENCYCLOPEDIA = [...require("./kb/market"), ...require("./kb/technical"), ...require("./kb/method"), ...require("./kb/masters"), ...require("./kb/craft")];
 const ESSENTIALS = TOPICS.map((t) => ({ ...t, area: "The desk's essentials", keys: `${t.id} ${t.tags.join(" ")}` }));
 const SETUP_TOPIC = { id: "setups", area: "Strategies", title: "The desk's coded set-ups", keys: "setup set-up orb vwap pullback reclaim gap fade squeeze first pullback breakout desk", rules: Object.values(SETUP_NOTES).map((x) => `${x.name}: ${x.rules} Not when: ${x.avoid}`) };
 const ALL = [...ESSENTIALS, ...ENCYCLOPEDIA, SETUP_TOPIC];
@@ -249,23 +249,23 @@ function searchText(query, { limit = 5, maxChars = 5000 } = {}) {
 // What each AI feature is given with every request: a compact pack of the topics that matter to its job.
 // TradeAI reads more on demand (its "playbook" reader searches the whole knowledge base).
 const PACKS = {
-  copilot: ["st-intraday", "ind-vwap", "vol-analysis", "st-daytypes", "risk-stops"],
+  copilot: ["st-intraday", "tr-intraday-hacks", "ind-vwap", "tr-levels-hacks", "risk-stops"],
   "ensemble-live": ["st-intraday", "ind-vwap", "vol-analysis", "st-daytypes", "time"],
-  decision: ["pa-structure", "ind-usage", "risk-sizing", "st-news", "honest-odds"],
-  exit: ["risk-stops", "risk-pyramid", "pa-levels", "psy-biases"],
-  "exit-levels": ["pa-levels", "pa-pivots", "risk-stops", "vol-profile"],
+  decision: ["tr-checklist", "pa-structure", "risk-sizing", "cal-days", "honest-odds"],
+  exit: ["tr-entry-exit-hacks", "risk-stops", "mic-slippage", "psy-biases"],
+  "exit-levels": ["pa-levels", "tr-levels-hacks", "tr-entry-exit-hacks", "pa-pivots"],
   coach: ["risk-stops", "risk-pyramid", "risk-sizing", "psy-biases"],
-  research: ["pa-structure", "st-swing", "ind-usage", "macro-india", "st-news"],
+  research: ["pa-structure", "st-swing", "mac-global", "cal-days", "in-lists"],
   "ensemble-research": ["pa-structure", "st-daytypes", "pa-gaps", "macro-india", "st-news"],
   strategist: ["pa-structure", "st-swing", "risk-sizing", "risk-stops", "ind-usage"],
-  picks: ["st-swing", "macro-sectors", "macro-india", "in-data", "selection"],
+  picks: ["tr-scanner-hacks", "st-swing", "macro-sectors", "in-lists", "selection"],
   review: ["psy-biases", "psy-discipline", "risk-expectancy", "psy-routine"],
   dayreview: ["psy-biases", "psy-discipline", "risk-expectancy", "risk-stops"],
   debrief: ["psy-discipline", "risk-expectancy", "res-testing", "st-daytypes"],
   learn: ["res-testing", "risk-expectancy", "psy-discipline"],
   indices: ["in-indices", "macro-india", "pa-structure", "in-data"],
   social: ["macro-india", "macro-sectors", "st-news"],
-  tradeai: ["honest-odds", "risk-sizing", "psy-discipline"],
+  tradeai: ["honest-odds", "tr-myths", "q-edge", "risk-sizing"],
   whatsapp: ["risk-stops", "honest-odds"],
   robot: ["risk-stops", "risk-expectancy", "psy-discipline", "honest-odds"],
 };

@@ -73,8 +73,8 @@ export default function Shell({ crumb, notice, children, narrow, wide, fluid }) 
         <div className={`${wrap} adm-head__row`}>
           <nav className="adm-crumbs" aria-label="Breadcrumb">
             <Link to={adminPath()} className="adm-brand" aria-label={`${BRAND.full}. Back to the dashboard.`} data-tip="Back to the dashboard.">
-              {/* Panchmukhi Hanuman Ji: the whole desk rests on Him */}
-              <img className="adm-brand__logo" src="/img/panchmukhi-logo-96.png" srcSet="/img/panchmukhi-logo-96.png 1x, /img/panchmukhi-logo-192.png 2x" alt="Panchmukhi Hanuman Ji" width="40" height="40" />
+              {/* the DrishtiAI logo (public/logo/logo.png) */}
+              <img className="adm-brand__logo" src="/logo/logo-96.png" srcSet="/logo/logo-96.png 1x, /logo/logo-192.png 2x" alt="DrishtiAI" width="40" height="40" />
               {/* one line at every width: the full name, then shorter forms as the screen narrows */}
               <span className="adm-brand__full">{BRAND.full}</span>
               <span className="adm-brand__mid" aria-hidden="true">{BRAND.mid}</span>

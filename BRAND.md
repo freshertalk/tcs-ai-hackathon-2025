@@ -10,9 +10,9 @@ Trading, Telegram alerts, the Mandir, the Document — is called **DrishtiAI**.
 | With its line | **DrishtiAI — the AI Trading Advisor for NSE** (an em dash with a space on each side) |
 | Short header (narrow screens) | **DrishtiAI — AI Trading Advisor**, then **DrishtiAI** |
 | Meaning | Drishti (दृष्टि) means “sight” |
-| Logo | Panchmukhi Hanuman Ji, the full image, never cropped (`public/img/panchmukhi-logo-96.png`, `-192.png`) |
-| Favicon (private area) | the five faces, close: `public/img/panchmukhi-icon-32.png`, `-48`, `-180` (Apple), `-192` |
-| Darshan picture | `public/img/panchmukhi-darshan-640/960/1200` as `.webp` (what browsers load) and `.jpg` (fallback) |
+| Logo | the DrishtiAI bull-and-chart roundel, whole (`public/logo/logo.png`; sized copies `public/logo/logo-32/48/96/180/192/512.png`) |
+| Favicon (private area) | the same logo: `public/logo/logo-32.png`, `-48`, `-180` (Apple), `-192` |
+| Link previews (private area) | `public/img/og/<page>.png`, the logo beside the page name, drawn by `scripts/og-images.js` |
 | Browser tab | `DrishtiAI` |
 | Files it names | `DrishtiAI-complete-guide.docx`, `DrishtiAI-AI-Engine.docx` |
 
@@ -57,7 +57,7 @@ page on 15 November 2026. Rules that keep it so:
   `.adm {}` in `src/admin/stock/analyzer/analyzer.css`; dark ones in `.adm[data-desk="dark"]`.
 - Text on a filled accent uses `--on-accent` (white on the light theme's navy, near-black on the dark
   theme's light blue). Never hard-code white text on `--accent`.
-- Gold (Mandir, Darshan) is `#8a6100` / `#7a5600` on light and `#d9a93a` / `#e8b84a` on dark.
+- Gold (Mandir) is `#8a6100` / `#7a5600` on light and `#d9a93a` / `#e8b84a` on dark.
 - Numbers drawn on a coloured cell (calendar days, heatmap values) sit on a small surface-coloured
   pill so they read whatever the cell's colour.
 - `.adm a { color: inherit }` beats a single class: a link styled as a button needs a `.adm …`

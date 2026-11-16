@@ -37,16 +37,19 @@ import Social from "./social/Social";
 
 import "./admin.css";
 import "./hub.css";
+import "./hub2.css";
 // the one button system: loaded last so it governs every page (see BRAND.md)
 import "./buttons.css";
-// The private area wears Panchmukhi Hanuman Ji as its favicon. The public site's own icons are
+// motion and softness: loaded last of all, it changes how things move and how their edges feel, nothing else
+import "./smooth.css";
+// The private area wears the DrishtiAI logo (public/logo) as its favicon. The public site's own icons are
 // put aside while this area is open and put back when it is left. (A page loaded straight from
 // /me already carries these in its own head: see scripts/prerender.js.)
 const PRIVATE_ICONS = [
-  ["icon", "32x32", "/img/panchmukhi-icon-32.png"],
-  ["icon", "48x48", "/img/panchmukhi-icon-48.png"],
-  ["icon", "192x192", "/img/panchmukhi-icon-192.png"],
-  ["apple-touch-icon", "180x180", "/img/panchmukhi-icon-180.png"],
+  ["icon", "32x32", "/logo/logo-32.png"],
+  ["icon", "48x48", "/logo/logo-48.png"],
+  ["icon", "192x192", "/logo/logo-192.png"],
+  ["apple-touch-icon", "180x180", "/logo/logo-180.png"],
 ];
 function usePrivateFavicon() {
   useEffect(() => {

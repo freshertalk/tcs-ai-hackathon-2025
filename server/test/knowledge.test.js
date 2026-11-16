@@ -126,3 +126,25 @@ test("every AI request carries its feature's knowledge pack after the owner's br
   assert.equal(ai.brains.knowledgeFor("an unregistered prompt"), "");
   void coachSystem;
 });
+
+test("the working knowledge: options, microstructure, special days, hacks and tricks, quant method, investing, global links, India's lists — each findable, none promising a result", () => {
+  for (const area of ["Options and derivatives", "Market microstructure", "Calendar and events", "Hacks and tricks", "Quant and systems", "Investing and portfolio", "Global links and India's lists", "Other schools of analysis"]) assert.ok(KB.AREAS.includes(area), area);
+  assert.ok(KB.ALL.length >= 105, `${KB.ALL.length} topics`);
+  const top = (q) => (KB.search(q, { limit: 1 })[0] || {}).id;
+  const cases = {
+    "what is theta decay and delta": "opt-greeks",
+    "implied volatility crush after results": "opt-iv",
+    "how to read the option chain put call ratio": "opt-chain",
+    "expiry day zero hero trades": "opt-expiry",
+    "iron condor straddle spreads": "opt-strategies",
+    "how does the pre open call auction set the opening price": "mic-auction",
+    "pre trade checklist": "tr-checklist",
+    "intraday tips opening range": "tr-intraday-hacks",
+    "myths about telegram tips and guaranteed strategies": "tr-myths",
+    "kelly walk forward overfitting systematic strategy": "q-systems",
+    "what are ASM and GSM surveillance lists": "in-lists",
+    "gift nifty and crude oil effect on the open": "mac-global",
+    "elliott wave and gann": "sch-other",
+  };
+  for (const [q, id] of Object.entries(cases)) assert.equal(top(q), id, q);
+});

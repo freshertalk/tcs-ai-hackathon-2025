@@ -8,6 +8,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import { api } from "../../api";
 import { useAuth } from "../../auth";
 import OrderTicket from "./OrderTicket";
+import SoftToast from "../../SoftToast";
 import { chime, useDailyGoal } from "./DailyGoal";
 import { stopTicket } from "./tradeMath";
 import { bookStore, pulseOf } from "./liveBook";
@@ -249,14 +250,9 @@ export function TradeProvider({ children }) {
           </span>
         </div>
       )}
-      {value && toast && (
-        <div className={`tr-toast tr-toast--${toast.kind}`} role="status" aria-live="polite">
-          <p>{toast.text}</p>
-          <button type="button" aria-label="Dismiss" onClick={() => setToast(null)}>
-            ×
-          </button>
-        </div>
-      )}
+      <SoftToast show={Boolean(value && toast)} kind={toast ? toast.kind : "ok"} onClose={() => setToast(null)}>
+        <p>{toast ? toast.text : ""}</p>
+      </SoftToast>
     </TradeContext.Provider>
   );
 }

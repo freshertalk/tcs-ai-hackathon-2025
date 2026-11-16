@@ -135,18 +135,16 @@ export const PLATFORM = [
   {
     id: "dashboard",
     part: "platform",
-    title: "The dashboard, Darshan, theme, dialogs and help",
+    title: "The dashboard, theme, dialogs and help",
     intro: "The home page of the private area and the small systems that make every screen feel the same.",
     blocks: [
       { h: "The dashboard (`/me`)" },
       { ul: [
-        "**Darshan card** (top left), the greeting **“Namaste, <first name>”** with a kicker such as “Good morning · Saturday 14 November 2026” (before 5 AM “Working late”, before noon morning, before 5 PM afternoon, before 10 PM evening, else “Good night”), and a row of **status chips**: NSE open, pre-open or closed (by the clock only — holidays are not considered); Zerodha connected, Demo data or not connected; for the owner, Trading ON/OFF and today’s P&L; and “Advisor N A · M B” — how many watchlist stocks the Advisor grades A and B. The chips are computed on load, not live.",
+        "the greeting **“Namaste, <first name>”** with a kicker such as “Good morning · Saturday 14 November 2026” (before 5 AM “Working late”, before noon morning, before 5 PM afternoon, before 10 PM evening, else “Good night”), and a row of **status chips**: NSE open, pre-open or closed (by the clock only — holidays are not considered); Zerodha connected, Demo data or not connected; for the owner, Trading ON/OFF and today’s P&L; and “Advisor N A · M B” — how many watchlist stocks the Advisor grades A and B. The chips are computed on load, not live.",
         "**The Stock Report hero:** one wide link that opens the terminal in a **new tab**, plus a tile for every workspace — Desk, Advisor, Positions, Journal, Research, Screener, Paper trading, Debrief, Calendar, Trade Analysis and **Document** (the owner sees 11 tiles, another admin 8).",
         "**Paper Trading Testing card:** the auto-mode state, how many paper trades on the current setup, live net and the history win percentage; it says paper trading never places a real order.",
         "**Settings:** Google sign-in, Admin users (owner only) and the AI strategist (showing the company and model in use).",
       ] },
-      { h: "Darshan" },
-      { p: "A framed picture of **Panchmukhi Hanuman Ji**, shown whole and never cropped, with the caption “दर्शन · Darshan — जय श्री हनुमान — पंचमुखी हनुमान जी — ॐ हं हनुमते नमः”. Click or tap opens a **full-screen** view; close with ×, Esc or a click outside. If the picture cannot load, the card stays with a large “ॐ”. There is **no audio** and nothing plays by itself. The same image, resized, is the **tab icon of the private area only** (the public website keeps its own) and the mark beside “DrishtiAI” in the terminal’s top bar." },
       { h: "Light and dark theme" },
       { p: "Dark by default. One shared choice per browser, applied at once to every open screen and to the chart — through the ☀/☾ button, the terminal top bar, the More menu on phones, the **T** key, the palette or the chart page header. It is a per-device choice, not per account." },
       { h: "Dialogs" },
@@ -166,9 +164,9 @@ export const PLATFORM = [
     id: "mandir",
     part: "platform",
     title: "The Mandir — Shri Hanuman Chalisa, softly, on every page",
-    intro: "The whole desk rests on Lord Hanuman. Panchmukhi Hanuman Ji is the logo, the Darshan and the tab icon, and Shri Hanuman Chalisa — or a whole list of bhajans — plays softly in the background while the private area is open, with no floating window.",
+    intro: "Shri Hanuman Chalisa — or a whole list of bhajans — plays softly in the background while the private area is open, with no floating window.",
     blocks: [
-      { p: "The full picture of Panchmukhi Hanuman Ji (never cropped) is the **logo before “DrishtiAI — the AI Trading Advisor for NSE”** in the header of every private page and the mark in the terminal’s top bar; it is also the Darshan card and the tab icon of the private area. The **Mandir** card under Settings on the dashboard controls the audio, and a small **ॐ** button in the header of every page plays or pauses it. Lines of the Chalisa (Goswami Tulsidas) are shown on the card." },
+      { p: "The DrishtiAI logo (`public/logo/logo.png`) is the mark before “DrishtiAI — the AI Trading Advisor for NSE” in the header of every private page, in the terminal’s top bar, the tab icon of the private area and the picture in every link preview. The **Mandir** card under Settings on the dashboard controls the audio, and a small **ॐ** button in the header of every page plays or pauses it. Lines of the Chalisa (Goswami Tulsidas) are shown on the card." },
       { h: "How it plays" },
       { ul: [
         "**Background sound**, at a very soft **5%** by default, on every private page, carrying on while you move between pages. No floating window: a video plays as sound too, and its picture shows only inside the Mandir card when you press **Show video**.",

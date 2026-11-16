@@ -12,13 +12,13 @@
      changing a step changes every screen. */
   --f-ui: "Open Sans", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
   --f-code: var(--f-mono); /* real code only: a redirect address, the skills file */
-  --t-tag: 0.675rem; /* 10.8px  tags, chips, badges */
-  --t-small: 0.75rem; /* 12px  labels, column heads, captions */
-  --t-mid: 0.8125rem; /* 13px  secondary text, dense rows */
-  --t-base: 0.875rem; /* 14px  everything else */
-  --t-lead: 1rem; /* 16px  figures and names that should stand out a little */
-  --t-title: 1.125rem; /* 18px  section titles */
-  --t-large: 1.5rem; /* 24px  page titles, the price, key figures */
+  --t-tag: 0.64rem; /* 10.2px  tags, chips, badges */
+  --t-small: 0.705rem; /* 11.3px  labels, column heads, captions */
+  --t-mid: 0.765rem; /* 12.2px  secondary text, dense rows */
+  --t-base: 0.825rem; /* 13.2px  everything else */
+  --t-lead: 0.935rem; /* 15px  figures and names that should stand out a little */
+  --t-title: 1.045rem; /* 16.7px  section titles */
+  --t-large: 1.4rem; /* 22.4px  page titles, the price, key figures */
   --t-xlarge: 2rem; /* 32px  the clocks, the number of shares */
   --t-xxlarge: 2.625rem; /* 42px  the one big number on a card */
 
@@ -28,7 +28,7 @@
   font-family: var(--f-ui);
   font-size: var(--t-base);
   font-weight: 400;
-  line-height: 1.6;
+  line-height: 1.5;
   letter-spacing: 0;
   /* every digit the same width: prices line up in columns and do not jitter as they tick */
   font-variant-numeric: tabular-nums;
@@ -85,9 +85,9 @@
 }
 .adm-wrap {
   width: 100%;
-  max-width: 1100px;
+  max-width: min(1520px, 100%);
   margin-inline: auto;
-  padding-inline: clamp(16px, 4vw, 32px);
+  padding-inline: clamp(12px, 2.4vw, 28px);
 }
 .adm-sr {
   position: absolute;
@@ -182,10 +182,8 @@
   flex: none;
   width: 40px;
   height: 40px;
-  border-radius: 8px; /* the whole picture, never cropped */
+  border-radius: 50%; /* the round logo, whole */
   object-fit: contain;
-  background: #1a1005;
-  box-shadow: 0 0 0 2px #d9a93a, 0 0 12px rgba(217, 169, 58, 0.45);
 }
 /* the name stays on one line: full on a wide screen, shorter forms as it narrows */
 .adm-brand__mid,
@@ -292,7 +290,7 @@
 
 /* --------------------------------------------------------------- page */
 .adm-main {
-  padding-block: clamp(22px, 4vw, 44px) clamp(36px, 6vw, 72px);
+  padding-block: clamp(14px, 2.4vw, 28px) clamp(28px, 4vw, 48px);
 }
 .adm-main--narrow {
   max-width: 760px;

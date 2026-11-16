@@ -1,0 +1,351 @@
+/* ==========================================================================
+   /me, redesigned. Loaded after hub.css: the terminal card keeps its dark look and gains the logo; the
+   workspaces become three labelled groups of icon tiles with a finder; the owner gets a "today" strip; the
+   TradeAI / Paper / Social cards share one row; the settings cards sit in two columns.
+   Colours come from the private area's tokens, so both themes follow.
+   ========================================================================== */
+
+/* ------------------------------------------------------------ the terminal card + the workspaces */
+.hub-hero {
+  grid-template-columns: minmax(240px, 0.62fr) minmax(0, 2fr);
+  gap: 14px;
+  padding: 14px;
+  border-radius: 18px;
+}
+.hub-hero__main {
+  min-height: 0;
+  height: 100%;
+  border-radius: 14px;
+  gap: 8px;
+}
+.hub-hero__logo {
+  width: 84px;
+  height: 84px;
+  margin-bottom: 4px;
+  border-radius: 50%;
+  object-fit: contain;
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.14), 0 14px 30px -10px rgba(0, 0, 0, 0.6);
+  position: relative;
+  z-index: 1;
+}
+.hub-hero__main > span {
+  position: relative;
+  z-index: 1;
+}
+
+.hub-ws {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+  align-content: start;
+}
+.hub-find {
+  position: relative;
+  display: block;
+}
+.hub-find input {
+  width: 100%;
+  padding: 9px 38px 9px 14px;
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--t-base);
+}
+.hub-find input::placeholder {
+  color: var(--ink-3);
+}
+.hub-find input:focus {
+  border-color: var(--accent);
+  outline: 0;
+}
+.hub-find kbd {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  transform: translateY(-50%);
+  min-width: 20px;
+  padding: 0 6px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--ink-3);
+  font: inherit;
+  font-size: var(--t-tag);
+  line-height: 18px;
+  text-align: center;
+  pointer-events: none;
+}
+.hub-find__none {
+  margin: 0;
+  padding: 18px 0;
+  color: var(--ink-3);
+  font-size: var(--t-base);
+  text-align: center;
+}
+.hub-grp h3 {
+  margin: 0 0 8px;
+  color: var(--ink-2, var(--ink));
+  font-size: var(--t-small);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.hub-grp h3 small {
+  color: var(--ink-3);
+  font-size: var(--t-small);
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.hub-grp__tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 8px;
+}
+.hub-ws a.hub-tile {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--paper);
+  color: var(--ink);
+  text-decoration: none;
+}
+.hub-ws a.hub-tile:hover,
+.hub-ws a.hub-tile:focus-visible {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 5%, var(--paper));
+}
+.hub-tile__ico {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+  color: var(--accent);
+}
+.hub-tile__ico svg {
+  width: 19px;
+  height: 19px;
+}
+.hub-tile__txt {
+  display: grid;
+  min-width: 0;
+  gap: 1px;
+}
+.hub-tile__txt b {
+  font-size: var(--t-base);
+  font-weight: 600;
+  line-height: 1.25;
+}
+.hub-tile__txt small {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  color: var(--ink-3);
+  font-size: var(--t-small);
+  line-height: 1.35;
+}
+
+/* ------------------------------------------------------------ the owner's "today" strip */
+.hub-today {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) minmax(0, 1.6fr);
+  gap: 12px;
+}
+.hub-stat {
+  display: grid;
+  align-content: start;
+  gap: 3px;
+  min-width: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  color: var(--ink);
+  text-decoration: none;
+}
+.hub-stat:hover,
+.hub-stat:focus-visible {
+  border-color: var(--accent);
+  outline: 0;
+}
+.hub-stat__k {
+  color: var(--ink-3);
+  font-size: var(--t-small);
+  font-weight: 600;
+}
+.hub-stat__v {
+  font-size: var(--t-xlarge);
+  font-weight: 600;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+}
+.hub-stat__v.is-up {
+  color: var(--up);
+}
+.hub-stat__v.is-down {
+  color: var(--down);
+}
+.hub-stat small {
+  color: var(--ink-3);
+  font-size: var(--t-small);
+}
+.hub-stat__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 4px 0 2px;
+}
+.hub-chip {
+  padding: 3px 10px;
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  background: var(--paper);
+  font-size: var(--t-base);
+  font-weight: 600;
+}
+.hub-chip small {
+  color: var(--ink-3);
+  font-weight: 500;
+}
+.hub-chip.is-up {
+  border-color: color-mix(in srgb, var(--up) 45%, var(--line));
+  color: var(--up);
+}
+.hub-chip.is-down {
+  border-color: color-mix(in srgb, var(--down) 45%, var(--line));
+  color: var(--down);
+}
+
+/* ------------------------------------------------------------ TradeAI, Paper, Social: one row */
+.hub-feats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  align-items: stretch;
+}
+.hub-feats > .hub-duo {
+  display: contents; /* the two cards join the grid directly */
+}
+.hub-feats > .hub-duo > section,
+.hub-feats > .hub-social {
+  display: flex;
+  min-width: 0;
+}
+.hub-feats .hub-social > a,
+.hub-feats .hub-duo > section > a,
+.hub-feats .hub-social {
+  flex: 1;
+}
+.hub-feats .hub-social > a {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.hub-feats :is(.hub-tai, .hub-paper, .hub-social) > a {
+  border-radius: 18px;
+}
+.hub-feats .hub-hero__go {
+  margin-top: auto;
+}
+.hub-feats .hub-tai__d {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-line-clamp: 6;
+  -webkit-box-orient: vertical;
+  max-width: 46ch;
+}
+
+/* ------------------------------------------------------------ settings in two columns */
+.hub-sets h2 {
+  margin: 4px 0 10px;
+  color: var(--ink-2, var(--ink));
+  font-size: var(--t-small);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.hub-set {
+  border-radius: 14px;
+}
+.hub-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  align-items: start;
+  margin-top: 12px;
+}
+.hub-cards > * {
+  min-width: 0;
+  margin: 0;
+}
+
+/* ------------------------------------------------------------ narrower screens */
+@media (max-width: 1180px) {
+  .hub-feats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .hub-feats > .hub-social {
+    grid-column: 1 / -1;
+  }
+  .hub-today {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .hub-stat--wide {
+    grid-column: 1 / -1;
+  }
+}
+@media (max-width: 900px) {
+  .hub-hero {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 10px;
+  }
+  .hub-hero__main {
+    height: auto;
+    padding: 18px;
+  }
+  .hub-hero__logo {
+    width: 64px;
+    height: 64px;
+  }
+  .hub-ws {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .hub-cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 700px) {
+  .hub-feats {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 560px) {
+  .hub-grp__tiles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .hub-ws a.hub-tile {
+    align-items: flex-start;
+    padding: 9px 10px;
+  }
+  .hub-tile__ico {
+    width: 32px;
+    height: 32px;
+  }
+  .hub-today {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .hub-stat__v {
+    font-size: var(--t-large);
+  }
+}

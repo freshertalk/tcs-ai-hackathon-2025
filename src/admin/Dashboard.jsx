@@ -2,14 +2,14 @@
 // the trading terminal (and straight into any of its workspaces), and the site's settings
 // in a compact grid below. Every link into the terminal opens it in its own tab.
 
-import React, { useEffect, useState } from "react";
+import "./hubtop.css";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "./api";
 import { useAuth } from "./auth";
 import { adminPath } from "./paths";
 import Shell from "./Shell";
 import { useAiStatus } from "./aiStatus";
-import Darshan from "./Darshan";
 import TempleCard from "./temple/TempleCard";
 import NotifyCard from "./NotifyCard";
 import WhatsAppCard from "./WhatsAppCard";
@@ -31,6 +31,32 @@ const WORKSPACES = [
   { view: "engine", label: "AI Engine", text: "Every AI rule, and the AI brains" },
   { view: "document", label: "Document", text: "The complete guide, in plain English" },
 ];
+/* a small line icon for each workspace (24×24, drawn with the current text colour) */
+const ICONS = {
+  Desk: "M3 5h18v11H3zM8 20h8M12 16v4",
+  Advisor: "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM8 12.5l2.7 2.7L16 9.5",
+  Positions: "M3 8h18v11H3zM9 8V5h6v3M3 13h18",
+  Journal: "M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3zM5 17a3 3 0 0 1 3-3h11",
+  "Paper trading": "M7 3h8l4 4v14H7zM15 3v4h4M10 13h6M10 17h6",
+  Research: "M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4-4",
+  Screener: "M4 5h16l-6 7v6l-4 2v-8z",
+  Debrief: "M4 12a8 8 0 1 0 3-6.2M4 4v4h4M12 8v4l3 2",
+  Calendar: "M4 6h16v14H4zM4 10h16M8 3v4M16 3v4",
+  "Trade Analysis": "M4 20V10M10 20V4M16 20v-7M22 20H2",
+  Indices: "M3 17l5-6 4 3 8-9M15 5h5v5",
+  "AI Engine": "M7 7h10v10H7zM10 3v4M14 3v4M10 17v4M14 17v4M3 10h4M3 14h4M17 10h4M17 14h4",
+  Document: "M6 3h9l4 4v14H6zM9 12h7M9 16h7M9 8h3",
+};
+const GROUPS = [
+  { name: "Trade", note: "while the market is open", labels: ["Desk", "Advisor", "Positions", "Journal", "Paper trading"] },
+  { name: "Analyse", note: "before and after", labels: ["Research", "Screener", "Debrief", "Trade Analysis", "Indices", "Calendar"] },
+  { name: "Learn", note: "how it thinks", labels: ["AI Engine", "Document"] },
+];
+const WsIcon = ({ label }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d={ICONS[label] || ICONS.Desk} />
+  </svg>
+);
 const terminal = (view) => `${adminPath("/stock-report")}${view ? `?view=${view}` : ""}`;
 
 function greeting(date = new Date()) {
@@ -114,6 +140,57 @@ function Pulse({ isSuper }) {
         </li>
       )}
     </ul>
+  );
+}
+
+/** The day at a glance for the owner: the paper robot, the month's return, tomorrow's likely trenders, what it has learned. */
+function TodayStrip({ isSuper }) {
+  const [d, setD] = useState({});
+  useEffect(() => {
+    if (!isSuper) return undefined;
+    let alive = true;
+    const put = (k) => (v) => alive && setD((x) => ({ ...x, [k]: v }));
+    api("/api/admin/robot").then(put("robot")).catch(() => {});
+    api("/api/admin/trading/journal/periods").then(put("periods")).catch(() => {});
+    api("/api/admin/robot/predictor").then(put("pred")).catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [isSuper]);
+  if (!isSuper) return null;
+  const robot = d.robot && d.robot.day ? d.robot : null;
+  const month = d.periods && Array.isArray(d.periods.rows) ? d.periods.rows.find((r) => r.id === "month") : null;
+  const pred = d.pred && d.pred.available ? d.pred : null;
+  const pct = (x) => (typeof x === "number" ? `${x > 0 ? "+" : x < 0 ? "−" : ""}${Math.abs(x).toFixed(2)}%` : null);
+  const tone = (x) => (typeof x === "number" ? (x > 0 ? "is-up" : x < 0 ? "is-down" : "") : "");
+  return (
+    <section className="hub-today" aria-label="Today at a glance">
+      <a className="hub-stat" href={terminal("analysis")} target="_blank" rel="noopener noreferrer" data-tip="The AI paper trader: today's play-money result. Open Trade Analysis → Robot.">
+        <span className="hub-stat__k">Paper robot</span>
+        <b className={`hub-stat__v ${robot ? tone(robot.day.net) : ""}`}>{robot ? money(robot.day.net) : "—"}</b>
+        <small>{robot ? `${robot.open.length} open · ${robot.day.trades} trade${robot.day.trades === 1 ? "" : "s"} today · ${robot.settings.on ? "on" : "off"}` : "play money, runs by itself"}</small>
+      </a>
+      <a className="hub-stat" href={terminal("journal")} target="_blank" rel="noopener noreferrer" data-tip="This month's result in the Journal, with the return on your principal when your capital is recorded.">
+        <span className="hub-stat__k">This month</span>
+        <b className={`hub-stat__v ${month ? tone(month.net) : ""}`}>{month && month.trades ? money(month.net) : "—"}</b>
+        <small>{month && month.trades ? `${pct(month.pct) ? `${pct(month.pct)} on your principal · ` : ""}${month.trades} trades, ${Math.round(month.winRate)}% won` : "your real trades, from Zerodha"}</small>
+      </a>
+      <a className="hub-stat hub-stat--wide" href={terminal("analysis")} target="_blank" rel="noopener noreferrer" data-tip="The stocks the day-trading predictor ranks highest for the next session (a measured frequency from a year of sessions, not advice). Open Trade Analysis → Robot → Day picks.">
+        <span className="hub-stat__k">Next session's likely trenders</span>
+        {pred ? (
+          <span className="hub-stat__chips">
+            {pred.picks.slice(0, 4).map((p) => (
+              <span key={p.symbol} className={`hub-chip ${p.side === "long" ? "is-up" : p.side === "short" ? "is-down" : ""}`}>
+                {p.symbol} <small>{Math.round(p.p * 100)}%</small>
+              </span>
+            ))}
+          </span>
+        ) : (
+          <b className="hub-stat__v">—</b>
+        )}
+        <small>{pred ? `${pred.summary.state === "graduated" ? "ranking with evidence" : "still learning"} · learned from ${pred.history && pred.history.sessions ? pred.history.sessions : "a year of"} sessions` : "learned by itself from a year of the NIFTY 100"}</small>
+      </a>
+    </section>
   );
 }
 
@@ -233,6 +310,61 @@ function SocialCard() {
   );
 }
 
+/** The workspaces, in three groups, with a finder (press / to jump to it). */
+function Workspaces({ isSuper }) {
+  const [q, setQ] = useState("");
+  const box = useRef(null);
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key !== "/" || e.ctrlKey || e.metaKey || e.altKey) return;
+      const el = e.target;
+      if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable)) return;
+      e.preventDefault();
+      if (box.current) box.current.focus();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+  const visible = useMemo(() => WORKSPACES.filter((w) => !w.superOnly || isSuper), [isSuper]);
+  const needle = q.trim().toLowerCase();
+  const hit = (w) => !needle || `${w.label} ${w.text}`.toLowerCase().includes(needle);
+  const groups = GROUPS.map((g) => ({ ...g, items: g.labels.map((l) => visible.find((w) => w.label === l)).filter((w) => w && hit(w)) })).filter((g) => g.items.length);
+  const known = new Set(GROUPS.flatMap((g) => g.labels));
+  const rest = visible.filter((w) => !known.has(w.label) && hit(w));
+  if (rest.length) groups.push({ name: "More", note: "", items: rest });
+  return (
+    <nav className="hub-ws" aria-label="Open a workspace">
+      <label className="hub-find">
+        <span className="adm-sr">Find a workspace</span>
+        <input ref={box} type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Find a workspace…" aria-label="Find a workspace" />
+        <kbd aria-hidden="true">/</kbd>
+      </label>
+      {groups.map((g) => (
+        <div key={g.name} className="hub-grp">
+          <h3>
+            {g.name}
+            {g.note ? <small> · {g.note}</small> : null}
+          </h3>
+          <div className="hub-grp__tiles">
+            {g.items.map((w) => (
+              <a key={w.label} className="hub-tile" href={terminal(w.view)} target="_blank" rel="noopener noreferrer">
+                <span className="hub-tile__ico">
+                  <WsIcon label={w.label} />
+                </span>
+                <span className="hub-tile__txt">
+                  <b>{w.label}</b>
+                  <small>{w.text}</small>
+                </span>
+              </a>
+            ))}
+          </div>
+        </div>
+      ))}
+      {!groups.length && <p className="hub-find__none">No workspace matches “{q}”.</p>}
+    </nav>
+  );
+}
+
 export default function Dashboard() {
   const { user } = useAuth();
   const [s, setS] = useState(null);
@@ -247,7 +379,6 @@ export default function Dashboard() {
     <Shell wide>
       <div className="hub">
         <div className="hub-top">
-          <Darshan />
           <div className="hub-top__main">
           <header className="hub-head">
             <div>
@@ -261,6 +392,7 @@ export default function Dashboard() {
 
         <section className="hub-hero" aria-labelledby="hub-sr">
           <a className="hub-hero__main" href={terminal("")} target="_blank" rel="noopener noreferrer" data-tip="Open the trading terminal in a new tab.">
+            <img className="hub-hero__logo" src="/logo/logo-192.png" srcSet="/logo/logo-192.png 1x, /logo/logo-512.png 2x" alt="" width="84" height="84" />
             <span className="hub-hero__k">Markets · trading terminal</span>
             <span className="hub-hero__t" id="hub-sr">
               Stock Report
@@ -270,19 +402,15 @@ export default function Dashboard() {
               Open the terminal <IconArrow />
             </span>
           </a>
-          <nav className="hub-ws" aria-label="Open a workspace">
-            {WORKSPACES.filter((w) => !w.superOnly || isSuper).map((w) => (
-              <a key={w.label} href={terminal(w.view)} target="_blank" rel="noopener noreferrer">
-                <b>{w.label}</b>
-                <small>{w.text}</small>
-              </a>
-            ))}
-          </nav>
+          <Workspaces isSuper={isSuper} />
         </section>
           </div>
         </div>
 
-        {/* TradeAI and paper trading side by side (one under the other on a phone) */}
+        <TodayStrip isSuper={isSuper} />
+
+        {/* TradeAI, paper trading and Social Media in one row (one under the other on a phone) */}
+        <div className="hub-feats">
         <div className="hub-duo">
           <section className="hub-tai" aria-labelledby="hub-tai-h">
             <a href={adminPath("/tradeai")} target="_blank" rel="noopener noreferrer" data-tip="Open TradeAI in a new tab.">
@@ -307,6 +435,7 @@ export default function Dashboard() {
         </div>
 
         <SocialCard />
+        </div>
 
         <section className="hub-sets" aria-labelledby="hub-sets-h">
           <h2 id="hub-sets-h">Settings</h2>
@@ -329,10 +458,12 @@ export default function Dashboard() {
               status={ai && { on: ai.configured, label: ai.configured ? "On" : "Off" }}
             />
           </div>
-          <HealthCard />
-          {isSuper && <WhatsAppCard />}
-          {isSuper && <NotifyCard />}
-          <TempleCard />
+          <div className="hub-cards">
+            <HealthCard />
+            {isSuper && <WhatsAppCard />}
+            {isSuper && <NotifyCard />}
+            <TempleCard />
+          </div>
         </section>
       </div>
     </Shell>
