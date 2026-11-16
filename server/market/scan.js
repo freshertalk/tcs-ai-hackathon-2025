@@ -35,6 +35,7 @@
 const I = require("./indicators");
 const { dailyFeatures } = require("./picks");
 const SU = require("./setups");
+const KC = require("./situation");
 
 const IST = 5.5 * 3600 * 1000;
 const BAR_MS = 5 * 60000;
@@ -44,7 +45,9 @@ const ENTRY_FROM = 570; // 9:30: the first fifteen minutes are the opening range
 const ENTRY_TO = 885; // 14:45: no new intraday entry after this
 const MAX_BARS = 600;
 const MIN_BARS = 30;
-const RULES = { minScore: 35, minAgree: 0.65, minAdx: 18, minRelVol: 0.8, minTurnoverCr: 50, maxRsiLong: 78, minRsiShort: 22, maxStretchAtr: 2.5, counterScore: 55, minRoomR: 1 };
+const RULES = { minScore: 35, minAgree: 0.65, minAdx: 18, minRelVol: 0.8, minTurnoverCr: 50, maxRsiLong: 78, minRsiShort: 22, maxStretchAtr: 2.5, counterScore: 55, minRoomR: 1, minTargetPct: 0.18, middayExtra: 10 };
+const MIDDAY_FROM = 690; // 11:30: the midday lull, when the knowledge base asks for a stronger reading
+const MIDDAY_TO = 810; // 13:30
 
 const num = (x) => typeof x === "number" && Number.isFinite(x);
 const r2 = (x) => (num(x) ? Math.round(x * 100) / 100 || 0 : null);
@@ -324,6 +327,10 @@ function votes(f, market = null, edges = null) {
     }
     if (best) add("setup", best.w, best.v, best.why);
   }
+  // the knowledge base read against these numbers (market/situation.js): only the context the readings
+  // above do not already weigh — a stretch from VWAP, RSI against the trend's strength, the volume behind
+  // a break, a gap that fades, a chase, a leader in a weak market, a price band
+  if (f.knowledge && num(f.knowledge.vote) && f.knowledge.vote !== 0) add("knowledge", 8, f.knowledge.vote, f.knowledge.voteWhy || "the knowledge base");
   return out;
 }
 
@@ -421,6 +428,10 @@ function eligibility(f, s, nm, market = null, rules = RULES) {
     if (num(f.vsVwapAtr) && Math.abs(f.vsVwapAtr) > rules.maxStretchAtr) blocks.push(`stretched: ${Math.abs(f.vsVwapAtr)} ATR from VWAP`);
     if (market && num(market.score) && (long ? market.score <= -40 : market.score >= 40) && Math.abs(s.score) < rules.counterScore) blocks.push(`against a market leaning ${long ? "down" : "up"} (${market.score}) without stronger evidence (score ${rules.counterScore}+)`);
     if (p && p.level && p.level.roomR < rules.minRoomR) blocks.push(`${p.level.name} ${rs(p.level.price)} is only ${p.level.roomR}R away`);
+    // the knowledge base's rules on costs and on the midday lull (market/kb, "Costs and taxes" and "time")
+    const reachPct = p && num(p.t1) && p.entry > 0 ? (Math.abs(p.t1 - p.entry) / p.entry) * 100 : null;
+    if (num(rules.minTargetPct) && num(reachPct) && reachPct < rules.minTargetPct) blocks.push(`the first target is only ${r2(reachPct)}% away: charges and slippage (about 0.1% a round trip) would take more than half of it`);
+    if (num(rules.middayExtra) && m >= MIDDAY_FROM && m < MIDDAY_TO && Math.abs(s.score) >= rules.minScore && Math.abs(s.score) < rules.minScore + rules.middayExtra) blocks.push(`the midday lull (11:30 AM – 1:30 PM): breakouts fail more often, so the score must reach ±${rules.minScore + rules.middayExtra} (it is ${s.score})`);
     if (num(f.tickAge) && f.tickAge > 90) blocks.push(`no tick for ${f.tickAge} s`);
   }
   return { eligible: blocks.length === 0, side, blocks, plan: p };
@@ -448,9 +459,23 @@ function read(st, ctx = {}) {
   const f = features(st, ctx);
   if (!f.ready) return { symbol: st.symbol, ready: false, reason: f.reason };
   f.setups = liveSetups(st, num(ctx.now) ? ctx.now : Date.now());
+  // the knowledge base's checks on this stock now: shown with the reading, and a small vote in the score
+  try {
+    f.knowledge = KC.check(KC.fromScan(f, { market: ctx.market || null, vix: num(ctx.vix) ? ctx.vix : null }));
+  } catch (_) {
+    f.knowledge = null; // the knowledge base never stops a reading
+  }
   const s = score(f, ctx.market || null, ctx.edges || null);
   const nm = nextMove(f, s);
   const e = eligibility(f, s, nm, ctx.market || null, ctx.rules || RULES);
+  // with a plan priced, the checks on costs and on reward against risk can speak too (they never vote)
+  if (e.plan && f.knowledge) {
+    try {
+      f.knowledge = { ...KC.check(KC.fromScan(f, { market: ctx.market || null, vix: num(ctx.vix) ? ctx.vix : null, plan: e.plan })), vote: f.knowledge.vote, voteWhy: f.knowledge.voteWhy };
+    } catch (_) {
+      /* keep the checks made before the plan */
+    }
+  }
   return { symbol: st.symbol, ready: true, f, score: s.score, agree: s.agree, reasons: s.reasons, against: s.against, votes: s.votes, next: nm, eligible: e.eligible, side: e.side, blocks: e.blocks, plan: e.plan };
 }
 

@@ -12,6 +12,7 @@ import { adminPath } from "../../paths";
 import { Alert, Loading } from "../../ui";
 import { useAiStatus, loadAiStatus, modelName as nameOf } from "../../aiStatus";
 import { inr, isNum, num, when } from "./format";
+import { KnowledgeChecks } from "../engine/KnowledgeChecks";
 
 const enc = encodeURIComponent;
 const HORIZONS = [
@@ -161,6 +162,7 @@ function Strategy({ e, onSize, aiNow }) {
           )}
         </div>
       </div>
+      <KnowledgeChecks k={e.knowledge} side={e.stance === "bullish" ? "long" : e.stance === "bearish" ? "short" : null} title="What the knowledge base said (the strategist was shown these)" />
       <p className="adm-small">
         {model} · {num(e.usage.inputTokens, 0)} tokens in, {num(e.usage.outputTokens, 0)} out · at ₹{num(e.context ? e.context.last : null)} · written by a
         language model from price data only. It cannot see news or results and is not investment advice.

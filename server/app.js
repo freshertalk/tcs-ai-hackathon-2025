@@ -1104,6 +1104,13 @@ ${e.text}
     }
   };
   app.get("/api/admin/setups", requireAdmin, limiter(120, 60 * 1000), labWrap(async () => ({ lab: setupLab.view(), knowledge: knowledge.all() })));
+  // the whole knowledge base by area, or (?q=) the pages that answer a question best — the same search the AI uses
+  app.get("/api/admin/knowledge", requireAdmin, limiter(240, 60 * 1000), labWrap(async (req) => {
+    const q = String(req.query.q || "").slice(0, 200);
+    if (q.trim()) return { q, results: knowledge.search(q, { limit: 8 }) };
+    const all = knowledge.all();
+    return { count: all.count, areas: all.areas, packs: Object.keys(knowledge.PACKS) };
+  }));
   app.post("/api/admin/setups/run", requireSuper, limiter(4, 60 * 60 * 1000), labWrap(async () => {
     setupLab.run({ trigger: "asked" }).catch(() => {});
     return { lab: setupLab.view() };
@@ -1140,7 +1147,9 @@ ${e.text}
   ai.tradeai.desk = makeDeskReaders({ market, flight, analysis, learn, now: opts.now || (() => Date.now()) });
   // …and the index history: NIFTY 50 and SENSEX month by month, the projections and their record
   ai.tradeai.desk.scanner = () => scanner.brief();
-  ai.tradeai.desk.playbook = (query) => ({ knowledge: knowledge.relevant({ question: String(query || ""), tags: ["selection", "execution", "regime"] }, 4500), measuredSetups: setupLab.brief() });
+  // TradeAI's "playbook" reader: the knowledge base searched for the question, the desk's essentials, and
+  // what each set-up has measured on this desk
+  ai.tradeai.desk.playbook = (query) => ({ found: knowledge.searchText(String(query || ""), { limit: 5, maxChars: 5000 }), essentials: knowledge.relevant({ question: String(query || "") }, 1500), measuredSetups: setupLab.brief() });
   ai.tradeai.desk.picks = async () => ({ ...picks.brief(), rsiExtremes: await picks.rsiExtremes().then((r) => (r.available ? { rule: r.rule, oversold: r.oversold.slice(0, 10), overbought: r.overbought.slice(0, 10) } : { available: false, reason: r.reason })).catch(() => null) });
   ai.tradeai.desk.indices = (name) => indices.brief(/SENSEX|BSE/i.test(String(name || "")) ? "SENSEX" : "NIFTY");
   const taWrap = (fn) => async (req, res) => {

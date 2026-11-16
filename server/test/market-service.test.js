@@ -589,7 +589,9 @@ test("READ-ONLY: the market module only ever reads from Zerodha — trading live
 
   // 2. the code contains no order, GTT, portfolio or funds endpoint at all
   const dir = path.join(__dirname, "..", "market");
-  for (const f of fs.readdirSync(dir)) {
+  // every file of the folder, its subfolders included (the knowledge base in market/kb is text about markets)
+  const files = (d) => fs.readdirSync(d).flatMap((f) => (fs.statSync(path.join(d, f)).isDirectory() ? files(path.join(d, f)).map((x) => path.join(f, x)) : [f]));
+  for (const f of files(dir)) {
     const src = fs.readFileSync(path.join(dir, f), "utf8").replace(/\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
     assert.doesNotMatch(src, /["'`/](orders|gtt|portfolio|margins|mf\/|positions|holdings)\b/i, `${f} must not reference trading endpoints`);
   }

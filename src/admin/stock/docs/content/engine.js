@@ -68,6 +68,39 @@ export const ENGINE = [
     ],
   },
   {
+    id: "engine-knowledge",
+    part: "brains",
+    title: "The knowledge base — what every AI feature is taught",
+    intro: "A searchable body of stock-market and trading knowledge, written once and given to the AI where it matters: the Indian market and its rules, orders, costs and taxes, every major indicator, price action and patterns, volume and open interest, strategies, risk, psychology, testing, macro and sectors, fundamentals, and the documented methods of well-known traders and investors.",
+    blocks: [
+      { logic: {
+        title: "What is in it, and how each feature gets it",
+        who: "server/market/knowledge.js with server/market/kb/ (the Indian market and its rules, technical analysis, how to trade, the masters' methods). Readable and searchable on the AI Engine page (Knowledge base) and under the set-up lab on Research.",
+        when: "With every AI request (a compact pack per feature), and on demand (TradeAI's search).",
+        steps: [
+          "**About eighty topics in fourteen areas:** SEBI, NSE and BSE, the session and its auctions, T+1 settlement, price bands and market-wide circuit breakers, ASM/GSM surveillance and series, F&O rules and the ban, margin; order types and execution; charges and taxes; disclosures, corporate actions, the indices and the data published daily; moving averages, VWAP, RSI, MACD, stochastics, ADX, ATR, Bollinger, Supertrend, Ichimoku and the volume indicators — each with settings, use and pitfalls; trend structure, levels, pivots and CPR, Fibonacci, candlesticks, chart patterns, gaps; volume, delivery data, open interest and the option chain, volume and market profile, order flow, timeframes; styles, intraday and swing strategies, day types, news; position sizing, expectancy and drawdowns, stops and exits, pyramiding; biases, discipline, routine; testing without fooling yourself; macro drivers and sectors; fundamentals; and the documented methods of Livermore, Wyckoff, Dow, O'Neil, Minervini, Darvas, the Turtles, the Market Wizards, Raschke, Crabel, Larry Williams, Connors, Al Brooks, Elder, Tharp, the indicator inventors, Graham, Buffett and Munger, Lynch, Fisher, Jhunjhunwala, Kedia, Agrawal and the Kamaths.",
+          "**A pack per feature, with every request:** after the owner's brains, each feature's instructions get a short pack (about 1,800 characters) of the topics that matter to its job — the live co-pilot and AI Live get intraday execution, VWAP, volume and day types; the exit advisor and the coach stops, pyramiding and biases; research and the strategist structure, swing set-ups and macro; the reviews and the debrief psychology, expectancy and testing; the Indices page index rules and macro. The live scanner's review gets the rules for the set-ups in play in its request instead.",
+          "**TradeAI searches it:** a question about how markets work (\"what is open interest?\", \"explain T+1\", \"rules for the F&O ban\", \"who was Jesse Livermore?\") that names no stock and is not about your own account is answered at once from the knowledge base — free, with no model, even without an AI key. Other questions get the matching pages in their data, and the agent can read more through its playbook reader (with each set-up's measured record).",
+          "**The measurement wins:** the knowledge base proposes; what the desk measures on its own data (the set-up lab, the scanner's record, the level learner, the journal) decides. Every pack says so, and none of it is ever a promise.",
+        ],
+        limits: "Written from widely published practice, the exchanges' and SEBI's rules and the authors' own books; it speaks for no particular person. Rules and rates change — figures that depend on the date are marked, and the exchange or broker has the final word.",
+      } },
+      { logic: {
+        title: "Knowledge checks — the knowledge base in every decision on a stock",
+        who: "server/market/situation.js: about 25 checks, each one a rule from a topic of the knowledge base, applied to the numbers the desk already has for a stock.",
+        when: "Every time the desk reads, ranks or advises on a stock: each live scanner reading (every two seconds), each Top 10 ranking, each Advisor reading, each direction, and every AI request about a stock.",
+        steps: [
+          "**What they read:** VWAP and the stretch from it, RSI read against the strength of the trend (ADX), the volume behind a break of the opening range or the 20-day high or low, a gap that holds or fades, a chase at the day's extreme, the time of day (the first 15 minutes, the midday lull, after 2:45 PM), the higher time frame, the 200-day line and the 52-week range, the market's tide, a leader in a weak market, the CPR's width, a Bollinger squeeze, NR7 and inside days, the India VIX, the daily range for size, liquidity, the price bands, costs against the first target, reward against risk, and scheduled company events. Each check says which side it supports or argues against, or that it asks for care, and names its topic.",
+          "**Live scanner:** the checks are in every reading. The ones that read context no other vote weighs (a stretch from VWAP, RSI against the trend, the volume behind a break, a fading gap, a chase, a leader, a price band) add one vote of weight 8 to the score; two knowledge rules also gate eligibility — a first target under 0.18% away (charges and slippage would take more than half of it), and the midday lull (11:30 AM – 1:30 PM), when the score must clear ±45 instead of ±35. Each pick card shows the first checks; a stock's detail shows them all.",
+          "**Top 10:** a check that argues against a side takes up to 3–6 points from that side (never gives them to the other); one that supports it adds them. What the Top 10 already scores (a gap that holds, a close through the 20-day high on volume) is not counted twice. Each pick shows its checks, and the AI review is given them.",
+          "**Advisor and direction:** the Advisor's card shows what the knowledge base says about the stock's daily chart, beside the measured odds (never part of them). The direction has a Knowledge base lens that weighs only what its other lenses do not (weight 0.6; none when it has nothing directional to say).",
+          "**Every AI forecast and decision:** the AI strategist, the AI decision, the research note, AI Live and AI Research, the live co-pilot, the position coach, the exit advisor and TradeAI's stock snapshot are given the checks on the stock — with the full rules of the topics behind them — beside the trading-skills file and the measured records, and told to name the checks they rely on and answer every check against their call. The AI decision and the strategy show the checks they were given.",
+        ],
+        limits: "A check is the textbook's reading of numbers, not a forecast: where the desk's own measured records disagree, the measurement wins. Open interest and delivery data are not in the scanner's feed, so no check reads them there; the knowledge base still explains them.",
+      } },
+    ],
+  },
+  {
     id: "engine-features",
     part: "brains",
     title: "Feature by feature — trigger, data, rules and limits",

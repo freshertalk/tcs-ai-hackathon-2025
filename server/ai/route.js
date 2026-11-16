@@ -358,4 +358,28 @@ function instantAnswer(intent, d, { symbol = "" } = {}) {
   return null;
 }
 
-module.exports = { classify, instantAnswer, MODES, JUDGE, DEEP };
+/* ------------------------------------------------------- knowledge questions (no model) */
+// "What is open interest?", "explain T+1", "rules for the F&O ban", "what did Livermore teach?" — a question
+// about how markets and trading work, not about the trader's own account or a named stock, is answered
+// from the desk's knowledge base (market/knowledge.js) at once, free, even without an AI key.
+const EDU = /\b(what is|what are|what's|whats|what does|explain|meaning of|define|definition|how does|how do|how is|how are|difference between|rules? (for|of|on)|tell me about|teach me|basics of|how to (read|use|calculate|trade)|who (was|is))\b/;
+const PERSONAL = /\b(my|mine|i have|i hold|i own|should i|can i|do i)\b/;
+
+/** True when a question asks how something works (and is not about the trader's own account). */
+function isKnowledgeQuestion(question) {
+  const q = ` ${String(question || "").toLowerCase().replace(/\s+/g, " ")} `;
+  return EDU.test(q) && !PERSONAL.test(q);
+}
+
+/** The instant answer from the knowledge base's best topics. @param hits from knowledge.search() */
+function knowledgeAnswer(hits) {
+  if (!hits || !hits.length) return null;
+  const [top, ...rest] = hits;
+  const lines = [`**${top.title}** · _${top.area}_`, "", ...top.rules.slice(0, 6).map((r) => `- ${r}`)];
+  const more = rest.filter((h) => h.score >= Math.max(6, top.score / 2)).slice(0, 2);
+  if (more.length) lines.push("", ...more.map((h) => `**Related — ${h.title}:** ${h.rules[0]}`));
+  lines.push("", "_From the desk's knowledge base: no model was asked. For an explanation applied to today's market or to your positions, ask again with the thinking level set higher._");
+  return reply(lines.join("\n"), { confidence: "high", followups: [...more.map((h) => `Explain ${h.title.replace(/\s*\(.*\)$/, "")}`), "How does this apply to today's market?"].slice(0, 3) });
+}
+
+module.exports = { classify, instantAnswer, MODES, JUDGE, DEEP, isKnowledgeQuestion, knowledgeAnswer };

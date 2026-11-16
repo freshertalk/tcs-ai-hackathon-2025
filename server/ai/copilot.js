@@ -19,6 +19,7 @@
 const crypto = require("crypto");
 
 const { AiError } = require("./client");
+const KC = require("../market/situation");
 
 const IST = 5.5 * 3600 * 1000;
 const SCORE_AFTER_MIN = 10; // a bias is judged on the price this many minutes later
@@ -403,6 +404,8 @@ class Copilot {
         ? { minutesAgo: Math.round((now - Date.parse(prev.at)) / 60000), bias: prev.bias, confidence: prev.confidence, headline: prev.headline, priceThen: prev.price, priceNow: m.last, outcome: prev.outcome ? prev.outcome.status : "not scored yet" }
         : null,
       yourRecordToday: this._record(state).today,
+      // the knowledge base's checks on this stock now (market/situation.js), with the rules behind them
+      knowledge: KC.forVerdict(v, india, { plan: day.plan && day.plan.targets && day.plan.targets.length ? { side: day.plan.side, entry: day.plan.entry, stop: day.plan.stop, t1: day.plan.targets[0].price } : null }),
     };
 
     const answer = await client.ask({ system: LIVE_SYSTEM, user: `Live snapshot for ${symbol}:\n\n${JSON.stringify(snapshot)}\n\nGive your reading.`, schema: LIVE_SCHEMA, maxTokens: 4000, effort: "low" });

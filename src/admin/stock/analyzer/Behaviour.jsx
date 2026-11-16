@@ -8,6 +8,7 @@ import { Alert, Loading } from "../../ui";
 import { useAiStatus } from "../../aiStatus";
 import { inr, isNum, num, pct, when } from "./format";
 import EdgeCard from "../advisor/EdgeCard";
+import { KnowledgeChecks } from "../engine/KnowledgeChecks";
 
 const STATE = { uptrend: "Uptrend", downtrend: "Downtrend", sideways: "Sideways", unknown: "—" };
 const DEC = { buy: "Buy", sell: "Sell", hold: "Hold", wait: "Wait", avoid: "Avoid" };
@@ -150,6 +151,7 @@ function DecisionCard({ symbol }) {
               <b>Where they disagree:</b> {d.conflicts.join(" ")}
             </p>
           )}
+          <KnowledgeChecks k={d.knowledge} side={d.decision === "buy" ? "long" : d.decision === "sell" ? "short" : null} title="What the knowledge base said (the decision was shown these)" />
           <p>
             <b>Cancelled if:</b> {d.invalidation}
           </p>

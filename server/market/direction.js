@@ -11,6 +11,9 @@
 //   measured odds     did days like today pay, tested forward? (the Advisor's grade)
 //   habits            how does this stock usually behave from here? (its 1-year profile)
 //   market            is the tide with it or against it? (the Nifty's state)
+//   knowledge base    what the rules of the trade say about these readings that the other lenses do not
+//                     weigh (market/situation.js: RSI against the trend's strength, the volume behind a
+//                     break, a price band close)
 //   risk              can it be traded sensibly? (volatility, liquidity, the room to the
 //                     next level, circuit limits)
 // A value investor's lens needs company financials — earnings, debt, cash flow, valuation —
@@ -161,6 +164,30 @@ function buildDirection({ sheet, edge = null, profile = null, market = null }) {
     mk.evidence.push("The market's state was not available.");
   }
   L.push(settle(mk));
+
+  // ---- the knowledge base: the rules of the trade read against these numbers (market/situation.js) — RSI
+  // against the strength of the trend, the volume behind a break, a price band close. It weighs only what
+  // the lenses above do not (trend, the 200-day line, the 52-week range and the market are theirs); with
+  // nothing directional to say it is shown for its context and weighs nothing.
+  const kb = lens("knowledge", "Knowledge base", 0);
+  try {
+    const kc = require("./situation");
+    const res = kc.check(
+      kc.fromDaily({ horizon: "swing", live: Boolean(sheet.price.live), price: sheet.price, indicators: ind, movingAverages: ma, week52: w52, liquidity: sheet.liquidity, circuit: sheet.circuit, market: market && market.tide && isNum(market.tide.score) ? market.tide.score : null }),
+      { skip: ["trend-template", "week52", "market-tide"] },
+    );
+    if (isNum(res.vote)) {
+      kb.weight = 0.6;
+      kb.score = res.vote * 60;
+    }
+    const order = res.notes.filter((n) => n.counts).concat(res.notes.filter((n) => !n.counts));
+    for (const n of order.slice(0, 5)) kb.evidence.push(`${n.text} (${n.title})`);
+    if (!kb.evidence.length) kb.evidence.push("No rule of the knowledge base speaks to these readings.");
+  } catch (_) {
+    kb.available = false;
+    kb.evidence.push("The knowledge base could not be read.");
+  }
+  L.push(settle(kb));
 
   // ---- risk: it does not pick a direction, it limits how far to trust one
   const rk = lens("risk", "Risk", 0);

@@ -13,6 +13,7 @@ import { useTick } from "../analyzer/liveTicks";
 import { useTrade } from "../trade/TradeContext";
 import { GRADE_WORD, callLabel, dayStillOpen, planAt, qtyForRisk, signedR, ticketFor } from "./advisorMath";
 import { useRisk } from "./useRisk";
+import { KnowledgeChecks } from "../engine/KnowledgeChecks";
 import "./advisor.css";
 
 const GRADE_TIP = {
@@ -211,6 +212,8 @@ export default function EdgeCard({ symbol, report = null, embedded = false }) {
         <Kind symbol={symbol} id="day" title="Day" sub="in at the open · stop 0.6 ATR · out at the close" k={r.kinds.day} atr={r.atr} last={last} risk={risk} />
         <Kind symbol={symbol} id="swing" title="Swing" sub="in at the next open · stop 1.5 ATR · target 2.25 ATR · out after 10 sessions" k={r.kinds.swing} atr={r.atr} last={last} risk={risk} />
       </div>
+      <KnowledgeChecks k={r.knowledge} title="What the knowledge base says about its daily chart" compact />
+
       <div className="av-more">
         {r.kinds.swing.forward && (
           <div>

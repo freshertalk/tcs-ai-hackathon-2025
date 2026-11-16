@@ -157,6 +157,18 @@ class Brains {
     }
   }
 
+  /**
+   * The desk's knowledge base for one request's feature (market/knowledge.js): a compact pack of the
+   * topics that matter to that job, added after the owner's brains ("" for a feature with none).
+   */
+  knowledgeFor(system) {
+    try {
+      return require("../market/knowledge").packFor(featureOf(system));
+    } catch (_) {
+      return ""; // the knowledge base never stops an AI request
+    }
+  }
+
   /** A client whose every ask carries the brains of its feature. */
   wrap(client) {
     if (!client || client.__brains) return client;

@@ -13,6 +13,7 @@ import { api } from "../../api";
 import { useAuth } from "../../auth";
 import { adminPath } from "../../paths";
 import { inr, isNum, pct, when } from "../analyzer/format";
+import { KnowledgeChecks } from "../engine/KnowledgeChecks";
 
 const SIDE = { long: { word: "LONG", icon: "▲", cls: "is-up" }, short: { word: "SHORT", icon: "▼", cls: "is-down" } };
 const PHASE = { pre: "Before the open", live: "In the session", post: "After the close" };
@@ -115,6 +116,7 @@ function Row({ x, open, onToggle, onOpen }) {
                     <b>The AI{x.ai.carried ? " (earlier review)" : ""}:</b> {x.ai.thesis} {x.ai.risk && <span className="t10-dim">Risk: {x.ai.risk}</span>} <span className="t10-dim">· confidence {x.ai.confidence}</span>
                   </p>
                 )}
+                <KnowledgeChecks k={x.knowledge} side={x.side} compact />
               </div>
               <div>
                 <h5>The data behind it</h5>

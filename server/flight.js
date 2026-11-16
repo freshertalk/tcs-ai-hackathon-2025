@@ -36,6 +36,7 @@ const { coach, newMemory, RANK } = require("./trading/exitcoach");
 const { levelMap, verify, track, settle, record, fiveMinute } = require("./trading/exitlevels");
 const { nseOpen } = require("./alert-watch");
 const { BRAND } = require("./brand");
+const KC = require("./market/situation");
 
 const IST = 5.5 * 3600 * 1000;
 const SETTINGS = "flight/settings.json";
@@ -322,6 +323,14 @@ class FlightDeck extends EventEmitter {
         ctx.levels = (v.ladder || []).filter((l) => num(l.price) && l.kind !== "circuit" && l.kind !== "price").map((l) => ({ label: l.label, price: l.price }));
         const d = v.day;
         ctx.liveCall = d && d.available ? { side: d.side || null, active: d.state === "long" || d.state === "short", headline: d.headline, score: d.score } : null;
+        // the knowledge base's checks on the stock now (market/situation.js), for the AI's exit opinion
+        try {
+          const tide = this.mkt && this.mkt.tide && num(this.mkt.tide.score) ? this.mkt.tide.score : null;
+          const r = KC.check(KC.fromVerdict(v, { market: tide }));
+          ctx.knowledge = r.notes.length ? r.notes.slice(0, 6).map((n) => `[${n.stance}${n.side === "both" ? "" : ` ${n.side}`}] ${n.text} (${n.title})`) : null;
+        } catch (_) {
+          ctx.knowledge = null;
+        }
       }),
       m.pulse(slot.symbol).then((p) => {
         ctx.pulse = p && p.available ? { score: p.score, lean: p.lean, call: p.call, headline: p.headline, window: p.window ? { low: p.window.low, high: p.window.high } : null } : null;
@@ -561,6 +570,7 @@ class FlightDeck extends EventEmitter {
       market: { tide: this.mkt.tide, nseForecastFromTheWorld: this.mkt.forecast, newsMood: this.mkt.mood },
       newsOnThisStock: slot.ctx.news,
       otherAiFindings: this._shared(slot),
+      knowledgeChecks: slot.ctx.knowledge || null,
     };
   }
 

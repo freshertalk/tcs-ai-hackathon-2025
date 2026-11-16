@@ -29,7 +29,9 @@
 const crypto = require("node:crypto");
 const { askOne, team } = require("./mixture");
 const { ChatStore } = require("./chats");
-const { classify, instantAnswer, MODES } = require("./route");
+const { classify, instantAnswer, MODES, isKnowledgeQuestion, knowledgeAnswer } = require("./route");
+const KB = require("../market/knowledge");
+const KC = require("../market/situation");
 const { DeskAgent } = require("./agent");
 
 const SETTINGS_DOC = "ai/tradeai-settings.json";
@@ -256,6 +258,17 @@ class TradeAI {
     if (outlook && this.ai.ensemble) {
       const o = await this._within(this.ai.ensemble.outlook(symbol)).catch(() => null);
       if (o && o.available) out.outlook = { lean: o.lean, score: o.score, agreement: o.agreement, call: o.call, headline: o.headline, range: o.range, pivots: o.pivots, scenarios: (o.scenarios || []).slice(0, 4) };
+    }
+    // the knowledge base's checks on the stock now (market/situation.js): the rules of the trade read against
+    // the readings above — the daily picture from the analysis, the session from the verdict — with the rules
+    try {
+      const vOk = v && !v.error && !v.__timeout && v.available !== false;
+      const aOk = a && !a.error && !a.__timeout && a.enoughData !== false;
+      const daily = aOk ? KC.fromDaily({ horizon: "intraday", price: { last: vOk ? v.last : a.price && a.price.last }, indicators: a.indicators, movingAverages: a.levels && a.levels.movingAverages, week52: a.levels && a.levels.week52, liquidity: a.liquidity, circuit: vOk ? v.circuit : null }) : null;
+      const facts = KC.merge(daily, vOk ? KC.fromVerdict(v) : null);
+      if (Object.keys(facts).length) out.knowledge = KC.forAi(KC.check(facts), { maxTopicChars: 1500 });
+    } catch (_) {
+      /* the knowledge base never stops an answer */
     }
     return out;
   }
@@ -654,6 +667,16 @@ class TradeAI {
     // "when should I exit?" is answered at once from the exit coach — unless the trader asked the model to think
     if (route.tier === "instant" && route.intent === "exit" && (eff === "medium" || eff === "high")) Object.assign(route, { tier: "advice", why: "You asked the model to think about it: the exit coach's reading goes to the model with the tape and the levels." });
 
+    // 0. a question about how markets and trading work: the desk's knowledge base answers — no model
+    const kbHits = KB.search(q, { limit: 3 });
+    if (!plan.symbols.length && kbHits.length && kbHits[0].score >= 8 && isKnowledgeQuestion(q) && route.tier !== "deep" && eff !== "medium" && eff !== "high") {
+      const r = knowledgeAnswer(kbHits);
+      if (r) {
+        onRoute({ tier: "instant", intent: "knowledge", why: "The desk's knowledge base answers this — no model needed.", model: null });
+        return { ...r, related: [], meta: { used: ["knowledge"], symbols: [], tools: ["knowledge"], by: [], mergedBy: null, fallback: false, models: [], usage: { input: 0, output: 0 }, engineOnly: true, tier: "instant", intent: "knowledge", why: "The desk's knowledge base answers this — no model needed.", ms: Date.now() - t0 } };
+      }
+    }
+
     // 1. instant: the desk's own data answers — no model
     if (route.tier === "instant") {
       onRoute({ ...route, model: null });
@@ -667,6 +690,11 @@ class TradeAI {
     }
 
     const { data, used } = await this.gather(plan, { owner, onStep });
+    // the knowledge base's pages on the question go with the data (free): the model explains from them
+    if (kbHits.length && kbHits[0].score >= 6) {
+      data.knowledge = KB.searchText(q, { limit: 3, maxChars: 3000 });
+      used.push("knowledge");
+    }
     // free, and nearly always what matters: the exit coach, the tape and the level map of the positions
     // the question is about, and what the desk's other AI features have already found (agent.js)
     await this.agent.seed(plan, data, used, { owner, onStep, exit: route.intent === "exit" || EXITISH.test(q) }).catch(() => []);

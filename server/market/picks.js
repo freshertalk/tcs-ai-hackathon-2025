@@ -33,6 +33,7 @@ const r1 = (x) => (num(x) ? Math.round(x * 10) / 10 || 0 : null);
 const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
 const pct = (a, b) => (num(a) && num(b) && b !== 0 ? ((a - b) / b) * 100 : null);
 const sgn = (x) => (num(x) ? `${x > 0 ? "+" : ""}${x.toFixed(2)}%` : "—");
+const KC = require("./situation");
 const MAX_PER_SECTOR = 3;
 const MIN_MARGIN = 8; // points between the two sides for a stock to have a side at all
 
@@ -229,8 +230,27 @@ function score(df, lf, ctx = {}) {
     else if (ctx.news.sentiment <= -0.3) add("short", "news", ctx.news.high ? 6 : 3, `Negative news${ctx.news.high ? " (high impact)" : ""}: “${String(ctx.news.title || "").slice(0, 90)}”.`);
     else if (ctx.news.high) both("news", 2, "In the news today (high impact): in play.");
   }
-  return finish(parts, excluded);
+  // the knowledge base read against these numbers (market/situation.js): only the context the items above
+  // do not already weigh — a stretch from VWAP, a break on thin volume, a chase, a leader in a weak market.
+  // A rule against a side takes points from that side; it never gives them to the other.
+  let knowledge = null;
+  try {
+    knowledge = KC.check(KC.fromPick(df, lf, ctx), { skip: ["gap"] });
+  } catch (_) {
+    knowledge = null; // the knowledge base never stops a ranking
+  }
+  if (knowledge) {
+    for (const n of knowledge.notes) {
+      if (!n.counts || (n.id === "break-volume" && n.stance === "for")) continue; // a break on volume is already scored above
+      const pts = Math.round(3 * n.weight);
+      add(n.side, "kb", n.stance === "for" ? pts : -pts, `Knowledge base (${n.title}): ${n.text}`);
+    }
+  }
+  const out = finish(parts, excluded);
+  out.knowledge = knowledge ? KC.brief(knowledge, { limit: 6 }) : null;
+  return out;
 }
+
 
 /** The second pass: the desk's own engines, added to a first-pass score. @param eng { verdict, edge, plan, pulse, live } */
 function deepen(first, eng = {}) {
@@ -289,6 +309,7 @@ function deepen(first, eng = {}) {
   const out = finish(parts, excluded);
   out.plan = plan;
   out.deep = true;
+  out.knowledge = first.knowledge || null;
   return out;
 }
 
@@ -425,6 +446,7 @@ const TAG_NAME = {
   odds: "Measured odds (grade A or B)",
   plan: "The intraday plan",
   pulse: "The Live Pulse",
+  kb: "The knowledge base's checks",
 };
 
 module.exports = { dailyFeatures, liveFeatures, score, deepen, rank, scoreList, record, TAG_NAME, MIN_MARGIN, MAX_PER_SECTOR, ema, rsi };

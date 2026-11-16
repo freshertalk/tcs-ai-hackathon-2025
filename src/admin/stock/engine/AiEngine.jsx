@@ -22,6 +22,7 @@ import { ENGINE } from "../docs/content/engine";
 import "../docs/document.css";
 import "./engine.css";
 import { everyVisible } from "../../visible";
+import { KnowledgeBase } from "./KnowledgeBase";
 
 const PARTS = [
   { id: "ai", title: "How the AI works" },
@@ -612,6 +613,7 @@ export default function AiEngine() {
   const tabs = [
     { id: "doc", label: "How the AI works" },
     { id: "live", label: "Live engine" },
+    { id: "kb", label: "Knowledge base" },
     ...(isSuper
       ? [
           { id: "brains", label: `Brains${brains ? ` (${brains.brains.length})` : ""}` },
@@ -648,6 +650,7 @@ export default function AiEngine() {
         />
       )}
       {tab === "live" && <LiveEngine />}
+      {tab === "kb" && <KnowledgeBase />}
       {tab === "brains" && isSuper && <Brains data={brains} setData={setBrainsAndReload} />}
       {tab === "ins" && isSuper && <Instructions engine={engine} />}
       {tab === "skills" && isSuper && <Skills engine={engine} onSaved={load} />}

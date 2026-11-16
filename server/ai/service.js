@@ -858,7 +858,26 @@ class AiService {
         latest: mine.slice(-5).flatMap((e) => e.plans.filter((p) => p.action !== "no_trade").map((p) => ({ date: e.at.slice(0, 10), horizon: p.horizon, side: p.side, entry: p.entry, stop: p.stop, target: p.target, outcome: p.outcome ? p.outcome.status : "pending", r: p.outcome ? p.outcome.r : null }))),
       },
     };
+    // the knowledge base's checks on this stock now (market/situation.js), with the full rules of the topics
+    // behind them: what the rules of the trade say about these exact readings — read by the strategist, the
+    // AI decision, the research note and the AI Research analysts beside the trading-skills file
+    try {
+      const KC = require("../market/situation");
+      brief.knowledge = KC.forAi(KC.check(KC.fromBrief(brief, { horizon: "intraday" })));
+    } catch (_) {
+      brief.knowledge = null; // the knowledge base never stops a brief
+    }
     return { brief, verdict: v };
+  }
+
+  /** The knowledge base's checks on a stock as a screen shows them (null when there is nothing to say). */
+  knowledgeOf(brief) {
+    try {
+      const KC = require("../market/situation");
+      return KC.brief(KC.check(KC.fromBrief(brief, { horizon: "intraday" })), { limit: 8 });
+    } catch (_) {
+      return null;
+    }
   }
 
   /* ------------------------------------------------------------ strategy */
@@ -908,6 +927,8 @@ class AiService {
       skillsUsed: (d.skills_used || []).map(String).slice(0, 6),
       plans,
       context: { last: verdict.last, atr: verdict.movement.atr, live: Boolean(verdict.quoteLive), stale: Boolean(verdict.stale), phase: day.session ? day.session.phase : null, engineIntraday: day.available ? day.state : null, engineSwing: verdict.direction },
+      // the knowledge base's checks the strategist was shown (market/situation.js), for the screen
+      knowledge: this.knowledgeOf(brief),
       usage: answer.usage,
       learnedAt: null,
     };

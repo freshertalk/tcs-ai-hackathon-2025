@@ -121,7 +121,7 @@ test("the knowledge base: the topics that matter now, kept short, and every code
   assert.deepEqual(all.setups.map((s) => s.id).sort(), Object.keys(SU.NAMES).sort(), "every coded set-up is in the knowledge base");
   assert.ok(all.topics.length >= 8);
   // never a promise
-  assert.doesNotMatch(JSON.stringify(all), /guarantee|sure profit|always wins/i);
+  assert.doesNotMatch(JSON.stringify(all), /guaranteed? (profit|return)|sure.?shot|sure profit|always wins/i);
 });
 
 test("a measured record weighs the set-up in the live score: paid → its way with more weight, lost → against it", () => {

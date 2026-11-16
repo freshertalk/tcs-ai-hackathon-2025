@@ -314,7 +314,7 @@ class TopPicks {
       const df = feats[u.symbol] || null;
       const lf = live ? P.liveFeatures(quotes[u.symbol], df, { minutesIn: mins }) : null;
       const sector = u.sector ? { name: u.sector.name, vsNiftyPct: live && num(ctx.sectors[u.sector.kite]) && ctx.nifty && num(ctx.nifty.changePct) ? ctx.sectors[u.sector.kite] - ctx.nifty.changePct : null } : null;
-      const s = df ? P.score(df, lf, { niftyRet20: ctx.nifty ? ctx.nifty.ret20 : null, niftyChangePct: ctx.nifty ? ctx.nifty.changePct : null, world: ctx.world, tide: ctx.tide, sector, news: this._news(u.symbol), live }) : null;
+      const s = df ? P.score(df, lf, { niftyRet20: ctx.nifty ? ctx.nifty.ret20 : null, niftyChangePct: ctx.nifty ? ctx.nifty.changePct : null, world: ctx.world, tide: ctx.tide, sector, news: this._news(u.symbol), live, minutesIn: live ? mins : null }) : null;
       return { symbol: u.symbol, sector: u.sector ? u.sector.name : null, df, lf, s };
     });
     const scored = rows.filter((r) => r.s);
@@ -409,6 +409,7 @@ class TopPicks {
       reasons: r.s.reasons.slice(0, 8),
       against: r.s.against,
       tags: r.s.tags,
+      knowledge: r.s.knowledge || null,
       plan,
       data: {
         atrPct: df.atrPct,
@@ -474,7 +475,7 @@ class TopPicks {
         timeIST: snap.clock,
         market: snap.context,
         deskRecord: rec.sessions >= 3 ? { sessions: rec.sessions, hitRatePct: rec.hitRate, avgMovePct: rec.avgPct, avgEdgeVsUniversePct: rec.avgEdgePct, longs: rec.longs, shorts: rec.shorts, reasonsThatPaid: rec.byReason.slice(0, 8) } : null,
-        candidates: cands.map((x) => ({ symbol: x.symbol, deskRank: x.rank, side: x.side, score: x.score, sector: x.sector, last: x.last, changePct: x.changePct, plan: x.plan, reasons: x.reasons.slice(0, 6), against: x.against, data: x.data })),
+        candidates: cands.map((x) => ({ symbol: x.symbol, deskRank: x.rank, side: x.side, score: x.score, sector: x.sector, last: x.last, changePct: x.changePct, plan: x.plan, reasons: x.reasons.slice(0, 6), against: x.against, data: x.data, knowledge: x.knowledge && x.knowledge.notes ? x.knowledge.notes.map((n) => `[${n.stance}${n.side === "both" ? "" : ` ${n.side}`}] ${n.text} (${n.title})`) : null })),
       };
       const r = await this.ai.picksAi.review(input);
       if (!r) throw new Error("no answer");

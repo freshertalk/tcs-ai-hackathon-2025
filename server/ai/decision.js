@@ -159,6 +159,8 @@ class Decision {
         invalidation: str(d.invalidation, 400),
         watch: list(d.watch, 4, 300),
         engine: { intraday: verdict.day && verdict.day.available ? verdict.day.state : null, swing: verdict.direction },
+        // the knowledge base's checks the decision was shown (market/situation.js), for the screen
+        knowledge: typeof this.ai.knowledgeOf === "function" ? this.ai.knowledgeOf(brief) : null,
         profileAsOf: profile && profile.available ? profile.asOf : null,
         usage: answer.usage,
       };

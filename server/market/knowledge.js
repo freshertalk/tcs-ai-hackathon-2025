@@ -181,9 +181,132 @@ function relevant(ctx = {}, maxChars = 3500) {
   return out.join(NL + NL);
 }
 
-/** Every topic and set-up, for the page that shows the knowledge base. */
-function all() {
-  return { topics: TOPICS.map((t) => ({ id: t.id, title: t.title, rules: t.rules })), setups: Object.entries(SETUP_NOTES).map(([id, s]) => ({ id, ...s })) };
+/* ------------------------------------------------------------------ the encyclopedia */
+// The wider knowledge base (market/kb/): the Indian market and its rules, orders, costs and taxes,
+// the indicators, price action and patterns, volume and open interest, strategies, risk, psychology,
+// testing, macro and sectors, fundamentals, and the documented methods of well-known traders and
+// investors. The desk's own essentials above come first.
+const ENCYCLOPEDIA = [...require("./kb/market"), ...require("./kb/technical"), ...require("./kb/method"), ...require("./kb/masters")];
+const ESSENTIALS = TOPICS.map((t) => ({ ...t, area: "The desk's essentials", keys: `${t.id} ${t.tags.join(" ")}` }));
+const SETUP_TOPIC = { id: "setups", area: "Strategies", title: "The desk's coded set-ups", keys: "setup set-up orb vwap pullback reclaim gap fade squeeze first pullback breakout desk", rules: Object.values(SETUP_NOTES).map((x) => `${x.name}: ${x.rules} Not when: ${x.avoid}`) };
+const ALL = [...ESSENTIALS, ...ENCYCLOPEDIA, SETUP_TOPIC];
+const BY_ID = new Map(ALL.map((t) => [t.id, t]));
+const AREAS = [...new Set(ALL.map((t) => t.area))];
+
+const STOP = new Set("a an the and or of to in on for is are was be by with how what why when which who does do i my me it its this that at as from about explain meaning mean tell show give between vs versus can should would use used using work works".split(" "));
+const words = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9%&+.\s-]/g, " ").split(/\s+/).filter((w) => w.length >= 2 && !STOP.has(w));
+
+/**
+ * The topics that answer a question best, scored by where the question's words appear (a phrase from the
+ * topic's keywords counts most, then the title, the keywords, the text).
+ * @returns [{ id, area, title, rules, score }]
+ */
+function search(query, { limit = 5 } = {}) {
+  const q = String(query || "").toLowerCase();
+  const ws = words(q);
+  if (!ws.length) return [];
+  const scored = ALL.map((t) => {
+    const title = t.title.toLowerCase();
+    const keys = String(t.keys || "").toLowerCase();
+    const body = t.rules.join(" ").toLowerCase();
+    let sc = 0;
+    // phrases: two or three words of the question that appear together in the keywords or the title
+    for (let i = 0; i < ws.length - 1; i += 1) {
+      const two = `${ws[i]} ${ws[i + 1]}`;
+      if (keys.includes(two) || title.includes(two)) sc += 8;
+    }
+    for (const w of ws) {
+      // a whole word (its plural counts): "ban" must not find "bands"
+      const re = new RegExp(`(^|[^a-z0-9])${w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(s|es)?(?![a-z0-9])`);
+      if (re.test(title)) sc += 4;
+      if (re.test(keys)) sc += 3;
+      if (re.test(body)) sc += 1;
+    }
+    return { t, sc };
+  })
+    .filter((x) => x.sc >= 3)
+    .sort((a, z) => z.sc - a.sc)
+    .slice(0, limit);
+  return scored.map(({ t, sc }) => ({ id: t.id, area: t.area, title: t.title, rules: t.rules, score: sc }));
 }
 
-module.exports = { TOPICS, SETUP_NOTES, relevant, all };
+/** Search results as compact text within a length (whole topics; the first rule of one that does not fit). */
+function searchText(query, { limit = 5, maxChars = 5000 } = {}) {
+  const NL = String.fromCharCode(10);
+  const out = [];
+  let used = 0;
+  for (const t of search(query, { limit })) {
+    const full = `${t.title} (${t.area}):${NL}${t.rules.map((r) => `- ${r}`).join(NL)}`;
+    const short = `${t.title} (${t.area}):${NL}- ${t.rules[0]}`;
+    const pick = used + full.length + 2 <= maxChars ? full : used + short.length + 2 <= maxChars ? short : null;
+    if (!pick) continue;
+    out.push(pick);
+    used += pick.length + 2;
+  }
+  return out.join(NL + NL);
+}
+
+// What each AI feature is given with every request: a compact pack of the topics that matter to its job.
+// TradeAI reads more on demand (its "playbook" reader searches the whole knowledge base).
+const PACKS = {
+  copilot: ["st-intraday", "ind-vwap", "vol-analysis", "st-daytypes", "risk-stops"],
+  "ensemble-live": ["st-intraday", "ind-vwap", "vol-analysis", "st-daytypes", "time"],
+  decision: ["pa-structure", "ind-usage", "risk-sizing", "st-news", "honest-odds"],
+  exit: ["risk-stops", "risk-pyramid", "pa-levels", "psy-biases"],
+  "exit-levels": ["pa-levels", "pa-pivots", "risk-stops", "vol-profile"],
+  coach: ["risk-stops", "risk-pyramid", "risk-sizing", "psy-biases"],
+  research: ["pa-structure", "st-swing", "ind-usage", "macro-india", "st-news"],
+  "ensemble-research": ["pa-structure", "st-daytypes", "pa-gaps", "macro-india", "st-news"],
+  strategist: ["pa-structure", "st-swing", "risk-sizing", "risk-stops", "ind-usage"],
+  picks: ["st-swing", "macro-sectors", "macro-india", "in-data", "selection"],
+  review: ["psy-biases", "psy-discipline", "risk-expectancy", "psy-routine"],
+  dayreview: ["psy-biases", "psy-discipline", "risk-expectancy", "risk-stops"],
+  debrief: ["psy-discipline", "risk-expectancy", "res-testing", "st-daytypes"],
+  learn: ["res-testing", "risk-expectancy", "psy-discipline"],
+  indices: ["in-indices", "macro-india", "pa-structure", "in-data"],
+  social: ["macro-india", "macro-sectors", "st-news"],
+  tradeai: ["honest-odds", "risk-sizing", "psy-discipline"],
+  whatsapp: ["risk-stops", "honest-odds"],
+};
+const PACK_CHARS = 1800;
+const packs = new Map();
+
+/** The knowledge pack for one AI feature, as text to add to its instructions ("" for none). */
+function packFor(feature) {
+  if (!feature || !PACKS[feature]) return "";
+  if (packs.has(feature)) return packs.get(feature);
+  const NL = String.fromCharCode(10);
+  let body = "";
+  for (const id of PACKS[feature]) {
+    const t = BY_ID.get(id);
+    if (!t) continue;
+    const line = `- ${t.title}: ${t.rules.slice(0, 2).join(" ")}${NL}`;
+    if (body.length + line.length > PACK_CHARS) {
+      const short = `- ${t.title}: ${t.rules[0]}${NL}`;
+      if (body.length + short.length <= PACK_CHARS) body += short;
+      continue;
+    }
+    body += line;
+  }
+  const checks = CHECKS_FEATURES.has(feature) ? `${NL}${CHECKS_RULE}${NL}` : "";
+  const text = body ? `${NL}${NL}---${NL}THE DESK'S KNOWLEDGE BASE — core points for this task, from widely published market practice and the exchange's rules (where the desk's own measured records differ, the measurement wins; never treat any of it as a promise):${NL}${body}${checks}` : "";
+  packs.set(feature, text);
+  return text;
+}
+
+// The features whose requests carry the knowledge checks on a stock (market/situation.js), and how to use them.
+// (The scanner and the Top 10 reviews explain the checks in their own instructions.)
+const CHECKS_FEATURES = new Set(["copilot", "ensemble-live", "ensemble-research", "decision", "exit", "exit-levels", "coach", "research", "strategist", "tradeai"]);
+const CHECKS_RULE = 'When the request carries "knowledge" or "knowledgeChecks" (the knowledge base applied to the stock\'s readings now): weigh each check as evidence beside the trading-skills file and the measured records; name the checks your answer rests on; answer every check that argues against your call, or let it lower your confidence; where a measured record disagrees with a textbook check, the measurement wins.';
+
+/** Every topic and set-up, for the page that shows the knowledge base. */
+function all() {
+  return {
+    topics: TOPICS.map((t) => ({ id: t.id, title: t.title, rules: t.rules })),
+    setups: Object.entries(SETUP_NOTES).map(([id, s]) => ({ id, ...s })),
+    areas: AREAS.map((area) => ({ area, topics: ALL.filter((t) => t.area === area).map((t) => ({ id: t.id, title: t.title, rules: t.rules })) })),
+    count: ALL.length,
+  };
+}
+
+module.exports = { TOPICS, SETUP_NOTES, ENCYCLOPEDIA, ALL, AREAS, PACKS, relevant, all, search, searchText, packFor };

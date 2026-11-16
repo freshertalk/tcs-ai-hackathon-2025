@@ -1912,6 +1912,9 @@ class MarketService {
       const last = tick && isNum(tick.last) ? tick.last : forming ? forming.c : null;
       const report = E.read(model, { open: forming ? forming.o : null, last });
       rec = { ...head, ...report, last: isNum(last) ? Math.round(last * 100) / 100 : null };
+      // the knowledge base's checks on the same stock's completed sessions (market/situation.js): context
+      // shown beside the measured odds, never part of them
+      rec.knowledge = this._edgeKnowledge(bars);
       if (d.source === "kite") this._trackSignals(symbol, model, rec);
     }
     if (docs) {
@@ -1922,6 +1925,18 @@ class MarketService {
       docs.write(EDGE_DOC, all);
     }
     return rec;
+  }
+
+  /** What the knowledge base says about a stock's completed daily sessions, for the Advisor (null when it cannot say). */
+  _edgeKnowledge(bars) {
+    try {
+      const df = require("./picks").dailyFeatures(bars);
+      if (!df) return null;
+      const KC = require("./situation");
+      return KC.brief(KC.check(KC.fromPick(df, null, { live: false })), { limit: 6 });
+    } catch (_) {
+      return null; // the knowledge base never stops a reading of the odds
+    }
   }
 
   /** The learned model for a stock, kept in memory while its history is unchanged. */

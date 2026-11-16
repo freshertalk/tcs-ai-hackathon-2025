@@ -9,6 +9,7 @@ import { useAuth } from "../../auth";
 import { everyVisible } from "../../visible";
 import { when } from "../analyzer/format";
 import "./scanner.css";
+import { KnowledgeBase } from "../engine/KnowledgeBase";
 
 const sg = (x) => (typeof x === "number" ? `${x > 0 ? "+" : ""}${x}R` : "—");
 
@@ -136,33 +137,9 @@ export function SetupLab() {
       {lab && lab.available && <p className="sx-foot">How it is measured: {lab.basis}. A set-up needs 30 trades before its record counts in the live scanner; what has paid adds weight its way, what has lost argues against it. Thirty sessions is a short history: a record of the recent past, not a promise.</p>}
 
       <button type="button" className="sx-more" aria-expanded={kb} onClick={() => setKb((v) => !v)}>
-        {kb ? "Hide the desk's knowledge base" : "The desk's knowledge base — what the AI is taught"}
+        {kb ? "Hide the desk's knowledge base" : `The desk's knowledge base — what the AI is taught${d && d.knowledge && d.knowledge.count ? ` (${d.knowledge.count} topics)` : ""}`}
       </button>
-      {kb && d && d.knowledge && (
-        <div className="sx-kb">
-          {d.knowledge.topics.map((t) => (
-            <details key={t.id}>
-              <summary>{t.title}</summary>
-              <ul>
-                {t.rules.map((r) => (
-                  <li key={r}>{r}</li>
-                ))}
-              </ul>
-            </details>
-          ))}
-          <details>
-            <summary>The classic set-ups</summary>
-            <ul>
-              {d.knowledge.setups.map((s) => (
-                <li key={s.id}>
-                  <b>{s.name}.</b> {s.rules} <i>Not when:</i> {s.avoid}
-                </li>
-              ))}
-            </ul>
-          </details>
-          <p className="sx-foot">Written from widely published market practice and the exchange's rules — it speaks for no particular trader. The AI is handed only the parts that matter at the moment, together with each set-up's measured record; where the measurement disagrees with the textbook, the measurement wins.</p>
-        </div>
-      )}
+      {kb && <KnowledgeBase />}
     </section>
   );
 }

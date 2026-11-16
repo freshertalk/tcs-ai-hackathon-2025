@@ -34,6 +34,7 @@ const { buildDirection } = require("../market/direction");
 const { buildOutlook } = require("../market/outlook");
 const { sheet } = require("./research");
 const { barStart } = require("../market/intraday");
+const KC = require("../market/situation");
 
 const SETTINGS_DEFAULT = { usePaid: true, paidDailyCap: 40, deadlineSec: 90 };
 const NAME = "ai/ensemble.json";
@@ -496,6 +497,8 @@ class Ensemble {
       web: this._web(symbol),
       newsAndSocial: this._social(symbol),
       theTrader: you ? { position: you.hasPosition ? { side: you.side, quantity: you.quantity, average: you.average, pnlNow: you.pnl, deskNote: you.why } : "none in this stock", availableCash: you.cash, sizingByRisk: you.sizing || null } : "not available",
+      // the knowledge base's checks on this stock now (market/situation.js), with the rules behind them
+      knowledge: KC.forVerdict(v, india),
     };
   }
 

@@ -30,6 +30,7 @@ const { EventEmitter } = require("node:events");
 const S = require("./market/scan");
 const SNAP = require("./market/index-snapshots.json");
 const KB = require("./market/knowledge");
+const KC = require("./market/situation");
 
 const NIFTY = { symbol: "NIFTY 50", token: 256265 };
 const LOOP_MS = 1000;
@@ -429,6 +430,8 @@ class Scanner extends EventEmitter {
       blocks: r.blocks,
       setups: (r.f.setups || []).map((su) => this._withEdge(su, this._edges())).map((su) => ({ setup: su.name, side: su.side, why: su.why, measured: su.edge ? `${su.edge.avgR}R a trade after costs over ${su.edge.n} trades (${su.edge.winPct}% won)` : "not yet measured" })),
       data: { last: f.last, chgPct: f.chgPct, vwap: f.vwap, vsVwapAtr: f.vsVwapAtr, rsi: f.rsi, adx: f.adx, macdHist: f.macdHist, supertrend: f.supertrend, orb: f.orb, relVol: f.relVol, rsNifty: f.rsNifty, bookBuyPct: f.bookBuyPct, atrPct: f.atrPct, pdh: f.pdh, pdl: f.pdl, dailyTrend: f.dailyTrend, turnoverCr: f.turnoverCr },
+      // the knowledge base's checks on this stock now (market/situation.js): which rules agree, which argue against
+      knowledge: f.knowledge && f.knowledge.notes.length ? { vote: f.knowledge.vote, checks: f.knowledge.notes.slice(0, 7).map((n) => `[${n.stance}${n.side === "both" ? "" : ` ${n.side}`}] ${n.text} (${n.title})`) } : null,
     };
   }
 
@@ -566,6 +569,8 @@ class Scanner extends EventEmitter {
       against: r.against.slice(0, 3),
       blocks: r.blocks,
       setups: (f.setups || []).map((su) => this._withEdge(su, this._edges())),
+      // the rows go out on every push: the first few checks only (the warnings come first); the detail has all
+      knowledge: KC.brief(f.knowledge, { limit: 4 }),
       ai: note,
       f: { last: f.last, chgPct: f.chgPct, vwap: f.vwap, vsVwapPct: f.vsVwapPct, vsVwapAtr: f.vsVwapAtr, ema9: f.ema9, ema21: f.ema21, rsi: f.rsi, macdHist: f.macdHist, supertrend: f.supertrend, adx: f.adx, plusDI: f.plusDI, minusDI: f.minusDI, atr5: f.atr5, atrPct: f.atrPct, bbPctB: f.bbPctB, squeeze: f.squeeze, orb: f.orb, orh: f.orh, orl: f.orl, pdh: f.pdh, pdl: f.pdl, relVol: f.relVol, rsNifty: f.rsNifty, roc3: f.roc3, bookBuyPct: f.bookBuyPct, dayHigh: f.dayHigh, dayLow: f.dayLow, turnoverCr: f.turnoverCr, dailyTrend: f.dailyTrend },
     };
@@ -609,7 +614,7 @@ class Scanner extends EventEmitter {
     if (!st) throw new ScannerError(`${s || "That stock"} is not in the NIFTY 100 scanner.`, "not_found", 404);
     const r = this.rows.get(s) || S.read(st, { now: this.now(), nifty: this.niftyRow && this.niftyRow.ready ? this.niftyRow.f : null, market: this.lean });
     if (!r.ready) return { symbol: s, ready: false, reason: r.reason };
-    return { ...this._row(r), ready: true, f: r.f, votes: r.votes, reasons: r.reasons, against: r.against, calls: (this.rec ? this.rec.calls : []).filter((c) => c.symbol === s).slice(-10) };
+    return { ...this._row(r), knowledge: KC.brief(r.f.knowledge, { limit: 14 }), ready: true, f: r.f, votes: r.votes, reasons: r.reasons, against: r.against, calls: (this.rec ? this.rec.calls : []).filter((c) => c.symbol === s).slice(-10) };
   }
 
   /** A short form for TradeAI's agent. */

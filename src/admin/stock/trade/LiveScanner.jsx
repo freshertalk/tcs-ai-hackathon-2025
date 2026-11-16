@@ -14,6 +14,7 @@ import { everyVisible } from "../../visible";
 import { clock, inr, isNum, pct } from "../analyzer/format";
 import { useScanFeed } from "../analyzer/liveTicks";
 import { TradeButtons } from "./TradeContext";
+import { KnowledgeChecks } from "../engine/KnowledgeChecks";
 import "./scanner.css";
 
 const FILTERS = [
@@ -155,6 +156,7 @@ function Pick({ p, fresh, onOpen }) {
         </p>
       )}
       <Setups list={p.setups} />
+      <KnowledgeChecks k={p.knowledge} side={p.side} title="The knowledge base" compact />
       <Chips f={f} />
       {p.ai && (
         <div className={`sx-ai ${p.ai.keep === false ? "is-skip" : ""}`}>
@@ -232,6 +234,7 @@ function Detail({ symbol }) {
     <div className="sx-detail">
       <Lean next={d.next} />
       <Setups list={d.setups} />
+      <KnowledgeChecks k={d.knowledge} side={d.side || (d.next && d.next.dir === "up" ? "long" : d.next && d.next.dir === "down" ? "short" : null)} />
       <table className="an-table sx-readings">
         <thead>
           <tr>

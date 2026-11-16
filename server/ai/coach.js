@@ -11,6 +11,17 @@
 
 const crypto = require("crypto");
 const { AiError } = require("./client");
+const KC = require("../market/situation");
+
+/** The knowledge base's checks on a stock from its verdict, as short lines (null when none speaks). */
+function knowledgeLines(v) {
+  try {
+    const r = KC.check(KC.fromVerdict(v));
+    return r.notes.length ? r.notes.slice(0, 6).map((n) => `[${n.stance}${n.side === "both" ? "" : ` ${n.side}`}] ${n.text} (${n.title})`) : null;
+  } catch (_) {
+    return null;
+  }
+}
 
 const KEEP = 20;
 const MAX_POS = 10;
@@ -107,6 +118,9 @@ class Coach {
         // every level, top to bottom (pivots, supports, resistances, day high/low, circuits)
         levels: Array.isArray(v.ladder) ? v.ladder.slice(0, 24).map((x) => ({ label: x.label, price: x.price, awayPct: x.awayPct })) : null,
         circuit: v.circuit || null,
+        // the knowledge base's checks on the stock now (market/situation.js): what the rules of the trade say
+        // about holding it here — a stretch from VWAP, a fading gap, a price band close, the time of day
+        knowledge: knowledgeLines(v),
       };
     } catch (err) {
       return { available: false, reason: err.message };
