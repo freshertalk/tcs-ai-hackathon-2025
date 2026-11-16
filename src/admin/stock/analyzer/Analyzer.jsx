@@ -19,6 +19,7 @@ import MarketStrip from "./MarketStrip";
 import { TickContext, useLiveTicks } from "./liveTicks";
 import { clock } from "./format";
 import "./analyzer.css";
+import "./desk.css";
 
 const SYMBOL_RE = /^[A-Z0-9][A-Z0-9&._ -]{0,24}$/;
 export default function Analyzer() {
@@ -232,7 +233,7 @@ export default function Analyzer() {
 
   return (
     <TickContext.Provider value={live.store}>
-    <div className={`an ${mode === "demo" ? "an--demo" : ""}`}>
+    <div className={`an dk ${mode === "demo" ? "an--demo" : ""}`}>
       <ConnectPanel status={status} flash={flash.current || null} onStatus={applyStatus} startOpen={mode === "none" && !status.kite.configured} />
       {mode === "kite" && <MarketStrip status={status} />}
 
@@ -293,7 +294,7 @@ export default function Analyzer() {
         </section>
       ) : (
         <div className="an__grid">
-          <div>
+          <div className="dk-side">
             <Watchlist symbols={symbols} quotes={merged} scan={scan.rows} selected={selected} onSelect={pick} onChange={changeList} mode={mode} scanning={scan.loading} onRescan={runScan} lists={lists} onListAction={listAction} />
             <Alert>{listError}</Alert>
           </div>

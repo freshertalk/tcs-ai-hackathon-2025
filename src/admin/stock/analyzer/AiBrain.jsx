@@ -463,15 +463,46 @@ function Settings({ onClose }) {
   );
 }
 
+// on the Desk the AI's full reading folds away under its summary chips, so the chart sits near the top;
+// whether it is open is remembered on this device
+const FOLD_KEY = "vpt.desk.brain";
+const storedOpen = () => {
+  try {
+    return window.localStorage.getItem(FOLD_KEY) === "open";
+  } catch (_) {
+    return false;
+  }
+};
+
 /**
- * @param only  "research": just AI Research (inside the Research workspace's stock cards)
+ * @param only      "research": just AI Research (inside the Research workspace's stock cards)
+ * @param foldable  the Desk: the reading below the chips can be folded away (closed until opened)
  */
-export default function AiBrain({ symbol, live, marketHours, only = null }) {
+export default function AiBrain({ symbol, live, marketHours, only = null, foldable = false }) {
   const wantLive = only !== "research";
   const wantIntra = only === null;
   const first = () => only || (live && marketHours ? "live" : wantIntra ? "intraday" : "research");
   const [view, setView] = useState(first);
   const [settings, setSettings] = useState(false);
+  const [unfolded, setUnfolded] = useState(() => (foldable ? storedOpen() : true));
+  const open = !foldable || unfolded;
+  const readId = foldable ? `ab-read-${String(symbol).replace(/[^A-Za-z0-9_-]/g, "-")}` : undefined;
+  const setOpen = (v) => {
+    setUnfolded(v);
+    try {
+      window.localStorage.setItem(FOLD_KEY, v ? "open" : "closed");
+    } catch (_) {
+      /* private mode — the choice lasts for this visit */
+    }
+  };
+  // a chip shows its reading; pressing the chip already on screen folds it away again
+  const show = (kind) => {
+    if (foldable && open && view === kind && !settings) setOpen(false);
+    else {
+      setView(kind);
+      if (!open) setOpen(true);
+    }
+  };
   const liveRun = useRun("live", symbol, wantLive);
   const resRun = useRun("research", symbol);
   const liveFloor = useFloor("live", symbol, Boolean(live && marketHours), wantLive);
@@ -485,6 +516,7 @@ export default function AiBrain({ symbol, live, marketHours, only = null }) {
 
   const press = (kind) => {
     setView(kind);
+    if (!open) setOpen(true);
     (kind === "live" ? liveRun : resRun).start();
   };
   const liveOk = liveFloor.data && liveFloor.data.available;
@@ -504,7 +536,7 @@ export default function AiBrain({ symbol, live, marketHours, only = null }) {
   };
 
   return (
-    <section className="ab" aria-label="AI Live and AI Research">
+    <section className={`ab ${foldable ? `ab--fold ${open ? "is-open" : "is-folded"}` : ""}`} aria-label="AI Live and AI Research" id={readId}>
       <div className="ab-bar">
         <div className="ab-btns" role="group" aria-label="Run the AI">
           {wantLive && <button type="button" className={`ab-btn ab-btn--live ${view === "live" ? "is-on" : ""}`} onClick={() => press("live")} disabled={liveRun.running || !live} data-tip={live ? (liveOk ? "Ask every analyst to read this stock's live numbers now: the next 15–30 minutes." : "The live session is not available (market closed or no data yet) — AI Live needs a trading market.") : "AI Live needs the Zerodha connection and the market open."}>
@@ -518,15 +550,15 @@ export default function AiBrain({ symbol, live, marketHours, only = null }) {
         </div>
         <div className="ab-minis">
           {wantLive && (
-            <button type="button" className="ab-mini-btn" onClick={() => setView("live")} aria-pressed={view === "live"} aria-label="Show the live read">
+            <button type="button" className="ab-mini-btn" onClick={() => show("live")} aria-pressed={open && view === "live"} aria-label="Show the live read">
               {chip(liveFloor, liveRun, "live") || <span className="ab-mini ab-mini--flat"><small>Next 30 min</small><b>—</b></span>}
             </button>
           )}
-          <button type="button" className="ab-mini-btn" onClick={() => setView("research")} aria-pressed={view === "research"} aria-label="Show the next-session read">
+          <button type="button" className="ab-mini-btn" onClick={() => show("research")} aria-pressed={open && view === "research"} aria-label="Show the next-session read">
             {chip(resFloor, resRun, "research") || <span className="ab-mini ab-mini--flat"><small>Next session</small><b>—</b></span>}
           </button>
           {wantIntra && (
-            <button type="button" className="ab-mini-btn" onClick={() => setView("intraday")} aria-pressed={view === "intraday"} aria-label="Show the intraday plan for the next session">
+            <button type="button" className="ab-mini-btn" onClick={() => show("intraday")} aria-pressed={open && view === "intraday"} aria-label="Show the intraday plan for the next session">
               {intra.data && intra.data.available ? (
                 <span className={`ab-mini ab-mini--${{ up: "up", down: "down" }[(KIND[intra.data.decision.kind] || KIND.wait).tone] || "flat"}`}>
                   <small>Intraday plan</small>
@@ -542,7 +574,7 @@ export default function AiBrain({ symbol, live, marketHours, only = null }) {
             </button>
           )}
           {wantIntra && hasChain && (
-            <button type="button" className="ab-mini-btn" onClick={() => setView("options")} aria-pressed={view === "options"} aria-label="Show the option chain">
+            <button type="button" className="ab-mini-btn" onClick={() => show("options")} aria-pressed={open && view === "options"} aria-label="Show the option chain">
               <span className={`ab-mini ab-mini--${biasTone(chain.data.bias.score)}`}>
                 <small>Options</small>
                 <b>{chain.data.bias.label.toUpperCase()}</b>
@@ -554,9 +586,15 @@ export default function AiBrain({ symbol, live, marketHours, only = null }) {
         <button type="button" className="ab-gear" onClick={() => setSettings((v) => !v)} aria-expanded={settings} aria-label="Choose the analysts" data-tip="Which analysts run, the paid lead, limits and the track record.">
           ⚙
         </button>
+        {foldable && (
+          <button type="button" className="ab-fold" onClick={() => setOpen(!open)} aria-expanded={open} aria-controls={readId} data-tip={open ? "Fold the AI's reading away — the chips above keep the summary." : "Show the AI's full reading for the chip that is picked."}>
+            <span aria-hidden="true">{open ? "▴" : "▾"}</span>
+            <span className="ab-fold__t">{open ? "Hide" : "Details"}</span>
+          </button>
+        )}
       </div>
       {settings && <Settings onClose={() => setSettings(false)} />}
-      {view === "options" && wantIntra ? (
+      {!open ? null : view === "options" && wantIntra ? (
         <OptionChain symbol={symbol} data={chain.data} />
       ) : view === "intraday" && wantIntra ? (
         intra.data ? (

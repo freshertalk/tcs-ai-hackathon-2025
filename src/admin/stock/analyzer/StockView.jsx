@@ -270,6 +270,10 @@ export default function StockView({ symbol, quote, status, streaming = false, in
   const wanted = chartMode || "pro";
   const mode = (wanted === "m1" && !live) || (wanted === "m5" && !tape) ? "daily" : wanted;
   const m1 = minute.data && minute.data.available ? minute.data : null;
+  // today's range, and where the price sits in it (0 = at the low, 100 = at the high)
+  const dayHigh = quote && isNum(quote.high) ? quote.high : a.price.high;
+  const dayLow = quote && isNum(quote.low) ? quote.low : a.price.low;
+  const rangeAt = isNum(dayHigh) && isNum(dayLow) && isNum(px) && dayHigh > dayLow ? Math.min(100, Math.max(0, ((px - dayLow) / (dayHigh - dayLow)) * 100)) : null;
 
   const panel = (
     <VerdictPanel
@@ -331,21 +335,32 @@ export default function StockView({ symbol, quote, status, streaming = false, in
         <dl className="sv__stats">
           {[
             ["Open", inr(quote && isNum(quote.open) ? quote.open : a.price.open)],
-            ["High", inr(quote && isNum(quote.high) ? quote.high : a.price.high)],
-            ["Low", inr(quote && isNum(quote.low) ? quote.low : a.price.low)],
+            ["High", inr(dayHigh)],
+            ["Low", inr(dayLow)],
             ["Prev close", inr(pc)],
             ["Volume", compact(quote && isNum(quote.volume) ? quote.volume : a.price.volume)],
-            ["Daily reading", `${a.score.value > 0 ? "+" : ""}${a.score.value} · ${a.score.label}`],
-            ["Setups on", on.length ? on.map((s) => s.name).join(", ") : "None"],
-            ...(quote && isNum(quote.upperCircuit) ? [["Circuit limits", `${inr(quote.lowerCircuit)} – ${inr(quote.upperCircuit)}`]] : []),
-          ].map(([k, v]) => (
-            <div key={k}>
+            ["Daily reading", `${a.score.value > 0 ? "+" : ""}${a.score.value} · ${a.score.label}`, "is-wide"],
+            ["Setups on", on.length ? on.map((s) => s.name).join(", ") : "None", "is-wide"],
+            ...(quote && isNum(quote.upperCircuit) ? [["Circuit limits", `${inr(quote.lowerCircuit)} – ${inr(quote.upperCircuit)}`, "is-wide"]] : []),
+          ].map(([k, v, cls]) => (
+            <div key={k} className={cls || undefined}>
               <dt>{k}</dt>
-              <dd>{v}</dd>
+              <dd title={typeof v === "string" ? v : undefined}>{v}</dd>
             </div>
           ))}
+          {rangeAt !== null && (
+            <div className="dk-range" data-tip="Where the price sits in today’s range: low on the left, high on the right.">
+              <dt>Day range</dt>
+              <dd>
+                <span className="dk-range__bar" role="img" aria-label={`The price is ${Math.round(rangeAt)}% of the way from today’s low to today’s high`}>
+                  <i style={{ left: `${rangeAt}%` }} />
+                </span>
+                <small>{Math.round(rangeAt)}%</small>
+              </dd>
+            </div>
+          )}
         </dl>
-        <AiBrain symbol={symbol} live={live} marketHours={Boolean(status.marketHours)} />
+        <AiBrain symbol={symbol} live={live} marketHours={Boolean(status.marketHours)} foldable />
       </div>
 
       {wide && panel}
@@ -360,7 +375,7 @@ export default function StockView({ symbol, quote, status, streaming = false, in
           ))}
         </div>
 
-        <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
+        <div role="tabpanel" key={tab} id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
           {tab === "verdict" && !wide && panel}
           {tab === "overview" && (
             <>

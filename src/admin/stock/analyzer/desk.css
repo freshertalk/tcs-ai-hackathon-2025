@@ -1,0 +1,577 @@
+/* ==========================================================================
+   The Desk, refined (Analyzer.jsx root: .an.dk).
+   Loaded after analyzer.css and scoped to .an.dk, so it settles the layout over
+   analyzer.css, terminal.css and compact.css without !important. It only changes
+   spacing, shape, surfaces and motion: every colour comes from the desk's own
+   tokens (--surface, --ink, --line, --accent, --up, --down…), so the light and
+   dark themes both follow. Prefix: dk-.
+   ========================================================================== */
+
+.an.dk {
+  --dk-r: 14px;
+  --dk-r-sm: 10px;
+  --dk-gap: 10px;
+  --dk-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --dk-fast: 0.16s;
+  --dk-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 6px 18px -12px rgba(16, 24, 40, 0.14);
+  --dk-shadow-hi: 0 1px 3px rgba(16, 24, 40, 0.06), 0 10px 26px -14px rgba(16, 24, 40, 0.28);
+  --dk-raise: 0 1px 2px rgba(16, 24, 40, 0.1), 0 0 0 1px var(--line);
+}
+.adm[data-desk="dark"] .an.dk {
+  --dk-shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 8px 22px -14px rgba(0, 0, 0, 0.7);
+  --dk-shadow-hi: 0 1px 3px rgba(0, 0, 0, 0.45), 0 12px 30px -14px rgba(0, 0, 0, 0.8);
+  --dk-raise: 0 1px 2px rgba(0, 0, 0, 0.45), 0 0 0 1px var(--line-2);
+}
+
+/* ---- one family of surfaces: the same radius, hairline and soft lift everywhere */
+.an.dk .wl,
+.an.dk .mk,
+.an.dk .sv__stats,
+.an.dk .ab,
+.an.dk .an-card,
+.an.dk .sv__rail {
+  border-color: var(--line);
+  border-radius: var(--dk-r);
+  box-shadow: var(--dk-shadow);
+}
+.an.dk .conn.is-on {
+  border-radius: var(--dk-r-sm);
+}
+
+/* ---- the stock column: one rhythm between its blocks */
+.an.dk .sv--desk {
+  row-gap: var(--dk-gap);
+}
+.an.dk .sv__top {
+  display: grid;
+  gap: var(--dk-gap);
+  min-width: 0;
+}
+.an.dk .sv__top > * {
+  margin: 0;
+}
+
+/* ---- the ticker: the one raised card that stays on screen */
+.an.dk .sv__ticker {
+  margin: 0;
+  padding: 8px 14px;
+  border-radius: var(--dk-r);
+  box-shadow: var(--dk-shadow-hi);
+  transition: box-shadow var(--dk-fast) var(--dk-ease);
+}
+.an.dk .sv__ticker .sv__sym {
+  letter-spacing: -0.01em;
+}
+.an.dk .sv__px b {
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- the key numbers: small caps labels, figures in one tidy strip */
+.an.dk .sv__stats dt {
+  font-size: var(--t-tag);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+.an.dk .sv__stats dd {
+  margin: 1px 0 0;
+  font-size: var(--t-mid);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  overflow-wrap: normal;
+}
+/* a wrapping row rather than a grid: every line fills edge to edge, with no empty cells left over */
+@media (min-width: 901px) {
+  .an.dk .sv__stats {
+    display: flex;
+    flex-wrap: wrap;
+    margin: 0;
+  }
+  .an.dk .sv__stats > div {
+    flex: 1 1 90px;
+    padding: 7px 9px;
+  }
+  .an.dk .sv__stats > .is-wide {
+    flex: 2 1 180px;
+  }
+  .an.dk .sv__stats > .dk-range {
+    flex: 1.2 1 110px;
+  }
+  .an.dk .sv__stats dt {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    letter-spacing: 0.04em;
+  }
+}
+@media (max-width: 900px) {
+  .an.dk .sv__stats > div {
+    min-width: 96px;
+    padding: 5px 10px;
+    border-radius: var(--dk-r-sm);
+  }
+  .an.dk .sv__stats > .is-wide {
+    max-width: 220px;
+  }
+  .an.dk .sv__stats > .dk-range {
+    min-width: 150px;
+  }
+}
+
+/* where the price sits in today's range */
+.an.dk .dk-range dd {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow: visible;
+}
+.an.dk .dk-range__bar {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 32px;
+  height: 6px;
+  border-radius: 99px;
+  background: linear-gradient(90deg, var(--down-bg), var(--neutral-bar) 50%, var(--up-bg));
+  box-shadow: inset 0 0 0 1px var(--line-2);
+}
+.an.dk .dk-range__bar i {
+  position: absolute;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  margin-left: -5px;
+  border-radius: 50%;
+  background: var(--ink);
+  box-shadow: 0 0 0 2px var(--surface);
+  transform: translateY(-50%);
+  transition: left 0.45s var(--dk-ease);
+}
+.an.dk .dk-range small {
+  flex: none;
+  font-size: var(--t-tag);
+  font-weight: 600;
+  color: var(--ink-3);
+}
+
+/* ---- AI Live / AI Research: one compact bar; the full reading folds away beneath it */
+.an.dk .ab {
+  container-type: inline-size;
+  /* the chip row scrolls sideways: it must never widen the card */
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+  padding: 8px 10px;
+}
+.an.dk .ab-bar {
+  flex-wrap: nowrap;
+  gap: 8px;
+}
+.an.dk .ab-btns {
+  flex: 0 1 236px;
+  min-width: 0;
+  gap: 6px;
+}
+.an.dk .ab-btn {
+  padding: 6px 12px;
+  border-radius: var(--dk-r-sm);
+  transition: border-color var(--dk-fast), background var(--dk-fast), box-shadow var(--dk-fast), transform 0.06s;
+}
+.an.dk .ab-btn__t {
+  font-size: var(--t-base);
+}
+.an.dk .ab-btn small {
+  font-size: var(--t-tag);
+}
+.an.dk .ab-minis {
+  flex: 1 1 auto;
+  min-width: 0;
+  flex-wrap: nowrap;
+  gap: 6px;
+  padding: 2px;
+  margin: -2px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  scroll-snap-type: x proximity;
+}
+.an.dk .ab-minis::-webkit-scrollbar {
+  display: none;
+}
+.an.dk .ab-mini-btn {
+  flex: 0 0 auto;
+  scroll-snap-align: start;
+}
+.an.dk .ab-mini {
+  min-width: 90px;
+  padding: 3px 10px;
+  border-radius: var(--dk-r-sm);
+  transition: border-color var(--dk-fast), background var(--dk-fast), box-shadow var(--dk-fast);
+}
+.an.dk .ab-mini-btn:hover .ab-mini {
+  border-color: var(--line-2);
+  background: var(--surface);
+}
+.an.dk .ab-gear {
+  flex: none;
+  width: 36px;
+  border-radius: var(--dk-r-sm);
+  transition: border-color var(--dk-fast), color var(--dk-fast);
+}
+.an.dk .ab-gear:hover {
+  border-color: var(--accent);
+  color: var(--ink);
+}
+.an.dk .ab-fold {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--dk-r-sm);
+  background: var(--surface-2);
+  color: var(--ink-2);
+  font: inherit;
+  font-size: var(--t-small);
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: border-color var(--dk-fast), background var(--dk-fast), color var(--dk-fast);
+}
+.an.dk .ab-fold:hover {
+  border-color: var(--accent);
+  color: var(--ink);
+}
+.an.dk .ab-fold[aria-expanded="true"] {
+  background: var(--accent-soft);
+  color: var(--ink);
+}
+.an.dk .ab-fold:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.an.dk .ab.is-open > :not(.ab-bar) {
+  animation: dk-in 0.24s var(--dk-ease) both;
+}
+/* the bar sizes itself by its own width, not the window's: it sits in columns of every width */
+@container (max-width: 760px) {
+  .an.dk .ab-bar {
+    flex-wrap: wrap;
+  }
+  .an.dk .ab-btns {
+    flex: 1 1 100%;
+  }
+  .an.dk .ab-minis {
+    flex: 1 1 0;
+  }
+}
+
+/* ---- section tabs and chart switches: segmented controls on a soft track */
+.an.dk .sv__tabs,
+.an.dk .sv__chartbar .sv__ranges,
+.an.dk .wl__order {
+  flex-wrap: nowrap;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-2);
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.an.dk .sv__tabs::-webkit-scrollbar,
+.an.dk .sv__chartbar .sv__ranges::-webkit-scrollbar,
+.an.dk .wl__order::-webkit-scrollbar {
+  display: none;
+}
+.an.dk .sv__tabs {
+  margin: 0 0 var(--dk-gap);
+  scroll-padding-inline: 6px;
+}
+.an.dk .sv__tabs button,
+.an.dk .sv__chartbar .sv__ranges button,
+.an.dk .wl__order button {
+  flex: none;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--ink-2);
+  font-size: var(--t-mid);
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background var(--dk-fast) var(--dk-ease), color var(--dk-fast), box-shadow var(--dk-fast);
+}
+.an.dk .sv__chartbar .sv__ranges button,
+.an.dk .wl__order button {
+  min-height: 28px;
+  padding: 0 10px;
+  font-size: var(--t-small);
+}
+.an.dk .wl__order button {
+  flex: 1 1 0;
+}
+.an.dk .sv__tabs button:hover:not([aria-selected="true"]),
+.an.dk .sv__chartbar .sv__ranges button:hover:not(:disabled):not([aria-pressed="true"]),
+.an.dk .wl__order button:hover:not([aria-pressed="true"]) {
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
+  color: var(--ink);
+}
+.an.dk .sv__tabs button[aria-selected="true"],
+.an.dk .sv__chartbar .sv__ranges button[aria-pressed="true"],
+.an.dk .wl__order button[aria-pressed="true"] {
+  background: var(--surface);
+  color: var(--ink);
+  font-weight: 600;
+  box-shadow: var(--dk-raise);
+}
+.an.dk .sv__tabs button:focus-visible,
+.an.dk .sv__chartbar .sv__ranges button:focus-visible,
+.an.dk .wl__order button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.an.dk .sv__chartbar {
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.an.dk .sv__chartbar .sv__ranges {
+  max-width: 100%;
+}
+
+/* a section fades in when its tab opens */
+.an.dk .sv__body > [role="tabpanel"] {
+  min-width: 0;
+  animation: dk-in 0.22s var(--dk-ease) both;
+}
+.an.dk .sv__body > [role="tabpanel"] > .an-card:first-child {
+  margin-top: 0;
+}
+
+/* ---- the watchlist: tighter rows, a clear marker on the open stock */
+.an.dk .wl {
+  padding: 12px;
+}
+.an.dk .wl__head {
+  margin-bottom: 8px;
+}
+.an.dk .wl__head h2 {
+  font-size: var(--t-lead);
+  letter-spacing: -0.01em;
+}
+.an.dk .wl__order {
+  margin-top: 8px;
+}
+.an.dk .wl__list > li {
+  border-radius: var(--dk-r-sm);
+  transition: background var(--dk-fast) var(--dk-ease), box-shadow var(--dk-fast);
+}
+.an.dk .wl__list > li:hover:not(.is-sel) {
+  background: color-mix(in srgb, var(--accent-soft) 55%, transparent);
+}
+.an.dk .wl__list > li.is-sel {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+.an.dk .wl__list > li:hover + li,
+.an.dk .wl__list > li.is-sel + li {
+  border-top-color: transparent;
+}
+@media (min-width: 1001px) {
+  .an.dk .wl__row {
+    padding: 8px 30px 8px 12px;
+  }
+  .an.dk .wl__flags {
+    padding: 0 12px 8px;
+  }
+  .an.dk .wl {
+    scrollbar-width: thin;
+    scrollbar-color: var(--line-2) transparent;
+  }
+}
+.an.dk .wl__flags .an-chip {
+  padding: 1px 7px;
+}
+
+/* ---- the verdict rail beside the stock: a little narrower, so the chart gets the room */
+@media (min-width: 1280px) {
+  .an.dk .sv--desk {
+    grid-template-columns: minmax(0, 1fr) clamp(360px, 25vw, 470px);
+  }
+  .an.dk .sv__rail {
+    scrollbar-width: thin;
+    scrollbar-color: var(--line-2) transparent;
+  }
+}
+@media (min-width: 2200px) {
+  .an.dk .sv--desk {
+    grid-template-columns: minmax(0, 1fr) clamp(480px, 30vw, 820px);
+  }
+}
+
+/* ---- touch: every control keeps a comfortable target */
+@media (pointer: coarse) {
+  .an.dk .sv__tabs button {
+    min-height: 38px;
+  }
+  .an.dk .sv__chartbar .sv__ranges button,
+  .an.dk .wl__order button {
+    min-height: 34px;
+  }
+  .an.dk .ab-fold,
+  .an.dk .ab-gear {
+    min-height: 40px;
+  }
+}
+
+@keyframes dk-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .an.dk .sv__body > [role="tabpanel"],
+  .an.dk .ab.is-open > :not(.ab-bar) {
+    animation: none;
+  }
+  .an.dk .dk-range__bar i {
+    transition: none;
+  }
+}
+
+/* ---- the ticker on a computer: one line that wraps by itself when its column is narrow
+   (name · live call · price · Buy / Sell), instead of fixed rows per window width */
+@media (min-width: 901px) {
+  .an.dk .sv__ticker {
+    container-type: inline-size;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 18px;
+  }
+  .an.dk .sv__tk-id {
+    flex: 1 1 220px;
+    min-width: 0;
+  }
+  .an.dk .sv__tk-call {
+    flex: none;
+  }
+  .an.dk .sv__px {
+    flex: none;
+  }
+  .an.dk .sv__trade {
+    flex: none;
+    margin-left: auto;
+  }
+  .an.dk .sv__ticker .sv__px {
+    flex: 0 1 auto;
+    max-width: 260px;
+    min-width: 0;
+  }
+  /* the streaming line under the price: one line, never a block that makes the bar tall */
+  .an.dk .sv__ticker .sv__px small {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+/* wide enough for one line, but not with the streaming line under the price: that line goes
+   (bid and ask are in the order book, the feed state in the status line) */
+@container (min-width: 680px) and (max-width: 829px) {
+  .an.dk .sv__ticker .sv__px small {
+    display: none;
+  }
+}
+/* narrower: two tidy rows — name and price, then the live call and Buy / Sell */
+@container (max-width: 679px) {
+  .an.dk .sv__tk-id {
+    order: 1;
+    flex: 1 1 50%;
+  }
+  .an.dk .sv__ticker .sv__px {
+    order: 2;
+    flex: 0 1 240px;
+  }
+  .an.dk .sv__tk-call {
+    order: 3;
+    flex: 1 1 50%;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 10px;
+    min-width: 0;
+  }
+  .an.dk .sv__tk-call small {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .an.dk .sv__trade {
+    order: 4;
+  }
+}
+@media (min-width: 901px) {
+  .an.dk .sv__tabs button {
+    padding: 0 10px;
+  }
+  .an.dk .ab-btn {
+    padding: 6px 10px;
+  }
+  .an.dk .ab-mini {
+    min-width: 84px;
+    padding: 3px 8px;
+  }
+  .an.dk .ab-fold {
+    padding: 0 10px;
+  }
+}
+/* the watchlist column: room for its list switcher and the three order buttons */
+@media (min-width: 1001px) {
+  .an.dk .an__grid {
+    grid-template-columns: clamp(256px, 17vw, 300px) minmax(0, 1fr);
+  }
+  .an.dk .wl__order button {
+    padding: 0 6px;
+  }
+}
+@media (min-width: 1900px) {
+  .an.dk .an__grid {
+    grid-template-columns: clamp(280px, 15vw, 340px) minmax(0, 1fr);
+  }
+}
+@media (min-width: 1280px) {
+  .an.dk .sv__rail {
+    margin-top: 0;
+  }
+}
+
+/* ---- the watchlist on a phone: the list switcher gets its own line under the head, so the
+   three order buttons beside Rescan keep their room */
+@media (max-width: 900px) {
+  .an.dk .wl {
+    grid-template-areas: "head order" "lists lists" "search search" "list list";
+  }
+  .an.dk .wl__lists {
+    grid-area: lists;
+    margin: 0;
+  }
+  .an.dk .wl__order {
+    justify-self: end;
+    max-width: 100%;
+  }
+  .an.dk .wl__order button {
+    flex: 0 0 auto;
+    padding: 0 8px;
+  }
+}
