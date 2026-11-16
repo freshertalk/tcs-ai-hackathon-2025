@@ -230,7 +230,7 @@ export function PeriodTable({ per, sel, onPick }) {
               <th scope="col" className="is-num">
                 Net P&amp;L
               </th>
-              <th scope="col" className="is-num" data-tip="Net as a share of the money put into the period's trades (each trade's size at its entry price, added up).">
+              <th scope="col" className="is-num" data-tip="The period's net as a share of your principal (the capital you put in, month by month). Add your capital under Returns.">
                 Return
               </th>
               <th scope="col" className="is-num">
@@ -259,7 +259,7 @@ export function PeriodTable({ per, sel, onPick }) {
                 <td className={`is-num ${tone(r.gross)}`}>{r.trades ? sMoney(r.gross) : "—"}</td>
                 <td className="is-num">{r.trades ? sMoney(-r.charges) : "—"}</td>
                 <td className={`is-num jp-net ${tone(r.net)}`}>{r.trades ? sMoney(r.net) : "—"}</td>
-                <td className={`is-num ${tone(r.netPct)}`}>{r.trades ? sPctText(r.netPct) : "—"}</td>
+                <td className={`is-num ${tone(r.pct)}`}>{r.trades ? sPctText(r.pct) : "—"}</td>
                 <td className={`is-num ${r.profitFactor !== null && r.profitFactor < 1 && r.trades ? "is-down" : ""}`}>{r.trades ? pf(r.profitFactor) : "—"}</td>
                 <td className="is-num">{r.trades && r.maxDrawdown ? sMoney(-r.maxDrawdown) : "—"}</td>
                 <td>
@@ -456,7 +456,7 @@ export function MonthTable({ months, label }) {
               <th scope="col" className="is-num">
                 Net
               </th>
-              <th scope="col" className="is-num" data-tip="Net as a share of the money put into that month's trades.">
+              <th scope="col" className="is-num" data-tip="Net as a share of your principal in that month (the principal on its first trading day; additions count from their day).">
                 Return
               </th>
               <th scope="col" className="is-num">
@@ -533,7 +533,7 @@ export function DayTable({ days, label }) {
               <th scope="col" className="is-num">
                 Net
               </th>
-              <th scope="col" className="is-num" data-tip="Net as a share of the money put into that day's trades.">
+              <th scope="col" className="is-num" data-tip="Net as a share of your principal that day.">
                 Return
               </th>
             </tr>

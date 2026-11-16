@@ -72,7 +72,10 @@
 }
 
 /* ---------------------------------------------------------------- the live banner */
+/* the strip is opaque (a tint laid over the page's own background, never see-through), so what scrolls under it
+   is hidden, not mixed into it; it slides in, shrinks to one line on scroll, and slides away on "Got it" */
 .dg-banner {
+  --dg-tint: var(--warn-bg);
   position: sticky;
   top: var(--tm-top, 52px);
   z-index: 55;
@@ -83,18 +86,65 @@
   gap: 8px 16px;
   padding: 10px 16px;
   border-bottom: 1px solid var(--warn-line);
-  background: var(--warn-bg);
+  background: linear-gradient(var(--dg-tint), var(--dg-tint)), var(--paper, #fff);
   color: var(--warn-ink);
+  box-shadow: 0 8px 18px -14px rgba(0, 0, 0, 0.7);
+  overflow: hidden;
+  transition: padding 0.22s ease, opacity 0.22s ease, transform 0.22s ease;
+  animation: dg-in 0.32s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 .dg-banner--danger {
+  --dg-tint: var(--down-bg);
   border-color: var(--down-line);
-  background: var(--down-bg);
   color: var(--down-ink);
 }
 .dg-banner--success {
+  --dg-tint: var(--up-bg);
   border-color: var(--up-line);
-  background: var(--up-bg);
   color: var(--up-ink);
+}
+.dg-banner.is-compact {
+  padding: 5px 16px;
+  flex-wrap: nowrap;
+}
+.dg-banner.is-compact .dg-banner__main {
+  flex: 1 1 0;
+  grid-auto-flow: column;
+  grid-auto-columns: max-content minmax(0, 1fr);
+  align-items: baseline;
+  gap: 10px;
+}
+.dg-banner.is-compact .dg-banner__main b {
+  font-size: var(--t-small);
+  white-space: nowrap;
+}
+.dg-banner.is-compact .dg-banner__main span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dg-banner.is-compact .dg-banner__act {
+  flex-wrap: nowrap;
+}
+.dg-banner.is-leaving {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+@keyframes dg-in {
+  from {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dg-banner {
+    animation: none;
+    transition: none;
+  }
 }
 .dg-banner__main {
   display: grid;

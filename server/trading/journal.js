@@ -24,6 +24,7 @@
 const crypto = require("node:crypto");
 const { readXlsx } = require("./xlsx");
 const retro = require("./retro");
+const R = require("./returns");
 
 const IST = 5.5 * 3600 * 1000;
 const NAME = "trading/journal.json";
@@ -638,6 +639,9 @@ function byMonth(closed) {
 
 const MISTAKES = ["Chased the entry", "No stop", "Moved the stop", "Exited too early", "Held a loser", "Oversized", "Against the trend", "Revenge trade", "Overtraded", "Ignored the plan"];
 
+/** The last day of a "YYYY-MM" month. */
+const monthEnd = (m) => `${m}-${String(new Date(Date.UTC(Number(m.slice(0, 4)), Number(m.slice(5, 7)), 0)).getUTCDate()).padStart(2, "0")}`;
+
 class TradeJournal {
   constructor(docs) {
     this.docs = docs;
@@ -677,7 +681,7 @@ class TradeJournal {
   _load() {
     const d = this.docs.read(NAME, null);
     this._migrate();
-    const out = { tags: (d && d.tags) || {}, excursions: (d && d.excursions) || {}, imports: (d && d.imports) || [], captured: (d && d.captured) || {}, accountSince: (d && d.accountSince) || "", views: (d && d.views) || [], retros: (d && d.retros) || [] };
+    const out = { tags: (d && d.tags) || {}, excursions: (d && d.excursions) || {}, imports: (d && d.imports) || [], captured: (d && d.captured) || {}, accountSince: (d && d.accountSince) || "", views: (d && d.views) || [], retros: (d && d.retros) || [], capital: (d && d.capital) || [] };
     if (!this._itemMode()) out.fills = (d && d.fills) || {};
     return out;
   }
@@ -735,6 +739,53 @@ class TradeJournal {
     d.accountSince = v;
     this._save(d);
     return { accountSince: v };
+  }
+
+  /* ------------------------------------------------------------------ the capital ledger */
+
+  /** The money put in: the first capital, each addition, each withdrawal (dated, newest last). */
+  capital() {
+    return R.ledger(this._load().capital).map((e) => ({ ...e }));
+  }
+
+  /** Record money added (positive) or taken out (negative) on a day. The principal may never go below zero. */
+  addCapital({ date, amount, note = "" } = {}, now = Date.now()) {
+    const day = String(date || "").trim();
+    const amt = Number(amount);
+    if (!validDay(day) || day > istDay(now) || day < "2000-01-01") return { error: "Give the day the money went in as a date that has passed (YYYY-MM-DD)." };
+    if (!Number.isFinite(amt) || amt === 0 || Math.abs(amt) > 1e10) return { error: "Give an amount: positive for money added, negative for money taken out." };
+    const d = this._load();
+    if ((d.capital || []).length >= 500) return { error: "The ledger holds 500 entries; remove one first." };
+    const entry = { id: crypto.randomBytes(5).toString("hex"), date: day, amount: Math.round(amt * 100) / 100, note: String(note || "").trim().slice(0, 120), at: new Date(now).toISOString() };
+    const next = [...(d.capital || []), entry];
+    const bad = R.overdrawn(next);
+    if (bad) return { error: `That would take the principal below zero on ${bad.date}: money cannot be taken out that was never put in.` };
+    d.capital = next;
+    this._save(d);
+    return { entry, capital: this.capital() };
+  }
+
+  removeCapital(id) {
+    const d = this._load();
+    const left = (d.capital || []).filter((e) => e.id !== String(id));
+    if (left.length === (d.capital || []).length) return { error: "There is no such entry." };
+    const bad = R.overdrawn(left);
+    if (bad) return { error: `Removing it would take the principal below zero on ${bad.date}: remove the later withdrawal first.` };
+    d.capital = left;
+    this._save(d);
+    return { capital: this.capital() };
+  }
+
+  /**
+   * The returns on the principal for a period (or all trades when none): by month, by day, the risk ratios.
+   * @param filters the journal's filters (period, from, to, symbol, side, kind, setup)
+   */
+  returns(filters = {}, now = Date.now()) {
+    const closed = this.trips(filters).filter((t) => !t.open);
+    const first = this.firstAt();
+    const fromDay = (filters.period && filters.period.fromDay) || (filters.from ? istDay(filters.from) : first ? istDay(first) : istDay(now));
+    const toDay = (filters.period && filters.period.toDay) || (filters.to ? istDay(Math.min(filters.to, now)) : istDay(now));
+    return R.compute({ trips: closed, entries: this._load().capital, fromDay, toDay });
   }
 
   ingestKite(trades) {
@@ -871,10 +922,13 @@ class TradeJournal {
     const firstAt = this.firstAt();
     const today = istDay(now);
     const closed = this.trips({}).filter((t) => !t.open);
+    const entries = d.capital || [];
     const row = (id) => {
       const p = periodRange(id, now, { firstAt });
       if (!p) return null;
-      return { ...p, ...summarize(closed.filter((t) => (!p.from || t.exitAt >= p.from) && t.exitAt <= p.to)) };
+      const inside = closed.filter((t) => (!p.from || t.exitAt >= p.from) && t.exitAt <= p.to);
+      const rp = R.periodPct(inside, entries, p.fromDay || (firstAt ? istDay(firstAt) : today), p.toDay);
+      return { ...p, ...summarize(inside), pct: rp.pct, base: rp.base };
     };
     const startDay = d.accountSince || (firstAt ? istDay(firstAt) : today);
     const fys = [];
@@ -912,7 +966,8 @@ class TradeJournal {
       },
       gaps: gaps.sort((a, b) => b.weekdays - a.weekdays).slice(0, 12).sort((a, b) => (a.fromDay < b.fromDay ? 1 : -1)),
       // every month since the first trade, for the heatmap (financial year × month)
-      months: byMonth(closed).map((x) => ({ month: x.month, fy: fyOf(`${x.month}-01`), net: x.net, gross: x.gross, charges: x.charges, trades: x.trades, winRate: x.winRate, profitFactor: x.profitFactor })),
+      capital: R.ledger(entries).length,
+      months: byMonth(closed).map((x) => ({ month: x.month, fy: fyOf(`${x.month}-01`), pct: (R.compute({ trips: closed.filter((t) => istDay(t.exitAt).startsWith(x.month)), entries, fromDay: `${x.month}-01`, toDay: monthEnd(x.month) }).months[0] || {}).pct ?? null, net: x.net, gross: x.gross, charges: x.charges, trades: x.trades, winRate: x.winRate, profitFactor: x.profitFactor })),
       views: d.views,
     };
   }

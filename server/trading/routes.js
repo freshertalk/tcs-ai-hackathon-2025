@@ -110,10 +110,22 @@ function mountTrading(app, { trading, ai, requireSuper, limiter, capture = null 
   app.get("/api/admin/trading/journal", requireSuper, wrap(async (req) => {
     const f = filtersOf(req.query || {});
     const view = await trading.journalView(f);
-    return { ...view, analytics: trading.journal.analytics(f) };
+    return { ...view, analytics: trading.journal.analytics(f), returns: trading.journal.returns(f, nowMs()), capital: trading.journal.capital() };
   }));
   // profit and loss for every period at once, every financial year since the account opened, the month heatmap,
   // where the history comes from (and its gaps), your saved views and the automatic capture
+  // the capital ledger: the money put in (and taken out), which every percentage return is measured on
+  app.get("/api/admin/trading/journal/capital", requireSuper, wrap(async () => ({ capital: trading.journal.capital() })));
+  app.post("/api/admin/trading/journal/capital", requireSuper, limiter(60, 10 * 60 * 1000), wrap(async (req) => {
+    const r = trading.journal.addCapital(req.body || {}, nowMs());
+    if (r.error) throw new TradingError(r.error);
+    return r;
+  }));
+  app.delete("/api/admin/trading/journal/capital/:id", requireSuper, limiter(60, 10 * 60 * 1000), wrap(async (req) => {
+    const r = trading.journal.removeCapital(String(req.params.id || "").slice(0, 20));
+    if (r.error) throw new TradingError(r.error);
+    return r;
+  }));
   app.get("/api/admin/trading/journal/periods", requireSuper, wrap(async () => ({ ...trading.journal.periods(nowMs()), capture: capture ? capture.status() : null, snapshots: { days: Object.keys(trading.journal.snapshots().days).length, latestAt: trading.journal.snapshots().latestAt } })));
   app.post("/api/admin/trading/journal/capture", requireSuper, limiter(20, 10 * 60 * 1000), wrap(async () => {
     if (!capture) throw new TradingError("Automatic capture is not running on this server.", "not_configured", 409);

@@ -1,5 +1,5 @@
 import React from "react";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { DailyGoalCard, GoalBanner, GoalPill } from "./DailyGoal";
 
 jest.mock("../../api", () => ({ api: jest.fn(() => Promise.resolve({ config: {} })) }));
@@ -17,12 +17,12 @@ test("the top bar's pill shows today against the target, and warns while profits
   expect(pill.textContent).toMatch(/₹3,000/);
 });
 
-test("the banner says what happened and what to do; Got it quiets it until it repeats", () => {
+test("the banner says what happened and what to do; Got it quiets it until it repeats", async () => {
   render(<GoalBanner goal={giveback} onOpen={() => {}} />);
   expect(screen.getByRole("alert").textContent).toMatch(/given back 58%/);
   expect(screen.getByText(/Waiting for more is the habit/)).toBeTruthy();
   fireEvent.click(screen.getByText("Got it"));
-  expect(screen.queryByRole("alert")).toBeNull();
+  await waitFor(() => expect(screen.queryByRole("alert")).toBeNull()); // it slides away first
 });
 
 test("on plan, there is no banner; a position giving back its gain raises one with the price that keeps half", () => {
@@ -42,4 +42,15 @@ test("the card shows the numbers and the settings, with the lock-new-trades swit
   expect(screen.getByText(/Lock new trades at the target and the stop/).querySelector("input") || screen.getByLabelText(/Lock new trades/)).toBeTruthy();
   expect(screen.getByLabelText(/Lock new trades/).checked).toBe(false);
   expect(screen.getByText("Save the daily goal")).toBeTruthy();
+});
+
+test("the banner keeps one line once the page is scrolled, and tells the page how tall it is", () => {
+  render(<GoalBanner goal={giveback} onOpen={() => {}} />);
+  const el = screen.getByRole("alert");
+  expect(el.className).not.toMatch(/is-compact/);
+  expect(document.documentElement.style.getPropertyValue("--dg-h")).not.toBeUndefined();
+  Object.defineProperty(window, "scrollY", { value: 200, configurable: true });
+  fireEvent.scroll(window);
+  expect(screen.getByRole("alert").className).toMatch(/is-compact/);
+  Object.defineProperty(window, "scrollY", { value: 0, configurable: true });
 });

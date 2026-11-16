@@ -174,25 +174,59 @@ export function GoalPill({ goal: given, onClick }) {
 /** The live banner under the top bar while a reminder holds; "Got it" quiets it until it repeats. */
 export function GoalBanner({ goal, onOpen }) {
   const [snooze, setSnooze] = useState(() => read(SNOOZE_KEY, {}));
-  if (!goal || !goal.available || !goal.enabled) return null;
-  const pos = goal.positions || [];
-  const show = ALERTING.has(goal.state) || (goal.state === "target-hit" && goal.open > 0) || goal.state === "near-target" || pos.length > 0;
-  if (!show) return null;
-  const key = `${goal.day}:${goal.state}:${pos.map((p) => p.key).join(",")}`;
+  const [compact, setCompact] = useState(false);
+  const [leaving, setLeaving] = useState(false);
+  const ref = useRef(null);
+  const pos = (goal && goal.positions) || [];
+  const show = Boolean(goal && goal.available && goal.enabled && (ALERTING.has(goal.state) || (goal.state === "target-hit" && goal.open > 0) || goal.state === "near-target" || pos.length > 0));
+  const key = goal ? `${goal.day}:${goal.state}:${pos.map((p) => p.key).join(",")}` : "";
   const until = snooze[key];
-  if (until && Date.now() < until) return null;
+  const visible = show && !(until && Date.now() < until);
+  // the strip shrinks to one line once the page is scrolled, and tells the page how tall it is (--dg-h) so
+  // anything else that sticks under the top bar can sit below it instead of behind it
+  useEffect(() => {
+    if (!visible) return undefined;
+    const onScroll = () => setCompact(window.scrollY > 24);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [visible]);
+  useEffect(() => {
+    const el = ref.current;
+    const root = document.documentElement;
+    if (!visible || !el) {
+      root.style.removeProperty("--dg-h");
+      return undefined;
+    }
+    const set = () => root.style.setProperty("--dg-h", `${el.offsetHeight}px`);
+    set();
+    let ro = null;
+    if (typeof ResizeObserver !== "undefined") {
+      ro = new ResizeObserver(set);
+      ro.observe(el);
+    }
+    return () => {
+      if (ro) ro.disconnect();
+      root.style.removeProperty("--dg-h");
+    };
+  }, [visible, compact]);
+  if (!visible) return null;
   const quiet = () => {
     const next = { [key]: Date.now() + (goal.config.repeatMin || 10) * 60000 };
-    setSnooze(next);
-    write(SNOOZE_KEY, next);
+    setLeaving(true);
+    window.setTimeout(() => {
+      setSnooze(next);
+      write(SNOOZE_KEY, next);
+      setLeaving(false);
+    }, 220);
   };
   const dayLevel = goal.state !== "ok" && goal.state !== "protect";
   const head = dayLevel ? goal.title : pos.length === 1 ? `${pos[0].symbol} is giving back its gain` : `${pos.length} positions are giving back their gains`;
   const body = dayLevel ? `${goal.text} ${goal.action}${pos.length ? ` Also: ${pos.map((p) => p.text).join(" ")}` : ""}` : pos.map((p) => p.text).join(" ");
   const t = dayLevel ? toneOf(goal) : "warning";
   return (
-    <div className={`dg-banner dg-banner--${t}`} role="alert">
-      <div className="dg-banner__main">
+    <div ref={ref} className={`dg-banner dg-banner--${t} ${compact ? "is-compact" : ""} ${leaving ? "is-leaving" : ""}`} role="alert">
+      <div className="dg-banner__main" title={compact ? `${head}. ${body}` : undefined}>
         <b>{head}</b>
         <span>{body}</span>
       </div>

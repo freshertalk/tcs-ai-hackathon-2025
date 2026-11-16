@@ -14,6 +14,9 @@ import { useAiStatus } from "../../aiStatus";
 import { isNum, num, when } from "../analyzer/format";
 import { DayTable, FyChart, MonthHeatmap, MonthTable, PeriodBar, PeriodTable, Sources, dayLabel, downloadCsv, monthLabel } from "./JournalPeriods";
 import { Dashboard, Hero, Retro, useRetro } from "./JournalCharts";
+import { CommandBar, PrintReport, ReturnsTab, TABS, downloadJson } from "./JournalPro";
+import { LineChart } from "../analysis/charts";
+import { everyVisible } from "../../visible";
 import DayBook from "../analysis/DayBook";
 import "./trade.css";
 const IST = 5.5 * 3600 * 1000;
@@ -26,6 +29,14 @@ const hold = (m) => (!isNum(m) ? "open" : m < 60 ? `${m}m` : m < 60 * 24 ? `${Ma
 /* ---------------------------------------------------------- equity curve */
 
 const TRIP_ROWS = 25;
+const TAB_KEY = "vpt.journal.tab";
+const SORTS = [
+  ["new", "Newest first"],
+  ["old", "Oldest first"],
+  ["best", "Best result"],
+  ["worst", "Worst result"],
+  ["long", "Longest held"],
+];
 
 /* --------------------------------------------------------- P&L calendar */
 const longDay = (k) => new Date(`${k}T00:00:00Z`).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
@@ -385,7 +396,20 @@ function TradesJournal() {
   const [state, setState] = useState({ loading: true, data: null, error: "" });
   const [per, setPer] = useState(null);
   const [editing, setEditing] = useState("");
-  const [allTrips, setAllTrips] = useState(false); // the list opens on the latest few; the totals above always cover every trade
+  const [tab, setTab] = useState(() => {
+    try {
+      const t = window.localStorage.getItem(TAB_KEY);
+      return TABS.some((x) => x.id === t) ? t : "overview";
+    } catch (_) {
+      return "overview";
+    }
+  });
+  const [q, setQ] = useState("");
+  const [result, setResult] = useState("all");
+  const [sortBy, setSortBy] = useState("new");
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(TRIP_ROWS);
+  const [updatedAt, setUpdatedAt] = useState(null);
   const [hmsg, setHmsg] = useState({ kind: "", text: "" }); // MAE / MFE (shown at the top)
   const [busy, setBusy] = useState("");
   const top = useRef(null);
@@ -394,7 +418,10 @@ function TradesJournal() {
     const q = new URLSearchParams({ period: sel.period, ...(sel.period === "custom" ? { from: sel.from, to: sel.to } : {}), ...(kind ? { kind } : {}), ...(side ? { side } : {}), ...(setup ? { setup } : {}) });
     setState((s) => ({ ...s, loading: true, error: "" }));
     api(`/api/admin/trading/journal?${q}`)
-      .then((d) => setState({ loading: false, data: d, error: "" }))
+      .then((d) => {
+        setState({ loading: false, data: d, error: "" });
+        setUpdatedAt(Date.now());
+      })
       .catch((e) => setState((s) => ({ loading: false, data: s.data, error: e.message })));
   }, [sel, kind, side, setup]);
   const loadPer = useCallback(() => {
@@ -404,6 +431,28 @@ function TradesJournal() {
   }, []);
   useEffect(() => load(), [load]);
   useEffect(() => loadPer(), [loadPer]);
+  // the journal keeps itself current while the tab is in view
+  useEffect(() => everyVisible(() => load(), 60000, { catchUp: true }), [load]);
+  const goTab = useCallback((t) => {
+    setTab(t);
+    try {
+      window.localStorage.setItem(TAB_KEY, t);
+    } catch (_) {
+      /* remembered for this visit only */
+    }
+  }, []);
+  // 1–6 switch the tabs (not while typing)
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      const el = e.target;
+      if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable)) return;
+      const t = TABS.find((x) => x.key === e.key);
+      if (t) goTab(t.id);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [goTab]);
   // a saved view brings its filters with it
   useEffect(() => {
     if (!sel.view) return;
@@ -440,10 +489,39 @@ function TradesJournal() {
   const d = state.data;
   const s = d ? d.stats : null;
   const a = d ? d.analytics : null;
+  const rt = d ? d.returns || null : null;
+  const capital = d ? d.capital || [] : [];
   const period = d && d.period;
   const label = period ? period.label : "";
   const fileTag = period ? `${period.fromDay || "start"}_${period.toDay}` : "journal";
   const bySym = useMemo(() => (s && s.by && s.by.symbol ? [...s.by.symbol.slice(0, 8), ...s.by.symbol.slice(-4).filter((x) => !s.by.symbol.slice(0, 8).includes(x))] : []), [s]);
+  const monthRows = useMemo(() => {
+    if (!a) return null;
+    const by = Object.fromEntries(((rt && rt.months) || []).map((m) => [m.month, m.pct]));
+    return a.months.map((m) => ({ ...m, netPct: by[m.month] ?? null }));
+  }, [a, rt]);
+  const dayRows = useMemo(() => {
+    if (!s) return [];
+    const by = Object.fromEntries(((rt && rt.daily) || []).map((x) => [x.date, x.pct]));
+    return s.calendar.map((x) => ({ ...x, netPct: by[x.key] ?? null }));
+  }, [s, rt]);
+  // the trades list: search, result, sort, page
+  const shown = useMemo(() => {
+    if (!d) return [];
+    const needle = q.trim().toUpperCase();
+    let list = d.trips.filter((t) => (!needle || t.symbol.includes(needle)) && (result === "all" || (result === "win" && !t.open && t.net > 0) || (result === "loss" && !t.open && t.net < 0) || (result === "open" && t.open)));
+    const at = (t) => (t.open ? t.entryAt : t.exitAt);
+    if (sortBy === "old") list = [...list].sort((x, y) => at(x) - at(y));
+    else if (sortBy === "best") list = [...list].sort((x, y) => (y.net ?? 0) - (x.net ?? 0));
+    else if (sortBy === "worst") list = [...list].sort((x, y) => (x.net ?? 0) - (y.net ?? 0));
+    else if (sortBy === "long") list = [...list].sort((x, y) => (y.holdMin ?? 0) - (x.holdMin ?? 0));
+    return list;
+  }, [d, q, result, sortBy]);
+  useEffect(() => setPage(0), [q, result, sortBy, pageSize, d]);
+  const pages = Math.max(1, Math.ceil(shown.length / pageSize));
+  const pageRows = shown.slice(page * pageSize, page * pageSize + pageSize);
+  const shownNet = shown.reduce((x, t) => x + (t.open ? 0 : t.net || 0), 0);
+  const filterText = [kind || "", side || "", setup ? `setup ${setup}` : ""].filter(Boolean).join(" · ") || "all trades";
   const tripsCsv = () =>
     downloadCsv(
       `trades-${fileTag}.csv`,
@@ -508,21 +586,94 @@ function TradesJournal() {
       {d && d.fills === 0 && <p className="adm-alert adm-alert--info">The journal is empty. Trades are added by themselves every trading day while Zerodha is connected; import your Console tradebooks below for the history since your account opened.</p>}
       {s && s.trades === 0 && d.fills > 0 && <p className="adm-alert adm-alert--info">No closed trades in {label || "this period"}. Pick another period above, or a row in the table below.</p>}
 
-      {s && s.trades > 0 && (
+      <CommandBar
+        label={label}
+        s={s}
+        rt={rt}
+        tab={tab}
+        setTab={goTab}
+        counts={{ trades: d ? d.trips.length : 0 }}
+        updatedAt={updatedAt}
+        loading={state.loading}
+        onRefresh={() => {
+          load();
+          loadPer();
+        }}
+        onTop={() => top.current && top.current.scrollIntoView && top.current.scrollIntoView({ behavior: "smooth", block: "start" })}
+        gaps={per ? per.gaps.length : 0}
+      />
+
+      {state.loading && !d && <Loading label="Reading your journal…" />}
+      {d && d.fills === 0 && <p className="adm-alert adm-alert--info">The journal is empty. Trades are added by themselves every trading day while Zerodha is connected; import your Console tradebooks below for the history since your account opened.</p>}
+      {s && s.trades === 0 && d.fills > 0 && <p className="adm-alert adm-alert--info">No closed trades in {label || "this period"}. Pick another period above, or a row in the table below.</p>}
+
+
+      {tab === "overview" && s && s.trades > 0 && (
         <>
-          <Hero s={s} a={a} label={label} period={period} onRetro={retro.run} busy={retro.busy} />
+          <Hero s={s} a={a} rt={rt} label={label} period={period} onRetro={retro.run} busy={retro.busy} onCapital={() => goTab("returns")} />
           <Alert>{retro.err}</Alert>
           {retro.r && <Retro r={retro.r} list={retro.list} onOpen={retro.open} onClose={retro.close} />}
-          <Dashboard s={s} a={a} />
-
+          <dl className="jp2-tiles jr-glance">
+            <div className="jp2-tile">
+              <dt>Expectancy</dt>
+              <dd className={tone(s.expectancy)}>{sMoney(s.expectancy)}</dd>
+              <small>average result of a trade, after charges</small>
+            </div>
+            <div className="jp2-tile">
+              <dt>Profit factor</dt>
+              <dd>{s.profitFactor === null ? "∞" : num(s.profitFactor)}</dd>
+              <small>won for every ₹1 lost</small>
+            </div>
+            <div className="jp2-tile">
+              <dt>Average win / loss</dt>
+              <dd>
+                <span className="is-up">{sMoney(s.avgWin)}</span> / <span className="is-down">{sMoney(s.avgLoss)}</span>
+              </dd>
+              <small>payoff {s.payoff === null ? "—" : num(s.payoff)}</small>
+            </div>
+            <div className="jp2-tile">
+              <dt>Charges</dt>
+              <dd>{sMoney(-s.charges)}</dd>
+              <small>{a && a.summary.chargesPct !== null ? `${num(a.summary.chargesPct, 0)}% of the gross profit` : "brokerage and taxes"}</small>
+            </div>
+            <div className="jp2-tile">
+              <dt>Deepest fall</dt>
+              <dd className="is-down">{sMoney(-s.maxDrawdown)}</dd>
+              <small>{rt && rt.hasCapital && rt.risk.maxDrawdownPct !== null ? `${rt.risk.maxDrawdownPct.toFixed(2)} pts of principal` : "from the running total's peak"}</small>
+            </div>
+            <div className="jp2-tile">
+              <dt>Green days</dt>
+              <dd>
+                {s.greenDays} / {s.tradingDays}
+              </dd>
+              <small>
+                runs: {s.bestStreak} wins · {s.worstStreak} losses
+              </small>
+            </div>
+          </dl>
+          {s.curve.length > 1 && (
+            <section className="an-card">
+              <header className="jp-head">
+                <h3 className="jr-h">Your money over time</h3>
+                <small className="jp2-dim">running profit or loss after charges, trade by trade</small>
+              </header>
+              <LineChart xs={s.curve.map((c) => day(c.at))} series={[{ label: "Total so far", values: s.curve.map((c) => c.equity), c: s.net >= 0 ? "up" : "down", area: true }]} height={230} label="Your total profit or loss over time" />
+            </section>
+          )}
           <section className="an-card jr-calcard">
             <h3 className="jr-h">📆 Every day on a calendar</h3>
             <p className="jc-info">Green days made money, red days lost money; the deeper the colour, the bigger the amount. Point at a day for its figures.</p>
             <Calendar days={s.calendar} fromDay={period && period.fromDay} toDay={period && period.toDay} />
           </section>
 
-          {a && <MonthTable months={a.months} label={fileTag} />}
-          <DayTable days={s.calendar} label={fileTag} />
+        </>
+      )}
+
+      {tab === "returns" && <ReturnsTab rt={rt} capital={capital} label={fileTag} onChanged={() => { load(); loadPer(); }} />}
+
+      {tab === "performance" && s && s.trades > 0 && (
+        <>
+          <Dashboard s={s} a={a} />
 
           <details className="an-card jr-more-card">
             <summary>
@@ -625,15 +776,10 @@ function TradesJournal() {
           </details>
         </>
       )}
+      {tab === "performance" && s && s.trades === 0 && <p className="ta-empty">Nothing to analyse in {label || "this period"}.</p>}
 
-      {per && <PeriodTable per={per} sel={sel.period} onPick={pick} />}
-      {per && (
-        <div className="jp-two">
-          <FyChart per={per} onPick={pick} />
-          <MonthHeatmap per={per} onMonth={pickMonth} />
-        </div>
-      )}
-
+      {tab === "trades" && (
+        <>
       {d && d.trips.length > 0 && (
         <section className="an-card jr-tripcard">
           <header className="jp-head">
@@ -642,6 +788,25 @@ function TradesJournal() {
               ⤓ CSV
             </button>
           </header>
+          <div className="jr-tools">
+            <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search a stock…" aria-label="Search a stock" />
+            <select value={result} onChange={(e) => setResult(e.target.value)} aria-label="Result">
+              <option value="all">All results</option>
+              <option value="win">Winners</option>
+              <option value="loss">Losers</option>
+              <option value="open">Still open</option>
+            </select>
+            <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} aria-label="Sort">
+              {SORTS.map(([v, l]) => (
+                <option key={v} value={v}>
+                  {l}
+                </option>
+              ))}
+            </select>
+            <span className="jr-tools__sum">
+              {shown.length} of {d.trips.length} trades · net <b className={tone(shownNet)}>{sMoney(shownNet)}</b>
+            </span>
+          </div>
           <div className="bt__scroll tr">
             <table className="an-table tr-table jr-trips">
               <thead>
@@ -668,7 +833,7 @@ function TradesJournal() {
                 </tr>
               </thead>
               <tbody>
-                {(allTrips ? d.trips : d.trips.slice(0, TRIP_ROWS)).map((t) => (
+                {pageRows.map((t) => (
                   <React.Fragment key={t.key}>
                     <tr className={t.open ? "is-closed" : ""}>
                       <td>
@@ -735,15 +900,75 @@ function TradesJournal() {
               </tbody>
             </table>
           </div>
-          {d.trips.length > TRIP_ROWS && (
-            <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm jr-more" onClick={() => setAllTrips((x) => !x)}>
-              {allTrips ? `Show only the latest ${TRIP_ROWS}` : `Show all ${d.trips.length} round trips`}
-            </button>
+          {shown.length > 0 && (
+            <div className="jr-pager">
+              <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm" onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page === 0}>
+                ← Newer
+              </button>
+              <span>
+                Page {page + 1} of {pages}
+              </span>
+              <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm" onClick={() => setPage((p) => Math.min(pages - 1, p + 1))} disabled={page >= pages - 1}>
+                Older →
+              </button>
+              <label>
+                Rows{" "}
+                <select value={pageSize} onChange={(e) => setPageSize(Number(e.target.value))} aria-label="Rows per page">
+                  {[25, 50, 100, 250].map((n) => (
+                    <option key={n} value={n}>
+                      {n}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
           )}
           <p className="vd-note">Charges are estimated from Zerodha’s published equity rates (brokerage, STT, exchange and SEBI fees, GST, stamp duty, DP charge); your contract note is the truth. F&amp;O charges are not estimated.</p>
         </section>
       )}
 
+        </>
+      )}
+
+      {tab === "calendar" && (
+        <>
+          {s && s.trades > 0 && (
+            <>
+          {monthRows && <MonthTable months={monthRows} label={fileTag} />}
+          <DayTable days={dayRows} label={fileTag} />
+            </>
+          )}
+      {per && <PeriodTable per={per} sel={sel.period} onPick={pick} />}
+      {per && (
+        <div className="jp-two">
+          <FyChart per={per} onPick={pick} />
+          <MonthHeatmap per={per} onMonth={pickMonth} />
+        </div>
+      )}
+
+        </>
+      )}
+
+      {tab === "reports" && (
+        <>
+          <section className="an-card">
+            <header className="jp-head">
+              <h3 className="jr-h">Reports and downloads</h3>
+            </header>
+            <p className="jc-info">Print a clean report of {label || "the period"} (Save as PDF from the print window), or download the data for your own analysis.</p>
+            <div className="jr-exports">
+              <button type="button" className="adm-btn adm-btn--sm" onClick={() => window.print()} disabled={!s || !s.trades}>
+                🖨 Print / save as PDF
+              </button>
+              <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm" onClick={tripsCsv} disabled={!d || !d.trips.length}>
+                ⤓ Trades CSV
+              </button>
+              <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm" onClick={() => downloadJson(`journal-${fileTag}.json`, { period: period || null, filters: { kind, side, setup }, summary: s, returns: rt, capital, trades: d ? d.trips : [] })} disabled={!s}>
+                ⤓ Everything as JSON
+              </button>
+            </div>
+          </section>
+          {s && s.trades > 0 && <PrintReport label={label} period={period} s={s} rt={rt} a={a} trips={d.trips.filter((t) => !t.open)} filters={filterText} />}
       {per && (
         <Sources
           per={per}
@@ -755,7 +980,11 @@ function TradesJournal() {
         />
       )}
 
+
       <ReviewPanel sel={sel} label={label} />
+
+        </>
+      )}
     </div>
   );
 }

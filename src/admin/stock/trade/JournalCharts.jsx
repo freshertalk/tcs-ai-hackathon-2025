@@ -6,6 +6,7 @@
 // Every chart says in one line what it shows; every number is also written, not only drawn.
 
 import React, { useEffect, useState } from "react";
+import { principalNote } from "./JournalPro";
 import { api } from "../../api";
 import { DailyBars, HBars, LineChart, Waterfall, rs, rsSigned, short } from "../analysis/charts";
 import "../analysis/analysis.css";
@@ -174,8 +175,9 @@ function Columns({ rows, height = 170, label }) {
 }
 
 /* --------------------------------------------------------------------------------- the result */
-export function Hero({ s, a, label, period, onRetro, busy }) {
+export function Hero({ s, a, rt = null, label, period, onRetro, busy, onCapital }) {
   const won = s.net > 0;
+  const onCap = Boolean(rt && rt.hasCapital && isNum(rt.totalPct));
   const prev = a && a.prev && a.prev.trades ? a.prev : null;
   const diff = prev ? s.net - prev.net : null;
   return (
@@ -188,14 +190,29 @@ export function Hero({ s, a, label, period, onRetro, busy }) {
         <p className="jc-hero__say">{won ? "You made" : s.net < 0 ? "You lost" : "You broke even"}</p>
         <p className="jc-hero__n">
           {rs(Math.abs(s.net))}
-          {isNum(s.netPct) && (
-            <span className="jc-hero__pct" data-tip="The result after costs as a share of the money you put into these trades (each trade's size at its entry price, added up).">
-              {sPct(s.netPct)}
+          {onCap && (
+            <span className="jc-hero__pct" data-tip="The result after costs as a share of your principal: the money you put in, from the day you put it in. Profit is not added to the principal.">
+              {sPct(rt.totalPct)}
             </span>
           )}
         </p>
         <p className="jc-hero__sub">
-          after all costs{isNum(s.netPct) ? <> — <b className={toneOf(s.netPct)}>{sPct(s.netPct)}</b> of the {rs(s.invested)} you put into the trades</> : null}, from <b>{s.trades}</b> trade{s.trades === 1 ? "" : "s"} on <b>{s.tradingDays}</b> day{s.tradingDays === 1 ? "" : "s"}
+          after all costs
+          {onCap ? (
+            <>
+              {" "}
+              — <b className={toneOf(rt.totalPct)}>{sPct(rt.totalPct)}</b> {principalNote(rt)}
+            </>
+          ) : (
+            <>
+              {" "}
+              —{" "}
+              <button type="button" className="jr-link" onClick={onCapital}>
+                add your capital to see the return in percent
+              </button>
+            </>
+          )}
+          , from <b>{s.trades}</b> trade{s.trades === 1 ? "" : "s"} on <b>{s.tradingDays}</b> day{s.tradingDays === 1 ? "" : "s"}
           {diff !== null && (
             <>
               {" "}

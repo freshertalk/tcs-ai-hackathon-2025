@@ -646,3 +646,26 @@ test("Trade Analysis's memory over HTTP: snapshots, outcomes and the register of
   assert.equal(r.json.total, 0);
   assert.equal((await s.request("GET", "/api/admin/analysis/snapshot/2026-10-20", { cookie: boss })).json.available, false, "a day without trades says so");
 });
+
+test("the capital ledger over HTTP: the superadmin records the money put in, the journal returns percentages on that principal, a withdrawal that overdraws is refused", async (t) => {
+  const s = await boot({ app: { socialWatch: false } });
+  t.after(s.close);
+  await s.configure();
+  const boss = (await s.login(SUPERADMIN_EMAIL)).session;
+  assert.ok([401, 403].includes((await s.request("GET", "/api/admin/trading/journal/capital", {})).status), "needs the superadmin");
+  let r = await s.request("GET", "/api/admin/trading/journal?period=all", { cookie: boss });
+  assert.equal(r.status, 200, r.text);
+  assert.equal(r.json.returns.needsCapital, true);
+  assert.deepEqual(r.json.capital, []);
+  r = await s.request("POST", "/api/admin/trading/journal/capital", { cookie: boss, body: { date: "2026-10-01", amount: 100000, note: "first" } });
+  assert.equal(r.status, 200, r.text);
+  const id = r.json.entry.id;
+  r = await s.request("POST", "/api/admin/trading/journal/capital", { cookie: boss, body: { date: "2026-10-05", amount: -500000 } });
+  assert.equal(r.status, 400);
+  assert.match(r.json.message, /below zero/);
+  r = await s.request("GET", "/api/admin/trading/journal?period=all", { cookie: boss });
+  assert.equal(r.json.returns.hasCapital, true);
+  assert.equal(r.json.capital.length, 1);
+  r = await s.request("DELETE", `/api/admin/trading/journal/capital/${id}`, { cookie: boss });
+  assert.deepEqual(r.json.capital, []);
+});
