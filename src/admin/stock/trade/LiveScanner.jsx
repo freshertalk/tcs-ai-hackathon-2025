@@ -23,6 +23,27 @@ const FILTERS = [
   { id: "all", label: "All" },
 ];
 const STR = { strong: "strong", moderate: "moderate", weak: "weak", none: "" };
+// the classic set-ups in a few characters (server/market/setups.js)
+export const SETUP_SHORT = { orb: "ORB", "vwap-pullback": "VWAP pullback", "vwap-reclaim": "VWAP reclaim", "pd-break": "Prev-day break", "gap-go": "Gap & go", "gap-fade": "Gap fade", "squeeze-break": "Squeeze", "trend-pullback": "1st pullback", "vwap-fade": "VWAP fade" };
+
+/** The set-ups that fired on the stock's last closed bar, each with what it has measured on this desk. */
+function Setups({ list }) {
+  if (!list || !list.length) return null;
+  return (
+    <ul className="sx-sus">
+      {list.map((su) => {
+        const e = su.edge;
+        const t = !e || e.n < 30 ? "flat" : e.avgR > 0 ? "up" : "down";
+        return (
+          <li key={`${su.id}:${su.side}`} className={`sx-su is-${t}`} data-tip={`${su.name} (${su.side}): ${su.why}. ${e ? `Measured on this desk: ${e.n} trades, ${e.winPct}% won, ${e.avgR > 0 ? "+" : ""}${e.avgR}R a trade after costs${e.n < 30 ? " — too few to count yet" : ""}.` : "Not yet measured on this desk (the set-up lab runs each evening)."}`}>
+            {su.side === "long" ? "▲" : "▼"} {SETUP_SHORT[su.id] || su.name}
+            <small>{e ? `${e.avgR > 0 ? "+" : ""}${e.avgR}R · ${e.n}` : "unmeasured"}</small>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
 const arrow = (dir) => (dir === "up" ? "▲" : dir === "down" ? "▼" : "◆");
 const n1 = (x) => (isNum(x) ? x.toFixed(1) : "—");
 const newer = (a, b) => (!a ? b : !b ? a : Date.parse(a.at) >= Date.parse(b.at) ? a : b);
@@ -133,6 +154,7 @@ function Pick({ p, fresh, onOpen }) {
           Next level against it: {pl.level.name} {inr(pl.level.price)} ({pl.level.roomR}R away)
         </p>
       )}
+      <Setups list={p.setups} />
       <Chips f={f} />
       {p.ai && (
         <div className={`sx-ai ${p.ai.keep === false ? "is-skip" : ""}`}>
@@ -209,6 +231,7 @@ function Detail({ symbol }) {
   return (
     <div className="sx-detail">
       <Lean next={d.next} />
+      <Setups list={d.setups} />
       <table className="an-table sx-readings">
         <thead>
           <tr>
@@ -530,6 +553,7 @@ export function LiveScanner({ onOpen }) {
                     {isNum(b.rv) ? `${n1(b.rv)}×` : "—"}
                   </span>
                   <span className="sx-row__why sx-hide-md">
+                    {b.su && b.su.length > 0 && <em className="sx-su-tag">{SETUP_SHORT[b.su[0].split(":")[0]] || b.su[0]}</em>}
                     {b.why}
                   </span>
                 </>

@@ -16,6 +16,7 @@ import AiBrain from "../analyzer/AiBrain";
 import IntradayResearch from "./IntradayResearch";
 import { RsiWatch, TopPicks } from "./TopPicks";
 import { LiveScanner } from "./LiveScanner";
+import { SetupLab } from "./SetupLab";
 import { inr, isNum, num, pct, when } from "../analyzer/format";
 import "./trade.css";
 
@@ -369,6 +370,7 @@ export default function Research({ onOpen = null }) {
         {/* made by themselves: the live NIFTY 100 scanner (eligible intraday stocks now), the Top 10 to
             trade, and the live RSI extremes of the NIFTY 500 */}
         <LiveScanner onOpen={onOpen} />
+        <SetupLab />
         <TopPicks onOpen={onOpen} />
         <RsiWatch onOpen={onOpen} />
         <div ref={setSlot} className="rs-slot" />

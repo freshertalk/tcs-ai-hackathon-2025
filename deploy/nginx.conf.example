@@ -10,6 +10,9 @@
 # A. Smallest change: nginx keeps serving the built site itself, and passes only /api and
 #    /me to the app. Nothing existing is removed.
 #
+#      stock-deploy --nginx-apply      (all of it in one step: writes, tests, reloads, checks /api,
+#                                       and puts everything back by itself if any step fails)
+#    or by hand:
 #      stock-deploy --nginx | sudo tee /etc/nginx/snippets/vinaytiwari-app.conf > /dev/null
 #
 #    then ONE line inside the site's HTTPS server block, above its "location / {" line:

@@ -34,6 +34,7 @@
 
 const I = require("./indicators");
 const { dailyFeatures } = require("./picks");
+const SU = require("./setups");
 
 const IST = 5.5 * 3600 * 1000;
 const BAR_MS = 5 * 60000;
@@ -271,7 +272,7 @@ function features(st, ctx = {}) {
  * Each reading's vote (−1 down … +1 up) and weight, with its reason in words.
  * @param market { score } the market's lean (the NIFTY and the breadth), −100…+100, optional
  */
-function votes(f, market = null) {
+function votes(f, market = null, edges = null) {
   const out = [];
   const add = (id, w, v, why) => {
     if (!num(v)) return;
@@ -307,12 +308,28 @@ function votes(f, market = null) {
   if (num(f.bbPctB)) add("bollinger", 4, f.squeeze && (f.bbPctB > 1 || f.bbPctB < 0) ? (f.bbPctB > 1 ? 1 : -1) : (f.bbPctB - 0.5) * 1.2, `Bollinger %B ${f.bbPctB}${f.squeeze ? " out of a squeeze" : ""}`);
   if (f.dailyTrend === 1 || f.dailyTrend === -1) add("daily", 4, f.dailyTrend, `daily trend ${f.dailyTrend === 1 ? "up (above the 20- and 50-day averages)" : "down (below the 20- and 50-day averages)"}`);
   if (market && num(market.score)) add("market", 6, market.score / 60, `the market leans ${market.score > 10 ? "up" : market.score < -10 ? "down" : "nowhere"} (${sg(market.score, 0)})`);
+  // a classic set-up on the last closed bar (market/setups.js), counted by what it has MEASURED on this
+  // desk after costs (server/setuplab.js): a set-up that has paid adds weight its way, one that has lost
+  // money votes against itself, one not yet measured counts a little
+  if (Array.isArray(f.setups) && f.setups.length) {
+    let best = null;
+    for (const su of f.setups) {
+      const e = edges ? edges[`${su.id}:${su.side}`] || null : null;
+      const ef = SU.edgeFactor(e);
+      const sign = su.side === "long" ? 1 : -1;
+      const v = ef === null ? sign * 0.5 * (su.quality || 0.5) : ef > 0 ? sign * (0.4 + 0.6 * ef) : sign * ef;
+      const rec = ef === null ? "not yet measured on this desk" : `on this desk ${e.avgR > 0 ? "+" : ""}${e.avgR}R a trade after costs over ${e.n} trades (${e.winPct}% won)`;
+      const cand = { v, w: ef === null ? 6 : 12, why: `${su.name} ${su.side} — ${su.why}; ${rec}` };
+      if (!best || Math.abs(cand.v) * cand.w > Math.abs(best.v) * best.w) best = cand;
+    }
+    if (best) add("setup", best.w, best.v, best.why);
+  }
   return out;
 }
 
 /** The weighted score (−100…+100), the agreement (0…1), and the reasons for and against. */
-function score(f, market = null) {
-  const vs = votes(f, market);
+function score(f, market = null, edges = null) {
+  const vs = votes(f, market, edges);
   const W = vs.reduce((a, x) => a + x.w, 0);
   if (!W) return { score: 0, agree: 0, reasons: [], against: [] };
   const s = (vs.reduce((a, x) => a + x.w * x.v, 0) / W) * 100;
@@ -410,10 +427,28 @@ function eligibility(f, s, nm, market = null, rules = RULES) {
 }
 
 /** The full reading of one stock: readings, score, next move, eligibility, plan. */
+/** The set-ups that fired on this stock's last closed bar today (cached until the next bar closes). */
+function liveSetups(st, now) {
+  const last = st.bars[st.bars.length - 1];
+  if (!last || istDate(last.t) !== istDate(now) || now - last.t > 2 * BAR_MS) return [];
+  const key = `${st.bars.length}:${last.t}`;
+  if (st._su && st._su.key === key) return st._su.list;
+  let list = [];
+  try {
+    const P = SU.prep(st.bars.slice(-400));
+    list = SU.detect(P, P.n - 1);
+  } catch (_) {
+    list = [];
+  }
+  st._su = { key, list };
+  return list;
+}
+
 function read(st, ctx = {}) {
   const f = features(st, ctx);
   if (!f.ready) return { symbol: st.symbol, ready: false, reason: f.reason };
-  const s = score(f, ctx.market || null);
+  f.setups = liveSetups(st, num(ctx.now) ? ctx.now : Date.now());
+  const s = score(f, ctx.market || null, ctx.edges || null);
   const nm = nextMove(f, s);
   const e = eligibility(f, s, nm, ctx.market || null, ctx.rules || RULES);
   return { symbol: st.symbol, ready: true, f, score: s.score, agree: s.agree, reasons: s.reasons, against: s.against, votes: s.votes, next: nm, eligible: e.eligible, side: e.side, blocks: e.blocks, plan: e.plan };
@@ -450,7 +485,7 @@ function newRecord(date) {
 function openCall(rec, r, now) {
   const p = r.plan;
   if (!p) return null;
-  const c = { id: `${r.symbol}-${now}`, symbol: r.symbol, side: r.side, at: now, entry: p.entry, stop: p.stop, t1: p.t1, score: r.score, agree: r.agree, outcome: null, settledAt: null, moveR: null, reasons: r.reasons.slice(0, 3).map((x) => x.id) };
+  const c = { id: `${r.symbol}-${now}`, symbol: r.symbol, side: r.side, at: now, entry: p.entry, stop: p.stop, t1: p.t1, score: r.score, agree: r.agree, outcome: null, settledAt: null, moveR: null, reasons: r.reasons.slice(0, 3).map((x) => x.id), setups: ((r.f && r.f.setups) || []).filter((x) => x.side === r.side).map((x) => x.id) };
   rec.calls.push(c);
   if (rec.calls.length > 400) rec.calls.splice(0, rec.calls.length - 400);
   return c;
@@ -508,7 +543,24 @@ function recordSummary(rec) {
   const tm = done.filter((c) => c.outcome === "time").length;
   const avgR = done.length ? r2(done.reduce((a, c) => a + (c.moveR || 0), 0) / done.length) : null;
   const lean = Object.fromEntries(Object.entries(rec.leanStats).map(([k, v]) => [k, { ...v, rightPct: v.right + v.wrong ? Math.round((v.right / (v.right + v.wrong)) * 100) : null }]));
-  return { date: rec.date, calls: rec.calls.length, settled: done.length, open: rec.calls.length - done.length, targets: tg, stops: sp, timedOut: tm, hitPct: tg + sp ? Math.round((tg / (tg + sp)) * 100) : null, avgR, lean };
+  // the same calls by the set-up that was on the bar when they were made
+  const bySetup = {};
+  for (const c of done) {
+    for (const id of c.setups && c.setups.length ? c.setups : ["none"]) {
+      const b = bySetup[id] || (bySetup[id] = { calls: 0, targets: 0, stops: 0, timedOut: 0, sumR: 0 });
+      b.calls += 1;
+      if (c.outcome === "target") b.targets += 1;
+      else if (c.outcome === "stop") b.stops += 1;
+      else b.timedOut += 1;
+      b.sumR += c.moveR || 0;
+    }
+  }
+  for (const b of Object.values(bySetup)) {
+    b.avgR = r2(b.sumR / b.calls);
+    b.hitPct = b.targets + b.stops ? Math.round((b.targets / (b.targets + b.stops)) * 100) : null;
+    delete b.sumR;
+  }
+  return { date: rec.date, calls: rec.calls.length, settled: done.length, open: rec.calls.length - done.length, targets: tg, stops: sp, timedOut: tm, hitPct: tg + sp ? Math.round((tg / (tg + sp)) * 100) : null, avgR, lean, bySetup };
 }
 
-module.exports = { newState, seed, addTick, dailyContext, features, votes, score, nextMove, plan, eligibility, read, marketLean, newRecord, openCall, followCalls, addLeans, settleLeans, recordSummary, bucket, istDate, istMin, msOf, RULES, ENTRY_FROM, ENTRY_TO, OPEN_MIN, CLOSE_MIN, BAR_MS };
+module.exports = { newState, seed, addTick, dailyContext, features, votes, score, nextMove, plan, eligibility, read, liveSetups, marketLean, newRecord, openCall, followCalls, addLeans, settleLeans, recordSummary, bucket, istDate, istMin, msOf, RULES, ENTRY_FROM, ENTRY_TO, OPEN_MIN, CLOSE_MIN, BAR_MS };

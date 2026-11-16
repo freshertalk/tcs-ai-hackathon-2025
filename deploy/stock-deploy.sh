@@ -7,6 +7,8 @@
 #   stock-deploy --doctor   check the wiring: pm2, the app's port, and whether the public address reaches the app
 #   stock-deploy --nginx    print the nginx rules that pass /api and /me to the app
 #   stock-deploy --nginx-limits  print nginx's flood limits (they go in /etc/nginx/conf.d)
+#   stock-deploy --nginx-apply   put both in place safely: test, reload, check /api — and put every
+#                                file back by itself if any step fails
 #   stock-deploy --keepalive  check the three restart layers (pm2, reboot, watchdog); print what is missing
 #   stock-deploy --help     this text
 #
@@ -51,9 +53,10 @@ main() {
     --doctor) mode="doctor" ;;
     --nginx) mode="nginx" ;;
     --nginx-limits) mode="limits" ;;
+    --nginx-apply) mode="nginx-apply" ;;
     --keepalive) mode="keepalive" ;;
     -h | --help)
-      sed -n '2,24p' "$self" | sed 's/^# \{0,1\}//'
+      sed -n '2,26p' "$self" | sed 's/^# \{0,1\}//'
       return 0
       ;;
     *) die "unknown option '$1'. Try: stock-deploy --help" ;;
@@ -101,7 +104,7 @@ main() {
   read_config() {
     app="$(node -p "require('./deploy/ecosystem.config.cjs').apps[0].name" 2> /dev/null || echo vinaytiwari)"
     port="$(node -p "require('./deploy/ecosystem.config.cjs').apps[0].env.PORT" 2> /dev/null || echo 5100)"
-    origin="$(node -p "require('./deploy/ecosystem.config.cjs').apps[0].env.PUBLIC_ORIGIN" 2> /dev/null || echo "")"
+    origin="${STOCK_DEPLOY_ORIGIN:-$(node -p "require('./deploy/ecosystem.config.cjs').apps[0].env.PUBLIC_ORIGIN" 2> /dev/null || echo "")}"
     host="${origin#*://}"
     host="${host%%/*}"
   }
@@ -246,7 +249,9 @@ NGINX
     local files file="" name have_rules=0 have_line=0
     files="$(grep -Rls "$host" "$ngx/sites-enabled" "$ngx/conf.d" 2> /dev/null || true)"
     if [ -n "$files" ] && [ "$(printf '%s\n' "$files" | wc -l)" -eq 1 ]; then file="$files"; fi
-    if [ -s "$rules" ]; then have_rules=1; fi
+    # a rules file counts only when it really holds the /api pass-through (an empty or cut-off file —
+    # say from a "stock-deploy --nginx | sudo tee" whose first half printed nothing — does not)
+    if [ -s "$rules" ] && grep -qF 'location ^~ /api/' "$rules" 2> /dev/null; then have_rules=1; fi
     if [ -n "$file" ] && grep -q "snippets/${app}-app.conf" "$file" 2> /dev/null; then have_line=1; fi
 
     note "nginx is serving this site's files itself and answers /api with the site's own page,"
@@ -315,11 +320,107 @@ NGINX
       json) note "$origin reaches the app" ;;
       html)
         printf '\n%s    Careful: %s/api does NOT reach the app.%s\n' "$Y" "$origin" "$N"
-        note "Signing in will bounce to the home page until this is fixed. Run:  stock-deploy --doctor"
+        note "Signing in will bounce to the home page until this is fixed."
+        if [ "$(probe "http://127.0.0.1:${port}/api/auth/status")" = "json" ]; then
+          note "The app itself answers on port $port: only nginx's pass-through is missing."
+          note "Fix it in one step (it tests, reloads, checks — and puts everything back if any step fails):"
+          note "    stock-deploy --nginx-apply"
+          note ""
+          nginx_help
+        else
+          note "The app does not answer on port $port either. See why:  pm2 logs $app --lines 60"
+        fi
         ;;
       *) note "(could not check $origin from this machine; open it in a browser)" ;;
     esac
   }
+
+  # ---- stock-deploy --nginx-apply: the nginx side put in place safely, in one step.
+  # Writes the flood limits and the pass-through rules from this script (never from a pipe that may
+  # print nothing), adds the one include line to the site's file if it is missing, tests nginx,
+  # reloads it, and checks that the public /api answers as the app. If any step fails, every file
+  # it touched is put back as it was and nginx is reloaded on the old files — the site keeps running.
+  if [ "$mode" = "nginx-apply" ]; then
+    say "Putting nginx's rules for $app in place"
+    command -v nginx > /dev/null || die "nginx is not installed on this machine."
+    local ngx="${STOCK_DEPLOY_NGINX_DIR:-/etc/nginx}"
+    local rules="$ngx/snippets/${app}-app.conf" limits="$ngx/conf.d/${app}-limits.conf"
+    local tmp site="" files other_zone="" f
+    tmp="$(mktemp -d)"
+    nginx_rules > "$tmp/rules"
+    nginx_limits > "$tmp/limits"
+    grep -qF 'location ^~ /api/' "$tmp/rules" && grep -qF "zone=${app}_api" "$tmp/rules" && grep -qF "zone=${app}_api:" "$tmp/limits" ||
+      die "the rules this script prints look wrong, so nothing was changed. Please report this."
+
+    # the site's own file: the one (in sites-enabled or conf.d) that names this host
+    if [ -n "$host" ]; then
+      files="$(grep -Rls "$host" "$ngx/sites-enabled" "$ngx/conf.d" 2> /dev/null | grep -v "${app}-limits.conf" || true)"
+      if [ -n "$files" ] && [ "$(printf '%s\n' "$files" | wc -l)" -eq 1 ]; then site="$(readlink -f "$files")"; fi
+    fi
+    [ -n "$site" ] || die "the nginx file for '${host:-this site}' could not be identified (none or several name it).\n    Find it with:  grep -Rl \"$host\" $ngx/sites-enabled $ngx/conf.d\n    then follow:   stock-deploy --doctor"
+    note "the site's file ........ $site"
+
+    # the zones may already be defined in another file (written by hand earlier): then that one is kept
+    other_zone="$(grep -Rls "zone=${app}_api:" "$ngx/conf.d" "$ngx/nginx.conf" 2> /dev/null | grep -vF "$limits" || true)"
+
+    # keep a copy of everything this may touch
+    mkdir -p "$tmp/before"
+    for f in "$rules" "$limits" "$site"; do
+      if [ -f "$f" ]; then sudo cp -p "$f" "$tmp/before/$(printf '%s' "$f" | tr '/' '_')" || die "could not read $f (sudo)."; fi
+    done
+    restore() {
+      local g
+      for g in "$rules" "$limits" "$site"; do
+        local saved="$tmp/before/$(printf '%s' "$g" | tr '/' '_')"
+        if [ -f "$saved" ]; then sudo cp -p "$saved" "$g"; else sudo rm -f "$g"; fi
+      done
+      sudo nginx -t > /dev/null 2>&1 && sudo systemctl reload nginx > /dev/null 2>&1 || true
+      note "Every file was put back as it was; nginx runs on the old files."
+    }
+
+    # write the files
+    sudo mkdir -p "$ngx/snippets" "$ngx/conf.d"
+    sudo install -m 644 "$tmp/rules" "$rules" || die "could not write $rules."
+    if [ -n "$other_zone" ]; then
+      note "the flood limits ....... already defined in $other_zone (kept)"
+      # a copy of the same zones in our own file would make nginx refuse both: ours goes
+      if [ -f "$tmp/before/$(printf '%s' "$limits" | tr '/' '_')" ]; then sudo rm -f "$limits"; fi
+    else
+      sudo install -m 644 "$tmp/limits" "$limits" || { restore; die "could not write $limits."; }
+      note "the flood limits ....... $limits"
+    fi
+    note "the pass-through rules . $rules"
+    if grep -qF "snippets/${app}-app.conf" "$site"; then
+      note "the include line ....... already in $(basename "$site")"
+    else
+      sudo sed -i "/^[[:space:]]*server_name[[:space:]]/a\\    include snippets/${app}-app.conf;" "$site" || { restore; die "could not add the include line to $site."; }
+      note "the include line ....... added to $(basename "$site")"
+    fi
+
+    # test, reload, check
+    if ! sudo nginx -t > "$tmp/test" 2>&1; then
+      printf '\n%snginx refused the new files:%s\n' "$R" "$N"
+      sed 's/^/    /' "$tmp/test"
+      restore
+      exit 1
+    fi
+    sudo systemctl reload nginx || { restore; die "nginx would not reload."; }
+    sleep 2
+    if [ -n "$origin" ]; then
+      case "$(probe "$origin/api/auth/status")" in
+        json) printf '\n%s    Done: %s/api reaches the app again.%s\n' "$G" "$origin" "$N" ;;
+        html)
+          printf '\n%sStill not reaching the app: %s/api answers with a page.%s\n' "$R" "$origin" "$N"
+          note "Another nginx file may answer for this address:  sudo nginx -T 2>/dev/null | grep -n \"server_name\\|listen\""
+          restore
+          exit 1
+          ;;
+        *) note "nginx took the new files. Could not check $origin from here: open $origin/api/auth/status in a browser — it must show JSON." ;;
+      esac
+    fi
+    rm -rf "$tmp"
+    return 0
+  fi
 
   # ---- stock-deploy --doctor: read-only checks, in the order a request travels backwards
   if [ "$mode" = "doctor" ]; then

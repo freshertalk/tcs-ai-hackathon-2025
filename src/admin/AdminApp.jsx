@@ -118,6 +118,13 @@ function Gate({ superOnly = false, children }) {
                 For the owner, on the server: <code>stock-deploy --doctor</code> checks that the app is running and that
                 nginx passes <code>/api</code> and <code>/me</code> to it, and prints what to change.
               </p>
+              {auth.errorCode === "not_api" && (
+                <p className="adm-small">
+                  The usual fix, in one step: <code>stock-deploy --nginx-apply</code> — it writes nginx&rsquo;s rules,
+                  tests them, reloads, checks <code>/api</code> again, and puts every file back by itself if any step
+                  fails.
+                </p>
+              )}
             </>
           ) : (
             <>

@@ -29,6 +29,7 @@
 const { EventEmitter } = require("node:events");
 const S = require("./market/scan");
 const SNAP = require("./market/index-snapshots.json");
+const KB = require("./market/knowledge");
 
 const NIFTY = { symbol: "NIFTY 50", token: 256265 };
 const LOOP_MS = 1000;
@@ -91,6 +92,21 @@ class Scanner extends EventEmitter {
     this._shared = "";
     this._view = null;
     this._onTick = (t) => this._tick(t);
+    this.edges = null; // () => each set-up's measured record (server/setuplab.js), set by the app
+  }
+
+  _edges() {
+    try {
+      return typeof this.edges === "function" ? this.edges() : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /** One set-up with what it has measured on this desk (or null when not measured yet). */
+  _withEdge(su, edges) {
+    const e = edges ? edges[`${su.id}:${su.side}`] : null;
+    return { ...su, edge: e && e.n ? { n: e.n, winPct: e.winPct, avgR: e.avgR } : null };
   }
 
   /* ------------------------------------------------------------------ settings */
@@ -321,7 +337,7 @@ class Scanner extends EventEmitter {
       this.nifty.dirty = false;
     }
     const nf = this.niftyRow && this.niftyRow.ready ? this.niftyRow.f : null;
-    const ctx = { now, nifty: nf, market: this.lean };
+    const ctx = { now, nifty: nf, market: this.lean, edges: this._edges() };
     let changed = false;
     for (const [sym, st] of this.states) {
       if (!st.dirty && this.rows.has(sym)) continue;
@@ -411,6 +427,7 @@ class Scanner extends EventEmitter {
       reasons: r.reasons.slice(0, 6).map((x) => x.text),
       against: r.against.slice(0, 4).map((x) => x.text),
       blocks: r.blocks,
+      setups: (r.f.setups || []).map((su) => this._withEdge(su, this._edges())).map((su) => ({ setup: su.name, side: su.side, why: su.why, measured: su.edge ? `${su.edge.avgR}R a trade after costs over ${su.edge.n} trades (${su.edge.winPct}% won)` : "not yet measured" })),
       data: { last: f.last, chgPct: f.chgPct, vwap: f.vwap, vsVwapAtr: f.vsVwapAtr, rsi: f.rsi, adx: f.adx, macdHist: f.macdHist, supertrend: f.supertrend, orb: f.orb, relVol: f.relVol, rsNifty: f.rsNifty, bookBuyPct: f.bookBuyPct, atrPct: f.atrPct, pdh: f.pdh, pdl: f.pdl, dailyTrend: f.dailyTrend, turnoverCr: f.turnoverCr },
     };
   }
@@ -434,6 +451,8 @@ class Scanner extends EventEmitter {
         record: S.recordSummary(this.rec || S.newRecord(S.istDate(at))),
         history: this._history().summary,
         candidates: cands.map((r) => this._candidate(r)),
+        // the desk's knowledge base: only the rules that matter now (the set-ups in play, the time of day, risk, costs)
+        playbook: KB.relevant({ setups: cands.flatMap((r) => (r.f.setups || []).map((su) => su.id)), minute: S.istMin(at), market: this.lean }, 3000),
       };
       const r = await this.ai.scanAi.review(input, { fresh: asked });
       if (!r) throw new Error("no answer");
@@ -546,6 +565,7 @@ class Scanner extends EventEmitter {
       reasons: r.reasons.slice(0, 5),
       against: r.against.slice(0, 3),
       blocks: r.blocks,
+      setups: (f.setups || []).map((su) => this._withEdge(su, this._edges())),
       ai: note,
       f: { last: f.last, chgPct: f.chgPct, vwap: f.vwap, vsVwapPct: f.vsVwapPct, vsVwapAtr: f.vsVwapAtr, ema9: f.ema9, ema21: f.ema21, rsi: f.rsi, macdHist: f.macdHist, supertrend: f.supertrend, adx: f.adx, plusDI: f.plusDI, minusDI: f.minusDI, atr5: f.atr5, atrPct: f.atrPct, bbPctB: f.bbPctB, squeeze: f.squeeze, orb: f.orb, orh: f.orh, orl: f.orl, pdh: f.pdh, pdl: f.pdl, relVol: f.relVol, rsNifty: f.rsNifty, roc3: f.roc3, bookBuyPct: f.bookBuyPct, dayHigh: f.dayHigh, dayLow: f.dayLow, turnoverCr: f.turnoverCr, dailyTrend: f.dailyTrend },
     };
@@ -570,7 +590,7 @@ class Scanner extends EventEmitter {
       watch: watch.slice(0, MAX_WATCH).map((r) => this._row(r)),
       eligibleCount: picks.length,
       board: [...this.rows.values()]
-        .map((r) => (r.ready ? { s: r.symbol, last: r.f.last, chg: r.f.chgPct, sc: r.score, ag: r.agree, dir: r.next.dir, str: r.next.strength, el: r.eligible, side: r.side, vw: r.f.vsVwapPct, rsi: r.f.rsi, adx: r.f.adx, rv: r.f.relVol, rsn: r.f.rsNifty, orb: r.f.orb, st: r.f.supertrend, why: r.eligible ? (r.reasons[0] ? r.reasons[0].text : "") : r.blocks[0] || "" } : { s: r.symbol, wait: r.reason }))
+        .map((r) => (r.ready ? { s: r.symbol, last: r.f.last, chg: r.f.chgPct, sc: r.score, ag: r.agree, dir: r.next.dir, str: r.next.strength, el: r.eligible, side: r.side, vw: r.f.vsVwapPct, rsi: r.f.rsi, adx: r.f.adx, rv: r.f.relVol, rsn: r.f.rsNifty, orb: r.f.orb, st: r.f.supertrend, why: r.eligible ? (r.reasons[0] ? r.reasons[0].text : "") : r.blocks[0] || "", su: (r.f.setups || []).map((x) => `${x.id}:${x.side}`) } : { s: r.symbol, wait: r.reason }))
         .sort((a, b) => (b.el ? 1 : 0) - (a.el ? 1 : 0) || Math.abs(b.sc || 0) - Math.abs(a.sc || 0)),
       record: this.rec ? S.recordSummary(this.rec) : null,
       history: this._history().summary,

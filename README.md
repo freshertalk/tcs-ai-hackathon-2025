@@ -128,6 +128,10 @@ holidays) stay as files, and so do the two encryption keys unless `SETTINGS_KEY`
    Client ID and Secret. Then the watchdog and log rotation: see **Staying up** below
    (`stock-deploy --keepalive` checks all of it).
 5. nginx: pass `/api` and `/me` to the process (it can go on serving the built site itself).
+   **The one-step way: `stock-deploy --nginx-apply`** — it writes the flood limits and the
+   pass-through rules, adds the include line to the site's file if it is missing, runs `nginx -t`,
+   reloads, and checks that the public `/api` answers as the app; if any step fails it puts every
+   file back and nginx keeps running on the old ones. By hand instead:
    `stock-deploy --nginx | sudo tee /etc/nginx/snippets/vinaytiwari-app.conf > /dev/null`, then add the
    one line `include snippets/vinaytiwari-app.conf;` inside the site's HTTPS `server` block, above its
    `location / {` line, and `sudo nginx -t && sudo systemctl reload nginx`. `deploy/nginx.conf.example`

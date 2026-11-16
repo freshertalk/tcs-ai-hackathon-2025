@@ -47,6 +47,8 @@ const { AlertWatch } = require("./alert-watch");
 const { DisciplineWatch } = require("./discipline-watch");
 const { LiveBook } = require("./trading/livebook");
 const { Scanner, ScannerError } = require("./scanner");
+const { SetupLab, SetupLabError } = require("./setuplab");
+const knowledge = require("./market/knowledge");
 const { GlobalFeed } = require("./market/global");
 const { SocialService } = require("./social/service");
 const { previewFor, previewTags, injectPreview } = require("./previews");
@@ -1087,6 +1089,26 @@ ${e.text}
   app.post("/api/admin/scanner/ai", requireSuper, limiter(10, 10 * 60 * 1000), scWrap(async () => ({ ai: await scanner.review("you asked"), view: scanner.view() })));
   app.put("/api/admin/scanner/settings", requireSuper, limiter(30, 10 * 60 * 1000), scWrap(async (req) => scanner.setSettings(req.body || {})));
 
+  // The desk's intraday knowledge base (market/knowledge.js) and the set-up lab (server/setuplab.js):
+  // every classic set-up measured on the NIFTY 100's recent sessions after costs, each weekday evening.
+  // Its record weighs each set-up in the live scanner and is written into the trading-skills file.
+  const setupLab = opts.setupLabService || new SetupLab({ market, ai, docs: store.docs, now: opts.now, log: opts.log || console });
+  scanner.edges = () => setupLab.edges();
+  if (market.ticker && opts.setupLab !== false && opts.alertWatch !== false) setupLab.start();
+  const labWrap = (fn) => async (req, res) => {
+    try {
+      res.json(await fn(req));
+    } catch (err) {
+      if (!(err instanceof SetupLabError)) console.error("[setuplab]", err && err.message ? err.message : err);
+      res.status(err.status || 500).json({ error: err.code || "setuplab_failed", message: err.message || "The set-up lab failed." });
+    }
+  };
+  app.get("/api/admin/setups", requireAdmin, limiter(120, 60 * 1000), labWrap(async () => ({ lab: setupLab.view(), knowledge: knowledge.all() })));
+  app.post("/api/admin/setups/run", requireSuper, limiter(4, 60 * 60 * 1000), labWrap(async () => {
+    setupLab.run({ trigger: "asked" }).catch(() => {});
+    return { lab: setupLab.view() };
+  }));
+
   /* ------------------------------------------------ TradeAI (server/ai/tradeai.js) */
   // the chat reads the account through these read-only functions (the AI folder cannot load the broker)
   ai.tradeai.account = {
@@ -1118,6 +1140,7 @@ ${e.text}
   ai.tradeai.desk = makeDeskReaders({ market, flight, analysis, learn, now: opts.now || (() => Date.now()) });
   // …and the index history: NIFTY 50 and SENSEX month by month, the projections and their record
   ai.tradeai.desk.scanner = () => scanner.brief();
+  ai.tradeai.desk.playbook = (query) => ({ knowledge: knowledge.relevant({ question: String(query || ""), tags: ["selection", "execution", "regime"] }, 4500), measuredSetups: setupLab.brief() });
   ai.tradeai.desk.picks = async () => ({ ...picks.brief(), rsiExtremes: await picks.rsiExtremes().then((r) => (r.available ? { rule: r.rule, oversold: r.oversold.slice(0, 10), overbought: r.overbought.slice(0, 10) } : { available: false, reason: r.reason })).catch(() => null) });
   ai.tradeai.desk.indices = (name) => indices.brief(/SENSEX|BSE/i.test(String(name || "")) ? "SENSEX" : "NIFTY");
   const taWrap = (fn) => async (req, res) => {
@@ -1241,6 +1264,7 @@ ${e.text}
     ai,
     trading,
     scanner,
+    setupLab,
     get setupToken() {
       return setupToken;
     },
