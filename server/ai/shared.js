@@ -20,9 +20,10 @@
 const DOC = "ai/shared-research.json";
 const MAX = 400;
 // how long a finding of each feature counts as fresh, in minutes
-const TTL_MIN = { picks: 30, exit: 12, "exit-levels": 45, tradeai: 30, "ensemble-live": 20, "ensemble-research": 720, decision: 30, coach: 15, copilot: 10, research: 720, strategist: 240 };
+const TTL_MIN = { picks: 30, scanner: 15, exit: 12, "exit-levels": 45, tradeai: 30, "ensemble-live": 20, "ensemble-research": 720, decision: 30, coach: 15, copilot: 10, research: 720, strategist: 240 };
 const LABEL = {
   picks: "Top 10 (Research)",
+  scanner: "Live scanner (Research)",
   exit: "Exit advisor (Live board)",
   "exit-levels": "Exit levels (Live board)",
   tradeai: "TradeAI",
@@ -37,7 +38,7 @@ const LABEL = {
 // findings that speak of the owner's own positions: shown to the owner only
 const PRIVATE = new Set(["exit", "exit-levels", "coach", "tradeai"]);
 // features that publish their own findings (after their own checks): the Engine does not capture these
-const OWN = new Set(["exit-levels", "picks"]);
+const OWN = new Set(["exit-levels", "picks", "scanner"]);
 const TEXT_KEYS = ["headline", "summary", "answer", "reason", "verdict", "thesis", "rationale", "note", "brief", "view", "text"];
 const TAG_KEYS = ["action", "bias", "stance", "lean", "direction", "decision", "call", "side", "confidence", "conviction", "outlook"];
 const FACT_KEYS = ["entry", "stop", "stopLoss", "stop_loss", "target", "target1", "target2", "exit_price", "exitPrice", "support", "resistance", "invalidation"];

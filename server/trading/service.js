@@ -278,6 +278,53 @@ class TradingService {
     } catch (err) {
       this.log.error("[trading] could not write the audit log:", err.message);
     }
+    // every change worth an audit line (the switch, the limits, the guard and its lock, the goal, an
+    // order) changes what the pages show: they are sent the new status at once
+    this.pushStatus();
+  }
+
+  /* --------------------------------------------------- what the open pages are told */
+
+  /** `send({ type: "status" | "notice", … })` for every change, until the returned function is called. */
+  watchPush(send) {
+    if (!this._pushers) this._pushers = new Set();
+    this._pushers.add(send);
+    return () => this._pushers.delete(send);
+  }
+
+  _pushOut(ev) {
+    if (!this._pushers || !this._pushers.size) return;
+    for (const fn of this._pushers) {
+      try {
+        fn(ev);
+      } catch (_) {
+        /* one page's failure is not another's */
+      }
+    }
+  }
+
+  /** The switch, the connection and the guard as they stand now, to every open page (coalesced). */
+  pushStatus() {
+    if (!this._pushers || !this._pushers.size || this._statusSoon) return;
+    this._statusSoon = true;
+    setImmediate(() => {
+      this._statusSoon = false;
+      let st = null;
+      try {
+        st = this.status();
+      } catch (_) {
+        return;
+      }
+      this._pushOut({ type: "status", status: st });
+    });
+  }
+
+  /** A note for every open page (a popup): { level: info | warn | danger, title, text, symbol? }. */
+  notice(n = {}) {
+    const title = String(n.title || "").slice(0, 120);
+    const text = String(n.text || "").slice(0, 400);
+    if (!title && !text) return;
+    this._pushOut({ type: "notice", notice: { level: ["info", "warn", "danger", "ok"].includes(n.level) ? n.level : "info", title, text, symbol: n.symbol ? String(n.symbol).slice(0, 25) : "", at: new Date(this.now()).toISOString() } });
   }
 
   audit(limit = 100) {

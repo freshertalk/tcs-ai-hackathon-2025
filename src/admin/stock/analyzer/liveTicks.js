@@ -56,11 +56,16 @@ const NONE = {};
  */
 export function createHub(open, wait = 60) {
   const store = createStore();
-  const wants = new Map(); // who → { symbols, focus }
+  const wants = new Map(); // who → { symbols, focus, scan, events }
   const listeners = new Set();
+  // named events the server sends on the same connection (a price alert changed, the live scanner):
+  // the newest of each is kept, so a part of the page that starts listening late still has it
+  const EVENTS = ["alert", "scan"];
+  const evSubs = new Map(EVENTS.map((t) => [t, new Set()]));
+  const evLast = new Map();
   let status = OFF;
   let es = null;
-  let carried = { symbols: new Set(), focus: "" };
+  let carried = { symbols: new Set(), focus: "", scan: false };
   let timer = null;
   let seq = 0;
 
@@ -72,19 +77,33 @@ export function createHub(open, wait = 60) {
   const drop = () => {
     if (es) es.close();
     es = null;
-    carried = { symbols: new Set(), focus: "" };
+    carried = { symbols: new Set(), focus: "", scan: false };
   };
 
-  const connect = (symbols, focus) => {
+  // a named event from this connection (and not one already replaced) goes to everyone listening for it
+  const listen = (source, type) =>
+    source.addEventListener(type, (e) => {
+      if (es !== source) return;
+      try {
+        const d = JSON.parse(e.data);
+        evLast.set(type, d);
+        evSubs.get(type).forEach((fn) => fn(d));
+      } catch (_) {
+        /* a malformed event is skipped; the next one replaces it */
+      }
+    });
+
+  const connect = (symbols, focus, scan = false) => {
     if (es) es.close();
-    const source = open(`/api/admin/market/stream?symbols=${encodeURIComponent([...symbols].join(","))}${focus ? `&focus=${encodeURIComponent(focus)}` : ""}`);
+    const source = open(`/api/admin/market/stream?symbols=${encodeURIComponent([...symbols].join(","))}${focus ? `&focus=${encodeURIComponent(focus)}` : ""}${scan ? "&scan=1" : ""}`);
     if (!source) {
       drop();
       say(OFF);
       return;
     }
     es = source;
-    carried = { symbols, focus };
+    carried = { symbols, focus, scan };
+    EVENTS.forEach((type) => listen(source, type));
     // widening a stream that is already live takes a moment: the prices on screen stay until it answers
     if (status.state !== "live") say({ state: "connecting", reason: "" });
     source.addEventListener("tick", (e) => {
@@ -120,19 +139,23 @@ export function createHub(open, wait = 60) {
     timer = null;
     const symbols = new Set();
     let focus = "";
+    let scan = false;
+    let events = false;
     for (const w of wants.values()) {
       for (const s of w.symbols) symbols.add(s);
       if (w.focus) focus = w.focus;
+      if (w.scan) scan = true;
+      if (w.events) events = true;
     }
-    if (symbols.size === 0) {
+    if (symbols.size === 0 && !scan && !events) {
       drop();
       store.clear();
       say(OFF);
       return;
     }
     // an open stream that already carries everything asked for is left alone
-    if (es && carried.focus === focus && [...symbols].every((s) => carried.symbols.has(s))) return;
-    connect(symbols, focus);
+    if (es && carried.focus === focus && (carried.scan || !scan) && [...symbols].every((s) => carried.symbols.has(s))) return;
+    connect(symbols, focus, scan);
   };
 
   return {
@@ -142,13 +165,26 @@ export function createHub(open, wait = 60) {
       listeners.add(fn);
       return () => listeners.delete(fn);
     },
-    /** Say which symbols a part of the page needs; an empty list withdraws the request. */
-    want(who, symbols, focus = "") {
-      if (symbols && symbols.length) wants.set(who, { symbols, focus });
+    /**
+     * Say which symbols a part of the page needs; an empty list (and no flags) withdraws the request.
+     * @param extra { scan: the live scanner's updates, events: the connection for the named events alone }
+     */
+    want(who, symbols, focus = "", extra = {}) {
+      const scan = Boolean(extra && extra.scan);
+      const events = Boolean(extra && extra.events);
+      if ((symbols && symbols.length) || scan || events) wants.set(who, { symbols: symbols || [], focus, scan, events });
       else wants.delete(who);
       if (!timer) timer = setTimeout(sync, wait);
     },
     newId: () => (seq += 1),
+    /** Listen to a named event ("alert", "scan"); returns the function that stops listening. */
+    on(type, fn) {
+      const set = evSubs.get(type);
+      if (!set) return () => {};
+      set.add(fn);
+      return () => set.delete(fn);
+    },
+    last: (type) => evLast.get(type) || null,
   };
 }
 
@@ -210,4 +246,34 @@ export function useLiveTicks(symbols, enabled, focus = "") {
   }, [on]);
 
   return { store: hub.store, state: on ? status.state : "off", reason: on ? status.reason : "", slow };
+}
+
+/** The page's stream state ("off" | "connecting" | "live" | "down" | "denied" | "idle"), for status pills. */
+export function useStreamState() {
+  return useSyncExternalStore(hub.onStatus, hub.status);
+}
+
+/**
+ * The newest named event the server sent on the stream ("alert" when a price alert is set, fired or
+ * removed; "scan" for the live scanner), or null. Optionally keeps the connection open for it.
+ * @param keepOpen  ask the hub for the connection even when nothing else on the page wants prices
+ */
+export function useHubEvent(type, keepOpen = false) {
+  const who = useRef(0);
+  if (!who.current) who.current = hub.newId();
+  useEffect(() => {
+    if (!keepOpen) return undefined;
+    const id = who.current;
+    hub.want(id, [], "", type === "scan" ? { scan: true } : { events: true });
+    return () => hub.want(id, []);
+  }, [keepOpen, type]);
+  return useSyncExternalStore(
+    (cb) => hub.on(type, cb),
+    () => hub.last(type)
+  );
+}
+
+/** The live NIFTY 100 scanner, pushed on the stream while `enabled` (null until the first update). */
+export function useScanFeed(enabled = true) {
+  return useHubEvent("scan", enabled);
 }

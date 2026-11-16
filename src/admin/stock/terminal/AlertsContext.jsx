@@ -8,7 +8,7 @@
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../../api";
-import { useLiveTicks } from "../analyzer/liveTicks";
+import { useHubEvent, useLiveTicks } from "../analyzer/liveTicks";
 import { beep, notify } from "../analyzer/useVerdict";
 import { alertText, due } from "./alerts";
 import { everyVisible } from "../../visible";
@@ -49,6 +49,11 @@ export function AlertsProvider({ children }) {
     // and at once when the tab is shown again
     return everyVisible(reload, 15000);
   }, [reload]);
+  // … and at once when the server says one was set, fired or removed (pushed on the live stream)
+  const alertEvent = useHubEvent("alert", true);
+  useEffect(() => {
+    if (alertEvent) reload();
+  }, [alertEvent, reload]);
   useEffect(() => () => clearTimeout(noteTimer.current), []);
 
   const waiting = useMemo(() => alerts.filter((a) => !a.firedAt), [alerts]);

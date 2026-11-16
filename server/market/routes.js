@@ -170,10 +170,17 @@ function mountMarket(app, deps) {
       } else write("status", { state: ev.state, reason: ev.reason || "" });
     };
     const beat = setInterval(() => open && res.write(": keep-alive\n\n"), 15000);
+    // the same connection carries what changes for everyone: a price alert set, fired or removed …
+    const onAlerts = (ev) => write("alert", ev);
+    if (market.events) market.events.on("alerts", onAlerts);
+    // … and, for a page that asks (?scan=1), the live NIFTY 100 scanner on every change
+    const offScan = req.query.scan === "1" && market.scanner ? market.scanner.watch((v) => write("scan", v)) : () => {};
     req.on("close", () => {
       open = false;
       clearInterval(beat);
       clearTimeout(timer);
+      if (market.events) market.events.off("alerts", onAlerts);
+      offScan();
       handle.close();
     });
     try {

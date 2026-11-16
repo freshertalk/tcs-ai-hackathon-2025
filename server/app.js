@@ -46,6 +46,7 @@ const { Notifier, mountNotify } = require("./notify");
 const { AlertWatch } = require("./alert-watch");
 const { DisciplineWatch } = require("./discipline-watch");
 const { LiveBook } = require("./trading/livebook");
+const { Scanner, ScannerError } = require("./scanner");
 const { GlobalFeed } = require("./market/global");
 const { SocialService } = require("./social/service");
 const { previewFor, previewTags, injectPreview } = require("./previews");
@@ -743,6 +744,8 @@ ${e.text}
     }
   };
   trading.liveBook = liveBook;
+  // the Zerodha session starting or ending changes every page's status at once
+  if (market.events && typeof trading.pushStatus === "function") market.events.on("kite", () => trading.pushStatus());
   trading.livePositions = () => liveBook.fresh();
   if (opts.liveBook !== false && opts.alertWatch !== false) liveBook.start();
   app.get("/api/admin/trading/live", requireSuper, async (req, res) => {
@@ -938,6 +941,18 @@ ${e.text}
     }
   };
   flight.on("pos", (v) => boards.size && fPush("pos", v));
+  // the exit coach's step ups (TIGHTEN, BOOK PART, EXIT NOW) reach every open page as a popup, not only the Live board
+  const STATE_WORD = { tighten: "TIGHTEN", "book-part": "BOOK PART", "exit-now": "EXIT NOW", hold: "HOLD" };
+  flight.on("escalated", (e) => {
+    if (typeof trading.notice !== "function") return;
+    const money = (x) => `₹${Number(x).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
+    trading.notice({
+      level: e.state === "exit-now" ? "danger" : "warn",
+      symbol: e.symbol,
+      title: `${STATE_WORD[e.state] || String(e.state).toUpperCase()} — ${e.symbol} ${e.side} ${e.qty}`,
+      text: `${e.headline || ""}${Number.isFinite(e.last) ? ` Now ${money(e.last)}` : ""}${Number.isFinite(e.pnl) ? `, P&L ${e.pnl >= 0 ? "+" : "−"}${money(Math.abs(e.pnl))}` : ""}${Number.isFinite(e.stop) ? `, stop ${money(e.stop)}` : ""}. The exit coach's reading: nothing was traded.`,
+    });
+  });
   flight.on("board", (b) => boards.size && fPush("board", b));
   const fBeat = setInterval(() => boards.size && fPush("board", flight.board()), 15000); // the paths, frames and events, and a heartbeat
   if (fBeat.unref) fBeat.unref();
@@ -1052,6 +1067,26 @@ ${e.text}
   app.put("/api/admin/picks/settings", requireSuper, limiter(30, 10 * 60 * 1000), pkWrap(async (req) => picks.setSettings(req.body || {})));
   app.get("/api/admin/picks/rsi", requireAdmin, limiter(240, 60 * 1000), pkWrap(async () => picks.rsiExtremes()));
 
+  // The live scanner (server/scanner.js): the NIFTY 100 kept in a buffer from Zerodha's live stream and
+  // read every two seconds — eligible intraday stocks, next-move leans, plans, its own record — with the
+  // AI Engine on need. It reaches the pages on the live-price stream they already hold (?scan=1).
+  const scanner = opts.scannerService || new Scanner({ market, ai, docs: store.docs, now: opts.now, log: opts.log || console });
+  market.scanner = scanner;
+  // it needs the live stream: never started without one (the test suite has none)
+  if (market.ticker && opts.scanner !== false && opts.alertWatch !== false) scanner.start();
+  const scWrap = (fn) => async (req, res) => {
+    try {
+      res.json(await fn(req));
+    } catch (err) {
+      if (!(err instanceof ScannerError)) console.error("[scanner]", err && err.message ? err.message : err);
+      res.status(err.status || 500).json({ error: err.code || "scanner_failed", message: err.message || "The scanner failed." });
+    }
+  };
+  app.get("/api/admin/scanner", requireAdmin, limiter(300, 60 * 1000), scWrap(async () => scanner.view()));
+  app.get("/api/admin/scanner/stock/:symbol", requireAdmin, limiter(240, 60 * 1000), scWrap(async (req) => scanner.detail(String(req.params.symbol || "").slice(0, 25))));
+  app.post("/api/admin/scanner/ai", requireSuper, limiter(10, 10 * 60 * 1000), scWrap(async () => ({ ai: await scanner.review("you asked"), view: scanner.view() })));
+  app.put("/api/admin/scanner/settings", requireSuper, limiter(30, 10 * 60 * 1000), scWrap(async (req) => scanner.setSettings(req.body || {})));
+
   /* ------------------------------------------------ TradeAI (server/ai/tradeai.js) */
   // the chat reads the account through these read-only functions (the AI folder cannot load the broker)
   ai.tradeai.account = {
@@ -1082,6 +1117,7 @@ ${e.text}
   // the agent's readers outside the AI folder: the exit coach's reading, the tape, the level map, the Lab, the learner
   ai.tradeai.desk = makeDeskReaders({ market, flight, analysis, learn, now: opts.now || (() => Date.now()) });
   // …and the index history: NIFTY 50 and SENSEX month by month, the projections and their record
+  ai.tradeai.desk.scanner = () => scanner.brief();
   ai.tradeai.desk.picks = async () => ({ ...picks.brief(), rsiExtremes: await picks.rsiExtremes().then((r) => (r.available ? { rule: r.rule, oversold: r.oversold.slice(0, 10), overbought: r.overbought.slice(0, 10) } : { available: false, reason: r.reason })).catch(() => null) });
   ai.tradeai.desk.indices = (name) => indices.brief(/SENSEX|BSE/i.test(String(name || "")) ? "SENSEX" : "NIFTY");
   const taWrap = (fn) => async (req, res) => {
@@ -1203,6 +1239,8 @@ ${e.text}
     holidays,
     market,
     ai,
+    trading,
+    scanner,
     get setupToken() {
       return setupToken;
     },

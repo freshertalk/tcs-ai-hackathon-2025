@@ -119,7 +119,10 @@ test("encryption round-trips and rejects tampering; tokens expire and reject for
   const blob = encrypt("hunter2", key);
   assert.equal(decrypt(blob, key), "hunter2");
   assert.notEqual(blob, encrypt("hunter2", key), "fresh IV every time");
-  assert.throws(() => decrypt(blob.slice(0, -2) + "xx", key));
+  // a character in the middle always changes the decoded bytes (the last ones may only be padding bits,
+  // which made "replace the last two with xx" pass now and then without tampering at all)
+  const mid = Math.floor(blob.length / 2);
+  assert.throws(() => decrypt(blob.slice(0, mid) + (blob[mid] === "A" ? "B" : "A") + blob.slice(mid + 1), key));
   assert.throws(() => decrypt(blob, Buffer.alloc(32, 8)));
 
   const t = sign({ email: "a@b.co" }, key, 60);

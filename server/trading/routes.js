@@ -231,6 +231,8 @@ function mountTrading(app, { trading, ai, requireSuper, limiter, capture = null 
     // standing as they change: one stream per page for everything about the account
     const offBook = trading.liveBook ? trading.liveBook.watch((v) => open && res.write(`event: book\ndata: ${JSON.stringify(v)}\n\n`)) : () => {};
     const offGoal = typeof trading.watchGoal === "function" ? trading.watchGoal((g) => open && res.write(`event: goal\ndata: ${JSON.stringify(g)}\n\n`)) : () => {};
+    // status changes (the switch, the Zerodha session, the guard) and notices (the exit coach's warnings)
+    const offPush = typeof trading.watchPush === "function" ? trading.watchPush((ev) => open && res.write(`event: ${ev.type}\ndata: ${JSON.stringify(ev)}\n\n`)) : () => {};
     const beat = setInterval(() => open && res.write(": keep-alive\n\n"), 15000);
     req.on("close", () => {
       open = false;
@@ -238,6 +240,7 @@ function mountTrading(app, { trading, ai, requireSuper, limiter, capture = null 
       off();
       offBook();
       offGoal();
+      offPush();
     });
   });
 }

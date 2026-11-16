@@ -31,6 +31,7 @@ const { ExitAdvisor } = require("./exitadvisor");
 const { SharedResearch } = require("./shared");
 const { IndexForecaster } = require("./indexai");
 const { PicksReviewer } = require("./picksai");
+const { ScanReviewer } = require("./scanai");
 const whatsappAi = require("./whatsapp-ai");
 const { Journal, scorePlan, summarize, summarizeByModel, SWING_MAX_BARS } = require("./journal");
 const { Copilot } = require("./copilot");
@@ -325,6 +326,7 @@ class AiService {
     this.exitAdvisor = new ExitAdvisor(this);
     this.indexAi = new IndexForecaster(this);
     this.picksAi = new PicksReviewer(this); // the AI's review of the Research tab's Top 10 (checked outside this folder) // the AI's projection for NIFTY 50 / SENSEX (checked and scored outside this folder) // the Execution Lab's second opinion on an open position (asked sparingly by server/flight.js)
+    this.scanAi = new ScanReviewer(this); // the AI's review of the live NIFTY 100 scanner (checked outside this folder)
     this.whatsappAi = whatsappAi; // the default model's advice for the WhatsApp updates
     this._moveToDefaultModel();
   }

@@ -469,6 +469,12 @@ class FlightDeck extends EventEmitter {
   _escalated(slot, a) {
     const now = this.now();
     const st = this.settings();
+    // every open page hears of a step up at once (app.js turns it into a popup); at most once a minute per position and signal
+    const said = slot.saidAt && slot.saidAt[a.state];
+    if (!said || now - said > 60000) {
+      slot.saidAt = { ...(slot.saidAt || {}), [a.state]: now };
+      this.emit("escalated", { key: slot.key, symbol: slot.symbol, side: slot.side, qty: slot.qty, state: a.state, last: a.metrics.last, pnl: a.metrics.pnl, stop: a.stop, headline: a.headline, reason: (a.reasons && a.reasons.exit && a.reasons.exit[0]) || "" });
+    }
     if (a.state === "exit-now" && st.notify && this.notifier && now - slot.notifiedAt > 10 * 60000) {
       slot.notifiedAt = now;
       const text = `🚪 EXIT NOW — ${slot.symbol} ${slot.side} ${slot.qty} @ ${rs(slot.avg)}, now ${rs(a.metrics.last)} (${signed(a.metrics.pnl)})\n${a.reasons.exit[0] || ""}\nExit: ${a.exit.note} Stop ${rs(a.stop)}.\n(${BRAND.name} · the exit coach's reading — nothing was traded)`;

@@ -47,6 +47,7 @@ const FEATURES = [
   { id: "exit-levels", name: "Exit levels research (Execution Lab)", trigger: "A position coming onto the Live board, its first AI target being reached or its levels going stale (at most one per position every ten minutes, within the same daily limit), or Research levels on the Live board" },
   { id: "indices", name: "Index projections (NIFTY 50 / SENSEX)", trigger: "The first weekday of each month for the month and January for the year (when switched on), or Ask the AI on the Indices page" },
   { id: "picks", name: "Top 10 review (Research)", trigger: "Before the open and after the close, and in the session only when the list has really changed (three or more names in an hour) or the world's lean or the tide turned — within a daily limit; or Refresh now" },
+  { id: "scanner", name: "Live scanner review (Research)", trigger: "The live NIFTY 100 scanner's first eligible list of the day, and then only when new names come to the top (ten minutes apart at least) — within a daily limit; or Ask the AI on the scanner" },
 ];
 const FEATURE_IDS = FEATURES.map((f) => f.id);
 

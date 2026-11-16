@@ -16,6 +16,7 @@
 //   • requests are throttled to the API's published limits.
 
 const fs = require("fs");
+const { EventEmitter } = require("events");
 const path = require("path");
 
 const { KiteClient, KiteError, loginUrl, exchangeToken } = require("./kite");
@@ -155,6 +156,10 @@ class MarketService {
     this.dir = path.join(dir, "market");
     this.store = store;
     this.secrets = secrets;
+    // changes the open pages are told about at once (app.js passes them on): "kite" when the Zerodha
+    // session starts or ends, "alerts" when a price alert is set, fired or removed
+    this.events = new EventEmitter();
+    this.events.setMaxListeners(500);
     this.fetch = fetchImpl;
     this.now = now;
     this.log = log;
@@ -284,6 +289,7 @@ class MarketService {
     this._client = null;
     this._syncTicker();
     this.log.log(`[market] Kite connected for ${r.userId || "user"}`);
+    this._tell("kite");
     return this.kiteState();
   }
 
@@ -294,12 +300,23 @@ class MarketService {
     });
     this._client = null;
     this._syncTicker();
+    this._tell("kite");
   }
 
   setDemo(on) {
     this.store.update((d) => {
       d.market.demo = Boolean(on);
     });
+    this._tell("kite");
+  }
+
+  /** Tell whoever listens (the open pages, through app.js) that something changed. Never throws. */
+  _tell(kind, detail = {}) {
+    try {
+      this.events.emit(kind, { kind, at: new Date(this.now()).toISOString(), ...detail });
+    } catch (_) {
+      /* a listener's failure is not the market's */
+    }
   }
 
   _kite() {
@@ -333,6 +350,7 @@ class MarketService {
     });
     this._client = null;
     this._syncTicker();
+    this._tell("kite");
   }
 
   /** Run a Kite call; if the day's token has died, forget it so the page asks for a fresh login. */
@@ -2083,6 +2101,7 @@ class MarketService {
     if (list.some((a) => !a.firedAt && a.symbol === symbol && a.dir === dir && a.price === price)) throw new MarketError("That alert is already set.", "duplicate", 409);
     const alert = { id: `${this.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`, symbol, dir, price: Math.round(price * 100) / 100, note: String((input && input.note) || "").trim().slice(0, 120), from: from === null ? null : Math.round(from * 100) / 100, createdAt: new Date(this.now()).toISOString(), by, firedAt: null, firedPrice: null };
     this._saveAlerts([alert, ...list]);
+    this._tell("alerts", { id: alert.id, symbol: alert.symbol, what: "added" });
     return { alert, alerts: this._alertList() };
   }
 
@@ -2095,7 +2114,10 @@ class MarketService {
   removeAlert(id) {
     const list = this._alertList();
     const next = list.filter((a) => a.id !== String(id));
-    if (next.length !== list.length) this._saveAlerts(next);
+    if (next.length !== list.length) {
+      this._saveAlerts(next);
+      this._tell("alerts", { id: String(id), what: "removed" });
+    }
     return { alerts: this._alertList() };
   }
 
@@ -2109,6 +2131,7 @@ class MarketService {
       a.firedAt = new Date(this.now()).toISOString();
       a.firedPrice = isNum(Number(price)) && Number(price) > 0 ? Math.round(Number(price) * 100) / 100 : null;
       this._saveAlerts(list);
+      this._tell("alerts", { id: a.id, symbol: a.symbol, what: "fired", price: a.firedPrice });
     }
     return { alert: a, first, alerts: this._alertList() };
   }

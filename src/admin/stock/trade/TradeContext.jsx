@@ -8,7 +8,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import { api } from "../../api";
 import { useAuth } from "../../auth";
 import OrderTicket from "./OrderTicket";
-import { useDailyGoal } from "./DailyGoal";
+import { chime, useDailyGoal } from "./DailyGoal";
 import { stopTicket } from "./tradeMath";
 import { bookStore, pulseOf } from "./liveBook";
 import { everyVisible } from "../../visible";
@@ -114,6 +114,32 @@ export function TradeProvider({ children }) {
         pushGoal(JSON.parse(e.data));
       } catch (_) {
         /* the next push replaces it */
+      }
+    });
+    // the switch, the Zerodha session or the guard changed (here, in another tab, on WhatsApp): at once
+    es.addEventListener("status", (e) => {
+      try {
+        const d = JSON.parse(e.data);
+        if (d && d.status) setStatus(d.status);
+      } catch (_) {
+        /* the next status read catches up */
+      }
+    });
+    // a note for every page: the exit coach stepping up on an open position (TIGHTEN, BOOK PART, EXIT NOW)
+    es.addEventListener("notice", (e) => {
+      try {
+        const n = (JSON.parse(e.data) || {}).notice;
+        if (!n) return;
+        say(`${n.title}${n.text ? ` — ${n.text}` : ""}`, n.level === "danger" ? "error" : n.level === "warn" ? "warn" : n.level === "ok" ? "ok" : "info");
+        let muted = false;
+        try {
+          muted = JSON.parse(window.localStorage.getItem("vpt.goal.mute") || "false");
+        } catch (_) {
+          muted = false;
+        }
+        if (n.level === "danger" && !muted) chime("danger");
+      } catch (_) {
+        /* a malformed note is skipped */
       }
     });
     // (re)connected: the switch and connection state as the server has them now

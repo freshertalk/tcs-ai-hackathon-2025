@@ -17,6 +17,7 @@ import AlertsPanel from "./AlertsPanel";
 import ResearchButton from "./ResearchPanel";
 import { GoalPill } from "../trade/DailyGoal";
 import { pulseOf, useLiveBook } from "../trade/liveBook";
+import { useStreamState } from "../analyzer/liveTicks";
 import { everyVisible } from "../../visible";
 
 const IST = 5.5 * 3600 * 1000;
@@ -38,9 +39,15 @@ export function useClock() {
   return now;
 }
 
-/** Whether Zerodha is connected, re-read every minute (the session dies at 6 AM). */
+/**
+ * Whether Zerodha is connected: re-read every minute (the session dies at 6 AM), and at once whenever the
+ * live stream changes state (the session ended, the stream came back) or the account says it changed.
+ */
 export function useKite() {
   const [k, setK] = useState(null);
+  const stream = useStreamState();
+  const trade = useTrade();
+  const tradeConnected = trade ? Boolean(trade.connected) : null;
   useEffect(() => {
     let alive = true;
     const read = () =>
@@ -53,7 +60,7 @@ export function useKite() {
       alive = false;
       stop();
     };
-  }, []);
+  }, [stream.state, tradeConnected]);
   return k;
 }
 

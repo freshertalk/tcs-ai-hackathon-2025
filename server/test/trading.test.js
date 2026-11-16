@@ -757,3 +757,38 @@ test("the live book: one read gives every position with the day's totals, for th
   // nothing here sends anything to Zerodha's order endpoints
   assert.equal(s.kite.writes().length, 0);
 });
+
+test("every open page is told at once: the switch and the session (status), the exit coach's warnings (notice), price alerts", async (t) => {
+  const s = await boot();
+  t.after(s.close);
+  await s.connectKite();
+  const pushed = [];
+  const off = s.made.trading.watchPush((ev) => pushed.push(ev));
+  t.after(off);
+  await on(s);
+  await new Promise((r) => setImmediate(r));
+  const st = pushed.filter((e) => e.type === "status");
+  assert.ok(st.length >= 1, "a status push after the switch changed");
+  assert.equal(st[st.length - 1].status.enabled, true);
+  // the Zerodha session ending changes every page's status too
+  const n0 = pushed.length;
+  s.made.market.disconnect();
+  await new Promise((r) => setImmediate(r));
+  assert.ok(pushed.length > n0);
+  assert.equal(pushed[pushed.length - 1].status.connected, false);
+  // a notice: cleaned, with a level
+  s.made.trading.notice({ level: "danger", title: "EXIT NOW — SBIN long 10", text: "x".repeat(1000), symbol: "SBIN" });
+  const n = pushed.find((e) => e.type === "notice");
+  assert.equal(n.notice.level, "danger");
+  assert.equal(n.notice.text.length, 400);
+  s.made.trading.notice({ level: "weird", title: "", text: "" });
+  assert.equal(pushed.filter((e) => e.type === "notice").length, 1, "an empty note is not sent");
+  // price alerts: set and removed, told on the market's events
+  const alerts = [];
+  s.made.market.events.on("alerts", (e) => alerts.push(e.what));
+  const made = await s.request("POST", "/api/admin/market/alerts", { cookie: s.admin, body: { symbol: "INFY", price: 1600, dir: "above" } });
+  await s.request("POST", `/api/admin/market/alerts/${made.json.alert.id}/fired`, { cookie: s.admin, body: { price: 1600.5 } });
+  await s.request("DELETE", `/api/admin/market/alerts/${made.json.alert.id}`, { cookie: s.admin });
+  assert.deepEqual(alerts, ["added", "fired", "removed"]);
+  assert.equal(s.kite.writes().length, 0);
+});
