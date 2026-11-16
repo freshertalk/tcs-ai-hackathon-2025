@@ -11,6 +11,7 @@ import { useDialog } from "../../dialog/DialogProvider";
 import { DateField, DateRangeField } from "../../DatePicker";
 import { isNum, num } from "../analyzer/format";
 
+const sPctText = (x) => (isNum(x) ? `${x > 0 ? "+" : x < 0 ? "−" : ""}${Math.abs(x).toFixed(2)}%` : "—");
 export const sMoney = (x) => (isNum(x) ? `${x > 0 ? "+" : x < 0 ? "−" : ""}₹${num(Math.abs(x))}` : "—");
 export const tone = (x) => (!isNum(x) || x === 0 ? "" : x > 0 ? "is-up" : "is-down");
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -229,6 +230,9 @@ export function PeriodTable({ per, sel, onPick }) {
               <th scope="col" className="is-num">
                 Net P&amp;L
               </th>
+              <th scope="col" className="is-num" data-tip="Net as a share of the money put into the period's trades (each trade's size at its entry price, added up).">
+                Return
+              </th>
               <th scope="col" className="is-num">
                 Profit factor
               </th>
@@ -255,6 +259,7 @@ export function PeriodTable({ per, sel, onPick }) {
                 <td className={`is-num ${tone(r.gross)}`}>{r.trades ? sMoney(r.gross) : "—"}</td>
                 <td className="is-num">{r.trades ? sMoney(-r.charges) : "—"}</td>
                 <td className={`is-num jp-net ${tone(r.net)}`}>{r.trades ? sMoney(r.net) : "—"}</td>
+                <td className={`is-num ${tone(r.netPct)}`}>{r.trades ? sPctText(r.netPct) : "—"}</td>
                 <td className={`is-num ${r.profitFactor !== null && r.profitFactor < 1 && r.trades ? "is-down" : ""}`}>{r.trades ? pf(r.profitFactor) : "—"}</td>
                 <td className="is-num">{r.trades && r.maxDrawdown ? sMoney(-r.maxDrawdown) : "—"}</td>
                 <td>
@@ -451,6 +456,9 @@ export function MonthTable({ months, label }) {
               <th scope="col" className="is-num">
                 Net
               </th>
+              <th scope="col" className="is-num" data-tip="Net as a share of the money put into that month's trades.">
+                Return
+              </th>
               <th scope="col" className="is-num">
                 PF
               </th>
@@ -471,6 +479,7 @@ export function MonthTable({ months, label }) {
                 <td className={`is-num ${tone(m.gross)}`}>{sMoney(m.gross)}</td>
                 <td className="is-num">{sMoney(-m.charges)}</td>
                 <td className={`is-num jp-net ${tone(m.net)}`}>{sMoney(m.net)}</td>
+                <td className={`is-num ${tone(m.netPct)}`}>{sPctText(m.netPct)}</td>
                 <td className="is-num">{pf(m.profitFactor)}</td>
                 <td className="is-num">
                   {m.greenDays}/{m.days}
@@ -524,6 +533,9 @@ export function DayTable({ days, label }) {
               <th scope="col" className="is-num">
                 Net
               </th>
+              <th scope="col" className="is-num" data-tip="Net as a share of the money put into that day's trades.">
+                Return
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -536,6 +548,7 @@ export function DayTable({ days, label }) {
                 <td className="is-num">{sMoney(-d.brokerage)}</td>
                 <td className="is-num">{sMoney(-d.taxes)}</td>
                 <td className={`is-num jp-net ${tone(d.net)}`}>{sMoney(d.net)}</td>
+                <td className={`is-num ${tone(d.netPct)}`}>{sPctText(d.netPct)}</td>
               </tr>
             ))}
           </tbody>

@@ -3,6 +3,8 @@
 //                flight recorder of any day: every frame and event of every trade
 //   Robot vs you after the close, its day against your real one: the stocks you both traded, the advisor's calls
 //                you skipped, your trades it did not take (and why), your habits and the rule that answers each
+//   Day picks    the day-trading predictor learned from a year of the NIFTY 100 in the database, its out-of-sample
+//                skill, tomorrow's ranked stocks with their best levels, and what it has learned (DayPicks.jsx)
 //   Learning     its mistakes, the corrections it made to its own rulebook and how each fared, its curve, and the
 //                Level Book's out-of-sample skill over its first fifteen sessions
 //   Level book   the best levels for the next session on the NIFTY 100, with the record each rests on
@@ -13,6 +15,7 @@ import { api } from "../../api";
 import { Alert, Loading } from "../../ui";
 import { LineChart, dayLong, rs, rsSigned, tone } from "./charts";
 import { Chip, Tile } from "./Snapshots";
+import DayPicks, { HistoryCard } from "./DayPicks";
 import "./robot.css";
 
 const shortDay = (d) => new Date(`${d}T12:00:00Z`).toLocaleDateString("en-IN", { day: "numeric", month: "short", timeZone: "UTC" });
@@ -565,6 +568,7 @@ export function Learning() {
     <>
       <Alert>{err}</Alert>
       <Graduation g={sk.graduation} />
+      {l.auto && <HistoryCard h={l.auto.history} />}
       <div className="lab-bar">
         <button type="button" className="adm-btn adm-btn--sm" disabled={Boolean(job) || busy === "study"} onClick={() => run("study", "/api/admin/robot/study")}>
           {job ? `Studying… ${job.done} of ${job.total}${job.current ? ` (${job.current})` : ""}` : "Study the NIFTY 100 now"}
@@ -852,6 +856,7 @@ export function LevelBook() {
 const VIEWS = [
   { id: "today", label: "Today" },
   { id: "versus", label: "Robot vs you" },
+  { id: "picks", label: "Day picks" },
   { id: "learning", label: "Learning" },
   { id: "levels", label: "Level book" },
 ];
@@ -889,6 +894,7 @@ export default function Robot() {
       </div>
       {view === "today" && <Today days={list} />}
       {view === "versus" && <VersusYou days={list} summary={days.data ? days.data.summary : null} />}
+      {view === "picks" && <DayPicks />}
       {view === "learning" && <Learning />}
       {view === "levels" && <LevelBook />}
     </>

@@ -60,7 +60,7 @@ const FIRST = 3; // the opening range is the first three bars; tests start at 9:
 const LAST_MIN = 14 * 60 + 30; // no test starts after 2:30 PM
 const SQUARE_MIN = 15 * 60 + 15;
 const K_SHRINK = 8; // a stock's own record counts for this many pooled tests when shrunk
-const WINDOW = 60; // sessions in the book
+const WINDOW = 120; // sessions in the book (the stored year gives more than that; the older ones count for less than the recent)
 const MIN_POOLED = 40;
 const MIN_SESSIONS = 8; // fewer sessions than this are not worth a suggestion: the book shows none and the robot does not consult it
 

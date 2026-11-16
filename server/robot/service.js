@@ -38,6 +38,8 @@ const E = require("./engine");
 const L = require("./levels");
 const I = require("./improve");
 const C = require("./compare");
+const P = require("./predict");
+const { HistoryStore, sessions: wholeSessions } = require("./history");
 const SNAP = require("../market/index-snapshots.json");
 
 const IST = 5.5 * 3600 * 1000;
@@ -49,6 +51,9 @@ const DAYS = "robot_days"; // one record per session: the comparison, the correc
 const STUDY = "robot_study"; // one record per studied session: the Level Book's rows
 const SECTION_ROBOT = "## The paper robot (written by itself)";
 const SECTION_LEVELS = "## Entry levels measured on the NIFTY 100 (written by itself)";
+const SECTION_PRED = "## The day-trading predictor, measured on a year of the NIFTY 100 (written by itself)";
+const PRED = "robot/predictor.json"; // the learned counts, the ranked stocks for the next session, the learning points, the out-of-sample record
+const LEVEL_SESSIONS = 130; // sessions of the stored year the Level Book studies
 const FRAME_MS = 15000;
 const SAVE_MS = 30000;
 const MAX_FRAMES = 2400;
@@ -105,6 +110,12 @@ class PaperRobot {
     this._afterBusy = false;
     this._bookCache = null;
     this._lastClosed = {};
+    // the one-year history of the NIFTY 100 and the learning that is built on it, kept current without anyone asking
+    this.history = market ? new HistoryStore({ docs, market, universe: () => this.universe(), now: () => this.now(), log, gapMs }) : null;
+    this._learnBusy = false;
+    this._learnCheckAt = 0;
+    this._picksSeen = null;
+    this._picksMap = {};
   }
 
   /* ------------------------------------------------------------------------------- storage */
@@ -222,6 +233,7 @@ class PaperRobot {
   /** Called every few seconds by the timer (and directly by tests). */
   tick() {
     const now = this.now();
+    this._learnAuto(now);
     const t = istParts(now);
     if (t.dow === 0 || t.dow === 6 || this.isHoliday(t.date)) return null;
     if (t.mins >= 9 * 60 + 15 && t.mins <= 15 * 60 + 31) {
@@ -335,6 +347,7 @@ class PaperRobot {
           continue;
         }
         pos.last = pos.entryAvg;
+        pos.dayPick = this._pickOf(pos.symbol);
         pos.events.push({ at: now, clock: E.clockOf(now), kind: "entry", text: `${pos.side === "long" ? "Bought" : "Sold short"} ${pos.qty} ${pos.symbol} at ₹${pos.entryAvg.toFixed(2)}: score ${pos.score}, ${pos.agree}% of the engines agree. Stop ₹${pos.stop.toFixed(2)}, targets ₹${pos.t1.toFixed(2)} and ₹${pos.t2.toFixed(2)}${level ? `; at ${level.name}${level.ev !== null ? ` (the book: ${level.ev > 0 ? "+" : ""}${level.ev}R, ${level.hit}% won)` : ""}` : ""}.`, price: pos.entryAvg });
         this.s.open.push(pos);
         this._decide(rec, now, { symbol: pos.symbol, side: pos.side, action: "enter", why: pos.why[0] || "an eligible call", score: pos.score });
@@ -415,7 +428,7 @@ class PaperRobot {
     const t = istParts(now);
     const date = t.date;
     const f = (this.s.finished[date] = this.s.finished[date] || {});
-    if (f.close && f.compare && f.improve && (f.study || !this.market)) return;
+    if (f.close && f.compare && f.improve) return;
     this._afterBusy = true;
     try {
       if (!f.close) {
@@ -438,18 +451,6 @@ class PaperRobot {
       if (f.compare && !f.improve && t.mins >= 15 * 60 + 55) {
         await this.improveDay(date, { by: "itself" });
         f.improve = true;
-        this._save();
-      }
-      if (f.improve && !f.study && this.market && t.mins >= 16 * 60 && t.mins < 22 * 60 && (f.studyTry || 0) < 3 && now - (f.studyAt || 0) > 10 * 60000) {
-        f.studyTry = (f.studyTry || 0) + 1;
-        f.studyAt = now;
-        this._save();
-        try {
-          await this.study({ trigger: "itself" });
-          f.study = true;
-        } catch (err) {
-          this.log.log(`[robot] study: ${err.message}`);
-        }
         this._save();
       }
     } finally {
@@ -600,17 +601,24 @@ class PaperRobot {
     let bars5 = 0;
     for (const symbol of uni) {
       this.job.current = symbol;
+      let fromStore = false;
       try {
-        const it = await this.market._instrument(symbol);
-        const raw = await this.market._call((k) => k.historical(it.t, "5minute", new Date(now - days * 86400000), new Date(now)));
-        const bars = (raw || []).map((b) => ({ t: msOf(b.t), o: b.o, h: b.h, l: b.l, c: b.c, v: b.v })).filter((b) => num(b.t));
+        // the stored year when there is one (no network); Zerodha's history otherwise
+        fromStore = Boolean(this.history && this.history.record(symbol));
+        let bars;
+        if (fromStore) bars = this.history.bars(symbol);
+        else {
+          const it = await this.market._instrument(symbol);
+          const raw = await this.market._call((k) => k.historical(it.t, "5minute", new Date(now - days * 86400000), new Date(now)));
+          bars = (raw || []).map((b) => ({ t: msOf(b.t), o: b.o, h: b.h, l: b.l, c: b.c, v: b.v })).filter((b) => num(b.t));
+        }
         bars5 += bars.length;
         const byDate = new Map();
         for (const b of bars) {
           const d = istParts(b.t).date;
           (byDate.get(d) || byDate.set(d, []).get(d)).push(b);
         }
-        const dates = [...byDate.keys()].sort().filter((d) => d < today || todayDone);
+        const dates = [...byDate.keys()].sort().filter((d) => d < today || todayDone).slice(-(LEVEL_SESSIONS + 1));
         dates.forEach((d, i) => {
           const day = byDate.get(d);
           if (!i || day.length < 60) return;
@@ -628,7 +636,8 @@ class PaperRobot {
         failed.push({ symbol, error: String(err && err.message ? err.message : err).slice(0, 80) });
       }
       this.job.done += 1;
-      if (this.gapMs) await sleep(this.gapMs);
+      if (fromStore) await new Promise((r) => setImmediate(r)); // let the server breathe between stocks
+      else if (this.gapMs) await sleep(this.gapMs);
     }
     const rows = [];
     for (const [date, slot] of bySession) {
@@ -674,6 +683,149 @@ class PaperRobot {
     } catch (_) {
       /* the file is only a convenience */
     }
+  }
+
+  /* ------------------------------------------------------------- learning by itself, all year */
+
+  _connected() {
+    try {
+      return Boolean(this.market && this.market.mode() === "kite");
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /** The predictor's counts are older than the newest stored session (or there are none). */
+  _stale() {
+    const st = this.history.status();
+    if (!st.stocks) return false;
+    const d = this.docs.read(PRED, null);
+    return !d || !d.lastDate || d.lastDate < st.to;
+  }
+
+  /**
+   * Learning needs no one. Whenever Zerodha is connected: a year of 5-minute bars for every NIFTY 100 stock is
+   * read and saved (resuming where it stopped), topped up after each close, and, once the history is current,
+   * the Level Book and the predictor are rebuilt from every stored session and the learning points saved.
+   * Never in the half hour the scanner fills its buffer; in the session only a few stocks at a time.
+   */
+  _learnAuto(now) {
+    if (this._learnBusy || !this.history || !this._connected()) return;
+    if (now - this._learnCheckAt < 30000) return;
+    this._learnCheckAt = now;
+    const t = istParts(now);
+    const weekday = t.dow >= 1 && t.dow <= 5;
+    if (weekday && t.mins >= 8 * 60 + 55 && t.mins < 9 * 60 + 40) return;
+    const inSession = weekday && t.mins >= 9 * 60 + 40 && t.mins <= 15 * 60 + 35;
+    const needs = this.history.needs();
+    if (!needs.length && !this._stale()) return;
+    this._learnBusy = true;
+    (async () => {
+      try {
+        if (needs.length) await this.history.sync({ trigger: "itself", max: inSession ? 25 : Infinity });
+        if (!this.history.needs().length) await this._relearn();
+      } catch (err) {
+        this.log.log(`[robot] learning: ${err && err.message ? err.message : err}`);
+      } finally {
+        this._learnBusy = false;
+      }
+    })();
+  }
+
+  /** Rebuild everything learned from the stored year: the Level Book's sessions, the predictor, the points. */
+  async _relearn() {
+    await this.study({ trigger: "itself", universe: this.universe() }).catch((err) => {
+      if (!(err && err.code === "busy")) throw err;
+    });
+    this.learnPredictor();
+    this.s.learned = { at: new Date(this.now()).toISOString(), to: this.history.status().to };
+    this._note(`Learned from ${this.history.status().sessions} sessions of the NIFTY 100 (history to ${this.s.learned.to}).`);
+    this._save();
+  }
+
+  /** The predictor: samples from every stored session, walk-forward skill, tomorrow's ranking, the learning points. */
+  learnPredictor() {
+    if (!this.history) return null;
+    const by = new Map();
+    for (const sym of this.universe()) {
+      if (!this.history.record(sym)) continue;
+      const sess = wholeSessions(this.history.bars(sym));
+      if (sess.size >= 25) by.set(sym, sess);
+    }
+    if (by.size < 10) return null;
+    const { samples, latest, lastDate } = P.buildSamples(by);
+    if (!lastDate || samples.length < 500) return null;
+    const tr = P.train(samples);
+    const before = this.docs.read(PRED, null);
+    const dp = P.diffPoints(P.points(tr.counts, samples).slice(0, 40), before ? before.points : []);
+    const doc = {
+      ver: 1,
+      at: new Date(this.now()).toISOString(),
+      lastDate,
+      nextDate: P.nextWeekday(lastDate),
+      stocks: by.size,
+      samples: samples.length,
+      counts: tr.counts,
+      series: tr.series,
+      summary: tr.summary,
+      picks: P.rank(tr.counts, latest, { limit: 25 }),
+      points: dp.points.map((p) => ({ ...p, firstSeen: p.firstSeen || lastDate })),
+      gone: dp.gone,
+    };
+    this.docs.write(PRED, doc);
+    this._picksSeen = null;
+    this._predLessons(doc);
+    return doc;
+  }
+
+  /** What the predictor has found, in plain words, for the trading-skills file every AI feature reads. */
+  _predLessons(doc) {
+    const pb = this.ai && this.ai.playbook;
+    if (!pb || typeof pb.setSection !== "function") return;
+    const top = doc.points.filter((p) => p.kind === "market").slice(0, 4).map((p) => `- ${p.text}`);
+    const body = [`Measured on ${doc.stocks} NIFTY 100 stocks over a stored year (${doc.samples} stock-sessions; history to ${doc.lastDate}). A clean directional day is a move of 0.6 times the stock's average daily range before 0.3 times against it, from the 9:30 price.`, `Its own record: ${doc.summary.text}`, ...top].join("\n");
+    try {
+      pb.setSection(SECTION_PRED, body);
+    } catch (_) {
+      /* the file is only a convenience */
+    }
+  }
+
+  /** The tag a trade carries for the predictor's ranking of its stock for the day (rank, chance, side). */
+  _pickOf(symbol) {
+    const d = this.docs.read(PRED, null);
+    if (!d) return null;
+    if (this._picksSeen !== d.at) {
+      this._picksSeen = d.at;
+      this._picksMap = Object.fromEntries((d.picks || []).map((p) => [p.symbol, { rank: p.rank, p: p.p, side: p.side }]));
+    }
+    return this._picksMap[symbol] || null;
+  }
+
+  /** Look again now (it does so every half minute by itself): the same loop, without waiting. */
+  learnNow() {
+    this._learnCheckAt = 0;
+    this._learnAuto(this.now());
+    return this.historyView();
+  }
+
+  /** The year of history: how much is stored, how current it is, and whether the learning is running. */
+  historyView() {
+    if (!this.history) return { available: false, reason: "The history needs the market connection." };
+    return { available: true, ...this.history.status(), learned: this.s.learned || null, busy: this._learnBusy, connected: this._connected() };
+  }
+
+  /** The predictor's page: the ranked stocks for the next session with their best levels, the points, the skill. */
+  predictor() {
+    const d = this.docs.read(PRED, null);
+    const history = this.historyView();
+    if (!d) return { available: false, reason: "Not learned yet. As soon as Zerodha is connected the robot reads a year of the NIFTY 100's 5-minute bars into the database and learns from all of it by itself.", history };
+    const study = this._tbl(STUDY).sort((a, b) => (a.date < b.date ? -1 : 1));
+    const book = study.length >= L.MIN_SESSIONS ? L.buildBook(study) : null;
+    const own = study.length ? study[study.length - 1].own : {};
+    const picks = (d.picks || []).map((p) => ({ ...p, levels: book && own[p.symbol] ? L.suggestFor(book, p.symbol, own[p.symbol], { top: 2 }) : [] }));
+    const { counts, ...rest } = d;
+    return { available: true, ...rest, picks, graduated: d.summary.state === "graduated", base: counts.g.n ? Math.round((counts.g.k / counts.g.n) * 100) : null, history };
   }
 
   /* --------------------------------------------------------------------------- the views */
@@ -763,6 +915,7 @@ class PaperRobot {
       notes: this.s.notes.slice(0, 5),
       skill: { series, graduation: grad, studied: study.length, live: study.filter((r) => r.source === "live").length, backfilled: study.filter((r) => r.source !== "live").length, from: study.length ? study[0].date : null, to: study.length ? study[study.length - 1].date : null },
       job: this.job ? { ...this.job } : null,
+      auto: { history: this.historyView(), learned: this.s.learned || null },
     };
   }
 

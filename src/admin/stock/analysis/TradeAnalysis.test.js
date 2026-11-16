@@ -183,6 +183,23 @@ const mockLevelBook = {
   symbol: null,
   stock: null,
 };
+const mockHistory = { available: true, stocks: 100, expected: 100, current: 100, deep: 97, sessions: 247, bars: 1850000, kb: 15200, from: "2025-11-17", to: "2026-11-13", asOf: "2026-11-13", complete: true, upToDate: true, running: false, job: null, error: "", learned: { at: "2026-11-13T11:10:00Z", to: "2026-11-13" }, connected: true };
+const mockPredictor = {
+  available: true,
+  at: "2026-11-13T11:10:00Z",
+  lastDate: "2026-11-13",
+  nextDate: "2026-11-16",
+  stocks: 100,
+  samples: 21500,
+  graduated: true,
+  base: 31,
+  summary: { sessions: 226, evaluated: 166, meanLift: 0.074, topRate: 0.42, baseRate: 0.33, t: 3.1, positive: 0.62, dirCalls: 410, dirHitPct: 58, state: "graduated", text: "Out of sample, over 166 sessions its ten highest-ranked stocks gave a clean directional day 42% of the time against 33% for the average stock (ahead on 62% of the sessions, t = 3.1)." },
+  series: Array.from({ length: 30 }, (_, i) => ({ date: `2026-10-${String(i + 1).padStart(2, "0")}`, top: 0.4, base: 0.33, lift: 0.07 })),
+  picks: [{ rank: 1, symbol: "TATASTEEL", p: 0.52, base: 0.31, lift: 0.21, pUp: 0.64, side: "long", stockRate: 0.47, stockN: 226, avgRangePct: 2.1, targetPct: 1.26, why: ["the day before closed near its high (44% of 3,100 such sessions were clean)"], levels: [{ key: "pdl|bounce|long", kindName: "Yesterday's low", level: 148.2, play: "bounce", side: "long", entry: 148.2, stop: 147.6, target: 149.1, ev: 0.12, hit: 55 }], last: {} }, { rank: 2, symbol: "HAL", p: 0.49, base: 0.31, lift: 0.18, pUp: 0.5, side: "either", stockRate: 0.44, stockN: 226, avgRangePct: 2.6, targetPct: 1.56, why: [], levels: [], last: {} }],
+  points: [{ id: "s:TATASTEEL", kind: "stock", text: "TATASTEEL: 47% of 226 sessions gave a clean directional day, against 31% for the NIFTY 100 — a stock that trends.", n: 226, lift: 0.16, firstSeen: "2026-11-02", state: "new" }, { id: "f:loc:high", kind: "market", text: "When the day before closed near its high, 36% of 4,100 sessions gave a clean directional day, against 31% overall.", n: 4100, lift: 0.05, firstSeen: "2026-10-20", state: "steady" }, { id: "t:first", kind: "timing", text: "In 61% of 21500 sessions the day's high or low was set in the first hour (9:15–10:15).", n: 21500, lift: 0.11, firstSeen: "2026-10-20", state: "steady" }],
+  gone: ["s:OLD"],
+  history: mockHistory,
+};
 const mockCalls = [];
 const mockWrites = [];
 jest.mock("../../api", () => ({
@@ -195,6 +212,7 @@ jest.mock("../../api", () => ({
     if (url.startsWith("/api/admin/robot/compare/")) return Promise.resolve(mockRobotCompare);
     if (url.startsWith("/api/admin/robot/learning")) return Promise.resolve(mockRobotLearning);
     if (url.startsWith("/api/admin/robot/levels")) return Promise.resolve(mockLevelBook);
+    if (url.startsWith("/api/admin/robot/predictor")) return Promise.resolve(mockPredictor);
     if (url.startsWith("/api/admin/robot/")) return Promise.resolve({});
     if (url.startsWith("/api/admin/analysis/snapshot/")) return Promise.resolve(mockSnap);
     if (url.startsWith("/api/admin/analysis/outcomes")) return Promise.resolve(mockOutcomes);
@@ -468,4 +486,27 @@ test("the Level Book: the best levels for the next session, with the record each
   expect(screen.getByText("+0.18R")).toBeTruthy();
   expect(screen.getByText(/9 of its own tests · 410 across the NIFTY 100/)).toBeTruthy();
   expect(screen.getByText(/it has not yet shown skill out of sample/)).toBeTruthy();
+});
+
+test("Day picks: the stocks the predictor ranks for the next session with their levels, its out-of-sample record, what it has learned — and the year of history it learns from by itself", async () => {
+  outsideMarketHours();
+  window.localStorage.setItem("vpt.lab.mode", "robot");
+  window.localStorage.setItem("vpt.robot.view", "picks");
+  render(<TradeAnalysis />);
+  await settle();
+  expect(mockCalls).toContain("/api/admin/robot/predictor");
+  expect(screen.getByText("Ranking with evidence")).toBeTruthy();
+  expect(screen.getByText(/Out of sample, over 166 sessions its ten highest-ranked stocks/)).toBeTruthy();
+  expect(screen.getByText("1. TATASTEEL")).toBeTruthy();
+  expect(screen.getByText("52%")).toBeTruthy();
+  expect(screen.getByText(/the day before closed near its high \(44% of 3,100 such sessions were clean\)/)).toBeTruthy();
+  expect(screen.getByText(/Yesterday's low 148\.20 — holds \(long\): in 148\.20, stop 147\.60, target 149\.10 · \+0\.12R, 55% won/)).toBeTruthy();
+  expect(screen.getByText(/a stock that trends/)).toBeTruthy();
+  expect(screen.getByText("New")).toBeTruthy();
+  expect(screen.getByText(/1 earlier point no longer stand out|1 earlier point no longer stands? out/)).toBeTruthy();
+  // the year in the database, kept by itself
+  expect(screen.getByText("A year of the NIFTY 100 in the database")).toBeTruthy();
+  expect(screen.getByText("Up to date")).toBeTruthy();
+  expect(screen.getByText(/It reads, learns and updates/)).toBeTruthy();
+  expect(screen.getByText("247", { selector: "b" })).toBeTruthy();
 });

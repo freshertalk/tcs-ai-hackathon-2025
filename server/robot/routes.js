@@ -31,6 +31,10 @@ function mountRobot(app, { robot, requireSuper, limiter }) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) throw new RobotError("Say which session to review (YYYY-MM-DD).");
     return { result: await robot.improveDay(d, { by: "manual" }), learning: robot.learning() };
   }));
+  // the one-year history, the predictor and its learning points: kept current by the robot itself (no button needed)
+  app.get("/api/admin/robot/history", requireSuper, limiter(120, 60 * 1000), wrap(async () => robot.historyView()));
+  app.get("/api/admin/robot/predictor", requireSuper, limiter(120, 60 * 1000), wrap(async () => robot.predictor()));
+  app.post("/api/admin/robot/learn", requireSuper, limiter(10, 60 * 60 * 1000), wrap(async () => robot.learnNow()));
   app.post("/api/admin/robot/study", requireSuper, limiter(6, 60 * 60 * 1000), wrap(async () => {
     const p = robot.study({ trigger: "manual" });
     p.catch(() => {}); // the page follows the job; a failure is on it

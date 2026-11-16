@@ -13,6 +13,8 @@ import "./journal-charts.css";
 
 const isNum = (x) => typeof x === "number" && Number.isFinite(x);
 const pct = (x) => (isNum(x) ? `${Math.round(x)}%` : "—");
+/** A return as a signed percentage, two decimals: +1.23% */
+export const sPct = (x) => (isNum(x) ? `${x > 0 ? "+" : x < 0 ? "−" : ""}${Math.abs(x).toFixed(2)}%` : "—");
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const dayText = (k) => (k ? `${Number(k.slice(8))} ${MONTHS[Number(k.slice(5, 7)) - 1]} ${k.slice(0, 4)}` : "");
 const toneOf = (x) => (!isNum(x) || x === 0 ? "" : x > 0 ? "is-up" : "is-down");
@@ -184,9 +186,16 @@ export function Hero({ s, a, label, period, onRetro, busy }) {
           {period && period.fromDay && period.id !== "custom" ? ` · ${period.fromDay === period.toDay ? dayText(period.toDay) : `${dayText(period.fromDay)} – ${dayText(period.toDay)}`}` : ""}
         </p>
         <p className="jc-hero__say">{won ? "You made" : s.net < 0 ? "You lost" : "You broke even"}</p>
-        <p className="jc-hero__n">{rs(Math.abs(s.net))}</p>
+        <p className="jc-hero__n">
+          {rs(Math.abs(s.net))}
+          {isNum(s.netPct) && (
+            <span className="jc-hero__pct" data-tip="The result after costs as a share of the money you put into these trades (each trade's size at its entry price, added up).">
+              {sPct(s.netPct)}
+            </span>
+          )}
+        </p>
         <p className="jc-hero__sub">
-          after all costs, from <b>{s.trades}</b> trade{s.trades === 1 ? "" : "s"} on <b>{s.tradingDays}</b> day{s.tradingDays === 1 ? "" : "s"}
+          after all costs{isNum(s.netPct) ? <> — <b className={toneOf(s.netPct)}>{sPct(s.netPct)}</b> of the {rs(s.invested)} you put into the trades</> : null}, from <b>{s.trades}</b> trade{s.trades === 1 ? "" : "s"} on <b>{s.tradingDays}</b> day{s.tradingDays === 1 ? "" : "s"}
           {diff !== null && (
             <>
               {" "}

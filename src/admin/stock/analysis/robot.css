@@ -224,3 +224,35 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* the year of history and the learning points */
+.rbt-hist__facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 20px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--t-small);
+  color: var(--ink-2);
+}
+.rbt-hist__facts b {
+  color: var(--ink);
+}
+.rbt-points h4 {
+  margin: 8px 0 4px;
+  font-size: var(--t-small);
+  color: var(--ink-2);
+}
+.rbt-points ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--t-small);
+  color: var(--ink);
+}
+.rbt-points li small {
+  color: var(--ink-3);
+}

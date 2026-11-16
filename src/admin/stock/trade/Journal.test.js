@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import Journal from "./Journal";
 
 const mockCalls = [];
-const mockRow = (id, label, trades, net, extra = {}) => ({ id, label, fromDay: "2026-04-01", toDay: "2026-11-16", trades, wins: Math.ceil(trades / 2), winRate: 50, gross: net + 100, charges: 100, brokerage: 40, taxes: 60, net, profitFactor: 1.4, expectancy: 10, avgWin: 50, avgLoss: -30, maxDrawdown: 300, days: trades, greenDays: 1, bestDay: { day: "2026-11-13", net: 900 }, worstDay: { day: "2026-11-10", net: -400 }, chargesPct: 12, ...extra });
+const mockRow = (id, label, trades, net, extra = {}) => ({ id, label, fromDay: "2026-04-01", toDay: "2026-11-16", trades, wins: Math.ceil(trades / 2), winRate: 50, gross: net + 100, invested: 100000, netPct: Math.round(net / 10) / 100, charges: 100, brokerage: 40, taxes: 60, net, profitFactor: 1.4, expectancy: 10, avgWin: 50, avgLoss: -30, maxDrawdown: 300, days: trades, greenDays: 1, bestDay: { day: "2026-11-13", net: 900 }, worstDay: { day: "2026-11-10", net: -400 }, chargesPct: 12, ...extra });
 const mockPer = {
   today: "2026-11-16",
   firstDay: "2024-12-10",
@@ -44,6 +44,7 @@ test("profit and loss for every period and every financial year, from Zerodha on
   expect(within(table).getByText("FY 2024-25")).toBeTruthy();
   expect(within(table).getByText("Since the first trade")).toBeTruthy();
   expect(within(table).getByText(/^\+₹5,400/)).toBeTruthy();
+  expect(within(table).getByText("+5.40%")).toBeTruthy(); // the return on the money put into the trades, beside the amount
   expect(screen.queryByText(/Add a trade/)).toBeNull();
   expect(screen.getByText(/Kite API gives only the/)).toBeTruthy();
   expect(screen.getByText(/2 fills typed in by hand/)).toBeTruthy();

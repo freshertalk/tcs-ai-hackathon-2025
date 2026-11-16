@@ -536,6 +536,13 @@ function TradesJournal() {
                   gross {sMoney(s.gross)} · charges {sMoney(-s.charges)}
                 </small>
               </div>
+              <div className={tone(s.netPct)} data-tip="Net profit or loss as a share of the money put into the trades: each trade's size at its entry price, added up. A trade done many times counts each time, so this is the return on the money traded, not on your account.">
+                <dt>Profit / loss %</dt>
+                <dd>{s.netPct === null || s.netPct === undefined ? "—" : `${s.netPct > 0 ? "+" : s.netPct < 0 ? "−" : ""}${Math.abs(s.netPct).toFixed(2)}%`}</dd>
+                <small>
+                  of {s.invested ? `₹${num(s.invested, 0)}` : "—"} put into the trades · gross {s.grossPct === null || s.grossPct === undefined ? "—" : `${s.grossPct > 0 ? "+" : s.grossPct < 0 ? "−" : ""}${Math.abs(s.grossPct).toFixed(2)}%`}
+                </small>
+              </div>
               <div data-tip="Share of closed trades that made money after charges.">
                 <dt>Win rate</dt>
                 <dd>{num(s.winRate, 1)}%</dd>

@@ -435,13 +435,20 @@ function charges(t) {
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
+/** The money a trade put in: its size at the entry price (what the percentage returns are measured on). */
+const entryValue = (t) => (num(t.entryAvg) && num(t.maxQty || t.qty) ? t.entryAvg * (t.maxQty || t.qty) : 0);
+const num = (x) => typeof x === "number" && Number.isFinite(x);
+/** A result as a percentage of the money put in (null when nothing was put in). */
+const pctOf = (x, base) => (base > 0 ? Math.round((x / base) * 10000) / 100 : null);
+
 function group(trips, keyOf) {
   const m = new Map();
   for (const t of trips) {
     const k = keyOf(t);
     if (k === null || k === undefined || k === "") continue;
-    const g = m.get(k) || { key: k, trades: 0, wins: 0, net: 0, gross: 0, charges: 0, brokerage: 0 };
+    const g = m.get(k) || { key: k, trades: 0, wins: 0, net: 0, gross: 0, charges: 0, brokerage: 0, invested: 0 };
     g.trades += 1;
+    g.invested += entryValue(t);
     if (t.net > 0) g.wins += 1;
     g.net += t.net;
     g.gross += t.pnl;
@@ -449,7 +456,7 @@ function group(trips, keyOf) {
     g.brokerage += t.brokerage || 0;
     m.set(k, g);
   }
-  return [...m.values()].map((g) => ({ ...g, net: r2(g.net), gross: r2(g.gross), charges: r2(g.charges), brokerage: r2(g.brokerage), taxes: r2(g.charges - g.brokerage), winRate: g.trades ? r2((g.wins / g.trades) * 100) : 0, avg: g.trades ? r2(g.net / g.trades) : 0 }));
+  return [...m.values()].map((g) => ({ ...g, invested: r2(g.invested), netPct: pctOf(g.net, g.invested), net: r2(g.net), gross: r2(g.gross), charges: r2(g.charges), brokerage: r2(g.brokerage), taxes: r2(g.charges - g.brokerage), winRate: g.trades ? r2((g.wins / g.trades) * 100) : 0, avg: g.trades ? r2(g.net / g.trades) : 0 }));
 }
 
 /**
@@ -491,6 +498,10 @@ function stats(trips) {
     gross: r2(sum(closed, (t) => t.pnl)),
     charges: r2(sum(closed, (t) => t.charges)),
     net: r2(sum(closed, (t) => t.net)),
+    // the money put into the trades (each trade's size at its entry price) and the result as a share of it
+    invested: r2(sum(closed, entryValue)),
+    netPct: pctOf(sum(closed, (t) => t.net), sum(closed, entryValue)),
+    grossPct: pctOf(sum(closed, (t) => t.pnl), sum(closed, entryValue)),
     avgWin: wins.length ? r2(grossWin / wins.length) : 0,
     avgLoss: losses.length ? r2(-grossLoss / losses.length) : 0,
     payoff: losses.length && wins.length ? r2(grossWin / wins.length / (grossLoss / losses.length || 1)) : null,
@@ -566,7 +577,9 @@ function summarize(closed) {
   let eq = 0;
   let peak = 0;
   let dd = 0;
+  let invested = 0;
   for (const t of [...closed].sort((a, b) => a.exitAt - b.exitAt)) {
+    invested += entryValue(t);
     if (t.net > 0) {
       wins += 1;
       won += t.net;
@@ -595,6 +608,8 @@ function summarize(closed) {
     brokerage: r2(brk),
     taxes: r2(ch - brk),
     net: r2(net),
+    invested: r2(invested),
+    netPct: pctOf(net, invested),
     profitFactor: lost > 0 ? r2(won / lost) : wins ? null : 0,
     expectancy: n ? r2(net / n) : 0,
     avgWin: wins ? r2(won / wins) : 0,

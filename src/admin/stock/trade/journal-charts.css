@@ -830,3 +830,12 @@
   color: var(--ink-2);
   line-height: 1.5;
 }
+
+/* the headline's percentage, beside the amount */
+.jc-hero__pct {
+  margin-left: 12px;
+  font-size: 0.5em;
+  font-weight: 600;
+  letter-spacing: 0;
+  vertical-align: middle;
+}

@@ -402,3 +402,25 @@ test("the retrospective: a losing period names what went wrong — revenge trade
   assert.equal(none.verdict, "none");
   assert.match(none.headline, /No closed trades/);
 });
+
+test("the total profit or loss as a percentage: of the money put into the trades (size at entry price), for the period, each day, each month and each group", () => {
+  const { stats, summarize, byMonth } = require("../trading/journal");
+  const at = (d, hm) => Date.parse(`${d}T${hm}:00+05:30`);
+  const mk = (symbol, side, qty, entry, exit, day, charges = 0) => {
+    const pnl = (side === "long" ? exit - entry : entry - exit) * qty;
+    return { symbol, side, qty, maxQty: qty, entryAvg: entry, exitAvg: exit, entryAt: at(day, "10:00"), exitAt: at(day, "11:00"), pnl, charges, brokerage: charges / 2, net: pnl - charges, open: false, intraday: true, holdMin: 60 };
+  };
+  const trips = [mk("SBIN", "long", 100, 1000, 1010, "2026-11-12", 50), mk("TCS", "short", 10, 3000, 3030, "2026-11-12", 50), mk("INFY", "long", 50, 1500, 1503, "2026-11-13", 30)];
+  const s = stats(trips);
+  assert.equal(s.invested, 100000 + 30000 + 75000, "each trade's size at its entry price, added up");
+  assert.equal(s.net, 1000 - 50 - 300 - 50 + 150 - 30);
+  assert.equal(s.netPct, Math.round((s.net / s.invested) * 10000) / 100);
+  assert.equal(s.grossPct, Math.round(((1000 - 300 + 150) / s.invested) * 10000) / 100);
+  const day = s.calendar.find((d) => d.key === "2026-11-12");
+  assert.equal(day.invested, 130000);
+  assert.equal(day.netPct, Math.round(((1000 - 50 - 300 - 50) / 130000) * 10000) / 100);
+  assert.equal(s.by.symbol.find((x) => x.key === "TCS").netPct, Math.round(((-300 - 50) / 30000) * 10000) / 100, "a short counts its entry value too");
+  assert.equal(summarize(trips).netPct, s.netPct);
+  assert.equal(byMonth(trips)[0].netPct, s.netPct);
+  assert.equal(stats([]).netPct, null, "nothing put in, no percentage");
+});
