@@ -611,3 +611,96 @@ test("the email routes need the request header, like every other change", async 
   });
   assert.equal(status, 403);
 });
+
+/* ------------------------------------------------------------- sign up: ask for access */
+
+test("sign up: an address already on the list gets its link; a stranger becomes a request the owner decides, and the answer is the same", async (t) => {
+  const s = await boot();
+  t.after(s.close);
+  await s.request("POST", "/api/admin/admins", { cookie: s.boss, body: { email: "known@corp.org", invite: false } });
+
+  const known = await s.request("POST", "/api/auth/email/signup", { body: { name: "Known Person", email: "KNOWN@corp.org" } });
+  s.clock.t += 61 * 1000;
+  const stranger = await s.request("POST", "/api/auth/email/signup", { body: { name: "Stranger Danger", email: "Stranger@Elsewhere.org", note: "I trade the NIFTY and would like to look." } });
+  assert.equal(known.status, 200);
+  assert.deepEqual(known.json, stranger.json, "nothing tells the two apart");
+  await s.flush();
+  const to = s.mailer.outbox.map((m) => m.to).sort();
+  assert.deepEqual(to, [SUPERADMIN_EMAIL, "known@corp.org"].sort(), "the known one got a link, the owner got a notice");
+  assert.match(s.mailer.outbox.find((m) => m.to === SUPERADMIN_EMAIL).text, /Stranger Danger[\s\S]*NIFTY/);
+
+  // the stranger is only a request: no access
+  assert.equal(s.made.store.data.admins.length, 1);
+  assert.equal((await s.login("stranger@elsewhere.org", STRONG)).status, 401);
+  assert.equal((await s.request("POST", "/api/auth/email/link", { body: { email: "stranger@elsewhere.org" } })).status, 200);
+  await s.flush();
+  assert.equal(s.mailer.outbox.filter((m) => m.to === "stranger@elsewhere.org").length, 0);
+
+  // asking twice (another spelling of the Gmail address) keeps one request, with the newest words
+  await s.request("POST", "/api/auth/email/signup", { body: { name: "Gee Mail", email: "g.mail@gmail.com" } });
+  await s.request("POST", "/api/auth/email/signup", { body: { name: "Gee Mail Two", email: "GMAIL+x@googlemail.com" } });
+  const list = (await s.request("GET", "/api/admin/requests", { cookie: s.boss })).json.requests;
+  assert.equal(list.length, 2);
+  assert.equal(list.find((r) => /gmail/.test(r.email)).name, "Gee Mail Two");
+
+  // only the owner sees and decides requests
+  await s.request("POST", "/api/admin/admins", { cookie: s.boss, body: { email: "plain@corp.org", invite: false } });
+  const plain = (await s.google("plain@corp.org")).session;
+  assert.equal((await s.request("GET", "/api/admin/requests", { cookie: plain })).status, 403);
+  assert.equal((await s.request("POST", `/api/admin/requests/${list[0].id}/approve`, { cookie: plain })).status, 403);
+});
+
+test("sign up: approving a request adds the person, emails the invitation and finishes with their name; declining just removes it", async (t) => {
+  const s = await boot();
+  t.after(s.close);
+  await s.request("POST", "/api/auth/email/signup", { body: { name: "New Trader", email: "new.trader@corp.org" } });
+  s.clock.t += 61 * 1000;
+  await s.request("POST", "/api/auth/email/signup", { body: { name: "Not Today", email: "nope@corp.org" } });
+  s.mailer.outbox.length = 0;
+  const [first, second] = (await s.request("GET", "/api/admin/requests", { cookie: s.boss })).json.requests.reverse();
+  assert.equal(first.email, "new.trader@corp.org");
+
+  const ok = await s.request("POST", `/api/admin/requests/${first.id}/approve`, { cookie: s.boss });
+  assert.equal(ok.status, 200);
+  assert.equal(ok.json.invited, true);
+  assert.equal(s.made.store.data.admins.length, 1);
+  const invite = s.mailer.outbox.at(-1);
+  assert.equal(invite.to, "new.trader@corp.org");
+
+  // the link finishes the set-up; the name they gave is already there and can be changed
+  const look = await s.request("POST", "/api/auth/email/token", { body: { token: s.tokenIn(invite) } });
+  assert.equal(look.json.name, "New Trader");
+  assert.equal(look.json.hasPassword, false);
+  const done = await s.request("POST", "/api/auth/email/password", { body: { token: s.tokenIn(invite), password: STRONG, name: "N. Trader" } });
+  assert.equal(done.status, 200);
+  const me = await s.request("GET", "/api/auth/account", { cookie: (await s.login("new.trader@corp.org", STRONG)).jar });
+  assert.equal(me.json.name, "N. Trader");
+  assert.equal((await s.request("POST", `/api/admin/requests/${first.id}/approve`, { cookie: s.boss })).status, 404, "a request is decided once");
+
+  const no = await s.request("POST", `/api/admin/requests/${second.id}/decline`, { cookie: s.boss });
+  assert.equal(no.status, 200);
+  assert.deepEqual(no.json.requests, []);
+  assert.equal(s.made.store.data.admins.length, 1);
+  await s.flush();
+  assert.equal(s.mailer.outbox.filter((m) => m.to === "nope@corp.org").length, 0, "a declined person is not written to");
+  const trail = (await s.request("GET", "/api/admin/auth/audit", { cookie: s.boss })).json.entries.map((e) => e.type);
+  for (const want of ["signup_requested", "request_approved", "request_declined"]) assert.ok(trail.includes(want), want);
+});
+
+test("sign up needs a name, an address and a working mail server, and cannot be used to mail a stranger", async (t) => {
+  const s = await boot();
+  t.after(s.close);
+  assert.equal((await s.request("POST", "/api/auth/email/signup", { body: { name: "", email: "a@b.org" } })).status, 400);
+  assert.equal((await s.request("POST", "/api/auth/email/signup", { body: { name: "A", email: "nope" } })).status, 400);
+  await s.request("POST", "/api/auth/email/signup", { body: { name: "<b>Bold</b> One", email: "bold@corp.org", note: "x".repeat(500) } });
+  const r = (await s.request("GET", "/api/admin/requests", { cookie: s.boss })).json.requests[0];
+  assert.ok(!/[<>]/.test(r.name), "no markup in a name");
+  assert.ok(r.note.length <= 240);
+  await s.flush();
+  assert.equal(s.mailer.outbox.filter((m) => m.to === "bold@corp.org").length, 0, "the person who asked is never mailed until approved");
+
+  s.mailer.on = false;
+  const off = await s.request("POST", "/api/auth/email/signup", { body: { name: "A", email: "a@b.org" } });
+  assert.equal(off.status, 503);
+  assert.equal(off.json.error, "email_off");
+});

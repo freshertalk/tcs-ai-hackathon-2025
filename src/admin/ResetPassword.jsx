@@ -38,6 +38,7 @@ export default function ResetPassword() {
   const [state, setState] = useState("checking"); // checking | ready | bad | done
   const [who, setWho] = useState("");
   const [first, setFirst] = useState(false);
+  const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [again, setAgain] = useState("");
   const [busy, setBusy] = useState(false);
@@ -52,6 +53,7 @@ export default function ResetPassword() {
       .then((d) => {
         setWho(d.email);
         setFirst(!d.hasPassword);
+        setName(d.name || "");
         setState("ready");
       })
       .catch((e) => {
@@ -69,7 +71,7 @@ export default function ResetPassword() {
     }
     setBusy(true);
     try {
-      await api("/api/auth/email/password", { method: "POST", body: { token, password } });
+      await api("/api/auth/email/password", { method: "POST", body: { token, password, ...(first ? { name: name.trim() } : {}) } });
       setPassword("");
       setAgain("");
       setState("done");
@@ -87,7 +89,7 @@ export default function ResetPassword() {
           <IconShield />
         </span>
         <p className="gate__kicker">Private area</p>
-        <h1 id="rp-title">{first ? "Choose your password" : "Reset your password"}</h1>
+        <h1 id="rp-title">{first ? "Complete your setup" : "Reset your password"}</h1>
 
         {state === "checking" && <p className="sg-help">Checking the link…</p>}
 
@@ -110,6 +112,12 @@ export default function ResetPassword() {
             </p>
             {/* a hidden user name lets a password manager save it against the right address */}
             <input type="text" name="username" autoComplete="username" value={who} readOnly hidden />
+            {first && (
+              <div className="sg-field">
+                <label htmlFor="rp-name">Your name</label>
+                <input id="rp-name" value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" maxLength={80} />
+              </div>
+            )}
             <PasswordInput id="rp-new" label="New password" value={password} onChange={setPassword} autoComplete="new-password" describedBy="rp-rules" />
             <div id="rp-rules">
               <Rules password={password} />
@@ -121,7 +129,7 @@ export default function ResetPassword() {
               </p>
             )}
             <button className="sg-btn" disabled={busy}>
-              {busy ? "Saving…" : first ? "Save my password" : "Reset my password"}
+              {busy ? "Saving…" : first ? "Finish setup" : "Reset my password"}
             </button>
           </form>
         )}
@@ -129,7 +137,7 @@ export default function ResetPassword() {
         {state === "done" && (
           <>
             <p className="sg-note" role="status">
-              Your password is saved. You can sign in with it now.
+              {first ? "Your setup is complete. You can sign in now." : "Your password is saved. You can sign in with it now."}
             </p>
             <Link className="sg-btn" style={{ display: "grid", placeItems: "center", width: "100%", textDecoration: "none" }} to={adminPath()}>
               Go to sign in

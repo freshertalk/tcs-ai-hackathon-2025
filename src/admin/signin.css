@@ -17,6 +17,7 @@
   color: var(--ink-2, var(--ink));
 }
 .sg-field input,
+.sg-field textarea,
 .sg-field select {
   width: 100%;
   min-height: 44px;
@@ -28,10 +29,15 @@
   font: inherit;
   font-size: var(--t-base);
 }
+.sg-field textarea {
+  min-height: 64px;
+  resize: vertical;
+}
 .sg-field input::placeholder {
   color: var(--ink-3);
 }
 .sg-field input:focus-visible,
+.sg-field textarea:focus-visible,
 .sg-field select:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
@@ -46,25 +52,74 @@
   position: relative;
 }
 .sg-pass input {
-  padding-right: 64px;
+  padding-right: 52px;
 }
 .sg-pass__eye {
   position: absolute;
   top: 50%;
   right: 6px;
   transform: translateY(-50%);
-  padding: 5px 10px;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
   border: 0;
-  border-radius: 8px;
+  border-radius: 50%;
   background: transparent;
-  color: var(--accent);
-  font: inherit;
-  font-size: var(--t-small);
-  font-weight: 600;
+  color: var(--ink-3);
   cursor: pointer;
+}
+.sg-pass__eye:hover,
+.sg-pass__eye.is-open {
+  color: var(--accent);
 }
 .sg-pass__eye:hover {
   background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+.sg-eye {
+  width: 22px;
+  height: 22px;
+  overflow: visible;
+}
+.sg-eye__slash {
+  stroke-width: 2;
+}
+@keyframes sg-roll {
+  0% {
+    transform: translate(0, 0);
+  }
+  20% {
+    transform: translate(3px, -1.5px);
+  }
+  45% {
+    transform: translate(0, -3px);
+  }
+  70% {
+    transform: translate(-3px, -1px);
+  }
+  100% {
+    transform: translate(0, 0);
+  }
+}
+@keyframes sg-blink {
+  0%,
+  100% {
+    transform: scaleY(1);
+  }
+  45% {
+    transform: scaleY(0.12);
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  /* opening: the eyes look around once; shutting: a quick blink */
+  .sg-pass__eye.is-open .sg-eye__ball {
+    animation: sg-roll 0.7s var(--ease, ease-in-out) 1;
+  }
+  .sg-pass__eye.is-shut .sg-eye__lid {
+    transform-origin: 12px 12px;
+    animation: sg-blink 0.3s ease-in-out 1;
+  }
 }
 .sg-check {
   display: flex;
@@ -297,4 +352,57 @@
 }
 .adm a.adm-user__id:hover b {
   color: var(--accent);
+}
+
+/* sign in / create account */
+.sg-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  width: 100%;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--paper);
+}
+.sg-tabs button {
+  min-height: 38px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--ink-3);
+  font: inherit;
+  font-size: var(--t-base);
+  font-weight: 600;
+  cursor: pointer;
+}
+.sg-tabs button.is-on {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 1px 3px rgba(15, 25, 45, 0.14);
+}
+.sg-tabs button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+/* the way out, beside a refused sign-in */
+.gate__error p {
+  margin: 0;
+}
+.sg-oops {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 16px;
+  margin-top: 6px !important;
+  font-size: var(--t-small);
+}
+.sg-oops button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
 }

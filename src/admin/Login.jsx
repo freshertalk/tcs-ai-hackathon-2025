@@ -19,7 +19,20 @@ const ERRORS = {
   "google-off": "Signing in with Google is turned off. Use your email address instead.",
 };
 
-/** The password field, with a show / hide switch. */
+/** An eye: open while the password is showing (the pupil rolls as it opens), shut with a lid line while it is hidden. */
+function Eye({ open }) {
+  return (
+    <svg className="sg-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path className="sg-eye__lid" d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z" />
+      <g className="sg-eye__ball">
+        <circle className="sg-eye__pupil" cx="12" cy="12" r="3.2" fill="currentColor" stroke="none" />
+      </g>
+      {!open && <path className="sg-eye__slash" d="M4 4l16 16" />}
+    </svg>
+  );
+}
+
+/** The password field, with an eye that shows / hides it. */
 export function PasswordInput({ id, value, onChange, label = "Password", autoComplete = "current-password", describedBy, required = true }) {
   const [shown, setShown] = useState(false);
   return (
@@ -27,8 +40,8 @@ export function PasswordInput({ id, value, onChange, label = "Password", autoCom
       <label htmlFor={id}>{label}</label>
       <div className="sg-pass">
         <input id={id} type={shown ? "text" : "password"} value={value} onChange={(e) => onChange(e.target.value)} autoComplete={autoComplete} required={required} spellCheck="false" aria-describedby={describedBy} />
-        <button type="button" className="sg-pass__eye" onClick={() => setShown(!shown)} aria-pressed={shown} aria-label={shown ? "Hide password" : "Show password"}>
-          {shown ? "Hide" : "Show"}
+        <button type="button" className={`sg-pass__eye ${shown ? "is-open" : "is-shut"}`} onClick={() => setShown(!shown)} aria-pressed={shown} aria-label={shown ? "Hide password" : "Show password"} data-tip={shown ? "Hide the password" : "Show the password"}>
+          <Eye key={shown ? "open" : "shut"} open={shown} />
         </button>
       </div>
     </div>
@@ -41,10 +54,13 @@ export default function Login() {
   const methods = auth.methods || { google: true, password: true, code: false };
   const urlError = ERRORS[params.get("error")];
 
-  // which email form is showing: password | code (ask, then enter) | link (ask, then sent)
+  // which email form is showing: password | code (ask, then enter) | link (ask, then sent) | signup (ask, then sent)
   const [mode, setMode] = useState("password");
   const [step, setStep] = useState("ask");
   const [email, setEmail] = useState("");
+  const [name, setName] = useState("");
+  const [why, setWhy] = useState("");
+  const [wrong, setWrong] = useState(false); // the last password try was refused: offer the way out beside the message
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
   const [remember, setRemember] = useState(true);
@@ -60,16 +76,20 @@ export default function Login() {
     setError("");
     setNote("");
     setCode("");
+    setWrong(false);
+    setPassword("");
   };
 
   const run = async (fn) => {
     setBusy(true);
     setError("");
     setNote("");
+    setWrong(false);
     try {
       await fn();
     } catch (e) {
       setError(e.message || "Something went wrong. Please try again.");
+      setWrong(e.code === "bad_login" || e.code === "bad_code" || e.code === "locked");
     }
     setBusy(false);
   };
@@ -88,6 +108,14 @@ export default function Login() {
       const d = await api(path, { method: "POST", body: { email: email.trim() } });
       setNote(d.message || "");
       setStep(then);
+    });
+  };
+  const signUp = (e) => {
+    e.preventDefault();
+    run(async () => {
+      const d = await api("/api/auth/email/signup", { method: "POST", body: { name: name.trim(), email: email.trim(), note: why.trim() } });
+      setNote(d.message || "");
+      setStep("sent");
     });
   };
   const signInCode = (e) => {
@@ -131,9 +159,30 @@ export default function Login() {
         </div>
 
         {(urlError || error) && (
-          <p className="gate__error" role="alert">
-            {error || urlError}
-          </p>
+          <div className="gate__error" role="alert">
+            <p>{error || urlError}</p>
+            {wrong && mode === "password" && (
+              <p className="sg-oops">
+                {canLink && (
+                  <button type="button" onClick={() => go("link")}>
+                    Forgot your password?
+                  </button>
+                )}
+                {canLink ? (
+                  <button type="button" onClick={() => go("signup")}>
+                    New here? Create an account
+                  </button>
+                ) : null}
+                {methods.code && (
+                  <>
+                    <button type="button" onClick={() => go("code")}>
+                      Email me a code
+                    </button>
+                  </>
+                )}
+              </p>
+            )}
+          </div>
         )}
         {note && !error && (
           <p className="sg-note" role="status">
@@ -141,15 +190,26 @@ export default function Login() {
           </p>
         )}
 
+        {emailOpen && canLink && (
+          <div className="sg-tabs" role="tablist" aria-label="Sign in or create an account">
+            <button type="button" role="tab" aria-selected={mode !== "signup"} className={mode !== "signup" ? "is-on" : ""} onClick={() => go("password")}>
+              Sign in
+            </button>
+            <button type="button" role="tab" aria-selected={mode === "signup"} className={mode === "signup" ? "is-on" : ""} onClick={() => go("signup")}>
+              Create account
+            </button>
+          </div>
+        )}
+
         {/* a normal link, not fetch(): the browser has to follow Google's redirects */}
-        {methods.google && (
+        {methods.google && mode !== "signup" && (
           <a className="gate__google" href="/api/auth/google/start">
             <IconGoogle />
             <span>Sign in with Google</span>
           </a>
         )}
 
-        {methods.google && emailOpen && (
+        {methods.google && emailOpen && mode !== "signup" && (
           <p className="sg-or" aria-hidden="true">
             <span>or with your email</span>
           </p>
@@ -221,6 +281,37 @@ export default function Login() {
               <div className="sg-links">
                 <button type="button" onClick={() => go("password")}>
                   Back to sign in
+                </button>
+              </div>
+            )}
+          </form>
+        )}
+
+        {emailOpen && mode === "signup" && (
+          <form className="sg-form" onSubmit={step === "ask" ? signUp : (e) => (e.preventDefault(), go("password"))} aria-label="Create an account">
+            {step === "ask" ? (
+              <>
+                <p className="sg-help">Tell us who you are. If this address already has access, we email you a link to finish setting up. Otherwise your request goes to the owner, who replies by email — nobody gets in by asking alone.</p>
+                <div className="sg-field">
+                  <label htmlFor="sg-name">Your name</label>
+                  <input id="sg-name" value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" maxLength={80} required />
+                </div>
+                {emailField}
+                <div className="sg-field">
+                  <label htmlFor="sg-why">Why do you need access? (optional)</label>
+                  <textarea id="sg-why" value={why} onChange={(e) => setWhy(e.target.value)} maxLength={240} rows={2} />
+                </div>
+              </>
+            ) : (
+              <p className="sg-help">Done. Check your inbox (and the spam folder) for the next step.</p>
+            )}
+            <button className="sg-btn" disabled={busy}>
+              {busy ? "Please wait…" : step === "ask" ? "Request access" : "Back to sign in"}
+            </button>
+            {step === "ask" && (
+              <div className="sg-links">
+                <button type="button" onClick={() => go("password")}>
+                  Already have an account? Sign in
                 </button>
               </div>
             )}

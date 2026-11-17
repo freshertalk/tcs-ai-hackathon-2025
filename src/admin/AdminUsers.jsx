@@ -16,6 +16,7 @@ export default function AdminUsers() {
   const [rows, setRows] = useState(null);
   const [email, setEmail] = useState("");
   const [emailReady, setEmailReady] = useState(false);
+  const [requests, setRequests] = useState([]);
   const [invite, setInvite] = useState(true);
   const [msg, setMsg] = useState({ kind: "", text: "" });
   const [busy, setBusy] = useState(false);
@@ -27,7 +28,31 @@ export default function AdminUsers() {
         setEmailReady(Boolean(d.emailReady));
       })
       .catch((e) => setMsg({ kind: "error", text: e.message }));
+    api("/api/admin/requests")
+      .then((d) => setRequests(d.requests || []))
+      .catch(() => {});
   }, []);
+
+  const decide = async (r, verb) => {
+    setBusy(true);
+    setMsg({ kind: "", text: "" });
+    try {
+      const d = await api(`/api/admin/requests/${encodeURIComponent(r.id)}/${verb}`, { method: "POST", body: {} });
+      setRequests(d.requests || []);
+      if (verb === "approve") {
+        const list = await api("/api/admin/admins");
+        setRows(list.admins);
+        setMsg(
+          d.invited
+            ? { kind: "ok", text: `${r.name} was added, and an invitation was emailed to ${r.email}.` }
+            : { kind: "error", text: `${r.name} was added, but the invitation could not be sent${d.inviteProblem ? `: ${d.inviteProblem}` : "."} Use “Send sign-in link” in the list.` }
+        );
+      } else setMsg({ kind: "ok", text: `The request from ${r.name} was declined. They are not told.` });
+    } catch (err) {
+      setMsg({ kind: "error", text: err.message });
+    }
+    setBusy(false);
+  };
 
   const add = async (e) => {
     e.preventDefault();
@@ -125,6 +150,34 @@ export default function AdminUsers() {
       </form>
 
       <Alert kind={msg.kind === "ok" ? "ok" : "error"}>{msg.text}</Alert>
+
+      {requests.length > 0 && (
+        <section className="adm-card" aria-label="Access requests">
+          <h2>Access requests ({requests.length})</h2>
+          <p className="adm-small">People who used “Create account” on the sign-in page. Nobody gets in until you approve: approving adds them and emails an invitation.</p>
+          <ul className="adm-people">
+            {requests.map((r) => (
+              <li key={r.id}>
+                <div>
+                  <b>{r.name}</b>
+                  <small>
+                    {r.email} · asked {when(r.at)}
+                  </small>
+                  {r.note && <small>“{r.note}”</small>}
+                </div>
+                <span className="sg-acts">
+                  <button className="adm-btn adm-btn--solid adm-btn--sm" disabled={busy} onClick={() => decide(r, "approve")}>
+                    Approve
+                  </button>
+                  <button className="adm-btn adm-btn--ghost adm-btn--sm" disabled={busy} onClick={() => decide(r, "decline")}>
+                    Decline
+                  </button>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
       {!rows && !msg.text && <Loading />}
 
       {rows && (

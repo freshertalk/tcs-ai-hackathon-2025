@@ -147,21 +147,70 @@ test("a used or expired link is said plainly, with the way to get a new one", as
 
 test("a good link shows whose it is in part, checks the two entries match, and saves", async () => {
   global.__search = "token=abc";
-  mockApi.mockResolvedValueOnce({ ok: true, email: "m••••@example.com", hasPassword: false });
+  mockApi.mockResolvedValueOnce({ ok: true, email: "m••••@example.com", hasPassword: false, name: "Mo Trader" });
   render(reset());
-  expect(await screen.findByText("Choose your password")).toBeTruthy();
+  expect(await screen.findByText("Complete your setup")).toBeTruthy();
   expect(screen.getByText("m••••@example.com")).toBeTruthy();
 
   await userEvent.type(screen.getByLabelText("New password"), "Correct-Horse-9-Battery");
   await userEvent.type(screen.getByLabelText("Type it again"), "Something-Else-9-Entirely");
-  await userEvent.click(screen.getByRole("button", { name: "Save my password" }));
+  await userEvent.click(screen.getByRole("button", { name: "Finish setup" }));
   expect(screen.getByRole("alert").textContent).toMatch(/not the same/);
   expect(mockApi).toHaveBeenCalledTimes(1);
 
   mockApi.mockResolvedValueOnce({ ok: true });
   await userEvent.clear(screen.getByLabelText("Type it again"));
   await userEvent.type(screen.getByLabelText("Type it again"), "Correct-Horse-9-Battery");
-  await userEvent.click(screen.getByRole("button", { name: "Save my password" }));
-  expect(mockApi).toHaveBeenLastCalledWith("/api/auth/email/password", { method: "POST", body: { token: "abc", password: "Correct-Horse-9-Battery" } });
-  expect((await screen.findByRole("status")).textContent).toMatch(/password is saved/);
+  await userEvent.click(screen.getByRole("button", { name: "Finish setup" }));
+  expect(screen.getByLabelText("Your name").value).toBe("Mo Trader");
+  expect(mockApi).toHaveBeenLastCalledWith("/api/auth/email/password", { method: "POST", body: { token: "abc", password: "Correct-Horse-9-Battery", name: "Mo Trader" } });
+  expect((await screen.findByRole("status")).textContent).toMatch(/setup is complete/);
+});
+
+/* ---------------------------------------------------------------- sign in / create account */
+
+test("after a wrong password the way out is offered right beside the message", async () => {
+  mockApi.mockRejectedValue(Object.assign(new Error("That email address or password is not right."), { code: "bad_login" }));
+  render(door().ui);
+  await userEvent.type(screen.getByLabelText("Email address"), "me@example.com");
+  await userEvent.type(screen.getByLabelText("Password"), "wrong-password-1");
+  await userEvent.click(screen.getByRole("button", { name: "Sign in with email" }));
+  const alert = await screen.findByRole("alert");
+  expect(alert.textContent).toMatch(/not right/);
+  expect(alert.textContent).toMatch(/Forgot your password\?/);
+  expect(alert.textContent).toMatch(/New here\? Create an account/);
+  // the link goes to the reset form with nothing typed lost
+  mockApi.mockReset();
+  await userEvent.click(screen.getByRole("button", { name: "Forgot your password?" }));
+  expect(screen.getByRole("button", { name: "Email me the link" })).toBeTruthy();
+});
+
+test("a different kind of error does not offer the reset link", async () => {
+  mockApi.mockRejectedValue(Object.assign(new Error("Enter your email address and password."), { code: "invalid" }));
+  render(door().ui);
+  await userEvent.type(screen.getByLabelText("Email address"), "me@example.com");
+  await userEvent.type(screen.getByLabelText("Password"), "x");
+  await userEvent.click(screen.getByRole("button", { name: "Sign in with email" }));
+  const alert = await screen.findByRole("alert");
+  expect(alert.textContent).not.toMatch(/Forgot your password\?/);
+});
+
+test("Create account asks for a name and an address, sends the request, and says what happens next", async () => {
+  mockApi.mockResolvedValue({ ok: true, message: "Thank you. If this address already has access, a link is on its way. Otherwise your request has gone to the owner." });
+  render(door().ui);
+  await userEvent.click(screen.getByRole("tab", { name: "Create account" }));
+  expect(screen.queryByText("Sign in with Google")).toBeNull();
+  await userEvent.type(screen.getByLabelText("Your name"), "New Trader");
+  await userEvent.type(screen.getByLabelText("Email address"), "new@example.com");
+  await userEvent.type(screen.getByLabelText(/Why do you need access/), "I follow the NIFTY");
+  await userEvent.click(screen.getByRole("button", { name: "Request access" }));
+  expect(mockApi).toHaveBeenCalledWith("/api/auth/email/signup", { method: "POST", body: { name: "New Trader", email: "new@example.com", note: "I follow the NIFTY" } });
+  expect((await screen.findByRole("status")).textContent).toMatch(/gone to the owner/);
+  await userEvent.click(screen.getByRole("button", { name: "Back to sign in" }));
+  expect(screen.getByRole("button", { name: "Sign in with email" })).toBeTruthy();
+});
+
+test("Create account is not offered when no mail server is set up", () => {
+  render(door({ emailReady: false }).ui);
+  expect(screen.queryByRole("tab", { name: "Create account" })).toBeNull();
 });

@@ -18,6 +18,7 @@ const EMPTY = () => ({
   // email -> { name, picture, lastLogin, googleAt, passwordHash, passwordAt, emailVerifiedAt, sessionVer, fails, linkJti, code }
   users: {},
   audit: [], // the trail of sign-ins and account changes (newest last, capped)
+  requests: [], // people who asked for access, waiting for the owner: { id, email, name, note, at }
   market: { watchlist: [], demo: false }, // the Analyzer's watchlist and demo switch
 });
 
@@ -40,6 +41,7 @@ class Store {
       admins: Array.isArray(raw.admins) ? raw.admins : [],
       users: raw.users && typeof raw.users === "object" ? raw.users : {},
       audit: Array.isArray(raw.audit) ? raw.audit : [],
+      requests: Array.isArray(raw.requests) ? raw.requests : [],
       market: {
         watchlist: raw.market && Array.isArray(raw.market.watchlist) ? raw.market.watchlist : [],
         demo: Boolean(raw.market && raw.market.demo),

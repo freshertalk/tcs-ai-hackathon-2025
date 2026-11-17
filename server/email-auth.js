@@ -20,9 +20,13 @@
 //   · a changed or reset password signs the person out everywhere else; they get a notice by email
 //   · every sign-in, failure, lock, link, code and change is written to an audit trail the superadmin can read
 //   · mail goes out through the owner's SMTP server, set from the admin panel (server/mailer.js)
+//
+// Sign up: anyone may ASK for access (name, email, an optional note). An address that is already on the list gets its
+// link to choose a password at once; any other address becomes a request the superadmin approves or declines
+// (an email tells them), and approval adds the person and emails the invitation. Nobody gets in by asking alone.
 
 const crypto = require("crypto");
-const { EMAIL_RE, SMTP_HOST_RE, ADMIN_BASE, canonicalEmail } = require("./config");
+const { EMAIL_RE, SMTP_HOST_RE, ADMIN_BASE, SUPERADMIN_EMAIL, canonicalEmail } = require("./config");
 const { BRAND } = require("./brand");
 const pw = require("./passwords");
 const { MailError } = require("./mailer");
@@ -37,6 +41,7 @@ const FAIL_WINDOW_MS = 15 * 60 * 1000;
 const LOCK_MS = 15 * 60 * 1000;
 const RESEND_MS = 60 * 1000;
 const PER_HOUR = 5;
+const MAX_REQUESTS = 50; // open requests kept; a flood cannot grow the record
 
 const sha = (x) => crypto.createHash("sha256").update(String(x)).digest("hex");
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -212,10 +217,52 @@ function mountEmailAuth(app, ctx) {
     res.json({ ok: true, message: "If that address can sign in here, a link is on its way. It works for an hour." });
   });
 
+  // Sign up: ask for access (or, if already allowed, get the link to choose a password)
+  app.post("/api/auth/email/signup", perVisitor(8, 60), async (req, res) => {
+    const b = req.body || {};
+    const email = typed(b.email);
+    const name = String(b.name == null ? "" : b.name).replace(/[\u0000-\u001f\u007f<>]/g, " ").replace(/\s+/g, " ").trim().slice(0, 80);
+    const note = String(b.note == null ? "" : b.note).replace(/[\u0000-\u001f\u007f<>]/g, " ").replace(/\s+/g, " ").trim().slice(0, 240);
+    if (!name) return bad(res, 400, "invalid", "Please tell us your name.");
+    if (!EMAIL_RE.test(email)) return bad(res, 400, "invalid", "Enter a valid email address.");
+    if (!mailer.configured()) return bad(res, 503, "email_off", "Email is not set up yet, so sign-up is not open. Ask the owner.");
+    const canon = canonicalEmail(email);
+    const id = identify(email);
+    if (id) {
+      // already allowed: this is simply the first-time set-up
+      if (mayMail(canon)) {
+        audit(req, "link_requested", id.email, { via: "signup" });
+        fire(sendLink(req, id), "sign-up link");
+      }
+    } else {
+      const open = store.data.requests || [];
+      const fresh = !open.some((r) => canonicalEmail(r.email) === canon);
+      if (fresh && open.length >= MAX_REQUESTS) return bad(res, 503, "full", "Too many requests are waiting for the owner just now. Please try again later.");
+      store.update((d) => {
+        if (!Array.isArray(d.requests)) d.requests = [];
+        const at = new Date(now()).toISOString();
+        const i = d.requests.findIndex((r) => canonicalEmail(r.email) === canon);
+        if (i >= 0) d.requests[i] = { ...d.requests[i], name, note, at };
+        else d.requests.push({ id: randomToken(9), email: email.toLowerCase(), name, note, at });
+      });
+      audit(req, "signup_requested", canon, {});
+      if (fresh && mayMail("owner-notify")) {
+        const base = trustedOrigin(req);
+        const m = message({
+          title: "Someone asked for access",
+          lines: [`${name} <${email.toLowerCase()}> asked for access to ${BRAND.name}.`, note ? `They wrote: ${note}` : "They left no note.", "Nothing happens until you approve them under Admin users."],
+          ...(base ? { button: { label: "Review the request", url: `${base}${ADMIN_BASE}/admins` } } : {}),
+        });
+        fire(mailer.send({ to: SUPERADMIN_EMAIL, subject: `${BRAND.name}: ${name} asked for access`, ...m }), "request notice");
+      }
+    }
+    res.json({ ok: true, message: "Thank you. If this address already has access, a link to choose a password is on its way. Otherwise your request has gone to the owner, who will reply by email." });
+  });
+
   app.post("/api/auth/email/token", perVisitor(30, 15), (req, res) => {
     const t = checkLink((req.body || {}).token);
     if (!t) return bad(res, 400, "expired", "This link has expired or has already been used. Ask for a new one.");
-    res.json({ ok: true, email: maskEmail(t.id.email), hasPassword: Boolean(t.rec.passwordHash) });
+    res.json({ ok: true, email: maskEmail(t.id.email), hasPassword: Boolean(t.rec.passwordHash), name: t.rec.name || "" });
   });
 
   function checkLink(token) {
@@ -236,7 +283,10 @@ function mountEmailAuth(app, ctx) {
     if (problem) return bad(res, 400, "weak_password", problem);
     const hash = await pw.hashPassword(password);
     if (!checkLink(b.token)) return bad(res, 400, "expired", "This link has expired or has already been used. Ask for a new one.");
+    // finishing the set-up: a first-time person may say how their name should appear
+    const name = String(b.name == null ? "" : b.name).replace(/[\u0000-\u001f\u007f<>]/g, " ").replace(/\s+/g, " ").trim().slice(0, 80);
     touch(t.id, (u) => {
+      if (name && !t.rec.passwordHash) u.name = name;
       u.passwordHash = hash;
       u.passwordAt = new Date(now()).toISOString();
       u.emailVerifiedAt = u.emailVerifiedAt || u.passwordAt;
@@ -482,6 +532,46 @@ function mountEmailAuth(app, ctx) {
   app.get("/api/admin/auth/audit", requireSuper, (req, res) => {
     const n = Math.min(300, Math.max(1, Number(req.query.limit) || 100));
     res.json({ entries: (store.data.audit || []).slice(-n).reverse() });
+  });
+
+  // access requests: the people who asked, waiting for the owner
+  const requestRows = () => (store.data.requests || []).map((r) => ({ id: r.id, email: r.email, name: r.name, note: r.note, at: r.at })).reverse();
+  app.get("/api/admin/requests", requireSuper, (req, res) => res.json({ requests: requestRows() }));
+
+  app.post("/api/admin/requests/:id/approve", requireSuper, limiter(30, 10 * 60 * 1000), async (req, res) => {
+    const r = (store.data.requests || []).find((x) => x.id === req.params.id);
+    if (!r) return bad(res, 404, "not_found", "That request is no longer there.");
+    let id = identify(r.email);
+    store.update((d) => {
+      if (!id) d.admins.push({ email: r.email, addedBy: req.user.email, addedAt: new Date(now()).toISOString() });
+      d.requests = d.requests.filter((x) => x.id !== r.id);
+    });
+    id = identify(r.email);
+    touch(id, (u) => {
+      if (!u.name) u.name = r.name;
+    });
+    audit(req, "request_approved", id.email, { by: req.user.email });
+    let invited = false;
+    let inviteProblem = "";
+    if (mailer.configured()) {
+      try {
+        await sendLink(req, id, { invite: true, by: req.user.name || req.user.email });
+        invited = true;
+      } catch (err) {
+        inviteProblem = err.message;
+      }
+    }
+    res.json({ ok: true, invited, inviteProblem, requests: requestRows() });
+  });
+
+  app.post("/api/admin/requests/:id/decline", requireSuper, (req, res) => {
+    const r = (store.data.requests || []).find((x) => x.id === req.params.id);
+    if (!r) return bad(res, 404, "not_found", "That request is no longer there.");
+    store.update((d) => {
+      d.requests = d.requests.filter((x) => x.id !== r.id);
+    });
+    audit(req, "request_declined", canonicalEmail(r.email), { by: req.user.email });
+    res.json({ ok: true, requests: requestRows() });
   });
 
   const person = (req, res) => {
