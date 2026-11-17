@@ -1,8 +1,13 @@
-// The home of the private area: one glance at the market and the account, one large way into
-// the trading terminal (and straight into any of its workspaces), and the site's settings
-// in a compact grid below. Every link into the terminal opens it in its own tab.
+// The home of the private area, laid out as a command centre:
+//   1. a welcome with the one big way in (the trading terminal) and the next most useful ones,
+//   2. a live status row (market session, Zerodha, trading switch, today's P&L, the Advisor, the forecaster, AI credit),
+//      re-read every 30 seconds and the moment you come back to the tab,
+//   3. the owner's "today" numbers, the workspaces in three groups with a finder, and the three AI/feed tiles
+//      (TradeAI, paper trading, Social Media) side by side,
+//   4. settings and system health below.
+// Every link into the terminal opens it in its own tab.
 
-import "./hubtop.css";
+import "./home.css";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "./api";
@@ -18,17 +23,17 @@ import { IconArrow, IconChart, IconKey, IconMail, IconShield, IconUsers } from "
 import { everyVisible } from "./visible";
 
 const WORKSPACES = [
-  { view: "", label: "Desk", text: "Chart, live call, order book" },
+  { view: "", label: "Desk", text: "Chart, live call, order book, 15-minute forecast" },
+  { view: "research", label: "Research", text: "Pre- and post-market, autopilot" },
   { view: "advisor", label: "Advisor", text: "Measured odds for the watchlist" },
-  { view: "account", label: "Positions", text: "Positions, orders, funds", superOnly: true },
-  { view: "journal", label: "Journal", text: "Every trade, scored", superOnly: true },
-  { view: "research", label: "Research", text: "Pre- and post-market" },
   { view: "screener", label: "Screener", text: "Top gainers, losers, RSI" },
+  { view: "account", label: "Positions", text: "Positions, orders, funds", superOnly: true },
+  { view: "indices", label: "Indices", text: "NIFTY & SENSEX by month and year, projected" },
+  { view: "analysis", label: "Trade Analysis", text: "Every day: profit, loss, taxes", superOnly: true },
+  { view: "calendar", label: "Calendar", text: "Holidays and time zones" },
+  { view: "journal", label: "Journal", text: "Every trade, scored", superOnly: true },
   { view: "paper", label: "Paper trading", text: "Play money, live and history" },
   { view: "debrief", label: "Debrief", text: "Today’s calls, replayed" },
-  { view: "calendar", label: "Calendar", text: "Holidays and time zones" },
-  { view: "analysis", label: "Trade Analysis", text: "Every day: profit, loss, taxes", superOnly: true },
-  { view: "indices", label: "Indices", text: "NIFTY & SENSEX by month and year, projected" },
   { view: "engine", label: "AI Engine", text: "Every AI rule, and the AI brains" },
   { view: "document", label: "Document", text: "The complete guide, in plain English" },
 ];
@@ -47,11 +52,13 @@ const ICONS = {
   Indices: "M3 17l5-6 4 3 8-9M15 5h5v5",
   "AI Engine": "M7 7h10v10H7zM10 3v4M14 3v4M10 17v4M14 17v4M3 10h4M3 14h4M17 10h4M17 14h4",
   Document: "M6 3h9l4 4v14H6zM9 12h7M9 16h7M9 8h3",
+  TradeAI: "M4 5h16v11H9l-5 4zM8 9h8M8 12h5",
+  Social: "M4 11a8 8 0 0 1 16 0M4 11v6M20 11v6M8 21h8M12 3v2",
 };
 const GROUPS = [
-  { name: "Trade", note: "while the market is open", labels: ["Desk", "Advisor", "Positions", "Journal", "Paper trading"] },
-  { name: "Analyse", note: "before and after", labels: ["Research", "Screener", "Debrief", "Trade Analysis", "Indices", "Calendar"] },
-  { name: "Learn", note: "how it thinks", labels: ["AI Engine", "Document"] },
+  { id: "trade", name: "Trade", note: "while the market is open", labels: ["Desk", "Research", "Advisor", "Screener", "Positions", "Paper trading"] },
+  { id: "analyse", name: "Analyse", note: "before and after", labels: ["Indices", "Trade Analysis", "Calendar", "Journal", "Debrief"] },
+  { id: "learn", name: "Learn", note: "how it thinks", labels: ["AI Engine", "Document"] },
 ];
 const WsIcon = ({ label }) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -73,124 +80,202 @@ function firstName(user) {
   return raw.charAt(0).toUpperCase() + raw.slice(1);
 }
 
-/** NSE's session by the clock (holidays are on the Calendar). */
+const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const span = (min) => (min >= 60 ? `${Math.floor(min / 60)} h ${min % 60 ? `${min % 60} min` : ""}`.trim() : `${min} min`);
+
+/** NSE's session by the clock, and what comes next (holidays are on the Calendar). */
 function nseState(now = new Date()) {
   const d = new Date(now.getTime() + now.getTimezoneOffset() * 60000 + 5.5 * 3600000);
   const m = d.getHours() * 60 + d.getMinutes();
-  const wk = d.getDay() >= 1 && d.getDay() <= 5;
-  if (wk && m >= 555 && m < 930) return { id: "open", label: "NSE open" };
-  if (wk && m >= 540 && m < 555) return { id: "pre", label: "NSE pre-open" };
-  return { id: "closed", label: "NSE closed" };
+  const day = d.getDay();
+  const wk = day >= 1 && day <= 5;
+  if (wk && m >= 555 && m < 930) return { id: "open", label: "Open", sub: `closes in ${span(930 - m)} · 3:30 PM IST` };
+  if (wk && m >= 540 && m < 555) return { id: "pre", label: "Pre-open", sub: `opens in ${span(555 - m)} · 9:15 AM IST` };
+  if (wk && m < 540) return { id: "closed", label: "Closed", sub: "opens today at 9:15 AM IST" };
+  const next = day === 5 || day === 6 || day === 0 ? "Monday" : "tomorrow";
+  return { id: "closed", label: "Closed", sub: wk ? `opens ${next} at 9:15 AM IST` : `opens ${DAYS[1]} at 9:15 AM IST` };
 }
 
 const money = (x) => `${x > 0 ? "+" : x < 0 ? "−" : ""}₹${Math.abs(x).toLocaleString("en-IN", { maximumFractionDigits: 2, minimumFractionDigits: 2 })}`;
 
+/** One status card. `to` makes it a link (in-app), `href` opens the terminal in a new tab. */
+function Pc({ tone = "off", k, v, sub, tip, to, href, valueTone }) {
+  const body = (
+    <>
+      <span className="hm-pc__k">
+        <i aria-hidden="true" />
+        {k}
+      </span>
+      <b className={`hm-pc__v ${valueTone || ""}`}>{v}</b>
+      {sub && <small>{sub}</small>}
+    </>
+  );
+  return (
+    <li className={`hm-pc is-${tone}`} data-tip={tip}>
+      {to ? (
+        <Link to={to}>{body}</Link>
+      ) : href ? (
+        <a href={href} target="_blank" rel="noopener noreferrer">
+          {body}
+        </a>
+      ) : (
+        <div>{body}</div>
+      )}
+    </li>
+  );
+}
+
+/** The live status row. Re-read every 30 seconds while the tab is in front, and at once when you return to it. */
 function Pulse({ isSuper }) {
-  const [market, setMarket] = useState(null);
-  const [trade, setTrade] = useState(null);
-  const [pnl, setPnl] = useState(null);
-  const [board, setBoard] = useState(null);
+  const [d, setD] = useState({});
+  const [, tick] = useState(0);
   useEffect(() => {
     let alive = true;
-    api("/api/admin/market/status").then((d) => alive && setMarket(d)).catch(() => {});
-    api("/api/admin/market/edge").then((d) => alive && setBoard(d)).catch(() => {});
-    if (isSuper) {
-      api("/api/admin/trading/status")
-        .then((d) => {
-          if (!alive) return;
-          setTrade(d);
-          if (d && d.connected)
-            api("/api/admin/trading/positions")
-              .then((p) => alive && setPnl((p.net || []).reduce((a, x) => a + (Number(x.pnl) || 0), 0)))
-              .catch(() => {});
-        })
-        .catch(() => {});
-    }
+    const put = (k) => (v) => alive && setD((x) => ({ ...x, [k]: v }));
+    const load = () => {
+      tick((n) => n + 1); // the session line moves with the clock
+      api("/api/admin/market/status").then(put("market")).catch(() => {});
+      api("/api/admin/market/edge").then(put("board")).catch(() => {});
+      api("/api/admin/market/horizon").then(put("horizon")).catch(() => {});
+      api("/api/admin/ai/spend").then(put("spend")).catch(() => {});
+      if (isSuper) {
+        api("/api/admin/trading/status")
+          .then((t) => {
+            if (!alive) return;
+            setD((x) => ({ ...x, trade: t }));
+            if (t && t.connected)
+              api("/api/admin/trading/positions")
+                .then((p) => alive && setD((x) => ({ ...x, pnl: (p.net || []).reduce((a, r) => a + (Number(r.pnl) || 0), 0) })))
+                .catch(() => {});
+          })
+          .catch(() => {});
+      }
+    };
+    load();
+    const stop = everyVisible(load, 30000);
     return () => {
       alive = false;
+      stop();
     };
   }, [isSuper]);
+  const { market, board, horizon, spend, trade, pnl } = d;
   const nse = nseState();
   const kite = market && market.mode === "kite";
   const counts = { A: 0, B: 0 };
   if (board) for (const r of board.rows || []) if (r.available && r.best && counts[r.best.grade] !== undefined) counts[r.best.grade] += 1;
+  const h15 = horizon && horizon.validation ? (horizon.validation.horizons || []).find((x) => x.h === 3) : null;
   return (
-    <ul className="hub-pulse" aria-label="Status">
-      <li className={`is-${nse.id === "open" ? "ok" : nse.id === "pre" ? "warn" : "off"}`}>
-        <i aria-hidden="true" />
-        {nse.label}
-      </li>
-      <li className={kite ? "is-ok" : market && market.mode === "demo" ? "is-warn" : "is-off"} data-tip="Whether Zerodha is connected for live prices. The session ends at 6 AM each day.">
-        <i aria-hidden="true" />
-        {market ? (kite ? "Zerodha connected" : market.mode === "demo" ? "Demo data" : "Zerodha not connected") : "Zerodha …"}
-      </li>
+    <ul className="hm-pulse" aria-label="Status">
+      <Pc tone={nse.id === "open" ? "ok" : nse.id === "pre" ? "warn" : "off"} k="NSE session" v={nse.label} sub={nse.sub} tip="The exchange's session by the clock (9:15 AM – 3:30 PM IST, Monday to Friday). Exchange holidays are on the Calendar." />
+      <Pc
+        tone={kite ? "ok" : market && market.mode === "demo" ? "warn" : "off"}
+        k="Zerodha"
+        v={market ? (kite ? "Connected" : market.mode === "demo" ? "Demo data" : "Not connected") : "…"}
+        sub={kite ? "live prices and account" : "log in once each trading morning"}
+        href={terminal("")}
+        tip="Whether Zerodha is connected for live prices. The session ends at 6 AM each day. Opens the Desk, where you log in."
+      />
       {isSuper && (
-        <li className={trade && trade.enabled ? "is-live" : "is-off"} data-tip="The master switch for orders from this site. It is changed on the Positions page.">
-          <i aria-hidden="true" />
-          Trading {trade ? (trade.enabled ? "ON" : "OFF") : "…"}
-        </li>
+        <Pc tone={trade && trade.enabled ? "live" : "off"} k="Trading switch" v={trade ? (trade.enabled ? "ON" : "OFF") : "…"} sub={trade && trade.enabled ? "orders can be sent" : "no orders can be sent"} href={terminal("account")} tip="The master switch for orders from this site. It is changed on the Positions page." />
       )}
-      {isSuper && pnl !== null && (
-        <li className={pnl > 0 ? "is-up" : pnl < 0 ? "is-down" : ""} data-tip="Today’s P&L on all positions, as Zerodha reports it.">
-          P&amp;L <b>{money(pnl)}</b>
-        </li>
+      {isSuper && pnl !== undefined && <Pc tone="off" k="Today’s P&L" v={money(pnl)} valueTone={pnl > 0 ? "is-up" : pnl < 0 ? "is-down" : ""} sub="all positions, open and closed" href={terminal("account")} tip="Today’s P&L on all positions, as Zerodha reports it." />}
+      {board && <Pc tone="off" k="Advisor odds" v={`A ${counts.A} · B ${counts.B}`} sub="favourable today, forward-tested" href={terminal("advisor")} tip="Watchlist stocks whose measured odds are favourable today and backed by the forward test (grade A or B)." />}
+      {horizon && (
+        <Pc
+          tone={horizon.trained ? "ok" : "warn"}
+          k="15-min forecast"
+          v={horizon.trained ? (h15 && h15.dirAcc != null ? `${(h15.dirAcc * 100).toFixed(1)}%` : "Learned") : horizon.job && !horizon.job.finishedAt ? "Learning…" : "Not trained"}
+          sub={horizon.trained ? `direction right, tested · learned to ${horizon.learning.lastDate}` : "learns from the stored NIFTY 100 history"}
+          href={terminal("research")}
+          tip="The 15-minute price forecast on the Desk: how often its direction was right on sessions it had not seen. It keeps learning each evening."
+        />
       )}
-      {board && (
-        <li data-tip="Watchlist stocks whose measured odds are favourable today and backed by the forward test (grade A or B).">
-          Advisor <b>{counts.A}</b> A · <b>{counts.B}</b> B
-        </li>
+      {spend && (
+        <Pc
+          tone={spend.auto ? "warn" : "ok"}
+          k="AI credit"
+          v={spend.auto ? "Runs by itself" : "Click only"}
+          sub={spend.auto ? "the AI may spend without a click" : `protected${spend.blockedToday ? ` · ${spend.blockedToday} held back today` : ""}`}
+          to={adminPath("/ai")}
+          tip="AI credit is spent only when you press an AI button, unless you lift that on the AI page."
+        />
       )}
     </ul>
   );
 }
 
-/** The day at a glance for the owner: the paper robot, the month's return, tomorrow's likely trenders, what it has learned. */
-function TodayStrip({ isSuper }) {
+/** The day at a glance for the owner: the paper robot, the month's return, the autopilot, tomorrow's likely trenders. */
+function TodayCard({ isSuper }) {
   const [d, setD] = useState({});
   useEffect(() => {
     if (!isSuper) return undefined;
     let alive = true;
     const put = (k) => (v) => alive && setD((x) => ({ ...x, [k]: v }));
-    api("/api/admin/robot").then(put("robot")).catch(() => {});
-    api("/api/admin/trading/journal/periods").then(put("periods")).catch(() => {});
-    api("/api/admin/robot/predictor").then(put("pred")).catch(() => {});
+    const load = () => {
+      api("/api/admin/robot").then(put("robot")).catch(() => {});
+      api("/api/admin/trading/journal/periods").then(put("periods")).catch(() => {});
+      api("/api/admin/robot/predictor").then(put("pred")).catch(() => {});
+      api("/api/admin/autopilot").then(put("auto")).catch(() => {});
+    };
+    load();
+    const stop = everyVisible(load, 60000);
     return () => {
       alive = false;
+      stop();
     };
   }, [isSuper]);
   if (!isSuper) return null;
   const robot = d.robot && d.robot.day ? d.robot : null;
   const month = d.periods && Array.isArray(d.periods.rows) ? d.periods.rows.find((r) => r.id === "month") : null;
   const pred = d.pred && d.pred.available ? d.pred : null;
+  const waiting = d.auto && Array.isArray(d.auto.proposals) ? d.auto.proposals.filter((p) => p.status === "new").length : null;
   const pct = (x) => (typeof x === "number" ? `${x > 0 ? "+" : x < 0 ? "−" : ""}${Math.abs(x).toFixed(2)}%` : null);
   const tone = (x) => (typeof x === "number" ? (x > 0 ? "is-up" : x < 0 ? "is-down" : "") : "");
   return (
-    <section className="hub-today" aria-label="Today at a glance">
-      <a className="hub-stat" href={terminal("analysis")} target="_blank" rel="noopener noreferrer" data-tip="The AI paper trader: today's play-money result. Open Trade Analysis → Robot.">
-        <span className="hub-stat__k">Paper robot</span>
-        <b className={`hub-stat__v ${robot ? tone(robot.day.net) : ""}`}>{robot ? money(robot.day.net) : "—"}</b>
-        <small>{robot ? `${robot.open.length} open · ${robot.day.trades} trade${robot.day.trades === 1 ? "" : "s"} today · ${robot.settings.on ? "on" : "off"}` : "play money, runs by itself"}</small>
-      </a>
-      <a className="hub-stat" href={terminal("journal")} target="_blank" rel="noopener noreferrer" data-tip="This month's result in the Journal, with the return on your principal when your capital is recorded.">
-        <span className="hub-stat__k">This month</span>
-        <b className={`hub-stat__v ${month ? tone(month.net) : ""}`}>{month && month.trades ? money(month.net) : "—"}</b>
-        <small>{month && month.trades ? `${pct(month.pct) ? `${pct(month.pct)} on your principal · ` : ""}${month.trades} trades, ${Math.round(month.winRate)}% won` : "your real trades, from Zerodha"}</small>
-      </a>
-      <a className="hub-stat hub-stat--wide" href={terminal("analysis")} target="_blank" rel="noopener noreferrer" data-tip="The stocks the day-trading predictor ranks highest for the next session (a measured frequency from a year of sessions, not advice). Open Trade Analysis → Robot → Day picks.">
-        <span className="hub-stat__k">Next session's likely trenders</span>
-        {pred ? (
-          <span className="hub-stat__chips">
-            {pred.picks.slice(0, 4).map((p) => (
-              <span key={p.symbol} className={`hub-chip ${p.side === "long" ? "is-up" : p.side === "short" ? "is-down" : ""}`}>
-                {p.symbol} <small>{Math.round(p.p * 100)}%</small>
+    <section className="hm-card hm-today" aria-labelledby="hm-today-h">
+      <h2 id="hm-today-h" className="hm-h">
+        Today at a glance
+      </h2>
+      <ul>
+        <li>
+          <a href={terminal("analysis")} target="_blank" rel="noopener noreferrer" data-tip="The AI paper trader: today's play-money result. Open Trade Analysis → Robot.">
+            <span className="hm-row__k">Paper robot</span>
+            <b className={tone(robot && robot.day.net)}>{robot ? money(robot.day.net) : "—"}</b>
+            <small>{robot ? `${robot.open.length} open · ${robot.day.trades} trade${robot.day.trades === 1 ? "" : "s"} today · ${robot.settings.on ? "on" : "off"}` : "play money, runs by itself"}</small>
+          </a>
+        </li>
+        <li>
+          <a href={terminal("journal")} target="_blank" rel="noopener noreferrer" data-tip="This month's result in the Journal, with the return on your principal when your capital is recorded.">
+            <span className="hm-row__k">This month</span>
+            <b className={tone(month && month.net)}>{month && month.trades ? money(month.net) : "—"}</b>
+            <small>{month && month.trades ? `${pct(month.pct) ? `${pct(month.pct)} on your principal · ` : ""}${month.trades} trades, ${Math.round(month.winRate)}% won` : "your real trades, from Zerodha"}</small>
+          </a>
+        </li>
+        <li>
+          <a href={terminal("research")} target="_blank" rel="noopener noreferrer" data-tip="Order proposals the autopilot has prepared and checked against your limits. It never sends an order: you press Review.">
+            <span className="hm-row__k">Autopilot</span>
+            <b>{waiting === null ? "—" : waiting === 0 ? "No proposals waiting" : `${waiting} proposal${waiting === 1 ? "" : "s"} waiting`}</b>
+            <small>prepared and risk-checked; you decide</small>
+          </a>
+        </li>
+        <li>
+          <a href={terminal("analysis")} target="_blank" rel="noopener noreferrer" data-tip="The stocks the day-trading predictor ranks highest for the next session (a measured frequency from a year of sessions, not advice).">
+            <span className="hm-row__k">Next session’s likely trenders</span>
+            {pred ? (
+              <span className="hm-chips">
+                {pred.picks.slice(0, 4).map((p) => (
+                  <span key={p.symbol} className={`hm-chip ${p.side === "long" ? "is-up" : p.side === "short" ? "is-down" : ""}`}>
+                    {p.symbol} <small>{Math.round(p.p * 100)}%</small>
+                  </span>
+                ))}
               </span>
-            ))}
-          </span>
-        ) : (
-          <b className="hub-stat__v">—</b>
-        )}
-        <small>{pred ? `${pred.summary.state === "graduated" ? "ranking with evidence" : "still learning"} · learned from ${pred.history && pred.history.sessions ? pred.history.sessions : "a year of"} sessions` : "learned by itself from a year of the NIFTY 100"}</small>
-      </a>
+            ) : (
+              <b>—</b>
+            )}
+            <small>{pred ? `${pred.summary.state === "graduated" ? "ranking with evidence" : "still learning"} · learned from ${pred.history && pred.history.sessions ? pred.history.sessions : "a year of"} sessions` : "learned by itself from a year of the NIFTY 100"}</small>
+          </a>
+        </li>
+      </ul>
     </section>
   );
 }
@@ -198,27 +283,49 @@ function TodayStrip({ isSuper }) {
 function Setting({ to, href, external, icon, title, text, status, tip }) {
   const body = (
     <>
-      <span className="hub-set__ico">{icon}</span>
-      <span className="hub-set__body">
+      <span className="hm-set__ico">{icon}</span>
+      <span className="hm-set__body">
         <b>{title}</b>
         <small>{text}</small>
       </span>
-      {status && <span className={`hub-set__s ${status.on ? "is-on" : ""}`}>{status.label}</span>}
+      {status && <span className={`hm-set__s ${status.on ? "is-on" : ""}`}>{status.label}</span>}
     </>
   );
   return external ? (
-    <a className="hub-set" href={href} target="_blank" rel="noopener noreferrer" data-tip={tip}>
+    <a className="hm-set" href={href} target="_blank" rel="noopener noreferrer" data-tip={tip}>
       {body}
     </a>
   ) : (
-    <Link className="hub-set" to={to} data-tip={tip}>
+    <Link className="hm-set" to={to} data-tip={tip}>
       {body}
     </Link>
   );
 }
 
+/** A feature tile in the rail: an icon, what it is, one live line, and the way in. */
+function Feat({ tone, icon, kicker, title, text, live, go, href, tip }) {
+  return (
+    <section className={`hm-feat hm-feat--${tone}`} aria-label={title}>
+      <a href={href} target="_blank" rel="noopener noreferrer" data-tip={tip}>
+        <span className="hm-feat__ico">
+          <WsIcon label={icon} />
+        </span>
+        <span className="hm-feat__body">
+          <span className="hm-feat__k">{kicker}</span>
+          <span className="hm-feat__t">{title}</span>
+          <span className="hm-feat__d">{text}</span>
+          {live}
+        </span>
+        <span className="hm-feat__go">
+          {go} <IconArrow />
+        </span>
+      </a>
+    </section>
+  );
+}
+
 /** Paper trading at a glance: the auto switch's state and how the current setup has done on paper. */
-function PaperCard() {
+function PaperFeat() {
   const [p, setP] = useState(null);
   useEffect(() => {
     api("/api/admin/paper")
@@ -228,38 +335,58 @@ function PaperCard() {
   const t = p && p.tested;
   const rupees = (x) => (typeof x === "number" ? `${x < 0 ? "−" : x > 0 ? "+" : ""}₹${Math.abs(Math.round(x)).toLocaleString("en-IN")}` : "—");
   return (
-    <section className="hub-paper" aria-labelledby="hub-paper-h">
-      <a href={terminal("paper")} target="_blank" rel="noopener noreferrer" data-tip="Open paper trading in a new tab.">
-        <span className="hub-hero__k">Stock Report · play money only</span>
-        <span className="hub-paper__t" id="hub-paper-h">
-          Paper Trading Testing
-        </span>
-        <span className="hub-hero__d">
-          The desk’s own live call followed with paper money — in today’s market, on past sessions, and in an auto mode that tests the setup by itself. It never places a real order and is separate from real trading; strong
-          findings go into the AI’s trading-skills file.
-        </span>
-        <span className="hub-paper__stats">
-          <span className={`hub-paper__auto ${p && p.auto ? "is-on" : ""}`}>Auto mode {p ? (p.auto ? "ON" : "OFF") : "…"}</span>
+    <Feat
+      tone="paper"
+      icon="Paper trading"
+      kicker="Play money only"
+      title="Paper Trading Testing"
+      text="The desk’s own live call followed with paper money — today, on past sessions, and in an auto mode. Never a real order."
+      live={
+        <span className="hm-live">
+          <span className={`hm-live__pill ${p && p.auto ? "is-on" : ""}`}>Auto {p ? (p.auto ? "ON" : "OFF") : "…"}</span>
           <span>
-            <b>{t ? t.total.toLocaleString("en-IN") : "—"}</b> paper trades on this setup
+            <b>{t ? t.total.toLocaleString("en-IN") : "—"}</b> paper trades
           </span>
           <span>
-            Live net <b>{t ? rupees(t.live.pnl) : "—"}</b>
+            Net <b>{t ? rupees(t.live.pnl) : "—"}</b>
           </span>
           <span>
             History <b>{t && t.history.finished ? `${t.history.winPct}% won` : "—"}</b>
           </span>
         </span>
-        <span className="hub-hero__go">
-          Open paper trading <IconArrow />
+      }
+      go="Open paper trading"
+      href={terminal("paper")}
+      tip="Open paper trading in a new tab."
+    />
+  );
+}
+
+function TradeAiFeat() {
+  return (
+    <Feat
+      tone="ai"
+      icon="TradeAI"
+      kicker="AI · your trading analyst"
+      title="TradeAI"
+      text="Ask about the market, a stock, your positions or your results. It reads the desk’s live calls, levels, habits and your history, and answers in plain English — only when you press send."
+      live={
+        <span className="hm-live" aria-hidden="true">
+          <span>Your positions</span>
+          <span>Live calls</span>
+          <span>Forecasts</span>
+          <span>Chats saved</span>
         </span>
-      </a>
-    </section>
+      }
+      go="Open TradeAI"
+      href={adminPath("/tradeai")}
+      tip="Open TradeAI in a new tab."
+    />
   );
 }
 
 /** The Social Media tile: the news mood and the stocks being talked about, opening the page in a new tab. */
-function SocialCard() {
+function SocialFeat() {
   const [d, setD] = useState(null);
   useEffect(() => {
     let on = true;
@@ -276,38 +403,38 @@ function SocialCard() {
   }, []);
   const t = d && d.mood ? (d.mood.score >= 20 ? "up" : d.mood.score <= -20 ? "down" : "flat") : "flat";
   return (
-    <section className="hub-social" aria-labelledby="hub-social-h">
-      <a href={adminPath("/social")} target="_blank" rel="noopener noreferrer" data-tip="Open Social Media in a new tab.">
-        <span className="hub-hero__k">Live · news &amp; social</span>
-        <span className="hub-paper__t" id="hub-social-h">
-          Social Media
-        </span>
-        <span className="hub-tai__d">News sites, Google News, X, Reddit, YouTube and NSE announcements in one live feed — organised for trading by the AI model and fed to the forecast, the Intraday plans and TradeAI.</span>
-        {d && d.items > 0 ? (
-          <span className="hub-social__now">
-            <span className={`hub-social__mood is-${t}`}>
+    <Feat
+      tone="social"
+      icon="Social"
+      kicker="Live · news & social"
+      title="Social Media"
+      text="News sites, Google News, X, Reddit, YouTube and NSE announcements in one live feed, organised for trading and fed to the forecasts."
+      live={
+        d && d.items > 0 ? (
+          <span className="hm-live">
+            <span className={`hm-live__mood is-${t}`}>
               {t === "up" ? "▲" : t === "down" ? "▼" : "●"} {d.mood.label} mood
             </span>
-            <span>{d.items} market items · 24 h</span>
+            <span>{d.items} items · 24 h</span>
             {d.radar.slice(0, 4).map((r) => (
-              <span key={r.symbol} className="hub-social__sym">
+              <span key={r.symbol} className="hm-live__sym">
                 {r.symbol}
               </span>
             ))}
           </span>
         ) : (
-          <span className="hub-tai__chips" aria-hidden="true">
+          <span className="hm-live" aria-hidden="true">
             <span>Live feed</span>
             <span>AI brief</span>
             <span>Stock radar</span>
             <span>Your sources</span>
           </span>
-        )}
-        <span className="hub-hero__go">
-          Open Social Media <IconArrow />
-        </span>
-      </a>
-    </section>
+        )
+      }
+      go="Open Social Media"
+      href={adminPath("/social")}
+      tip="Open Social Media in a new tab."
+    />
   );
 }
 
@@ -332,27 +459,31 @@ function Workspaces({ isSuper }) {
   const groups = GROUPS.map((g) => ({ ...g, items: g.labels.map((l) => visible.find((w) => w.label === l)).filter((w) => w && hit(w)) })).filter((g) => g.items.length);
   const known = new Set(GROUPS.flatMap((g) => g.labels));
   const rest = visible.filter((w) => !known.has(w.label) && hit(w));
-  if (rest.length) groups.push({ name: "More", note: "", items: rest });
+  if (rest.length) groups.push({ id: "more", name: "More", note: "", items: rest });
   return (
-    <nav className="hub-ws" aria-label="Open a workspace">
-      <label className="hub-find">
-        <span className="adm-sr">Find a workspace</span>
-        <input ref={box} type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Find a workspace…" aria-label="Find a workspace" />
-        <kbd aria-hidden="true">/</kbd>
-      </label>
+    <nav className="hm-card hm-ws" aria-label="Open a workspace">
+      <div className="hm-ws__head">
+        <h2 className="hm-h">Workspaces</h2>
+        <label className="hm-find">
+          <span className="adm-sr">Find a workspace</span>
+          <input ref={box} type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Find a workspace…" aria-label="Find a workspace" />
+          <kbd aria-hidden="true">/</kbd>
+        </label>
+      </div>
       {groups.map((g) => (
-        <div key={g.name} className="hub-grp">
+        <div key={g.id || g.name} className="hm-grp" data-g={g.id}>
           <h3>
+            <i aria-hidden="true" />
             {g.name}
             {g.note ? <small> · {g.note}</small> : null}
           </h3>
-          <div className="hub-grp__tiles">
+          <div className="hm-grp__tiles">
             {g.items.map((w) => (
-              <a key={w.label} className="hub-tile" href={terminal(w.view)} target="_blank" rel="noopener noreferrer" title={w.text}>
-                <span className="hub-tile__ico">
+              <a key={w.label} className="hm-tile" href={terminal(w.view)} target="_blank" rel="noopener noreferrer" title={w.text}>
+                <span className="hm-tile__ico">
                   <WsIcon label={w.label} />
                 </span>
-                <span className="hub-tile__txt">
+                <span className="hm-tile__txt">
                   <b>{w.label}</b>
                   <small>{w.text}</small>
                 </span>
@@ -361,7 +492,7 @@ function Workspaces({ isSuper }) {
           </div>
         </div>
       ))}
-      {!groups.length && <p className="hub-find__none">No workspace matches “{q}”.</p>}
+      {!groups.length && <p className="hm-find__none">No workspace matches “{q}”.</p>}
     </nav>
   );
 }
@@ -378,69 +509,49 @@ export default function Dashboard() {
 
   return (
     <Shell wide>
-      <div className="hub">
-        <div className="hub-top">
-          <div className="hub-top__main">
-          <header className="hub-head">
-            <div>
-              <p className="hub-head__k">
-                {greeting()} · {today}
-              </p>
-              <h1>Namaste, {firstName(user)}</h1>
+      <div className="hm">
+        <section className="hm-hero" aria-labelledby="hm-hero-h">
+          <div className="hm-hero__txt">
+            <p className="hm-hero__k">
+              {greeting()} · {today}
+            </p>
+            <h1 id="hm-hero-h">Namaste, {firstName(user)}</h1>
+            <p className="hm-hero__d">Your trading desk, research, forecasts and automation in one place. Everything below is live: the status row refreshes by itself.</p>
+            <div className="hm-hero__cta">
+              <a className="hm-btn hm-btn--go" href={terminal("")} target="_blank" rel="noopener noreferrer" data-tip="Open the trading terminal in a new tab.">
+                Open the terminal <IconArrow />
+              </a>
+              <a className="hm-btn" href={terminal("research")} target="_blank" rel="noopener noreferrer" data-tip="Research, the autopilot and the 15-minute forecaster.">
+                Research &amp; forecasts
+              </a>
+              <a className="hm-btn" href={adminPath("/tradeai")} target="_blank" rel="noopener noreferrer" data-tip="Ask TradeAI about the market, a stock or your positions.">
+                Ask TradeAI
+              </a>
             </div>
-            <Pulse isSuper={isSuper} />
-          </header>
-
-        <section className="hub-hero" aria-labelledby="hub-sr">
-          <a className="hub-hero__main" href={terminal("")} target="_blank" rel="noopener noreferrer" data-tip="Open the trading terminal in a new tab.">
-            <img className="hub-hero__logo" src="/logo/PanchmukhiHanuman_logo-192.png" srcSet="/logo/PanchmukhiHanuman_logo-192.png 1x, /logo/PanchmukhiHanuman_logo-512.png 2x" alt="" width="84" height="84" />
-            <span className="hub-hero__k">Markets · trading terminal</span>
-            <span className="hub-hero__t" id="hub-sr">
-              Stock Report
-            </span>
-            <span className="hub-hero__d">Live desk, measured odds, positions and orders, research, screener, debrief and the market calendar — in one terminal.</span>
-            <span className="hub-hero__go">
-              Open the terminal <IconArrow />
-            </span>
-          </a>
-          <Workspaces isSuper={isSuper} />
-        </section>
           </div>
+          <img className="hm-hero__art" src="/logo/PanchmukhiHanuman_logo-512.png" srcSet="/logo/PanchmukhiHanuman_logo-192.png 1x, /logo/PanchmukhiHanuman_logo-512.png 2x" alt="" width="148" height="148" />
+        </section>
+
+        <Pulse isSuper={isSuper} />
+
+        <TodayCard isSuper={isSuper} />
+
+        <Workspaces isSuper={isSuper} />
+
+        <div className="hm-feats" aria-label="TradeAI, paper trading and Social Media">
+          <TradeAiFeat />
+          <PaperFeat />
+          <SocialFeat />
         </div>
 
-        <TodayStrip isSuper={isSuper} />
-
-        {/* TradeAI, paper trading and Social Media in one row (one under the other on a phone) */}
-        <div className="hub-feats">
-        <div className="hub-duo">
-          <section className="hub-tai" aria-labelledby="hub-tai-h">
-            <a href={adminPath("/tradeai")} target="_blank" rel="noopener noreferrer" data-tip="Open TradeAI in a new tab.">
-              <span className="hub-hero__k">AI · your trading analyst</span>
-              <span className="hub-paper__t" id="hub-tai-h">
-                TradeAI
-              </span>
-              <span className="hub-tai__d">Ask anything about the market, a stock, your open positions or your results. It reads the desk’s live calls, levels, patterns, habits and your history, and answers in plain English with tables, forecasts and actions — on the default AI model (Claude Sonnet 5.5), with the desk’s own arithmetic when no model answers.</span>
-              <span className="hub-tai__chips" aria-hidden="true">
-                <span>Your positions</span>
-                <span>Live calls</span>
-                <span>Forecasts</span>
-                <span>Chats saved</span>
-              </span>
-              <span className="hub-hero__go">
-                Open TradeAI <IconArrow />
-              </span>
-            </a>
-          </section>
-
-          <PaperCard />
-        </div>
-
-        <SocialCard />
-        </div>
-
-        <section className="hub-sets" aria-labelledby="hub-sets-h">
-          <h2 id="hub-sets-h">Settings</h2>
-          <div className="hub-sets__grid">
+        <section className="hm-sets" aria-labelledby="hm-sets-h">
+          <div className="hm-sets__head">
+            <h2 id="hm-sets-h" className="hm-h">
+              Settings &amp; system
+            </h2>
+            <p>Sign-in, the AI model, who may enter, and the health of every part of the site.</p>
+          </div>
+          <div className="hm-sets__grid">
             <Setting
               to={adminPath("/google")}
               icon={<IconKey />}
@@ -457,11 +568,11 @@ export default function Dashboard() {
               icon={<IconChart />}
               title="AI model"
               text={ai && ai.configured ? `${ai.providerName} · ${ai.modelName}` : "Any AI company and model; advice only."}
-              tip="The default AI model every feature uses (Claude Sonnet 5.5 unless you pick another: Anthropic, OpenAI, Gemini, DeepSeek or Kimi), its key, the fallback, and the live co-pilot’s limits."
+              tip="The default AI model every feature uses (Claude Sonnet 5.5 unless you pick another: Anthropic, OpenAI, Gemini, DeepSeek or Kimi), its key, the fallback, the AI credit protection and the live co-pilot’s limits."
               status={ai && { on: ai.configured, label: ai.configured ? "On" : "Off" }}
             />
           </div>
-          <div className="hub-cards">
+          <div className="hm-cards">
             <HealthCard />
             {isSuper && <WhatsAppCard />}
             {isSuper && <NotifyCard />}

@@ -40,7 +40,6 @@ import Social from "./social/Social";
 
 import "./admin.css";
 import "./hub.css";
-import "./hub2.css";
 // the one button system: loaded last so it governs every page (see BRAND.md)
 import "./buttons.css";
 // motion and softness: loaded last of all, it changes how things move and how their edges feel, nothing else

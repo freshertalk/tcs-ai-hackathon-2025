@@ -52,3 +52,25 @@ test("the Social Media tile opens its page in a new tab", async () => {
   expect(a.getAttribute("href")).toBe("/me/social");
   expect(a.getAttribute("target")).toBe("_blank");
 });
+
+test("the status row, the owner's Today cards and the three tiles are there; an admin who is not the owner has no Today cards", async () => {
+  render(page("superadmin"));
+  await settle();
+  const row = screen.getByLabelText("Status");
+  expect(row.textContent).toMatch(/NSE session/);
+  expect(row.textContent).toMatch(/Zerodha/);
+  expect(row.textContent).toMatch(/AI credit/);
+  expect(row.textContent).toMatch(/15-min forecast/);
+  expect(screen.getByText("Today at a glance")).toBeTruthy();
+  expect(screen.getByText("Autopilot")).toBeTruthy();
+  expect(screen.getByText("Open TradeAI").closest("a").getAttribute("href")).toBe("/me/tradeai");
+  expect(screen.getByText("Open paper trading").closest("a").getAttribute("href")).toBe("/me/stock-report?view=paper");
+  expect(screen.getByText("Settings & system")).toBeTruthy();
+});
+
+test("an admin who is not the owner sees no Today cards and no owner-only status", async () => {
+  render(page("admin"));
+  await settle();
+  expect(screen.queryByText("Today at a glance")).toBeNull();
+  expect(screen.getByLabelText("Status").textContent).not.toMatch(/Trading switch|P&L/);
+});

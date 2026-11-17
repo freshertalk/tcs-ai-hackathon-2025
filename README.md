@@ -316,12 +316,15 @@ links there, and the notice ("TradingView Lightweight Charts™, Copyright © 20
 is printed under every chart. Its one dependency, `fancy-canvas`, is MIT. No map, map tiles or other
 paid data are used, and nothing of Kite's own chart (TradingView's licensed library) is copied.
 
-**Sign-in page and dashboard (`src/admin/Login.jsx`, `Dashboard.jsx`, `hub.css`).** The sign-in page
+**Sign-in page and dashboard (`src/admin/Login.jsx`, `Dashboard.jsx`, `home.css`, sign-in styles in `hub.css`).** The sign-in page
 says, politely and in justified text, that this is Vinay Kumar Tiwari's personal workspace and not
 for visitors; no email address appears anywhere on it (nor in the signed-in headers). The dashboard
-opens straight away — the welcome picture and the mantra audio are gone — with a status line
-(NSE session, Zerodha, trading switch, today's P&L, Advisor A/B count), the **Stock Report** as one
-wide card with a direct link into each workspace, and the settings in a compact grid.
+opens straight away — the welcome picture and the mantra audio are gone — as a command centre (redesigned 2026-11-18): a
+welcome with the three main ways in; a live status row (NSE session with the time to the next change, Zerodha, trading
+switch, today's P&L, Advisor A/B, the 15-minute forecaster's tested hit rate, AI-credit protection — re-read every 30
+seconds and the moment the tab is shown again); the owner's *Today* cards (paper robot, month, autopilot proposals
+waiting, likely trenders); the workspaces in three groups with a finder (press `/`); TradeAI, paper trading and Social
+Media side by side; and settings and system health below. Every part wraps: nothing scrolls sideways.
 
 **Research direction and automatic runs (`server/market/direction.js`, `server/research-auto.js`).**
 Every research report now gives each stock a **direction** — Buy / Watch for entry / No trade /
