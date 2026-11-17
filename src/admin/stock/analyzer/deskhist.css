@@ -1,0 +1,221 @@
+/* ==========================================================================
+   The history tables at the bottom of the Desk (SessionHistory.jsx). Desk tokens only, so both themes follow.
+   The tables scroll sideways on a narrow screen; the date column stays in view.
+   ========================================================================== */
+
+.dh-wrap {
+  display: grid;
+  gap: 0;
+  min-width: 0;
+}
+.dh {
+  min-width: 0;
+}
+.dh .an-card__head p {
+  max-width: 78ch;
+}
+
+/* the short read above the table */
+.dh-sum {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
+  gap: 8px;
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
+}
+.dh-sum li {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2, var(--surface));
+}
+.dh-sum span {
+  color: var(--ink-3);
+  font-size: var(--t-small);
+  font-weight: 600;
+}
+.dh-sum b {
+  font-size: var(--t-large, 1.05rem);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.dh-sum b i {
+  font-style: normal;
+}
+.dh-sum b small {
+  color: var(--ink-3);
+  font-size: var(--t-small);
+  font-weight: 500;
+}
+
+/* controls above the long table */
+.dh-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 12px;
+}
+.dh-bar .adm-btn {
+  margin-left: auto;
+}
+.dh-year {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink-3);
+  font-size: var(--t-small);
+  font-weight: 600;
+}
+.dh-year select {
+  min-height: 34px;
+  padding: 4px 8px;
+  border: 1px solid var(--line-2, var(--line));
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+}
+
+/* the table */
+.dh-scroll {
+  max-width: 100%;
+  max-height: min(72vh, 760px);
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  -webkit-overflow-scrolling: touch;
+}
+.dh-scroll:focus-visible {
+  outline: 2px solid var(--accent, var(--ink-2));
+  outline-offset: 2px;
+}
+.dh-table {
+  width: 100%;
+  min-width: 860px;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: var(--t-small);
+  font-variant-numeric: tabular-nums;
+}
+.dh-table th,
+.dh-table td {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+  text-align: left;
+}
+.dh-table .dh-n {
+  text-align: right;
+}
+.dh-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--surface-2, var(--surface));
+  color: var(--ink-3);
+  font-weight: 600;
+}
+.dh-table tbody th {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--surface);
+  color: var(--ink);
+  font-weight: 600;
+  border-right: 1px solid var(--line);
+}
+.dh-table thead th:first-child {
+  left: 0;
+  z-index: 3;
+  border-right: 1px solid var(--line);
+}
+.dh-table tbody tr:hover td,
+.dh-table tbody tr:hover th {
+  background: color-mix(in srgb, var(--ink) 5%, var(--surface));
+}
+.dh-table tbody tr:last-child td,
+.dh-table tbody tr:last-child th {
+  border-bottom: 0;
+}
+.dh-wd {
+  color: var(--ink-3);
+}
+.dh-close {
+  font-weight: 600;
+}
+.dh-table small {
+  color: var(--ink-3);
+}
+.dh-table em {
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--up) 18%, var(--surface));
+  color: var(--up);
+  font-size: 0.85em;
+  font-style: normal;
+  font-weight: 700;
+}
+.dh-table .is-forming td,
+.dh-table .is-forming th {
+  background: color-mix(in srgb, var(--up) 7%, var(--surface));
+}
+
+/* where the day closed between its low and its high */
+.dh-at {
+  position: relative;
+  display: inline-block;
+  width: 64px;
+  height: 6px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--down) 45%, var(--line)), var(--line) 50%, color-mix(in srgb, var(--up) 45%, var(--line)));
+  vertical-align: middle;
+}
+.dh-at i {
+  position: absolute;
+  top: -3px;
+  width: 4px;
+  height: 12px;
+  margin-left: -2px;
+  border-radius: 2px;
+  background: var(--ink);
+}
+
+.dh-more {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+.dh-more small {
+  margin-right: auto;
+  color: var(--ink-3);
+}
+
+@media (max-width: 640px) {
+  .dh-bar .adm-btn {
+    margin-left: 0;
+  }
+  .dh-scroll {
+    max-height: 62vh;
+  }
+  .dh-sum {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* under the whole Desk, across the verdict rail too */
+.sv--desk > .dh-wrap {
+  grid-column: 1 / -1;
+  grid-row: auto;
+}
+.sv--desk > .dh-wrap .an-card:first-child {
+  margin-top: 0;
+}

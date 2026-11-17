@@ -21,6 +21,7 @@ import { TradeButtons } from "../trade/TradeContext";
 import Behaviour from "./Behaviour";
 import ProChart from "../chart/ProChart";
 import AiBrain from "./AiBrain";
+import SessionHistory from "./SessionHistory";
 import { callLabel as oddsLabel } from "../advisor/advisorMath";
 import { everyVisible } from "../../visible";
 
@@ -442,6 +443,9 @@ export default function StockView({ symbol, quote, status, streaming = false, in
           {tab === "behaviour" && <Behaviour symbol={symbol} />}
         </div>
       </div>
+
+      {/* the bottom of the Desk: the last 30 sessions, and every daily bar held for this stock */}
+      <SessionHistory symbol={symbol} live={live} marketHours={Boolean(status.marketHours)} />
     </div>
   );
 }
