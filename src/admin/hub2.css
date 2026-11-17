@@ -349,3 +349,218 @@
     font-size: var(--t-large);
   }
 }
+
+/* ==========================================================================
+   Compact pass: the same cards, closer together, so a laptop screen shows the whole dashboard's top in one look
+   and nothing leaves a hole beside a taller neighbour.
+   ========================================================================== */
+.hub {
+  gap: 10px;
+}
+.hub-top,
+.hub-top__main {
+  gap: 10px;
+}
+.hub-top .hub-head h1 {
+  font-size: clamp(1.25rem, 2.2vw, 1.65rem);
+}
+
+/* the terminal card and the workspaces */
+.hub-hero {
+  grid-template-columns: minmax(210px, 0.5fr) minmax(0, 2fr);
+  gap: 12px;
+  padding: 10px;
+  border-radius: 16px;
+}
+.hub-hero__main {
+  gap: 4px;
+  padding: 14px 12px;
+  border-radius: 12px;
+}
+.hub-hero__logo {
+  width: 56px;
+  height: 56px;
+  margin-bottom: 2px;
+}
+.hub-hero__t {
+  font-size: var(--t-large);
+}
+.hub-hero__d {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  font-size: var(--t-small);
+}
+.hub-hero__go {
+  margin-top: 6px;
+  padding: 6px 12px;
+}
+.hub-ws {
+  gap: 8px;
+}
+.hub-find input {
+  min-height: 34px;
+  padding: 6px 36px 6px 12px;
+}
+.hub-grp h3 {
+  margin-bottom: 5px;
+}
+.hub-grp__tiles {
+  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  gap: 6px;
+}
+.hub-ws a.hub-tile {
+  gap: 8px;
+  padding: 6px 9px;
+  border-radius: 12px;
+}
+.hub-tile__ico {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+}
+.hub-tile__ico svg {
+  width: 17px;
+  height: 17px;
+}
+.hub-tile__txt small {
+  -webkit-line-clamp: 1;
+}
+
+/* today */
+.hub-today {
+  gap: 10px;
+}
+.hub-stat {
+  gap: 1px;
+  padding: 9px 12px;
+  border-radius: 14px;
+}
+.hub-stat__v {
+  font-size: var(--t-large);
+}
+.hub-chip {
+  padding: 1px 9px;
+}
+
+/* TradeAI, paper trading, Social */
+.hub-feats {
+  gap: 10px;
+}
+.hub-feats :is(.hub-tai, .hub-paper, .hub-social) > a {
+  gap: 4px;
+  padding: 11px 14px;
+  border-radius: 16px;
+}
+.hub-feats .hub-paper__t {
+  font-size: var(--t-lead);
+}
+.hub-feats .hub-tai__d {
+  -webkit-line-clamp: 3;
+  font-size: var(--t-small);
+}
+.hub-feats .hub-hero__d {
+  -webkit-line-clamp: 3;
+}
+.hub-feats .hub-hero__go {
+  margin-top: auto;
+  padding: 5px 12px;
+}
+
+/* settings: the small tiles tight, the cards flowing in columns with no holes between unequal heights */
+.hub-sets h2 {
+  margin: 2px 0 6px;
+}
+.hub-sets__grid {
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 6px;
+}
+.hub-set {
+  gap: 8px;
+  padding: 7px 10px;
+}
+.hub-set__ico {
+  width: 30px;
+  height: 30px;
+}
+.hub-cards {
+  display: block;
+  column-count: 2;
+  column-gap: 10px;
+  margin-top: 10px;
+}
+.hub-cards > * {
+  display: block;
+  width: 100%;
+  margin: 0 0 10px;
+  break-inside: avoid;
+}
+
+@media (max-width: 1100px) {
+  .hub-hero {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .hub-hero__main {
+    grid-template-columns: auto minmax(0, 1fr);
+    justify-items: start;
+    align-items: center;
+    text-align: left;
+    gap: 2px 12px;
+  }
+  .hub-hero__logo {
+    grid-row: 1 / span 4;
+  }
+  .hub-hero__d,
+  .hub-hero__go {
+    grid-column: 2;
+  }
+  .hub-hero__d {
+    margin-inline: 0;
+    max-width: none;
+    text-align: left;
+  }
+  .hub-hero__k,
+  .hub-hero__t {
+    grid-column: 2;
+  }
+}
+@media (max-width: 900px) {
+  .hub-cards {
+    column-count: 1;
+  }
+}
+@media (max-width: 560px) {
+  .hub-hero__d {
+    display: none;
+  }
+  .hub-hero__main {
+    padding: 10px 12px;
+  }
+  .hub-hero__logo {
+    width: 48px;
+    height: 48px;
+    grid-row: 1 / span 3;
+  }
+  .hub-feats :is(.hub-tai, .hub-paper, .hub-social) > a {
+    padding: 10px 12px;
+  }
+}
+
+/* labels stay on one line: the tile is just wide enough for the longest ("Trade Analysis"), the setting tiles show five to a row */
+.hub-grp__tiles {
+  grid-template-columns: repeat(auto-fill, minmax(158px, 1fr));
+}
+.hub-tile__txt b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hub-sets__grid {
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+}
+.hub-set__body b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

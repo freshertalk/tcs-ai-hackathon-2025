@@ -347,7 +347,7 @@ function Workspaces({ isSuper }) {
           </h3>
           <div className="hub-grp__tiles">
             {g.items.map((w) => (
-              <a key={w.label} className="hub-tile" href={terminal(w.view)} target="_blank" rel="noopener noreferrer">
+              <a key={w.label} className="hub-tile" href={terminal(w.view)} target="_blank" rel="noopener noreferrer" title={w.text}>
                 <span className="hub-tile__ico">
                   <WsIcon label={w.label} />
                 </span>
