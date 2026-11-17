@@ -10,6 +10,7 @@ import { api } from "../../api";
 import { formatDate } from "../holidays";
 import { inr, isNum, num, pct } from "./format";
 import "./optionchain.css";
+import { everyVisible } from "../../visible";
 
 const enc = encodeURIComponent;
 const big = (x) => (isNum(x) ? (Math.abs(x) >= 1e7 ? `${num(x / 1e7, 2)} Cr` : Math.abs(x) >= 1e5 ? `${num(x / 1e5, 2)} L` : Math.round(x).toLocaleString("en-IN")) : "—");
@@ -28,10 +29,10 @@ export function useOptionChain(symbol, enabled = true, expiry = "") {
         .then((d) => alive && setS({ loading: false, data: d, error: "" }))
         .catch((e) => alive && setS((p) => ({ loading: false, data: p.data, error: e.message })));
     read();
-    const id = setInterval(() => document.visibilityState !== "hidden" && read(), 60000);
+    const id = everyVisible(read, 60000);
     return () => {
       alive = false;
-      clearInterval(id);
+      id();
     };
   }, [symbol, enabled, expiry]);
   return s;

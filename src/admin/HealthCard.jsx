@@ -3,6 +3,7 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import { api } from "./api";
+import { everyVisible } from "./visible";
 
 const MARK = { ok: "✓", warn: "!", error: "✕", off: "–" };
 const WORD = { ok: "Working", warn: "Look at it", error: "Not working", off: "Off" };
@@ -26,8 +27,7 @@ export default function HealthCard() {
   }, []);
   useEffect(() => {
     load();
-    const id = setInterval(() => document.visibilityState !== "hidden" && load(), 60000);
-    return () => clearInterval(id);
+    return everyVisible(load, 60000);
   }, [load]);
   if (!h && !err) return null;
   const groups = h ? [...new Set(h.checks.map((c) => c.group))] : [];

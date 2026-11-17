@@ -503,13 +503,12 @@
 }
 .sx-filters {
   display: flex;
+  flex-wrap: wrap;
   gap: 2px;
   padding: 3px;
   border: 1px solid var(--line);
   border-radius: 12px;
   background: var(--surface-2);
-  overflow-x: auto;
-  scrollbar-width: none;
 }
 .sx-filters::-webkit-scrollbar {
   display: none;

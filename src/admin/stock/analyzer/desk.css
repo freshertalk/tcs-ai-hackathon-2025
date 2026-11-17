@@ -161,13 +161,13 @@
 /* ---- AI Live / AI Research: one compact bar; the full reading folds away beneath it */
 .an.dk .ab {
   container-type: inline-size;
-  /* the chip row scrolls sideways: it must never widen the card */
+  /* the chip row wraps onto more lines rather than scrolling: every chip is always in view */
   grid-template-columns: minmax(0, 1fr);
   gap: 8px;
   padding: 8px 10px;
 }
 .an.dk .ab-bar {
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   gap: 8px;
 }
 .an.dk .ab-btns {
@@ -187,24 +187,17 @@
   font-size: var(--t-tag);
 }
 .an.dk .ab-minis {
-  flex: 1 1 auto;
+  flex: 1 1 520px;
   min-width: 0;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   gap: 6px;
-  padding: 2px;
-  margin: -2px;
-  overflow-x: auto;
-  scrollbar-width: none;
-  scroll-snap-type: x proximity;
-}
-.an.dk .ab-minis::-webkit-scrollbar {
-  display: none;
 }
 .an.dk .ab-mini-btn {
-  flex: 0 0 auto;
-  scroll-snap-align: start;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 .an.dk .ab-mini {
+  width: 100%;
   min-width: 90px;
   padding: 3px 10px;
   border-radius: var(--dk-r-sm);
@@ -265,7 +258,7 @@
     flex: 1 1 100%;
   }
   .an.dk .ab-minis {
-    flex: 1 1 0;
+    flex: 1 1 100%;
   }
 }
 
@@ -273,20 +266,12 @@
 .an.dk .sv__tabs,
 .an.dk .sv__chartbar .sv__ranges,
 .an.dk .wl__order {
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   gap: 2px;
   padding: 3px;
   border: 1px solid var(--line);
   border-radius: 12px;
   background: var(--surface-2);
-  overflow-x: auto;
-  scrollbar-width: none;
-  -webkit-overflow-scrolling: touch;
-}
-.an.dk .sv__tabs::-webkit-scrollbar,
-.an.dk .sv__chartbar .sv__ranges::-webkit-scrollbar,
-.an.dk .wl__order::-webkit-scrollbar {
-  display: none;
 }
 .an.dk .sv__tabs {
   margin: 0 0 var(--dk-gap);

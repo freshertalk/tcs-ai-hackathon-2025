@@ -407,17 +407,15 @@
     grid-template-columns: minmax(0, 1fr);
   }
   .kc__tools {
-    grid-auto-flow: column;
+    display: flex;
+    flex-wrap: wrap;
     justify-content: start;
-    overflow-x: auto;
   }
   .kc__plot {
     height: clamp(320px, 58vh, 560px);
   }
   .kc__bar {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    scrollbar-width: none;
+    flex-wrap: wrap;
   }
   .kc__bar::-webkit-scrollbar {
     display: none;

@@ -109,10 +109,10 @@ function stripConflicting(template) {
 // its title and search-engine tags) before the admin app mounted.
 function writeAdminShell(template) {
   // the private area wears the DrishtiAI logo (public/logo) as its icon; the public pages keep theirs
-  const ICONS = `  <link rel="icon" type="image/png" sizes="32x32" href="/logo/logo-32.png" data-private="1" />
-    <link rel="icon" type="image/png" sizes="48x48" href="/logo/logo-48.png" data-private="1" />
-    <link rel="icon" type="image/png" sizes="192x192" href="/logo/logo-192.png" data-private="1" />
-    <link rel="apple-touch-icon" sizes="180x180" href="/logo/logo-180.png" data-private="1" />`;
+  const ICONS = `  <link rel="icon" type="image/png" sizes="32x32" href="/logo/PanchmukhiHanuman_logo-32.png" data-private="1" />
+    <link rel="icon" type="image/png" sizes="48x48" href="/logo/PanchmukhiHanuman_logo-48.png" data-private="1" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/logo/PanchmukhiHanuman_logo-192.png" data-private="1" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/logo/PanchmukhiHanuman_logo-180.png" data-private="1" />`;
   // the link preview (title, description, Open Graph, the X card) of the dashboard, between markers:
   // the server swaps the block for each page's own (server/previews.js), so a shared address previews
   // as that page; the private area stays noindex

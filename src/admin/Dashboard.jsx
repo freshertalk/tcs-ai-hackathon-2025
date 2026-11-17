@@ -15,6 +15,7 @@ import NotifyCard from "./NotifyCard";
 import WhatsAppCard from "./WhatsAppCard";
 import HealthCard from "./HealthCard";
 import { IconArrow, IconChart, IconKey, IconMail, IconShield, IconUsers } from "./icons";
+import { everyVisible } from "./visible";
 
 const WORKSPACES = [
   { view: "", label: "Desk", text: "Chart, live call, order book" },
@@ -267,10 +268,10 @@ function SocialCard() {
         .then((x) => on && setD(x))
         .catch(() => {});
     load();
-    const id = setInterval(() => document.visibilityState !== "hidden" && load(), 60000);
+    const id = everyVisible(load, 60000);
     return () => {
       on = false;
-      clearInterval(id);
+      id();
     };
   }, []);
   const t = d && d.mood ? (d.mood.score >= 20 ? "up" : d.mood.score <= -20 ? "down" : "flat") : "flat";
@@ -392,7 +393,7 @@ export default function Dashboard() {
 
         <section className="hub-hero" aria-labelledby="hub-sr">
           <a className="hub-hero__main" href={terminal("")} target="_blank" rel="noopener noreferrer" data-tip="Open the trading terminal in a new tab.">
-            <img className="hub-hero__logo" src="/logo/logo-192.png" srcSet="/logo/logo-192.png 1x, /logo/logo-512.png 2x" alt="" width="84" height="84" />
+            <img className="hub-hero__logo" src="/logo/PanchmukhiHanuman_logo-192.png" srcSet="/logo/PanchmukhiHanuman_logo-192.png 1x, /logo/PanchmukhiHanuman_logo-512.png 2x" alt="" width="84" height="84" />
             <span className="hub-hero__k">Markets · trading terminal</span>
             <span className="hub-hero__t" id="hub-sr">
               Stock Report

@@ -62,6 +62,7 @@ const { SocialWatch } = require("./social-watch");
 const { FlightDeck, FlightError } = require("./flight");
 const { LearnWatch } = require("./learn");
 const { OpenForecast } = require("./open-forecast");
+const { Horizon } = require("./horizon");
 const { Autopilot } = require("./autopilot");
 const nseCalendar = require("./market/nse-holidays");
 const { makeDeskReaders } = require("./desk-readers");
@@ -1316,6 +1317,35 @@ ${e.text}
   if (market.ticker && opts.robotAuto !== false && opts.alertWatch !== false) robot.start();
   mountRobot(app, { robot, requireSuper, limiter });
 
+  // The 15-minute forecast (server/horizon.js): learns from the stored NIFTY 100 history the robot keeps, forecasts the
+  // price, the high and the low for the stock on the Desk, scores itself and learns again each evening. Reads the market;
+  // never trades, never asks an AI model.
+  const horizon =
+    opts.horizon ||
+    new Horizon({ market, docs: store.docs, history: () => robot.history, universe: () => robot.universe(), ai, now: opts.now, log: opts.log || console });
+  if (market.ticker && opts.horizonWatch !== false && opts.alertWatch !== false) horizon.start();
+  const hWrap = (fn) => async (req, res) => {
+    try {
+      res.json(await fn(req));
+    } catch (err) {
+      if (!err.status) console.error("[horizon]", err && err.message ? err.message : err);
+      res.status(err.status || 500).json({ error: err.code || "horizon_failed", message: err.message || "The forecast failed." });
+    }
+  };
+  app.get("/api/admin/market/horizon", requireAdmin, hWrap(async () => horizon.board()));
+  app.get("/api/admin/market/horizon/:symbol", requireAdmin, limiter(240, 60 * 1000), hWrap(async (req) => horizon.view(String(req.params.symbol || "").trim().toUpperCase().slice(0, 25))));
+  // learn from the stored history now (a full training), or learn the sessions since the last one (it also happens by itself)
+  // (the work runs in the background; a refusal that comes at once, such as "no history yet", is returned at once)
+  const startJob = async (run) => {
+    const p = run();
+    const early = await Promise.race([p.then(() => null, (e) => e), new Promise((r) => setTimeout(() => r(null), 120))]);
+    if (early) throw early;
+    p.catch(() => {});
+    return horizon.board();
+  };
+  app.post("/api/admin/market/horizon/train", requireSuper, limiter(6, 60 * 60 * 1000), hWrap(async () => startJob(() => horizon.train({ trigger: "you asked" }))));
+  app.post("/api/admin/market/horizon/learn", requireSuper, limiter(12, 60 * 60 * 1000), hWrap(async () => startJob(() => horizon.learnDays({ trigger: "you asked" }))));
+
   // The desk's intraday knowledge base (market/knowledge.js) and the set-up lab (server/setuplab.js):
   // every classic set-up measured on the NIFTY 100's recent sessions after costs, each weekday evening.
   // Its record weighs each set-up in the live scanner and is written into the trading-skills file.
@@ -1420,7 +1450,7 @@ ${e.text}
   /* ------------------------------------------------ site health (server/health.js) */
   app.get("/api/admin/health", requireAdmin, limiter(60, 60 * 1000), async (req, res) => {
     try {
-      res.json(await buildHealth({ now: opts.now, docs, dataDir, market, ai, trading, analysis, paper, researchAuto, notifier, alertWatch, whatsapp, temple, holidays, googleConfigured: () => credentials().source !== "none" }, { secure: isSecure(req), host: req.get("host") || "" }));
+      res.json(await buildHealth({ now: opts.now, docs, dataDir, horizon, openForecast, autopilot, robot, market, ai, trading, analysis, paper, researchAuto, notifier, alertWatch, whatsapp, temple, holidays, googleConfigured: () => credentials().source !== "none" }, { secure: isSecure(req), host: req.get("host") || "" }));
     } catch (err) {
       res.status(500).json({ error: "health_failed", message: err.message });
     }
@@ -1502,6 +1532,7 @@ ${e.text}
     scanner,
     setupLab,
     openForecast,
+    horizon,
     autopilot,
     get setupToken() {
       return setupToken;

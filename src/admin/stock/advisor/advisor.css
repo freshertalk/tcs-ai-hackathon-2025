@@ -1056,9 +1056,7 @@
     white-space: nowrap;
   }
   .av-tally {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    scrollbar-width: none;
+    flex-wrap: wrap;
   }
   .av-tally::-webkit-scrollbar {
     display: none;

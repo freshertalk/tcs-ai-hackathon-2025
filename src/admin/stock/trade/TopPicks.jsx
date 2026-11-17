@@ -14,6 +14,7 @@ import { useAuth } from "../../auth";
 import { adminPath } from "../../paths";
 import { inr, isNum, pct, when } from "../analyzer/format";
 import { KnowledgeChecks } from "../engine/KnowledgeChecks";
+import { everyVisible } from "../../visible";
 
 const SIDE = { long: { word: "LONG", icon: "▲", cls: "is-up" }, short: { word: "SHORT", icon: "▼", cls: "is-down" } };
 const PHASE = { pre: "Before the open", live: "In the session", post: "After the close" };
@@ -246,8 +247,7 @@ export function TopPicks({ onOpen }) {
   const running = Boolean(v && v.running);
   useEffect(() => {
     const ms = running ? 3000 : marketHours() ? 60000 : 5 * 60000;
-    const id = setInterval(() => document.visibilityState !== "hidden" && load(), ms);
-    return () => clearInterval(id);
+    return everyVisible(load, ms);
   }, [running, load]);
   const refresh = async () => {
     setBusy(true);
@@ -405,10 +405,10 @@ export function RsiWatch({ onOpen }) {
         .then((d) => on && (setR(d), setErr("")))
         .catch((e) => on && setErr(e.message));
     load();
-    const id = setInterval(() => document.visibilityState !== "hidden" && load(), r && r.preparing ? 15000 : marketHours() ? 60000 : 5 * 60000);
+    const id = everyVisible(load, r && r.preparing ? 15000 : marketHours() ? 60000 : 5 * 60000);
     return () => {
       on = false;
-      clearInterval(id);
+      id();
     };
   }, [r && r.preparing]); // eslint-disable-line react-hooks/exhaustive-deps
   const table = (rows, kind) => (

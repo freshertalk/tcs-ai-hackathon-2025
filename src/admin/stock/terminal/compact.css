@@ -544,18 +544,14 @@
   .tm .av-head p {
     -webkit-line-clamp: 1;
   }
-  /* strips: one row that scrolls sideways instead of a stack that pushes the page down */
+  /* strips: tiles that wrap onto as many rows as they need, so every one is in view */
   .tm .tr-tiles,
   .tm .sv__stats,
   .tm .jr-filters,
   .tm .bh-stats {
     display: flex;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     gap: 6px;
-    overflow-x: auto;
-    scrollbar-width: none;
-    scroll-snap-type: x proximity;
-    -webkit-overflow-scrolling: touch;
   }
   .tm .tr-tiles::-webkit-scrollbar,
   .tm .sv__stats::-webkit-scrollbar,
@@ -565,9 +561,8 @@
   }
   .tm .tr-tiles > div,
   .tm .bh-stats > div {
-    flex: 0 0 auto;
-    min-width: 148px;
-    scroll-snap-align: start;
+    flex: 1 1 148px;
+    min-width: 0;
   }
   .tm .sv__stats {
     border: 0;
@@ -575,16 +570,15 @@
     background: none;
   }
   .tm .sv__stats > div {
-    flex: 0 0 auto;
-    min-width: 104px;
+    flex: 1 1 104px;
+    min-width: 0;
     padding: 6px 10px;
     border: 1px solid var(--line);
     border-radius: 8px;
     background: var(--surface);
-    scroll-snap-align: start;
   }
   .tm .jr-filters > * {
-    flex: 0 0 auto;
+    flex: 0 1 auto;
   }
   /* the Desk */
   .tm .conn.is-on .conn__row {
@@ -605,13 +599,11 @@
     padding: 6px 8px;
   }
   .tm .mk__row {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    scrollbar-width: none;
+    flex-wrap: wrap;
   }
   .tm .mk__chips {
     order: 0;
-    flex: none;
+    flex: 1 1 100%;
   }
   .tm .mk__row > .adm-btn {
     margin-left: 0;
@@ -619,11 +611,8 @@
   .tm .mk__row::-webkit-scrollbar {
     display: none;
   }
-  .tm .mk__row > * {
+  .tm .mk__row > *:not(.mk__chips) {
     flex: none;
-  }
-  .tm .mk__chips {
-    overflow: visible;
   }
   .tm .an__live {
     display: none;
@@ -638,8 +627,7 @@
     gap: 6px;
   }
   .tm .wl__order {
-    overflow-x: auto;
-    scrollbar-width: none;
+    flex-wrap: wrap;
   }
   .tm .wl__order button,
   .tm .wl__head button {
@@ -758,24 +746,17 @@
   .tm .tr-switchbar__actions {
     margin-left: auto;
   }
-  /* Journal: months and breakdowns become swipeable rows */
+  /* Journal: months and breakdowns wrap, so none is out of sight */
   .tm .jr-cal,
   .tm .jr-bds {
     display: flex;
+    flex-wrap: wrap;
     gap: 10px;
-    overflow-x: auto;
-    scroll-snap-type: x mandatory;
-    scrollbar-width: none;
-    -webkit-overflow-scrolling: touch;
-  }
-  .tm .jr-cal::-webkit-scrollbar,
-  .tm .jr-bds::-webkit-scrollbar {
-    display: none;
   }
   .tm .jr-cal > *,
   .tm .jr-bds > * {
-    flex: 0 0 min(88%, 340px);
-    scroll-snap-align: start;
+    flex: 1 1 min(100%, 300px);
+    min-width: 0;
   }
   /* a wide table keeps its first column in view while the rest scrolls */
   .tm .bt__scroll {
@@ -1373,4 +1354,115 @@
   padding: 2px 4px;
   border: 0;
   background: transparent;
+}
+
+/* ---- the workspaces are never scrolled: all of them are on screen at once.
+   Wide enough (2000px and up) they share the one slim row with the controls; anywhere narrower (down to where the
+   bottom bar takes over) they get a row of their own under it, and wrap if even that is not enough. */
+.tm:not(.tm--bnav) .tm-tabs {
+  flex-wrap: wrap;
+  overflow: visible;
+  -webkit-mask-image: none;
+  mask-image: none;
+  padding-right: 0;
+}
+@media (min-width: 1101px) and (max-width: 1999px) {
+  .tm:not(.tm--bnav) {
+    --tm-top: 83px;
+  }
+  .tm:not(.tm--bnav) .tm-top {
+    flex-wrap: wrap;
+    align-content: flex-start;
+    min-height: 0;
+    gap: 0 10px;
+  }
+  .tm:not(.tm--bnav) .tm-brand {
+    order: 1;
+    min-height: 46px;
+  }
+  .tm:not(.tm--bnav) .tm-cmd {
+    order: 2;
+  }
+  .tm:not(.tm--bnav) .tm-status {
+    order: 3;
+    margin-left: auto;
+    min-height: 46px;
+  }
+  .tm:not(.tm--bnav) .tm-tabs {
+    order: 4;
+    flex: 1 1 100%;
+    align-self: auto;
+    min-height: 36px;
+    margin: 0 -4px;
+    border-top: 1px solid var(--line);
+  }
+  .tm:not(.tm--bnav) .tm-tabs button {
+    min-height: 35px;
+  }
+}
+
+/* ---- the Hanuman beej mantra: red on white, in the gap between the search and the status pills */
+.tm .tm-mantra {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0 10px;
+  margin: 0;
+  padding: 3px 14px;
+  min-height: 32px;
+  border: 1px solid #f0b9bd;
+  border-radius: 8px;
+  background: #fff;
+  color: #c1121f;
+  font-size: clamp(13px, 1.1vw, 17px);
+  line-height: 1.25;
+  text-align: center;
+}
+.tm .tm-mantra span {
+  font-weight: 600;
+}
+.tm .tm-mantra b {
+  font-weight: 800;
+  letter-spacing: 0.01em;
+}
+@media (min-width: 1101px) and (max-width: 1999px) {
+  .tm:not(.tm--bnav) .tm-mantra {
+    order: 2;
+  }
+}
+/* phones and tablets: the mantra gets a line of its own under the logo, search and status */
+.tm.tm--bnav {
+  --tm-top: 82px;
+}
+.tm.tm--bnav .tm-top {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas: "brand cmd status" "mantra mantra mantra";
+  align-items: center;
+  gap: 6px 10px;
+  padding-top: 6px;
+  padding-bottom: 6px;
+  min-height: 0;
+}
+.tm.tm--bnav .tm-brand {
+  grid-area: brand;
+}
+.tm.tm--bnav .tm-cmd {
+  grid-area: cmd;
+  width: auto;
+  min-width: 0;
+}
+.tm.tm--bnav .tm-status {
+  grid-area: status;
+  margin-left: 0;
+  min-width: 0;
+}
+.tm.tm--bnav .tm-mantra {
+  grid-area: mantra;
+  min-height: 28px;
+  padding: 2px 10px;
+  font-size: 14px;
 }

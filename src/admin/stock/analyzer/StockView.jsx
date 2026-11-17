@@ -22,6 +22,7 @@ import Behaviour from "./Behaviour";
 import ProChart from "../chart/ProChart";
 import AiBrain from "./AiBrain";
 import SessionHistory from "./SessionHistory";
+import HorizonCard from "./HorizonCard";
 import { callLabel as oddsLabel } from "../advisor/advisorMath";
 import { everyVisible } from "../../visible";
 
@@ -386,6 +387,7 @@ export default function StockView({ symbol, quote, status, streaming = false, in
             </div>
           )}
         </dl>
+        <HorizonCard symbol={symbol} />
         <AiBrain symbol={symbol} live={live} marketHours={Boolean(status.marketHours)} foldable />
       </div>
 

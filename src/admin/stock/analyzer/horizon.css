@@ -1,0 +1,372 @@
+/* ==========================================================================
+   The 15-minute forecast card (HorizonCard.jsx) and the forecaster's record. Desk tokens only: both themes follow.
+   Everything wraps: nothing scrolls sideways except the tables, which scroll inside their own box.
+   ========================================================================== */
+
+.hz {
+  container-type: inline-size;
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-left-width: 3px;
+  border-radius: 12px;
+  background: var(--surface);
+}
+.hz--up {
+  border-left-color: var(--up);
+}
+.hz--down {
+  border-left-color: var(--down);
+}
+.hz--wait,
+.hz--board {
+  border-left-width: 1px;
+}
+.hz-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+}
+.hz-head h3 {
+  margin: 0;
+  font-size: var(--t-base);
+  font-weight: 700;
+}
+.hz-when {
+  flex: 1 1 200px;
+  min-width: 0;
+  color: var(--ink-3);
+  font-size: var(--t-small);
+}
+.hz-call {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  padding: 2px 10px;
+  border: 1px solid var(--line-2, var(--line));
+  border-radius: 99px;
+  background: var(--surface-2);
+  font-size: var(--t-small);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.hz-call--up {
+  border-color: var(--up);
+  color: var(--up);
+}
+.hz-call--down {
+  border-color: var(--down);
+  color: var(--down);
+}
+.hz-more-btn {
+  margin-left: auto;
+  padding: 3px 10px;
+  border: 1px solid var(--line-2, var(--line));
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--ink-2);
+  font: inherit;
+  font-size: var(--t-small);
+  font-weight: 600;
+  cursor: pointer;
+}
+.hz-more-btn:hover,
+.hz-more-btn[aria-expanded="true"] {
+  border-color: var(--accent);
+  color: var(--ink);
+}
+.hz-dim {
+  margin: 0;
+  color: var(--ink-3);
+  font-size: var(--t-small);
+}
+
+/* the five numbers */
+.hz-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+  gap: 6px;
+}
+.hz-box {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+.hz-box small {
+  color: var(--ink-3);
+  font-size: var(--t-tag);
+  font-weight: 600;
+}
+.hz-box b {
+  font-size: var(--t-mid);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.hz-box span {
+  color: var(--ink-3);
+  font-size: var(--t-tag);
+  font-variant-numeric: tabular-nums;
+}
+.hz-box--main b {
+  font-size: var(--t-xlarge, 1.25rem);
+}
+.hz-box.is-up b,
+.hz-box.is-up > span:last-child {
+  color: var(--up);
+}
+.hz-box.is-down b,
+.hz-box.is-down > span:last-child {
+  color: var(--down);
+}
+.hz-box--main.is-up b,
+.hz-box--main.is-down b {
+  color: inherit;
+}
+.hz-box--main.is-up {
+  border-color: color-mix(in srgb, var(--up) 55%, var(--line));
+}
+.hz-box--main.is-down {
+  border-color: color-mix(in srgb, var(--down) 55%, var(--line));
+}
+.hz-box--main.is-up > span {
+  color: var(--up);
+}
+.hz-box--main.is-down > span {
+  color: var(--down);
+}
+
+/* the path */
+.hz-path {
+  width: 100%;
+  max-width: 560px;
+  height: auto;
+}
+.hz-path__base {
+  stroke: var(--line-2, var(--line));
+  stroke-dasharray: 3 3;
+}
+.hz-path__band {
+  fill: color-mix(in srgb, var(--accent) 13%, transparent);
+}
+.hz-path__line {
+  fill: none;
+  stroke: var(--ink-2);
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+.hz-path__line--up {
+  stroke: var(--up);
+}
+.hz-path__line--down {
+  stroke: var(--down);
+}
+.hz-path__dot {
+  fill: var(--surface);
+  stroke: var(--ink-2);
+  stroke-width: 1.4;
+}
+.hz-path__dot.is-head {
+  fill: var(--accent);
+  stroke: var(--surface);
+  stroke-width: 2;
+}
+.hz-path__t {
+  fill: var(--ink-3);
+  font-size: 9px;
+}
+
+/* levels, why */
+.hz-levels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.hz-levels li {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  padding: 2px 9px;
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  background: var(--surface-2);
+  font-size: var(--t-small);
+}
+.hz-levels li span {
+  color: var(--ink-3);
+}
+.hz-levels li b {
+  font-variant-numeric: tabular-nums;
+}
+.hz-levels li i {
+  font-style: normal;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.hz-levels li.is-up i {
+  color: var(--up);
+}
+.hz-levels li.is-down i {
+  color: var(--down);
+}
+.hz-why,
+.hz-rule {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: var(--t-small);
+  line-height: 1.5;
+}
+.hz-rule {
+  color: var(--ink-3);
+}
+
+/* the record */
+.hz-acc {
+  display: grid;
+  gap: 4px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--line);
+}
+.hz-acc__grade {
+  margin: 0;
+  font-size: var(--t-small);
+  font-weight: 600;
+}
+.hz-acc__list {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--ink-3);
+  font-size: var(--t-small);
+}
+.hz-acc__list li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+}
+.hz-acc__list b {
+  color: var(--ink-2);
+}
+.hz--compact .hz-grid {
+  grid-template-columns: repeat(auto-fit, minmax(104px, 1fr));
+}
+
+/* the details and the board */
+.hz-more,
+.hz--board {
+  min-width: 0;
+}
+.hz-more {
+  display: grid;
+  gap: 8px;
+}
+.hz h4 {
+  margin: 4px 0 0;
+  font-size: var(--t-small);
+  color: var(--ink-2);
+}
+.hz-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.hz-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--t-small);
+  font-variant-numeric: tabular-nums;
+}
+.hz-table th,
+.hz-table td {
+  padding: 5px 10px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  white-space: nowrap;
+}
+.hz-table thead th {
+  background: var(--surface-2);
+  color: var(--ink-3);
+  font-weight: 600;
+}
+.hz-table tbody th {
+  color: var(--ink);
+  font-weight: 600;
+}
+.hz-table small {
+  color: var(--ink-3);
+  font-weight: 400;
+}
+.hz-table .hz-n {
+  text-align: right;
+}
+.hz-table tbody tr:last-child th,
+.hz-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+.hz-btns {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-left: auto;
+}
+.hz-job {
+  margin: 0;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-2);
+  font-size: var(--t-small);
+}
+.hz .is-up {
+  color: var(--up);
+}
+.hz .is-down {
+  color: var(--down);
+}
+
+@media (max-width: 640px) {
+  .hz {
+    padding: 8px 10px;
+  }
+  .hz-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .hz-box--main {
+    grid-column: 1 / -1;
+  }
+}
+
+/* the numbers on the left, the price path on the right once the card is wide enough */
+.hz-body {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+.hz-left {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  min-width: 0;
+}
+.hz-body .hz-path {
+  align-self: center;
+  max-width: 100%;
+}
+@container (min-width: 700px) {
+  .hz-body {
+    grid-template-columns: minmax(0, 1fr) minmax(220px, 300px);
+    align-items: start;
+  }
+}

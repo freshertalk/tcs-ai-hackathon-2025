@@ -243,10 +243,10 @@ export default function ResearchButton({ symbol }) {
         .then((x) => on && setN(((x && x.findings) || []).filter((f) => f.fresh).length))
         .catch(() => {});
     load();
-    const id = setInterval(() => document.visibilityState !== "hidden" && load(), 60000);
+    const id = everyVisible(load, 60000);
     return () => {
       on = false;
-      clearInterval(id);
+      id();
     };
   }, [symbol, open]);
   return (

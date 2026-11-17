@@ -9,6 +9,7 @@ import { Alert, Loading } from "../../ui";
 import { inr, isNum, num, when } from "../analyzer/format";
 import { useDialog } from "../../dialog/DialogProvider";
 import "./paper.css";
+import { everyVisible } from "../../visible";
 
 const rText = (r) => (isNum(r) ? `${r > 0 ? "+" : ""}${num(r, 2)}R` : "—");
 const rs = (x) => (isNum(x) ? `${x < 0 ? "−" : x > 0 ? "+" : ""}₹${Math.abs(Math.round(x)).toLocaleString("en-IN")}` : "—");
@@ -131,8 +132,7 @@ export default function Paper() {
   // follow a run in progress quickly; otherwise every 30 seconds (live paper trades update every five minutes)
   const running = Boolean(s && s.job && s.job.running);
   useEffect(() => {
-    const id = setInterval(() => document.visibilityState !== "hidden" && load(), running ? 1500 : 30000);
-    return () => clearInterval(id);
+    return everyVisible(load, running ? 1500 : 30000);
   }, [load, running]);
 
   const act = async (what, path, opts, ok) => {

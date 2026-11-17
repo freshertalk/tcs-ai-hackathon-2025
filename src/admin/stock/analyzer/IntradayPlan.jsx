@@ -12,6 +12,7 @@ import { api } from "../../api";
 import { addDays, indiaHolidays, isWeekend, formatDate } from "../holidays";
 import { inr, isNum, num, pct } from "./format";
 import "./intraplan.css";
+import { everyVisible } from "../../visible";
 
 const enc = encodeURIComponent;
 
@@ -49,10 +50,10 @@ export function useIntradayPlan(symbol, enabled = true) {
         .then((d) => alive && setS({ loading: false, data: d, error: "" }))
         .catch((e) => alive && setS((p) => ({ loading: false, data: p.data, error: e.message })));
     read();
-    const id = setInterval(() => document.visibilityState !== "hidden" && read(), 15 * 60000);
+    const id = everyVisible(read, 15 * 60000);
     return () => {
       alive = false;
-      clearInterval(id);
+      id();
     };
   }, [symbol, enabled]);
   return s;

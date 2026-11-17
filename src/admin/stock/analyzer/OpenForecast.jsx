@@ -6,6 +6,7 @@ import React, { useEffect, useState } from "react";
 import { api } from "../../api";
 import { inr, isNum, pct, when } from "./format";
 import "./openfc.css";
+import { everyVisible } from "../../visible";
 
 const enc = encodeURIComponent;
 const dayLabel = (date) => {
@@ -29,10 +30,10 @@ export function useOpenForecast(symbol, enabled = true) {
         .then((d) => alive && setS({ loading: false, data: d, error: "" }))
         .catch((e) => alive && setS((p) => ({ loading: false, data: p.data, error: e.message })));
     read();
-    const id = setInterval(() => typeof document !== "undefined" && document.visibilityState !== "hidden" && read(), 60000);
+    const id = everyVisible(read, 60000);
     return () => {
       alive = false;
-      clearInterval(id);
+      id();
     };
   }, [symbol, enabled]);
   return s;

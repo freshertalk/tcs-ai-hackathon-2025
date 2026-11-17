@@ -2386,7 +2386,7 @@
   border: 1px solid var(--line-2);
   border-radius: 10px;
   background: var(--surface);
-  overflow-x: auto;
+  flex-wrap: wrap;
 }
 .jr-parts button {
   display: inline-flex;

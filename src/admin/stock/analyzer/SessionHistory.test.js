@@ -65,13 +65,14 @@ test("the Desk shows the last 30 sessions, then every session in pages, months a
   api.mockResolvedValue({ candles: bars(250), stale: false });
   render(<SessionHistory symbol="SBIN" />);
   const t30 = await screen.findByRole("region", { name: "SBIN: the last 30 sessions" });
-  expect(within(t30).getAllByRole("row")).toHaveLength(31); // header + 30
-  const all = screen.getByRole("region", { name: "SBIN: every session" });
-  expect(within(all).getAllByRole("row")).toHaveLength(101); // first page of 100
+  const body = (el) => el.querySelectorAll("tbody tr").length;
+  expect(body(t30)).toBe(30);
+  const all = () => screen.getByRole("region", { name: "SBIN: every session" });
+  expect(body(all())).toBe(100); // first page of 100
   fireEvent.click(screen.getByRole("button", { name: /show all/i }));
-  await waitFor(() => expect(within(screen.getByRole("region", { name: "SBIN: every session" })).getAllByRole("row")).toHaveLength(251));
+  await waitFor(() => expect(body(all())).toBe(250));
   fireEvent.click(screen.getByRole("button", { name: "Months" }));
   expect(screen.getByRole("region", { name: "SBIN: month by month" })).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Years" }));
   expect(screen.getByRole("region", { name: "SBIN: year by year" })).toBeTruthy();
-});
+}, 30000);

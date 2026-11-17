@@ -38,7 +38,7 @@ test("the card shows the numbers and the settings, with the lock-new-trades swit
   render(<DailyGoalCard goal={giveback} />);
   expect(screen.getByText("GIVING BACK")).toBeTruthy();
   expect(screen.getByText("Keep at least")).toBeTruthy();
-  fireEvent.click(screen.getByText("Settings"));
+  fireEvent.click(screen.getByLabelText("Settings"));
   expect(screen.getByText(/Lock new trades at the target and the stop/).querySelector("input") || screen.getByLabelText(/Lock new trades/)).toBeTruthy();
   expect(screen.getByLabelText(/Lock new trades/).checked).toBe(false);
   expect(screen.getByText("Save the daily goal")).toBeTruthy();

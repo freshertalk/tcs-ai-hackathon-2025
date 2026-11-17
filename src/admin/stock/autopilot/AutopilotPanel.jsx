@@ -349,9 +349,9 @@ export default function AutopilotPanel() {
       {open && (
         <>
           <p className="apx-intro">It prepares a playbook for every stock you follow before the open, watches the triggers all session, and when one fires and the risk gate allows it, makes an <b>order proposal</b>. You press Review and the order ticket opens ready-filled; it never sends an order itself. Every proposal is graded afterwards.</p>
-          <div className="sv__ranges apx-tabs" role="tablist" aria-label="Autopilot sections">
+          <div className="sv__ranges apx-tabs" role="group" aria-label="Autopilot sections">
             {TABS.filter(([id]) => owner || id === "events" || id === "score").map(([id, label]) => (
-              <button key={id} type="button" role="tab" aria-selected={tab === id} aria-pressed={tab === id} onClick={() => setTab(id)}>
+              <button key={id} type="button" aria-pressed={tab === id} onClick={() => setTab(id)}>
                 {label}
                 {id === "proposals" && waiting.length ? ` (${waiting.length})` : ""}
               </button>

@@ -297,21 +297,8 @@
 /* phone and small tablet: one row of cards to swipe */
 @media (max-width: 760px) {
   .dkb {
-    display: flex;
+    grid-template-columns: minmax(0, 1fr);
     gap: 8px;
-    margin-inline: -12px;
-    padding: 2px 12px 6px;
-    overflow-x: auto;
-    scroll-snap-type: x mandatory;
-    scroll-padding-inline: 12px;
-    scrollbar-width: none;
-  }
-  .dkb::-webkit-scrollbar {
-    display: none;
-  }
-  .dkb-card {
-    flex: 0 0 min(84vw, 340px);
-    scroll-snap-align: start;
   }
   .dkb-chip {
     min-height: 34px;

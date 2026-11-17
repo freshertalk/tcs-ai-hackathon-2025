@@ -155,6 +155,48 @@ async function buildHealth(ctx, { secure = false, host = "" } = {}) {
     return { status: "ok", detail: `On${s.withAi ? ", with AI notes" : ", data only"}${last ? ` · last run ${ago(last.at || last.finishedAt || last.startedAt, now)}` : ""}.` };
   });
 
+  /* ---------------------------------------------------------------- the automation brains */
+  const daysSince = (date) => (date ? Math.round((Date.parse(istDate(now)) - Date.parse(date)) / 86400000) : null);
+  if (ctx.horizon) {
+    await check("horizon", "Automation brains", "15-minute forecaster", () => {
+      const b = ctx.horizon.board();
+      if (b.job && b.job.error && b.job.finishedAt) return { status: "warn", detail: `The last learning run failed: ${b.job.error}`, hint: "Research → 15-minute forecaster → Learn from all history." };
+      if (b.job && !b.job.finishedAt) return { status: "ok", detail: `Learning now: ${b.job.phase} — ${b.job.done} of ${b.job.total} stocks.` };
+      if (!b.trained) {
+        const h = b.history;
+        return { status: h && h.stocks >= 30 ? "warn" : "off", detail: h ? `Not trained yet; ${h.stocks} of ${h.expected} stocks' history is stored. It trains by itself once 30 are stored.` : "Not trained yet: it needs the paper robot's stored history (Zerodha connected).", hint: "Paper trading downloads the history; then Research → 15-minute forecaster." };
+      }
+      const h15 = ((b.validation || {}).horizons || []).find((x) => x.h === 3) || {};
+      const stale = daysSince(b.learning.lastDate);
+      const live = b.live && b.live.n ? ` · ${b.live.n} live forecasts scored` : "";
+      return { status: stale !== null && stale > 5 ? "warn" : "ok", detail: `${b.learning.examples.toLocaleString("en-IN")} examples · tested 15 min ahead: direction ${h15.dirAcc != null ? Math.round(h15.dirAcc * 1000) / 10 + "%" : "—"}, band held ${h15.coverage != null ? Math.round(h15.coverage * 100) + "%" : "—"} · learned to ${b.learning.lastDate}${stale > 5 ? " — it has not learned for " + stale + " days" : ""}${live}.`, hint: stale > 5 ? "Research → 15-minute forecaster → Learn new sessions." : undefined };
+    });
+  }
+  if (ctx.openForecast) {
+    await check("openfc", "Automation brains", "Opening-price forecast", () => {
+      const L = ctx.openForecast.learned();
+      const waiting = ctx.openForecast.board().waiting;
+      if (!L || !L.n) return { status: "ok", detail: `Learning starts with the first scored open${waiting ? ` (${waiting} forecast${waiting === 1 ? "" : "s"} waiting for their open)` : ""}.` };
+      const miss = L.stats && L.stats.avgMissPct != null ? ` · average miss ${L.stats.avgMissPct}%` : "";
+      return { status: "ok", detail: `${L.n} opens scored and learned from${miss}${L.updatedAt ? ` · last learned ${ago(L.updatedAt, now)}` : ""}.` };
+    });
+  }
+  if (ctx.autopilot) {
+    await check("autopilot", "Automation brains", "Autopilot (playbooks, events, proposals)", () => {
+      const s = ctx.autopilot.settings();
+      if (!s.on) return { status: "off", detail: "Switched off (Research → Autopilot → Limits)." };
+      return { status: s.capital ? "ok" : "warn", detail: s.capital ? "On: playbooks, events and graded proposals (never orders)." : "On, but no trading capital is set: every proposal is refused until it is.", hint: s.capital ? undefined : "Research → Autopilot → Limits." };
+    });
+  }
+  if (ctx.robot) {
+    await check("robot", "Automation brains", "Paper robot and the NIFTY 100 history", () => {
+      const v = ctx.robot.historyView();
+      if (!v || v.available === false) return { status: "off", detail: v && v.reason ? v.reason : "Needs the Zerodha connection." };
+      if (v.running || v.busy) return { status: "ok", detail: `Reading the history: ${v.stocks} of ${v.expected} stocks stored.` };
+      return { status: v.upToDate ? "ok" : v.stocks ? "warn" : "off", detail: `${v.stocks} of ${v.expected} stocks · ${v.sessions} sessions stored (${v.from || "?"} to ${v.to || "?"})${v.upToDate ? " · up to date" : " · not yet up to date with the last session"}.`, hint: v.upToDate ? undefined : "It tops up by itself each evening while Zerodha is connected." };
+    });
+  }
+
   /* ---------------------------------------------------------------- trading and records */
   await check("trading", "Trading", "Trading switch and risk guard", () => {
     const st = ctx.trading.status();

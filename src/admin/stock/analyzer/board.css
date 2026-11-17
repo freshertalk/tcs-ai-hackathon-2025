@@ -207,9 +207,7 @@
     justify-items: start;
   }
   .mb-tabs {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    scrollbar-width: none;
+    flex-wrap: wrap;
   }
   .mb-find {
     flex: 0 0 150px;

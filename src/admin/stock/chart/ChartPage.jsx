@@ -12,6 +12,7 @@ import { TickContext, useLiveTicks, useTick } from "../analyzer/liveTicks";
 import { useDeskTheme } from "../analyzer/theme";
 import ProChart from "./ProChart";
 import "./chart.css";
+import { everyVisible } from "../../visible";
 
 const SYMBOL_RE = /^[A-Z0-9][A-Z0-9&._ -]{0,24}$/;
 const fmt = (x) => (typeof x === "number" && Number.isFinite(x) ? x.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "—");
@@ -123,10 +124,10 @@ export default function ChartPage() {
         .then((d) => alive && setQuote((d.quotes || {})[symbol] || null))
         .catch(() => {});
     read();
-    const id = setInterval(() => document.visibilityState !== "hidden" && read(), 30000);
+    const id = everyVisible(read, 30000);
     return () => {
       alive = false;
-      clearInterval(id);
+      id();
     };
   }, [symbol, valid]);
 

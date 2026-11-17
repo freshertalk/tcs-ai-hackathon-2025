@@ -46,14 +46,14 @@ import "./buttons.css";
 // motion and softness: loaded last of all, it changes how things move and how their edges feel, nothing else
 import "./signin.css";
 import "./smooth.css";
-// The private area wears the DrishtiAI logo (public/logo) as its favicon. The public site's own icons are
+// The private area wears the Panchmukhi Hanuman logo (public/logo) as its favicon. The public site's own icons are
 // put aside while this area is open and put back when it is left. (A page loaded straight from
 // /me already carries these in its own head: see scripts/prerender.js.)
 const PRIVATE_ICONS = [
-  ["icon", "32x32", "/logo/logo-32.png"],
-  ["icon", "48x48", "/logo/logo-48.png"],
-  ["icon", "192x192", "/logo/logo-192.png"],
-  ["apple-touch-icon", "180x180", "/logo/logo-180.png"],
+  ["icon", "32x32", "/logo/PanchmukhiHanuman_logo-32.png"],
+  ["icon", "48x48", "/logo/PanchmukhiHanuman_logo-48.png"],
+  ["icon", "192x192", "/logo/PanchmukhiHanuman_logo-192.png"],
+  ["apple-touch-icon", "180x180", "/logo/PanchmukhiHanuman_logo-180.png"],
 ];
 function usePrivateFavicon() {
   useEffect(() => {

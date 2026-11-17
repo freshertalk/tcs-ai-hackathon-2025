@@ -18,6 +18,7 @@ import { RsiWatch, TopPicks } from "./TopPicks";
 import { LiveScanner } from "./LiveScanner";
 import { SetupLab } from "./SetupLab";
 import AutopilotPanel from "../autopilot/AutopilotPanel";
+import HorizonCard, { HorizonBoard } from "../analyzer/HorizonCard";
 import { inr, isNum, num, pct, when } from "../analyzer/format";
 import "./trade.css";
 
@@ -70,7 +71,18 @@ function Sheet({ s }) {
   );
 }
 
-function StockNote({ row, onOpen }) {
+/** The next 15 minutes for one stock card: nothing is read until the card is opened (the first card starts open). */
+function ResearchHorizon({ symbol, first }) {
+  const [open, setOpen] = useState(Boolean(first));
+  return (
+    <details className="rs-ai" open={Boolean(first)} onToggle={(e) => setOpen(e.currentTarget.open)}>
+      <summary>Next 15 minutes — price, high, low and levels for {symbol}</summary>
+      {open && <HorizonCard symbol={symbol} compact />}
+    </details>
+  );
+}
+
+function StockNote({ row, onOpen, first = false }) {
   const n = row.note;
   return (
     <article className="an-card rs-stock">
@@ -86,6 +98,7 @@ function StockNote({ row, onOpen }) {
       </header>
       {row.error && <p className="adm-alert">{row.error}</p>}
       <DirectionCard d={row.direction} />
+      <ResearchHorizon symbol={row.symbol} first={first} />
       <ResearchAi symbol={row.symbol} />
       {n && <p>{n.summary}</p>}
       {n && (
@@ -296,6 +309,10 @@ export default function Research({ onOpen = null }) {
   return (
     <>
     <AutopilotPanel />
+    <details className="rs-ai rs-hzboard">
+      <summary>15-minute forecaster — what it has learned and how it has done</summary>
+      <HorizonBoard />
+    </details>
     <div className="rs rs--panes">
       {/* on a wide screen: what to prepare stays in view on the left; what was prepared fills the right */}
       <div className="rs-side">
@@ -437,8 +454,8 @@ export default function Research({ onOpen = null }) {
           )}
           {report.failures && report.failures.length > 0 && <p className="adm-alert">Not everything worked: {report.failures.map((f) => `${f.symbol} (${f.error})`).join("; ")}</p>}
           <div className="rs-stocks">
-            {report.stocks.map((r) => (
-              <StockNote key={r.symbol} row={r} onOpen={onOpen} />
+            {report.stocks.map((r, i) => (
+              <StockNote key={r.symbol} row={r} onOpen={onOpen} first={i === 0} />
             ))}
           </div>
           <p className="vd-note">Research is preparation from the data shown, not a recommendation to trade. Notes never imply a probability or a profit; check the levels yourself at the open.</p>

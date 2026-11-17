@@ -165,13 +165,13 @@ test("the autopilot panel: status, the waiting proposal, the scorecard with the 
   expect(screen.getByText("1 new proposal")).toBeTruthy();
   expect(screen.getByText("Waiting for you")).toBeTruthy();
   expect(screen.getByText("Break above ₹502 holds → long")).toBeTruthy();
-  await userEvent.click(screen.getByRole("tab", { name: "Scorecard" }));
+  await userEvent.click(screen.getByRole("button", { name: "Scorecard" }));
   expect(document.querySelector(".apx-score").textContent).toMatch(/14 graded.*57% won.*0\.31R.*profit factor 1\.8/);
   expect(document.querySelector(".apx-score").textContent).toMatch(/5 stocks, 800 past sessions.*right 54%.*51%/);
-  await userEvent.click(screen.getByRole("tab", { name: "Events" }));
+  await userEvent.click(screen.getByRole("button", { name: "Events" }));
   expect(document.querySelector(".apx-evs").textContent).toMatch(/2026-11-24.*in 7 d.*NIFTY monthly expiry.*high.*size ×0.75.*Expiry day./);
   expect(screen.getByRole("button", { name: "Add event" })).toBeTruthy();
-  await userEvent.click(screen.getByRole("tab", { name: "Limits" }));
+  await userEvent.click(screen.getByRole("button", { name: "Limits" }));
   expect(screen.getByLabelText("Trading capital (₹)").value).toBe("1000000");
 });
 
@@ -179,7 +179,7 @@ test("saving the limits sends them; an admin who is not the owner sees no propos
   mockApi.mockResolvedValue(board());
   render(panel());
   await settle();
-  await userEvent.click(screen.getByRole("tab", { name: "Limits" }));
+  await userEvent.click(screen.getByRole("button", { name: "Limits" }));
   await userEvent.clear(screen.getByLabelText("Trading capital (₹)"));
   await userEvent.type(screen.getByLabelText("Trading capital (₹)"), "2500000");
   mockApi.mockResolvedValue({});
@@ -190,9 +190,9 @@ test("saving the limits sends them; an admin who is not the owner sees no propos
   mockApi.mockResolvedValue(board({ proposals: [], settings: { on: true } }));
   render(panel("admin", null));
   await settle();
-  const tabs = screen.getAllByRole("tab").map((t) => t.textContent);
+  const tabs = screen.getAllByRole("button").map((t) => t.textContent);
   expect(tabs).toEqual(expect.arrayContaining(["Scorecard", "Events"]));
-  expect(screen.queryAllByRole("tab", { name: "Limits" }).length).toBe(1, "only the owner's panel has it");
+  expect(screen.queryAllByRole("button", { name: "Limits" }).length).toBe(1, "only the owner's panel has it");
 });
 
 test("with no capital set the panel says why nothing is proposed, and a holiday is named", async () => {

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../../api";
+import { everyVisible } from "../../visible";
 
 const enc = encodeURIComponent;
 
@@ -17,12 +18,11 @@ export function useAutopilotBoard(every = 30000) {
   );
   useEffect(() => {
     let alive = true;
-    const go = () => alive && typeof document !== "undefined" && document.visibilityState !== "hidden" && read();
     read();
-    const id = setInterval(go, every);
+    const id = everyVisible(() => alive && read(), every);
     return () => {
       alive = false;
-      clearInterval(id);
+      id();
     };
   }, [read, every]);
   return { ...s, reload: read, set: (data) => setS({ loading: false, data, error: "" }) };

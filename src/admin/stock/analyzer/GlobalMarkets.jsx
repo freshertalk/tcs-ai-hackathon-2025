@@ -13,6 +13,7 @@ import { api } from "../../api";
 import { useAuth } from "../../auth";
 import { inr, isNum, num, pct } from "./format";
 import "./global.css";
+import { everyVisible } from "../../visible";
 
 const tone = (w) => (w === "up" ? "up" : w === "down" ? "down" : "flat");
 const SESSION = { live: "trading now", pre: "opens later today", closed: "closed" };
@@ -30,8 +31,7 @@ export function useForecast(enabled = true) {
   useEffect(() => {
     if (!enabled) return undefined;
     load();
-    const id = setInterval(() => document.visibilityState !== "hidden" && load(), 60000);
-    return () => clearInterval(id);
+    return everyVisible(load, 60000);
   }, [enabled, load]);
   return { ...s, reload: load };
 }

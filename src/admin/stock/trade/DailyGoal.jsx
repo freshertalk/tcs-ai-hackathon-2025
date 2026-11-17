@@ -8,6 +8,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../../api";
+import { GearButton } from "../../ui";
 import { everyVisible } from "../../visible";
 import { bookStore, useLiveGoal } from "./liveBook";
 import "./goal.css";
@@ -291,9 +292,7 @@ export function DailyGoalCard({ goal: given, onSaved }) {
           <p>{g.available ? `Target ${rs(g.target)} · stop ${rs(g.stop)} — ${g.config.targetPct}% and ${g.config.stopPct}% of ${rs(g.base)}, the available margin at the open.` : g.reason}</p>
         </div>
         <div className="dg__tools">
-          <button type="button" className="adm-btn adm-btn--sm adm-btn--ghost" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
-            {open ? "Close settings" : "Settings"}
-          </button>
+          <GearButton label={open ? "Close settings" : "Settings"} tip="The daily goal’s settings: target, stop, lock and reminders." open={open} onClick={() => setOpen((o) => !o)} />
         </div>
       </header>
       {g.available && g.enabled && (

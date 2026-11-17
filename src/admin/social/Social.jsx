@@ -22,7 +22,7 @@ import { adminPath } from "../paths";
 import { useAuth } from "../auth";
 import { useDialog } from "../dialog/DialogProvider";
 import Shell from "../Shell";
-import { Alert } from "../ui";
+import { Alert, GearButton } from "../ui";
 import "./social.css";
 
 const FEED_EVERY = 20000;
@@ -698,9 +698,7 @@ export default function Social() {
               {busy === "refresh" ? "Reading…" : "↻ Read now"}
             </button>
             {isOwner && (
-              <button type="button" className="adm-btn adm-btn--solid adm-btn--sm" onClick={() => setShowSet((x) => !x)} aria-expanded={showSet}>
-                ⚙ Sources &amp; settings
-              </button>
+              <GearButton solid label="Sources & settings" tip="Sources and settings: which accounts, feeds and keywords are read, and how." open={showSet} onClick={() => setShowSet((x) => !x)} />
             )}
           </div>
         </header>

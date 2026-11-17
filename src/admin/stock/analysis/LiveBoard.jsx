@@ -10,11 +10,12 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../../api";
-import { Alert, Loading } from "../../ui";
+import { Alert, GearButton, Loading } from "../../ui";
 import { useTrade } from "../trade/TradeContext";
 import { chime } from "../trade/DailyGoal";
 import { rsSigned, tone } from "./charts";
 import "./flight.css";
+import { everyVisible } from "../../visible";
 
 const MUTE_KEY = "vpt.flight.mute";
 const WORD = { hold: "HOLD", tighten: "TIGHTEN", "book-part": "BOOK PART", "exit-now": "EXIT NOW" };
@@ -499,11 +500,11 @@ export default function LiveBoard({ onReplay }) {
       }
     }
     // without the stream the board still moves: it is read every two seconds
-    const poll = setInterval(() => !liveRef.current && document.visibilityState !== "hidden" && load(), 2000);
+    const poll = everyVisible(() => !liveRef.current && load(), 2000);
     return () => {
       on = false;
       if (es) es.close();
-      clearInterval(poll);
+      poll();
     };
   }, []);
 
@@ -613,9 +614,7 @@ export default function LiveBoard({ onReplay }) {
         <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm" onClick={toggleMute} aria-pressed={!mute} data-tip="A sound when a position turns to EXIT NOW or BOOK PART, and when the price reaches a level the AI chose.">
           {mute ? "🔕 Sound off" : "🔔 Sound on"}
         </button>
-        <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm" onClick={() => setShowSet((x) => !x)} aria-expanded={showSet}>
-          ⚙ Settings
-        </button>
+        <GearButton label="Settings" tip="Settings: how the Live board reads and warns about your open positions." open={showSet} onClick={() => setShowSet((x) => !x)} />
       </div>
       {showSet && <Settings s={b.settings} onSave={save} />}
       <Alert>{msg || (b.watch && b.connected ? b.watch.error : "")}</Alert>

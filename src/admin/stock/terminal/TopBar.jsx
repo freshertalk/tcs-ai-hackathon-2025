@@ -9,6 +9,7 @@ import { api } from "../../api";
 import { useAuth } from "../../auth";
 import { adminPath } from "../../paths";
 import { BRAND } from "../../brand";
+import { HANUMAN_BEEJ, HANUMAN_LABEL } from "./mantra";
 import { setTipsEnabled, useTipsEnabled } from "../../help/TipLayer";
 import { useTrade } from "../trade/TradeContext";
 import { num } from "../analyzer/format";
@@ -127,7 +128,7 @@ export default function TopBar({ views, view, onView, theme, onTheme, onHelp, on
     <header className="tm-top">
       <Link to={adminPath()} className="tm-brand" data-tip="Back to the dashboard.">
         <span className="tm-brand__mark tm-brand__mark--img">
-          <img src="/logo/logo-96.png" srcSet="/logo/logo-96.png 1x, /logo/logo-192.png 2x" alt="DrishtiAI" width="42" height="42" decoding="async" />
+          <img src="/logo/PanchmukhiHanuman_logo-96.png" srcSet="/logo/PanchmukhiHanuman_logo-96.png 1x, /logo/PanchmukhiHanuman_logo-192.png 2x" alt="DrishtiAI" width="42" height="42" decoding="async" />
         </span>
         <span className="tm-brand__name">{BRAND.name}</span>
       </Link>
@@ -148,6 +149,11 @@ export default function TopBar({ views, view, onView, theme, onTheme, onHelp, on
         </span>
         <kbd>{mac ? "⌘" : "Ctrl"} K</kbd>
       </button>
+
+      <p className="tm-mantra" lang="hi" aria-label={`${HANUMAN_LABEL}: ${HANUMAN_BEEJ}`}>
+        <span>{HANUMAN_LABEL}</span>
+        <b>{HANUMAN_BEEJ}</b>
+      </p>
 
       <div className="tm-status">
         <span className={`tm-pill tm-pill--clock tm-pill--${clock.state}`} data-tip="NSE’s session by the clock (9:15 AM – 3:30 PM IST, Monday to Friday). Exchange holidays are listed under Calendar.">

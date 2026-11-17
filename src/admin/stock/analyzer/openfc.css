@@ -134,8 +134,8 @@
   }
 }
 
-/* On a narrow screen the chip row is one line you swipe along (desk.css). The opening price is what a trader looks
-   for first before the bell, so its two blocks lead the row there instead of hiding at its far end. */
+/* On a narrow screen the chip row wraps onto several lines (desk.css). The opening price is what a trader looks
+   for first before the bell, so its two blocks lead the row there. */
 @media (max-width: 760px) {
   .an.dk .ab-minis .ab-mini-btn:has(.of-mini) {
     order: -1;

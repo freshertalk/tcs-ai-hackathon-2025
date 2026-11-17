@@ -599,9 +599,7 @@
 .sv__tabs {
   margin-bottom: 14px;
   padding-bottom: 2px;
-  flex-wrap: nowrap;
-  overflow-x: auto;
-  scrollbar-width: none;
+  flex-wrap: wrap;
 }
 .sv__tabs::-webkit-scrollbar {
   display: none;
@@ -2677,19 +2675,15 @@
     margin-bottom: 6px;
   }
   .wl__list {
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(158px, 1fr));
     gap: 8px;
     max-height: none;
     margin-top: 8px;
     padding-bottom: 4px;
-    overflow-x: auto;
-    overflow-y: hidden;
-    scroll-snap-type: x proximity;
-    -webkit-overflow-scrolling: touch;
   }
   .wl__list > li {
-    flex: none;
-    min-width: 158px;
+    min-width: 0;
     border: 1px solid var(--line);
     border-radius: 10px;
     scroll-snap-align: start;
@@ -2924,13 +2918,11 @@
   flex: 1 1 auto;
   min-width: 0;
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
   margin: 0;
   padding: 0 0 2px;
   list-style: none;
-  overflow-x: auto;
-  scrollbar-width: none;
-  -webkit-overflow-scrolling: touch;
 }
 .mk__chips::-webkit-scrollbar {
   display: none;

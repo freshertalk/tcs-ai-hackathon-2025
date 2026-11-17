@@ -102,11 +102,10 @@
 }
 .jr-tabs {
   display: flex;
+  flex-wrap: wrap;
   gap: 2px;
   padding: 0 8px;
   border-top: 1px solid var(--line);
-  overflow-x: auto;
-  scrollbar-width: none;
 }
 .jr-tabs::-webkit-scrollbar {
   display: none;

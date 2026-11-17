@@ -1355,3 +1355,33 @@ test("AI credit protection over HTTP: a button asks the AI; the co-pilot's own r
   assert.equal((await live({ reason: "tripwire", event: "x" })).status, 409);
   assert.equal(used(), before + 2);
 });
+
+test("the 15-minute forecast over HTTP: read by admins, trained only by the owner, and it says plainly when it has nothing to learn from", async (t) => {
+  const s = await boot();
+  t.after(s.close);
+  const board = await s.request("GET", "/api/admin/market/horizon", { cookie: s.admin });
+  assert.equal(board.status, 200, board.text);
+  assert.equal(board.json.trained, false);
+  const view = await s.request("GET", "/api/admin/market/horizon/SBIN", { cookie: s.admin });
+  assert.equal(view.status, 200, view.text);
+  assert.equal(view.json.available, false);
+  assert.match(view.json.reason, /not learned yet|Zerodha/);
+  assert.equal((await s.request("GET", "/api/admin/market/horizon/SBIN")).status, 401, "a stranger sees nothing");
+  assert.equal((await s.request("GET", "/api/admin/market/horizon/bad%20sym!", { cookie: s.admin })).status, 400);
+  // no stored history in the test app: training is refused at once, in plain words
+  const train = await s.request("POST", "/api/admin/market/horizon/train", { cookie: s.admin });
+  assert.equal(train.status, 409, train.text);
+  assert.equal(train.json.error, "no_history");
+});
+
+test("the site health lists the automation brains: the 15-minute forecaster, the opening forecast, the autopilot and the paper robot's history", async (t) => {
+  const s = await boot();
+  t.after(s.close);
+  const r = await s.request("GET", "/api/admin/health", { cookie: s.admin });
+  assert.equal(r.status, 200, r.text);
+  const brains = r.json.checks.filter((c) => c.group === "Automation brains");
+  const ids = brains.map((c) => c.id);
+  for (const id of ["horizon", "openfc", "autopilot"]) assert.ok(ids.includes(id), `${id} is listed`);
+  for (const c of brains) assert.ok(["ok", "warn", "off", "error"].includes(c.status) && c.detail, `${c.id} says its state in words`);
+  assert.ok(!brains.some((c) => /The check itself failed/.test(c.detail)), "no check failed to run");
+});

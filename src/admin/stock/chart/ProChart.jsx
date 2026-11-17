@@ -25,6 +25,7 @@ import { CHART_TYPES, DEFAULT_STUDIES, FIB_LEVELS, STUDIES, studyOf, TOOLS } fro
 import * as S from "./studies";
 import TechSummary from "./TechSummary";
 import "./chart.css";
+import { everyVisible } from "../../visible";
 
 const PREF = "vpt.chart.prefs";
 // short marker labels, so the patterns stay readable on a busy chart
@@ -130,8 +131,7 @@ export default function ProChart({ symbol, live = false, height = null, standalo
   // intraday charts re-read their history every minute, so a missed tick never leaves a gap
   useEffect(() => {
     if (!intraday) return undefined;
-    const id = setInterval(() => document.visibilityState !== "hidden" && load(true), 60000);
-    return () => clearInterval(id);
+    return everyVisible(() => load(true), 60000);
   }, [intraday, load]);
 
   const base = useMemo(() => (iv.group ? S.aggregate(raw.bars, iv.group) : raw.bars), [raw.bars, iv.group]);

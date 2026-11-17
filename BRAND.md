@@ -10,8 +10,8 @@ Trading, Telegram alerts, the Mandir, the Document — is called **DrishtiAI**.
 | With its line | **DrishtiAI — the AI Trading Advisor for NSE** (an em dash with a space on each side) |
 | Short header (narrow screens) | **DrishtiAI — AI Trading Advisor**, then **DrishtiAI** |
 | Meaning | Drishti (दृष्टि) means “sight” |
-| Logo | the DrishtiAI bull-and-chart roundel, whole (`public/logo/logo.png`; sized copies `public/logo/logo-32/48/96/180/192/512.png`) |
-| Favicon (private area) | the same logo: `public/logo/logo-32.png`, `-48`, `-180` (Apple), `-192` |
+| Logo | the Panchmukhi Hanuman picture, whole (`public/logo/PanchmukhiHanuman_logo.png`; sized copies `public/logo/PanchmukhiHanuman_logo-32/48/96/180/192/512.png`, made from it with ffmpeg) |
+| Favicon (private area) | the same logo: `public/logo/PanchmukhiHanuman_logo-32.png`, `-48`, `-180` (Apple), `-192` |
 | Link previews (private area) | `public/img/og/<page>.png`, the logo beside the page name, drawn by `scripts/og-images.js` |
 | Browser tab | `DrishtiAI` |
 | Files it names | `DrishtiAI-complete-guide.docx`, `DrishtiAI-AI-Engine.docx` |

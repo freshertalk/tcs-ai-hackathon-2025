@@ -11,6 +11,7 @@ import { api } from "../../api";
 import { Alert, Loading } from "../../ui";
 import { day, inr, isNum, num, when } from "./format";
 import "./board.css";
+import { everyVisible } from "../../visible";
 
 const TABS = [
   { id: "gainers", label: "Top gainers", tip: "Up the most today, by % change.", test: (r) => r.changePct > 0, sort: ["changePct", -1] },
@@ -172,8 +173,7 @@ export default function MarketBoard({ onOpen }) {
   // live: every 15 seconds while the page is in front; closed: the last session does not change
   useEffect(() => {
     if (!b || !b.live) return undefined;
-    const id = setInterval(() => document.visibilityState !== "hidden" && load(), 15000);
-    return () => clearInterval(id);
+    return everyVisible(load, 15000);
   }, [b, load]);
 
   const chooseIndex = (id) => {

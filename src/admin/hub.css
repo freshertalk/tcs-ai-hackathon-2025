@@ -408,9 +408,7 @@
     align-items: flex-start;
   }
   .hub-pulse {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    scrollbar-width: none;
+    flex-wrap: wrap;
     width: 100%;
   }
   .hub-pulse::-webkit-scrollbar {

@@ -5,6 +5,7 @@ import React, { useEffect, useState } from "react";
 import { api } from "./api";
 import { useAuth } from "./auth";
 import { Alert } from "./ui";
+import { everyVisible } from "./visible";
 
 const when = (iso) => (iso ? new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "");
 
@@ -20,8 +21,7 @@ export default function AiSpend() {
       .catch((e) => setErr(e.message));
   useEffect(() => {
     load();
-    const id = setInterval(() => document.visibilityState !== "hidden" && load(), 30000);
-    return () => clearInterval(id);
+    return everyVisible(load, 30000);
   }, []);
   const set = async (auto) => {
     setBusy(true);

@@ -267,7 +267,10 @@ export default function Login() {
         )}
 
         {emailOpen && mode === "link" && (
-          <form className="sg-form" onSubmit={step === "ask" ? ask("/api/auth/email/link", "sent") : (e) => (e.preventDefault(), go("password"))} aria-label="Email me a link to choose a password">
+          <form className="sg-form" onSubmit={step === "ask" ? ask("/api/auth/email/link", "sent") : (e) => {
+              e.preventDefault();
+              go("password");
+            }} aria-label="Email me a link to choose a password">
             {step === "ask" && (
               <>
                 <p className="sg-help">Enter your email address and we will send you a link to choose a new password. It works once, for an hour.</p>
@@ -288,7 +291,10 @@ export default function Login() {
         )}
 
         {emailOpen && mode === "signup" && (
-          <form className="sg-form" onSubmit={step === "ask" ? signUp : (e) => (e.preventDefault(), go("password"))} aria-label="Create an account">
+          <form className="sg-form" onSubmit={step === "ask" ? signUp : (e) => {
+              e.preventDefault();
+              go("password");
+            }} aria-label="Create an account">
             {step === "ask" ? (
               <>
                 <p className="sg-help">Tell us who you are. If this address already has access, we email you a link to finish setting up. Otherwise your request goes to the owner, who replies by email — nobody gets in by asking alone.</p>

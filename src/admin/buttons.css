@@ -287,3 +287,47 @@
     transition: none;
   }
 }
+
+/* ---- the gear: a settings switch as an icon (GearButton in ui.jsx) */
+.adm .adm-gear {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--line-2, var(--line));
+  border-radius: 8px;
+  background: var(--surface-2, var(--surface));
+  color: var(--ink-2);
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+.adm .adm-gear:hover {
+  border-color: var(--accent);
+  color: var(--ink);
+}
+.adm .adm-gear[aria-expanded="true"] {
+  border-color: var(--accent);
+  background: var(--accent-soft, var(--surface-2));
+  color: var(--ink);
+}
+.adm .adm-gear:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.adm .adm-gear--solid {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--on-accent);
+}
+.adm .adm-gear--solid:hover {
+  filter: brightness(1.08);
+  color: var(--on-accent);
+}
+@media (pointer: coarse) {
+  .adm .adm-gear {
+    width: 38px;
+    height: 38px;
+  }
+}

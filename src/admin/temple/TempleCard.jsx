@@ -298,7 +298,7 @@ export default function TempleCard() {
   return (
     <section className={`mdr ${playing ? "is-on" : ""}`} aria-labelledby="mdr-h">
       <div className="mdr__top">
-        <img className="mdr__img" src="/logo/logo-192.png" alt="" width="72" height="72" />
+        <img className="mdr__img" src="/logo/PanchmukhiHanuman_logo-192.png" alt="" width="72" height="72" />
         <div className="mdr__main">
           <p className="mdr__k">मंदिर · Mandir</p>
           <h3 id="mdr-h">{title}</h3>

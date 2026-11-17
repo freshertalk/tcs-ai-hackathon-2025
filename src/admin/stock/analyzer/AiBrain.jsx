@@ -18,6 +18,7 @@ import { OpenChips, OpenForecastPane, useOpenForecast } from "./OpenForecast";
 import { PlaybookChip, PlaybookPane } from "../autopilot/Playbook";
 import { usePlaybook } from "../autopilot/useAutopilot";
 import "./brain.css";
+import { everyVisible } from "../../visible";
 
 const enc = encodeURIComponent;
 const WORD = { long: "LONG", short: "SHORT", wait: "WAIT", "long-bias": "LEANS UP", "short-bias": "LEANS DOWN", neutral: "NO CLEAR LEAN" };
@@ -85,10 +86,10 @@ function useFloor(kind, symbol, active, enabled = true) {
         .catch((e) => alive && setD((p) => ({ loading: false, data: p.data, error: e.message })));
     read();
     // the live window moves every few minutes; the next-session outlook only when the day's bars change
-    const id = setInterval(() => active && document.visibilityState !== "hidden" && read(), kind === "live" ? 20000 : 300000);
+    const id = everyVisible(() => active && read(), kind === "live" ? 20000 : 300000);
     return () => {
       alive = false;
-      clearInterval(id);
+      id();
     };
   }, [kind, symbol, active, enabled]);
   return d;
