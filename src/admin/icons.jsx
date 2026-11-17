@@ -45,6 +45,12 @@ export const IconShield = () => (
     <path d="m9 12 2.200 2.200L15 10.500" />
   </svg>
 );
+export const IconMail = () => (
+  <svg {...base}>
+    <rect x="3" y="5" width="18" height="14" rx="2.5" />
+    <path d="m3.5 7.5 8.5 6 8.5-6" />
+  </svg>
+);
 export const IconGoogle = () => (
   <svg viewBox="0 0 48 48" aria-hidden="true">
     <path fill="#EA4335" d="M24 9.500c3.540 0 6.710 1.220 9.210 3.600l6.850-6.850C35.900 2.380 30.470 0 24 0 14.620 0 6.510 5.380 2.560 13.220l7.980 6.190C12.430 13.720 17.740 9.500 24 9.500z" />

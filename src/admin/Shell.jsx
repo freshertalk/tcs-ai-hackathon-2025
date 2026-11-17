@@ -96,14 +96,14 @@ export default function Shell({ crumb, notice, children, narrow, wide, fluid }) 
                   {(user.name || "·").slice(0, 1).toUpperCase()}
                 </span>
               )}
-              <span className="adm-user__id">
+              <Link to={adminPath("/account")} className="adm-user__id" data-tip="Your account: password, devices and recent activity.">
                 <b>{user.name || "Signed in"}</b>
                 <small>
                   <span className={`adm-role adm-role--${user.role}`}>
                     {user.role === "superadmin" ? "Superadmin" : "Admin"}
                   </span>
                 </small>
-              </span>
+              </Link>
               <TempleButton />
               <button type="button" className="tm-icon" onClick={toggleTheme} aria-label={theme === "dark" ? "Light theme" : "Dark theme"} data-tip="Switch between dark and light, here and in the trading terminal.">
                 {theme === "dark" ? "☀" : "☾"}

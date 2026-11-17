@@ -14,7 +14,7 @@ import TempleCard from "./temple/TempleCard";
 import NotifyCard from "./NotifyCard";
 import WhatsAppCard from "./WhatsAppCard";
 import HealthCard from "./HealthCard";
-import { IconArrow, IconChart, IconKey, IconUsers } from "./icons";
+import { IconArrow, IconChart, IconKey, IconMail, IconShield, IconUsers } from "./icons";
 
 const WORKSPACES = [
   { view: "", label: "Desk", text: "Chart, live call, order book" },
@@ -366,7 +366,7 @@ function Workspaces({ isSuper }) {
 }
 
 export default function Dashboard() {
-  const { user } = useAuth();
+  const { user, emailReady } = useAuth();
   const [s, setS] = useState(null);
   const ai = useAiStatus();
   useEffect(() => {
@@ -448,6 +448,8 @@ export default function Dashboard() {
               tip="Enter or replace the Google credentials that the sign-in button uses."
               status={s && { on: s.googleSecretSet, label: s.googleSecretSet ? "Connected" : "Not set up" }}
             />
+            <Setting to={adminPath("/account")} icon={<IconShield />} title="Your account" text="Password, devices and recent activity." tip="Choose or change your password, sign out of every device, and see the recent sign-ins on your account." status={user && { on: Boolean(user.hasPassword), label: user.hasPassword ? "Password set" : "Google only" }} />
+            {isSuper && <Setting to={adminPath("/email")} icon={<IconMail />} title="Email & sign-in" text="Mail server, ways to sign in, sign-in trail." tip="Set the mail server (SMTP) that sends sign-in links and codes, choose which ways of signing in are open, and read the trail of recent sign-ins. Superadmin only." status={{ on: Boolean(emailReady), label: emailReady ? "Email ready" : "Not set up" }} />}
             {isSuper && <Setting to={adminPath("/admins")} icon={<IconUsers />} title="Admin users" text="Who may sign in here." tip="Choose which Google accounts may sign in here. Superadmin only." />}
             <Setting
               to={adminPath("/ai")}

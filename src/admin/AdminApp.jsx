@@ -28,6 +28,9 @@ import Dashboard from "./Dashboard";
 import GoogleSettings from "./GoogleSettings";
 import AnalyticsSettings from "./AnalyticsSettings";
 import AdminUsers from "./AdminUsers";
+import EmailSettings from "./EmailSettings";
+import Account from "./Account";
+import ResetPassword from "./ResetPassword";
 import AiSettings from "./AiSettings";
 import PersonalAccess from "./PersonalAccess";
 import StockReport from "./stock/StockReport";
@@ -41,6 +44,7 @@ import "./hub2.css";
 // the one button system: loaded last so it governs every page (see BRAND.md)
 import "./buttons.css";
 // motion and softness: loaded last of all, it changes how things move and how their edges feel, nothing else
+import "./signin.css";
 import "./smooth.css";
 // The private area wears the DrishtiAI logo (public/logo) as its favicon. The public site's own icons are
 // put aside while this area is open and put back when it is left. (A page loaded straight from
@@ -155,10 +159,10 @@ function Gate({ superOnly = false, children }) {
   if (!auth.user) return <Login />;
   if (superOnly && auth.user.role !== "superadmin") {
     return (
-      <Shell crumb="Admin users" narrow>
+      <Shell crumb="Superadmin only" narrow>
         <section className="adm-card">
           <h1 className="adm-h1">Superadmin only</h1>
-          <p className="adm-lead">Only the superadmin can add or remove admin users.</p>
+          <p className="adm-lead">Only the superadmin can open this page.</p>
         </section>
       </Shell>
     );
@@ -197,6 +201,10 @@ export default function AdminApp() {
           <Route path={`${ADMIN_BASE}/google`} element={<Gate><GoogleSettings /></Gate>} />
           <Route path={`${ADMIN_BASE}/analytics`} element={<Gate><AnalyticsSettings /></Gate>} />
           <Route path={`${ADMIN_BASE}/admins`} element={<Gate superOnly><AdminUsers /></Gate>} />
+          {/* the page an emailed link opens: public, the person is not signed in yet */}
+          <Route path={`${ADMIN_BASE}/reset`} element={<ResetPassword />} />
+          <Route path={`${ADMIN_BASE}/account`} element={<Gate><Account /></Gate>} />
+          <Route path={`${ADMIN_BASE}/email`} element={<Gate superOnly><EmailSettings /></Gate>} />
           <Route path={`${ADMIN_BASE}/ai`} element={<Gate><AiSettings /></Gate>} />
           <Route path={`${ADMIN_BASE}/stock-report`} element={<Gate><StockReport /></Gate>} />
           <Route path={`${ADMIN_BASE}/chart/:symbol`} element={<Gate><ChartPage /></Gate>} />

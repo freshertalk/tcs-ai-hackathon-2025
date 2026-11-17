@@ -1,0 +1,537 @@
+"use strict";
+// Sign in with an email address, next to "Sign in with Google".
+//
+// Who may sign in is unchanged: the superadmin and the admins the superadmin has listed — by ANY route. The same
+// mailbox is the same person whichever way they arrive (Google, a password, an emailed code), and spellings of one
+// mailbox (capitals; for Gmail, dots, +tags and googlemail.com) are one person: see canonicalEmail in config.js.
+//
+// Ways in by email
+//   password   email + password. Set (or reset) from a link that is emailed, so the address is proven to be theirs.
+//   code       a 6-digit code emailed to them, valid 10 minutes, five tries, used once. No password needed.
+//
+// What protects it
+//   · the same polite answer whether the address is unknown, not allowed, or has no password: nobody can use these
+//     pages to find out who has access; wrong-address and wrong-password take the same time too
+//   · five wrong tries lock that address for 15 minutes (per address, kept across restarts for people on the list),
+//     and every route has a limit per visitor address as well
+//   · passwords: scrypt, a policy (see passwords.js), never logged or returned
+//   · links and codes: signed, expire (an hour; three days for an invitation), single use, and a new one replaces the
+//     last; links point at the configured site address — never at the Host header of the request
+//   · a changed or reset password signs the person out everywhere else; they get a notice by email
+//   · every sign-in, failure, lock, link, code and change is written to an audit trail the superadmin can read
+//   · mail goes out through the owner's SMTP server, set from the admin panel (server/mailer.js)
+
+const crypto = require("crypto");
+const { EMAIL_RE, SMTP_HOST_RE, ADMIN_BASE, canonicalEmail } = require("./config");
+const { BRAND } = require("./brand");
+const pw = require("./passwords");
+const { MailError } = require("./mailer");
+const { randomToken, sign, verify, safeEqual } = require("./crypto");
+
+const LINK_TTL = 60 * 60; // seconds
+const INVITE_TTL = 3 * 24 * 60 * 60;
+const CODE_TTL_MS = 10 * 60 * 1000;
+const CODE_TRIES = 5;
+const MAX_FAILS = 5;
+const FAIL_WINDOW_MS = 15 * 60 * 1000;
+const LOCK_MS = 15 * 60 * 1000;
+const RESEND_MS = 60 * 1000;
+const PER_HOUR = 5;
+
+const sha = (x) => crypto.createHash("sha256").update(String(x)).digest("hex");
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+const maskEmail = (e) => {
+  const [l, d] = String(e).split("@");
+  return `${l.slice(0, 1)}${"•".repeat(Math.max(2, Math.min(6, l.length - 1)))}@${d}`;
+};
+
+/** The three switches, with "on" as the default for anything never set. */
+function toggles(store) {
+  const s = (store.data.settings && store.data.settings.signIn) || {};
+  return { google: s.google !== false, password: s.password !== false, code: s.code !== false };
+}
+
+/** A small, plain message: text for every client and a simple card for those that show HTML. */
+function message({ title, lines, button, fine }) {
+  const text = [title, "", ...lines, ...(button ? ["", `${button.label}: ${button.url}`] : []), "", fine || "", "", `— ${BRAND.name}`].join("\n").replace(/\n{3,}/g, "\n\n");
+  const html = `<!doctype html><html><body style="margin:0;background:#f3f5f8;padding:24px;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#17212b">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td align="center">
+<table role="presentation" width="480" cellspacing="0" cellpadding="0" style="max-width:480px;background:#ffffff;border-radius:14px;padding:28px;border:1px solid #e1e6ec">
+<tr><td style="font-size:13px;font-weight:600;color:#53657a;padding-bottom:6px">${esc(BRAND.name)}</td></tr>
+<tr><td style="font-size:20px;font-weight:600;padding-bottom:14px">${esc(title)}</td></tr>
+${lines.map((l) => `<tr><td style="font-size:15px;line-height:1.55;padding-bottom:10px">${esc(l)}</td></tr>`).join("\n")}
+${button ? `<tr><td style="padding:10px 0 14px"><a href="${esc(button.url)}" style="display:inline-block;background:#1a6fd4;color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;padding:11px 20px;border-radius:9px">${esc(button.label)}</a></td></tr>
+<tr><td style="font-size:12px;color:#6a7b8e;word-break:break-all;padding-bottom:10px">Or paste this address into your browser:<br>${esc(button.url)}</td></tr>` : ""}
+${fine ? `<tr><td style="font-size:12px;line-height:1.5;color:#6a7b8e;border-top:1px solid #e8ecf1;padding-top:12px">${esc(fine)}</td></tr>` : ""}
+</table></td></tr></table></body></html>`;
+  return { text, html };
+}
+
+/**
+ * @returns { methods() } — what is open for sign-in right now: { google, password, code }
+ */
+function mountEmailAuth(app, ctx) {
+  const { store, mailer, sessionKey, limiter, requireAdmin, requireSuper, identify, startSession, trustedOrigin, audit, googleReady } = ctx;
+  const now = ctx.now || (() => Date.now());
+  const log = ctx.log || console;
+  const linkKey = crypto.createHmac("sha256", sessionKey).update("email-auth/link").digest();
+
+  const methods = () => {
+    const t = toggles(store);
+    return { google: t.google && Boolean(googleReady()), password: t.password, code: t.code && mailer.configured() };
+  };
+
+  const record = (id) => (id ? store.data.users[id.email] || null : null);
+  const touch = (id, fn) =>
+    store.update((d) => {
+      if (!d.users[id.email]) d.users[id.email] = {};
+      fn(d.users[id.email], d);
+    });
+  const bad = (res, status, error, message2, extra) => res.status(status).json({ error, message: message2, ...(extra || {}) });
+  const typed = (v) => String(v == null ? "" : v).trim().slice(0, 254);
+
+  /* ------------------------------------------------ wrong tries and the lock */
+  const memFails = new Map(); // for addresses that are not on the list: kept only in memory
+  const failsOf = (canon, id) => (id ? (record(id) || {}).fails || null : memFails.get(canon) || null);
+  const lockLeft = (canon, id) => {
+    const f = failsOf(canon, id);
+    return f && f.until > now() ? f.until - now() : 0;
+  };
+  function recordFail(canon, id) {
+    const t = now();
+    let f = failsOf(canon, id) || { n: 0, first: t, until: 0 };
+    if (t - f.first > FAIL_WINDOW_MS || (f.until && f.until <= t)) f = { n: 0, first: t, until: 0 };
+    f = { n: f.n + 1, first: f.first, until: f.n + 1 >= MAX_FAILS ? t + LOCK_MS : 0 };
+    if (id) touch(id, (u) => (u.fails = f));
+    else {
+      memFails.set(canon, f);
+      if (memFails.size > 5000) memFails.delete(memFails.keys().next().value);
+    }
+    return f;
+  }
+  function clearFails(canon, id) {
+    if (id) {
+      const u = record(id);
+      if (u && u.fails) touch(id, (x) => delete x.fails);
+    } else memFails.delete(canon);
+  }
+  const lockedReply = (res, canon, id, req, method) => {
+    const ms = lockLeft(canon, id);
+    audit(req, "locked", canon, { method });
+    res.set("Retry-After", String(Math.ceil(ms / 1000)));
+    return bad(res, 429, "locked", `Too many wrong attempts. Try again in ${Math.max(1, Math.ceil(ms / 60000))} minute${Math.ceil(ms / 60000) === 1 ? "" : "s"}.`);
+  };
+
+  /* ------------------------------------------------ sending links and codes */
+  const sent = new Map(); // canonical address -> [timestamps]
+  function mayMail(canon) {
+    const t = now();
+    const list = (sent.get(canon) || []).filter((x) => t - x < 3600000);
+    if (list.length && t - list[list.length - 1] < RESEND_MS) return false;
+    if (list.length >= PER_HOUR) return false;
+    list.push(t);
+    sent.set(canon, list);
+    if (sent.size > 5000) sent.delete(sent.keys().next().value);
+    return true;
+  }
+
+  /** Make a one-time link for a listed person and mail it. Rejects with MailError. */
+  async function sendLink(req, id, { invite = false, by = "" } = {}) {
+    const base = trustedOrigin(req);
+    if (!base) throw new MailError("The site address for links is not set yet. Set it in Email & sign-in first.", "no_origin");
+    const jti = randomToken(16);
+    touch(id, (u) => {
+      u.linkJti = sha(jti);
+      u.linkAt = now();
+    });
+    const token = sign({ typ: "pw", e: id.email, j: jti }, linkKey, invite ? INVITE_TTL : LINK_TTL);
+    const url = `${base}${ADMIN_BASE}/reset?token=${encodeURIComponent(token)}`;
+    const has = Boolean((record(id) || {}).passwordHash);
+    const hours = invite ? "3 days" : "1 hour";
+    const m = invite
+      ? message({
+          title: `You have been given access to ${BRAND.name}`,
+          lines: [`${by || "The owner"} has added you to the private area. You can sign in with Google (using this email address), or choose a password with the button below.`, `The link works for ${hours} and only once.`],
+          button: { label: "Choose a password", url },
+          fine: "If you were not expecting this, you can ignore this email: nothing changes until the link is used.",
+        })
+      : message({
+          title: has ? "Reset your password" : "Choose your password",
+          lines: [has ? "Someone asked to reset the password for this address — hopefully you." : "Use the button to choose a password for signing in with your email address.", `The link works for ${hours} and only once.`],
+          button: { label: has ? "Reset password" : "Choose a password", url },
+          fine: "If you did not ask for this, ignore this email: your password stays as it is.",
+        });
+    await mailer.send({ to: id.email, subject: invite ? `Your access to ${BRAND.name}` : has ? `Reset your ${BRAND.name} password` : `Choose your ${BRAND.name} password`, ...m });
+  }
+
+  const fire = (promise, what) =>
+    promise.catch((err) => log.warn(`[auth] ${what} not sent: ${String((err && err.message) || err).slice(0, 160)}`));
+
+  /* ------------------------------------------------ routes: public */
+  const perVisitor = (max, mins) => limiter(max, mins * 60 * 1000);
+
+  app.post("/api/auth/email/login", perVisitor(20, 15), async (req, res) => {
+    const b = req.body || {};
+    const email = typed(b.email);
+    const password = typeof b.password === "string" ? b.password.slice(0, 256) : "";
+    if (!methods().password) return bad(res, 403, "disabled", "Signing in with a password is turned off.");
+    if (!EMAIL_RE.test(email) || !password) return bad(res, 400, "invalid", "Enter your email address and password.");
+    const canon = canonicalEmail(email);
+    const id = identify(email);
+    if (lockLeft(canon, id)) return lockedReply(res, canon, id, req, "password");
+
+    const rec = record(id);
+    // always spend the time of one check, so an unknown address cannot be told from a wrong password
+    const ok = (await pw.verifyPassword(password, rec && rec.passwordHash ? rec.passwordHash : await pw.dummyHash())) && Boolean(rec && rec.passwordHash);
+    if (!ok) {
+      const f = recordFail(canon, id);
+      audit(req, "signin_failed", canon, { method: "password", known: Boolean(id) });
+      if (f.until) return lockedReply(res, canon, id, req, "password");
+      return bad(res, 401, "bad_login", "That email address or password is not right.");
+    }
+    clearFails(canon, id);
+    if (pw.needsRehash(rec.passwordHash)) {
+      const h = await pw.hashPassword(password);
+      touch(id, (u) => (u.passwordHash = h));
+    }
+    startSession(req, res, id, { method: "password", remember: b.remember !== false });
+    res.json({ ok: true });
+  });
+
+  // "Email me a link" — to choose a password the first time, or to reset a forgotten one
+  app.post("/api/auth/email/link", perVisitor(10, 15), async (req, res) => {
+    const email = typed((req.body || {}).email);
+    if (!EMAIL_RE.test(email)) return bad(res, 400, "invalid", "Enter a valid email address.");
+    if (!mailer.configured()) return bad(res, 503, "email_off", "Email is not set up yet, so a link cannot be sent. Ask the owner.");
+    const canon = canonicalEmail(email);
+    const id = identify(email);
+    if (id && mayMail(canon)) {
+      audit(req, "link_requested", id.email, {});
+      fire(sendLink(req, id), "sign-in link");
+    }
+    res.json({ ok: true, message: "If that address can sign in here, a link is on its way. It works for an hour." });
+  });
+
+  app.post("/api/auth/email/token", perVisitor(30, 15), (req, res) => {
+    const t = checkLink((req.body || {}).token);
+    if (!t) return bad(res, 400, "expired", "This link has expired or has already been used. Ask for a new one.");
+    res.json({ ok: true, email: maskEmail(t.id.email), hasPassword: Boolean(t.rec.passwordHash) });
+  });
+
+  function checkLink(token) {
+    const p = verify(String(token || ""), linkKey);
+    if (!p || p.typ !== "pw" || !p.e || !p.j) return null;
+    const id = identify(p.e); // taken off the list since? then the link is dead
+    const rec = record(id);
+    if (!id || id.email !== p.e || !rec || !rec.linkJti || !safeEqual(rec.linkJti, sha(p.j))) return null;
+    return { id, rec };
+  }
+
+  app.post("/api/auth/email/password", perVisitor(15, 15), async (req, res) => {
+    const b = req.body || {};
+    const t = checkLink(b.token);
+    if (!t) return bad(res, 400, "expired", "This link has expired or has already been used. Ask for a new one.");
+    const password = typeof b.password === "string" ? b.password : "";
+    const problem = pw.checkPassword(password, { email: t.id.email, name: t.rec.name });
+    if (problem) return bad(res, 400, "weak_password", problem);
+    const hash = await pw.hashPassword(password);
+    if (!checkLink(b.token)) return bad(res, 400, "expired", "This link has expired or has already been used. Ask for a new one.");
+    touch(t.id, (u) => {
+      u.passwordHash = hash;
+      u.passwordAt = new Date(now()).toISOString();
+      u.emailVerifiedAt = u.emailVerifiedAt || u.passwordAt;
+      u.linkJti = "";
+      u.code = null;
+      delete u.fails;
+      u.sessionVer = (u.sessionVer || 0) + 1; // signed out everywhere else
+    });
+    audit(req, "password_set", t.id.email, {});
+    fire(noticePasswordChanged(t.id), "password notice");
+    res.json({ ok: true });
+  });
+
+  async function noticePasswordChanged(id) {
+    if (!mailer.configured()) return;
+    const m = message({
+      title: "Your password was changed",
+      lines: ["The password for signing in with your email address was just changed, and every other signed-in device was signed out."],
+      fine: "If this was not you, contact the owner at once: an account can be locked from the admin panel.",
+    });
+    await mailer.send({ to: id.email, subject: `Your ${BRAND.name} password was changed`, ...m });
+  }
+
+  // a code by email, instead of a password
+  const codeMac = (id, code) => crypto.createHmac("sha256", linkKey).update(`${id.email}:${code}`).digest("hex");
+
+  app.post("/api/auth/email/code", perVisitor(10, 15), async (req, res) => {
+    const email = typed((req.body || {}).email);
+    if (!methods().code) return bad(res, 403, "disabled", mailer.configured() ? "Signing in with an emailed code is turned off." : "Email is not set up yet, so a code cannot be sent.");
+    if (!EMAIL_RE.test(email)) return bad(res, 400, "invalid", "Enter a valid email address.");
+    const canon = canonicalEmail(email);
+    const id = identify(email);
+    if (id && mayMail(canon)) {
+      const code = String(crypto.randomInt(0, 1000000)).padStart(6, "0");
+      touch(id, (u) => (u.code = { h: codeMac(id, code), exp: now() + CODE_TTL_MS, tries: 0 }));
+      audit(req, "code_sent", id.email, {});
+      const m = message({
+        title: `Your sign-in code: ${code}`,
+        lines: [`Enter this code to sign in to ${BRAND.name}. It works for 10 minutes and only once.`],
+        fine: "If you did not ask for this, ignore this email. Nobody can sign in without the code.",
+      });
+      fire(mailer.send({ to: id.email, subject: `${code} is your ${BRAND.name} sign-in code`, ...m }), "sign-in code");
+    }
+    res.json({ ok: true, message: "If that address can sign in here, a 6-digit code is on its way. It works for 10 minutes." });
+  });
+
+  app.post("/api/auth/email/code/verify", perVisitor(30, 15), async (req, res) => {
+    const b = req.body || {};
+    const email = typed(b.email);
+    const code = String(b.code == null ? "" : b.code).replace(/\s+/g, "");
+    if (!methods().code) return bad(res, 403, "disabled", "Signing in with an emailed code is turned off.");
+    if (!EMAIL_RE.test(email) || !/^\d{6}$/.test(code)) return bad(res, 400, "invalid", "Enter the email address and the 6-digit code.");
+    const canon = canonicalEmail(email);
+    const id = identify(email);
+    if (lockLeft(canon, id)) return lockedReply(res, canon, id, req, "code");
+    const rec = record(id);
+    const c = rec && rec.code;
+    const live = Boolean(c && c.exp > now() && c.tries < CODE_TRIES);
+    const same = safeEqual(codeMac(id || { email: canon }, code), (live && c.h) || "0".repeat(64));
+    if (!(live && same)) {
+      if (id && c) touch(id, (u) => u.code && (u.code.tries += 1));
+      const f = recordFail(canon, id);
+      audit(req, "signin_failed", canon, { method: "code", known: Boolean(id) });
+      if (f.until) return lockedReply(res, canon, id, req, "code");
+      return bad(res, 401, "bad_code", "That code is not right, or it has expired. Ask for a new one.");
+    }
+    touch(id, (u) => {
+      u.code = null;
+      u.emailVerifiedAt = u.emailVerifiedAt || new Date(now()).toISOString();
+    });
+    clearFails(canon, id);
+    startSession(req, res, id, { method: "code", remember: b.remember !== false });
+    res.json({ ok: true });
+  });
+
+  /* ------------------------------------------------ routes: signed in */
+  app.get("/api/auth/account", requireAdmin, (req, res) => {
+    const id = identify(req.user.email);
+    const u = record(id) || {};
+    res.json({
+      email: id.email,
+      name: u.name || req.user.name || "",
+      role: req.user.role,
+      hasPassword: Boolean(u.passwordHash),
+      passwordAt: u.passwordAt || null,
+      googleLinked: Boolean(u.googleAt),
+      emailVerified: Boolean(u.emailVerifiedAt),
+      lastLogin: u.lastLogin || null,
+      methods: methods(),
+      canSetPasswordDirectly: !mailer.configured(),
+      activity: (store.data.audit || []).filter((a) => canonicalEmail(a.email) === canonicalEmail(id.email)).slice(-12).reverse(),
+    });
+  });
+
+  app.post("/api/auth/password/change", requireAdmin, perVisitor(10, 15), async (req, res) => {
+    const b = req.body || {};
+    const id = identify(req.user.email);
+    const u = record(id) || {};
+    if (!methods().password) return bad(res, 403, "disabled", "Signing in with a password is turned off.");
+    if (u.passwordHash) {
+      const ok = typeof b.current === "string" && (await pw.verifyPassword(b.current, u.passwordHash));
+      if (!ok) {
+        audit(req, "password_change_failed", id.email, {});
+        return bad(res, 400, "bad_current", "Your current password is not right.");
+      }
+    } else if (mailer.configured()) {
+      // a first password for someone who has only used Google: prove the inbox too (a stolen session must not be enough)
+      return bad(res, 409, "use_link", "For safety, choose your first password from the link we email you.");
+    }
+    const next = typeof b.next === "string" ? b.next : "";
+    const problem = pw.checkPassword(next, { email: id.email, name: u.name });
+    if (problem) return bad(res, 400, "weak_password", problem);
+    const hash = await pw.hashPassword(next);
+    touch(id, (x) => {
+      x.passwordHash = hash;
+      x.passwordAt = new Date(now()).toISOString();
+      x.emailVerifiedAt = x.emailVerifiedAt || x.passwordAt;
+      x.sessionVer = (x.sessionVer || 0) + 1;
+    });
+    audit(req, "password_changed", id.email, {});
+    fire(noticePasswordChanged(id), "password notice");
+    startSession(req, res, id, { method: "password", quiet: true, remember: true }); // this device stays signed in
+    res.json({ ok: true });
+  });
+
+  app.post("/api/auth/sessions/revoke", requireAdmin, (req, res) => {
+    const id = identify(req.user.email);
+    touch(id, (x) => (x.sessionVer = (x.sessionVer || 0) + 1));
+    audit(req, "signout_everywhere", id.email, {});
+    startSession(req, res, id, { method: "session", quiet: true, remember: true });
+    res.json({ ok: true });
+  });
+
+  /* ------------------------------------------------ routes: the superadmin */
+  const view = (req) => {
+    const c = mailer.config();
+    const origin = trustedOrigin(req);
+    return {
+      signIn: toggles(store),
+      smtp: { host: c.host, port: c.port, security: c.security, user: c.user, passSet: Boolean(c.pass), fromEmail: c.fromEmail, fromName: c.fromName, source: c.source },
+      emailReady: mailer.configured(),
+      publicUrl: (store.data.settings && store.data.settings.publicUrl) || "",
+      publicUrlInUse: origin || "",
+      googleReady: Boolean(googleReady()),
+      peopleWithPassword: Object.values(store.data.users).filter((u) => u && u.passwordHash).length,
+    };
+  };
+
+  app.get("/api/admin/settings/email", requireSuper, (req, res) => res.json(view(req)));
+
+  app.put("/api/admin/settings/email", requireSuper, (req, res) => {
+    const b = req.body || {};
+    const next = { ...toggles(store) };
+    if (b.signIn && typeof b.signIn === "object") for (const k of ["google", "password", "code"]) if (typeof b.signIn[k] === "boolean") next[k] = b.signIn[k];
+
+    let smtp = null;
+    let clearSmtp = false;
+    if (b.clearSmtp === true) clearSmtp = true;
+    else if (b.smtp && typeof b.smtp === "object") {
+      const s = b.smtp;
+      const host = String(s.host || "").trim().toLowerCase();
+      const port = Number(s.port);
+      const security = String(s.security || "starttls");
+      const fromEmail = String(s.fromEmail || "").trim();
+      const fromName = String(s.fromName || "").replace(/[\u0000-\u001f\u007f<>"]/g, " ").trim().slice(0, 80);
+      const user = String(s.user || "").replace(/[\u0000-\u001f\u007f]/g, "").trim().slice(0, 254);
+      const pass = typeof s.pass === "string" ? s.pass : "";
+      if (!SMTP_HOST_RE.test(host)) return bad(res, 400, "invalid", "Enter the mail server's host name, for example smtp.gmail.com.");
+      if (!Number.isInteger(port) || port < 1 || port > 65535) return bad(res, 400, "invalid", "The port must be a number from 1 to 65535 (usually 587 or 465).");
+      if (!["starttls", "ssl", "none"].includes(security)) return bad(res, 400, "invalid", "Choose STARTTLS, SSL or none for the connection.");
+      if (!EMAIL_RE.test(fromEmail)) return bad(res, 400, "invalid", "Enter the address mail is sent from.");
+      if (pass.length > 256 || /[\u0000-\u001f\u007f]/.test(pass)) return bad(res, 400, "invalid", "That password cannot be used.");
+      const had = Boolean(mailer.config().pass) && Boolean((store.data.settings.smtp || {}).host);
+      if (user && !pass && !had) return bad(res, 400, "invalid", "Enter the password for that user name.");
+      smtp = { host, port, security, user, fromEmail, fromName, pass };
+    }
+
+    // never leave the owner with no way in
+    const wouldHave = { google: next.google && Boolean(googleReady()), password: next.password, code: next.code && (clearSmtp ? Boolean(ctx.envMailReady && ctx.envMailReady()) : smtp ? true : mailer.configured()) };
+    if (!wouldHave.google && !wouldHave.password && !wouldHave.code) return bad(res, 400, "locked_out", "Keep at least one way to sign in turned on (and working).");
+
+    let publicUrl = (store.data.settings && store.data.settings.publicUrl) || "";
+    if (typeof b.publicUrl === "string") {
+      const v = b.publicUrl.trim().replace(/\/+$/, "");
+      if (v) {
+        let u = null;
+        try {
+          u = new URL(v);
+        } catch (_) {
+          /* below */
+        }
+        const local = u && /^(localhost|127\.0\.0\.1|\[::1\])$/.test(u.hostname);
+        if (!u || (u.protocol !== "https:" && !(u.protocol === "http:" && local)) || u.pathname !== "/" || u.search || u.hash || u.username) return bad(res, 400, "invalid", "The site address must look like https://example.org (no path, and https unless it is localhost).");
+        publicUrl = u.origin;
+      } else publicUrl = "";
+    }
+    store.update((d) => {
+      d.settings.signIn = next;
+      d.settings.publicUrl = publicUrl;
+      if (clearSmtp) delete d.settings.smtp;
+      else if (smtp) {
+        const old = d.settings.smtp || {};
+        const { pass, ...rest } = smtp;
+        d.settings.smtp = { ...rest, passEnc: pass ? ctx.encrypt(pass) : rest.user ? old.passEnc || "" : "" };
+      }
+    });
+    // the first time mail is set up, links in it point at the address the owner is using right now
+    if (!publicUrl && !ctx.envOrigin && smtp) {
+      const o = trustedOrigin(req, { owner: true });
+      if (o) store.update((d) => (d.settings.publicUrl = o));
+    }
+    audit(req, "settings_changed", req.user.email, { what: "email & sign-in" });
+    log.log(`[settings] Email & sign-in updated by ${req.user.email}`);
+    res.json(view(req));
+  });
+
+  app.post("/api/admin/settings/email/test", requireSuper, limiter(8, 10 * 60 * 1000), async (req, res) => {
+    const to = typed((req.body || {}).to) || req.user.email;
+    if (!identify(to)) return bad(res, 400, "invalid", "A test goes only to someone who has access here.");
+    if (!mailer.configured()) return bad(res, 400, "email_off", "Save the mail server settings first.");
+    try {
+      await mailer.send({
+        to: identify(to).email,
+        subject: `${BRAND.name}: a test message`,
+        ...message({ title: "Email is working", lines: [`This is a test from the ${BRAND.name} private area. If you can read it, sign-in links, codes and notices will reach people.`] }),
+      });
+      audit(req, "test_mail", req.user.email, { to: identify(to).email });
+      res.json({ ok: true, to: identify(to).email });
+    } catch (err) {
+      bad(res, 502, "send_failed", err.message || "The test could not be sent.");
+    }
+  });
+
+  app.post("/api/admin/settings/email/verify", requireSuper, limiter(8, 10 * 60 * 1000), async (req, res) => {
+    try {
+      await mailer.verify();
+      res.json({ ok: true });
+    } catch (err) {
+      bad(res, 502, "verify_failed", err.message);
+    }
+  });
+
+  app.get("/api/admin/auth/audit", requireSuper, (req, res) => {
+    const n = Math.min(300, Math.max(1, Number(req.query.limit) || 100));
+    res.json({ entries: (store.data.audit || []).slice(-n).reverse() });
+  });
+
+  const person = (req, res) => {
+    const id = identify(String(req.params.email || ""));
+    if (!id) {
+      bad(res, 404, "not_found", "No such person.");
+      return null;
+    }
+    return id;
+  };
+
+  // send a person a link to choose a password (an invitation)
+  app.post("/api/admin/admins/:email/link", requireSuper, limiter(20, 10 * 60 * 1000), async (req, res) => {
+    const id = person(req, res);
+    if (!id) return;
+    if (!mailer.configured()) return bad(res, 400, "email_off", "Set up email first (Email & sign-in).");
+    try {
+      await sendLink(req, id, { invite: true, by: req.user.name || req.user.email });
+      audit(req, "invite_sent", id.email, { by: req.user.email });
+      res.json({ ok: true });
+    } catch (err) {
+      bad(res, 502, "send_failed", err.message);
+    }
+  });
+
+  app.post("/api/admin/admins/:email/signout", requireSuper, (req, res) => {
+    const id = person(req, res);
+    if (!id) return;
+    touch(id, (x) => (x.sessionVer = (x.sessionVer || 0) + 1));
+    audit(req, "signout_forced", id.email, { by: req.user.email });
+    if (id.email === req.user.email) startSession(req, res, id, { method: "session", quiet: true, remember: true });
+    res.json({ ok: true });
+  });
+
+  app.post("/api/admin/admins/:email/unlock", requireSuper, (req, res) => {
+    const id = person(req, res);
+    if (!id) return;
+    clearFails(canonicalEmail(id.email), id);
+    memFails.delete(canonicalEmail(id.email));
+    audit(req, "unlocked", id.email, { by: req.user.email });
+    res.json({ ok: true });
+  });
+
+  return {
+    methods,
+    toggles: () => toggles(store),
+    sendInvite: (req, id, by) => sendLink(req, id, { invite: true, by }),
+    isLocked: (id) => lockLeft(canonicalEmail(id.email), id) > 0,
+    maskEmail,
+  };
+}
+
+module.exports = { mountEmailAuth, toggles, message, maskEmail };

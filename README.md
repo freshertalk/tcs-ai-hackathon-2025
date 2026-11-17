@@ -94,8 +94,11 @@ as a redirect URI too.
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Optional bootstrap; values saved in the dashboard take priority |
 | `SETTINGS_KEY`, `SESSION_SECRET` | Optional 32-byte keys (hex/base64); otherwise generated into `server/data/` |
 | `MONGO_URI`, `MONGO_DB` | Keep records in MongoDB (database default `stock-trading`) instead of files |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURITY` (`starttls`/`ssl`/`none`), `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`, `SMTP_FROM_NAME` | Optional bootstrap for outgoing email (sign-in links and codes); the mail server saved in the dashboard takes priority |
 
 Any of these can also go in `server/.env` (git-ignored; see `server/.env.example`), which the server reads at start.
+
+**Signing in.** Two ways, both ending at the same person: **Google**, and **email** (a password chosen from an emailed link, or a 6-digit code sent to the inbox). Only the superadmin and the admins added under *Admin users* can sign in, by any route. One mailbox is one user: capitals, and for Gmail dots, `+tags` and `googlemail.com`, are folded, so the same address is never added twice and Google and email reach the same record. The owner sets the mail server (SMTP host, port, user, password, From), the site address used in emailed links, and which ways are open from **Email & sign-in** on the dashboard (superadmin); the SMTP password is stored encrypted. Protections: scrypt password hashing with a policy, a 15-minute lock after five wrong tries, one-time links and codes that expire, the same answer for unknown and unlisted addresses, links built from the configured address (never the `Host` header), signing out everywhere after a password change, a security notice by email, and an audit trail of sign-ins. Code: `server/email-auth.js`, `server/mailer.js`, `server/passwords.js`. Needs Node 20 or newer (the mail library).
 
 **Data.** Everything lives in `server/data/` (git-ignored): `db.json` (settings, admin list;
 the Client Secret is stored AES-256-GCM encrypted), plus the two key files. Back that folder

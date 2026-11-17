@@ -10,9 +10,14 @@ const EMPTY = () => ({
     googleClientId: "",
     googleClientSecretEnc: "",
     gaMeasurementId: "",
+    signIn: { google: true, password: true, code: true }, // which ways in are open
+    publicUrl: "", // the site address used in emailed links
+    // smtp: { host, port, security, user, passEnc, fromEmail, fromName } is added when the owner sets up email
   },
   admins: [], // { email, addedBy, addedAt }
-  users: {}, // email -> { name, picture, lastLogin }
+  // email -> { name, picture, lastLogin, googleAt, passwordHash, passwordAt, emailVerifiedAt, sessionVer, fails, linkJti, code }
+  users: {},
+  audit: [], // the trail of sign-ins and account changes (newest last, capped)
   market: { watchlist: [], demo: false }, // the Analyzer's watchlist and demo switch
 });
 
@@ -34,6 +39,7 @@ class Store {
       settings: { ...base.settings, ...(raw.settings || {}) },
       admins: Array.isArray(raw.admins) ? raw.admins : [],
       users: raw.users && typeof raw.users === "object" ? raw.users : {},
+      audit: Array.isArray(raw.audit) ? raw.audit : [],
       market: {
         watchlist: raw.market && Array.isArray(raw.market.watchlist) ? raw.market.watchlist : [],
         demo: Boolean(raw.market && raw.market.demo),

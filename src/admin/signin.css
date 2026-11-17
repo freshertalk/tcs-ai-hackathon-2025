@@ -1,0 +1,300 @@
+/* ==========================================================================
+   Signing in by email: the form on the door (.gate), the reset page, and the account / email-settings pages.
+   Sizes from --t-*, colours from the private area's tokens, so both themes follow.
+   ========================================================================== */
+
+/* ------------------------------------------------------------ the form on the door */
+.sg-form {
+  display: grid;
+  gap: 12px;
+  width: 100%;
+}
+.sg-field label {
+  display: block;
+  margin-bottom: 5px;
+  font-size: var(--t-small);
+  font-weight: 600;
+  color: var(--ink-2, var(--ink));
+}
+.sg-field input,
+.sg-field select {
+  width: 100%;
+  min-height: 44px;
+  padding: 9px 13px;
+  border: 1px solid var(--line-2, var(--line));
+  border-radius: 12px;
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--t-base);
+}
+.sg-field input::placeholder {
+  color: var(--ink-3);
+}
+.sg-field input:focus-visible,
+.sg-field select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.sg-code {
+  font-size: var(--t-large);
+  letter-spacing: 0.3em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.sg-pass {
+  position: relative;
+}
+.sg-pass input {
+  padding-right: 64px;
+}
+.sg-pass__eye {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  padding: 5px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-size: var(--t-small);
+  font-weight: 600;
+  cursor: pointer;
+}
+.sg-pass__eye:hover {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+.sg-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--t-small);
+  color: var(--ink-2, var(--ink));
+  cursor: pointer;
+}
+.sg-check input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+}
+.sg-btn {
+  min-height: 46px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--accent);
+  color: #fff;
+  font: inherit;
+  font-size: var(--t-base);
+  font-weight: 600;
+  cursor: pointer;
+}
+.adm a.sg-btn {
+  color: #fff;
+}
+.sg-btn:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+.sg-btn:disabled {
+  opacity: 0.65;
+  cursor: default;
+}
+.sg-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 16px;
+}
+.sg-links button {
+  padding: 4px 2px;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-size: var(--t-small);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.sg-links button:hover {
+  text-decoration-thickness: 2px;
+}
+.sg-or {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  margin: 4px 0 0;
+  color: var(--ink-3);
+  font-size: var(--t-small);
+}
+.sg-or::before,
+.sg-or::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+.sg-help {
+  margin: 0;
+  color: var(--ink-2, var(--ink));
+  font-size: var(--t-mid);
+  line-height: 1.55;
+}
+.sg-note {
+  width: 100%;
+  margin: 0;
+  padding: 9px 12px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--up) 12%, var(--surface));
+  color: var(--ink);
+  font-size: var(--t-mid);
+  line-height: 1.5;
+}
+.sg-rules {
+  display: grid;
+  gap: 3px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--t-small);
+  color: var(--ink-3);
+}
+.sg-rules li::before {
+  content: "○ ";
+}
+.sg-rules li.is-ok {
+  color: var(--up);
+}
+.sg-rules li.is-ok::before {
+  content: "● ";
+}
+
+/* ------------------------------------------------------------ settings and account pages */
+.sg-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+.sg-grid .sg-wide {
+  grid-column: 1 / -1;
+}
+.sg-opts {
+  display: grid;
+  gap: 10px;
+}
+.sg-opt {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 2px 10px;
+  align-items: start;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--paper);
+  cursor: pointer;
+}
+.sg-opt input {
+  grid-row: 1 / span 2;
+  margin-top: 3px;
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+}
+.sg-opt b {
+  font-size: var(--t-base);
+}
+.sg-opt small {
+  color: var(--ink-3);
+  font-size: var(--t-small);
+}
+.sg-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 4px;
+}
+.sg-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 10px;
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  background: var(--paper);
+  color: var(--ink-2, var(--ink));
+  font-size: var(--t-small);
+  font-weight: 600;
+}
+.sg-chip::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--ink-3);
+}
+.sg-chip.is-on {
+  border-color: color-mix(in srgb, var(--up) 40%, var(--line));
+}
+.sg-chip.is-on::before {
+  background: var(--up);
+}
+.sg-chip.is-warn {
+  border-color: color-mix(in srgb, var(--down) 40%, var(--line));
+}
+.sg-chip.is-warn::before {
+  background: var(--down);
+}
+.sg-audit {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--t-small);
+}
+.sg-audit th,
+.sg-audit td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+.sg-audit th {
+  color: var(--ink-3);
+  font-weight: 600;
+}
+.sg-audit .is-bad {
+  color: var(--down);
+  font-weight: 600;
+}
+.sg-scroll {
+  overflow-x: auto;
+}
+.sg-acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.adm-people li {
+  flex-wrap: wrap;
+}
+.adm-people .sg-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+@media (max-width: 700px) {
+  .sg-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* the name beside the avatar opens the account page */
+.adm a.adm-user__id {
+  color: inherit;
+  text-decoration: none;
+}
+.adm a.adm-user__id:hover b {
+  color: var(--accent);
+}

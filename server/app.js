@@ -30,8 +30,11 @@ const {
   GA_RE,
   CLIENT_ID_RE,
   CLIENT_SECRET_RE,
+  canonicalEmail,
 } = require("./config");
 const defaultGoogle = require("./google");
+const { Mailer } = require("./mailer");
+const { mountEmailAuth } = require("./email-auth");
 const { HolidayService } = require("./holidays/service");
 const { MarketService, MarketError } = require("./market/service");
 const { mountMarket } = require("./market/routes");
@@ -71,7 +74,9 @@ const { mountTrading } = require("./trading/routes");
 const SESSION_COOKIE = "vpt_session";
 const OAUTH_COOKIE = "vpt_oauth";
 const SESSION_TTL = 7 * 24 * 60 * 60; // seconds
+const SHORT_SESSION_TTL = 12 * 60 * 60; // "don't keep me signed in": until the browser closes, and at most this long
 const OAUTH_TTL = 10 * 60;
+const AUDIT_KEEP = 300;
 
 /* ------------------------------------------------------------- helpers */
 
@@ -97,7 +102,7 @@ function cookie(name, value, { maxAge, path: p = "/", secure }) {
     `Path=${p}`,
     "HttpOnly",
     "SameSite=Lax",
-    `Max-Age=${maxAge}`,
+    ...(maxAge === undefined ? [] : [`Max-Age=${maxAge}`]), // none: a session cookie, gone when the browser closes
   ];
   if (secure) parts.push("Secure");
   return parts.join("; ");
@@ -344,25 +349,86 @@ function createApp(opts = {}) {
   let setupToken = isConfigured() ? null : env.SETUP_TOKEN || randomToken(18);
 
   /* --- who is this? */
-  function roleOf(email) {
-    const e = normaliseEmail(email);
-    if (e === SUPERADMIN_EMAIL) return "superadmin";
-    return store.data.admins.some((a) => a.email === e) ? "admin" : null;
+  // One person, however they arrive: the same mailbox is the same user whether they came through Google, a
+  // password or an emailed code, and spellings of one mailbox (capitals; for Gmail dots, +tags, googlemail.com)
+  // are one mailbox. Returns the address as it is LISTED (the superadmin's, or the admin list's), which is the
+  // key of every record about that person, or null when they are not allowed in.
+  function identify(email) {
+    const c = canonicalEmail(email);
+    if (!c) return null;
+    if (c === canonicalEmail(SUPERADMIN_EMAIL)) return { email: SUPERADMIN_EMAIL, role: "superadmin" };
+    const a = store.data.admins.find((x) => canonicalEmail(x.email) === c);
+    return a ? { email: a.email, role: "admin" } : null;
   }
+  const roleOf = (email) => (identify(email) || {}).role || null;
 
   function currentUser(req) {
     const raw = parseCookies(req.headers.cookie)[SESSION_COOKIE];
     const p = verify(raw, sessionKey);
     if (!p || !p.email) return null;
-    const role = roleOf(p.email); // looked up every time: removing an admin takes effect at once
-    if (!role) return null;
+    const id = identify(p.email); // looked up every time: removing an admin takes effect at once
+    if (!id) return null;
+    // "sign out everywhere" and a changed password raise this number; older cookies stop working
+    if ((p.v || 0) !== ((store.data.users[id.email] || {}).sessionVer || 0)) return null;
     return {
-      email: p.email,
+      email: id.email,
       name: String(p.name || ""),
       picture: /^https:\/\//.test(p.picture || "") ? p.picture : "",
-      role,
+      role: id.role,
     };
   }
+
+  /* --- the audit trail, and signing someone in */
+  function audit(req, type, email, extra = {}) {
+    store.update((d) => {
+      if (!Array.isArray(d.audit)) d.audit = [];
+      d.audit.push({
+        at: new Date(authNow()).toISOString(),
+        type,
+        email: logSafe(email).slice(0, 120),
+        ip: logSafe(req && req.ip).slice(0, 60),
+        ua: logSafe(req && req.get && req.get("user-agent")).slice(0, 90),
+        ...extra,
+      });
+      if (d.audit.length > AUDIT_KEEP) d.audit.splice(0, d.audit.length - AUDIT_KEEP);
+    });
+  }
+
+  /** The one place a session starts: Google, a password and an emailed code all end here. */
+  function startSession(req, res, id, { method, remember = true, quiet = false, name, picture } = {}) {
+    const rec = store.data.users[id.email] || {};
+    if (!quiet) {
+      store.update((d) => {
+        d.users[id.email] = { ...(d.users[id.email] || {}), lastLogin: new Date(authNow()).toISOString() };
+      });
+    }
+    const who = name !== undefined ? name : rec.name || id.email.split("@")[0]; // by email there is no profile name: show the part before the @
+    const pic = picture !== undefined ? picture : rec.picture || "";
+    const ttl = remember ? SESSION_TTL : SHORT_SESSION_TTL;
+    res.append(
+      "Set-Cookie",
+      cookie(SESSION_COOKIE, sign({ email: id.email, name: who, picture: pic, v: rec.sessionVer || 0 }, sessionKey, ttl), {
+        maxAge: remember ? SESSION_TTL : undefined,
+        secure: isSecure(req),
+      })
+    );
+    if (!quiet) audit(req, "signin", id.email, { method });
+  }
+  const authNow = () => (opts.authNow ? opts.authNow() : Date.now());
+
+  // the sign-in address to put in emailed links: what the owner set, else PUBLIC_ORIGIN, else — only on a
+  // development machine, or for the signed-in owner — this request's own address. Never an outsider's Host header.
+  function trustedOrigin(req, { owner = false } = {}) {
+    const set = store.data.settings.publicUrl;
+    if (set) return set;
+    if (env.PUBLIC_ORIGIN) return String(env.PUBLIC_ORIGIN).replace(/\/$/, "");
+    if (owner || isLocalHost(req.get("host"))) return `${req.protocol}://${req.get("host")}`;
+    return null;
+  }
+
+  // outgoing email (sign-in links and codes, invitations, notices); the owner sets the server in the admin panel
+  const secretBox = { encrypt: (t) => encrypt(t, settingsKey), decrypt: (b) => decrypt(b, settingsKey) };
+  const mailer = opts.mailer || new Mailer({ store, secrets: secretBox, env, createTransport: opts.mailTransport, log: opts.log || console });
 
   const origin = (req) =>
     (env.PUBLIC_ORIGIN || `${req.protocol}://${req.get("host")}`).replace(/\/$/, "");
@@ -500,13 +566,22 @@ function createApp(opts = {}) {
   });
 
   app.get("/api/auth/status", (req, res) => {
-    const configured = isConfigured();
-    res.json({ configured, needsSetup: !configured, user: currentUser(req) });
+    // Google or a working email setup is enough to sign in; the first-run page appears only when neither is
+    const configured = isConfigured() || mailer.configured();
+    const u = currentUser(req);
+    res.json({
+      configured,
+      needsSetup: !configured,
+      user: u ? { ...u, hasPassword: Boolean((store.data.users[u.email] || {}).passwordHash) } : null,
+      methods: emailAuth.methods(),
+      emailReady: mailer.configured(), // links by email can be sent (to choose or reset a password)
+    });
   });
 
   app.get("/api/auth/google/start", limiter(30, 15 * 60 * 1000), (req, res) => {
     const c = credentials();
     if (!c.id || !c.secret) return res.redirect(`${ADMIN_BASE}?error=not-configured`);
+    if (!emailAuth.methods().google) return res.redirect(`${ADMIN_BASE}?error=google-off`);
     const state = randomToken(18);
     const nonce = randomToken(18);
     res.append(
@@ -547,34 +622,54 @@ function createApp(opts = {}) {
     if (!profile.nonce || !safeEqual(profile.nonce, pending.nonce)) return fail("state");
     if (!profile.emailVerified) return fail("unverified");
 
-    const email = normaliseEmail(profile.email);
-    if (!roleOf(email)) {
-      console.warn(`[auth] sign-in refused for ${email}: not an admin`);
+    const id = identify(profile.email);
+    if (!id) {
+      console.warn(`[auth] sign-in refused for ${logSafe(normaliseEmail(profile.email))}: not an admin`);
+      audit(req, "signin_failed", canonicalEmail(profile.email), { method: "google", known: false });
       return fail("unauthorized");
     }
 
+    // the same person as any password or code they use: one record, merged (never replaced)
     store.update((d) => {
-      d.users[email] = {
-        name: profile.name,
+      d.users[id.email] = {
+        ...(d.users[id.email] || {}),
+        name: profile.name || (d.users[id.email] || {}).name || "",
         picture: profile.picture,
-        lastLogin: new Date().toISOString(),
+        googleAt: new Date().toISOString(),
+        emailVerifiedAt: (d.users[id.email] || {}).emailVerifiedAt || new Date().toISOString(),
       };
     });
-    res.append(
-      "Set-Cookie",
-      cookie(
-        SESSION_COOKIE,
-        sign({ email, name: profile.name, picture: profile.picture }, sessionKey, SESSION_TTL),
-        { maxAge: SESSION_TTL, secure: isSecure(req) }
-      )
-    );
+    startSession(req, res, id, { method: "google", name: profile.name, picture: profile.picture });
     res.append("Set-Cookie", clear);
     res.redirect(ADMIN_BASE);
   });
 
   app.post("/api/auth/logout", (req, res) => {
+    const u = currentUser(req);
+    if (u) audit(req, "signout", u.email, {});
     res.append("Set-Cookie", cookie(SESSION_COOKIE, "", { maxAge: 0, secure: isSecure(req) }));
     res.json({ ok: true });
+  });
+
+  // Sign in with an email address (password or emailed code), account security, and the admin panel's
+  // "Email & sign-in" settings: server/email-auth.js
+  const emailAuth = mountEmailAuth(app, {
+    store,
+    mailer,
+    sessionKey,
+    limiter,
+    requireAdmin,
+    requireSuper,
+    identify,
+    startSession,
+    trustedOrigin,
+    audit,
+    googleReady: isConfigured,
+    encrypt: (t) => encrypt(t, settingsKey),
+    envMailReady: () => Boolean(env.SMTP_HOST && EMAIL_RE.test(String(env.SMTP_FROM || env.SMTP_USER || ""))),
+    envOrigin: Boolean(env.PUBLIC_ORIGIN),
+    now: authNow,
+    log: opts.log || console,
   });
 
   /* ---------------------------------------------------- first-run setup */
@@ -660,53 +755,75 @@ function createApp(opts = {}) {
   });
 
   /* ------------------------------------------- superadmin: admin users */
+  const adminRow = (email, role, extra = {}) => {
+    const u = store.data.users[email] || {};
+    return {
+      email,
+      role,
+      locked: role === "superadmin",
+      lastLogin: u.lastLogin || null,
+      hasPassword: Boolean(u.passwordHash),
+      googleLinked: Boolean(u.googleAt),
+      lockedOut: Boolean(u.fails && u.fails.until > authNow()), // too many wrong passwords: locked for a while
+      ...extra,
+    };
+  };
   const adminRows = () => [
-    {
-      email: SUPERADMIN_EMAIL,
-      role: "superadmin",
-      locked: true,
-      lastLogin: (store.data.users[SUPERADMIN_EMAIL] || {}).lastLogin || null,
-    },
-    ...store.data.admins.map((a) => ({
-      email: a.email,
-      role: "admin",
-      locked: false,
-      addedBy: a.addedBy,
-      addedAt: a.addedAt,
-      lastLogin: (store.data.users[a.email] || {}).lastLogin || null,
-    })),
+    adminRow(SUPERADMIN_EMAIL, "superadmin"),
+    ...store.data.admins.map((a) => adminRow(a.email, "admin", { addedBy: a.addedBy, addedAt: a.addedAt })),
   ];
 
-  app.get("/api/admin/admins", requireSuper, (req, res) => res.json({ admins: adminRows() }));
+  app.get("/api/admin/admins", requireSuper, (req, res) => res.json({ admins: adminRows(), emailReady: mailer.configured() }));
 
-  app.post("/api/admin/admins", requireSuper, (req, res) => {
+  app.post("/api/admin/admins", requireSuper, async (req, res) => {
     const email = normaliseEmail((req.body || {}).email);
     if (!EMAIL_RE.test(email) || email.length > 254) {
       return res.status(400).json({ error: "invalid", message: "Enter a valid email address." });
     }
-    if (email === SUPERADMIN_EMAIL) {
+    // the same mailbox is the same person: capitals, and for Gmail dots, +tags and googlemail.com, do not make a new one
+    const same = identify(email);
+    if (same && same.role === "superadmin") {
       return res.status(400).json({ error: "invalid", message: "That is the superadmin — it already has full access." });
     }
-    if (store.data.admins.some((a) => a.email === email)) {
-      return res.status(409).json({ error: "exists", message: "That person is already an admin." });
+    if (same) {
+      return res.status(409).json({ error: "exists", message: same.email === email ? "That person is already an admin." : `That is the same mailbox as ${same.email}, who is already an admin.` });
     }
     store.update((d) => {
       d.admins.push({ email, addedBy: req.user.email, addedAt: new Date().toISOString() });
     });
-    res.status(201).json({ admins: adminRows() });
+    audit(req, "admin_added", email, { by: req.user.email });
+    // an invitation by email, when email is set up and the superadmin did not decline it
+    let invited = false;
+    let inviteProblem = "";
+    if ((req.body || {}).invite !== false && mailer.configured()) {
+      try {
+        await emailAuth.sendInvite(req, identify(email), req.user.name || req.user.email);
+        invited = true;
+        audit(req, "invite_sent", email, { by: req.user.email });
+      } catch (err) {
+        inviteProblem = err.message;
+      }
+    }
+    res.status(201).json({ admins: adminRows(), invited, inviteProblem });
   });
 
   app.delete("/api/admin/admins/:email", requireSuper, (req, res) => {
     const email = normaliseEmail(req.params.email);
-    if (email === SUPERADMIN_EMAIL) {
+    const id = identify(email);
+    if (id && id.role === "superadmin") {
       return res.status(400).json({ error: "locked", message: "The superadmin cannot be removed." });
     }
-    if (!store.data.admins.some((a) => a.email === email)) {
+    if (!id) {
       return res.status(404).json({ error: "not_found", message: "No such admin." });
     }
     store.update((d) => {
-      d.admins = d.admins.filter((a) => a.email !== email);
+      d.admins = d.admins.filter((a) => a.email !== id.email);
+      // their password, codes and open sessions go with their access (the sign-in history stays in the trail);
+      // the session number only ever goes up, so an old cookie cannot come back to life if they are added again
+      const old = d.users[id.email] || {};
+      d.users[id.email] = { name: old.name || "", lastLogin: old.lastLogin || null, sessionVer: (old.sessionVer || 0) + 1 };
     });
+    audit(req, "admin_removed", id.email, { by: req.user.email });
     res.json({ admins: adminRows() });
   });
 
