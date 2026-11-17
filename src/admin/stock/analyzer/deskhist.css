@@ -211,11 +211,10 @@
   }
 }
 
-/* under the whole Desk, across the verdict rail too */
-.sv--desk > .dh-wrap {
-  grid-column: 1 / -1;
-  grid-row: auto;
+/* under the Desk grid, not inside it: the verdict panel is sticky there and would slide over it */
+.dh-wrap {
+  margin-top: var(--dk-gap, 14px);
 }
-.sv--desk > .dh-wrap .an-card:first-child {
+.dh-wrap .an-card:first-child {
   margin-top: 0;
 }

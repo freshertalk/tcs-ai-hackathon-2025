@@ -146,9 +146,16 @@ function Ticker({ symbol, meta, px: polledPx, chg: polledChg, chgPct: polledPct,
       </div>
       <div className="sv__tk-call">
         <span className={`callchip is-${callTone(call)} ${callActive(call) ? "is-active" : ""}`}>{callLabel(call)}</span>
-        <small>{call && call.available ? `${call.weakening ? "⚠ weakening · " : ""}${call.session.label} · score ${call.score > 0 ? "+" : ""}${call.score}` : "live call off"}</small>
+        <small>
+          {call && call.available
+            ? `${call.weakening ? "⚠ weakening · " : ""}${call.session.label} · score ${call.score > 0 ? "+" : ""}${call.score}`
+            : "live call off"}
+        </small>
       </div>
-      <div className={`sv__px is-${tone(chg)} ${flash ? `is-tick-${flash}` : ""}`} data-tip="The live price, and its change from yesterday’s close. It flashes green or red on each tick.">
+      <div
+        className={`sv__px is-${tone(chg)} ${flash ? `is-tick-${flash}` : ""}`}
+        data-tip="The live price, and its change from yesterday’s close. It flashes green or red on each tick."
+      >
         <b>{inr(px)}</b>
         <span>
           {signed(chg)} ({pct(chgPct)})
@@ -174,7 +181,10 @@ export default function StockView({ symbol, quote, status, streaming = false, in
   const [chartMode, setChartMode] = useState(storedChart); // null = pick for me
   const verdict = useVerdict(symbol, status);
   // every tick is checked against the call's levels the instant it arrives; a break re-reads the call at once
-  const wireEvents = useTripwires(symbol, verdict.state.data, { alerts: verdict.alerts, refresh: verdict.reload });
+  const wireEvents = useTripwires(symbol, verdict.state.data, {
+    alerts: verdict.alerts,
+    refresh: verdict.reload,
+  });
   const top = useRef(null);
 
   const live = status.mode === "kite";
@@ -182,7 +192,12 @@ export default function StockView({ symbol, quote, status, streaming = false, in
   const minute = useTape(symbol, 1, live && chartMode === "m1", Boolean(status.marketHours));
   // the AI co-pilot: asked when something happens on this stock, never on a loop
   const callNow = verdict.state.data && verdict.state.data.available && verdict.state.data.day ? verdict.state.data.day : null;
-  const copilot = useCopilot(symbol, { day: callNow, log: verdict.log, events: wireEvents, active: live && Boolean(status.marketHours) });
+  const copilot = useCopilot(symbol, {
+    day: callNow,
+    log: verdict.log,
+    events: wireEvents,
+    active: live && Boolean(status.marketHours),
+  });
   const pickChart = (m) => {
     setChartMode(m);
     try {
@@ -274,7 +289,8 @@ export default function StockView({ symbol, quote, status, streaming = false, in
   // today's range, and where the price sits in it (0 = at the low, 100 = at the high)
   const dayHigh = quote && isNum(quote.high) ? quote.high : a.price.high;
   const dayLow = quote && isNum(quote.low) ? quote.low : a.price.low;
-  const rangeAt = isNum(dayHigh) && isNum(dayLow) && isNum(px) && dayHigh > dayLow ? Math.min(100, Math.max(0, ((px - dayLow) / (dayHigh - dayLow)) * 100)) : null;
+  const rangeAt =
+    isNum(dayHigh) && isNum(dayLow) && isNum(px) && dayHigh > dayLow ? Math.min(100, Math.max(0, ((px - dayLow) / (dayHigh - dayLow)) * 100)) : null;
 
   const panel = (
     <VerdictPanel
@@ -295,6 +311,7 @@ export default function StockView({ symbol, quote, status, streaming = false, in
   const tabs = wide ? TABS : [{ id: "verdict", label: "Verdict" }, ...TABS];
 
   return (
+    <>
     <div className="sv sv--desk">
       <Ticker
         symbol={symbol}
@@ -311,7 +328,11 @@ export default function StockView({ symbol, quote, status, streaming = false, in
             }}
           />
         }
-        sub={quote && quote.time ? `live · last trade ${String(quote.time).slice(11, 19) || quote.time}` : `close of ${day(a.asOf, { day: "numeric", month: "short" })}`}
+        sub={
+          quote && quote.time
+            ? `live · last trade ${String(quote.time).slice(11, 19) || quote.time}`
+            : `close of ${day(a.asOf, { day: "numeric", month: "short" })}`
+        }
         meta={
           <>
             {a.source === "demo" ? "Demo data" : "NSE"} · daily bars to {day(a.asOf)}
@@ -331,7 +352,11 @@ export default function StockView({ symbol, quote, status, streaming = false, in
             <b>Not live.</b> {a.staleReason}
           </p>
         )}
-        {state.refreshError && <p className="adm-alert adm-alert--info">Could not refresh just now ({state.refreshError}); showing the reading from {when(a.fetchedAt)}.</p>}
+        {state.refreshError && (
+          <p className="adm-alert adm-alert--info">
+            Could not refresh just now ({state.refreshError}); showing the reading from {when(a.fetchedAt)}.
+          </p>
+        )}
 
         <dl className="sv__stats">
           {[
@@ -369,7 +394,15 @@ export default function StockView({ symbol, quote, status, streaming = false, in
       <div className="sv__body" ref={top}>
         <div className="sv__tabs" role="tablist" aria-label="Analysis sections">
           {tabs.map((t) => (
-            <button key={t.id} type="button" role="tab" id={`tab-${t.id}`} aria-selected={tab === t.id} aria-controls={`panel-${t.id}`} onClick={() => setTab(t.id)}>
+            <button
+              key={t.id}
+              type="button"
+              role="tab"
+              id={`tab-${t.id}`}
+              aria-selected={tab === t.id}
+              aria-controls={`panel-${t.id}`}
+              onClick={() => setTab(t.id)}
+            >
               {t.label}
               {t.id === "setups" && on.length > 0 && <i>{on.length}</i>}
             </button>
@@ -383,7 +416,12 @@ export default function StockView({ symbol, quote, status, streaming = false, in
               <section className="an-card">
                 <div className="sv__chartbar">
                   <div className="sv__ranges" role="group" aria-label="Chart type">
-                    <button type="button" aria-pressed={mode === "pro"} onClick={() => pickChart("pro")} data-tip="The full chart: every interval from 1 minute to 1 month, live, with indicators, drawing tools, compare, patterns, pivots and a technical summary.">
+                    <button
+                      type="button"
+                      aria-pressed={mode === "pro"}
+                      onClick={() => pickChart("pro")}
+                      data-tip="The full chart: every interval from 1 minute to 1 month, live, with indicators, drawing tools, compare, patterns, pivots and a technical summary."
+                    >
                       Chart
                     </button>
                     <button type="button" aria-pressed={mode === "m1"} disabled={!live} onClick={() => pickChart("m1")}>
@@ -417,7 +455,9 @@ export default function StockView({ symbol, quote, status, streaming = false, in
                   ) : minute.loading ? (
                     <Loading label="Loading the 1-minute bars…" />
                   ) : (
-                    <p className="adm-alert adm-alert--info">{(minute.data && minute.data.reason) || minute.error || "The 1-minute bars are not available right now."}</p>
+                    <p className="adm-alert adm-alert--info">
+                      {(minute.data && minute.data.reason) || minute.error || "The 1-minute bars are not available right now."}
+                    </p>
                   )
                 ) : mode === "m5" && tape ? (
                   <>
@@ -427,8 +467,15 @@ export default function StockView({ symbol, quote, status, streaming = false, in
                 ) : (
                   <PriceChart chart={a.chart} levels={a.levels} />
                 )}
-                {mode === "m1" && minute.error && m1 && <p className="adm-small">Could not refresh the 1-minute bars just now ({minute.error}).</p>}
-                {a.barInProgress && mode === "daily" && <p className="adm-small">Today’s daily bar is unfinished: setups are judged on the close and can appear or disappear until 3:30 PM.</p>}
+                {mode === "m1" && minute.error && m1 && (
+                  <p className="adm-small">
+                    Could not refresh the 1-minute bars just now ({minute.error}
+                    ).
+                  </p>
+                )}
+                {a.barInProgress && mode === "daily" && (
+                  <p className="adm-small">Today’s daily bar is unfinished: setups are judged on the close and can appear or disappear until 3:30 PM.</p>
+                )}
               </section>
               <ScoreCard score={a.score} cautions={a.cautions} />
             </>
@@ -436,16 +483,27 @@ export default function StockView({ symbol, quote, status, streaming = false, in
           {tab === "setups" && <Setups setups={a.setups} bearish={a.bearish} patterns={a.patterns} fullHistory={a.fullHistory} onSize={sizeThis} />}
           {tab === "levels" && <Levels levels={a.levels} last={px} intraday={intraday} />}
           {tab === "indicators" && <Indicators ind={a.indicators} liquidity={a.liquidity} volatilityPct={a.volatilityPct} />}
-          {tab === "size" && <PositionSizer seed={seed || { entry: px, stop: a.levels.atr ? Math.round((px - 1.5 * a.levels.atr.value) * 100) / 100 : null, at: symbol }} />}
+          {tab === "size" && (
+            <PositionSizer
+              seed={
+                seed || {
+                  entry: px,
+                  stop: a.levels.atr ? Math.round((px - 1.5 * a.levels.atr.value) * 100) / 100 : null,
+                  at: symbol,
+                }
+              }
+            />
+          )}
           {tab === "ai" && <AiPanel symbol={symbol} onSize={sizeThis} />}
           {tab === "backtest" && <BacktestPanel symbol={symbol} />}
           {tab === "history" && <History a={a} symbol={symbol} />}
           {tab === "behaviour" && <Behaviour symbol={symbol} />}
         </div>
       </div>
-
-      {/* the bottom of the Desk: the last 30 sessions, and every daily bar held for this stock */}
-      <SessionHistory symbol={symbol} live={live} marketHours={Boolean(status.marketHours)} />
     </div>
+      {/* the bottom of the Desk, outside the grid so the sticky verdict panel can never slide over it:
+          the last 30 sessions, and every daily bar held for this stock */}
+      <SessionHistory symbol={symbol} live={live} marketHours={Boolean(status.marketHours)} />
+    </>
   );
 }
