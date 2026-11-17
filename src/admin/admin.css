@@ -1508,3 +1508,40 @@
   border-color: var(--warn-line);
   color: var(--warn-ink);
 }
+
+/* the Hanuman beej mantra in the page header (Mantra.jsx): red on white, in the gap between the name and the account */
+.adm-mantra {
+  flex: 1 1 0;
+  min-width: 0;
+  margin: 0;
+  padding: 6px 14px;
+  border: 1px solid #f0b9bd;
+  border-radius: 8px;
+  background: #fff;
+  color: #c1121f;
+  font-size: clamp(14px, 1.2vw, 18px);
+  line-height: 1.3;
+  text-align: center;
+}
+.adm-mantra b {
+  font-weight: 800;
+  letter-spacing: 0.01em;
+}
+.adm-crumbs:has(+ .adm-mantra) {
+  flex: 0 1 auto;
+}
+@media (max-width: 860px) {
+  /* narrower: the mantra takes a line of its own under the name and the account */
+  .adm-head__row {
+    flex-wrap: wrap;
+  }
+  .adm-mantra {
+    order: 9;
+    flex: 1 1 100%;
+    padding: 4px 10px;
+    font-size: 14px;
+  }
+  .adm-crumbs:has(+ .adm-mantra) {
+    flex: 1 1 auto;
+  }
+}

@@ -548,7 +548,7 @@ header (one tab plays at a time; browsers need a first tap). Sources: an uploade
 kept as a link only: YouTube's terms allow neither audio without its player nor downloading, so it never plays in the
 background. The Panchmukhi Hanuman logo stands before the name in the header
 (`public/logo/PanchmukhiHanuman_logo.png`, sized copies `public/logo/PanchmukhiHanuman_logo-96.png`, `-192.png`).
-The terminal's top bar carries the **Hanuman beej mantra** (red on white, in the gap between the search and the status pills; its own line under them on phones and tablets). The text lives only in `src/admin/stock/terminal/mantra.js`: it is the form most widely given in devotional sources, **ॐ ऐं भ्रीं हनुमते श्री रामदूताय नमः** — no primary scripture quoting it could be found online, so the owner should confirm it with their guru or family tradition and change it in that one file if it differs.
+The terminal's top bar and the header of /me and the other private pages carry the **Hanuman beej mantra** (red on white, in the gap in the header; its own line on narrow screens), drawn by `src/admin/Mantra.jsx`. The text lives only in `src/admin/mantraText.js`: it is the form most widely given in devotional sources, **ॐ ऐं भ्रीं हनुमते श्री रामदूताय नमः** — no primary scripture quoting it could be found online, so the owner should confirm it with their guru or family tradition and change it in that one file if it differs.
 
 **WhatsApp Trading (`server/whatsapp.js`, `server/ai/whatsapp-ai.js`, `src/admin/WhatsAppCard.jsx`; superadmin).** The
 official WhatsApp Business Cloud API (Graph v21.0). The webhook `GET|POST /api/whatsapp/webhook` is mounted before

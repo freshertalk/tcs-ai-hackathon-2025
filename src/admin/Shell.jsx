@@ -7,6 +7,7 @@ import { adminPath } from "./paths";
 import { setTipsEnabled, useTipsEnabled } from "./help/TipLayer";
 import { useDeskTheme } from "./stock/analyzer/theme";
 import { TempleButton } from "./temple/Temple";
+import Mantra from "./Mantra";
 
 const HINT_KEY = "vpt.tips.hint";
 
@@ -87,6 +88,7 @@ export default function Shell({ crumb, notice, children, narrow, wide, fluid }) 
               </span>
             )}
           </nav>
+          {user && <Mantra className="adm-mantra" />}
           {user && (
             <div className="adm-user">
               {user.picture ? (

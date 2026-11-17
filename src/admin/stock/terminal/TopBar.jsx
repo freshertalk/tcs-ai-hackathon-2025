@@ -9,7 +9,7 @@ import { api } from "../../api";
 import { useAuth } from "../../auth";
 import { adminPath } from "../../paths";
 import { BRAND } from "../../brand";
-import { HANUMAN_BEEJ, HANUMAN_LABEL } from "./mantra";
+import Mantra from "../../Mantra";
 import { setTipsEnabled, useTipsEnabled } from "../../help/TipLayer";
 import { useTrade } from "../trade/TradeContext";
 import { num } from "../analyzer/format";
@@ -150,10 +150,7 @@ export default function TopBar({ views, view, onView, theme, onTheme, onHelp, on
         <kbd>{mac ? "⌘" : "Ctrl"} K</kbd>
       </button>
 
-      <p className="tm-mantra" lang="hi" aria-label={`${HANUMAN_LABEL}: ${HANUMAN_BEEJ}`}>
-        <span>{HANUMAN_LABEL}</span>
-        <b>{HANUMAN_BEEJ}</b>
-      </p>
+      <Mantra className="tm-mantra" />
 
       <div className="tm-status">
         <span className={`tm-pill tm-pill--clock tm-pill--${clock.state}`} data-tip="NSE’s session by the clock (9:15 AM – 3:30 PM IST, Monday to Friday). Exchange holidays are listed under Calendar.">
