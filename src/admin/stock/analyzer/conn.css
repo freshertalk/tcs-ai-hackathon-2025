@@ -1,0 +1,208 @@
+/* ==========================================================================
+   The market-data connection: a very small status button, and the dialog it opens (ConnectPanel.jsx).
+   The dialog reuses the site's own modal (.tr-modal / .tr-dialog): centred on a computer, a sheet that
+   rises from the bottom edge on a phone.
+   ========================================================================== */
+
+.conn-btn {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-width: 34px;
+  height: 34px;
+  padding: 0 9px;
+  border: 1px solid var(--line-2, var(--line));
+  border-radius: 99px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--t-small);
+  font-weight: 600;
+  cursor: pointer;
+}
+.conn-btn:hover,
+.conn-btn:focus-visible {
+  border-color: var(--accent);
+}
+.conn-btn .conn__dot,
+.conn-dlg__head .conn__dot {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--ink-3);
+}
+.conn-btn.is-on .conn__dot,
+.conn-dlg--on .conn__dot {
+  background: var(--up-bright, var(--up));
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--up-bright, var(--up)) 24%, transparent);
+}
+.conn-btn.is-demo .conn__dot,
+.conn-dlg--demo .conn__dot {
+  background: var(--warn, #d99a00);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--warn, #d99a00) 24%, transparent);
+}
+.conn-btn.is-on {
+  border-color: var(--up-line, var(--up));
+}
+.conn-btn.is-demo {
+  border-color: var(--warn-line, var(--warn));
+  background: var(--warn-bg, var(--surface));
+}
+.conn-btn:not(.is-on):not(.is-demo) .conn__dot {
+  background: var(--down);
+  animation: conn-nudge 2.4s ease-in-out infinite;
+}
+@keyframes conn-nudge {
+  50% {
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--down) 22%, transparent);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .conn-btn:not(.is-on):not(.is-demo) .conn__dot {
+    animation: none;
+  }
+}
+/* a phone's finger: a bigger target, the dot still small */
+@media (pointer: coarse) {
+  .conn-btn {
+    min-width: 44px;
+    height: 44px;
+  }
+}
+
+.conn-dlg {
+  width: min(880px, 100%) !important;
+  max-height: calc(100dvh - 32px);
+  gap: 12px;
+  overflow: auto;
+}
+.conn-dlg {
+  padding: 18px 20px;
+  background: var(--surface);
+}
+.conn-dlg--on {
+  border-color: var(--up-line, var(--up)) !important;
+}
+.conn-dlg--demo {
+  border-color: var(--warn-line, var(--warn)) !important;
+}
+.conn-dlg .conn__text {
+  flex: none;
+  margin: 0;
+  font-size: var(--t-base);
+  line-height: 1.55;
+}
+.conn-dlg .conn__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.conn-dlg .conn__setup {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: 20px 32px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+.conn-dlg .conn__setup h3 {
+  font-size: var(--t-lead);
+  margin-bottom: 8px;
+}
+.conn-dlg .conn__setup .adm-steps {
+  margin: 0 0 12px;
+  font-size: var(--t-base);
+}
+.conn-dlg .conn__setup a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+@media (max-width: 860px) {
+  .conn-dlg .conn__setup {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.conn-dlg__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.conn-dlg__head h3 {
+  flex: 1;
+  margin: 0;
+  font-size: var(--t-title);
+}
+.conn-dlg__x {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink-3);
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+}
+.conn-dlg__x:hover {
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
+  color: var(--ink);
+}
+.conn-dlg .conn__setup {
+  margin-top: 4px;
+}
+@media (max-width: 760px) {
+  .conn-modal {
+    align-items: end;
+    padding: 0;
+  }
+  .conn-dlg {
+    width: 100% !important;
+    max-height: 92dvh;
+    border-radius: 18px 18px 0 0 !important;
+    padding-bottom: max(18px, env(safe-area-inset-bottom)) !important;
+  }
+  .conn-dlg .conn__actions .adm-btn {
+    flex: 1 1 140px;
+    min-height: 44px;
+  }
+}
+
+/* the desk's top row on a narrow screen: the button and the search side by side, the live line under them */
+@media (max-width: 760px) {
+  .an__desk {
+    gap: 8px;
+  }
+  .an__desk .wl__search {
+    flex: 1 1 0;
+    min-width: 0;
+    max-width: none;
+  }
+  .an__desk .an__live {
+    flex: 1 1 100%;
+    order: 3;
+  }
+}
+
+/* with the terminal's bottom bar (phones and tablets) the top bar's search replaces the desk's own search:
+   the row stays, with the connection button and the live line, and loses only the search */
+.tm.tm--bnav .an > .an__desk {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 8px;
+}
+.tm.tm--bnav .an > .an__desk .wl__search {
+  display: none;
+}
+.tm.tm--bnav .an > .an__desk .an__live {
+  display: flex;
+  flex: 1 1 0;
+  min-width: 0;
+  margin: 0;
+  order: 0;
+}

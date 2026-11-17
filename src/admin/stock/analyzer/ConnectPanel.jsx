@@ -1,10 +1,12 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import "./conn.css";
 import { api } from "../../api";
 import { Alert, CopyBox, Field } from "../../ui";
 import { when } from "./format";
 
 /**
- * Where the prices come from. Three states:
+ * Where the prices come from — kept out of the way: a very small status button at the left of the desk's top row, and
+ * everything else (the words, the buttons, the setup steps) in a dialog it opens. Three states:
  *   connected      live Zerodha data until 6 AM tomorrow
  *   configured     key + secret saved; needs today's Kite login
  *   not set up     instructions + the form
@@ -12,7 +14,10 @@ import { when } from "./format";
  */
 export default function ConnectPanel({ status, flash, onStatus, startOpen }) {
   const k = status.kite;
-  const [open, setOpen] = useState(Boolean(startOpen));
+  // the dialog opens by itself only when there is something to act on: nothing set up yet, or the result of a Kite login
+  const [dlg, setDlg] = useState(Boolean(startOpen) || Boolean(flash));
+  const [open, setOpen] = useState(Boolean(startOpen)); // the setup steps inside it
+  const back = useRef(null);
   const [apiKey, setApiKey] = useState("");
   const [apiSecret, setApiSecret] = useState("");
   const [msg, setMsg] = useState({ kind: "", text: "" });
@@ -36,55 +41,113 @@ export default function ConnectPanel({ status, flash, onStatus, startOpen }) {
   };
 
   const dot = status.mode === "kite" ? "is-on" : status.mode === "demo" ? "is-demo" : "";
+  const label = status.mode === "kite" ? "Live" : status.mode === "demo" ? "Demo data" : k.configured ? "Log in" : "Connect";
+  const words = status.mode === "kite" ? `Live data from Zerodha${k.user ? ` · ${k.user}` : ""}` : status.mode === "demo" ? "Demo data — not real prices" : k.configured ? "Zerodha is not logged in today" : "No market data connected";
+
+  const close = () => {
+    setDlg(false);
+    if (back.current) back.current.focus();
+  };
+  // Escape closes; the page behind does not scroll while it is open; Tab stays inside
+  const box = useRef(null);
+  useEffect(() => {
+    if (!dlg) return undefined;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (e) => {
+      if (e.key === "Escape") close();
+      if (e.key === "Tab" && box.current) {
+        const f = [...box.current.querySelectorAll('a[href], button:not([disabled]), input, textarea, [tabindex]:not([tabindex="-1"])')].filter((x) => x.offsetParent !== null);
+        if (!f.length) return;
+        const first = f[0];
+        const last = f[f.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    const t = setTimeout(() => box.current && box.current.focus(), 30);
+    return () => {
+      document.body.style.overflow = prev;
+      document.removeEventListener("keydown", onKey);
+      clearTimeout(t);
+    };
+  }, [dlg]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <section className={`conn ${dot}`} aria-label="Market data connection">
-      <div className="conn__row">
+    <>
+      <button
+        ref={back}
+        type="button"
+        className={`conn-btn ${dot} ${status.mode === "kite" ? "" : "conn-btn--text"}`}
+        aria-haspopup="dialog"
+        aria-expanded={dlg}
+        aria-label={`Market data connection: ${words}. Open details.`}
+        data-tip={`${words}. Press for the connection, its buttons and the Zerodha setup.`}
+        onClick={() => setDlg(true)}
+      >
         <i className="conn__dot" aria-hidden="true" />
-        <p className="conn__text">
-          {status.mode === "kite" && (
-            <>
-              <b>Live data from Zerodha</b>
-              {k.user ? ` · ${k.user}` : ""}. Until {when(k.expiresAt)}; log in again after that. Orders are placed only from Positions, with the trading switch on.
-            </>
-          )}
-          {status.mode === "demo" && (
-            <>
-              <b>DEMO DATA — these are not real prices.</b> Made-up “DEMO-…” series for exploring the tool. Connect Zerodha for real NSE data.
-            </>
-          )}
-          {status.mode === "none" && k.configured && (
-            <>
-              <b>Zerodha is set up but not logged in today.</b> Kite sessions end every morning at 6 AM (an exchange rule), so one login a day is needed.
-            </>
-          )}
-          {status.mode === "none" && !k.configured && (
-            <>
-              <b>No market data connected yet.</b> Connect your Zerodha Kite Connect key for live NSE data, or look around with demo data first.
-            </>
-          )}
-        </p>
-        <div className="conn__actions">
-          {status.mode !== "kite" && k.configured && (
-            <a className="adm-btn adm-btn--solid adm-btn--sm" href="/api/admin/market/kite/login">
-              Log in to Kite
-            </a>
-          )}
-          {status.mode !== "kite" && (
-            <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm" disabled={busy} onClick={() => call(() => api("/api/admin/market/demo", { method: "PUT", body: { on: !status.demo } }))}>
-              {status.demo ? "Leave demo" : "Explore with demo data"}
-            </button>
-          )}
-          {status.mode === "kite" && (
-            <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm" disabled={busy} onClick={() => call(() => api("/api/admin/market/kite/disconnect", { method: "POST" }), "Disconnected.")}>
-              Disconnect
-            </button>
-          )}
-          <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm" aria-expanded={open} onClick={() => setOpen(!open)}>
-            {open ? "Hide setup" : "Zerodha setup"}
-          </button>
-        </div>
-      </div>
+        {status.mode !== "kite" && <span>{label}</span>}
+      </button>
+
+      {dlg && (
+        <div className="tr-modal conn-modal" onMouseDown={(e) => e.target === e.currentTarget && close()}>
+          <section ref={box} tabIndex={-1} className={`tr-dialog conn-dlg ${dot ? `conn-dlg--${dot.slice(3)}` : ""}`} role="dialog" aria-modal="true" aria-labelledby="conn-dlg-h" aria-label="Market data connection">
+            <header className="conn-dlg__head">
+              <i className="conn__dot" aria-hidden="true" />
+              <h3 id="conn-dlg-h">Market data connection</h3>
+              <button type="button" className="conn-dlg__x" onClick={close} aria-label="Close">
+                ×
+              </button>
+            </header>
+            <p className="conn__text">
+              {status.mode === "kite" && (
+                <>
+                  <b>Live data from Zerodha</b>
+                  {k.user ? ` · ${k.user}` : ""}. Until {when(k.expiresAt)}; log in again after that. Orders are placed only from Positions, with the trading switch on.
+                </>
+              )}
+              {status.mode === "demo" && (
+                <>
+                  <b>DEMO DATA — these are not real prices.</b> Made-up “DEMO-…” series for exploring the tool. Connect Zerodha for real NSE data.
+                </>
+              )}
+              {status.mode === "none" && k.configured && (
+                <>
+                  <b>Zerodha is set up but not logged in today.</b> Kite sessions end every morning at 6 AM (an exchange rule), so one login a day is needed.
+                </>
+              )}
+              {status.mode === "none" && !k.configured && (
+                <>
+                  <b>No market data connected yet.</b> Connect your Zerodha Kite Connect key for live NSE data, or look around with demo data first.
+                </>
+              )}
+            </p>
+            <div className="conn__actions">
+              {status.mode !== "kite" && k.configured && (
+                <a className="adm-btn adm-btn--solid adm-btn--sm" href="/api/admin/market/kite/login">
+                  Log in to Kite
+                </a>
+              )}
+              {status.mode !== "kite" && (
+                <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm" disabled={busy} onClick={() => call(() => api("/api/admin/market/demo", { method: "PUT", body: { on: !status.demo } }))}>
+                  {status.demo ? "Leave demo" : "Explore with demo data"}
+                </button>
+              )}
+              {status.mode === "kite" && (
+                <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm" disabled={busy} onClick={() => call(() => api("/api/admin/market/kite/disconnect", { method: "POST" }), "Disconnected.")}>
+                  Disconnect
+                </button>
+              )}
+              <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm" aria-expanded={open} onClick={() => setOpen(!open)}>
+                {open ? "Hide setup" : "Zerodha setup"}
+              </button>
+            </div>
 
       {flash && <Alert kind={flash.kind}>{flash.text}</Alert>}
       {k.lastError && status.mode !== "kite" && <Alert kind="info">{k.lastError}</Alert>}
@@ -144,6 +207,9 @@ export default function ConnectPanel({ status, flash, onStatus, startOpen }) {
           </form>
         </div>
       )}
-    </section>
+          </section>
+        </div>
+      )}
+    </>
   );
 }

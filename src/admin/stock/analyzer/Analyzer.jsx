@@ -12,6 +12,7 @@ import { useSearchParams } from "react-router-dom";
 import { api, peek } from "../../api";
 import { Alert, Loading } from "../../ui";
 import ConnectPanel from "./ConnectPanel";
+import DayBoard from "./DayBoard";
 import Watchlist, { SymbolSearch } from "./Watchlist";
 import StockView from "./StockView";
 import ErrorBoundary from "./ErrorBoundary";
@@ -234,11 +235,15 @@ export default function Analyzer() {
   return (
     <TickContext.Provider value={live.store}>
     <div className={`an dk ${mode === "demo" ? "an--demo" : ""}`}>
-      <ConnectPanel status={status} flash={flash.current || null} onStatus={applyStatus} startOpen={mode === "none" && !status.kite.configured} />
+      {/* what a day trader needs before looking at any one stock (it took the place of the old connection strip) */}
+      {mode !== "none" && <DayBoard status={status} quotes={merged} symbols={symbols} onPick={pick} />}
       {mode === "kite" && <MarketStrip status={status} />}
 
-      {mode !== "none" && (
-        <div className="an__desk">
+      <div className="an__desk">
+        {/* the connection: one very small button; its words, buttons and setup are in the dialog it opens */}
+        <ConnectPanel status={status} flash={flash.current || null} onStatus={applyStatus} startOpen={mode === "none" && !status.kite.configured} />
+        {mode !== "none" && (
+          <>
           <SymbolSearch
             id="desk-q"
             label="Analyze any stock"
@@ -259,8 +264,9 @@ export default function Analyzer() {
               </>
             )}
           </p>
-        </div>
-      )}
+          </>
+        )}
+      </div>
 
       {mode === "none" ? (
         <section className="an-card an-empty">

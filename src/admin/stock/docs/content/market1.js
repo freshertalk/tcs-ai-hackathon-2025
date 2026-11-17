@@ -26,6 +26,16 @@ export const MARKET_DATA = [
         "Changing the key or the secret wipes the saved daily token, because a token belongs to the key that made it.",
         "**Disconnect** clears the token and the login time.",
       ] },
+      { h: "Where the connection lives on the Desk" },
+      { p: "The connection is **one very small button** at the left of the Desk's search row: a green dot when live (a dot only), a red dot with “Connect” or “Log in” when nothing is connected, an amber one with “Demo data” in demo. Pressing it opens a **dialog** with the full words, every button (Log in to Kite, Disconnect, Explore with demo data, Zerodha setup) and the setup steps; on a phone it rises from the bottom edge as a sheet. Escape, the × or a click outside closes it. It opens by itself only when there is something to act on: nothing set up yet, or the result of a Kite login." },
+      { h: "The day board" },
+      { p: "Where the strip used to be, four small cards a day trader looks at before any one stock (on a phone they sit in one row you swipe along):" },
+      { ul: [
+        "**Session** — the trading day as a bar of its zones (opening noise 9:15–9:30, prime window to 11:30, midday lull to 1:30, afternoon, wind-down from 2:45, square-off from 3:20), where it is now, the time to the close, and the reminder that brokers square off intraday positions from about 3:20 PM. When the market is shut it says when the next session is. The words describe how sessions usually behave; they are not a signal.",
+        "**Market** — the tide with its score, India VIX with its change and what the level means, and breadth (stocks up against down), refreshed every 30 seconds in market hours.",
+        "**Radar** — the watchlist stocks that are strongest and weakest against the Nifty and VWAP since the open (the same score as the watchlist's “Strong today / Weak today”); press a name to open it. Needs live prices.",
+        "**Before you enter** — five questions (stop-loss decided; risk inside your limit; the tide agrees with your side; not chasing; a plan, not a reaction to the last loss) and a line that answers itself: whether it is a good time of day. Your ticks are kept for the day in the browser and cleared the next morning; Reset clears them at once.",
+      ] },
       { h: "The three connection states" },
       { table: { label: "Connection states", head: ["State", "When", "What you see"], rows: [
         ["Live (kite)", "Key and encrypted secret saved, a token exists and it has not expired.", "“Live data from Zerodha”, the expiry time, and a reminder that orders are placed only from Positions, with the trading switch on."],
