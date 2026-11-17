@@ -15,6 +15,8 @@ import { inr, isNum, num } from "./format";
 import IntradayPlan, { KIND, useIntradayPlan } from "./IntradayPlan";
 import OptionChain, { biasTone, useOptionChain } from "./OptionChain";
 import { OpenChips, OpenForecastPane, useOpenForecast } from "./OpenForecast";
+import { PlaybookChip, PlaybookPane } from "../autopilot/Playbook";
+import { usePlaybook } from "../autopilot/useAutopilot";
 import "./brain.css";
 
 const enc = encodeURIComponent;
@@ -513,6 +515,8 @@ export default function AiBrain({ symbol, live, marketHours, only = null, foldab
   const hasChain = Boolean(chain.data && chain.data.available);
   // the opening price: the most probable one before the open, the real one beside it after (server/open-forecast.js)
   const openFc = useOpenForecast(symbol, wantIntra);
+  // the playbook: what kind of day, what happens when, what to do if (server/autopilot.js)
+  const playbook = usePlaybook(symbol, wantIntra);
   useEffect(() => {
     setView(first());
   }, [symbol]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -586,6 +590,7 @@ export default function AiBrain({ symbol, live, marketHours, only = null, foldab
             </button>
           )}
           {wantIntra && <OpenChips fc={openFc} pressed={open && view === "open"} onShow={() => show("open")} />}
+          {wantIntra && <PlaybookChip pb={playbook} pressed={open && view === "playbook"} onShow={() => show("playbook")} />}
         </div>
         <button type="button" className="ab-gear" onClick={() => setSettings((v) => !v)} aria-expanded={settings} aria-label="Choose the analysts" data-tip="Which analysts run, the paid lead, limits and the track record.">
           ⚙
@@ -598,7 +603,9 @@ export default function AiBrain({ symbol, live, marketHours, only = null, foldab
         )}
       </div>
       {settings && <Settings onClose={() => setSettings(false)} />}
-      {!open ? null : view === "open" && wantIntra ? (
+      {!open ? null : view === "playbook" && wantIntra ? (
+        <PlaybookPane symbol={symbol} pb={playbook} />
+      ) : view === "open" && wantIntra ? (
         <OpenForecastPane symbol={symbol} fc={openFc} />
       ) : view === "options" && wantIntra ? (
         <OptionChain symbol={symbol} data={chain.data} />

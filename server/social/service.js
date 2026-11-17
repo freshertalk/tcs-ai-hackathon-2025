@@ -301,6 +301,8 @@ class SocialService extends EventEmitter {
     const s = this._raw();
     const mode = this._aiMode(s);
     if (mode === "off" || !this.ai || !this.ai.social || !this.ai.social.ready()) return { read: 0, batches: 0, used: [] };
+    // the rules read every item for free; the AI reads some only when the owner lifted AI credit protection (or presses Digest now)
+    if (this.ai.guard && !this.ai.guard.autoAllowed() && !this.ai.guard.clicked()) return { read: 0, batches: 0, used: [], held: true };
     const feed = this._feed();
     const hour = new Date(this.now()).toISOString().slice(0, 13);
     const spent = feed.ai.hour === hour ? feed.ai.batches : 0;

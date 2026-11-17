@@ -508,6 +508,7 @@ class FlightDeck extends EventEmitter {
     const now = this.now();
     const st = this.settings();
     if (st.aiMode === "off" && auto) return null;
+    if (auto && this.ai.guard && !this.ai.guard.autoAllowed()) return null; // AI credit protection: only a click asks the AI
     if (st.aiToday >= st.aiDailyCap) throw new FlightError(`Today's ${st.aiDailyCap} AI opinions are used up (a limit you can change on the board).`, "rate_limited", 429);
     if (now - slot.aiAt < (auto ? 5 * 60000 : 30000)) {
       if (auto) return slot.ai;
@@ -614,6 +615,7 @@ class FlightDeck extends EventEmitter {
     const st = this.settings();
     if (auto) slot.levelsTryAt = now;
     if (auto && (st.aiMode !== "change" || typeof this.ai.exitAdvisor.research !== "function")) return null;
+    if (auto && this.ai.guard && !this.ai.guard.autoAllowed()) return null; // AI credit protection: only a click asks the AI
     if (st.aiToday >= st.aiDailyCap) {
       if (auto) return null;
       throw new FlightError(`Today's ${st.aiDailyCap} AI requests are used up (a limit you can change on the board).`, "rate_limited", 429);

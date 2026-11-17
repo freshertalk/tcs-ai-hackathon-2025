@@ -330,3 +330,16 @@
   font-weight: 600;
   color: var(--ink-3);
 }
+
+/* AI credit protection (AiSpend.jsx) */
+.ais-spend .ais-list {
+  display: grid;
+  gap: 3px;
+  margin: 4px 0 8px;
+  padding-left: 18px;
+  font-size: var(--t-small);
+  color: var(--ink-2, var(--ink));
+}
+.ais-spend .ais-check {
+  margin-top: 6px;
+}

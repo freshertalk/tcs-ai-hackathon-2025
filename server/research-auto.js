@@ -52,7 +52,7 @@ class ResearchAuto {
 
   status() {
     const s = this._state();
-    return { enabled: s.enabled, withAi: s.withAi, times: { pre: WINDOWS.pre.label, post: WINDOWS.post.label }, lastRuns: s.lastRuns, history: s.history.slice(0, 10), aiConfigured: this.ai.configured() };
+    return { enabled: s.enabled, withAi: s.withAi && (!this.ai.guard || this.ai.guard.autoAllowed()), aiHeld: Boolean(s.withAi && this.ai.guard && !this.ai.guard.autoAllowed()), times: { pre: WINDOWS.pre.label, post: WINDOWS.post.label }, lastRuns: s.lastRuns, history: s.history.slice(0, 10), aiConfigured: this.ai.configured() };
   }
 
   set({ enabled, withAi } = {}) {
@@ -75,7 +75,8 @@ class ResearchAuto {
       this.docs.write(NAME, s);
       return null;
     }
-    const withAi = s.withAi && this.ai.configured();
+    // AI notes written by the morning/evening run would spend credit nobody asked for: held back unless the owner lifted AI credit protection
+    const withAi = s.withAi && this.ai.configured() && (!this.ai.guard || this.ai.guard.autoAllowed());
     try {
       this.ai.research.start({ phase: due.phase, useAi: withAi, news: withAi, world: withAi && due.phase === "pre" });
     } catch (err) {

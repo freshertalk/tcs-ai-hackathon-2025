@@ -28,6 +28,7 @@ const { Engine, tag } = require("./engine");
 const { TradeAI } = require("./tradeai");
 const { SocialAI } = require("./social");
 const { ExitAdvisor } = require("./exitadvisor");
+const { SpendGuard } = require("./spend");
 const { SharedResearch } = require("./shared");
 const { IndexForecaster } = require("./indexai");
 const { PicksReviewer } = require("./picksai");
@@ -305,9 +306,12 @@ class AiService {
     this.store = store;
     this.secrets = secrets;
     this.market = market;
-    this.fetch = fetchImpl;
     this.now = now;
     this.log = log;
+    // AI credit protection (ai/spend.js): a request to an AI company goes out only when a person pressed a button. Every model client is
+    // built with this guarded fetch, so no feature can reach a model around it. (Not enforced until the app turns it on.)
+    this.guard = new SpendGuard({ docs: this.docs, now, log });
+    this.fetch = this.guard.wrapFetch(fetchImpl);
     this.playbook = new Playbook({ docs: this.docs });
     this.journal = new Journal({ docs: this.docs });
     this._recent = new Map(); // symbol|horizon → { at, result }: a double click does not pay twice

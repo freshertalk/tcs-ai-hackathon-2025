@@ -179,6 +179,7 @@ async function call(p, fetchImpl, url, { method = "POST", headers = {}, body, ti
       signal: sleepless(timeoutMs),
     });
   } catch (err) {
+    if (err instanceof AiError) throw err; // AI credit protection's refusal is its own message, not "could not reach"
     if (err && (err.name === "TimeoutError" || err.name === "AbortError")) throw new AiError(`${p.name} did not answer in time. Try again.`, "timeout", 504);
     throw new AiError(`Could not reach ${p.name}. Check the server's internet connection.`, "unreachable", 502);
   }

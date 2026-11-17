@@ -15,7 +15,7 @@ import { bookStore, pulseOf } from "./liveBook";
 import { everyVisible } from "../../visible";
 import "./trade.css";
 
-const TradeContext = createContext(null);
+export const TradeContext = createContext(null);
 
 /** null when this user cannot trade (not the superadmin), else the trading controls. */
 export const useTrade = () => useContext(TradeContext);

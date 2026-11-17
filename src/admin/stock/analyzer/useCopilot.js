@@ -97,7 +97,7 @@ export default function useCopilot(symbol, { day, log, events, active }) {
           }
         })
         .catch((e) => {
-          if (e.code === "cap_reached" || e.code === "not_configured") r.current.stopped = true;
+          if (e.code === "cap_reached" || e.code === "not_configured" || e.code === "not_asked") r.current.stopped = true; // not_asked: AI credit protection — only "Ask now" asks
           r.current.nextAt = Date.now() + 30000; // an error is not a reason to ask faster
           setNote({ kind: "error", text: e.message });
         })

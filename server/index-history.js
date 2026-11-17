@@ -412,6 +412,7 @@ class IndexHistory {
     if (!["month", "year"].includes(horizon)) throw new IndexError("The period is month or year.");
     if (!this.ai || !this.ai.indexAi || !this.ai.indexAi.ready()) throw new IndexError("No AI key is saved (the default model is Claude Sonnet 5.5 — save its key on the AI page).", "not_configured", 409);
     const st = this.settings();
+    if (auto && this.ai.guard && !this.ai.guard.autoAllowed()) return null; // AI credit protection: only a click asks the AI
     if (st.aiToday >= AI_DAILY_CAP) throw new IndexError(`Today's ${AI_DAILY_CAP} AI index projections are used up.`, "rate_limited", 429);
     const key = `${id}|${horizon}`;
     if (this.asking.has(key)) throw new IndexError("The AI is already working on this projection.", "busy", 409);

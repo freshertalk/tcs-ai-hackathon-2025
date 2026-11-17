@@ -465,6 +465,7 @@ class TopPicks {
 
   async _review(snap, why) {
     if (this._aiBusy) return;
+    if (this.ai && this.ai.guard && !this.ai.guard.autoAllowed() && !this.ai.guard.clicked()) return; // AI credit protection: only a click asks the AI
     this._aiBusy = true;
     try {
       const rec = this.record();

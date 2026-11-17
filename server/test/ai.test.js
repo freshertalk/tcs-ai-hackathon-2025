@@ -768,6 +768,7 @@ const snapshotOf = (req) => JSON.parse(req.body.messages[0].content.split("\n\n"
 test("live co-pilot: off without a key; a reading is built from the live snapshot, bounded by a gap and a daily limit, and scored ten minutes on", async (t) => {
   const s = await boot();
   t.after(s.close);
+  s.made.ai.guard.setAuto(true, "test"); // these readings are the co-pilot's automatic ones: protection lifted (see spend.test.js for the default)
   const live = (body) => s.request("POST", "/api/admin/ai/live/SBIN", { cookie: s.admin, body });
   const view = async () => (await s.request("GET", "/api/admin/ai/live/SBIN", { cookie: s.admin })).json;
   assert.equal((await s.request("GET", "/api/admin/ai/live/SBIN")).status, 401);
@@ -946,6 +947,7 @@ test("live co-pilot: off without a key; a reading is built from the live snapsho
 test("live co-pilot: it still reads when the 1-minute tape and the order book are missing, and says what it was not shown", async (t) => {
   const s = await boot();
   t.after(s.close);
+  s.made.ai.guard.setAuto(true, "test"); // an automatic reading: protection lifted (see spend.test.js for the default)
   await s.request("PUT", "/api/admin/ai/settings", { cookie: s.admin, body: { apiKey: KEY } });
   s.market.tape = async () => {
     throw new Error("Zerodha is down");
@@ -1300,4 +1302,56 @@ test("every AI company gets the same instructions, the same brief and the same c
   // and the record keeps them apart, one row per model, scored by the same arithmetic
   const st = (await s.request("GET", "/api/admin/ai/status", { cookie: s.admin })).json;
   assert.equal(st.byModel.length, new Set(results.map((r) => r.model)).size);
+});
+
+test("AI credit protection over HTTP: a button asks the AI; the co-pilot's own readings, and a page being read, do not — until the owner lifts it", async (t) => {
+  const s = await boot();
+  t.after(s.close);
+  await s.request("PUT", "/api/admin/ai/settings", { cookie: s.admin, body: { apiKey: KEY } });
+  s.market.minute = minuteTape(78, s.market.last);
+  s.market.flow = flowStub;
+  const live = (body) => s.request("POST", "/api/admin/ai/live/SBIN", { cookie: s.admin, body });
+  const spend = async () => (await s.request("GET", "/api/admin/ai/spend", { cookie: s.admin })).json;
+  const used = () => s.claude.requests.filter((r) => /\/messages$|\/v1\/messages/.test(r.url) || r.url.includes("messages")).length;
+
+  let sp = await spend();
+  assert.equal(sp.enforced, true);
+  assert.equal(sp.auto, false);
+  assert.equal(sp.blockedToday, 0);
+
+  // the co-pilot's own reading (its Go live mode): not a click
+  const before = used();
+  const auto = await live({ reason: "call-change", event: "WAIT → LONG" });
+  assert.equal(auto.status, 409, auto.text);
+  assert.equal(auto.json.error, "not_asked");
+  assert.match(auto.json.message, /runs only when you press an AI button, so no credit was used/);
+  assert.equal(used(), before, "no request left for the AI company");
+  sp = await spend();
+  assert.ok(sp.blockedToday >= 1);
+  assert.ok(sp.blocked.length >= 1);
+
+  // the same reading asked for with the button ("Ask now"): a click
+  s.claude.queue.push({ json: liveJson(), usage: { input_tokens: 2600, output_tokens: 180 } });
+  const manual = await live({ reason: "manual" });
+  assert.equal(manual.status, 200, manual.text);
+  assert.equal(used(), before + 1);
+
+  // a stranger is not a click
+  assert.equal((await s.request("POST", "/api/admin/ai/live/SBIN", { body: { reason: "manual" } })).status, 401);
+  assert.equal(used(), before + 1);
+
+  // the owner lifts the protection: the automatic reading may run (its own gap and daily limit still apply)
+  const lift = await s.request("PUT", "/api/admin/ai/spend", { cookie: s.admin, body: { auto: true } });
+  assert.equal(lift.status, 200);
+  assert.equal(lift.json.auto, true);
+  s.clock.ms += 5 * 60 * 1000;
+  s.claude.queue.push({ json: liveJson(), usage: { input_tokens: 2600, output_tokens: 180 } });
+  const later = await live({ reason: "call-change", event: "LONG → WAIT" });
+  assert.equal(later.status, 200, later.text);
+  assert.equal(used(), before + 2);
+  // and it can be put back
+  assert.equal((await s.request("PUT", "/api/admin/ai/spend", { cookie: s.admin, body: { auto: false } })).json.auto, false);
+  s.clock.ms += 5 * 60 * 1000;
+  assert.equal((await live({ reason: "tripwire", event: "x" })).status, 409);
+  assert.equal(used(), before + 2);
 });

@@ -4,6 +4,28 @@
 
 export const ENGINE = [
   {
+    id: "engine-credit",
+    part: "brains",
+    title: "AI credit protection — the AI is asked only when you press a button",
+    intro: "Every request to an AI company costs money. This rule makes sure none leaves the server unless a person asked for it.",
+    blocks: [
+      { logic: {
+        title: "What counts as a click",
+        who: "The server, for every request that could reach an AI company.",
+        when: "Always — on by default, and the check sits where a request leaves for the AI company, so no feature (old or new) can go around it.",
+        steps: [
+          "**A click** is a signed-in, state-changing request (the POST or PUT behind an AI button) carrying the site's own header. Everything that request starts keeps the click: an AI run that carries on for a minute after the page has its answer, the analysts it asks in turn, the repeat that the SDK tries once.",
+          "**Not a click:** any timer (the morning research's AI notes, the news digest, the after-close reviews of the day, the paper robot and the Top 10, the live scanner's review, the exit coach's own opinions and levels, the monthly index projection, the timed WhatsApp advice), a page that is only being read, and the live co-pilot's **Go live** readings (the page asks them by itself: only **Ask now** is a click).",
+          "**A message from your own WhatsApp number** is you asking: ASK, POSITIONS and the rest may use the AI. A message from any other number is ignored, as before.",
+          "**Only the paid kind of request is checked** (a POST to the AI company). Listing a company's models costs nothing. **An answer the AI Engine already holds** (an identical question within 15 minutes) costs nothing and is still served.",
+          "A refused request fails with “The AI was not asked for this: it runs only when you press an AI button, so no credit was used”. Every feature already carries on with the desk's own arithmetic when the AI is not available, so nothing breaks: the morning research writes its data sheets without AI notes, the social digest uses the free rules, a day's report says the AI analysis was not asked for.",
+        ],
+        limits: "Each refusal is counted and listed on the AI page (what tried to run, how often, when). The owner can lift the rule there — “Let the AI run on its own” — which is **off by default**; when it is on, each automatic feature still obeys its own switch and daily limit, and every call is paid for.",
+      } },
+      { note: "Features that still use credit, because you press them: AI Live, AI Research, Ask now, the strategist, the AI decision, Research with AI notes, the debrief, the journal review, the position coach, Write the AI analysis, TradeAI, Digest now, Ask the AI on Indices, the exit advisor's Ask, the scanner's Review, the Top 10's AI review button, brains written with the default model, and Test key." },
+    ],
+  },
+  {
     id: "engine-brains",
     part: "brains",
     title: "AI brains — the owner’s standing instructions",

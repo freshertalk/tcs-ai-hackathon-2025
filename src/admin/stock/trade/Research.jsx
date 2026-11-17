@@ -17,6 +17,7 @@ import IntradayResearch from "./IntradayResearch";
 import { RsiWatch, TopPicks } from "./TopPicks";
 import { LiveScanner } from "./LiveScanner";
 import { SetupLab } from "./SetupLab";
+import AutopilotPanel from "../autopilot/AutopilotPanel";
 import { inr, isNum, num, pct, when } from "../analyzer/format";
 import "./trade.css";
 
@@ -293,6 +294,8 @@ export default function Research({ onOpen = null }) {
     });
 
   return (
+    <>
+    <AutopilotPanel />
     <div className="rs rs--panes">
       {/* on a wide screen: what to prepare stays in view on the left; what was prepared fills the right */}
       <div className="rs-side">
@@ -443,5 +446,6 @@ export default function Research({ onOpen = null }) {
       )}
       </div>
     </div>
+    </>
   );
 }

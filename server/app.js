@@ -62,6 +62,8 @@ const { SocialWatch } = require("./social-watch");
 const { FlightDeck, FlightError } = require("./flight");
 const { LearnWatch } = require("./learn");
 const { OpenForecast } = require("./open-forecast");
+const { Autopilot } = require("./autopilot");
+const nseCalendar = require("./market/nse-holidays");
 const { makeDeskReaders } = require("./desk-readers");
 const { IndexHistory, IndexError } = require("./index-history");
 const { TopPicks, PicksError } = require("./picks");
@@ -220,6 +222,10 @@ function createApp(opts = {}) {
       fetchImpl: opts.aiFetch,
       now: opts.now,
     });
+
+  // AI credit protection (server/ai/spend.js): a request to an AI company leaves only when a person pressed an AI button.
+  // On unless a test or tool built its own AI service or asks for it off; the owner can lift it on the AI page.
+  if (!opts.ai) ai.guard.enforce = opts.aiGuard !== false;
 
   // the account and trading (Zerodha). Reads always; writes only while its switch is on.
   // Tests and simulators pass their own fetch: then orders go to the fake, never to Zerodha.
@@ -540,6 +546,17 @@ function createApp(opts = {}) {
       return res.status(403).json({ error: "csrf", message: "Request blocked." });
     }
     next();
+  });
+
+  // Which requests are a person pressing a button: a signed-in, state-changing request with the site's header (CSRF above). Whatever such a
+  // request starts keeps that. The co-pilot's automatic readings (its Go live mode) come as the same kind of request with a reason other than
+  // "manual": they are NOT a click. A page that is only being read (GET) is not one either.
+  app.use("/api", (req, res, next) => {
+    const g = ai.guard;
+    const route = `${req.method} ${logSafe(req.baseUrl + req.path)}`;
+    const user = ["GET", "HEAD", "OPTIONS"].includes(req.method) ? null : currentUser(req);
+    const auto = Boolean(user && req.path.startsWith("/admin/ai/live/") && req.body && req.body.reason && req.body.reason !== "manual");
+    g.run(user && !auto ? { click: true, by: user.email, route } : { click: false, route }, next);
   });
 
   const requireAdmin = (req, res, next) => {
@@ -1028,6 +1045,37 @@ ${e.text}
   const openForecast = opts.openForecast || new OpenForecast({ market, docs: store.docs, ai, playbook: ai.playbook, world: () => (typeof ai.worldSummary === "function" && ai.worldSummary() && typeof ai.world === "function" ? ai.world() : null), now: opts.now, log: opts.log || console });
   market.openHint = (symbol) => openForecast.peek(symbol);
   if (opts.openForecastWatch !== false && opts.alertWatch !== false) openForecast.start();
+  // the autopilot (server/autopilot.js): playbooks, the event calendar, the risk gate, order PROPOSALS (never orders),
+  // and the grading of the research. It reads the market and the account; it cannot place an order.
+  const autopilot = opts.autopilot || new Autopilot({ market, docs: store.docs, trading, notifier, playbook: ai.playbook, now: opts.now, log: opts.log || console });
+  if (opts.autopilotWatch !== false && opts.alertWatch !== false) autopilot.start();
+  const aWrap = (fn) => async (req, res) => {
+    try {
+      res.json(await fn(req));
+    } catch (err) {
+      if (!err.status) console.error("[autopilot]", err && err.message ? err.message : err);
+      res.status(err.status || 500).json({ error: err.code || "autopilot_failed", message: err.message || "The autopilot failed." });
+    }
+  };
+  // AI credit protection on the AI page: the rule, what it has held back today, what the AI has used
+  app.get("/api/admin/ai/spend", requireAdmin, aWrap(() => ({ ...ai.guard.status(), today: ai.engine.status().today, saved: ai.engine.status().saved })));
+  app.put("/api/admin/ai/spend", requireSuper, limiter(20, 15 * 60 * 1000), aWrap((req) => ai.guard.setAuto(Boolean((req.body || {}).auto), req.user.email)));
+  const symOf = (req) => String(req.params.symbol || "").trim().toUpperCase().slice(0, 25);
+  app.get("/api/admin/autopilot", requireAdmin, aWrap((req) => autopilot.board({ withAccount: req.user.role === "superadmin" })));
+  app.get("/api/admin/autopilot/playbook/:symbol", requireAdmin, limiter(120, 60 * 1000), aWrap((req) => autopilot.playbook(symOf(req), { withAccount: req.user.role === "superadmin" })));
+  app.put("/api/admin/autopilot/settings", requireSuper, limiter(40, 15 * 60 * 1000), aWrap((req) => ({ settings: autopilot.setSettings(req.body || {}, req.user.email) })));
+  app.post("/api/admin/autopilot/events", requireSuper, limiter(60, 15 * 60 * 1000), aWrap((req) => ({ event: autopilot.addEvent(req.body || {}, req.user.email) })));
+  app.delete("/api/admin/autopilot/events/:id", requireSuper, aWrap((req) => {
+    autopilot.removeEvent(String(req.params.id || "").slice(0, 40));
+    return { ok: true };
+  }));
+  app.post("/api/admin/autopilot/proposals/:id/:action", requireSuper, limiter(120, 15 * 60 * 1000), aWrap((req) => ({ proposal: autopilot.decide(decodeURIComponent(String(req.params.id)).slice(0, 120), String(req.params.action), req.user.email) })));
+  // "Study now": grade the outlook on a year of history again and read the proposals' results
+  app.post("/api/admin/autopilot/recalibrate", requireSuper, limiter(8, 10 * 60 * 1000), aWrap(async () => {
+    await autopilot.recalibrate();
+    await autopilot.grade();
+    return autopilot.board({ withAccount: true });
+  }));
   const oWrap = (fn) => async (req, res) => {
     try {
       res.json(await fn(req));
@@ -1115,7 +1163,7 @@ ${e.text}
   });
 
   // research that runs by itself before the open and after the close (server/research-auto.js)
-  const researchAuto = new ResearchAuto({ ai, market, docs: store.docs, now: opts.now, log: opts.log || console });
+  const researchAuto = new ResearchAuto({ ai, market, docs: store.docs, now: opts.now, log: opts.log || console, isHoliday: (date) => !nseCalendar.isTradingDay(date) });
   if (opts.researchAuto !== false) researchAuto.start();
   // paper trading: the live call followed with play money. A separate system: it reads prices only,
   // and is not connected to the trading service or its switch in any way.
@@ -1145,6 +1193,10 @@ ${e.text}
   app.get("/api/admin/research/auto", requireAdmin, (req, res) => res.json(researchAuto.status()));
   app.put("/api/admin/research/auto", requireSuper, (req, res) => {
     const b = req.body || {};
+    // AI notes written by a timer would spend credit nobody asked for: refused while AI credit protection is on
+    if (b.withAi === true && ai.guard.enforce && !ai.guard.autoAllowed()) {
+      return res.status(409).json({ error: "not_asked", message: "AI credit protection is on: the AI is asked only when you press an AI button, so the automatic run cannot write AI notes. Press Research on the stocks to get them, or lift the protection on the AI page." });
+    }
     res.json(researchAuto.set({ enabled: typeof b.enabled === "boolean" ? b.enabled : undefined, withAi: typeof b.withAi === "boolean" ? b.withAi : undefined }));
   });
 
@@ -1450,6 +1502,7 @@ ${e.text}
     scanner,
     setupLab,
     openForecast,
+    autopilot,
     get setupToken() {
       return setupToken;
     },

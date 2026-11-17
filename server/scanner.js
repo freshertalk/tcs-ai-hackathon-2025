@@ -441,6 +441,7 @@ class Scanner extends EventEmitter {
     if (!this.ai || !this.ai.scanAi || !this.ai.scanAi.ready()) throw new ScannerError("No AI company is set up: add a key on the AI page.", "not_configured", 409);
     const asked = why === "you asked";
     const st = this.settings();
+    if (!asked && this.ai.guard && !this.ai.guard.autoAllowed()) return null; // AI credit protection: only a click asks the AI
     if (!asked && st.aiToday >= st.aiDailyCap) return null;
     const { picks, watch } = this._ranked();
     const cands = [...picks.slice(0, MAX_PICKS), ...watch.slice(0, 4)];

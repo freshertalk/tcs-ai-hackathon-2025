@@ -490,7 +490,7 @@ class PaperRobot {
     // then the new ones
     let proposals = I.propose({ trades, rules, corrections: this.s.corrections, today, dates });
     let aiNote = null;
-    if (this.s.withAi && this.ai && this.ai.robotCoach && typeof this.ai.configured === "function" && this.ai.configured() && (proposals.length || trades.some((t) => t.date === date))) {
+    if (this.s.withAi && (!this.ai || !this.ai.guard || this.ai.guard.autoAllowed() || this.ai.guard.clicked()) && this.ai && this.ai.robotCoach && typeof this.ai.configured === "function" && this.ai.configured() && (proposals.length || trades.some((t) => t.date === date))) {
       try {
         aiNote = await this.ai.robotCoach.review(this._coachInput(date, trades, proposals));
       } catch (err) {

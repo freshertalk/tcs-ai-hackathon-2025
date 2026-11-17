@@ -35,6 +35,8 @@ class AiError extends Error {
 /** Turn an SDK exception into something a person can act on. Most specific first. */
 function explain(err) {
   if (err instanceof AiError) return err;
+  // AI credit protection (ai/spend.js) refused the request inside fetch: the SDK wraps that as a connection error, but it was no outage
+  if (err && err.cause instanceof AiError) return err.cause;
   if (err instanceof sdk.AuthenticationError) return new AiError("Anthropic rejected the API key. Check it in the AI settings.", "bad_key", 401);
   if (err instanceof sdk.PermissionDeniedError) return new AiError("This API key is not allowed to use the selected model. Pick another model or check the key's workspace.", "forbidden", 403);
   if (err instanceof sdk.NotFoundError) return new AiError("Anthropic does not know the selected model. Pick another one in the AI settings.", "bad_model", 400);

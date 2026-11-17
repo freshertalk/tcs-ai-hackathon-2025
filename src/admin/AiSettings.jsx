@@ -4,6 +4,7 @@ import { adminPath } from "./paths";
 import Shell from "./Shell";
 import { Alert, Loading } from "./ui";
 import { publishAiStatus, useAiStatus, loadAiStatus } from "./aiStatus";
+import AiSpend from "./AiSpend";
 import "./ai.css";
 
 /**
@@ -295,6 +296,7 @@ export default function AiSettings() {
             </section>
 
             <aside className="ais-side">
+              <AiSpend />
               <section className="ais-card" aria-labelledby="ais-search">
                 <h2 id="ais-search">Web search</h2>
                 <p className="ais-note">

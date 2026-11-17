@@ -264,7 +264,9 @@ class WhatsAppService {
       this._note({ lastInboundAt: new Date(this.now()).toISOString(), lastReceived: new Date(this.now()).toISOString() });
       if (!this._load().enabled) continue;
       const text = m.type === "text" && m.text ? String(m.text.body || "") : m.type === "button" && m.button ? String(m.button.text || "") : "";
-      const reply = await this.handle(text).catch((err) => `Sorry — that did not work: ${err.message}`);
+      // a message from the owner's own number is the owner asking: whatever AI it needs is asked for (AI credit protection, ai/spend.js)
+      const asked = () => this.handle(text);
+      const reply = await (this.ai && this.ai.guard ? this.ai.guard.run({ click: true, by: "the owner, on WhatsApp", route: "WhatsApp message" }, asked) : asked()).catch((err) => `Sorry — that did not work: ${err.message}`);
       if (reply) await this.send(reply, { kind: "reply" });
       out.push({ text, reply });
     }

@@ -127,6 +127,8 @@ class Engine {
       const system = (args && args.system) || "";
       const extra = EXTRA.get(system);
       const feat = featureOf(system) || (extra && extra.id) || feature || "other";
+      // AI credit protection: a request nobody asked for goes no further (the answer already held, above, is still served)
+      if (this.ai.guard) this.ai.guard.check(nameOf(feat));
       const id = ++this.seq;
       const entry = { id, feature: feat, model: model || client.model || "", provider: pid, kind, queuedAt: Date.now(), startedAt: null };
       this.running.set(id, entry);
