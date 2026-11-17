@@ -189,6 +189,7 @@ class MarketService {
     // "all" (tests with a made-up exchange): every NSE stock and no index lists
     this.indexList = screenerIndex === "all" ? null : new IndexList({ dir: this.dir, fetchImpl: indexFetch, now: this.now, log });
     this.universe = new Universe({ dir: this.dir, market: this });
+    this.openHint = null; // (symbol) => the learned opening forecast for the next session, when app.js wires one
     this.worldProvider = null; // () => the latest AI world brief in short form, when the AI service is present
     fs.mkdirSync(path.join(this.dir, "candles"), { recursive: true });
     if (!this.store.data.market) this.store.update((d) => (d.market = { watchlist: [], demo: false }));
@@ -1260,7 +1261,13 @@ class MarketService {
     } catch (_) {
       news = null;
     }
-    const p = buildIntradayPlan({ daily: d.candles, forming, bars5, outlook: out, nifty: ix ? ix.candles : null, gift, marketOpen, costPct: DEFAULT_COST_PCT, options, marketCue, news });
+    let openHint = null;
+    try {
+      openHint = !marketOpen && this.openHint ? this.openHint(symbol) : null;
+    } catch (_) {
+      openHint = null;
+    }
+    const p = buildIntradayPlan({ daily: d.candles, forming, bars5, outlook: out, nifty: ix ? ix.candles : null, gift, marketOpen, costPct: DEFAULT_COST_PCT, options, marketCue, news, openHint });
     const res = { ...p, symbol, source: d.source, stale: Boolean(d.stale), marketOpen, outlookBasis: outlook && outlook.available ? "full" : "chart and odds", at: new Date(now).toISOString() };
     if (this._planAt.size > 80) this._planAt.clear();
     this._planAt.set(key, { at: now, out: res });

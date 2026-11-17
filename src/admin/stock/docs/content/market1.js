@@ -36,6 +36,26 @@ export const MARKET_DATA = [
         "**Radar** — the watchlist stocks that are strongest and weakest against the Nifty and VWAP since the open (the same score as the watchlist's “Strong today / Weak today”); press a name to open it. Needs live prices.",
         "**Before you enter** — five questions (stop-loss decided; risk inside your limit; the tide agrees with your side; not chasing; a plan, not a reaction to the last loss) and a line that answers itself: whether it is a good time of day. Your ticks are kept for the day in the browser and cleared the next morning; Reset clears them at once.",
       ] },
+      { h: "The opening-price forecast" },
+      { p: "For the stock that is open, two blocks in the AI strip (after *Intraday plan*): **Predicted open** — the most probable price of the next open, made before the market opens — and **Actual open** — the real opening price, written beside it once the market has opened, with how far off the forecast was and whether it fell inside its band. Press either for the working. Every forecast and its result is kept in the database (`open_forecasts`), and the forecast corrects itself from that record after every open. It asks no AI model, so it costs nothing to run." },
+      { logic: {
+        title: "How the opening price is forecast",
+        who: "The server, by itself: whenever a stock is opened on the Desk, and every trading morning from 8:30 to 9:00 IST for the watchlist, the Nifty and every stock looked at in the last week (Zerodha must be connected that morning).",
+        when: "Until **9:00 AM**, when the exchange's opening auction starts. From then the forecast is **final** — nothing made later is scored as a forecast. During the auction (9:00–9:15) the exchange's indicative price is shown beside it, marked as indicative.",
+        steps: [
+          "**The index cue:** how the Nifty is expected to open — GIFT Nifty against the Nifty future and the overseas markets, from the desk's own market forecast. The cue's own measured bias is taken out.",
+          "**Four estimates:** (1) it opens at the previous close — the baseline the others must beat; (2) the expected index gap × this stock's measured sensitivity to the Nifty's opening gap (about a year of sessions); (3) a regression on what the stock and the index did yesterday — the day's return, where it closed in its range, yesterday's own gap — together with the index gap; (4) that, plus a tilt from the softer evidence: the chart's lean, the last AI Research run (if under a day and a half old), the option chain's open-interest bias and the news mood.",
+          "**The blend:** the four are averaged with weights learned from the record, then this stock's own bias is added (it keeps opening above its forecast → the next one is raised). The price is rounded to the 5-paise tick.",
+          "**The band:** the range that should hold about 70% of opens, from the model's own spread of misses, widened or narrowed by what the record shows. Without an index cue the band is the stock's whole normal spread of opens.",
+          "**Scored at 9:16:** the real open (the quote's open; or that day's bar if the server was down) is written beside the forecast with the miss in rupees and percent, in or out of the band, and how each of the four estimates did. A day the market turned out to be shut is marked void and teaches nothing.",
+          "**Learned after every scoring:** the whole record is read again — the four weights follow each estimate's recent average miss; each stock's bias and usual miss come from its last 20 scored forecasts; the index cue's bias from the Nifty's own forecasts; the band's width from how many opens fell inside; and the worth of the soft evidence from how much of the miss it explained. Thin records stay close to the starting values.",
+        ],
+        limits: "An opening price depends on overnight news nobody has seen: this is the most probable price, **not a promise**. The working also shows a history test (the last 120 sessions forecast one by one, given the Nifty's real gap) — live results are less exact, because the Nifty's gap has to be forecast too.",
+      } },
+      { ul: [
+        "**Used elsewhere:** the Intraday plan's *expected open* now reads this forecast when one exists; and the findings (average miss, how often the direction was right, the cue's bias, which stocks keep opening away from their forecast) are written into the trading-skills file every AI feature reads — the section “What the desk has measured about the opening price”, replaced after every scoring.",
+        "**After the close** the blocks move on to the next session's forecast; the last result stays beside it for comparison.",
+      ] },
       { h: "The three connection states" },
       { table: { label: "Connection states", head: ["State", "When", "What you see"], rows: [
         ["Live (kite)", "Key and encrypted secret saved, a token exists and it has not expired.", "“Live data from Zerodha”, the expiry time, and a reminder that orders are placed only from Positions, with the trading switch on."],

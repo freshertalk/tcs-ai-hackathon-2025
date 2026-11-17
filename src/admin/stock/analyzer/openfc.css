@@ -1,0 +1,146 @@
+/* ==========================================================================
+   The opening-price forecast on the Desk (OpenForecast.jsx): the two blocks in the AI strip and the working.
+   Colours from the desk's tokens, so both themes follow.
+   ========================================================================== */
+
+.of-mini {
+  min-width: 132px;
+}
+.of-mini b {
+  font-variant-numeric: tabular-nums;
+}
+.of-mini--hit {
+  border-color: color-mix(in srgb, var(--up) 55%, var(--line));
+  background: color-mix(in srgb, var(--up) 9%, var(--surface-2, var(--surface)));
+}
+.of-mini--miss {
+  border-color: color-mix(in srgb, var(--warn, #d99a00) 60%, var(--line));
+  background: color-mix(in srgb, var(--warn, #d99a00) 10%, var(--surface-2, var(--surface)));
+}
+
+.of {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.of-top {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.of-card {
+  display: grid;
+  align-content: start;
+  gap: 3px;
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface-2, var(--surface));
+  font-size: var(--t-small);
+  line-height: 1.45;
+}
+.of-card small {
+  color: var(--ink-3);
+  font-size: var(--t-small);
+  font-weight: 600;
+}
+.of-card b {
+  font-size: var(--t-xlarge);
+  font-weight: 600;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+}
+.of-card--up b {
+  color: var(--up);
+}
+.of-card--down b {
+  color: var(--down);
+}
+.of-card--hit {
+  border-color: color-mix(in srgb, var(--up) 55%, var(--line));
+}
+.of-card--miss {
+  border-color: color-mix(in srgb, var(--warn, #d99a00) 60%, var(--line));
+}
+.of-dim {
+  color: var(--ink-3);
+}
+.of-sec h4 {
+  margin: 0 0 6px;
+  font-size: var(--t-base);
+  font-weight: 600;
+}
+.of-scroll {
+  overflow-x: auto;
+}
+.of-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--t-small);
+  font-variant-numeric: tabular-nums;
+}
+.of-table th,
+.of-table td {
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--line);
+  text-align: right;
+  white-space: nowrap;
+}
+.of-table th[scope="row"],
+.of-table thead th:first-child {
+  text-align: left;
+  font-weight: 500;
+  white-space: normal;
+}
+.of-table thead th {
+  color: var(--ink-3);
+  font-weight: 600;
+}
+.of-total th,
+.of-total td {
+  border-bottom: 0;
+  font-weight: 700 !important;
+}
+.of .is-up {
+  color: var(--up);
+}
+.of .is-down {
+  color: var(--down);
+}
+.of-notes {
+  display: grid;
+  gap: 5px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--t-small);
+  line-height: 1.5;
+}
+.of-chip {
+  display: inline-block;
+  margin: 0 4px 2px 0;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  font-weight: 600;
+}
+@media (max-width: 700px) {
+  .of-top {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .of-card b {
+    font-size: var(--t-large);
+  }
+}
+
+/* On a narrow screen the chip row is one line you swipe along (desk.css). The opening price is what a trader looks
+   for first before the bell, so its two blocks lead the row there instead of hiding at its far end. */
+@media (max-width: 760px) {
+  .an.dk .ab-minis .ab-mini-btn:has(.of-mini) {
+    order: -1;
+  }
+  .of-mini {
+    min-width: 150px;
+  }
+}

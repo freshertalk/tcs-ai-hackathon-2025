@@ -224,7 +224,7 @@ const bucketOf = (s) => (!num(s) ? null : s >= LEAN_AT ? "up" : s <= -LEAN_AT ? 
  * @param news      what the Social Media page's news and posts said about this stock in the last day
  *                  ({ mentions, sentiment −1…+1, tone, high, items: [{ title, source, at }] }), or null
  */
-function buildIntradayPlan({ daily, forming = false, bars5 = [], outlook = null, nifty = null, gift = null, marketOpen = false, costPct = 0.1, options = null, marketCue = null, news = null }) {
+function buildIntradayPlan({ daily, forming = false, bars5 = [], outlook = null, nifty = null, gift = null, marketOpen = false, costPct = 0.1, options = null, marketCue = null, news = null, openHint = null }) {
   if (!Array.isArray(daily) || daily.length < 60) return { available: false, reason: "Fewer than 60 daily bars: not enough history for an intraday plan." };
   const done = forming ? daily.slice(0, -1) : daily;
   const k = done.length - 1;
@@ -455,8 +455,11 @@ function buildIntradayPlan({ daily, forming = false, bars5 = [], outlook = null,
   }
   const fromForecast = !marketOpen && marketCue && num(marketCue.gapPct);
   const cue = fromForecast ? marketCue.gapPct : !marketOpen && gift && gift.available && num(gift.changePct) ? gift.changePct : null;
-  const gapPct = num(cue) ? (num(beta) ? beta : 1) * cue : 0;
-  const sd = num(gapSd) ? Math.max(gapSd, 0.15) : 0.5; // never a band narrower than ±0.15%
+  // the desk's learned opening forecast (server/open-forecast.js), when one has been made for this session:
+  // it has already weighed the index cue, this stock's habits and its own record
+  const hinted = !marketOpen && openHint && num(openHint.gapPct) && num(openHint.halfPct);
+  const gapPct = hinted ? openHint.gapPct : num(cue) ? (num(beta) ? beta : 1) * cue : 0;
+  const sd = hinted ? Math.max(openHint.halfPct, 0.15) : num(gapSd) ? Math.max(gapSd, 0.15) : 0.5; // never a band narrower than ±0.15%
   const openX = prev.c * (1 + gapPct / 100);
   const open = {
     expected: onTick(openX),
@@ -465,7 +468,9 @@ function buildIntradayPlan({ daily, forming = false, bars5 = [], outlook = null,
     gapPct: r2(gapPct),
     beta: r2(beta),
     cue: num(cue) ? r2(cue) : null,
-    basis: fromForecast
+    basis: hinted
+      ? `The desk's opening-price forecast: ${gapPct >= 0 ? "+" : ""}${r2(gapPct)}% from the last close, blended from the expected index gap, this stock's own opening habits, yesterday's behaviour and the softer evidence, with weights learned from its scored record. The band (±${r2(sd)}%) aims to hold about 70% of opens.`
+      : fromForecast
       ? `The NSE forecast from the world expects ${marketCue.label || `a Nifty gap of ${r2(cue)}%`} (${marketCue.basis || "from the overseas cues"}); ${num(beta) ? `this stock's opens have moved about ${r2(beta)}× the Nifty's gap` : "taken one-for-one"}. The band is one normal spread of its opens (±${r2(sd)}%).`
       : num(cue)
       ? `GIFT Nifty is ${cue >= 0 ? "+" : ""}${r2(cue)}% from its last settlement; ${num(beta) ? `this stock's opens have moved about ${r2(beta)}× the Nifty's gap` : "taken one-for-one (too few Nifty sessions to measure this stock's sensitivity)"}. The band is one normal spread of its opens (±${r2(sd)}%). GIFT Nifty is a future: a hint for the open, not the Nifty itself.`

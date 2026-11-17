@@ -28,7 +28,7 @@ const path = require("path");
 const RECORDS = ["db.json", "ai/world.json", "ai/news.json", "ai/live.json", "ai/journal.json", "ai/debriefs.json", "ai/coach.json", "ai/research.json", "ai/trading-skills.md", "trading/journal.json", "ai/reviews.json", "market/behaviour.json", "ai/decisions.json", "market/edge.json", "market/signals.json", "market/alerts.json", "research/auto.json"];
 const LOGS = { "trading/audit": "trading/audit.jsonl" };
 /** Lists kept one record per item (a collection of its own in MongoDB, one file otherwise). */
-const COLLECTIONS = ["journal_fills", "analysis_snapshots", "analysis_outcomes", "analysis_learnings", "robot_trades", "robot_days", "robot_study", "robot_history"];
+const COLLECTIONS = ["journal_fills", "analysis_snapshots", "analysis_outcomes", "analysis_learnings", "robot_trades", "robot_days", "robot_study", "robot_history", "open_forecasts"];
 const LOG_KEEP = 2000; // entries of a log kept in memory (the database keeps them all)
 
 const isText = (name) => name.endsWith(".md");

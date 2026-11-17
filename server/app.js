@@ -61,6 +61,7 @@ const { readingOf: socialReading } = require("./social/extract");
 const { SocialWatch } = require("./social-watch");
 const { FlightDeck, FlightError } = require("./flight");
 const { LearnWatch } = require("./learn");
+const { OpenForecast } = require("./open-forecast");
 const { makeDeskReaders } = require("./desk-readers");
 const { IndexHistory, IndexError } = require("./index-history");
 const { TopPicks, PicksError } = require("./picks");
@@ -1022,6 +1023,27 @@ ${e.text}
   const learn = opts.learn || new LearnWatch({ market, docs: store.docs, flight, trading, playbook: ai.playbook, now: opts.now, log: opts.log || console });
   flight.learn = learn;
   if (opts.learnWatch !== false && opts.alertWatch !== false) learn.start();
+  // the opening-price forecast (server/open-forecast.js): made before every open, scored at 9:16, learned from.
+  // The Desk shows it for the stock that is open; the intraday plan's expected open reads it too.
+  const openForecast = opts.openForecast || new OpenForecast({ market, docs: store.docs, ai, playbook: ai.playbook, world: () => (typeof ai.worldSummary === "function" && ai.worldSummary() && typeof ai.world === "function" ? ai.world() : null), now: opts.now, log: opts.log || console });
+  market.openHint = (symbol) => openForecast.peek(symbol);
+  if (opts.openForecastWatch !== false && opts.alertWatch !== false) openForecast.start();
+  const oWrap = (fn) => async (req, res) => {
+    try {
+      res.json(await fn(req));
+    } catch (err) {
+      if (!err.status) console.error("[open]", err && err.message ? err.message : err);
+      res.status(err.status || 500).json({ error: err.code || "open_forecast_failed", message: err.message || "The opening forecast failed." });
+    }
+  };
+  app.get("/api/admin/market/open-forecast", requireAdmin, oWrap(async () => openForecast.board()));
+  app.get("/api/admin/market/open-forecast/:symbol", requireAdmin, limiter(180, 60 * 1000), oWrap(async (req) => openForecast.view(String(req.params.symbol || "").trim().toUpperCase().slice(0, 25))));
+  // "score now": write the real opens beside the waiting forecasts and learn again (it also happens by itself)
+  app.post("/api/admin/market/open-forecast/learn", requireSuper, limiter(12, 10 * 60 * 1000), oWrap(async () => {
+    const scored = await openForecast.score();
+    openForecast.relearn();
+    return { scored, ...openForecast.board() };
+  }));
   const fWrap = (fn) => async (req, res) => {
     try {
       res.json(await fn(req));
@@ -1427,6 +1449,7 @@ ${e.text}
     trading,
     scanner,
     setupLab,
+    openForecast,
     get setupToken() {
       return setupToken;
     },

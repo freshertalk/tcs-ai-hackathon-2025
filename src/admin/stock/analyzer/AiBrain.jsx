@@ -14,6 +14,7 @@ import { api } from "../../api";
 import { inr, isNum, num } from "./format";
 import IntradayPlan, { KIND, useIntradayPlan } from "./IntradayPlan";
 import OptionChain, { biasTone, useOptionChain } from "./OptionChain";
+import { OpenChips, OpenForecastPane, useOpenForecast } from "./OpenForecast";
 import "./brain.css";
 
 const enc = encodeURIComponent;
@@ -510,6 +511,8 @@ export default function AiBrain({ symbol, live, marketHours, only = null, foldab
   const intra = useIntradayPlan(symbol, wantIntra);
   const chain = useOptionChain(symbol, wantIntra);
   const hasChain = Boolean(chain.data && chain.data.available);
+  // the opening price: the most probable one before the open, the real one beside it after (server/open-forecast.js)
+  const openFc = useOpenForecast(symbol, wantIntra);
   useEffect(() => {
     setView(first());
   }, [symbol]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -582,6 +585,7 @@ export default function AiBrain({ symbol, live, marketHours, only = null, foldab
               </span>
             </button>
           )}
+          {wantIntra && <OpenChips fc={openFc} pressed={open && view === "open"} onShow={() => show("open")} />}
         </div>
         <button type="button" className="ab-gear" onClick={() => setSettings((v) => !v)} aria-expanded={settings} aria-label="Choose the analysts" data-tip="Which analysts run, the paid lead, limits and the track record.">
           ⚙
@@ -594,7 +598,9 @@ export default function AiBrain({ symbol, live, marketHours, only = null, foldab
         )}
       </div>
       {settings && <Settings onClose={() => setSettings(false)} />}
-      {!open ? null : view === "options" && wantIntra ? (
+      {!open ? null : view === "open" && wantIntra ? (
+        <OpenForecastPane symbol={symbol} fc={openFc} />
+      ) : view === "options" && wantIntra ? (
         <OptionChain symbol={symbol} data={chain.data} />
       ) : view === "intraday" && wantIntra ? (
         intra.data ? (
