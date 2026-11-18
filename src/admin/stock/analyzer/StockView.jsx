@@ -234,7 +234,7 @@ export default function StockView({ symbol, quote, status, streaming = false, in
   // while the market is open, refresh the reading once a minute without flicker
   useEffect(() => {
     if (!live || !status.marketHours) return undefined;
-    return everyVisible(() => load(true), 60000);
+    return everyVisible(() => load(true), 60000, { topics: ["market"] });
   }, [live, status.marketHours, load]);
 
   // the verdict tab only exists on narrower screens

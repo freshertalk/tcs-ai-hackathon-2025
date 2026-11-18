@@ -63,6 +63,7 @@ const { FlightDeck, FlightError } = require("./flight");
 const { LearnWatch } = require("./learn");
 const { OpenForecast } = require("./open-forecast");
 const { Horizon } = require("./horizon");
+const { LiveHub } = require("./live");
 const { Autopilot } = require("./autopilot");
 const nseCalendar = require("./market/nse-holidays");
 const { makeDeskReaders } = require("./desk-readers");
@@ -559,6 +560,11 @@ function createApp(opts = {}) {
     const auto = Boolean(user && req.path.startsWith("/admin/ai/live/") && req.body && req.body.reason && req.body.reason !== "manual");
     g.run(user && !auto ? { click: true, by: user.email, route } : { click: false, route }, next);
   });
+
+  // The live hub (server/live.js): every successful state-changing request under /api/admin tells every open page which topics changed,
+  // so they re-read at once; the watchers further down publish what no request caused. Registered before any route.
+  const live = opts.liveHub || new LiveHub({ now: opts.now, log: opts.log || console });
+  app.use("/api/admin", live.middleware());
 
   const requireAdmin = (req, res, next) => {
     const u = currentUser(req);
@@ -1448,6 +1454,41 @@ ${e.text}
   });
 
   /* ------------------------------------------------ site health (server/health.js) */
+  // The live channel (one connection per browser; see src/admin/live.js) and what the hub watches. A watcher's value is a cheap fingerprint of
+  // the server's own state: when it changes, its topic is published and every page that shows it re-reads.
+  app.get("/api/admin/live", requireAdmin, live.handler());
+  app.get("/api/admin/live/status", requireSuper, (req, res) => res.json(live.status()));
+  live.watch("market", () => {
+    const k = market.kiteState();
+    return [market.mode(), k.connected, k.user, k.expiresAt, Boolean(market.ticker && market.ticker.isLive())];
+  });
+  live.watch("trading", () => {
+    const s = trading.status();
+    return [s.enabled, s.changedAt, s.riskLock, (s.updates || []).length, s.connected, s.streaming, s.limits];
+  });
+  live.watch("paper", () => {
+    const s = paper.status();
+    return [s.auto, s.autoSince, s.tested && s.tested.total];
+  });
+  live.watch("research", () => {
+    const s = researchAuto.status();
+    return [s.enabled, s.withAi, s.lastRuns, (s.history || []).map((h) => h.at || h.startedAt || h.finishedAt)];
+  });
+  live.watch("alerts", () => market.alerts());
+  live.watch("robot", () => {
+    const st = robot.s || {};
+    const rec = robot.rec || {};
+    return [robot.settings && robot.settings().on, (st.open || []).map((p) => `${p.symbol}:${p.qty}`), (st.log || []).length, Object.keys(rec.trades || {}).length, (rec.decisions || []).length, st.learned];
+  });
+  live.watch("horizon", () => horizon.fingerprint());
+  live.watch("open", () => openForecast.fingerprint());
+  live.watch("autopilot", () => autopilot.fingerprint());
+  live.watch("ai", () => [ai.guard.status(), ai.status()]);
+  live.watch("social", () => (market.social && typeof market.social.status === "function" ? market.social.status() : null));
+  live.watch("system", () => [whatsapp ? whatsapp.status() : null, notifier.status(), temple.settings()]);
+  live.watch("health", () => [market.mode(), trading.status().enabled, trading.status().riskLock, alertWatch ? alertWatch.status() : null, ai.configured(), horizon.fingerprint()]);
+  if (opts.liveWatch !== false) live.start();
+
   app.get("/api/admin/health", requireAdmin, limiter(60, 60 * 1000), async (req, res) => {
     try {
       res.json(await buildHealth({ now: opts.now, docs, dataDir, horizon, openForecast, autopilot, robot, market, ai, trading, analysis, paper, researchAuto, notifier, alertWatch, whatsapp, temple, holidays, googleConfigured: () => credentials().source !== "none" }, { secure: isSecure(req), host: req.get("host") || "" }));
@@ -1533,6 +1574,7 @@ ${e.text}
     setupLab,
     openForecast,
     horizon,
+    live,
     autopilot,
     get setupToken() {
       return setupToken;

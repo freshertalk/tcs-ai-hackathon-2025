@@ -6,6 +6,7 @@
 
 import React, { useEffect, useState } from "react";
 import { api } from "../../api";
+import { everyVisible } from "../../visible";
 import { Alert, Loading } from "../../ui";
 import { LineChart } from "./charts";
 import { Chip, Tile } from "./Snapshots";
@@ -24,10 +25,10 @@ function useLoad(url, every = 0) {
     const load = () => api(url).then((data) => on && setSt({ loading: false, data, error: "" })).catch((e) => on && setSt((s) => ({ loading: false, data: s.data, error: e.message })));
     load();
     if (!every) return () => (on = false);
-    const t = setInterval(load, every);
+    const t = everyVisible(load, every, { topics: ["robot", "analysis"] });
     return () => {
       on = false;
-      clearInterval(t);
+      t();
     };
   }, [url, every]);
   return st;

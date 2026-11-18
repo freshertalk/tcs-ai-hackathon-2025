@@ -272,7 +272,7 @@ export default function DayBoard({ status, quotes, symbols, onPick }) {
         .then((d) => alive && setCtx(d))
         .catch(() => {});
     pull();
-    const stop = everyVisible(pull, status.marketHours ? 30000 : 120000);
+    const stop = everyVisible(pull, status.marketHours ? 30000 : 120000, { topics: ["market"] });
     return () => {
       alive = false;
       stop();

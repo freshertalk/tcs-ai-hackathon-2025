@@ -102,7 +102,7 @@ export default function Screener({ onOpen }) {
   const running = Boolean(status && status.job.running);
   useEffect(() => {
     if (!running) return undefined;
-    return everyVisible(loadStatus, 2000);
+    return everyVisible(loadStatus, 2000, { topics: ["market"] });
   }, [running, loadStatus]);
 
   const act = (path, body) => {

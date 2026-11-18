@@ -247,7 +247,7 @@ export function TopPicks({ onOpen }) {
   const running = Boolean(v && v.running);
   useEffect(() => {
     const ms = running ? 3000 : marketHours() ? 60000 : 5 * 60000;
-    return everyVisible(load, ms);
+    return everyVisible(load, ms, { topics: ["research", "scanner"] });
   }, [running, load]);
   const refresh = async () => {
     setBusy(true);
@@ -405,7 +405,7 @@ export function RsiWatch({ onOpen }) {
         .then((d) => on && (setR(d), setErr("")))
         .catch((e) => on && setErr(e.message));
     load();
-    const id = everyVisible(load, r && r.preparing ? 15000 : marketHours() ? 60000 : 5 * 60000);
+    const id = everyVisible(load, r && r.preparing ? 15000 : marketHours() ? 60000 : 5 * 60000, { topics: ["research", "scanner"] });
     return () => {
       on = false;
       id();

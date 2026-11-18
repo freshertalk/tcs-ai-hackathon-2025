@@ -424,7 +424,7 @@ function LiveEngine() {
         .catch((e) => alive && setErr(e.message));
     };
     read();
-    const stop = everyVisible(read, 3000);
+    const stop = everyVisible(read, 3000, { topics: ["ai"] });
     return () => {
       alive = false;
       stop();

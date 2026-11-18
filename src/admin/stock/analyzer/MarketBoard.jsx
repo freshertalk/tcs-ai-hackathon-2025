@@ -173,7 +173,7 @@ export default function MarketBoard({ onOpen }) {
   // live: every 15 seconds while the page is in front; closed: the last session does not change
   useEffect(() => {
     if (!b || !b.live) return undefined;
-    return everyVisible(load, 15000);
+    return everyVisible(load, 15000, { topics: ["market"] });
   }, [b, load]);
 
   const chooseIndex = (id) => {

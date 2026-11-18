@@ -12,6 +12,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../../api";
+import { everyVisible } from "../../visible";
 import { Alert, Loading } from "../../ui";
 import { LineChart, dayLong, rs, rsSigned, tone } from "./charts";
 import { Chip, Tile } from "./Snapshots";
@@ -35,8 +36,7 @@ function useLoad(url, deps = [], every = 0) {
     setSt((s) => ({ ...s, loading: true }));
     load();
     if (!every) return undefined;
-    const t = setInterval(load, every);
-    return () => clearInterval(t);
+    return everyVisible(load, every, { topics: ["robot", "paper"] });
   }, [load, every, url, ...deps]); // eslint-disable-line react-hooks/exhaustive-deps
   return [st, load];
 }

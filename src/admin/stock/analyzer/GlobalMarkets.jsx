@@ -31,7 +31,7 @@ export function useForecast(enabled = true) {
   useEffect(() => {
     if (!enabled) return undefined;
     load();
-    return everyVisible(load, 60000);
+    return everyVisible(load, 60000, { topics: ["market"] });
   }, [enabled, load]);
   return { ...s, reload: load };
 }

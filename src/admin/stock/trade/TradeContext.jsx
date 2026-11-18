@@ -53,7 +53,7 @@ export function TradeProvider({ children }) {
   useEffect(() => {
     if (!allowed) return undefined;
     refresh();
-    return everyVisible(refresh, 20000);
+    return everyVisible(refresh, 20000, { topics: ["trading", "market"] });
   }, [allowed, refresh]);
 
   // The live book (liveBook.js): the positions at streamed prices, pushed by the server over the order
@@ -87,7 +87,7 @@ export function TradeProvider({ children }) {
         .catch(() => {});
     };
     read(true);
-    const stop = everyVisible(() => read(false), 15000);
+    const stop = everyVisible(() => read(false), 15000, { topics: ["trading", "market"] });
     return () => {
       alive = false;
       stop();

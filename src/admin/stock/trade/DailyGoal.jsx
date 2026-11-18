@@ -118,7 +118,7 @@ export function useDailyGoal(enabled, onEvent, every = 60000) {
       return undefined;
     }
     load();
-    return everyVisible(load, every);
+    return everyVisible(load, every, { topics: ["trading"] });
   }, [enabled, load, every]);
   return { goal, reload: load, push: take };
 }

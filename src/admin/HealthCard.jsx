@@ -27,7 +27,7 @@ export default function HealthCard() {
   }, []);
   useEffect(() => {
     load();
-    return everyVisible(load, 60000);
+    return everyVisible(load, 60000, { topics: ["health", "system"] });
   }, [load]);
   if (!h && !err) return null;
   const groups = h ? [...new Set(h.checks.map((c) => c.group))] : [];

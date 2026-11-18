@@ -33,7 +33,7 @@ export function useHorizon(symbol, enabled = true) {
         .then((d) => alive && setS({ loading: false, data: d, error: "" }))
         .catch((e) => alive && setS((p) => ({ loading: false, data: p.data, error: e.message })));
     read();
-    const stop = everyVisible(read, 30000);
+    const stop = everyVisible(read, 30000, { topics: ["horizon"] });
     return () => {
       alive = false;
       if (stop) stop();
@@ -354,7 +354,7 @@ export function HorizonBoard() {
       .catch((e) => setS((p) => ({ loading: false, data: p.data, error: e.message })));
   useEffect(() => {
     read();
-    const stop = everyVisible(read, 20000);
+    const stop = everyVisible(read, 20000, { topics: ["horizon"] });
     return () => stop && stop();
   }, []);
   const run = async (path) => {

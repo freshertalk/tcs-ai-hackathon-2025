@@ -99,8 +99,13 @@ class OpenForecast {
     return this._map;
   }
   _save(rec) {
+    this._rev = (this._rev || 0) + 1;
     this._recs().set(rec.id, rec);
     this.docs.putItems(COLLECTION, [rec]);
+  }
+  /** Changes whenever a forecast is made or scored, or the learning is redone (the live hub compares it). */
+  fingerprint() {
+    return `${this._rev || 0}|${(this._learn && this._learn.updatedAt) || ""}`;
   }
   learned() {
     if (!this._learn) this._learn = this.docs.read(LEARN, null) || emptyLearning();

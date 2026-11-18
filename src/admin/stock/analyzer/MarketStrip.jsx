@@ -190,7 +190,7 @@ export default function MarketStrip({ status }) {
         })
         .catch((e) => alive && setError(e.message));
     pull();
-    const stop = everyVisible(pull, status.marketHours ? 10000 : 60000);
+    const stop = everyVisible(pull, status.marketHours ? 10000 : 60000, { topics: ["market"] });
     return () => {
       alive = false;
       stop();

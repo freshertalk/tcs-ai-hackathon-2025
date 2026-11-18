@@ -104,7 +104,7 @@ export default function useVerdict(symbol, status) {
   useEffect(() => {
     if (!live) return undefined;
     // a tab in the background stops asking; shown again, it asks at once
-    return everyVisible(() => load(true), status.marketHours ? 2000 : 5 * 60000);
+    return everyVisible(() => load(true), status.marketHours ? 2000 : 5 * 60000, { topics: ["market"] });
   }, [live, status.marketHours, load]);
 
   const toggleAlerts = useCallback(() => {

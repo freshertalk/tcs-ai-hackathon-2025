@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../../api";
 import { everyVisible } from "../../visible";
+import { onTopics } from "../../live";
 
 const enc = encodeURIComponent;
 
@@ -19,7 +20,7 @@ export function useAutopilotBoard(every = 30000) {
   useEffect(() => {
     let alive = true;
     read();
-    const id = everyVisible(() => alive && read(), every);
+    const id = everyVisible(() => alive && read(), every, { topics: ["autopilot"] });
     return () => {
       alive = false;
       id();
@@ -52,9 +53,17 @@ export function usePlaybook(symbol, enabled = true) {
         read();
       }
     }, 5000);
+    // and when the server says the autopilot's state changed (a setup fired, a proposal was made)
+    const unlive = onTopics(["autopilot"], () => {
+      if (typeof document === "undefined" || document.visibilityState !== "hidden") {
+        last = Date.now();
+        read();
+      }
+    });
     return () => {
       alive = false;
       clearInterval(id);
+      unlive();
     };
   }, [symbol, enabled]);
   return s;

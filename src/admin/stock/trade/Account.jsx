@@ -465,7 +465,7 @@ export default function Account({ compact = false }) {
   useEffect(() => load(), [load, version]);
   // orders, holdings and funds: read again every 10 s while the page is in view (and at once when it is
   // shown again, or when an order changes). The positions and their P&L come live from the book below.
-  useEffect(() => everyVisible(load, 10000), [load]);
+  useEffect(() => everyVisible(load, 10000, { topics: ["trading", "market"] }), [load]);
 
   const d = state.data;
   const status = (trade && trade.status) || (d && d.status) || null;

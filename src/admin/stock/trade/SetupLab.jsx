@@ -29,7 +29,7 @@ export function SetupLab() {
         .catch((e) => alive && setErr(e.message));
     read();
     // while a run is going its progress is followed; otherwise the record changes once a day
-    const stop = everyVisible(read, running ? 3000 : 5 * 60000);
+    const stop = everyVisible(read, running ? 3000 : 5 * 60000, { topics: ["scanner", "research"] });
     return () => {
       alive = false;
       stop();

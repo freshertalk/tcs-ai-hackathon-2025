@@ -125,7 +125,13 @@ class Horizon {
     const m = this.model();
     return m && m.W ? m : null;
   }
+  /** Changes whenever the model, the record or a learning run does (the live hub compares it). */
+  fingerprint() {
+    const j = this._job;
+    return `${this._rev || 0}|${j ? `${j.kind}|${j.phase}|${Math.floor((j.done || 0) / 10)}|${j.finishedAt || ""}` : ""}`;
+  }
   _saveModel(m) {
+    this._rev = (this._rev || 0) + 1;
     this._model = m;
     this.docs.write(MODEL, m);
   }
@@ -668,6 +674,7 @@ class Horizon {
     const reach = {};
     for (const [h, x] of Object.entries(fc.reach)) reach[h] = { up: x.up.price, down: x.down.price };
     const rec = { id, date: istDate(now), symbol, anchorEnd: fc.anchor.end, madeAt: iso(now), price: fc.anchor.price, sigma: fc.sigma, bucket: fc.bucket, horizons, reach, evidence: r.evidence, tilt: r4(r.tilt), bias: r4(r.bias), settled: false, actual: null };
+    this._rev = (this._rev || 0) + 1;
     this._recs().set(id, rec);
     this._pending = this._pending || [];
     this._pending.push(rec);
@@ -728,6 +735,7 @@ class Horizon {
       }
     }
     if (scored) {
+      this._rev = (this._rev || 0) + 1;
       this._learnLive();
       this.log.log(`[horizon] ${scored} forecasts scored`);
     }

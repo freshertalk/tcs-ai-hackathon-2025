@@ -86,7 +86,7 @@ function useFloor(kind, symbol, active, enabled = true) {
         .catch((e) => alive && setD((p) => ({ loading: false, data: p.data, error: e.message })));
     read();
     // the live window moves every few minutes; the next-session outlook only when the day's bars change
-    const id = everyVisible(() => active && read(), kind === "live" ? 20000 : 300000);
+    const id = everyVisible(() => active && read(), kind === "live" ? 20000 : 300000, { topics: ["ai", "market"] });
     return () => {
       alive = false;
       id();

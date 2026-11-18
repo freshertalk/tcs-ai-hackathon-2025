@@ -48,7 +48,7 @@ export function AlertsProvider({ children }) {
     reload();
     // an alert set (or fired by the server) elsewhere shows up here too: every 15 s while in view,
     // and at once when the tab is shown again
-    return everyVisible(reload, 15000);
+    return everyVisible(reload, 15000, { topics: ["alerts"] });
   }, [reload]);
   // … and at once when the server says one was set, fired or removed (pushed on the live stream)
   const alertEvent = useHubEvent("alert", true);

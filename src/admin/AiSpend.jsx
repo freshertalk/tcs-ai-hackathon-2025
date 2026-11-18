@@ -21,7 +21,7 @@ export default function AiSpend() {
       .catch((e) => setErr(e.message));
   useEffect(() => {
     load();
-    return everyVisible(load, 30000);
+    return everyVisible(load, 30000, { topics: ["ai"] });
   }, []);
   const set = async (auto) => {
     setBusy(true);

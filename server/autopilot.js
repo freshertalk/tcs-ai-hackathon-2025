@@ -163,8 +163,13 @@ class Autopilot {
     return this._map;
   }
   _save(r) {
+    this._rev = (this._rev || 0) + 1;
     this._recs().set(r.id, r);
     this.docs.putItems(COLLECTION, [r]);
+  }
+  /** Changes whenever a proposal or the day's state is written (the live hub compares it). */
+  fingerprint() {
+    return `${this._rev || 0}|${this.settings().on}`;
   }
   _state() {
     const s = this.docs.read(STATE, null) || {};
@@ -172,6 +177,7 @@ class Autopilot {
     return s.date === today ? s : { date: today, fired: {}, orb: {} };
   }
   _saveState(s) {
+    this._rev = (this._rev || 0) + 1;
     this.docs.write(STATE, s);
   }
 

@@ -174,7 +174,7 @@ function Panel({ symbol, onClose }) {
         .catch((e) => on && setErr(e.message));
     setD(null);
     load();
-    const stop = everyVisible(load, 20000);
+    const stop = everyVisible(load, 20000, { topics: ["research", "horizon"] });
     return () => {
       on = false;
       stop();
@@ -243,7 +243,7 @@ export default function ResearchButton({ symbol }) {
         .then((x) => on && setN(((x && x.findings) || []).filter((f) => f.fresh).length))
         .catch(() => {});
     load();
-    const id = everyVisible(load, 60000);
+    const id = everyVisible(load, 60000, { topics: ["research"] });
     return () => {
       on = false;
       id();

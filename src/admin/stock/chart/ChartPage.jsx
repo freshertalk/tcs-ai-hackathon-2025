@@ -124,7 +124,7 @@ export default function ChartPage() {
         .then((d) => alive && setQuote((d.quotes || {})[symbol] || null))
         .catch(() => {});
     read();
-    const id = everyVisible(read, 30000);
+    const id = everyVisible(read, 30000, { topics: ["market"] });
     return () => {
       alive = false;
       id();

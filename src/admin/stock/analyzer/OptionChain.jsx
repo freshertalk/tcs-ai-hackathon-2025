@@ -29,7 +29,7 @@ export function useOptionChain(symbol, enabled = true, expiry = "") {
         .then((d) => alive && setS({ loading: false, data: d, error: "" }))
         .catch((e) => alive && setS((p) => ({ loading: false, data: p.data, error: e.message })));
     read();
-    const id = everyVisible(read, 60000);
+    const id = everyVisible(read, 60000, { topics: ["market"] });
     return () => {
       alive = false;
       id();

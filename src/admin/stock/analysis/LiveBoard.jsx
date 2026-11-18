@@ -500,7 +500,7 @@ export default function LiveBoard({ onReplay }) {
       }
     }
     // without the stream the board still moves: it is read every two seconds
-    const poll = everyVisible(() => !liveRef.current && load(), 2000);
+    const poll = everyVisible(() => !liveRef.current && load(), 2000, { topics: ["trading", "robot"] });
     return () => {
       on = false;
       if (es) es.close();

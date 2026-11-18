@@ -5,6 +5,8 @@
 // moment ago — a stock you come back to, a workspace you switch back to — is drawn at once
 // from here while the fresh answer is on its way, instead of starting from "Loading…".
 // Account and order data are never kept: those are always read fresh.
+import { isLive, resync } from "./live";
+
 const seen = new Map();
 const KEEP = 120;
 const keeps = (path) => path.startsWith("/api/admin/market/") && !path.includes("/search");
@@ -122,5 +124,8 @@ export async function api(path, { method = "GET", body } = {}) {
     if (seen.size >= KEEP) seen.delete(seen.keys().next().value);
     seen.set(path, { at: Date.now(), data });
   }
+  // A change this tab just made reaches every page through the server's live event within milliseconds. Should the live
+  // connection be down, every page re-reads once now instead (never waiting for its own timer).
+  if (method !== "GET" && typeof window !== "undefined" && !isLive()) resync("local");
   return data;
 }

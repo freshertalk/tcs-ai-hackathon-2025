@@ -34,7 +34,7 @@ export default function useTape(symbol, interval, enabled, polling) {
         });
     };
     pull(false);
-    const stop = polling ? everyVisible(() => pull(true), 10000) : null;
+    const stop = polling ? everyVisible(() => pull(true), 10000, { topics: ["market"] }) : null;
     return () => {
       alive = false;
       if (stop) stop();

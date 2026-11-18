@@ -50,7 +50,7 @@ export function useIntradayPlan(symbol, enabled = true) {
         .then((d) => alive && setS({ loading: false, data: d, error: "" }))
         .catch((e) => alive && setS((p) => ({ loading: false, data: p.data, error: e.message })));
     read();
-    const id = everyVisible(read, 15 * 60000);
+    const id = everyVisible(read, 15 * 60000, { topics: ["open", "market"] });
     return () => {
       alive = false;
       id();

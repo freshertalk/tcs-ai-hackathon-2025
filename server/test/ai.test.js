@@ -328,7 +328,7 @@ async function boot() {
   const start = await request("GET", "/api/auth/google/start");
   const state = new URL(start.headers.location).searchParams.get("state");
   const cb = await request("GET", `/api/auth/google/callback?state=${state}&code=${encodeURIComponent(SUPERADMIN_EMAIL)}`, { cookie: start.jar });
-  return { dir, clock, market, claude, made, request, admin: cb.jar, close: () => new Promise((r) => server.close(r)) };
+  return { dir, clock, market, claude, made, request, port, admin: cb.jar, close: () => new Promise((r) => server.close(r)) };
 }
 
 /* ---------------------------------------------------------- the round trip */
@@ -1384,4 +1384,41 @@ test("the site health lists the automation brains: the 15-minute forecaster, the
   for (const id of ["horizon", "openfc", "autopilot"]) assert.ok(ids.includes(id), `${id} is listed`);
   for (const c of brains) assert.ok(["ok", "warn", "off", "error"].includes(c.status) && c.detail, `${c.id} says its state in words`);
   assert.ok(!brains.some((c) => /The check itself failed/.test(c.detail)), "no check failed to run");
+});
+
+test("the live channel over HTTP: a stranger is refused; a signed-in page hears a button pressed anywhere; an idle server is quiet", async (t) => {
+  const s = await boot();
+  t.after(s.close);
+  const http = require("node:http");
+  assert.equal((await s.request("GET", "/api/admin/live")).status, 401);
+  // listen
+  const got = [];
+  const req = http.request({ host: "127.0.0.1", port: s.port, path: "/api/admin/live", headers: { cookie: s.admin } }, (res) => {
+    res.setEncoding("utf8");
+    res.on("data", (c) => got.push(c));
+  });
+  req.end();
+  const until = async (f, ms = 3000) => {
+    const end = Date.now() + ms;
+    while (Date.now() < end) {
+      if (f()) return true;
+      await new Promise((r) => setTimeout(r, 25));
+    }
+    return false;
+  };
+  assert.ok(await until(() => got.join("").includes("event: hello")), "hello");
+  // the watchers' baseline, then two quiet looks
+  s.made.live.tick();
+  const quietBefore = s.made.live.seq;
+  s.made.live.tick();
+  s.made.live.tick();
+  assert.equal(s.made.live.seq, quietBefore, "nothing changed: nothing published");
+  // a button pressed (the owner lifts AI credit protection): its topics arrive
+  const r = await s.request("PUT", "/api/admin/ai/spend", { cookie: s.admin, body: { auto: true } });
+  assert.equal(r.status, 200, r.text);
+  assert.ok(await until(() => got.join("").includes('"topic":"ai"')), "the ai topic arrived");
+  // and the watcher sees the same change by itself
+  const n = s.made.live.tick();
+  assert.ok(n >= 1, "a watcher noticed the AI credit state change");
+  req.destroy();
 });

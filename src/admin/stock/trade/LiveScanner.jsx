@@ -202,7 +202,7 @@ function Detail({ symbol }) {
         .then((x) => alive && (setD(x), setErr("")))
         .catch((e) => alive && setErr(e.message));
     read();
-    const stop = everyVisible(read, 5000);
+    const stop = everyVisible(read, 5000, { topics: ["scanner"] });
     return () => {
       alive = false;
       stop();
@@ -327,7 +327,7 @@ export function LiveScanner({ onOpen }) {
         .catch((e) => alive && setErr(e.message));
     };
     read(true);
-    const stop = everyVisible(() => read(false), 5000);
+    const stop = everyVisible(() => read(false), 5000, { topics: ["scanner"] });
     return () => {
       alive = false;
       stop();

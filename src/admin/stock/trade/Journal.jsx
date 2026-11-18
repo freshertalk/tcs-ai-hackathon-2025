@@ -432,7 +432,7 @@ function TradesJournal() {
   useEffect(() => load(), [load]);
   useEffect(() => loadPer(), [loadPer]);
   // the journal keeps itself current while the tab is in view
-  useEffect(() => everyVisible(() => load(), 60000, { catchUp: true }), [load]);
+  useEffect(() => everyVisible(() => load(), 60000, { catchUp: true, topics: ["trading", "analysis"] }), [load]);
   const goTab = useCallback((t) => {
     setTab(t);
     try {

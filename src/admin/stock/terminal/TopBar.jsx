@@ -10,6 +10,7 @@ import { useAuth } from "../../auth";
 import { adminPath } from "../../paths";
 import { BRAND } from "../../brand";
 import Mantra from "../../Mantra";
+import LiveBadge from "../../LiveBadge";
 import { setTipsEnabled, useTipsEnabled } from "../../help/TipLayer";
 import { useTrade } from "../trade/TradeContext";
 import { num } from "../analyzer/format";
@@ -57,7 +58,7 @@ export function useKite() {
         .then((s) => alive && setK({ mode: s.mode, user: s.kite && s.kite.user, expiresAt: s.kite && s.kite.expiresAt }))
         .catch(() => alive && setK(null));
     read();
-    const stop = everyVisible(read, 60000);
+    const stop = everyVisible(read, 60000, { topics: ["market", "trading", "health"] });
     return () => {
       alive = false;
       stop();
@@ -153,6 +154,7 @@ export default function TopBar({ views, view, onView, theme, onTheme, onHelp, on
       <Mantra className="tm-mantra" />
 
       <div className="tm-status">
+        <LiveBadge />
         <span className={`tm-pill tm-pill--clock tm-pill--${clock.state}`} data-tip="NSE’s session by the clock (9:15 AM – 3:30 PM IST, Monday to Friday). Exchange holidays are listed under Calendar.">
           <i aria-hidden="true" />
           <span className="tm-x">NSE </span>

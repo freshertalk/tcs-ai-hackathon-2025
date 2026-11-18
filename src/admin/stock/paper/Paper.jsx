@@ -132,7 +132,7 @@ export default function Paper() {
   // follow a run in progress quickly; otherwise every 30 seconds (live paper trades update every five minutes)
   const running = Boolean(s && s.job && s.job.running);
   useEffect(() => {
-    return everyVisible(load, running ? 1500 : 30000);
+    return everyVisible(load, running ? 1500 : 30000, { topics: ["paper"] });
   }, [load, running]);
 
   const act = async (what, path, opts, ok) => {

@@ -8,6 +8,7 @@ import { setTipsEnabled, useTipsEnabled } from "./help/TipLayer";
 import { useDeskTheme } from "./stock/analyzer/theme";
 import { TempleButton } from "./temple/Temple";
 import Mantra from "./Mantra";
+import LiveBadge from "./LiveBadge";
 
 const HINT_KEY = "vpt.tips.hint";
 
@@ -106,6 +107,7 @@ export default function Shell({ crumb, notice, children, narrow, wide, fluid }) 
                   </span>
                 </small>
               </Link>
+              <LiveBadge />
               <TempleButton />
               <button type="button" className="tm-icon" onClick={toggleTheme} aria-label={theme === "dark" ? "Light theme" : "Dark theme"} data-tip="Switch between dark and light, here and in the trading terminal.">
                 {theme === "dark" ? "☀" : "☾"}

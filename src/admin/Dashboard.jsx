@@ -15,10 +15,7 @@ import { useAuth } from "./auth";
 import { adminPath } from "./paths";
 import Shell from "./Shell";
 import { useAiStatus } from "./aiStatus";
-import TempleCard from "./temple/TempleCard";
-import NotifyCard from "./NotifyCard";
-import WhatsAppCard from "./WhatsAppCard";
-import HealthCard from "./HealthCard";
+import SystemRow from "./SystemRow";
 import { IconArrow, IconChart, IconKey, IconMail, IconShield, IconUsers } from "./icons";
 import { everyVisible } from "./visible";
 
@@ -152,7 +149,7 @@ function Pulse({ isSuper }) {
       }
     };
     load();
-    const stop = everyVisible(load, 30000);
+    const stop = everyVisible(load, 30000, { topics: ["market", "trading", "horizon", "ai", "health", "open"] });
     return () => {
       alive = false;
       stop();
@@ -218,7 +215,7 @@ function TodayCard({ isSuper }) {
       api("/api/admin/autopilot").then(put("auto")).catch(() => {});
     };
     load();
-    const stop = everyVisible(load, 60000);
+    const stop = everyVisible(load, 60000, { topics: ["robot", "paper", "trading", "autopilot", "analysis"] });
     return () => {
       alive = false;
       stop();
@@ -395,7 +392,7 @@ function SocialFeat() {
         .then((x) => on && setD(x))
         .catch(() => {});
     load();
-    const id = everyVisible(load, 60000);
+    const id = everyVisible(load, 60000, { topics: ["social"] });
     return () => {
       on = false;
       id();
@@ -572,12 +569,7 @@ export default function Dashboard() {
               status={ai && { on: ai.configured, label: ai.configured ? "On" : "Off" }}
             />
           </div>
-          <div className="hm-cards">
-            <HealthCard />
-            {isSuper && <WhatsAppCard />}
-            {isSuper && <NotifyCard />}
-            <TempleCard />
-          </div>
+          <SystemRow isSuper={isSuper} />
         </section>
       </div>
     </Shell>

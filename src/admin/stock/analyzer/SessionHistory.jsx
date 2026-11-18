@@ -143,7 +143,7 @@ export default function SessionHistory({ symbol, live = false, marketHours = fal
         .catch((e) => alive && setState((s) => (quiet && s.data ? s : { loading: false, error: e.message })));
     load(false);
     // while the market is open, today's bar is still being written
-    const stop = live && marketHours ? everyVisible(() => load(true), 60000) : null;
+    const stop = live && marketHours ? everyVisible(() => load(true), 60000, { topics: ["market"] }) : null;
     return () => {
       alive = false;
       if (stop) stop();

@@ -87,7 +87,7 @@ export default function Analyzer() {
 
   // re-check the connection every 5 minutes: the Kite token dies at 6 AM by itself
   useEffect(() => {
-    return everyVisible(loadStatus, 5 * 60 * 1000);
+    return everyVisible(loadStatus, 5 * 60 * 1000, { topics: ["market"] });
   }, [loadStatus]);
 
   const mode = status ? status.mode : "none";
@@ -178,7 +178,7 @@ export default function Analyzer() {
     pull();
     if (mode !== "kite") return () => (alive = false);
     // while ticks stream, polling only has to bring what the stream lacks (circuit limits)
-    const stop = everyVisible(pull, status.marketHours ? (streaming ? 15000 : 5000) : 60000);
+    const stop = everyVisible(pull, status.marketHours ? (streaming ? 15000 : 5000) : 60000, { topics: ["market", "alerts"] });
     return () => {
       alive = false;
       stop();

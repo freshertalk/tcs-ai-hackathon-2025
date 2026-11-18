@@ -38,7 +38,7 @@ export default function RiskGuard({ trade, version }) {
   }, []);
   useEffect(() => {
     load();
-    return everyVisible(load, 15000);
+    return everyVisible(load, 15000, { topics: ["trading"] });
   }, [load, version]);
 
   const save = async (e) => {
