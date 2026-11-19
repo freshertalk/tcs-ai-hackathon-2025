@@ -22,6 +22,7 @@ import { clock } from "./format";
 import "./analyzer.css";
 import "./desk.css";
 import "./desk2.css";
+import "./desk3.css";
 import { everyVisible } from "../../visible";
 
 const SYMBOL_RE = /^[A-Z0-9][A-Z0-9&._ -]{0,24}$/;
@@ -278,15 +279,13 @@ export default function Analyzer() {
               </>
             )}
           </p>
-          <button type="button" className="dk-fold" onClick={toggleBoard} aria-expanded={board} aria-controls="dk-board" data-tip="Show or hide the day board (session, market, radar, checklist). The Desk remembers your choice on this device.">
+          <button type="button" className="dk-fold" onClick={toggleBoard} aria-expanded={board} aria-controls="dk-board" data-tip="Show or hide the day board (session, market, radar, checklist) under the watchlist. The Desk remembers your choice on this device.">
             <span aria-hidden="true">{board ? "▴" : "▾"}</span> Day board
           </button>
           </>
         )}
       </div>
 
-      {/* what a day trader needs before looking at any one stock; folded away it leaves the whole screen to the stock */}
-      <div id="dk-board" hidden={!board}>{mode !== "none" && board && <DayBoard status={status} quotes={merged} symbols={symbols} onPick={pick} />}</div>
       {mode === "kite" && <MarketStrip status={status} />}
 
       {mode === "none" ? (
@@ -324,6 +323,11 @@ export default function Analyzer() {
           <div className="dk-side">
             <Watchlist symbols={symbols} quotes={merged} scan={scan.rows} selected={selected} onSelect={pick} onChange={changeList} mode={mode} scanning={scan.loading} onRescan={runScan} lists={lists} onListAction={listAction} />
             <Alert>{listError}</Alert>
+            {/* what a day trader needs before looking at any one stock (session, market, radar, checklist): it sits under the
+                watchlist, so it never pushes the chart down; folded away it leaves the column to the watchlist */}
+            <div id="dk-board" hidden={!board}>
+              {board && <DayBoard status={status} quotes={merged} symbols={symbols} onPick={pick} />}
+            </div>
           </div>
           <div className="an__main">
             {selected ? (

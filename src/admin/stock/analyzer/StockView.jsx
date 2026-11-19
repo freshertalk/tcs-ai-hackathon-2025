@@ -22,7 +22,7 @@ import Behaviour from "./Behaviour";
 import ProChart from "../chart/ProChart";
 import AiBrain from "./AiBrain";
 import SessionHistory from "./SessionHistory";
-import HorizonCard from "./HorizonCard";
+import HorizonCard, { ForecastChips, useHorizon } from "./HorizonCard";
 import { callLabel as oddsLabel } from "../advisor/advisorMath";
 import { everyVisible } from "../../visible";
 
@@ -60,18 +60,94 @@ const storedChart = () => {
 // On a wide screen the verdict sits in its own column beside the chart. On
 // anything narrower it becomes the first tab, so nothing is pushed out of reach.
 const WIDE = "(min-width: 1280px)";
-function useWide() {
+// the chart is fitted to the screen wherever the positions dock (not the phone's bottom bar) is the bottom edge
+const FIT = "(min-width: 1101px)";
+function useWide(query = WIDE) {
   const can = typeof window !== "undefined" && typeof window.matchMedia === "function";
-  const [wide, setWide] = useState(() => (can ? window.matchMedia(WIDE).matches : true));
+  const [wide, setWide] = useState(() => (can ? window.matchMedia(query).matches : true));
   useEffect(() => {
     if (!can) return undefined;
-    const mq = window.matchMedia(WIDE);
+    const mq = window.matchMedia(query);
     const on = () => setWide(mq.matches);
     on();
     mq.addEventListener("change", on);
     return () => mq.removeEventListener("change", on);
-  }, [can]);
+  }, [can, query]);
   return wide;
+}
+
+/**
+ * The cockpit's measurements:
+ *   · the head's height, written to --dk-head on the stock's frame, so the rail can sit exactly under it;
+ *   · where the three columns start on the page, written to --dk-grid-top on the Desk, so the watchlist column and
+ *     the rail end exactly at the bottom of the screen;
+ *   · the height the chart may take: what the screen has left under the chart's own top edge, above the positions dock.
+ *     It is measured, not guessed, because what stands above the chart changes (the market strip, a notice, a wrapped line).
+ * @returns { frame, head, chartHeight } — two callback refs and a number of pixels (null: let the chart size itself)
+ */
+function useCockpit(enabled) {
+  const [chartHeight, setChartHeight] = useState(null);
+  const els = useRef({ frame: null, head: null, ro: null, timer: 0 });
+  const measure = useCallback(() => {
+    const { frame, head } = els.current;
+    if (!frame) return;
+    if (head) frame.style.setProperty("--dk-head", `${Math.round(head.offsetHeight)}px`);
+    // where the Desk's three columns start on the page (under the search row, and the market strip when it is there):
+    // the watchlist column and the rail end at the bottom of the screen from THAT line, not from the top bar
+    const grid = frame.closest(".an__grid");
+    if (grid && grid.parentElement) grid.parentElement.style.setProperty("--dk-grid-top", `${Math.round(grid.getBoundingClientRect().top + window.scrollY)}px`);
+    if (!enabled) {
+      setChartHeight(null);
+      return;
+    }
+    const plot = frame.querySelector(".sv__chart .kc__plot");
+    if (!plot) return;
+    const top = plot.getBoundingClientRect().top + window.scrollY; // where the plot starts on the page, whatever the scroll
+    const dock = document.querySelector(".tm-dock");
+    const room = window.innerHeight - top - (dock ? dock.offsetHeight : 0) - 26;
+    const next = Math.max(320, Math.min(920, Math.round(room)));
+    setChartHeight((cur) => (cur !== null && Math.abs(cur - next) < 6 ? cur : next));
+  }, [enabled]);
+  // a short timer, not an animation frame: a frame never comes while the tab is in the background, and the layout
+  // must be right the moment you switch to it
+  const later = useCallback(() => {
+    clearTimeout(els.current.timer);
+    els.current.timer = setTimeout(measure, 40);
+  }, [measure]);
+  const watch = useCallback(() => {
+    const e = els.current;
+    if (e.ro) e.ro.disconnect();
+    e.ro = null;
+    if (typeof ResizeObserver === "undefined" || !e.frame) return;
+    e.ro = new ResizeObserver(later);
+    for (const el of [e.head, document.querySelector(".tm-dock"), document.querySelector(".an__desk"), document.querySelector(".mk")]) if (el) e.ro.observe(el);
+    later();
+  }, [later]);
+  const frame = useCallback(
+    (el) => {
+      els.current.frame = el;
+      watch();
+    },
+    [watch]
+  );
+  const head = useCallback(
+    (el) => {
+      els.current.head = el;
+      watch();
+    },
+    [watch]
+  );
+  useEffect(() => {
+    const e = els.current; // one object for the life of the component
+    window.addEventListener("resize", later);
+    later();
+    return () => {
+      window.removeEventListener("resize", later);
+      clearTimeout(e.timer);
+      if (e.ro) e.ro.disconnect();
+    };
+  }, [later]);
+  return { frame, head, chartHeight, measure: later };
 }
 
 /** The bar that stays on screen: symbol, the live call, and the price — flashing on each tick. */
@@ -118,7 +194,7 @@ function OddsChip({ symbol, onOpen }) {
   );
 }
 
-function Ticker({ symbol, meta, px: polledPx, chg: polledChg, chgPct: polledPct, sub: polledSub, call, odds = null }) {
+function Ticker({ symbol, meta, px: polledPx, chg: polledChg, chgPct: polledPct, sub: polledSub, call, odds = null, forecast = null }) {
   // the price reads the live stream directly: each tick lands here at once, without redrawing the page
   const tick = useTick(symbol);
   const streamed = Boolean(tick && isNum(tick.last));
@@ -153,6 +229,7 @@ function Ticker({ symbol, meta, px: polledPx, chg: polledChg, chgPct: polledPct,
             : "live call off"}
         </small>
       </div>
+      {forecast}
       <div
         className={`sv__px is-${tone(chg)} ${flash ? `is-tick-${flash}` : ""}`}
         data-tip="The live price, and its change from yesterday’s close. It flashes green or red on each tick."
@@ -181,6 +258,10 @@ export default function StockView({ symbol, quote, status, streaming = false, in
   const [seed, setSeed] = useState(null);
   const [chartMode, setChartMode] = useState(storedChart); // null = pick for me
   const verdict = useVerdict(symbol, status);
+  // the forecast is read once here: the price bar shows its two calls, the card below shows all of it
+  const horizon = useHorizon(symbol, true);
+  const fcRef = useRef(null);
+  const cockpit = useCockpit(useWide(FIT));
   // every tick is checked against the call's levels the instant it arrives; a break re-reads the call at once
   const wireEvents = useTripwires(symbol, verdict.state.data, {
     alerts: verdict.alerts,
@@ -243,6 +324,10 @@ export default function StockView({ symbol, quote, status, streaming = false, in
   }, [wide, tab]);
 
   const a = state.data;
+  const remeasure = cockpit.measure;
+  useEffect(() => {
+    remeasure();
+  }, [remeasure, chartMode, state.loading, wide, Boolean(a && a.stale)]); // eslint-disable-line react-hooks/exhaustive-deps
   const sizeThis = (entry, stop) => {
     setSeed({ entry, stop, at: Date.now() });
     setTab("size");
@@ -313,8 +398,11 @@ export default function StockView({ symbol, quote, status, streaming = false, in
 
   return (
     <>
-    <div className="sv sv--desk">
+    <div className="sv sv--desk sv--cockpit" ref={cockpit.frame}>
+      {/* the head: the price bar and the day's figures in one block that stays on screen */}
+      <div className="sv__head" ref={cockpit.head}>
       <Ticker
+        forecast={<ForecastChips state={horizon} onOpen={() => fcRef.current && fcRef.current.scrollIntoView && fcRef.current.scrollIntoView({ block: "center", behavior: "smooth" })} />}
         symbol={symbol}
         px={px}
         chg={pxChg}
@@ -346,19 +434,6 @@ export default function StockView({ symbol, quote, status, streaming = false, in
           </>
         }
       />
-
-      <div className="sv__top">
-        {a.stale && (
-          <p className="adm-alert adm-alert--error" role="status">
-            <b>Not live.</b> {a.staleReason}
-          </p>
-        )}
-        {state.refreshError && (
-          <p className="adm-alert adm-alert--info">
-            Could not refresh just now ({state.refreshError}); showing the reading from {when(a.fetchedAt)}.
-          </p>
-        )}
-
         <dl className="sv__stats">
           {[
             ["Open", inr(quote && isNum(quote.open) ? quote.open : a.price.open)],
@@ -387,7 +462,21 @@ export default function StockView({ symbol, quote, status, streaming = false, in
             </div>
           )}
         </dl>
-        {/* the chart is the centre of the Desk: always in view, right under the price */}
+      </div>
+
+      <div className="sv__top">
+        {a.stale && (
+          <p className="adm-alert adm-alert--error" role="status">
+            <b>Not live.</b> {a.staleReason}
+          </p>
+        )}
+        {state.refreshError && (
+          <p className="adm-alert adm-alert--info">
+            Could not refresh just now ({state.refreshError}); showing the reading from {when(a.fetchedAt)}.
+          </p>
+        )}
+
+        {/* the chart is the centre of the Desk: it takes the height the screen has left, right under the price */}
         <section className="an-card sv__chart" aria-label="Chart">
           <div className="sv__chartbar">
             <div className="sv__ranges" role="group" aria-label="Chart type">
@@ -420,7 +509,7 @@ export default function StockView({ symbol, quote, status, streaming = false, in
             )}
           </div>
           {mode === "pro" ? (
-            <ProChart symbol={symbol} live={live} />
+            <ProChart symbol={symbol} live={live} height={cockpit.chartHeight} />
           ) : mode === "m1" ? (
             m1 ? (
               <>
@@ -452,7 +541,9 @@ export default function StockView({ symbol, quote, status, streaming = false, in
             <p className="adm-small">Today’s daily bar is unfinished: setups are judged on the close and can appear or disappear until 3:30 PM.</p>
           )}
         </section>
-        <HorizonCard symbol={symbol} />
+        <div ref={fcRef} className="sv__fcwrap">
+          <HorizonCard symbol={symbol} state={horizon} />
+        </div>
         <AiBrain symbol={symbol} live={live} marketHours={Boolean(status.marketHours)} foldable />
       </div>
 

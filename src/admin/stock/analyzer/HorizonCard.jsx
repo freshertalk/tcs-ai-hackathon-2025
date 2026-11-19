@@ -293,8 +293,50 @@ function Details({ d }) {
 }
 
 /** The card. `compact` is the Research row's version (no path, details folded). */
-export default function HorizonCard({ symbol, enabled = true, compact = false }) {
-  const h = useHorizon(symbol, enabled);
+/**
+ * The forecast in two small chips for the price bar: which way the 5- and the 15-minute calls lean and how surely, and
+ * how many of this stock's last checked 15-minute forecasts were correct. Pressing it goes to the full card.
+ */
+export function ForecastChips({ state, onOpen }) {
+  const d = state && state.data;
+  if (!d || !d.available || !d.headline) return null;
+  const chip = (label, head) => {
+    if (!head || !head.call) return null;
+    const c = head.call;
+    return (
+      <span className={`fc-chip is-${c.side || "flat"}`}>
+        <small>{label}</small>
+        <b>
+          {c.side === "up" ? "▲" : c.side === "down" ? "▼" : "●"} {c.p ? pc(c.p) : "—"}
+        </b>
+      </span>
+    );
+  };
+  const k = d.checks && d.checks.h15;
+  return (
+    <button
+      type="button"
+      className="sv__fc"
+      onClick={onOpen}
+      data-tip={`The forecast: the 5-minute call for ${d.headline5 ? clock(d.headline5.at) : "—"} and the 15-minute call for ${clock(d.headline.at)} (${inr(d.headline.price)}, ${sgn(d.headline.pct)}). The arrow is the side it leans to, the number the chance it gives that side.${k && k.n ? ` Of this stock's last ${k.n} checked 15-minute forecasts, ${k.ok} were correct.` : ""} Press for the full forecast and the check.`}
+    >
+      {chip("5m", d.headline5)}
+      {chip("15m", d.headline)}
+      {k && k.n > 0 && (
+        <span className="fc-chip fc-chip--check">
+          <small>check</small>
+          <b>
+            {k.ok}/{k.n}
+          </b>
+        </span>
+      )}
+    </button>
+  );
+}
+
+export default function HorizonCard({ symbol, enabled = true, compact = false, state = null }) {
+  const own = useHorizon(symbol, enabled && !state);
+  const h = state || own;
   const [more, setMore] = useState(false);
   const d = h.data;
   if (!enabled || !symbol) return null;

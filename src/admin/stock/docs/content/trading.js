@@ -777,7 +777,7 @@ export const TRADING = [
         "The price-alerts bell with a count, the theme button (T), shortcuts (?) and the account menu (Dashboard, Hover help on/off, Sign out).",
       ] },
       { h: "The positions dock" },
-      { p: "On the Desk (not on phones and tablets) a strip “Positions & orders” shows P&L, the open count and Trading ON/OFF; it opens to a compact Positions, Holdings, Orders and Funds view (no switch bar, risk guard, tiles, coach or activity log). Open or closed is remembered; the key is **D**." },
+      { p: "On the Desk (not on phones and tablets) a strip “Positions & orders” shows P&L, the open count and Trading ON/OFF; it opens to a compact Positions, Holdings, Orders and Funds view (no switch bar, risk guard, tiles, coach or activity log). Until you choose, it is open only while it holds a position, so an empty dock never covers the chart; once you open or close it yourself that choice is remembered. The key is **D**." },
       { h: "The command palette" },
       { p: "Press **Ctrl K** (⌘ K on a Mac) from anywhere — even while typing, but not over another dialog — or click the search box. Esc closes, ↑ and ↓ move, Enter runs." },
       { ul: [

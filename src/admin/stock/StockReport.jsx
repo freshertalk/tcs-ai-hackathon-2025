@@ -59,11 +59,13 @@ const VIEWS = [
   { id: "document", label: "Document", tip: "The complete guide to this advisor in plain English: every feature, who does what, and every rule — what it does, how and when." },
 ];
 const DOCK_KEY = "vpt.terminal.dock";
+// your own choice (open or closed) is remembered; until you make one the dock decides for itself (see Terminal)
 const storedDock = () => {
   try {
-    return window.localStorage.getItem(DOCK_KEY) !== "closed";
+    const v = window.localStorage.getItem(DOCK_KEY);
+    return v === "open" ? true : v === "closed" ? false : null;
   } catch (_) {
-    return true;
+    return null;
   }
 };
 
@@ -136,7 +138,9 @@ function Terminal() {
   const [help, setHelp] = useState(false);
   const [palette, setPalette] = useState(false);
   const [alertsOpen, setAlertsOpen] = useState(false);
-  const [dock, setDock] = useState(storedDock);
+  const [dockPref, setDockPref] = useState(storedDock);
+  // no choice made yet: the dock is open only while there is a position in it, so an empty dock never covers the chart
+  const dock = dockPref === null ? Boolean(trade && trade.pulse && trade.pulse.open > 0) : dockPref;
   // phones and tablets: the workspaces sit along the bottom edge, and there is no dock
   const bottomNav = useMedia(BOTTOM_NAV);
   const showDock = view === "analyzer" && Boolean(trade) && !bottomNav;
@@ -159,15 +163,14 @@ function Terminal() {
     setParams(next);
   };
   const toggleDock = useCallback(() => {
-    setDock((d) => {
-      try {
-        window.localStorage.setItem(DOCK_KEY, d ? "closed" : "open");
-      } catch (_) {
-        /* remembered for this visit only */
-      }
-      return !d;
-    });
-  }, []);
+    const next = !dock;
+    try {
+      window.localStorage.setItem(DOCK_KEY, next ? "open" : "closed");
+    } catch (_) {
+      /* remembered for this visit only */
+    }
+    setDockPref(next);
+  }, [dock]);
 
   useEffect(() => {
     const onKey = (e) => {

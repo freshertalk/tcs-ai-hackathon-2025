@@ -531,6 +531,68 @@ function LongTerm({ lt }) {
   );
 }
 
+/**
+ * Jumps to the panel's sections. The panel is long (the live call, the order book, three horizons, every level); in its
+ * rail it scrolls on its own, and this row — which stays at the top of it — takes you to any part in one press. The
+ * sections are read from the panel itself, so a block that is not on screen has no jump.
+ */
+const JUMP_NAMES = [
+  [/^live call|^the live call/i, "Live call"],
+  [/co-?pilot/i, "Co-pilot"],
+  [/order book|depth/i, "Order book"],
+  [/^movement|^how it is moving/i, "Movement"],
+  [/^why|factors/i, "Why"],
+  [/^intraday levels/i, "Intraday"],
+  [/^swing/i, "Swing"],
+  [/^long term/i, "Long term"],
+  [/^circuit/i, "Circuits"],
+  [/argues against/i, "Against"],
+  [/^every level/i, "All levels"],
+];
+function jumpName(text) {
+  const t = String(text || "").trim();
+  for (const [re, name] of JUMP_NAMES) if (re.test(t)) return name;
+  return t.split(/[·,:(—]/)[0].trim().split(/\s+/).slice(0, 3).join(" ");
+}
+function RailJumps({ sig }) {
+  const ref = React.useRef(null);
+  const [items, setItems] = React.useState([]);
+  React.useEffect(() => {
+    const root = ref.current ? ref.current.closest(".vd") : null;
+    if (!root) return;
+    const seen = new Set();
+    const list = [];
+    root.querySelectorAll(".vd-live, .cp, .ob, .vd-block").forEach((el, i) => {
+      const h = el.matches(".vd-live") ? null : el.querySelector("h4, h3");
+      const name = el.matches(".vd-live") ? "Live call" : el.matches(".ob") ? "Order book" : el.matches(".cp") ? "Co-pilot" : jumpName(h ? h.textContent : "");
+      if (!name || seen.has(name)) return;
+      seen.add(name);
+      el.setAttribute("data-jump", String(i));
+      list.push({ name, key: String(i) });
+    });
+    setItems((cur) => (cur.length === list.length && cur.every((x, i) => x.name === list[i].name && x.key === list[i].key) ? cur : list));
+  }, [sig]);
+  const go = (key) => {
+    const root = ref.current ? ref.current.closest(".vd") : null;
+    const el = root ? root.querySelector(`[data-jump="${key}"]`) : null;
+    if (!el) return;
+    const scrolls = root.scrollHeight > root.clientHeight + 4 && /auto|scroll/.test(window.getComputedStyle(root).overflowY);
+    // in the rail the panel scrolls on its own — at once, no glide: a jump on a trading screen should simply be there;
+    // as a tab (narrower screens) the page scrolls
+    if (scrolls) root.scrollTop = Math.max(0, el.offsetTop - (ref.current.offsetHeight + 8));
+    else if (el.scrollIntoView) el.scrollIntoView({ block: "start", behavior: "smooth" });
+  };
+  return (
+    <nav className="vd-jumps" ref={ref} aria-label="Jump to a part of the verdict" hidden={items.length < 3}>
+      {items.map((x) => (
+        <button key={x.key} type="button" onClick={() => go(x.key)}>
+          {x.name}
+        </button>
+      ))}
+    </nav>
+  );
+}
+
 export default function VerdictPanel({ status, vs, onRefresh, onSize, log = [], events = [], alerts = false, onToggleAlerts = null, chart = null, copilot = null, book = null, className = "" }) {
   const state = vs;
   const live = status.mode === "kite";
@@ -574,6 +636,7 @@ export default function VerdictPanel({ status, vs, onRefresh, onSize, log = [], 
   return (
     <section className={`vd an-card ${className}`} aria-labelledby="vd-h">
       {head}
+      <RailJumps sig={`${d.available}|${Boolean(copilot)}|${Boolean(book)}|${lt.available}|${i ? i.forSession : ""}`} />
 
       {outdated && <p className="adm-alert adm-alert--error">{OLD_SERVER}</p>}
       <LiveCall d={d} onSize={onSize} fallback={i} />

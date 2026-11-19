@@ -1,0 +1,421 @@
+/* ==========================================================================
+   The Desk as a cockpit — third design (2026-11-19). Loaded after desk2.css.
+
+   WHY  Measured on a 1440 × 900 screen before this: the stock began 301px down the page (a search row, then a 155px
+        day board), its chart 492px down, and a positions dock that was open but empty took the last 290px — 118px
+        of chart on screen. The forecast was 1,440px down; the verdict rail was a 509px window on 3,900px of text;
+        the column under the watchlist was empty.
+
+   NOW  · the day board sits under the watchlist, in the left column: nothing stands between the search row and the stock
+        · one HEAD across the stock and its rail — the price bar, the live call, the forecast's two calls, Buy / Sell,
+          and the day's figures on one line — and it stays on screen while you read anything below
+        · the CHART takes the height the screen has left (measured in StockView.jsx, not guessed)
+        · the RAIL starts under the head, fills the height, and has a row of jumps to each of its sections
+        · the dock opens by itself only while it holds a position (StockReport.jsx); your own choice still wins
+   Nothing was removed: every block is where it was or one press away.
+
+   The cockpit is for screens of 1280px and wider. Below that the head dissolves (display: contents) and the page is
+   the single column it was, with the day board after the watchlist.
+   ========================================================================== */
+
+.tm .an.dk {
+  --dk-head: 104px; /* the head's real height is written here by StockView.jsx */
+  --dk-grid-top: calc(var(--tm-top) + 58px); /* …and where the three columns start on the page */
+}
+
+/* ---- the forecast's two calls in the price bar */
+.tm .an.dk .sv__fc {
+  display: inline-flex;
+  align-items: stretch;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.tm .an.dk .fc-chip {
+  display: grid;
+  justify-items: center;
+  gap: 0;
+  min-width: 52px;
+  padding: 3px 8px;
+  border: 1px solid var(--line-2, var(--line));
+  border-radius: 10px;
+  background: var(--surface-2);
+  line-height: 1.25;
+}
+.tm .an.dk .fc-chip small {
+  color: var(--ink-3);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.tm .an.dk .fc-chip b {
+  color: var(--ink-2);
+  font-size: var(--t-small);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.tm .an.dk .fc-chip.is-up {
+  border-color: color-mix(in srgb, var(--up) 55%, var(--line));
+}
+.tm .an.dk .fc-chip.is-up b {
+  color: var(--up);
+}
+.tm .an.dk .fc-chip.is-down {
+  border-color: color-mix(in srgb, var(--down) 55%, var(--line));
+}
+.tm .an.dk .fc-chip.is-down b {
+  color: var(--down);
+}
+.tm .an.dk .sv__fc:hover .fc-chip,
+.tm .an.dk .sv__fc:focus-visible .fc-chip {
+  background: var(--surface);
+  border-color: var(--accent);
+}
+.tm .an.dk .sv__fc:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 10px;
+}
+
+/* ---- the rail's jumps: one row that stays at the top of the panel */
+.tm .an.dk .vd-jumps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 2px 0 8px;
+}
+.tm .an.dk .vd-jumps[hidden] {
+  display: none;
+}
+.tm .an.dk .vd-jumps button {
+  min-height: 22px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  background: var(--surface-2);
+  color: var(--ink-2);
+  font: inherit;
+  font-size: var(--t-small);
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.tm .an.dk .vd-jumps button:hover,
+.tm .an.dk .vd-jumps button:focus-visible {
+  border-color: var(--accent);
+  color: var(--ink);
+}
+.tm .an.dk .vd-jumps button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* the forecast card and the detail tabs are jumped to: they must land under the head, not behind it */
+.tm .an.dk .sv__fcwrap {
+  min-width: 0;
+}
+
+/* ---- below the cockpit's width: the head is not a box; its two parts lie in the page as they always did */
+@media (max-width: 1279.98px) {
+  .tm .an.dk .sv__head {
+    display: contents;
+  }
+  .tm .an.dk .sv__ticker .sv__fc {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+}
+
+/* ---- the left column: the watchlist, and under it the day board; each scrolls on its own */
+@media (min-width: 1001px) {
+  .tm .an.dk .an__grid > .dk-side {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    height: calc(100vh - var(--dk-grid-top) - var(--tm-dock) - 10px);
+    min-height: 320px;
+  }
+  .tm .an.dk .dk-side > .wl {
+    flex: 0 1 auto;
+    min-height: 168px;
+    max-height: none;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: var(--line-2) transparent;
+  }
+  .tm .an.dk .dk-side > .adm-alert {
+    flex: none;
+  }
+  .tm .an.dk .dk-side > #dk-board:not([hidden]) {
+    flex: 1 1 0;
+    min-height: min(40%, 300px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: var(--line-2) transparent;
+    border-radius: var(--dk-r, 12px);
+  }
+  .tm .an.dk .dk-side .dkb {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+    margin: 0;
+  }
+  .tm .an.dk .dk-side .dkb-card {
+    padding: 10px 12px;
+  }
+}
+
+/* ======================================================================== the cockpit */
+@media (min-width: 1280px) {
+  .tm .an.dk .sv--cockpit {
+    grid-template-areas: "head head" "top rail" "body rail";
+    grid-template-rows: auto auto 1fr;
+    gap: 8px 10px;
+  }
+
+  /* ---- the head: price bar + the day's figures, one raised block, always on screen */
+  .tm .an.dk .sv__head {
+    grid-area: head;
+    position: sticky;
+    top: calc(var(--tm-top) + 4px);
+    z-index: 15;
+    display: grid;
+    min-width: 0;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: color-mix(in srgb, var(--surface) 95%, transparent);
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+    box-shadow: var(--dk-shadow-hi, 0 12px 30px -14px rgba(0, 0, 0, 0.5));
+  }
+  .tm .an.dk .sv__head > .sv__ticker {
+    position: static;
+    grid-area: auto;
+    grid-template-columns: minmax(0, 1fr) auto auto auto auto;
+    gap: 6px 18px;
+    margin: 0;
+    padding: 8px 16px;
+    border: 0;
+    border-radius: 14px 14px 0 0;
+    background-color: transparent;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    box-shadow: none;
+  }
+  .tm .an.dk .sv__head > .sv__ticker .sv__tk-id {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 2px 12px;
+    min-width: 0;
+  }
+  .tm .an.dk .sv__head > .sv__ticker .sv__meta {
+    flex: 1 1 100%;
+    margin: 0;
+  }
+  /* the price and its change on one line, what it is (live, or the last close) under them */
+  .tm .an.dk .sv__head > .sv__ticker .sv__px {
+    display: grid;
+    grid-template-columns: auto auto;
+    align-items: baseline;
+    justify-content: end;
+    gap: 0 10px;
+    text-align: right;
+  }
+  .tm .an.dk .sv__head > .sv__ticker .sv__px small {
+    grid-column: 1 / -1;
+  }
+
+  /* the day's figures: one line of label–value pairs, no boxes */
+  .tm .an.dk .sv__head > .sv__stats {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0 18px;
+    margin: 0;
+    padding: 4px 16px 5px;
+    line-height: 1.45;
+    border: 0;
+    border-top: 1px solid var(--line);
+    border-radius: 0 0 14px 14px;
+    background: color-mix(in srgb, var(--surface-2) 60%, transparent);
+    box-shadow: none;
+    overflow: visible;
+  }
+  .tm .an.dk .sv__head > .sv__stats > div {
+    display: inline-flex;
+    flex: 0 0 auto; /* a figure is never squeezed: the line wraps instead */
+    align-items: baseline;
+    gap: 6px;
+    min-width: 0;
+    max-width: 100%;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    grid-column: auto;
+  }
+  .tm .an.dk .sv__head > .sv__stats dt {
+    margin: 0;
+    color: var(--ink-3);
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .tm .an.dk .sv__head > .sv__stats dd {
+    margin: 0;
+    max-width: 30ch;
+    overflow: hidden;
+    color: var(--ink);
+    font-size: var(--t-small);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .tm .an.dk .sv__head > .sv__stats > .is-wide {
+    flex: 0 1 auto; /* the long ones (the reading, the set-ups) may shorten with an ellipsis; their full text is the tooltip */
+  }
+  .tm .an.dk .sv__head > .sv__stats > .dk-range {
+    margin-left: auto;
+  }
+  .tm .an.dk .sv__head > .sv__stats > .dk-range dd {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    max-width: none;
+    overflow: visible;
+  }
+  .tm .an.dk .sv__head > .sv__stats .dk-range__bar {
+    width: 110px;
+  }
+
+  /* ---- the stock column under the head */
+  .tm .an.dk .sv--cockpit > .sv__top {
+    grid-area: top;
+    gap: 8px;
+  }
+  .tm .an.dk .sv--cockpit > .sv__body {
+    grid-area: body;
+    scroll-margin-top: calc(var(--tm-top) + var(--dk-head) + 14px);
+  }
+  .tm .an.dk .sv__fcwrap {
+    scroll-margin-top: calc(var(--tm-top) + var(--dk-head) + 14px);
+  }
+
+  /* the chart: its two bars are slim; the plot's height is set from the room the screen has left */
+  .tm .an.dk .sv--cockpit .sv__chart {
+    padding: 8px 10px 10px;
+    border-radius: 14px;
+  }
+  .tm .an.dk .sv--cockpit .sv__chart .sv__chartbar {
+    margin-bottom: 4px;
+    min-height: 0;
+  }
+  .tm .an.dk .sv--cockpit .sv__chart .sv__ranges button {
+    min-height: 26px;
+    padding-top: 2px;
+    padding-bottom: 2px;
+  }
+  .tm .an.dk .sv--cockpit .sv__chart .kc__bar {
+    padding-top: 2px;
+    padding-bottom: 4px;
+  }
+  /* the technical summary under the chart: three small gauges on one line, each with its reading beside it */
+  .tm .an.dk .sv--cockpit .sv__chart .ts {
+    gap: 4px;
+    padding: 6px 10px;
+  }
+  .tm .an.dk .sv--cockpit .sv__chart .ts__g {
+    grid-template-columns: 64px minmax(0, 1fr);
+    grid-template-rows: auto auto auto;
+    justify-items: start;
+    align-items: center;
+    column-gap: 10px;
+    row-gap: 0;
+    text-align: left;
+  }
+  .tm .an.dk .sv--cockpit .sv__chart .ts__g svg {
+    grid-row: 1 / 4;
+    width: 64px;
+  }
+
+  /* ---- the rail: under the head, the full height, its jumps always at the top */
+  .tm .an.dk .sv--cockpit > .sv__rail {
+    grid-area: rail;
+    top: calc(var(--tm-top) + var(--dk-head) + 14px);
+    max-height: max(300px, calc(100vh - var(--dk-grid-top) - var(--tm-dock) - var(--dk-head) - 20px));
+    padding-top: 0;
+  }
+  .tm .an.dk .sv--cockpit > .sv__rail > .vd__top {
+    padding-top: 12px;
+  }
+  .tm .an.dk .sv--cockpit > .sv__rail > .vd-jumps {
+    position: sticky;
+    top: 0;
+    z-index: 4;
+    margin: 0 -16px 8px;
+    padding: 6px 14px;
+    border-bottom: 1px solid var(--line);
+    background: var(--surface);
+  }
+  .tm .an.dk .sv--cockpit > .sv__rail [data-jump] {
+    scroll-margin-top: 48px;
+  }
+}
+
+/* a short window (a laptop with the browser's bars showing): only the price bar stays on screen, not the figures */
+@media (min-width: 1280px) and (max-height: 700px) {
+  .tm .an.dk .sv__head {
+    position: static;
+  }
+  .tm .an.dk .sv--cockpit > .sv__rail {
+    top: calc(var(--tm-top) + 8px);
+    max-height: max(300px, calc(100vh - var(--dk-grid-top) - var(--tm-dock) - 14px));
+  }
+}
+
+/* a wide monitor: the rail and the left column take a little more, the chart the rest */
+@media (min-width: 1700px) {
+  .tm .an.dk .sv__head > .sv__ticker {
+    padding: 10px 20px;
+  }
+  .tm .an.dk .sv__head > .sv__stats {
+    gap: 2px 28px;
+    padding: 6px 20px 7px;
+  }
+}
+
+/* one column (phones, small tablets): the watchlist, then the STOCK, then the day board — the board no longer stands
+   between you and the price. The left column's box dissolves so its two parts can take their places in the page. */
+@media (max-width: 1000px) {
+  .tm .an.dk .an__grid > .dk-side {
+    display: contents;
+  }
+  .tm .an.dk .an__grid > .an__main {
+    order: 2;
+  }
+  .tm .an.dk .an__grid #dk-board {
+    order: 3;
+    min-width: 0;
+  }
+}
+
+/* the detail tabs (Reading, Setups, Levels…) stay under the head while you read a long panel, so the next one is a press away */
+@media (min-width: 1280px) and (min-height: 701px) {
+  .tm .an.dk .sv--cockpit > .sv__body > .sv__tabs {
+    position: sticky;
+    top: calc(var(--tm-top) + var(--dk-head) + 10px);
+    z-index: 12;
+    box-shadow: 0 10px 18px -14px rgba(0, 0, 0, 0.55);
+  }
+}

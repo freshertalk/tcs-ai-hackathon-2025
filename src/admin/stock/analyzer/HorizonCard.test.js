@@ -186,3 +186,27 @@ test("the board lists the out-of-sample test and each evening's result, and lets
   fireEvent.click(screen.getByRole("button", { name: "Learn new sessions" }));
   await waitFor(() => expect(api).toHaveBeenCalledWith("/api/admin/market/horizon/learn", { method: "POST" }));
 });
+
+test("the price bar's forecast chips: both calls and the check's count; the card can be handed its reading instead of fetching it", async () => {
+  const { ForecastChips } = require("./HorizonCard");
+  const data = {
+    ...view,
+    headline5: { minutesAhead: 4, at: "2026-11-17T05:40:00.000Z", h: 1, price: 1083.4, pct: 0.08, low: 1082, high: 1084.8, pUp: 0.42, sdPct: 0.1, call: { word: "LEANS DOWN", side: "down", p: 0.58, grade: "C" } },
+    checks: { rule: "The rule.", h5: { minutes: 5, last: null, recent: [], n: 0, ok: 0, pct: null, all: { n: 0, ok: 0 } }, h15: { minutes: 15, last: null, recent: [], n: 20, ok: 13, pct: 0.65, all: { n: 20, ok: 13 } }, learned: null },
+  };
+  const opened = jest.fn();
+  const { container, unmount } = render(<ForecastChips state={{ data }} onOpen={opened} />);
+  const chips = [...container.querySelectorAll(".fc-chip")].map((c) => `${c.className.replace("fc-chip", "").trim()}|${c.textContent}`);
+  expect(chips).toEqual(["is-down|5m▼ 58%", "is-up|15m▲ 66%", "fc-chip--check|check13/20"]);
+  fireEvent.click(screen.getByRole("button"));
+  expect(opened).toHaveBeenCalled();
+  unmount();
+  // nothing to show: no chips (never an empty box)
+  expect(render(<ForecastChips state={{ data: { ...view, available: false } }} />).container.querySelector(".sv__fc")).toBeNull();
+  expect(render(<ForecastChips state={null} />).container.querySelector(".sv__fc")).toBeNull();
+  // the card, given a reading, draws it without asking the server again
+  api.mockClear();
+  render(<HorizonCard symbol="SBIN" state={{ loading: false, data, error: "" }} />);
+  expect(screen.getByText("Next 5 and 15 minutes")).toBeTruthy();
+  expect(api).not.toHaveBeenCalled();
+});
