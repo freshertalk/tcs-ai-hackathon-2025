@@ -89,6 +89,66 @@ test("the recorded order book and open interest are shown beside the forecast, a
   expect(used).not.toMatch(/open interest/);
 });
 
+test("a 5-minute call beside the 15-minute one, and the check: each forecast confirmed correct or wrong, and what it taught", async () => {
+  const check = (minutes, ok, extra = {}) => ({ made: "2026-11-17T05:30:00.000Z", for: minutes === 5 ? "2026-11-17T05:35:00.000Z" : "2026-11-17T05:45:00.000Z", minutes, from: 1080, ok, basis: "direction", side: "up", p: 0.61, right: ok, inBand: true, forecast: 1081.2, low: 1079.5, high: 1082.9, actual: ok ? 1081.6 : 1079.8, missPct: 0.04, movePct: ok ? 0.15 : -0.02, ...extra });
+  api.mockResolvedValue({
+    ...view,
+    headline5: { minutesAhead: 4, at: "2026-11-17T05:40:00.000Z", h: 1, price: 1083.4, pct: 0.08, low: 1082, high: 1084.8, pUp: 0.58, sdPct: 0.1, call: { word: "LEANS UP", side: "up", p: 0.58, grade: "C" } },
+    checks: {
+      rule: "A call that leans (55% or more one way) is CORRECT when the price went that way by its time; a call with no lean is CORRECT when the price ended inside its band.",
+      h5: { minutes: 5, last: check(5, true), recent: [], n: 20, ok: 13, pct: 0.65, all: { n: 480, ok: 290, pct: 0.6042 } },
+      h15: { minutes: 15, last: check(15, false), recent: [], n: 20, ok: 11, pct: 0.55, all: { n: 480, ok: 271, pct: 0.5646 } },
+      learned: { at: "2026-11-17T05:30:00.000Z", n: 41, b5: [0.01, 0.012], b15: [-0.02, -0.031], text: "Learned from the last check (right or wrong, every check counts): SBIN's own correction for 5 minutes moved +0.010σ → +0.012σ, for 15 minutes moved −0.020σ → −0.031σ — from 41 checked forecasts of this stock." },
+    },
+    history: [{ at: "2026-11-17T05:30:00.000Z", price: 1080, forecast: 1081.2, actual: 1079.8, missPct: 0.13, inBand: true, right: false, pUp: 0.61, v5: check(5, true), v15: check(15, false) }],
+  });
+  render(<HorizonCard symbol="SBIN" />);
+  expect(await screen.findByText("Next 5 and 15 minutes")).toBeTruthy();
+  // both calls, each labelled with its horizon
+  expect(screen.getByText("LEANS UP")).toBeTruthy();
+  expect(screen.getByText("UP")).toBeTruthy();
+  const five = screen.getByLabelText("The 5-minute forecast").textContent;
+  expect(five).toContain("In 5 minutes");
+  expect(five).toContain("₹1,083.40");
+  expect(five).toContain("(4 min ahead)");
+  expect(five).toContain("chance higher 58%");
+  // the check: one correct, one wrong, each with what was said and what happened
+  const box = screen.getByRole("group", { name: "The check: was each forecast correct?" });
+  expect(box.querySelectorAll(".hz-v--ok")).toHaveLength(1);
+  expect(box.querySelectorAll(".hz-v--no")).toHaveLength(1);
+  expect(box.textContent).toContain("✓ Correct");
+  expect(box.textContent).toContain("✗ Wrong");
+  expect(box.textContent).toContain("it said UP (61%): 1,080.00 → 1,081.20");
+  expect(box.textContent).toContain("It was 1,079.80 (−0.02%), inside its band");
+  expect(box.textContent).toContain("last 20: 13 correct (65%)");
+  expect(box.textContent).toContain("last 20: 11 correct (55%)");
+  expect(box.textContent).toContain("every stock: 271 of 480 (56%)");
+  expect(box.textContent).toContain("Learned from the last check (right or wrong, every check counts)");
+  expect(box.textContent).toContain("A call that leans (55% or more one way) is CORRECT");
+  // the reasons say which way each one pushes
+  expect(screen.getByText(/the last 15 minutes were rising ↑/)).toBeTruthy();
+  // the record lists both horizons with their verdicts
+  fireEvent.click(screen.getByRole("button", { name: "Details" }));
+  const table = screen.getByText("The last forecasts for SBIN, and what happened").nextSibling;
+  expect(table.textContent).toContain("5 min: forecast → actual");
+  expect(table.querySelectorAll(".hz-v--ok")).toHaveLength(1);
+  expect(table.querySelectorAll(".hz-v--no")).toHaveLength(1);
+});
+
+test("before anything has been checked the check says so, and an older server's record still gets its verdict", async () => {
+  const none = { minutes: 5, last: null, recent: [], n: 0, ok: 0, pct: null, all: { n: 0, ok: 0, pct: null } };
+  api.mockResolvedValue({ ...view, checks: { rule: "The rule.", h5: none, h15: { ...none, minutes: 15 }, learned: null } });
+  render(<HorizonCard symbol="SBIN" />);
+  const box = await screen.findByRole("group", { name: "The check: was each forecast correct?" });
+  expect(box.querySelectorAll(".hz-v--wait")).toHaveLength(2);
+  expect(box.textContent).toContain("no forecast of this stock has reached its time yet");
+  expect(screen.queryByLabelText("The 5-minute forecast")).toBeNull();
+  // a record kept before the check existed (no v15): judged on the direction it stored
+  fireEvent.click(screen.getByRole("button", { name: "Details" }));
+  const table = screen.getByText("The last forecasts for SBIN, and what happened").nextSibling;
+  expect(table.querySelectorAll(".hz-v--ok")).toHaveLength(1);
+});
+
 test("when there is no forecast it says why, in the card's own words", async () => {
   api.mockResolvedValue({ symbol: "SBIN", trained: false, available: false, reason: "The forecaster has not learned yet.", live: { n: 0 }, own: { n: 0 }, history: [], learning: { trained: false } });
   render(<HorizonCard symbol="SBIN" />);

@@ -393,3 +393,117 @@
   font-size: var(--t-small);
   line-height: 1.55;
 }
+
+/* the two calls in the header carry which horizon they are for */
+.hz-call small {
+  color: var(--ink-3);
+  font-size: 0.86em;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+/* the 5-minute forecast: one line under the 15-minute boxes */
+.hz-five {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 14px;
+  margin: 0;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--ink-3);
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--ink-2);
+  font-size: var(--t-small);
+  font-variant-numeric: tabular-nums;
+}
+.hz-five b {
+  color: var(--ink);
+}
+.hz-five em {
+  font-style: normal;
+  font-weight: 700;
+}
+.hz-five.is-up {
+  border-left-color: var(--up);
+}
+.hz-five.is-down {
+  border-left-color: var(--down);
+}
+.hz-five.is-up em {
+  color: var(--up);
+}
+.hz-five.is-down em {
+  color: var(--down);
+}
+
+/* the check: was each forecast correct? */
+.hz-check {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding-top: 6px;
+  border-top: 1px solid var(--line);
+}
+.hz-check h4 {
+  margin: 0;
+}
+.hz-check ul {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.hz-check li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 10px;
+  color: var(--ink-2);
+  font-size: var(--t-small);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.5;
+}
+.hz-check li > b {
+  min-width: 46px;
+  color: var(--ink);
+}
+.hz-check li > i {
+  color: var(--ink-3);
+  font-style: normal;
+  white-space: nowrap;
+}
+.hz-v {
+  display: inline-block;
+  padding: 0 8px;
+  border: 1px solid var(--line-2, var(--line));
+  border-radius: 99px;
+  font-size: var(--t-small);
+  font-weight: 700;
+  line-height: 1.6;
+  white-space: nowrap;
+}
+.hz-v--ok {
+  border-color: var(--up);
+  color: var(--up);
+}
+.hz-v--no {
+  border-color: var(--down);
+  color: var(--down);
+}
+.hz-v--wait {
+  color: var(--ink-3);
+  font-weight: 600;
+}
+.hz-check__learn,
+.hz-check__rule {
+  margin: 0;
+  color: var(--ink-3);
+  font-size: var(--t-small);
+  line-height: 1.5;
+}
+.hz-check__learn {
+  color: var(--ink-2);
+}

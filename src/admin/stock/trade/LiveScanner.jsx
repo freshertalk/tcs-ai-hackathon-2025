@@ -25,7 +25,7 @@ const FILTERS = [
 ];
 const STR = { strong: "strong", moderate: "moderate", weak: "weak", none: "" };
 // the classic set-ups in a few characters (server/market/setups.js)
-export const SETUP_SHORT = { orb: "ORB", "vwap-pullback": "VWAP pullback", "vwap-reclaim": "VWAP reclaim", "pd-break": "Prev-day break", "gap-go": "Gap & go", "gap-fade": "Gap fade", "squeeze-break": "Squeeze", "trend-pullback": "1st pullback", "vwap-fade": "VWAP fade" };
+export const SETUP_SHORT = { orb: "ORB", "vwap-pullback": "VWAP pullback", "vwap-reclaim": "VWAP reclaim", "pd-break": "Prev-day break", "gap-go": "Gap & go", "gap-fade": "Gap fade", "squeeze-break": "Squeeze", "trend-pullback": "1st pullback", "vwap-fade": "VWAP fade", orb5: "ORB 5-min", "noise-break": "Out of noise", "cpr-break": "CPR break" };
 
 /** The set-ups that fired on the stock's last closed bar, each with what it has measured on this desk. */
 function Setups({ list }) {

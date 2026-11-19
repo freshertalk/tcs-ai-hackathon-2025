@@ -187,3 +187,99 @@ test("the lab counts the exact charges: the journal's own intraday calculation (
   const trades = SU.backtest(orbDay(), { symbol: "TEST", cost: costOf });
   assert.ok(trades.every((t) => t.costR > 0));
 });
+
+/* ------------------------------------------------------------------ the set-ups added from published research */
+const idsAt = (bars, m) => {
+  const P = SU.prep(bars);
+  const i = P.b.findIndex((b) => b.t === at(T, m));
+  return SU.detect(P, i);
+};
+
+test("orb5: the first 5-minute bar of a stock in play, broken in that candle's own direction — and only then", () => {
+  // a green first bar on three times its usual volume, its high taken out at 9:20
+  const inPlay = [...quiet(PRIOR), bar(555, 100.0, 100.8, 99.9, 100.7, 3000), bar(560, 100.7, 101.3, 100.6, 101.2, 2000)];
+  const hit = idsAt(inPlay, 560).find((s) => s.id === "orb5");
+  assert.ok(hit, "it fires at 9:20, before the 9:30 start of every other set-up");
+  assert.equal(hit.side, "long");
+  assert.equal(hit.rr, 3, "the winner is left to run, as in the paper");
+  assert.match(hit.why, /in play \(3× its usual opening volume\).*first 5-minute bar's high/);
+  assert.equal(hit.name, "5-minute opening range (stock in play)");
+  assert.deepEqual(idsAt(inPlay, 560).map((s) => s.id), ["orb5"], "nothing else is read this early");
+  // the same break on ordinary volume is not a stock in play
+  const ordinary = [...quiet(PRIOR), bar(555, 100.0, 100.8, 99.9, 100.7, 1100), bar(560, 100.7, 101.3, 100.6, 101.2, 2000)];
+  assert.ok(!idsAt(ordinary, 560).some((s) => s.id === "orb5"));
+  // a RED first bar is never bought above its high: only its low may be sold
+  const red = [...quiet(PRIOR), bar(555, 100.7, 100.8, 99.9, 100.0, 3000), bar(560, 100.0, 101.3, 99.95, 101.2, 2000)];
+  assert.ok(!idsAt(red, 560).some((s) => s.id === "orb5"));
+  const redBreak = [...quiet(PRIOR), bar(555, 100.7, 100.8, 99.9, 100.0, 3000), bar(560, 100.0, 100.1, 99.3, 99.4, 2000)];
+  assert.equal(idsAt(redBreak, 560).find((s) => s.id === "orb5").side, "short");
+  // after 10:30 the opening bar is old news
+  const late = [...quiet(PRIOR), bar(555, 100.0, 100.8, 99.9, 100.7, 3000)];
+  for (let m = 560; m <= 635; m += 5) late.push(bar(m, 100.5, 100.75, 100.4, 100.6, 900));
+  late.push(bar(640, 100.6, 101.4, 100.5, 101.3, 2500));
+  assert.ok(!idsAt(late, 640).some((s) => s.id === "orb5"));
+});
+
+test("noise-break: beyond the stock's own usual distance from the open for that time of day, at a half-hour mark, on VWAP's side", () => {
+  const P0 = SU.prep(quiet([...PRIOR, T]));
+  const i0 = P0.b.findIndex((b) => b.t === at(T, 595));
+  assert.ok(P0.noise[i0] > 0.004 && P0.noise[i0] < 0.009, `the usual distance from the open at 10:00 is measured from the sessions before: ${P0.noise[i0]}`);
+  assert.equal(SU.prep(quiet([PRIOR[0], T])).noise.filter((x) => x !== null).length, 0, "too few earlier sessions: no boundary, no signal");
+  // a steady climb that leaves the noise area by 10:00
+  const today = [];
+  let p = 100.4;
+  for (let m = 555; m <= 600; m += 5) {
+    today.push(bar(m, p, p + 0.2, p - 0.03, p + 0.17, 1500));
+    p += 0.17;
+  }
+  const bars = [...quiet(PRIOR), ...today];
+  const hit = idsAt(bars, 595).find((s) => s.id === "noise-break");
+  assert.ok(hit, "it fires on the bar that closes at 10:00");
+  assert.equal(hit.side, "long");
+  assert.equal(hit.rr, 3);
+  assert.match(hit.why, /above its usual range for this time of day/);
+  assert.ok(!idsAt(bars, 590).some((s) => s.id === "noise-break"), "only on a half-hour mark");
+  // inside the area (an ordinary morning) there is nothing to follow
+  assert.ok(!idsAt(quiet([...PRIOR, T]), 595).some((s) => s.id === "noise-break"));
+});
+
+test("cpr-break: only after a balanced day (a narrow pivot range), beyond both that range and the opening range", () => {
+  const today = [bar(555, 100.0, 100.4, 99.9, 100.2, 1200), bar(560, 100.2, 100.4, 100.0, 100.3, 1000), bar(565, 100.3, 100.4, 100.1, 100.2, 1000), bar(570, 100.2, 100.4, 100.1, 100.3, 1000), bar(575, 100.3, 101.0, 100.25, 100.9, 3000)];
+  // yesterday closed at the middle of its range: pivot, top and bottom coincide
+  const balanced = quiet(PRIOR);
+  const last = balanced[balanced.length - 1];
+  const yb = balanced.filter((b) => b.t >= at(PRIOR[3], 555));
+  const mid = (Math.max(...yb.map((b) => b.h)) + Math.min(...yb.map((b) => b.l))) / 2;
+  last.c = mid;
+  last.h = Math.max(last.h, mid);
+  last.l = Math.min(last.l, mid);
+  const hit = idsAt([...balanced, ...today], 575).find((s) => s.id === "cpr-break");
+  assert.ok(hit && hit.side === "long", "the first close beyond both lines, on volume, above VWAP");
+  assert.match(hit.why, /narrow pivot range/);
+  // the same morning after a day that closed near its high (a wide pivot range) is not this set-up
+  const wide = quiet(PRIOR);
+  const w = wide[wide.length - 1];
+  w.c = Math.max(...wide.filter((b) => b.t >= at(PRIOR[3], 555)).map((b) => b.h));
+  assert.ok(!idsAt([...wide, ...today], 575).some((s) => s.id === "cpr-break"));
+});
+
+test("the new set-ups are named, described with their source and their limits, and measured by the same backtest", () => {
+  for (const id of ["orb5", "noise-break", "cpr-break"]) {
+    assert.ok(SU.NAMES[id], id);
+    assert.ok(KB.SETUP_NOTES[id] && KB.SETUP_NOTES[id].rules.length > 80 && KB.SETUP_NOTES[id].avoid, id);
+  }
+  assert.match(KB.SETUP_NOTES.orb5.rules, /Zarattini, Barbon & Aziz/);
+  assert.match(KB.SETUP_NOTES["noise-break"].rules, /Zarattini, Aziz & Barbon/);
+  assert.match(KB.SETUP_NOTES["cpr-break"].avoid, /No published study/);
+  // a stock in play that keeps going: the backtest enters at the next bar's open and lets it run to 3R
+  const day = [bar(555, 100.0, 100.8, 99.9, 100.7, 3000), bar(560, 100.7, 101.3, 100.6, 101.2, 2000)];
+  let p = 101.2;
+  for (let m = 565; m < 930; m += 5) {
+    day.push(bar(m, p, p + 0.3, p - 0.04, p + 0.25, 1500));
+    p += 0.25;
+  }
+  const trades = SU.backtest([...quiet(PRIOR), ...day], { symbol: "TEST" });
+  const t = trades.find((x) => x.id === "orb5");
+  assert.ok(t && t.side === "long" && t.how === "target" && t.grossR > 2.9, JSON.stringify(t));
+  assert.ok(SU.summarize(trades).rows.some((r) => r.id === "orb5" && r.name === "5-minute opening range (stock in play)"));
+});

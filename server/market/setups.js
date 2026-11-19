@@ -13,6 +13,18 @@
 //   trend-pullback  the first shallow pullback after a 2-ATR move, turning back the trend's way
 //   vwap-fade       counter-trend: 2.5 ATR from VWAP, RSI stretched, a reversal bar — back toward VWAP
 //
+// Added from published research (they are measured here like the rest, never assumed to work on NSE):
+//   orb5            the FIRST 5-minute bar of a stock "in play" (unusual opening volume) broken in that candle's own
+//                   direction before 10:30 — Zarattini, Barbon & Aziz, "A Profitable Day Trading Strategy for the U.S.
+//                   Equity Market" (2024): the 5-minute range did best, and only in stocks with high relative volume
+//   noise-break     at a half-hour mark, the price beyond its open (or yesterday's close) by more than this stock's own
+//                   usual distance from the open at that time of day, on VWAP's side — Zarattini, Aziz & Barbon, "Beat
+//                   the Market: An Effective Intraday Momentum Strategy" (2024): moves out of the "noise area" tend to go on
+//   cpr-break       India's central pivot range: when yesterday's high, low and close nearly agree the range is narrow
+//                   (a balanced day, often followed by a trending one); the first close beyond both it and the opening
+//                   range, on volume. A trader's rule with no published test: the lab's numbers are its only evidence.
+// The two researched ones let a winner run (target 3R, else the 3:15 PM exit), as their papers did.
+//
 // Each signal comes at a bar's close with a side, the entry (that close), a stop behind the structure
 // (kept between a quarter and 1.6 ATR away), a target (1.5R, or the natural one for the fades) and its
 // quality. The backtest enters at the NEXT bar's open, exits at the stop (first, if both fall in one bar),
@@ -48,7 +60,11 @@ const NAMES = {
   "squeeze-break": "Squeeze breakout",
   "trend-pullback": "First pullback",
   "vwap-fade": "Stretched fade to VWAP",
+  orb5: "5-minute opening range (stock in play)",
+  "noise-break": "Out of the noise (intraday momentum)",
+  "cpr-break": "Narrow-CPR breakout",
 };
+const EARLY = 560; // 9:20: only the 5-minute opening range is read before 9:30
 
 /**
  * Everything the detectors read, for every bar, using only that bar and the ones before it.
@@ -85,7 +101,11 @@ function prep(bars) {
     relVol: new Array(n).fill(null),
     above: new Array(n).fill(0), // closes above VWAP among the 8 bars before this one
     below: new Array(n).fill(0),
+    s0: new Array(n).fill(0), // the index of the session's first bar
+    noise: new Array(n).fill(null), // the stock's usual distance from its open at this time of day (a fraction)
   };
+  const noiseSlot = new Map(); // minute of the day → [[session index, |close ÷ open − 1|], …]
+  let first = 0;
   const sessions = []; // { date, open, high, low, close }
   const slot = new Map(); // minute of the day → [[session index, volume], …]
   let s = -1;
@@ -98,6 +118,7 @@ function prep(bars) {
     const x = b[i];
     if (i === 0 || day[i] !== day[i - 1]) {
       s += 1;
+      first = i;
       sessions.push({ date: day[i], open: x.o, high: x.h, low: x.l, close: x.c });
       pv = 0;
       vol = 0;
@@ -110,6 +131,13 @@ function prep(bars) {
     cur.low = Math.min(cur.low, x.l);
     cur.close = x.c;
     P.sess[i] = s;
+    P.s0[i] = first;
+    // how far the close usually stands from the open at this minute, over up to 14 sessions BEFORE this one
+    const nl = noiseSlot.get(min[i]) || [];
+    const np = nl.filter(([k]) => k < s).slice(-14);
+    if (np.length >= 4) P.noise[i] = np.reduce((a, [, z]) => a + z, 0) / np.length;
+    if (cur.open > 0) nl.push([s, Math.abs(x.c / cur.open - 1)]);
+    noiseSlot.set(min[i], nl);
     const tp = (x.h + x.l + x.c) / 3;
     const v = num(x.v) && x.v > 0 ? x.v : 0;
     pv += tp * (v || 1);
@@ -170,7 +198,8 @@ function detect(P, i) {
   const x = P.b[i];
   const prev = P.b[i - 1];
   const m = P.min[i];
-  if (m < FROM || m > TO || P.day[i - 1] !== P.day[i]) return out;
+  const early = m >= EARLY && m < FROM; // 9:20–9:30: only the 5-minute opening range fires this early
+  if ((m < FROM && !early) || m > TO || P.day[i - 1] !== P.day[i]) return out;
   const a = P.atr[i];
   if (!num(a) || a <= 0) return out;
   const vw = P.vwap[i];
@@ -180,7 +209,7 @@ function detect(P, i) {
   const vol = (k) => num(rv) && rv >= k;
   const trendUp = num(e9) && num(e21) && e9 > e21;
   const trendDn = num(e9) && num(e21) && e9 < e21;
-  const add = (id, side, stop0, why, target0 = null) => {
+  const add = (id, side, stop0, why, target0 = null, rrWanted = 1.5) => {
     const long = side === "long";
     const entry = x.c;
     let stop = stop0;
@@ -193,19 +222,38 @@ function detect(P, i) {
       stop = long ? entry - 1.6 * a : entry + 1.6 * a;
       risk = 1.6 * a;
     }
-    let target = long ? entry + 1.5 * risk : entry - 1.5 * risk;
+    let target = long ? entry + rrWanted * risk : entry - rrWanted * risk;
     // the fades have a natural target (yesterday's close, VWAP): used when it is 1R to 3R away
     if (num(target0)) {
       const rr = (long ? target0 - entry : entry - target0) / risk;
       if (rr >= 1 && rr <= 3) target = target0;
     }
-    const morning = (m >= FROM && m < 690) || (m >= 810 && m < 870);
+    const morning = (m >= EARLY && m < 690) || (m >= 810 && m < 870);
     const withTrend = long ? trendUp : trendDn;
     const vwapSide = long ? entry >= vw : entry <= vw;
     const quality = clamp(0.35 + (num(rv) ? 0.15 * clamp(rv - 1, 0, 2) : 0) + (withTrend ? 0.15 : 0) + (morning ? 0.15 : 0) + (vwapSide ? 0.1 : 0), 0, 1);
     out.push({ id, name: NAMES[id], side, entry: r2(entry), stop: r2(stop), target: r2(target), risk: r2(risk), rr: r2(Math.abs(target - entry) / risk), quality: r2(quality), why });
   };
 
+  // 10. the 5-minute opening range of a stock in play: the first bar on at least 1.5× its usual volume, broken in that
+  //     candle's own direction before 10:30. Stop a tenth of the stock's daily range away (the paper's rule), run to 3R.
+  const f0 = P.b[P.s0[i]];
+  const frv = P.relVol[P.s0[i]];
+  if (m <= 630 && i > P.s0[i] && num(frv) && frv >= 1.5 && f0.h > f0.l) {
+    const gapStop = num(P.dAtr[i]) ? 0.1 * P.dAtr[i] : 0.4 * a;
+    if (f0.c > f0.o && x.c > f0.h && prev.c <= f0.h) add("orb5", "long", x.c - gapStop, `in play (${r2(frv)}× its usual opening volume): closed above the first 5-minute bar's high ${rs(f0.h)}`, null, 3);
+    if (f0.c < f0.o && x.c < f0.l && prev.c >= f0.l) add("orb5", "short", x.c + gapStop, `in play (${r2(frv)}× its usual opening volume): closed below the first 5-minute bar's low ${rs(f0.l)}`, null, 3);
+  }
+  if (early) return out;
+  // 11. out of the noise: at a half-hour mark, beyond the open (or yesterday's close, whichever is further) by more than the
+  //     stock's usual distance from its open at this time of day, on VWAP's side. Stop at VWAP or the boundary, run to 3R.
+  const nz = P.noise[i];
+  if (num(nz) && nz > 0 && (m + 5) % 30 === 0 && num(P.pdc[i])) {
+    const up = Math.max(P.dOpen[i], P.pdc[i]) * (1 + nz);
+    const dn = Math.min(P.dOpen[i], P.pdc[i]) * (1 - nz);
+    if (x.c > up && x.c > vw) add("noise-break", "long", Math.max(up, vw) - 0.1 * a, `above its usual range for this time of day (${rs(up)}) and above VWAP`, null, 3);
+    if (x.c < dn && x.c < vw) add("noise-break", "short", Math.min(dn, vw) + 0.1 * a, `below its usual range for this time of day (${rs(dn)}) and below VWAP`, null, 3);
+  }
   // 1. the opening range broken, on volume, on VWAP's side (not when the range is already wider than a day's usual)
   const orh = P.orh[i];
   const orl = P.orl[i];
@@ -213,6 +261,20 @@ function detect(P, i) {
     const mid = (orh + orl) / 2;
     if (x.c > orh && prev.c <= orh && x.c > vw && vol(1.2)) add("orb", "long", Math.max(mid, x.l - 0.1 * a), `closed above the opening-range high ${rs(orh)} on ${r2(rv)}× volume`);
     if (x.c < orl && prev.c >= orl && x.c < vw && vol(1.2)) add("orb", "short", Math.min(mid, x.h + 0.1 * a), `closed below the opening-range low ${rs(orl)} on ${r2(rv)}× volume`);
+  }
+  // 12. a narrow central pivot range (yesterday's high, low and close nearly agree): the first close beyond both the range
+  //     and the opening range before noon, on volume, on VWAP's side
+  if (num(P.pdh[i]) && num(P.pdl[i]) && num(P.pdc[i]) && num(orh) && num(orl) && m <= 720 && P.pdh[i] > P.pdl[i]) {
+    const pp = (P.pdh[i] + P.pdl[i] + P.pdc[i]) / 3;
+    const bc = (P.pdh[i] + P.pdl[i]) / 2;
+    const tc = 2 * pp - bc;
+    const top = Math.max(tc, bc);
+    const bot = Math.min(tc, bc);
+    const narrow = top - bot <= 0.1 * (P.pdh[i] - P.pdl[i]);
+    const hiLine = Math.max(top, orh);
+    const loLine = Math.min(bot, orl);
+    if (narrow && x.c > hiLine && prev.c <= hiLine && x.c > vw && vol(1.2)) add("cpr-break", "long", Math.max(top, x.l) - 0.1 * a, `a narrow pivot range (${rs(bot)}–${rs(top)}) and the opening range both cleared, on ${r2(rv)}× volume`);
+    if (narrow && x.c < loLine && prev.c >= loLine && x.c < vw && vol(1.2)) add("cpr-break", "short", Math.min(bot, x.h) + 0.1 * a, `a narrow pivot range (${rs(bot)}–${rs(top)}) and the opening range both lost, on ${r2(rv)}× volume`);
   }
   // 2. a dip to VWAP bought inside an uptrend (or a rally to it sold inside a downtrend)
   if (trendUp && P.above[i] >= 6 && x.l <= vw + 0.25 * a && x.c > vw && x.c > x.o) add("vwap-pullback", "long", Math.min(x.l, vw) - 0.1 * a, `bought at VWAP ${rs(vw)} inside an uptrend`);
@@ -383,4 +445,4 @@ function edgeFactor(e) {
   return r2(clamp(e.avgR / 0.25, -1, 1) * (e.n / (e.n + 60)));
 }
 
-module.exports = { prep, detect, backtest, summarize, edgeFactor, roughCost, NAMES, HOURS, FROM, TO, EXIT };
+module.exports = { prep, detect, backtest, summarize, edgeFactor, roughCost, NAMES, HOURS, FROM, TO, EXIT, EARLY };

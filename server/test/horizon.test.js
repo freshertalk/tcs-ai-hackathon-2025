@@ -193,6 +193,15 @@ test("the service trains on the stored history, forecasts 15+ minutes ahead, sco
   assert.ok(view.levels.some((l) => l.name === "VWAP") && view.levels.every((l) => l.p15 === undefined || (l.p15 >= 0 && l.p15 <= 1)));
   assert.ok(view.why.length > 0 && view.why.every((x) => x.text));
   assert.ok(view.learning.trained && view.learning.examples > 20000);
+  // the 5-minute call beside it: for a bar end 2½ to 7½ minutes away, with its own band and chance
+  assert.ok(view.headline5 && view.headline5.minutesAhead >= 2 && view.headline5.minutesAhead <= 8, `the 5-minute call is ${view.headline5 && view.headline5.minutesAhead} minutes ahead`);
+  assert.ok(view.headline5.h <= 2 && view.headline5.low < view.headline5.price && view.headline5.price < view.headline5.high);
+  assert.ok(Date.parse(view.headline5.at) < Date.parse(view.headline.at), "it is for an earlier time than the 15-minute call");
+  assert.ok(["UP", "DOWN", "LEANS UP", "LEANS DOWN", "NO CLEAR LEAN"].includes(view.headline5.call.word));
+  assert.ok(Array.isArray(view.why5));
+  assert.match(view.checks.rule, /leans \(55% or more one way\) is CORRECT when the price went that way/);
+  assert.equal(view.checks.h15.n, 0, "nothing has been checked yet");
+  assert.equal(view.checks.learned, null);
 
   // later: the forecast is scored against what really happened
   nowMs += 60 * 60000;
@@ -201,6 +210,24 @@ test("the service trains on the stored history, forecasts 15+ minutes ahead, sco
   const again = await svc.view("T00");
   assert.ok(again.live.n >= 1 && again.history.length >= 1);
   assert.ok(again.history[0].actual != null && again.history[0].forecast != null);
+  // the check: every kept forecast is confirmed correct or not, at 5 and at 15 minutes, by the one stated rule
+  for (const side of [again.checks.h5, again.checks.h15]) {
+    assert.ok(side.n >= 1 && side.ok <= side.n && side.last && typeof side.last.ok === "boolean", JSON.stringify(side));
+    assert.ok(["direction", "band"].includes(side.last.basis));
+    assert.ok(Number.isFinite(side.last.forecast) && Number.isFinite(side.last.actual) && Number.isFinite(side.last.from));
+    assert.equal(side.last.ok, side.last.basis === "direction" ? side.last.right : side.last.inBand, "the verdict follows the rule");
+    assert.ok(side.all.n >= side.n, "and the count over every stock followed is kept too");
+  }
+  assert.equal(again.checks.h5.minutes, 5);
+  assert.equal(again.checks.h15.minutes, 15);
+  assert.ok(Date.parse(again.checks.h5.last.for) - Date.parse(again.checks.h5.last.made) === 5 * 60000);
+  assert.deepEqual(again.history[0].v15, again.checks.h15.last);
+  // …and learned from, right or wrong: the stock's own correction for 5 minutes and for 15, each from its own checks
+  const own = svc.model().live.bias.T00;
+  assert.ok(own.n >= 1 && own.n1 >= 1 && Number.isFinite(own.bias) && Number.isFinite(own.b1) && Math.abs(own.b1) <= 0.4);
+  assert.match(again.checks.learned.text, /Learned from the last check \(right or wrong, every check counts\): T00's own correction for 5 minutes/);
+  assert.deepEqual(again.checks.learned.b5[1], own.b1);
+  assert.deepEqual(again.checks.learned.b15[1], own.bias);
 
   // the evening: a new session in the history is forecast with the old model, scored, then learned
   const before = svc.model();
@@ -302,7 +329,10 @@ test("the time-of-day experts are adopted only when the parts of the day really 
 
 test("the contest keeps its champion unless another model is clearly ahead; a smaller model is a corner of the larger one's sums", () => {
   const Ws = H.CANDIDATES.map(() => [[]]);
-  const acc = (a, b, c) => ({ n: 5000, se: [[a], [b], [c]] });
+  const acc = (...v) => ({ n: 5000, se: H.CANDIDATES.map((_, i) => [v[i] === undefined ? 1e9 : v[i]]) }); // a candidate not named here is far behind
+  assert.deepEqual(H.CANDIDATES.map((c) => `${c.id}:${c.dims}`), [`base:${H.BASE_D}`, `full:${H.V2_D}`, `full-shrunk:${H.V2_D}`, `setups:${H.D}`, `setups-shrunk:${H.D}`]);
+  assert.equal(H.chooseChampion(acc(100, 99, 101, 96, 97), Ws, 1), 3, "the model with the researched set-ups takes over only by missing clearly less");
+  assert.equal(H.chooseChampion(acc(100, 99, 101, 98.95, 99.5), Ws, 1), 1, "and not for a gain within the noise");
   assert.equal(H.chooseChampion(acc(100, 90, 95), Ws), 1, "the least error wins when there is no champion yet");
   assert.equal(H.chooseChampion(acc(100, 99.9, 101), Ws, 0), 0, "0.1% ahead is not enough to unseat the champion");
   assert.equal(H.chooseChampion(acc(100, 99, 101), Ws, 0), 1, "1% ahead is");
@@ -323,10 +353,12 @@ test("the contest keeps its champion unless another model is clearly ahead; a sm
       }
     }
   }
-  const [base, full] = H.fitCandidates(st, 1000);
-  assert.ok(base && full);
+  const [base, full, , setups] = H.fitCandidates(st, 1000);
+  assert.ok(base && full && setups);
   assert.ok(base[0].slice(H.BASE_D).every((v) => v === 0), "the added inputs carry no weight in the base model");
-  assert.ok(full[0].slice(H.BASE_D).some((v) => v !== 0), "and do in the full one");
+  assert.ok(full[0].slice(H.BASE_D, H.V2_D).some((v) => v !== 0), "and do in the full one");
+  assert.ok(full[0].slice(H.V2_D).every((v) => v === 0), "which in turn knows nothing of the researched set-ups");
+  assert.ok(setups[0].slice(H.V2_D).some((v) => v !== 0), "the newest model weighs them");
   assert.ok(rows[0].x.slice(H.BASE_D).some((v) => v !== 0), "the added inputs are computed");
   assert.ok(rows.every((r) => Array.from(r.x).every(Number.isFinite)), "every input is a finite number");
   // a stock's scale: pulled towards 1 until its record is long, and never extreme
@@ -383,4 +415,116 @@ test("training and every evening leave a record in the database and write the fi
   const view = await svc.view("T00");
   assert.equal(view.available, false);
   assert.match(view.reason, /learning again with its new inputs/);
+});
+
+test("the researched inputs: read from the sessions BEFORE a day only, and each says what it should", () => {
+  const dates = weekdays("2026-03-02", 20);
+  // every session: +0.4% in the bar at 10:05 (slot 10), a close 1% above the open by 11:00 (slot 21)
+  const mkDay = (d, lift = 0.004) => {
+    const bars = [];
+    let p = 100;
+    for (let i = 0; i < 75; i += 1) {
+      const r = i === 10 ? lift : i < 21 ? 0.0003 : 0;
+      const o = p;
+      p *= 1 + r;
+      bars.push({ t: openMs(d) + i * 300000, o, h: Math.max(o, p) + 0.02, l: Math.min(o, p) - 0.02, c: p, v: 1000 });
+    }
+    return [d, bars];
+  };
+  const days = dates.map((d) => mkDay(d));
+  const st = H.dayStat(days[0][1]);
+  assert.ok(Math.abs(st.ret[10] - 0.004) < 1e-9 && st.abs[21] > 0.009 && st.high > st.low && st.close > 100);
+  const pc = H.priorContext(days.slice(0, 14).map(([, b]) => H.dayStat(b)));
+  assert.ok(Math.abs(pc.tod[10] - 0.004) < 1e-9, "the same bar's average return over the last five sessions");
+  assert.ok(Math.abs(pc.noise[21] - st.abs[21]) < 1e-9, "the usual distance from the open at that time");
+  assert.equal(pc.prevClose, st.close);
+  assert.equal(H.priorContext([]), null);
+  assert.ok(Number.isNaN(H.priorContext(days.slice(0, 2).map(([, b]) => H.dayStat(b))).tod[10]), "two sessions are too few to call anything usual");
+
+  // the service's context for day 15 does not change when day 15 and everything after it are replaced: no look-ahead
+  const svc = new Horizon({ market: {}, docs: mkdocs(), history: null, universe: () => [], log: quiet });
+  const prof = { sigma: 0.001, day: 0.012, beta: 1, vol: new Array(75).fill(1000) };
+  const a = svc._ctxFor(prof, days, 15, null);
+  const other = days.map((x, i) => (i >= 15 ? mkDay(x[0], -0.02) : x));
+  const b = svc._ctxFor(prof, other, 15, null);
+  assert.deepEqual([Array.from(a.tod), Array.from(a.noise), a.prevHigh, a.prevLow, a.prevClose], [Array.from(b.tod), Array.from(b.noise), b.prevHigh, b.prevLow, b.prevClose]);
+  assert.ok(Math.abs(a.tod[10] - 0.004) < 1e-9 && a.prevHigh > a.prevLow);
+
+  // one made-up morning: a first bar on three times its usual volume, then a run above it, above yesterday's high and out of its usual range
+  const day = [];
+  const push = (i, o, h, l, c, v) => day.push({ t: openMs("2026-04-01") + i * 300000, o, h, l, c, v });
+  push(0, 100, 101, 99.9, 100.8, 3000);
+  let p = 100.8;
+  for (let i = 1; i <= 30; i += 1) {
+    push(i, p, p + 0.12, p - 0.02, p + 0.1, 1200);
+    p += 0.1;
+  }
+  const noise = new Float64Array(75).fill(0.004);
+  const tod = new Float64Array(75).fill(0);
+  tod[12] = 0.002;
+  tod[13] = 0.001;
+  tod[14] = 0.001;
+  const ctx = { sigma: 0.001, day: 0.012, beta: 1, vol: new Array(75).fill(1000), prevClose: 99.5, prevDayRet: 0, trend: 0, mkt: new Float64Array(75).fill(0.0001), prevHigh: 100.5, prevLow: 98.5, noise, tod };
+  const rows = H.dayRows(day, ctx, { targets: false, needAll: false });
+  const at = (slot, name) => rows.find((r) => r.s === slot).x[H.FEATURES.indexOf(name)];
+  assert.equal(at(0, "orb5"), 0, "the first bar cannot be beyond itself");
+  assert.ok(at(11, "orb5") > 1, "above the first bar, weighted up by its unusual volume");
+  assert.equal(at(30, "orb5"), 0, "after two hours the opening bar is old news");
+  assert.ok(at(11, "noise") > 0, "out of its usual range for the time of day");
+  const roomy = H.dayRows(day, { ...ctx, noise: new Float64Array(75).fill(0.05) }, { targets: false, needAll: false });
+  assert.equal(roomy.find((r) => r.s === 11).x[H.FEATURES.indexOf("noise")], 0, "inside a wider usual range there is nothing to say");
+  assert.ok(at(11, "tod1") > 1 && at(11, "tod3") > 1, "it rose at this time on recent days");
+  assert.equal(at(20, "tod1"), 0);
+  assert.ok(at(11, "rs") > 0, "stronger than the market's own move explains");
+  assert.ok(at(11, "ema") > 0 && at(11, "er") > 0.9, "a straight rise: the fast average over the slow, an efficient path");
+  assert.ok(at(11, "pivot") > 0 && at(11, "pdx") > 0, "above yesterday's pivot and its high");
+  assert.ok(at(11, "cpr") > 0, "yesterday closed at the middle of its range, and today is drifting up");
+  assert.ok(at(11, "gapGo") > 0, "a gap up being extended");
+  assert.equal(at(11, "vwSide"), 1, "every recent close above VWAP");
+  assert.equal(at(11, "mom30"), 0, "the first half-hour counts only from 2:30 PM");
+  // a late bar of a full session that opened strongly
+  const full = mkDay("2026-04-02")[1];
+  const late = H.dayRows(full, { ...ctx, prevClose: 99, noise: null, tod: null, prevHigh: null, prevLow: null }, { targets: false, needAll: false });
+  assert.ok(late.find((r) => r.s === 70).x[H.FEATURES.indexOf("mom30")] > 0 && late.find((r) => r.s === 62).x[H.FEATURES.indexOf("mom30")] === 0);
+  // without the context the inputs stay silent rather than invent something
+  const bare = H.dayRows(day, { sigma: 0.001, day: 0.012, beta: 1, vol: null, prevClose: 99.5, prevDayRet: 0, trend: 0, mkt: null }, { targets: false, needAll: false }).find((r) => r.s === 11);
+  for (const f of ["noise", "tod1", "tod3", "rs", "pivot", "pdx", "cpr"]) assert.equal(bare.x[H.FEATURES.indexOf(f)], 0, f);
+  assert.ok(Array.from(bare.x).every(Number.isFinite));
+});
+
+test("the 5-minute headline, the stock's own correction per horizon, and the one rule that says whether a forecast was correct", () => {
+  const model = { W: Array.from({ length: H.T }, () => new Array(H.D).fill(0)), resSd: Array.from({ length: H.T }, () => [1, 1, 1]), z70: new Array(H.T).fill(1.04) };
+  const days = weekdays("2026-02-02", 1);
+  const bars = Array.from({ length: 30 }, (_, i) => ({ t: openMs(days[0]) + i * 300000, o: 100, h: 100.2, l: 99.8, c: 100, v: 1000 }));
+  const ctx = { sigma: 0.001, day: 0.015, beta: 1, vol: null, prevClose: 100, prevDayRet: 0, trend: 0, mkt: null };
+  const fc = H.forecastFrom(bars, ctx, model);
+  const end = fc.anchor.end;
+  for (const lag of [0, 60000, 149000, 152000, 240000, 299000]) {
+    const h5 = H.headline(fc, end + lag, 2.5);
+    const ahead = (h5.at - end - lag) / 60000;
+    assert.ok(ahead >= 2.5 - 0.02 && ahead <= 7.5, `lag ${lag}: ${ahead} minutes`);
+    assert.equal(h5.h, lag < 151000 ? 1 : 2, "the bar now forming, or the next one when this one is nearly over");
+    assert.equal(h5.reach, null, "the high and the low are forecast for 15 minutes and beyond");
+  }
+  assert.equal(H.headline(fc, end, 15).h, 3);
+  assert.ok(H.headline(fc, end, 15).reach, "the 15-minute call keeps its high and low");
+  // a correction per horizon moves only its own horizon
+  const one = H.forecastFrom(bars, ctx, model, { bias: [0.5, 0, 0, 0, 0] });
+  assert.ok(one.horizons[1].pct > 0 && one.horizons[3].pct === 0);
+  const every = H.forecastFrom(bars, ctx, model, { bias: 0.5 });
+  assert.ok(every.horizons[1].pct > 0 && every.horizons[3].pct > 0, "one number still corrects every horizon");
+
+  const f = (pUp) => ({ price: 100.2, low: 99.9, high: 100.5, pct: 0.2, pUp });
+  const a = (price, right, inBand) => ({ price, pct: price - 100, miss: 100.2 - price, right, inBand });
+  // a call that leans is judged on direction
+  assert.deepEqual([H.verdictOf(f(0.62), a(100.6, true, false)).ok, H.verdictOf(f(0.62), a(100.6, true, false)).basis], [true, "direction"]);
+  assert.equal(H.verdictOf(f(0.62), a(99.95, false, true)).ok, false, "inside the band, but it said up and the price fell: wrong");
+  assert.equal(H.verdictOf(f(0.38), a(99.7, true, false)).side, "down");
+  // a call with no lean is judged on its band
+  assert.deepEqual([H.verdictOf(f(0.52), a(100.1, true, true)).ok, H.verdictOf(f(0.52), a(100.1, true, true)).basis], [true, "band"]);
+  assert.equal(H.verdictOf(f(0.52), a(101, true, false)).ok, false);
+  // a price that ended exactly where it was has no direction to judge: the band decides
+  assert.equal(H.verdictOf(f(0.7), a(100, null, true)).basis, "band");
+  assert.equal(H.verdictOf(f(0.7), null), null, "not checked before its time");
+  assert.equal(H.verdictOf(null, a(100, true, true)), null);
 });

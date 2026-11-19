@@ -76,7 +76,7 @@ function ResearchHorizon({ symbol, first }) {
   const [open, setOpen] = useState(Boolean(first));
   return (
     <details className="rs-ai" open={Boolean(first)} onToggle={(e) => setOpen(e.currentTarget.open)}>
-      <summary>Next 15 minutes — price, high, low and levels for {symbol}</summary>
+      <summary>Next 5 and 15 minutes — price, high, low, levels and the check for {symbol}</summary>
       {open && <HorizonCard symbol={symbol} compact />}
     </details>
   );

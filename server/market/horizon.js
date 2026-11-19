@@ -41,10 +41,28 @@ const TARGETS = [...HORIZONS.map((h) => `r${h}`), ...REACH.map((h) => `u${h}`), 
 const FEATURES = [
   "bias", "r1", "r3", "r6", "r12", "fromOpen", "gap", "vwap", "pos", "rsi", "vol", "volDir", "vnow", "tOpen", "tClose", "m3", "m6", "prevDay", "trend",
   "clv", "clv3", "wick", "z20", "orb", "r1sq", "rsiX", "dHigh", "dLow",
+  // Added on 2026-11-19 from published research on intraday behaviour and from the levels Indian desks watch. Like the nine
+  // above they are NOT assumed to help on NSE: a model with them competes against the models without them on sessions
+  // none has seen, and is used only if it misses less.
+  //   orb5     beyond the FIRST 5-minute bar, weighted by how unusual that bar's volume was — Zarattini, Barbon & Aziz
+  //            (2024): the 5-minute opening range of "stocks in play"
+  //   noise    beyond the stock's own usual distance from its open for this time of day — Zarattini, Aziz & Barbon
+  //            (2024): intraday momentum out of the "noise area"
+  //   mom30    the first half-hour's move (from yesterday's close), counted only from 2:30 PM — Gao, Han, Li & Zhou,
+  //            "Market intraday momentum" (JFE 2018): the first half-hour predicts the last
+  //   tod1 tod3  what this stock did in the next bar, and the next three, at this time of day on its last five sessions —
+  //            Heston, Korajczyk & Sadka (2010): returns repeat at the same time of day
+  //   rs       the move since the open beyond what the market's own move (times beta) explains: relative strength
+  //   ema er   EMA 9 over EMA 21, and how straight the last hour's path was (net move ÷ distance travelled)
+  //   pivot pdx cpr  against yesterday's pivot; beyond yesterday's high or low; a narrow central pivot range × today's drift
+  //   gapGo    the gap being extended (+) or faded (−)        vwSide  the share of the last six closes above VWAP
+  //   sqz      a move out of a quiet stretch
+  "orb5", "noise", "mom30", "tod1", "tod3", "rs", "ema", "er", "pivot", "pdx", "cpr", "gapGo", "vwSide", "sqz",
 ];
 const BASE_D = 19;
+const V2_D = 28; // the inputs up to the first addition: that model is a corner of the full one's sums
 const D = FEATURES.length;
-const MODEL_VERSION = 2; // the stored sums are tied to the list of inputs: a model of another version is retrained
+const MODEL_VERSION = 3; // the stored sums are tied to the list of inputs: a model of another version is retrained
 const T = TARGETS.length;
 const MAXH = Math.max(...HORIZONS);
 const DECAY_DAY = 0.998; // an old day counts a little less each calendar day (half-life about a year)
@@ -192,13 +210,74 @@ function marketFromBars(raw) {
   return a;
 }
 
+/* ============================================================================ what earlier sessions say about a day */
+
+/** What one whole session leaves behind: its close, high and low, each bar's return, and how far each bar's close stood from the open. */
+function dayStat(rawBars) {
+  const bars = cleanBars(rawBars);
+  if (!bars.length) return null;
+  const ret = new Float64Array(SESSION_BARS).fill(NaN);
+  const abs = new Float64Array(SESSION_BARS).fill(NaN);
+  const o0 = bars[0].o;
+  let hi = -Infinity;
+  let lo = Infinity;
+  for (let i = 0; i < bars.length; i += 1) {
+    const b = bars[i];
+    const prev = i ? bars[i - 1].c : b.o;
+    ret[b.s] = (b.c - prev) / prev;
+    abs[b.s] = Math.abs(b.c / o0 - 1);
+    if (b.h > hi) hi = b.h;
+    if (b.l < lo) lo = b.l;
+  }
+  return { close: bars[bars.length - 1].c, high: hi, low: lo, ret, abs };
+}
+
+/**
+ * From the sessions BEFORE a day (oldest first; the day itself is never read, so nothing of it can leak into its own
+ * inputs): yesterday's close, high and low; `noise` — the usual distance of the close from the open at each time of day
+ * (up to 14 sessions, at least 4); `tod` — the average return of each 5-minute bar over the last 5 sessions (at least 3).
+ * @param prev [dayStat, …]
+ */
+function priorContext(prev) {
+  const list = (prev || []).filter(Boolean);
+  if (!list.length) return null;
+  const last = list[list.length - 1];
+  const noise = new Float64Array(SESSION_BARS).fill(NaN);
+  const tod = new Float64Array(SESSION_BARS).fill(NaN);
+  const n14 = list.slice(-14);
+  const n5 = list.slice(-5);
+  for (let k = 0; k < SESSION_BARS; k += 1) {
+    let a = 0;
+    let an = 0;
+    for (const d of n14) {
+      if (num(d.abs[k])) {
+        a += d.abs[k];
+        an += 1;
+      }
+    }
+    if (an >= 4) noise[k] = a / an;
+    let r = 0;
+    let rn = 0;
+    for (const d of n5) {
+      if (num(d.ret[k])) {
+        r += d.ret[k];
+        rn += 1;
+      }
+    }
+    if (rn >= 3) tod[k] = r / rn;
+  }
+  return { prevClose: last.close, prevHigh: last.high, prevLow: last.low, noise, tod };
+}
+
 /* ============================================================================ the inputs and the targets */
 
 /**
  * One row per finished bar of a session: the inputs `x` (as of that bar's close) and, when asked, the targets `y`
  * (NaN where the session ends first). Rows are taken every `stride` bars; the last bar is always kept when `last`.
  * @param bars  the session's bars so far (cleaned here)
- * @param ctx   { sigma, day, beta, vol[75], prevClose, prevDayRet, trend, mkt: Float64Array|null }
+ * @param ctx   { sigma, day, beta, vol[75], prevClose, prevDayRet, trend, mkt: Float64Array|null,
+ *                prevHigh, prevLow, noise: Float64Array|null, tod: Float64Array|null }   (the last four from priorContext;
+ *                an input whose context is missing stays at zero, which says nothing)
  */
 function dayRows(rawBars, ctx, { targets = true, stride = 1, last = false, needAll = true } = {}) {
   const bars = cleanBars(rawBars);
@@ -227,9 +306,26 @@ function dayRows(rawBars, ctx, { targets = true, stride = 1, last = false, needA
   const clvs = [];
   let orH = -Infinity; // the opening range: the first 15 minutes
   let orL = Infinity;
+  // for the researched inputs
+  const noise = ctx.noise || null;
+  const tod = ctx.tod || null;
+  const first = bars[0].s === 0 ? bars[0] : null; // the first 5-minute bar, when the session's start was read
+  const firstRv = first && vol && vol[0] > 0 ? Math.max(0.5, Math.min(2.5, first.v / vol[0])) : 1;
+  const ref = num(ctx.prevClose) && ctx.prevClose > 0 ? ctx.prevClose : o0;
+  let firstHalf = null; // the move from yesterday's close to 9:45
+  let mktCum = 0;
+  let e9 = bars[0].c;
+  let e21 = bars[0].c;
+  const side = []; // each close against VWAP: +1 above, −1 below
   for (let i = 0; i < n; i += 1) {
     const b = bars[i];
     const prevC = i ? bars[i - 1].c : b.o;
+    if (b.s <= 5) firstHalf = (b.c - ref) / ref;
+    if (mkt && num(mkt[b.s])) mktCum += mkt[b.s];
+    if (i) {
+      e9 += (2 / 10) * (b.c - e9);
+      e21 += (2 / 22) * (b.c - e21);
+    }
     if (b.s < 3) {
       orH = Math.max(orH, b.h);
       orL = Math.min(orL, b.l);
@@ -237,6 +333,8 @@ function dayRows(rawBars, ctx, { targets = true, stride = 1, last = false, needA
     clvs.push(b.h > b.l ? (b.c - b.l - (b.h - b.c)) / (b.h - b.l) : 0);
     pv += ((b.h + b.l + b.c) / 3) * b.v;
     vv += b.v;
+    const vwNow = vv > 0 ? pv / vv : b.c;
+    side.push(b.c > vwNow ? 1 : b.c < vwNow ? -1 : 0);
     hi = Math.max(hi, b.h);
     lo = Math.min(lo, b.l);
     const d = b.c - prevC;
@@ -340,6 +438,40 @@ function dayRows(rawBars, ctx, { targets = true, stride = 1, last = false, needA
     x[25] = Math.sign(x[9]) * Math.max(0, Math.abs(x[9]) - 0.4); // RSI only past 70 / 30
     x[26] = clip((hi - b.c) / b.c / sigH, 6); // room to the day's high
     x[27] = clip((b.c - lo) / b.c / sigH, 6); // room to the day's low
+    // --- the researched inputs (see FEATURES)
+    if (first && b.s >= 1 && b.s <= 24) x[28] = clip(((b.c > first.h ? (b.c - first.h) / b.c : b.c < first.l ? (b.c - first.l) / b.c : 0) / sigma) * firstRv, 6);
+    const nz = noise && num(noise[b.s]) && noise[b.s] > 0 ? noise[b.s] : null;
+    if (nz !== null) {
+      const up = Math.max(o0, ref) * (1 + nz);
+      const dn = Math.min(o0, ref) * (1 - nz);
+      x[29] = clip((b.c > up ? (b.c - up) / b.c : b.c < dn ? (b.c - dn) / b.c : 0) / sigH, 6);
+    }
+    if (b.s >= 63 && num(firstHalf)) x[30] = clip(firstHalf / dayR, 4) * Math.min(1, (b.s - 62) / 7);
+    if (tod) {
+      if (num(tod[b.s + 1])) x[31] = clip(tod[b.s + 1] / sigma, 3);
+      if (num(tod[b.s + 1]) && num(tod[b.s + 2]) && num(tod[b.s + 3])) x[32] = clip((tod[b.s + 1] + tod[b.s + 2] + tod[b.s + 3]) / sigma / Math.sqrt(3), 3);
+    }
+    if (mkt) x[33] = clip(((b.c - o0) / o0 - beta * mktCum) / sigH, 6);
+    x[34] = clip((e9 - e21) / b.c / sigma, 6);
+    const ew = Math.min(12, i);
+    if (ew >= 3) {
+      let dist = 0;
+      for (let j = i - ew + 1; j <= i; j += 1) dist += absRets[j];
+      x[35] = dist > 0 ? clip((b.c - closes[i - ew]) / closes[i - ew] / dist, 1) : 0;
+    }
+    if (num(ctx.prevHigh) && num(ctx.prevLow) && ctx.prevHigh > ctx.prevLow) {
+      const pH = ctx.prevHigh;
+      const pL = ctx.prevLow;
+      x[36] = clip((b.c - (pH + pL + ref) / 3) / Math.max(pH - pL, b.c * sigma * 4), 3);
+      x[37] = clip((b.c > pH ? (b.c - pH) / b.c : b.c < pL ? (b.c - pL) / b.c : 0) / sigH, 6);
+      x[38] = Math.max(0, 1 - Math.abs(2 * ref - pH - pL) / (pH - pL)) * Math.tanh(x[5]); // 1 × today's drift after a day that closed mid-range (a narrow CPR)
+    }
+    x[39] = clip(x[6] * Math.tanh(x[5]), 4);
+    const sw = Math.min(6, i + 1);
+    let above = 0;
+    for (let j = i - sw + 1; j <= i; j += 1) above += side[j];
+    x[40] = above / sw;
+    x[41] = clip(Math.max(0, -x[12]) * x[1], 4);
     rows.push({ s: b.s, t: b.t, price: b.c, sigma, x, y, bucket: x[12] < -0.3 ? 0 : x[12] > 0.3 ? 2 : 1, hi, lo, vwap: vw });
   }
   return rows;
@@ -458,8 +590,10 @@ function fit(stats, lambda = LAMBDA, minRows = MIN_ROWS, dims = D) {
    clearly ahead (0.2% less squared error over the return horizons), so it does not flip on noise. */
 const CANDIDATES = [
   { id: "base", dims: BASE_D, lambda: LAMBDA, name: "the original 18 inputs" },
-  { id: "full", dims: D, lambda: LAMBDA, name: `all ${D - 1} inputs` },
-  { id: "full-shrunk", dims: D, lambda: LAMBDA * 10, name: `all ${D - 1} inputs, shrunk harder` },
+  { id: "full", dims: V2_D, lambda: LAMBDA, name: `${V2_D - 1} inputs (with bar shape, stretch and the opening range)` },
+  { id: "full-shrunk", dims: V2_D, lambda: LAMBDA * 10, name: `${V2_D - 1} inputs, shrunk harder` },
+  { id: "setups", dims: D, lambda: LAMBDA, name: `all ${D - 1} inputs (with the researched set-ups)` },
+  { id: "setups-shrunk", dims: D, lambda: LAMBDA * 10, name: `all ${D - 1} inputs (with the researched set-ups), shrunk harder` },
 ];
 const fitCandidates = (stats, minRows = MIN_ROWS) => CANDIDATES.map((c) => fit(stats, c.lambda, minRows, c.dims));
 
@@ -680,6 +814,8 @@ const HNAME = (h) => `${h * 5} min`;
  * @returns { anchor: { t, end, price }, sigma, horizons: { [h]: {...} }, reach, levels } or null
  */
 function forecastFrom(rawBars, ctx, model, { bias = 0, tilt = 0, tilts = null, levels = [], stockScale = 1 } = {}) {
+  // `bias` may be one number for every horizon, or one per horizon (the stock's own correction is learned for 5 and 15 minutes apart)
+  const biasAt = (k) => (Array.isArray(bias) ? (num(bias[k]) ? bias[k] : 0) : bias);
   if (!model || !model.W) return null;
   const rows = dayRows(rawBars, ctx, { targets: false, last: true, stride: 1000 }).filter((r, i, a) => i === a.length - 1);
   if (!rows.length) return null;
@@ -696,7 +832,7 @@ function forecastFrom(rawBars, ctx, model, { bias = 0, tilt = 0, tilts = null, l
     if (h > left) continue;
     const sd = model.resSd[k][row.bucket] * scale;
     // `tilts`: a correction of its own for each horizon (the recorded order book and open interest, when they have earned one)
-    const mu = clip(p[k] + bias + tilt + (tilts && num(tilts[k]) ? tilts[k] : 0), 2.5); // beyond 2.5σ the inputs are outside anything it has learned from
+    const mu = clip(p[k] + biasAt(k) + tilt + (tilts && num(tilts[k]) ? tilts[k] : 0), 2.5); // beyond 2.5σ the inputs are outside anything it has learned from
     const move = mu * sg; // fraction
     const pUp = phi(mu / sd);
     const z = (model.z70 ? model.z70[k] : 1.04) * sd;
@@ -759,10 +895,12 @@ function forecastFrom(rawBars, ctx, model, { bias = 0, tilt = 0, tilts = null, l
 /**
  * The 15-minute headline: the first bar end at least 15 minutes after `nowMs` that the model forecasts.
  * A forecast made from a bar finished a few minutes ago still looks a full 15 minutes ahead.
+ * `leadMinutes` 2.5 gives the 5-minute headline: the first bar end at least 2½ minutes away, so it is always
+ * between 2½ and 7½ minutes ahead (the bar now forming, or the next when this one is nearly over).
  */
-function headline(fc, nowMs) {
+function headline(fc, nowMs, leadMinutes = 15) {
   if (!fc) return null;
-  const need = nowMs + 15 * 60000;
+  const need = nowMs + leadMinutes * 60000;
   let pick = null;
   for (const h of HORIZONS) {
     const x = fc.horizons[h];
@@ -770,7 +908,7 @@ function headline(fc, nowMs) {
     if (x.at >= need - 1000 && !pick) pick = x;
   }
   if (!pick) return null;
-  const reachH = Object.values(fc.reach).find((r) => fc.anchor.end + r.minutes * 60000 >= need - 1000) || null;
+  const reachH = Object.values(fc.reach).find((r) => r.h === pick.h) || null; // the high and the low are forecast for 15, 20 and 30 minutes only
   return { ...pick, reach: reachH, minutesAhead: Math.round((pick.at - nowMs) / 60000) };
 }
 
@@ -817,13 +955,29 @@ function settle(rec, rawBars) {
   return out;
 }
 
+/**
+ * Was a forecast right? One rule, stated on the screen:
+ *   a call that LEANS (55% or more one way) is correct when the price went that way;
+ *   a call with no lean is correct when the price ended inside its band.
+ * @param f the forecast for a horizon { price, low, high, pct, pUp }   @param a what happened (from settle)
+ */
+function verdictOf(f, a) {
+  if (!f || !a) return null;
+  const p = Math.max(f.pUp, 1 - f.pUp);
+  const lean = p >= NO_EDGE;
+  const flat = a.right === null || a.right === undefined; // the price ended exactly where it started: no direction to judge
+  const basis = lean && !flat ? "direction" : "band";
+  const ok = basis === "direction" ? Boolean(a.right) : Boolean(a.inBand);
+  return { ok, basis, side: lean ? (f.pUp >= 0.5 ? "up" : "down") : null, p: r4(p), right: flat ? null : Boolean(a.right), inBand: Boolean(a.inBand), forecast: f.price, low: f.low, high: f.high, actual: a.price, missPct: a.miss, movePct: a.pct };
+}
+
 module.exports = {
   BAR, OPEN_MIN, SESSION_BARS, HORIZONS, REACH, TARGETS, FEATURES, D, T, MAXH, DECAY_DAY, LAMBDA, BUCKETS, MIN_ROWS, NO_EDGE, BINS,
   phi, cleanBars, slotOf, dateOf, minOf, daysBetween, tIndex,
-  buildProfile, marketFromStocks, marketFromBars, dayRows,
+  buildProfile, marketFromStocks, marketFromBars, dayRows, dayStat, priorContext,
   Stats, fit, solve, dot,
   emptyEval, predictRow, scoreRows, resSdOf, z70Of, summariseEval,
   SEGMENTS, ALPHAS, SEG_MIN_ROWS, segOf, segFor, alphaEvidence, chooseAlpha,
-  BASE_D, MODEL_VERSION, CANDIDATES, fitCandidates, arenaEvidence, chooseChampion, SCALE_K, stockScaleOf, MIN_GAIN,
-  forecastFrom, headline, callOf, settle, HNAME,
+  BASE_D, V2_D, MODEL_VERSION, CANDIDATES, fitCandidates, arenaEvidence, chooseChampion, SCALE_K, stockScaleOf, MIN_GAIN,
+  forecastFrom, headline, callOf, settle, verdictOf, HNAME,
 };

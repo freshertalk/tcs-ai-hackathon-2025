@@ -91,7 +91,22 @@ const WHY = {
   rsiX: ["RSI is past 70", "RSI is under 30"],
   dHigh: ["the day's high is some way off", "the day's high is some way off"],
   dLow: ["the day's low is some way off", "the day's low is some way off"],
+  orb5: ["it is above the first 5-minute bar, which traded unusual volume", "it is below the first 5-minute bar, which traded unusual volume"],
+  noise: ["it is above its usual range for this time of day", "it is below its usual range for this time of day"],
+  mom30: ["the first half-hour was up", "the first half-hour was down"],
+  tod1: ["on recent days it rose in the next 5 minutes at this time", "on recent days it fell in the next 5 minutes at this time"],
+  tod3: ["on recent days it rose over the next 15 minutes at this time", "on recent days it fell over the next 15 minutes at this time"],
+  rs: ["it is stronger than the market today", "it is weaker than the market today"],
+  ema: ["EMA 9 is above EMA 21", "EMA 9 is below EMA 21"],
+  er: ["the last hour went up in a straight line", "the last hour went down in a straight line"],
+  pivot: ["it is above yesterday's pivot", "it is below yesterday's pivot"],
+  pdx: ["it is above yesterday's high", "it is below yesterday's low"],
+  cpr: ["a rising day after a narrow pivot range", "a falling day after a narrow pivot range"],
+  gapGo: ["the gap is being extended", "the gap is being faded"],
+  vwSide: ["the last closes held above VWAP", "the last closes held below VWAP"],
+  sqz: ["a rise out of a quiet stretch", "a fall out of a quiet stretch"],
 };
+const CHECK_RULE = "A call that leans (55% or more one way) is CORRECT when the price went that way by its time; a call with no lean is CORRECT when the price ended inside its band. Every forecast kept is checked this way, 5 and 15 minutes after it was made.";
 
 class Horizon {
   /**
@@ -124,6 +139,9 @@ class Horizon {
     this._scoreAt = 0;
     this._dailyAt = "";
     this._tryAt = 0;
+    this._stats = new WeakMap(); // a list of sessions → what each one leaves behind (worked out once)
+    this._prior = new Map(); // symbol → { date, ctx }: what the sessions before today say (for the live forecast)
+    this._tally = null; // the check's totals over every stock, kept until the record changes
     this.lastError = "";
   }
 
@@ -176,11 +194,23 @@ class Horizon {
   }
 
   /** The inputs one session needs besides its own bars, from the sessions before it. */
+  /** What one stored session leaves behind (close, high, low, bar returns, distance from the open), once per list of sessions. */
+  _dayStat(days, i) {
+    let c = this._stats.get(days);
+    if (!c) this._stats.set(days, (c = new Array(days.length)));
+    if (c[i] === undefined) c[i] = H.dayStat(days[i][1]);
+    return c[i];
+  }
+
   _ctxFor(profile, days, idx, mkt) {
     const closeOf = (i) => {
-      const b = H.cleanBars(days[i][1]);
-      return b.length ? b[b.length - 1].c : null;
+      const st = this._dayStat(days, i);
+      return st ? st.close : null;
     };
+    // yesterday's levels, the usual distance from the open and the same-time-of-day returns: from the 14 sessions BEFORE this one
+    const before = [];
+    for (let i = Math.max(0, idx - 14); i < idx; i += 1) before.push(this._dayStat(days, i));
+    const pc = H.priorContext(before);
     const prevClose = closeOf(idx - 1);
     const prev2 = idx >= 2 ? closeOf(idx - 2) : null;
     const ten = idx >= 11 ? closeOf(idx - 11) : null;
@@ -194,7 +224,27 @@ class Horizon {
       prevDayRet: prevClose && prev2 ? (prevClose - prev2) / prev2 : null,
       trend: prevClose && ten ? (prevClose / ten - 1) / (dayR * Math.sqrt(10)) : 0,
       mkt: mkt ? mkt.get(days[idx][0]) || null : null,
+      prevHigh: pc ? pc.prevHigh : null,
+      prevLow: pc ? pc.prevLow : null,
+      noise: pc ? pc.noise : null,
+      tod: pc ? pc.tod : null,
     };
+  }
+
+  /** The same context for the live forecast: from the stored sessions before today (a stock with no stored history has none). */
+  _priorFor(symbol, today) {
+    const hit = this._prior.get(symbol);
+    if (hit && hit.date === today) return hit.ctx;
+    let ctx = null;
+    try {
+      const days = this._days(symbol).filter(([d]) => d < today).slice(-14);
+      ctx = H.priorContext(days.map(([, raw]) => H.dayStat(raw)));
+    } catch (_) {
+      ctx = null;
+    }
+    if (this._prior.size > 400) this._prior.clear();
+    this._prior.set(symbol, { date: today, ctx });
+    return ctx;
   }
 
   /* --------------------------------------------------------------------------- training from the whole history */
@@ -735,20 +785,31 @@ class Horizon {
       trend: prevClose && ten ? (prevClose / ten - 1) / (dayR * Math.sqrt(10)) : 0,
       mkt: mk,
     };
+    // for the researched inputs: yesterday's high and low (from the daily candles, else the stored history), the usual
+    // distance from the open and the same-time-of-day returns (from the stored sessions before today)
+    const earlier = this._priorFor(symbol, today);
+    const y = daily.length ? daily[daily.length - 1] : null;
+    ctx.prevHigh = y && num(y.h) ? y.h : earlier ? earlier.prevHigh : null;
+    ctx.prevLow = y && num(y.l) ? y.l : earlier ? earlier.prevLow : null;
+    ctx.noise = earlier ? earlier.noise : null;
+    ctx.tod = earlier ? earlier.tod : null;
     const live = m.live || { bias: {}, tilt: {} };
     const evidence = this._evidence(symbol, now);
     let tilt = 0;
     for (const [k, v] of Object.entries(evidence)) tilt += ((live.tilt || {})[k] || 0) * v;
     const own = (live.bias || {})[symbol];
     const bias = own ? own.bias : 0;
+    // the stock's own correction is learned apart for 5 minutes (from the 5-minute checks) and for 15 and beyond
+    const bias1 = own && num(own.b1) ? own.b1 : 0;
+    const biasK = H.HORIZONS.map((h) => (h <= 1 ? bias1 : h === 2 ? (bias1 + bias) / 2 : bias));
     const stockScale = m.stockCal && m.stockCal.on ? H.stockScaleOf((m.stockCal.recs || {})[symbol]) : 1;
     // the recorded order book and open interest as of the last finished bar: shown always, added to the forecast only once proven
     const flow = this._flowFor(symbol, done[done.length - 1].t + H.BAR);
     const tilts = flow && flow.on && flow.tilts ? flow.tilts : null;
-    const probe = H.forecastFrom(done, ctx, m, { bias, tilt, tilts, levels: [], stockScale });
+    const probe = H.forecastFrom(done, ctx, m, { bias: biasK, tilt, tilts, levels: [], stockScale });
     if (!probe) return { reason: "The forecast could not be made from today's bars." };
-    const fc = H.forecastFrom(done, ctx, m, { bias, tilt, tilts, levels: this._levels(probe, prevClose), stockScale });
-    return { fc, evidence, tilt, bias, prevClose, now, flow, flowTilt: tilts ? tilts[H.HORIZONS.indexOf(3)] || 0 : 0 };
+    const fc = H.forecastFrom(done, ctx, m, { bias: biasK, tilt, tilts, levels: this._levels(probe, prevClose), stockScale });
+    return { fc, evidence, tilt, bias, bias1, prevClose, now, flow, flowTilt: tilts ? tilts[H.HORIZONS.indexOf(3)] || 0 : 0, flowTilt1: tilts ? tilts[H.HORIZONS.indexOf(1)] || 0 : 0 };
   }
 
   _flowFor(symbol, endMs) {
@@ -771,7 +832,9 @@ class Horizon {
       if (!num(c) || Math.abs(c) < 0.004) return;
       const w = WHY[f];
       if (!w) return;
-      out.push({ key: f, pushSigma: r4(c), side: c > 0 ? "up" : "down", text: c > 0 ? w[0] : w[1] });
+      // the words state the fact (which side the reading is on); `side` is which way the model takes it — they can differ
+      // (a price far above VWAP is a fact that can push the forecast DOWN)
+      out.push({ key: f, pushSigma: r4(c), side: c > 0 ? "up" : "down", text: v > 0 ? w[0] : w[1] });
     });
     return out.sort((a, b) => Math.abs(b.pushSigma) - Math.abs(a.pushSigma)).slice(0, 5);
   }
@@ -797,6 +860,11 @@ class Horizon {
         const call = H.callOf(head);
         const k = head ? H.HORIZONS.indexOf(head.h) : -1;
         const grade = k >= 0 && m.validation ? this._gradeLine(m.validation.horizons[k], call) : null;
+        // the 5-minute call: the first bar end at least 2½ minutes away (so always 2½ to 7½ minutes ahead)
+        const head5 = H.headline(r.fc, now, 2.5);
+        const call5 = H.callOf(head5);
+        const k5 = head5 ? H.HORIZONS.indexOf(head5.h) : -1;
+        const grade5 = k5 >= 0 && m.validation ? this._gradeLine(m.validation.horizons[k5], call5) : null;
         this._keep(symbol, r, now);
         this._flush();
         part = {
@@ -807,11 +875,13 @@ class Horizon {
           anchor: { at: iso(r.fc.anchor.end), price: r.fc.anchor.price },
           sigmaPct: r.fc.sigma,
           headline: head ? { minutesAhead: head.minutesAhead, at: iso(head.at), h: head.h, price: head.price, pct: head.pct, low: head.low, high: head.high, pUp: head.pUp, sdPct: head.sd, call, reach: head.reach ? { minutes: head.reach.minutes, up: head.reach.up, down: head.reach.down } : null, grade } : null,
+          headline5: head5 ? { minutesAhead: Math.max(1, Math.round((head5.at - now) / 60000)), at: iso(head5.at), h: head5.h, price: head5.price, pct: head5.pct, low: head5.low, high: head5.high, pUp: head5.pUp, sdPct: head5.sd, call: call5, grade: grade5 } : null,
           horizons: Object.values(r.fc.horizons).map((x) => ({ minutes: x.minutes, at: iso(x.at), price: x.price, pct: x.pct, low: x.low, high: x.high, pUp: x.pUp })),
           reach: Object.values(r.fc.reach).map((x) => ({ minutes: x.minutes, up: x.up, down: x.down })),
           levels: r.fc.levels,
           day: r.fc.day,
           why: head ? this._why(r.fc, m, head.h) : [],
+          why5: head5 ? this._why(r.fc, m, head5.h) : [],
           evidence: { news: r.evidence.news ?? null, aiLive: r.evidence.aiLive ?? null, tilt: r4(r.tilt), bias: r4(r.bias) },
           // the order book and open interest the recorder read at the bar's close; `inUse` only once they have proved themselves
           flow: r.flow && r.flow.read ? { ...r.flow.read, inUse: Boolean(r.flow.on), tilt: r4(r.flowTilt), gain15: r.flow.gain ?? null, scored: r.flow.evidence || 0 } : null,
@@ -836,9 +906,10 @@ class Horizon {
       own: this._liveStats(symbol),
       stock: st && st.n ? { n: st.n, dirAcc: r4(st.hit / st.n), missPct: r4(st.miss / st.n), naivePct: r4(st.naive / st.n) } : null,
       history: mine.slice(0, 10).map((r) => this._row(r)),
+      checks: this._checks(symbol, mine),
       learning: this._learning(m),
       rule:
-        "The model looks at the stock's last hour of 5-minute bars — price, volume, RSI, VWAP, where it sits in the day's range, the time of day and the market's own move — and has learned from about a million examples from every NIFTY 100 stock how such moments turned out 5 to 30 minutes later. It forecasts the close, the high and the low; the band aims to hold 70% of outcomes. Every evening it forecasts the whole day again before looking at it, is scored on that, then learns it. It is a probability, not a promise: the screen shows how often it has really been right.",
+        "The model looks at the stock's last hour of 5-minute bars — price, volume, RSI, VWAP, where it sits in the day's range, the time of day, the market's own move and the researched set-ups (the 5-minute opening range of a stock in play, the move out of its usual range for the time of day, the first half-hour's pull on the close, what it did at this time on recent days, yesterday's pivot levels) — and has learned from about a million examples from every NIFTY 100 stock how such moments turned out 5 to 30 minutes later. It forecasts the close, the high and the low; the band aims to hold 70% of outcomes. Every evening it forecasts the whole day again before looking at it, is scored on that, then learns it. It is a probability, not a promise: the screen shows how often it has really been right.",
     };
   }
 
@@ -992,7 +1063,7 @@ class Horizon {
     for (const [h, x] of Object.entries(fc.horizons)) horizons[h] = { price: x.price, low: x.low, high: x.high, pct: x.pct, pUp: x.pUp, at: x.at };
     const reach = {};
     for (const [h, x] of Object.entries(fc.reach)) reach[h] = { up: x.up.price, down: x.down.price };
-    const rec = { id, date: istDate(now), symbol, anchorEnd: fc.anchor.end, madeAt: iso(now), price: fc.anchor.price, sigma: fc.sigma, bucket: fc.bucket, horizons, reach, evidence: r.evidence, tilt: r4(r.tilt), bias: r4(r.bias), flowTilt: r4(r.flowTilt || 0), flow: r.flow && r.flow.read ? { imb: r.flow.read.imb, oi15: r.flow.read.oi15Pct } : null, settled: false, actual: null };
+    const rec = { id, date: istDate(now), symbol, anchorEnd: fc.anchor.end, madeAt: iso(now), price: fc.anchor.price, sigma: fc.sigma, bucket: fc.bucket, horizons, reach, evidence: r.evidence, tilt: r4(r.tilt), bias: r4(r.bias), bias1: r4(r.bias1 || 0), flowTilt: r4(r.flowTilt || 0), flowTilt1: r4(r.flowTilt1 || 0), flow: r.flow && r.flow.read ? { imb: r.flow.read.imb, oi15: r.flow.read.oi15Pct } : null, settled: false, actual: null };
     this._rev = (this._rev || 0) + 1;
     this._recs().set(id, rec);
     this._pending = this._pending || [];
@@ -1009,7 +1080,63 @@ class Horizon {
   _row(r) {
     const a = (r.actual || {})[3] || (r.actual || {})[4] || null;
     const f = r.horizons[3] || r.horizons[4] || null;
-    return { at: iso(r.anchorEnd), price: r.price, forecast: f ? f.price : null, actual: a ? a.price : null, missPct: a ? a.miss : null, inBand: a ? a.inBand : null, right: a ? a.right : null, pUp: f ? f.pUp : null };
+    return { at: iso(r.anchorEnd), price: r.price, forecast: f ? f.price : null, actual: a ? a.price : null, missPct: a ? a.miss : null, inBand: a ? a.inBand : null, right: a ? a.right : null, pUp: f ? f.pUp : null, v5: this._check(r, 1), v15: this._check(r, 3) };
+  }
+
+  /* --------------------------------------------------------------------------- the check: was each forecast right? */
+  /** One kept forecast at one horizon, with what happened and the verdict (null until its time has come). */
+  _check(r, h) {
+    const f = (r.horizons || {})[h];
+    const a = (r.actual || {})[h];
+    const v = H.verdictOf(f, a);
+    return v ? { made: iso(r.anchorEnd), for: iso(f.at), minutes: h * 5, from: r.price, ...v } : null;
+  }
+
+  /** The check's totals over every stock followed (kept until the record changes). */
+  _tallyAll() {
+    if (this._tally && this._tally.rev === (this._rev || 0)) return this._tally.v;
+    const v = { 1: { n: 0, ok: 0 }, 3: { n: 0, ok: 0 } };
+    for (const r of this._recs().values()) {
+      if (!r.settled || !r.actual) continue;
+      for (const h of [1, 3]) {
+        const x = H.verdictOf((r.horizons || {})[h], r.actual[h]);
+        if (!x) continue;
+        v[h].n += 1;
+        if (x.ok) v[h].ok += 1;
+      }
+    }
+    this._tally = { rev: this._rev || 0, v };
+    return v;
+  }
+
+  /**
+   * For the screen: the last checked forecasts of a stock at 5 and at 15 minutes — correct or not, by the one rule —
+   * the count of the last twenty, the count over every stock, and what the last check taught.
+   * @param mine the stock's settled records, newest first
+   */
+  _checks(symbol, mine) {
+    const all = this._tallyAll();
+    const side = (h) => {
+      const list = mine.map((r) => this._check(r, h)).filter(Boolean);
+      const l20 = list.slice(0, 20);
+      const ok = l20.filter((x) => x.ok).length;
+      return { minutes: h * 5, last: list[0] || null, recent: list.slice(0, 8), n: l20.length, ok, pct: l20.length ? r4(ok / l20.length) : null, all: { n: all[h].n, ok: all[h].ok, pct: all[h].n ? r4(all[h].ok / all[h].n) : null } };
+    };
+    const taught = mine.find((r) => r.learned);
+    let learned = null;
+    if (taught) {
+      const L = taught.learned;
+      const sg = (x) => `${x >= 0 ? "+" : "−"}${Math.abs(x).toFixed(3)}σ`;
+      const moved = (p) => (Math.abs(p[1] - p[0]) < 0.0005 ? `stays ${sg(p[1])}` : `moved ${sg(p[0])} → ${sg(p[1])}`);
+      learned = {
+        at: iso(taught.anchorEnd),
+        n: L.n,
+        b5: L.b5,
+        b15: L.b15,
+        text: `Learned from the last check (right or wrong, every check counts): ${symbol}'s own correction for 5 minutes ${moved(L.b5)}, for 15 minutes ${moved(L.b15)} — from ${L.n} checked forecast${L.n === 1 ? "" : "s"} of this stock. After the close the whole model learns today's bars of every NIFTY 100 stock again.`,
+      };
+    }
+    return { rule: CHECK_RULE, h5: side(1), h15: side(3), learned };
   }
 
   /** Write what happened beside every forecast whose time has come. */
@@ -1021,6 +1148,9 @@ class Horizon {
     for (const r of due) (bySym.get(r.symbol) || bySym.set(r.symbol, []).get(r.symbol)).push(r);
     let scored = 0;
     const today = istDate(now);
+    const just = []; // the records checked in this pass
+    const m0 = this._usable();
+    const was = JSON.parse(JSON.stringify((m0 && m0.live && m0.live.bias) || {})); // each stock's correction before this pass
     for (const [sym, list] of bySym) {
       let bars = null;
       const dates = [...new Set(list.map((r) => r.date))];
@@ -1048,6 +1178,7 @@ class Horizon {
             r.actual = actual;
             r.settled = true;
             this._pending = (this._pending || []).concat([r]);
+            just.push(r);
             scored += 1;
           }
         }
@@ -1056,7 +1187,16 @@ class Horizon {
     if (scored) {
       this._rev = (this._rev || 0) + 1;
       this._learnLive();
-      this.log.log(`[horizon] ${scored} forecasts scored`);
+      // what each check taught: the stock's own correction before and after it (kept with the forecast)
+      const m1 = this._usable();
+      const is = (m1 && m1.live && m1.live.bias) || {};
+      for (const r of just) {
+        const a = was[r.symbol] || {};
+        const b = is[r.symbol] || {};
+        r.learned = { n: b.n || 0, b5: [a.b1 || 0, b.b1 || 0], b15: [a.bias || 0, b.bias || 0] };
+      }
+      const ok15 = just.filter((r) => (H.verdictOf(r.horizons[3], r.actual[3]) || {}).ok).length;
+      this.log.log(`[horizon] ${scored} forecasts checked (${ok15} correct at 15 minutes) and learned from`);
     }
     this._prune();
     this._flush();
@@ -1089,7 +1229,15 @@ class Horizon {
       // σ units: + the price went higher than the model alone said (the forecast shown also carried the bias and the tilt)
       for (const r of list) sum += (r.actual[3].pct - r.horizons[3].pct) / r.sigma + (r.bias || 0) + (r.tilt || 0) + (r.flowTilt || 0);
       const n = list.length;
-      bias[s] = { n, bias: r4(Math.max(-0.4, Math.min(0.4, (sum / n) * (n / (n + 40))))) };
+      // the same for the 5-minute forecasts: what the model alone missed at 5 minutes, shrunk until there are many
+      let sum1 = 0;
+      let n1 = 0;
+      for (const r of list) {
+        if (!r.actual[1] || !r.horizons[1]) continue;
+        sum1 += (r.actual[1].pct - r.horizons[1].pct) / r.sigma + (num(r.bias1) ? r.bias1 : r.bias || 0) + (r.tilt || 0) + (r.flowTilt1 || 0);
+        n1 += 1;
+      }
+      bias[s] = { n, bias: r4(Math.max(-0.4, Math.min(0.4, (sum / n) * (n / (n + 40))))), n1, b1: n1 ? r4(Math.max(-0.4, Math.min(0.4, (sum1 / n1) * (n1 / (n1 + 40))))) : 0 };
     }
     const tilt = {};
     for (const key of ["news", "aiLive"]) {

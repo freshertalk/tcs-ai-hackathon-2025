@@ -1,6 +1,7 @@
-// The 15-minute forecast on the Desk and in Research: the price, the high and the low the stock is expected to reach,
-// the chance it is higher, the levels it is likely to touch — and, beside them, how often the forecaster has really been
-// right. The server forecasts, scores and learns (server/horizon.js, server/market/horizon.js); this only shows it.
+// The 5- and 15-minute forecast on the Desk and in Research: the price, the high and the low the stock is expected to
+// reach, the chance it is higher, the levels it is likely to touch — and, beside them, THE CHECK: whether each forecast
+// already made turned out correct or wrong (by one stated rule), how many of the last twenty were, and what the last
+// check taught. The server forecasts, checks and learns (server/horizon.js, server/market/horizon.js); this only shows it.
 
 import React, { useEffect, useState } from "react";
 import { api, peek } from "../../api";
@@ -129,6 +130,64 @@ function Accuracy({ d }) {
   );
 }
 
+/** Correct or wrong, as a small badge (or "not yet" while the forecast's time has not come). */
+function Verdict({ v }) {
+  if (!v) return <span className="hz-v hz-v--wait">not yet</span>;
+  return (
+    <span className={`hz-v hz-v--${v.ok ? "ok" : "no"}`} data-tip={v.basis === "direction" ? "It leaned one way, so it is judged on the direction the price took." : "It had no lean, so it is judged on whether the price ended inside its band."}>
+      {v.ok ? "✓ Correct" : "✗ Wrong"}
+    </span>
+  );
+}
+
+const said = (v) => (v.side ? `${v.side === "up" ? "UP" : "DOWN"} (${pc(v.p)})` : "no clear lean");
+
+/** One horizon of the check: the last forecast that has been checked, and the count of the last twenty. */
+function CheckSide({ s, compact }) {
+  const v = s.last;
+  return (
+    <li>
+      <b>{s.minutes} min</b>
+      <Verdict v={v} />
+      {v ? (
+        !compact && (
+          <span>
+            at {clock(v.made)} it said {said(v)}: {num(v.from)} → {num(v.forecast)} by {clock(v.for)}. It was {num(v.actual)} ({sgn(v.movePct)}), {v.inBand ? "inside" : "outside"} its band {num(v.low)}–{num(v.high)}
+          </span>
+        )
+      ) : (
+        <span>no forecast of this stock has reached its time yet</span>
+      )}
+      {s.n > 0 && (
+        <i>
+          last {s.n}: {s.ok} correct ({pc(s.pct)})
+        </i>
+      )}
+      {s.all && s.all.n > s.n && (
+        <i data-tip="Every forecast kept for every stock followed, over the last 45 days.">
+          every stock: {s.all.ok.toLocaleString("en-IN")} of {s.all.n.toLocaleString("en-IN")} ({pc(s.all.pct)})
+        </i>
+      )}
+    </li>
+  );
+}
+
+/** The check: every forecast kept is confirmed correct or wrong when its time comes — and learned from either way. */
+function Checks({ c, compact }) {
+  if (!c || !c.h5 || !c.h15) return null;
+  return (
+    <div className="hz-check" role="group" aria-label="The check: was each forecast correct?">
+      <h4 data-tip={c.rule}>The check: was it correct?</h4>
+      <ul>
+        <CheckSide s={c.h5} compact={compact} />
+        <CheckSide s={c.h15} compact={compact} />
+      </ul>
+      {!compact && c.learned && <p className="hz-check__learn">{c.learned.text}</p>}
+      {!compact && <p className="hz-check__rule">{c.rule}</p>}
+    </div>
+  );
+}
+
 function Details({ d }) {
   return (
     <div className="hz-more">
@@ -198,10 +257,11 @@ function Details({ d }) {
                 <tr>
                   <th>Made</th>
                   <th className="hz-n">Price then</th>
-                  <th className="hz-n">Forecast</th>
-                  <th className="hz-n">Actual</th>
+                  <th className="hz-n">5 min: forecast → actual</th>
+                  <th>Check</th>
+                  <th className="hz-n">15 min: forecast → actual</th>
                   <th className="hz-n">Miss</th>
-                  <th className="hz-n">Direction</th>
+                  <th>Check</th>
                 </tr>
               </thead>
               <tbody>
@@ -209,11 +269,16 @@ function Details({ d }) {
                   <tr key={r.at}>
                     <th scope="row">{clock(r.at)}</th>
                     <td className="hz-n">{num(r.price)}</td>
-                    <td className="hz-n">{num(r.forecast)}</td>
-                    <td className="hz-n">{num(r.actual)}</td>
+                    <td className="hz-n">{r.v5 ? `${num(r.v5.forecast)} → ${num(r.v5.actual)}` : "—"}</td>
+                    <td>
+                      <Verdict v={r.v5} />
+                    </td>
+                    <td className="hz-n">
+                      {num(r.forecast)} → {num(r.actual)}
+                    </td>
                     <td className="hz-n">{sgn(r.missPct, 3)}</td>
-                    <td className={`hz-n ${r.right === true ? "is-up" : r.right === false ? "is-down" : ""}`}>
-                      {r.right === true ? "right" : r.right === false ? "wrong" : "—"}
+                    <td>
+                      <Verdict v={r.v15 || (r.right === true || r.right === false ? { ok: r.right, basis: "direction" } : null)} />
                     </td>
                   </tr>
                 ))}
@@ -245,16 +310,26 @@ export default function HorizonCard({ symbol, enabled = true, compact = false })
     );
   const head = d.available ? d.headline : null;
   const call = head ? head.call : null;
+  const head5 = d.available ? d.headline5 || null : null;
+  const call5 = head5 ? head5.call : null;
   const t = tone(head ? head.pct : 0);
   return (
     <section className={`hz hz--${call && call.side ? call.side : "flat"} ${compact ? "hz--compact" : ""}`} aria-label={`The next 15 minutes for ${symbol}`}>
       <header className="hz-head">
-        <h3>Next 15 minutes</h3>
+        <h3>Next 5 and 15 minutes</h3>
+        {call5 && (
+          <span className={`hz-call hz-call--${call5.side || "flat"}`} data-tip={`The 5-minute call: for ${clock(head5.at)}, ${head5.minutesAhead} min ahead. Which way the model leans and the chance it gives that side.`}>
+            <small>5 min</small>
+            {call5.word}
+            {call5.p ? <b> {pc(call5.p)}</b> : null}
+          </span>
+        )}
         {call && (
           <span
             className={`hz-call hz-call--${call.side || "flat"}`}
             data-tip="Which way the model leans, and the chance it gives that side. Measured: the table below says how often such calls were right."
           >
+            {head5 && <small>15 min</small>}
             {call.word}
             {call.p ? <b> {pc(call.p)}</b> : null}
           </span>
@@ -308,6 +383,19 @@ export default function HorizonCard({ symbol, enabled = true, compact = false })
                   <span>{call && call.grade !== "none" ? `grade ${call.grade}` : "no edge"}</span>
                 </div>
               </div>
+              {head5 && (
+                <p className={`hz-five is-${tone(head5.pct)}`} aria-label="The 5-minute forecast">
+                  <b>In 5 minutes</b>
+                  <span>
+                    {inr(head5.price)} <em>{sgn(head5.pct)}</em> at {clock(head5.at)} ({head5.minutesAhead} min ahead)
+                  </span>
+                  <span>
+                    band {num(head5.low)} – {num(head5.high)}
+                  </span>
+                  <span>chance higher {pc(head5.pUp)}</span>
+                  <span>{call5 && call5.grade !== "none" ? `grade ${call5.grade}` : "no edge"}</span>
+                </p>
+              )}
               {d.levels && d.levels.length > 0 && (
                 <ul className="hz-levels" aria-label="Levels and the chance of touching them within 15 minutes">
                   {d.levels
@@ -326,7 +414,7 @@ export default function HorizonCard({ symbol, enabled = true, compact = false })
               )}
               {d.why && d.why.length > 0 && (
                 <p className="hz-why">
-                  <b>Why:</b> {d.why.map((w) => w.text).join(" · ")}.
+                  <b>Why (15 min):</b> {d.why.map((w) => `${w.text} ${w.side === "up" ? "↑" : "↓"}`).join(" · ")}.
                 </p>
               )}
               {d.flow && (
@@ -344,6 +432,7 @@ export default function HorizonCard({ symbol, enabled = true, compact = false })
           </div>
         </>
       )}
+      <Checks c={d.checks} compact={compact} />
       <Accuracy d={d} />
       {more && d.available && <Details d={d} />}
     </section>
