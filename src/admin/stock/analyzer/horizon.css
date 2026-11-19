@@ -370,3 +370,26 @@
     align-items: start;
   }
 }
+
+/* what the forecaster has learned, folded under the board */
+.hz-lessons {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+.hz-lessons > summary {
+  padding: 8px 12px;
+  color: var(--ink-2);
+  font-size: var(--t-small);
+  font-weight: 600;
+  cursor: pointer;
+}
+.hz-lessons ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 4px 14px 12px 30px;
+  color: var(--ink-2);
+  font-size: var(--t-small);
+  line-height: 1.55;
+}

@@ -28,6 +28,8 @@ const IST = 5.5 * 3600 * 1000;
 const COLLECTION = "horizon_forecasts";
 const DAYS = "horizon_days";
 const MODEL = "market/horizon-model.json";
+const LEARNING = "horizon_learning"; // one record per training and per evening: what was chosen and what was learned
+const SECTION = "## What the desk has measured about the next 15 minutes (written by itself after every evening's learning)";
 const INDEX = "NIFTY 50";
 const SYMBOL_RE = /^[A-Z0-9][A-Z0-9&._ -]{0,24}$/;
 const OPEN_FROM = 9 * 60 + 20;
@@ -80,6 +82,15 @@ const WHY = {
   m6: ["the market has been rising for half an hour", "the market has been falling for half an hour"],
   prevDay: ["yesterday was an up day", "yesterday was a down day"],
   trend: ["the last ten days drifted up", "the last ten days drifted down"],
+  clv: ["the last bar closed near its high", "the last bar closed near its low"],
+  clv3: ["the last three bars closed near their highs", "the last three bars closed near their lows"],
+  wick: ["the last bar was rejected from above", "the last bar was rejected from below"],
+  z20: ["the price is stretched above its 20-bar mean", "the price is stretched below its 20-bar mean"],
+  orb: ["the price is above the opening range", "the price is below the opening range"],
+  r1sq: ["the last bar was an unusually big rise", "the last bar was an unusually big fall"],
+  rsiX: ["RSI is past 70", "RSI is under 30"],
+  dHigh: ["the day's high is some way off", "the day's high is some way off"],
+  dLow: ["the day's low is some way off", "the day's low is some way off"],
 };
 
 class Horizon {
@@ -90,7 +101,8 @@ class Horizon {
    * @param universe  () => the NIFTY 100's symbols
    * @param ai        the AiService, optional (its last live read for a stock; no model is asked)
    */
-  constructor({ market, docs, history, universe, ai = null, now = () => Date.now(), log = console }) {
+  constructor({ market, docs, history, universe, ai = null, playbook = null, now = () => Date.now(), log = console }) {
+    this.playbook = playbook; // the trading-skills file every AI feature reads: the forecaster writes its findings into it
     this.market = market;
     this.docs = docs;
     this.history = history;
@@ -123,7 +135,8 @@ class Horizon {
   }
   _usable() {
     const m = this.model();
-    return m && m.W ? m : null;
+    // a model made from another list of inputs cannot be used (its sums do not match): it is retrained by itself
+    return m && m.W && m.version === H.MODEL_VERSION ? m : null;
   }
   /** Changes whenever the model, the record or a learning run does (the live hub compares it). */
   fingerprint() {
@@ -266,7 +279,10 @@ class Horizon {
             } else {
               val.add(row.x, row.y, w);
               valSeg[sg].add(row.x, row.y, w);
-              if (valRows.length < 160000 && (row.s & 2) === 0) valRows.push(row);
+              if (valRows.length < 160000 && (row.s & 2) === 0) {
+                row.sym = s;
+                valRows.push(row);
+              }
             }
           }
           job.rows += rows.length;
@@ -277,31 +293,62 @@ class Horizon {
     }
     job.phase = "measuring it on sessions it has not seen";
     await tick();
-    const Wtrain = H.fit(train);
-    if (!Wtrain) throw new HorizonError("Not enough examples to fit the model.", "short_history", 409);
-    // champion and challenger: the pooled model alone, against the pooled model blended with the expert for the part of
-    // the day — judged on the sessions neither has seen. Each target keeps the blend that missed least (often none).
-    const WsegTrain = trainSeg.map((st) => H.fit(st, H.LAMBDA, H.SEG_MIN_ROWS));
-    const evidence = H.alphaEvidence(null, Wtrain, WsegTrain, valRows);
+    // The unseen rows are split in two. Every CHOICE (which model, how much of the experts, the calibration, each stock's
+    // scale, the width of the band) is made on one half; every NUMBER SHOWN is measured on the other, which chose nothing.
+    const pick = valRows.filter((_, i) => i % 2 === 0);
+    const judge = valRows.filter((_, i) => i % 2 === 1);
+    // 1. the contest between the candidate models (the original inputs / all inputs / all inputs shrunk harder)
+    const Ws = H.fitCandidates(train);
+    if (!Ws[0]) throw new HorizonError("Not enough examples to fit the model.", "short_history", 409);
+    const arena = H.arenaEvidence(null, Ws, pick);
+    const ci = H.chooseChampion(arena, Ws);
+    const champ = H.CANDIDATES[ci];
+    const Wtrain = Ws[ci];
+    // 2. the time-of-day experts, as far as they beat the champion alone
+    const WsegTrain = trainSeg.map((st) => H.fit(st, champ.lambda, H.SEG_MIN_ROWS, champ.dims));
+    const evidence = H.alphaEvidence(null, Wtrain, WsegTrain, pick);
     const alpha = H.chooseAlpha(evidence);
     const segsTrain = { W: WsegTrain, alpha };
-    const pooledOnly = H.summariseEval(H.scoreRows(H.emptyEval(), Wtrain, valRows, { keepZ: false }));
-    let ev = H.scoreRows(H.emptyEval(), Wtrain, valRows, { keepZ: false, segs: segsTrain });
+    // 3. how bold the calls should be (one factor per target)
+    const raw = H.scoreRows(H.emptyEval(), Wtrain, pick, { keepZ: false, segs: segsTrain });
+    const slope = raw.pp.map((pp, k) => (pp > 0 ? Math.max(0.3, Math.min(1.5, raw.pa[k] / pp)) : 1));
+    // 4. each stock's own scale, and whether using the scales makes the forecasts miss less
+    const recs = {};
+    for (const row of pick) {
+      const p = H.predictRow(Wtrain, row.x, slope, H.segFor(segsTrain, row.s));
+      const r = recs[row.sym] || (recs[row.sym] = { pp: 0, pa: 0 });
+      for (let k = 0; k < H.HORIZONS.length; k += 1) {
+        r.pp += p[k] * p[k];
+        r.pa += p[k] * row.y[k];
+      }
+    }
+    const scalesOf = (rs) => Object.fromEntries(Object.entries(rs).map(([sym, r]) => [sym, H.stockScaleOf(r)]));
+    const sumSe = (e) => Array.from(e.se).reduce((a, b) => a + b, 0);
+    const seNo = sumSe(H.scoreRows(H.emptyEval(), Wtrain, judge, { keepZ: false, segs: segsTrain, slope }));
+    const seYes = sumSe(H.scoreRows(H.emptyEval(), Wtrain, judge, { keepZ: false, segs: segsTrain, slope, scales: scalesOf(recs) }));
+    const stockCal = { on: seNo > 0 && (seNo - seYes) / seNo >= H.MIN_GAIN / 2, recs: Object.fromEntries(Object.entries(recs).map(([k2, r]) => [k2, { pp: r4(r.pp), pa: r4(r.pa) }])), se: [r2(seNo), r2(seYes)], n: judge.length };
+    const scales = stockCal.on ? scalesOf(recs) : null;
+    // 5. the spread of the misses and the width of the band, from the choosing half
+    let ev = H.scoreRows(H.emptyEval(), Wtrain, pick, { keepZ: false, segs: segsTrain, slope, scales });
     const resSd = H.resSdOf(ev);
-    ev = H.scoreRows(H.emptyEval(), Wtrain, valRows, { resSd, keepZ: true, segs: segsTrain });
+    ev = H.scoreRows(H.emptyEval(), Wtrain, pick, { resSd, keepZ: true, segs: segsTrain, slope, scales });
     const z70 = H.z70Of(ev);
-    const fin = H.scoreRows(H.emptyEval(), Wtrain, valRows, { resSd, z70, keepZ: false, segs: segsTrain });
-    const slope = fin.pp.map((pp, k) => (pp > 0 ? Math.max(0.3, Math.min(1.5, fin.pa[k] / pp)) : 1));
-    // the slope is checked once more with it applied, so the numbers shown are those of the model as it is used
-    const used = H.scoreRows(H.emptyEval(), Wtrain, valRows, { resSd, z70, slope, keepZ: false, segs: segsTrain });
+    // 6. the numbers shown: the model as it will be used, and the original model alone, both on the half that chose nothing
+    const used = H.scoreRows(H.emptyEval(), Wtrain, judge, { resSd, z70, slope, keepZ: false, segs: segsTrain, scales });
+    const pooledOnly = H.summariseEval(H.scoreRows(H.emptyEval(), Ws[0], judge, { keepZ: false }));
     train.merge(val);
-    const W = H.fit(train);
+    const Wall = H.fitCandidates(train);
+    const W = Wall[ci] || Wtrain;
     trainSeg.forEach((st, i) => st.merge(valSeg[i]));
-    const seg = { stats: trainSeg.map((st) => st.toJSON()), W: trainSeg.map((st) => H.fit(st, H.LAMBDA, H.SEG_MIN_ROWS)), alpha, evidence: { n: evidence.n, se: evidence.se.map((r) => r.map((v) => Math.round(v * 100) / 100)) } };
+    const seg = { stats: trainSeg.map((st) => st.toJSON()), W: trainSeg.map((st) => H.fit(st, champ.lambda, H.SEG_MIN_ROWS, champ.dims)), alpha, evidence: { n: evidence.n, se: evidence.se.map((r) => r.map((v) => Math.round(v * 100) / 100)) } };
     job.phase = "saving";
     const old = this.model();
     const model = {
-      version: 1,
+      version: H.MODEL_VERSION,
+      champion: champ.id,
+      Wall,
+      arena: { n: arena.n, se: arena.se.map((r) => r.map((v) => r2(v))) },
+      stockCal,
       trainedAt: iso(this.now()),
       lastDate: newest,
       stats: train.toJSON(),
@@ -320,6 +367,8 @@ class Horizon {
     this._saveModel(model);
     this._cache.clear();
     this.lastError = "";
+    this._teach(model, "training");
+    this.log.log(`[horizon] model in use: ${champ.name}; experts ${alpha.some((a) => a > 0) ? "used" : "not used"}; per-stock scales ${stockCal.on ? "used" : "not used"}`);
     this.log.log(`[horizon] trained on ${train.n.toLocaleString("en-IN")} examples from ${dates.length} sessions of ${model.validation.stocks} stocks; out of sample at 15 min: ${Math.round(((model.validation.horizons.find((h) => h.h === 3) || {}).dirAcc || 0) * 1000) / 10}% direction`);
     return { rows: train.n, sessions: dates.length, stocks: model.validation.stocks, validation: model.validation };
   }
@@ -395,6 +444,15 @@ class Horizon {
     const evidence = { n: 0, se: Array.from({ length: H.T }, (_, k) => H.ALPHAS.map((__, i) => ((segNow && segNow.evidence && segNow.evidence.se[k] ? segNow.evidence.se[k][i] : 0) || 0) * 0.97)) };
     evidence.n = Math.round(((segNow && segNow.evidence && segNow.evidence.n) || 0) * 0.97);
     const segs = segNow ? { W: segNow.W, alpha: segNow.alpha } : null;
+    // the contest and the stocks' scales are judged again on the new sessions, which no candidate has seen
+    const Wall = m.Wall || H.CANDIDATES.map((c) => (c.id === m.champion ? m.W : null));
+    const arena = { n: Math.round(((m.arena && m.arena.n) || 0) * 0.97), se: H.CANDIDATES.map((_, c) => H.HORIZONS.map((__, k) => (((m.arena && m.arena.se[c]) || [])[k] || 0) * 0.97)) };
+    const cal = m.stockCal || { on: false, recs: {}, se: [0, 0], n: 0 };
+    const calSe = [(cal.se[0] || 0) * 0.97, (cal.se[1] || 0) * 0.97];
+    const calRecs = Object.fromEntries(Object.entries(cal.recs || {}).map(([sym, r]) => [sym, { pp: r.pp * 0.98, pa: r.pa * 0.98 }]));
+    const scalesAll = Object.fromEntries(Object.entries(cal.recs || {}).map(([sym, r]) => [sym, H.stockScaleOf(r)]));
+    const scales = cal.on ? scalesAll : null;
+    const sumSe = (e) => Array.from(e.se).reduce((a, b) => a + b, 0);
     const evs = new Map(dates.map((d) => [d, H.emptyEval()]));
     const counts = new Map(dates.map((d) => [d, 0]));
     const stockStat = m.stockStat || {};
@@ -411,11 +469,24 @@ class Horizon {
           if (!ctx.prevClose) continue;
           const rows = H.dayRows(days[d][1], ctx, { targets: true, stride: STRIDE });
           if (!rows.length) continue;
+          for (const row of rows) row.sym = s;
           // first the forecast, with the model as it stood; then the lesson
           const one = H.emptyEval();
-          H.scoreRows(one, W, rows, { resSd: m.resSd, z70: m.z70, slope: m.slope, bandScale: m.bandScale, keepZ: false, segs });
-          H.scoreRows(evs.get(date), W, rows, { resSd: m.resSd, z70: m.z70, slope: m.slope, bandScale: m.bandScale, keepZ: false, segs });
+          H.scoreRows(one, W, rows, { resSd: m.resSd, z70: m.z70, slope: m.slope, bandScale: m.bandScale, keepZ: false, segs, scales });
+          H.scoreRows(evs.get(date), W, rows, { resSd: m.resSd, z70: m.z70, slope: m.slope, bandScale: m.bandScale, keepZ: false, segs, scales });
           H.alphaEvidence(evidence, W, segNow ? segNow.W : null, rows);
+          H.arenaEvidence(arena, Wall, rows);
+          // with and without the stocks' scales (as they stood), then the day goes into this stock's own record
+          calSe[0] += sumSe(H.scoreRows(H.emptyEval(), W, rows, { keepZ: false, segs, slope: m.slope }));
+          calSe[1] += sumSe(H.scoreRows(H.emptyEval(), W, rows, { keepZ: false, segs, slope: m.slope, scales: scalesAll }));
+          const cr = calRecs[s] || (calRecs[s] = { pp: 0, pa: 0 });
+          for (const row of rows) {
+            const p = H.predictRow(W, row.x, m.slope, H.segFor(segs, row.s));
+            for (let k = 0; k < H.HORIZONS.length; k += 1) {
+              cr.pp += p[k] * p[k];
+              cr.pa += p[k] * row.y[k];
+            }
+          }
           for (const row of rows) segStats[H.segOf(row.s)].add(row.x, row.y, H.DECAY_DAY ** H.daysBetween(date, newest));
           const k3 = H.HORIZONS.indexOf(3);
           const st = stockStat[s] || { n: 0, hit: 0, miss: 0, naive: 0 };
@@ -437,7 +508,12 @@ class Horizon {
       await tick();
     }
     job.phase = "saving";
-    const Wn = H.fit(stats) || W;
+    // every candidate learns the day; the champion is the one the evidence favours (it changes only when clearly beaten)
+    const WallNew = H.fitCandidates(stats);
+    const was = H.CANDIDATES.findIndex((c) => c.id === m.champion);
+    const ci = H.chooseChampion(arena, WallNew, was);
+    const champ = H.CANDIDATES[ci];
+    const Wn = WallNew[ci] || W;
     // the day's own out-of-sample scores correct the model's confidence
     let resSd = m.resSd;
     let slope = m.slope;
@@ -456,13 +532,20 @@ class Horizon {
           return n >= 300 ? Math.sqrt(0.9 * sd * sd + 0.1 * (ss / n)) : sd;
         })
       );
-      slope = slope.map((sl, k) => (ev.pp[k] > 0 ? Math.max(0.3, Math.min(1.5, 0.9 * sl + 0.1 * (ev.pa[k] / ev.pp[k]))) : sl));
+      // ev was measured WITH the present factor: a ratio of 1 means "as bold as it should be", so the factor moves by the ratio
+      slope = slope.map((sl, k) => (ev.pp[k] > 0 ? Math.max(0.3, Math.min(1.5, sl * (0.9 + 0.1 * Math.max(0, Math.min(2, ev.pa[k] / ev.pp[k]))))) : sl));
       dayRecords.push({ id: date, date, at: iso(this.now()), stocks: stocks.length, rows: counts.get(date), bandScale: r4(bandScale), horizons: H.summariseEval(ev) });
     }
     this.docs.putItems(DAYS, dayRecords);
     m.stats = stats.toJSON();
     m.W = Wn;
-    m.seg = { stats: segStats.map((st) => st.toJSON()), W: segStats.map((st) => H.fit(st, H.LAMBDA, H.SEG_MIN_ROWS)), alpha: H.chooseAlpha(evidence), evidence: { n: evidence.n, se: evidence.se.map((r) => r.map((v) => Math.round(v * 100) / 100)) } };
+    m.Wall = WallNew;
+    m.changed = champ.id !== m.champion ? { from: m.champion, to: champ.id, at: iso(this.now()) } : m.changed || null;
+    m.champion = champ.id;
+    m.arena = { n: arena.n, se: arena.se.map((r) => r.map((v) => r2(v))) };
+    // the scales stay in use while forecasts made with them miss no more than forecasts without; they start being used when clearly better
+    m.stockCal = { on: calSe[0] > 0 && (cal.on ? calSe[1] <= calSe[0] : (calSe[0] - calSe[1]) / calSe[0] >= H.MIN_GAIN / 2), recs: Object.fromEntries(Object.entries(calRecs).map(([sym, r]) => [sym, { pp: r4(r.pp), pa: r4(r.pa) }])), se: [r2(calSe[0]), r2(calSe[1])], n: Math.round((cal.n || 0) * 0.97) + job.rows };
+    m.seg = { stats: segStats.map((st) => st.toJSON()), W: segStats.map((st) => H.fit(st, champ.lambda, H.SEG_MIN_ROWS, champ.dims)), alpha: H.chooseAlpha(evidence), evidence: { n: evidence.n, se: evidence.se.map((r) => r.map((v) => Math.round(v * 100) / 100)) } };
     m.resSd = resSd;
     m.slope = Array.from(slope, (v) => Math.round(v * 1000) / 1000);
     m.bandScale = r4(bandScale);
@@ -472,6 +555,7 @@ class Horizon {
     m.learned = { days: ((m.learned && m.learned.days) || 0) + dayRecords.length, lastAt: iso(this.now()), last: newest };
     this._saveModel(m);
     this._cache.clear();
+    this._teach(m, "evening", { days: dayRecords.map((d) => d.date) });
     const k = dayRecords.length ? (dayRecords[dayRecords.length - 1].horizons.find((x) => x.h === 3) || {}) : {};
     this.log.log(`[horizon] learned ${dayRecords.length} day(s) to ${newest}; the last one forecast at 15 min: ${k.dirAcc == null ? "—" : Math.round(k.dirAcc * 1000) / 10}% direction, band held ${k.coverage == null ? "—" : Math.round(k.coverage * 100)}%`);
     return { days: dayRecords.length, to: newest };
@@ -532,7 +616,10 @@ class Horizon {
   /** @returns the raw forecast pieces for a stock, or { reason } */
   async _compute(symbol) {
     const m = this._usable();
-    if (!m) return { reason: "The forecaster has not learned yet. It learns from the NIFTY 100's stored 5-minute history (Paper trading downloads it) and is ready a few minutes after that." };
+    if (!m) {
+      const old = this.model();
+      return { reason: old && old.W ? "The forecaster is learning again with its new inputs (it retrains by itself from the stored history); forecasts return in a few minutes." : "The forecaster has not learned yet. It learns from the NIFTY 100's stored 5-minute history (Paper trading downloads it) and is ready a few minutes after that." };
+    }
     if (!this._connected()) return { reason: "The 15-minute forecast needs live prices: connect Zerodha." };
     const now = this.now();
     const today = istDate(now);
@@ -578,9 +665,10 @@ class Horizon {
     for (const [k, v] of Object.entries(evidence)) tilt += ((live.tilt || {})[k] || 0) * v;
     const own = (live.bias || {})[symbol];
     const bias = own ? own.bias : 0;
-    const probe = H.forecastFrom(done, ctx, m, { bias, tilt, levels: [] });
+    const stockScale = m.stockCal && m.stockCal.on ? H.stockScaleOf((m.stockCal.recs || {})[symbol]) : 1;
+    const probe = H.forecastFrom(done, ctx, m, { bias, tilt, levels: [], stockScale });
     if (!probe) return { reason: "The forecast could not be made from today's bars." };
-    const fc = H.forecastFrom(done, ctx, m, { bias, tilt, levels: this._levels(probe, prevClose) });
+    const fc = H.forecastFrom(done, ctx, m, { bias, tilt, levels: this._levels(probe, prevClose), stockScale });
     return { fc, evidence, tilt, bias, prevClose, now };
   }
 
@@ -687,8 +775,104 @@ class Horizon {
       testedTo: v.to,
       bandScale: m.bandScale,
       experts: this._experts(m),
+      contest: this._contest(m),
+      stockScales: m.stockCal ? { on: Boolean(m.stockCal.on), stocks: Object.keys(m.stockCal.recs || {}).length, gainPct: m.stockCal.se && m.stockCal.se[0] > 0 ? r2(((m.stockCal.se[0] - m.stockCal.se[1]) / m.stockCal.se[0]) * 100) : 0 } : null,
+      lessons: this._lessons(m),
       live: m.live ? { n: m.live.n || 0, tilt: m.live.tilt || {} } : null,
     };
+  }
+
+  /** The contest between the candidate models: which is in use and how the others did on the same unseen rows. */
+  _contest(m) {
+    if (!m || !m.arena) return null;
+    const tot = m.arena.se.map((r) => r.reduce((a, b) => a + b, 0));
+    const ci = H.CANDIDATES.findIndex((c) => c.id === m.champion);
+    const best = tot[ci] || 0;
+    return {
+      examples: m.arena.n,
+      inUse: m.champion,
+      name: (H.CANDIDATES[ci] || {}).name || m.champion,
+      changed: m.changed || null,
+      candidates: H.CANDIDATES.map((c, i) => ({ id: c.id, name: c.name, inUse: i === ci, moreErrorPct: best > 0 && tot[i] > 0 ? r2(((tot[i] - best) / best) * 100) : null })),
+    };
+  }
+
+  /** How strongly each input moves the 15-minute call: its weight times how much the input usually varies (from the sums). */
+  _drivers(m, h = 3) {
+    const k = H.tIndex(`r${h}`);
+    const st = m.stats;
+    if (k < 0 || !st || !st.w) return [];
+    const D = H.D;
+    const out = [];
+    for (let i = 1; i < D; i += 1) {
+      const mean = st.xtx[i] / st.w; // the first row of the sums is Σ x, because the first input is always 1
+      const sd = Math.sqrt(Math.max(0, st.xtx[i * D + i] / st.w - mean * mean));
+      const eff = m.W[k][i] * sd * (m.slope ? m.slope[k] : 1);
+      if (num(eff) && Math.abs(eff) > 0.002) out.push({ key: H.FEATURES[i], effect: r4(eff) });
+    }
+    return out.sort((a, b) => Math.abs(b.effect) - Math.abs(a.effect));
+  }
+
+  /**
+   * What the forecaster has measured, in plain sentences: the same lines go on the board, into the learning record in the
+   * database and into the trading-skills file every AI feature reads. Nothing here is a promise: each line is a count.
+   */
+  _lessons(m) {
+    if (!m || !m.W || !m.validation) return [];
+    const pct = (x, d = 1) => (num(x) ? `${(x * 100).toFixed(d)}%` : "—");
+    const v = m.validation;
+    const h15 = (v.horizons || []).find((x) => x.h === 3) || {};
+    const strong = (h15.bins || []).filter((b) => b.lo >= 0.7);
+    const sCalls = strong.reduce((a, b) => a + b.calls, 0);
+    const sRight = strong.reduce((a, b) => a + b.right, 0);
+    const lines = [];
+    lines.push(`Tested on ${(h15.n || 0).toLocaleString("en-IN")} examples from sessions it had not seen (${v.from} to ${v.to}, ${v.stocks} stocks): 15 minutes ahead the direction was right ${pct(h15.dirAcc)} of the time (a coin is 50%)${sCalls ? `; when it leaned 70% or more it was right ${pct(sRight / sCalls)} of ${sCalls.toLocaleString("en-IN")} calls` : ""}; its average miss was ${num(h15.missPct) ? h15.missPct.toFixed(3) : "—"}% against ${num(h15.naivePct) ? h15.naivePct.toFixed(3) : "—"}% for "no move"; its 70% band held ${pct(h15.coverage, 0)}.`);
+    const c = this._contest(m);
+    if (c) lines.push(`Model in use: ${c.name}. It missed least on ${c.examples.toLocaleString("en-IN")} unseen examples${c.candidates.filter((x) => !x.inUse && x.moreErrorPct != null).length ? ` (${c.candidates.filter((x) => !x.inUse && x.moreErrorPct != null).map((x) => `${x.name}: ${x.moreErrorPct >= 0 ? "+" : ""}${x.moreErrorPct}% error`).join("; ")})` : ""}. The contest is counted again every evening.`);
+    const ex = this._experts(m);
+    if (ex) {
+      const on = ex.horizons.filter((x) => x.weight > 0);
+      lines.push(on.length ? `Time-of-day experts are blended in: ${on.map((x) => `${x.minutes} min at ${Math.round(x.weight * 100)}% (error cut ${x.gainPct}%)`).join(", ")}.` : "Time-of-day experts (opening hour, midday, from 2:00 PM) did not beat the single model on unseen sessions, so they are not used.");
+    }
+    if (m.stockCal) lines.push(m.stockCal.on ? `Each stock's own scale is in use (${Object.keys(m.stockCal.recs || {}).length} stocks): forecasts made with them missed less on unseen sessions.` : "Per-stock scales did not make the forecasts miss less on unseen sessions, so every stock is read with the pooled model alone.");
+    const words = {
+      r1: "the last 5 minutes rose", r3: "the last 15 minutes rose", r6: "the last half hour rose", r12: "the last hour rose", fromOpen: "the price is above the open", gap: "it opened above yesterday's close", vwap: "the price is above VWAP", pos: "the price is high in the day's range", rsi: "RSI is high", vol: "volume is heavier than usual for the time", volDir: "heavy volume is behind a rise", vnow: "recent bars are wider than usual", tOpen: "it is the opening hour", tClose: "it is the closing hour", m3: "the market rose in the last 15 minutes", m6: "the market rose in the last half hour", prevDay: "yesterday was an up day", trend: "the last ten days drifted up",
+      clv: "the last bar closed near its high", clv3: "the last three bars closed near their highs", wick: "the last bar was rejected from above (a long upper wick)", z20: "the price is stretched above its 20-bar mean", orb: "the price is above the opening range", r1sq: "the last bar was an unusually big rise", rsiX: "RSI is past 70", dHigh: "there is room left to the day's high", dLow: "the price is far above the day's low",
+    };
+    const top = this._drivers(m).filter((d) => words[d.key]).slice(0, 6);
+    if (top.length) lines.push(`What moved the next 15 minutes most, measured (and the opposite holds for the opposite condition): ${top.map((d) => `when ${words[d.key]}, the price tends to be ${d.effect > 0 ? "higher" : "lower"} (strength ${Math.abs(d.effect).toFixed(3)})`).join("; ")}. Strength is in units of the stock's usual 5-minute move.`);
+    const days = this.docs.items(DAYS).sort((a, b) => (a.date < b.date ? 1 : -1)).slice(0, 10);
+    const accs = days.map((d) => (d.horizons.find((x) => x.h === 3) || {}).dirAcc).filter(num);
+    if (accs.length) lines.push(`The last ${accs.length} evening${accs.length === 1 ? "" : "s"} (every NIFTY 100 stock, each day forecast before it was learned): direction right ${pct(accs.reduce((a, b) => a + b, 0) / accs.length)} on average, best day ${pct(Math.max(...accs))}, worst ${pct(Math.min(...accs))}.`);
+    const ss = Object.entries(m.stockStat || {}).filter(([, s]) => s.n >= 300).map(([sym, s]) => ({ sym, acc: s.hit / s.n }));
+    if (ss.length >= 8) {
+      ss.sort((a, b) => b.acc - a.acc);
+      lines.push(`It has read these stocks best so far: ${ss.slice(0, 4).map((x) => `${x.sym} ${pct(x.acc)}`).join(", ")}; and these worst: ${ss.slice(-4).map((x) => `${x.sym} ${pct(x.acc)}`).join(", ")}.`);
+    }
+    lines.push("A 15-minute move is mostly noise: these are measured frequencies from past sessions, not promises. Trust a call as far as its tested hit rate, and never without a stop.");
+    return lines;
+  }
+
+  /** Keep what was learned: a record in the database, and the findings in the trading-skills file the AI features read. */
+  _teach(m, kind, extra = {}) {
+    const lessons = this._lessons(m);
+    const at = iso(this.now());
+    try {
+      const h15 = ((m.validation || {}).horizons || []).find((x) => x.h === 3) || {};
+      this.docs.putItems(LEARNING, [{ id: `${at}|${kind}`, at, kind, lastDate: m.lastDate, examples: m.rows, champion: m.champion, contest: this._contest(m), experts: this._experts(m), stockScales: m.stockCal ? { on: Boolean(m.stockCal.on), se: m.stockCal.se } : null, bandScale: m.bandScale, slope: m.slope, tested15: { dirAcc: h15.dirAcc, missPct: h15.missPct, naivePct: h15.naivePct, coverage: h15.coverage }, drivers: this._drivers(m).slice(0, 12), lessons, ...extra }]);
+      const all = this.docs.items(LEARNING).sort((a, b) => (a.at < b.at ? 1 : -1));
+      if (all.length > 200) this.docs.removeItems(LEARNING, all.slice(200).map((r) => r.id));
+    } catch (err) {
+      this.log.error(`[horizon] the learning record was not saved: ${err.message}`);
+    }
+    if (this.playbook && lessons.length) {
+      try {
+        this.playbook.setSection(SECTION, lessons.map((l) => `- ${l}`).join("\n"));
+      } catch (err) {
+        this.log.error(`[horizon] the skills file was not updated: ${err.message}`);
+      }
+    }
+    return lessons;
   }
 
   /** The time-of-day experts: how far each horizon's forecast leans on them, and what that was measured to gain. */
@@ -948,7 +1132,7 @@ class Horizon {
       const m = this.model();
       const old = m && m.trainedAt && now - Date.parse(m.trainedAt) > RETRAIN_DAYS * 86400000;
       const h = this._historyStore();
-      if ((!m || !m.W || old) && h) {
+      if ((!m || !m.W || m.version !== H.MODEL_VERSION || old) && h) {
         const st = h.status();
         if (st.stocks >= 30 && st.sessions >= 60) {
           this._tryAt = now;
@@ -972,4 +1156,4 @@ class Horizon {
   }
 }
 
-module.exports = { Horizon, HorizonError, COLLECTION, DAYS, MODEL };
+module.exports = { Horizon, HorizonError, COLLECTION, DAYS, MODEL, LEARNING, SECTION };

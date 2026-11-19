@@ -33,8 +33,18 @@ const SESSION_BARS = 75;
 const HORIZONS = [1, 2, 3, 4, 6]; // bars of five minutes: 5, 10, 15, 20, 30 minutes
 const REACH = [3, 4, 6]; // horizons that also forecast the high and the low
 const TARGETS = [...HORIZONS.map((h) => `r${h}`), ...REACH.map((h) => `u${h}`), ...REACH.map((h) => `d${h}`)];
-const FEATURES = ["bias", "r1", "r3", "r6", "r12", "fromOpen", "gap", "vwap", "pos", "rsi", "vol", "volDir", "vnow", "tOpen", "tClose", "m3", "m6", "prevDay", "trend"];
+// The first 19 are the original inputs. The rest were added on 2026-11-19 from what is known about short-horizon price
+// behaviour (order-flow pressure read from where bars close, rejection wicks, stretch from a moving mean, the opening
+// range, the fact that big moves behave differently from small ones, RSI only at its extremes, room to the day's high and
+// low). They are NOT assumed to help: the model with them competes against the model without them on unseen sessions
+// (see CANDIDATES), and the loser is not used.
+const FEATURES = [
+  "bias", "r1", "r3", "r6", "r12", "fromOpen", "gap", "vwap", "pos", "rsi", "vol", "volDir", "vnow", "tOpen", "tClose", "m3", "m6", "prevDay", "trend",
+  "clv", "clv3", "wick", "z20", "orb", "r1sq", "rsiX", "dHigh", "dLow",
+];
+const BASE_D = 19;
 const D = FEATURES.length;
+const MODEL_VERSION = 2; // the stored sums are tied to the list of inputs: a model of another version is retrained
 const T = TARGETS.length;
 const MAXH = Math.max(...HORIZONS);
 const DECAY_DAY = 0.998; // an old day counts a little less each calendar day (half-life about a year)
@@ -214,9 +224,17 @@ function dayRows(rawBars, ctx, { targets = true, stride = 1, last = false, needA
   const closes = [];
   const rets = [];
   const absRets = [];
+  const clvs = [];
+  let orH = -Infinity; // the opening range: the first 15 minutes
+  let orL = Infinity;
   for (let i = 0; i < n; i += 1) {
     const b = bars[i];
     const prevC = i ? bars[i - 1].c : b.o;
+    if (b.s < 3) {
+      orH = Math.max(orH, b.h);
+      orL = Math.min(orL, b.l);
+    }
+    clvs.push(b.h > b.l ? (b.c - b.l - (b.h - b.c)) / (b.h - b.l) : 0);
     pv += ((b.h + b.l + b.c) / 3) * b.v;
     vv += b.v;
     hi = Math.max(hi, b.h);
@@ -303,6 +321,25 @@ function dayRows(rawBars, ctx, { targets = true, stride = 1, last = false, needA
     }
     x[17] = prevDay;
     x[18] = trend;
+    // --- the added inputs
+    x[19] = clvs[i]; // where the bar closed in its own range: +1 at its high (buyers won it), −1 at its low
+    x[20] = (clvs[i] + (i >= 1 ? clvs[i - 1] : clvs[i]) + (i >= 2 ? clvs[i - 2] : clvs[i])) / 3;
+    x[21] = b.h > b.l ? (b.h - Math.max(b.o, b.c) - (Math.min(b.o, b.c) - b.l)) / (b.h - b.l) : 0; // upper wick minus lower wick: + means rejected above
+    const zw = Math.min(20, i + 1);
+    if (zw >= 5) {
+      let zm = 0;
+      for (let j = i - zw + 1; j <= i; j += 1) zm += closes[j];
+      zm /= zw;
+      let zs = 0;
+      for (let j = i - zw + 1; j <= i; j += 1) zs += (closes[j] - zm) ** 2;
+      zs = Math.sqrt(zs / zw);
+      x[22] = zs > 0 ? clip((b.c - zm) / zs, 3) : 0; // stretch from the 20-bar mean, in its own deviations (Bollinger position)
+    }
+    if (b.s >= 3 && orH > orL) x[23] = clip((b.c - (orH + orL) / 2) / Math.max(orH - orL, b.c * sigma), 3); // against the opening range: beyond ±0.5 it is outside it
+    x[24] = clip((x[1] * Math.abs(x[1])) / 3, 6); // a big last bar is not just a bigger small one
+    x[25] = Math.sign(x[9]) * Math.max(0, Math.abs(x[9]) - 0.4); // RSI only past 70 / 30
+    x[26] = clip((hi - b.c) / b.c / sigH, 6); // room to the day's high
+    x[27] = clip((b.c - lo) / b.c / sigH, 6); // room to the day's low
     rows.push({ s: b.s, t: b.t, price: b.c, sigma, x, y, bucket: x[12] < -0.3 ? 0 : x[12] > 0.3 ? 2 : 1, hi, lo, vwap: vw });
   }
   return rows;
@@ -398,18 +435,61 @@ function solve(A, b, n) {
 }
 
 /** The weights of every target from the statistics: T arrays of D numbers, or null when there are too few rows. */
-function fit(stats, lambda = LAMBDA, minRows = MIN_ROWS) {
+function fit(stats, lambda = LAMBDA, minRows = MIN_ROWS, dims = D) {
   if (!stats || stats.n < minRows) return null;
-  const A = new Float64Array(D * D);
-  for (let a = 0; a < D; a += 1) for (let b = a; b < D; b += 1) A[a * D + b] = A[b * D + a] = stats.xtx[a * D + b];
-  for (let a = 1; a < D; a += 1) A[a * D + a] += lambda * stats.w; // the intercept is not shrunk
+  // `dims` leading inputs only: the sums of a smaller model are a corner of the larger one's, so both come from one pass
+  const A = new Float64Array(dims * dims);
+  for (let a = 0; a < dims; a += 1) for (let b = a; b < dims; b += 1) A[a * dims + b] = A[b * dims + a] = stats.xtx[a * D + b];
+  for (let a = 1; a < dims; a += 1) A[a * dims + a] += lambda * stats.w; // the intercept is not shrunk
   const W = [];
   for (let k = 0; k < T; k += 1) {
-    const w = solve(A, stats.xty.subarray(k * D, (k + 1) * D), D);
+    const w = solve(A, stats.xty.subarray(k * D, k * D + dims), dims);
     if (!w) return null;
-    W.push(Array.from(w, (v) => Math.round(v * 1e6) / 1e6));
+    const full = new Array(D).fill(0);
+    for (let a = 0; a < dims; a += 1) full[a] = Math.round(w[a] * 1e6) / 1e6;
+    W.push(full);
   }
   return W;
+}
+
+/* ---- the contest: several models from the same sums; the one in use is the one that missed least on unseen sessions ----
+   Every candidate is fitted from the same statistics (so they cost one pass) and judged on rows none of them saw. The
+   evidence is kept, fades slowly, and is added to every evening; the champion changes only when another candidate is
+   clearly ahead (0.2% less squared error over the return horizons), so it does not flip on noise. */
+const CANDIDATES = [
+  { id: "base", dims: BASE_D, lambda: LAMBDA, name: "the original 18 inputs" },
+  { id: "full", dims: D, lambda: LAMBDA, name: `all ${D - 1} inputs` },
+  { id: "full-shrunk", dims: D, lambda: LAMBDA * 10, name: `all ${D - 1} inputs, shrunk harder` },
+];
+const fitCandidates = (stats, minRows = MIN_ROWS) => CANDIDATES.map((c) => fit(stats, c.lambda, minRows, c.dims));
+
+/** Add to the evidence: each candidate's summed squared error on `rows`, per return horizon. */
+function arenaEvidence(acc, Ws, rows) {
+  const a = acc || { n: 0, se: CANDIDATES.map(() => new Array(HORIZONS.length).fill(0)) };
+  for (const row of rows) {
+    a.n += 1;
+    for (let c = 0; c < CANDIDATES.length; c += 1) {
+      const W = Ws[c];
+      if (!W) continue;
+      for (let k = 0; k < HORIZONS.length; k += 1) {
+        const e = row.y[k] - dot(W[k], row.x);
+        a.se[c][k] += e * e;
+      }
+    }
+  }
+  return a;
+}
+
+/** The champion's index: the least total squared error; the current one stays unless another is clearly ahead. */
+function chooseChampion(acc, Ws, current = -1) {
+  const total = (c) => (Ws[c] ? acc.se[c].reduce((x, y) => x + y, 0) : Infinity);
+  let best = 0;
+  for (let c = 1; c < CANDIDATES.length; c += 1) if (total(c) < total(best)) best = c;
+  if (current >= 0 && Ws[current] && current !== best && acc.n >= 500) {
+    const cur = total(current);
+    if (cur > 0 && (cur - total(best)) / cur < MIN_GAIN) return current;
+  }
+  return best;
 }
 
 const dot = (w, x) => {
@@ -450,16 +530,27 @@ const MIN_GAIN = 0.002; // an expert must cut the squared error by at least 0.2%
 /** Which part of the day a 5-minute slot belongs to: 0 the first hour, 2 from 2:00 PM, 1 between. */
 const segOf = (slot) => (slot < 12 ? 0 : slot >= 57 ? 2 : 1);
 
-/** The model's call for one row: for each target, the standardised prediction. `seg` = { W, alpha } blends in an expert. */
-function predictRow(W, x, slope = null, seg = null) {
+/**
+ * The model's call for one row: for each target, the standardised prediction. `seg` = { W, alpha } blends in an expert;
+ * `mult` is the stock's own scale for the return horizons (how much this stock really follows such a call; 1 = as called).
+ */
+function predictRow(W, x, slope = null, seg = null, mult = 1) {
   const out = new Float64Array(T);
   for (let k = 0; k < T; k += 1) {
     let p = dot(W[k], x);
     if (seg && seg.W && seg.alpha && seg.alpha[k]) p += seg.alpha[k] * (dot(seg.W[k], x) - p);
-    out[k] = p * (slope ? slope[k] : 1);
+    out[k] = p * (slope ? slope[k] : 1) * (k < HORIZONS.length ? mult : 1);
   }
   return out;
 }
+
+/* ---- each stock's own scale ----
+   The pooled model speaks for the average stock. Some stocks follow such calls more than others (and a few go the other
+   way). For each stock the record of  call × outcome  and  call²  is kept (on sessions the model had not seen, fading
+   slowly), and its scale is their ratio pulled towards 1 until the record is long: scale = (Σ call·outcome + K) / (Σ call² + K).
+   It is used only while forecasts made WITH the scales miss less than forecasts without them — counted every evening. */
+const SCALE_K = 5;
+const stockScaleOf = (rec) => (rec && rec.pp > 0 ? Math.max(0.4, Math.min(1.6, (rec.pa + SCALE_K) / (rec.pp + SCALE_K))) : 1);
 
 /** The expert for a row's part of the day, from a model's (or a training run's) experts. */
 function segFor(segs, slot) {
@@ -500,12 +591,12 @@ function chooseAlpha(acc) {
  * Score a model on rows: direction, miss against "no move", the band, the stated-probability table and the residuals
  * by regime. `resSd` (T×BUCKETS) is needed for probabilities and bands; without it only residuals are gathered.
  */
-function scoreRows(ev, W, rows, { resSd = null, z70 = null, slope = null, bandScale = 1, keepZ = true, every = 1, segs = null } = {}) {
+function scoreRows(ev, W, rows, { resSd = null, z70 = null, slope = null, bandScale = 1, keepZ = true, every = 1, segs = null, scales = null } = {}) {
   let c = 0;
   for (const row of rows) {
     c += 1;
     if (every > 1 && c % every !== 0) continue;
-    const p = predictRow(W, row.x, slope, segFor(segs, row.s));
+    const p = predictRow(W, row.x, slope, segFor(segs, row.s), scales && row.sym ? scales[row.sym] || 1 : 1);
     for (let k = 0; k < T; k += 1) {
       const y = row.y[k];
       const e = y - p[k];
@@ -588,14 +679,14 @@ const HNAME = (h) => `${h * 5} min`;
  * @param opts { bias (σ units, per stock), tilt (σ units added to the moves), levels: [{ name, price }] }
  * @returns { anchor: { t, end, price }, sigma, horizons: { [h]: {...} }, reach, levels } or null
  */
-function forecastFrom(rawBars, ctx, model, { bias = 0, tilt = 0, levels = [] } = {}) {
+function forecastFrom(rawBars, ctx, model, { bias = 0, tilt = 0, levels = [], stockScale = 1 } = {}) {
   if (!model || !model.W) return null;
   const rows = dayRows(rawBars, ctx, { targets: false, last: true, stride: 1000 }).filter((r, i, a) => i === a.length - 1);
   if (!rows.length) return null;
   const row = rows[0];
   const slope = model.slope || null;
   const scale = model.bandScale || 1;
-  const p = predictRow(model.W, row.x, slope, segFor(model.seg, row.s));
+  const p = predictRow(model.W, row.x, slope, segFor(model.seg, row.s), stockScale);
   const sg = row.sigma;
   const price = row.price;
   const left = SESSION_BARS - 1 - row.s; // bars after this one that the session still has
@@ -732,5 +823,6 @@ module.exports = {
   Stats, fit, solve, dot,
   emptyEval, predictRow, scoreRows, resSdOf, z70Of, summariseEval,
   SEGMENTS, ALPHAS, SEG_MIN_ROWS, segOf, segFor, alphaEvidence, chooseAlpha,
+  BASE_D, MODEL_VERSION, CANDIDATES, fitCandidates, arenaEvidence, chooseChampion, SCALE_K, stockScaleOf, MIN_GAIN,
   forecastFrom, headline, callOf, settle, HNAME,
 };

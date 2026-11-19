@@ -508,6 +508,27 @@ export function HorizonBoard() {
               . Re-judged every evening on {d.learning.experts.examples.toLocaleString("en-IN")} examples.
             </p>
           )}
+          {d.learning.contest && (
+            <p className="hz-why" data-tip="Several models are fitted from the same examples and judged on sessions none of them has seen. The one that missed least is used; the others keep learning, and the choice is counted again every evening. It changes only when another model is clearly ahead.">
+              <b>Model in use:</b> {d.learning.contest.name}
+              {d.learning.contest.candidates.filter((c) => !c.inUse && c.moreErrorPct != null).length > 0 &&
+                ` — the others on the same unseen examples: ${d.learning.contest.candidates
+                  .filter((c) => !c.inUse && c.moreErrorPct != null)
+                  .map((c) => `${c.name} ${c.moreErrorPct >= 0 ? "+" : ""}${c.moreErrorPct}% error`)
+                  .join(", ")}`}
+              .{d.learning.stockScales ? ` Each stock's own scale: ${d.learning.stockScales.on ? `in use for ${d.learning.stockScales.stocks} stocks` : "not in use (it did not make the forecasts miss less)"}.` : ""}
+            </p>
+          )}
+          {d.learning.lessons && d.learning.lessons.length > 0 && (
+            <details className="hz-lessons">
+              <summary>What it has learned so far ({d.learning.lessons.length} findings — also written into the AI’s skills file)</summary>
+              <ul>
+                {d.learning.lessons.map((l) => (
+                  <li key={l.slice(0, 48)}>{l}</li>
+                ))}
+              </ul>
+            </details>
+          )}
           <p className="hz-rule">
             Direction on 5-minute to 30-minute moves is hard: a hit rate well above half is rare and valuable, and it is shown as measured, never rounded up.
             The forecaster learns from its misses every evening, calibrates its stated chances, and widens or narrows its bands to hold 70% of outcomes.

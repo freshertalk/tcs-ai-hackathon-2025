@@ -271,3 +271,88 @@ test("the time-of-day experts are adopted only when the parts of the day really 
   assert.ok(same.blended.skill >= same.pooled.skill - 0.002, "never clearly worse than the pooled model");
   assert.ok(same.alpha.filter((a) => a > 0).length <= 2, `mostly left unused when the day is uniform (${same.alpha.join(",")})`);
 });
+
+test("the contest keeps its champion unless another model is clearly ahead; a smaller model is a corner of the larger one's sums", () => {
+  const Ws = H.CANDIDATES.map(() => [[]]);
+  const acc = (a, b, c) => ({ n: 5000, se: [[a], [b], [c]] });
+  assert.equal(H.chooseChampion(acc(100, 90, 95), Ws), 1, "the least error wins when there is no champion yet");
+  assert.equal(H.chooseChampion(acc(100, 99.9, 101), Ws, 0), 0, "0.1% ahead is not enough to unseat the champion");
+  assert.equal(H.chooseChampion(acc(100, 99, 101), Ws, 0), 1, "1% ahead is");
+  assert.equal(H.chooseChampion(acc(100, 90, 95), [Ws[0], null, Ws[2]], 0), 2, "a candidate that could not be fitted is never chosen");
+  // fitting with fewer inputs leaves the rest at exactly zero, and predicts like a model that never had them
+  const dates = weekdays("2026-01-05", 60);
+  const w = world(dates, 10);
+  const mk = H.marketFromStocks(w.stocks.map((s) => s.days));
+  const st = new H.Stats();
+  const rows = [];
+  for (const s of w.stocks) {
+    const prof = H.buildProfile(s.days, mk);
+    for (let d = 1; d < s.days.length; d += 1) {
+      const ctx = { sigma: prof.sigma, day: prof.day, beta: prof.beta, vol: prof.vol, prevClose: H.cleanBars(s.days[d - 1][1]).pop().c, prevDayRet: 0, trend: 0, mkt: mk.get(s.days[d][0]) };
+      for (const row of H.dayRows(s.days[d][1], ctx, { stride: 2 })) {
+        st.add(row.x, row.y, 1);
+        rows.push(row);
+      }
+    }
+  }
+  const [base, full] = H.fitCandidates(st, 1000);
+  assert.ok(base && full);
+  assert.ok(base[0].slice(H.BASE_D).every((v) => v === 0), "the added inputs carry no weight in the base model");
+  assert.ok(full[0].slice(H.BASE_D).some((v) => v !== 0), "and do in the full one");
+  assert.ok(rows[0].x.slice(H.BASE_D).some((v) => v !== 0), "the added inputs are computed");
+  assert.ok(rows.every((r) => Array.from(r.x).every(Number.isFinite)), "every input is a finite number");
+  // a stock's scale: pulled towards 1 until its record is long, and never extreme
+  assert.equal(H.stockScaleOf(null), 1);
+  assert.ok(Math.abs(H.stockScaleOf({ pp: 0.5, pa: 1.5 }) - 1.18) < 0.02, "a short record moves it only a little");
+  assert.equal(H.stockScaleOf({ pp: 100, pa: 400 }), 1.6);
+  assert.equal(H.stockScaleOf({ pp: 100, pa: -50 }), 0.4);
+});
+
+test("training and every evening leave a record in the database and write the findings into the AI's skills file; an old model retrains itself", async () => {
+  const dates = weekdays("2026-01-05", 110);
+  const all = world(weekdays("2026-01-05", 112), 24, { seed: 21 });
+  const stocks = all.stocks.map((s) => ({ symbol: s.symbol, days: s.days.slice(0, 110) }));
+  const history = fakeHistory(stocks);
+  const docs = mkdocs();
+  const written = [];
+  const playbook = { setSection: (title, text) => written.push({ title, text }) };
+  const nowMs = openMs(dates[109]) + 8 * 3600000;
+  const market = { mode: () => "kite", watchlist: () => [] };
+  const svc = new Horizon({ market, docs, history: () => history, universe: () => stocks.map((s) => s.symbol), playbook, now: () => nowMs, log: quiet });
+  await svc.train({ trigger: "test" });
+  const m = svc.model();
+  assert.equal(m.version, H.MODEL_VERSION);
+  assert.ok(H.CANDIDATES.some((c) => c.id === m.champion), `a champion was chosen (${m.champion})`);
+  assert.equal(m.Wall.length, H.CANDIDATES.length);
+  assert.ok(m.arena.n > 1000 && m.stockCal && typeof m.stockCal.on === "boolean" && Object.keys(m.stockCal.recs).length === 24);
+  // the findings: on the board, in the database, in the skills file
+  const board = svc.board();
+  assert.ok(board.learning.lessons.length >= 4);
+  assert.match(board.learning.lessons[0], /Tested on [\d,]+ examples from sessions it had not seen/);
+  assert.ok(board.learning.lessons.some((l) => /^Model in use:/.test(l)));
+  assert.ok(board.learning.lessons.some((l) => /What moved the next 15 minutes most/.test(l) && /the last 5 minutes rose/.test(l)), "the planted momentum is named as a driver");
+  assert.ok(board.learning.contest.candidates.filter((c) => c.inUse).length === 1);
+  const { LEARNING, SECTION } = require("../horizon");
+  assert.equal(docs.items(LEARNING).length, 1);
+  assert.equal(docs.items(LEARNING)[0].kind, "training");
+  assert.equal(written.length, 1);
+  assert.equal(written[0].title, SECTION);
+  assert.match(written[0].text, /^- Tested on/);
+  assert.match(written[0].text, /not promises/);
+  // the evening: the new session is learned, the contest and the scales are judged again, and a second record is kept
+  for (const s of all.stocks) history.append(s.symbol, s.days[110][1]);
+  const out = await svc.learnDays({ trigger: "test" });
+  assert.equal(out.days, 1);
+  const m2 = svc.model();
+  assert.ok(m2.arena.n > m.arena.n * 0.97, "the evidence grew with the day");
+  assert.ok(m2.slope.every((v) => v >= 0.3 && v <= 1.5));
+  assert.equal(docs.items(LEARNING).length, 2);
+  assert.ok(docs.items(LEARNING).some((r) => r.kind === "evening" && r.days.length === 1 && r.lessons.length >= 4));
+  assert.equal(written.length, 2);
+  // a model made from another list of inputs is not used: the screen says it is learning again
+  svc._model = { ...m2, version: 1 };
+  svc._cache.clear();
+  const view = await svc.view("T00");
+  assert.equal(view.available, false);
+  assert.match(view.reason, /learning again with its new inputs/);
+});

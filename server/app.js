@@ -1328,7 +1328,7 @@ ${e.text}
   // never trades, never asks an AI model.
   const horizon =
     opts.horizon ||
-    new Horizon({ market, docs: store.docs, history: () => robot.history, universe: () => robot.universe(), ai, now: opts.now, log: opts.log || console });
+    new Horizon({ market, docs: store.docs, history: () => robot.history, universe: () => robot.universe(), ai, playbook: ai.playbook, now: opts.now, log: opts.log || console });
   if (market.ticker && opts.horizonWatch !== false && opts.alertWatch !== false) horizon.start();
   const hWrap = (fn) => async (req, res) => {
     try {
