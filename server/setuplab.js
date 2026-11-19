@@ -88,6 +88,13 @@ class SetupLab {
     }
   }
 
+  /** Is the measurement older than the last finished session (the evening's run was missed)? For the supervisor. */
+  behind(lastSession) {
+    if (!this._live() || (this.job && !this.job.finishedAt)) return false;
+    const last = this.docs.read(LAB, null);
+    return !last || !last.at || istDate(Date.parse(last.at)) < lastSession;
+  }
+
   /** The saved record, or { available: false }. */
   view() {
     const d = this.docs ? this.docs.read(LAB, null) : null;

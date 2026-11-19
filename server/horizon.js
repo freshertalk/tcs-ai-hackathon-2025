@@ -1067,6 +1067,21 @@ class Horizon {
     };
   }
 
+  /** What is waiting: a (re)training, or sessions in the stored history that the model has not learned yet. For the supervisor. */
+  pending() {
+    const busy = Boolean(this._job && !this._job.finishedAt);
+    const h = this._historyStore();
+    if (!h) return { busy, train: false, learn: false, to: null };
+    let st;
+    try {
+      st = h.status();
+    } catch (_) {
+      return { busy, train: false, learn: false, to: null };
+    }
+    const m = this._usable();
+    return { busy, train: !m && st.stocks >= 30 && st.sessions >= 60, learn: Boolean(m && st.to && st.to > m.lastDate), to: st.to || null, lastDate: m ? m.lastDate : null };
+  }
+
   /* --------------------------------------------------------------------------- the clock */
   _watch() {
     const set = new Set();

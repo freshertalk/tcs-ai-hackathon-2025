@@ -761,3 +761,106 @@
     transform: none !important;
   }
 }
+
+/* ------------------------------------------------------------------ the Automation card (AutomationCard.jsx) */
+.auto {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+}
+.auto__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+.auto__head h3 {
+  margin: 0;
+  font-size: var(--t-title);
+  font-weight: 700;
+}
+.auto__head p,
+.auto__dim {
+  margin: 2px 0 0;
+  color: var(--ink-3);
+  font-size: var(--t-small);
+  line-height: 1.5;
+}
+.auto h4 {
+  margin: 6px 0 0;
+  color: var(--ink-2);
+  font-size: var(--t-small);
+  font-weight: 700;
+}
+.auto__list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr));
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.auto__row {
+  --s: var(--ink-3);
+  display: grid;
+  grid-template-columns: 118px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--s);
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+.auto__row.is-ok {
+  --s: var(--up);
+}
+.auto__row.is-warn {
+  --s: var(--warn);
+}
+.auto__row.is-error {
+  --s: var(--down);
+}
+.auto__state {
+  color: var(--s);
+  font-size: var(--t-small);
+  font-weight: 700;
+}
+.auto__body {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+  font-size: var(--t-small);
+  line-height: 1.45;
+  color: var(--ink-2);
+}
+.auto__body b {
+  color: var(--ink);
+  font-size: var(--t-base);
+}
+.auto__body small {
+  color: var(--ink-3);
+}
+.auto__events {
+  display: grid;
+  gap: 3px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--ink-2);
+  font-size: var(--t-small);
+}
+.auto__events time {
+  color: var(--ink-3);
+}
+@media (max-width: 560px) {
+  .auto__row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px;
+  }
+}

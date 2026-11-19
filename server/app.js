@@ -64,6 +64,7 @@ const { LearnWatch } = require("./learn");
 const { OpenForecast } = require("./open-forecast");
 const { Horizon } = require("./horizon");
 const { LiveHub } = require("./live");
+const { Supervisor } = require("./supervisor");
 const { Autopilot } = require("./autopilot");
 const nseCalendar = require("./market/nse-holidays");
 const { makeDeskReaders } = require("./desk-readers");
@@ -1454,6 +1455,147 @@ ${e.text}
   });
 
   /* ------------------------------------------------ site health (server/health.js) */
+  // The automation supervisor (server/supervisor.js): every minute it asks each duty whether it is behind and runs the first that is —
+  // so an evening's learning missed because the server or Zerodha was down is caught up by itself, and the one download that used to
+  // wait for a page to be opened starts on its own. It calls the services' own methods only: no order, no AI model.
+  const kiteOn = () => {
+    try {
+      return market.mode() === "kite" && (typeof market.kiteState !== "function" || Boolean(market.kiteState().connected));
+    } catch (_) {
+      return false;
+    }
+  };
+  const daysSince = (date) => (date ? Math.round((Date.parse(new Date((opts.now ? opts.now() : Date.now()) + 5.5 * 3600000).toISOString().slice(0, 10)) - Date.parse(date)) / 86400000) : 999);
+  const supervisor =
+    opts.supervisor ||
+    new Supervisor({
+      docs: store.docs,
+      now: opts.now,
+      log: opts.log || console,
+      isTradingDay: (d) => nseCalendar.isTradingDay(d),
+      duties: [
+        {
+          id: "history",
+          name: "NIFTY 100 history (5-minute bars)",
+          what: "Tops up the stored year of 5-minute bars the paper robot and the forecaster learn from.",
+          quietOnly: true,
+          due: () => {
+            if (!robot.history || !kiteOn() || robot.history.status().running) return "";
+            const n = robot.history.needs().length;
+            return n ? `${n} stock${n === 1 ? "" : "s"} not up to date` : "";
+          },
+          run: () => robot.history.sync({ trigger: "the supervisor" }),
+        },
+        {
+          id: "forecaster-train",
+          name: "15-minute forecaster: training",
+          what: "Trains the forecaster from the whole stored history when it has no usable model (first start, or its inputs changed).",
+          due: () => {
+            const p = horizon.pending();
+            return !p.busy && p.train ? "no usable model yet" : "";
+          },
+          run: () => horizon.train({ trigger: "the supervisor" }),
+        },
+        {
+          id: "forecaster-learn",
+          name: "15-minute forecaster: evening learning",
+          what: "Forecasts, scores and then learns every stored session the model has not seen (normally at 3:40 PM; here when that was missed).",
+          quietOnly: true,
+          due: () => {
+            const p = horizon.pending();
+            return !p.busy && p.learn ? `sessions to ${p.to} are stored, learned only to ${p.lastDate}` : "";
+          },
+          run: () => horizon.learnDays({ trigger: "the supervisor" }),
+        },
+        {
+          id: "open-forecast",
+          name: "Opening-price forecast: scoring",
+          what: "Writes the real open beside forecasts of earlier sessions that were never scored, and learns from them.",
+          due: () => {
+            const n = openForecast.overdue();
+            return n ? `${n} forecast${n === 1 ? "" : "s"} of earlier sessions not scored` : "";
+          },
+          run: () => openForecast.score(),
+        },
+        {
+          id: "setup-lab",
+          name: "Set-up lab",
+          what: "Measures every classic set-up on the NIFTY 100's recent sessions (normally each weekday evening).",
+          quietOnly: true,
+          due: () => (setupLab.behind(supervisor.lastSession()) ? `not measured since before ${supervisor.lastSession()}` : ""),
+          run: () => setupLab.run({ trigger: "the supervisor" }),
+        },
+        {
+          id: "level-learner",
+          name: "Level learner",
+          what: "Studies how the day's levels held on the sessions it has not studied yet (normally after each close).",
+          quietOnly: true,
+          every: 6 * 3600000,
+          due: () => {
+            const n = learn.behind();
+            return n ? `${n} trading day${n === 1 ? "" : "s"} not studied` : "";
+          },
+          run: () => learn.run(),
+        },
+        {
+          id: "screener-history",
+          name: "Screener history (Nifty 500)",
+          what: "Downloads the Nifty 500's daily history the RSI search and the custom scanner need; it used to start only when the Screener was opened.",
+          every: 6 * 3600000,
+          due: () => {
+            if (!kiteOn()) return "";
+            const u = market.screenerStatus();
+            if (u.job && u.job.running) return "";
+            if (!u.ready) return "never downloaded";
+            return daysSince(u.through) > 4 && (!u.syncedAt || (opts.now ? opts.now() : Date.now()) - Date.parse(u.syncedAt) > 20 * 3600000) ? `daily closes end on ${u.through}` : "";
+          },
+          run: async () => {
+            market.screenerStart({});
+          },
+        },
+      ],
+    });
+  if (opts.supervisorWatch !== false && opts.alertWatch !== false && !underTest) supervisor.start();
+  // every system that runs by itself, in one list: its schedule in words and whether it is on (for /me → Automation)
+  const automationSystems = () => {
+    const sys = (id, name, schedule, fn) => {
+      try {
+        return { id, name, schedule, ...fn() };
+      } catch (err) {
+        return { id, name, schedule, state: "unknown", detail: `Its state could not be read: ${err && err.message ? err.message : err}` };
+      }
+    };
+    const on = kiteOn();
+    const needs = (state, detail = "") => ({ state: on ? state : "needs-zerodha", detail });
+    return [
+      sys("zerodha", "Zerodha session", "You log in once each trading morning — Zerodha does not allow software to renew a session, so this is the one step that cannot be automatic", () => ({ state: on ? "on" : "needs-you", detail: on ? "Connected" : "Not connected: everything that needs live prices waits for your login" })),
+      sys("horizon", "15-minute forecaster", "A forecast on every finished 5-minute bar; every evening at 3:40 PM it forecasts the whole NIFTY 100 day, is scored, then learns it; retrains every five weeks", () => {
+        const b = horizon.board();
+        return needs(b.trained ? "on" : "learning", b.trained ? `learned to ${b.learning.lastDate}; model in use: ${(b.learning.contest || {}).name || "—"}` : "no usable model yet");
+      }),
+      sys("open", "Opening-price forecast", "Forecasts from 8:30 AM, final at 9:00, scored from 9:16, learns after every scoring", () => needs("on", `${openForecast.learned().n || 0} opens learned from`)),
+      sys("autopilot", "Autopilot", "Playbooks before the open, triggers watched all session, proposals checked against your limits and graded afterwards — it never sends an order", () => (autopilot.settings().on ? needs("on") : { state: "off", detail: "switched off under Research → Autopilot → Limits" })),
+      sys("robot", "Paper robot", "Trades the live scanner's calls with play money all session; compares, corrects itself and studies the NIFTY 100's levels each evening", () => (robot.settings().on ? needs("on") : { state: "off", detail: "switched off under Trade Analysis → Robot" })),
+      sys("scanner", "Live scanner", "Reads the NIFTY 100 from the live stream every two seconds while the market is open", () => needs(scanner.state === "live" ? "on" : "standing-by", scanner.state === "live" ? "streaming" : "starts with the session")),
+      sys("research", "Research runs", "8:45 AM and 4:00 PM for the watchlist (data only; the AI's notes need your click)", () => (researchAuto.status().enabled ? needs("on") : { state: "off", detail: "switched off under Research" })),
+      sys("picks", "Top 10 and RSI watch", "8:35 AM, through the session, and 3:45 PM", () => needs("on")),
+      sys("setups", "Set-up lab", "Each weekday evening after the close", () => needs("on")),
+      sys("levels", "Level learner", "After every close", () => needs("on")),
+      sys("indices", "Indices", "The closing candle, the desk's projections and their scoring after every close", () => needs("on")),
+      sys("analysis", "Trade Analysis day snapshot", "3:45 PM every trading day", () => (analysis.settings().auto ? needs("on") : { state: "off", detail: "auto-save switched off" })),
+      sys("alerts", "Price alerts", "Checked every 15 seconds in market hours, with no page open", () => needs(alertWatch.status().running ? "on" : "off")),
+      sys("paper", "Paper trading (auto mode)", "Follows the desk's live call with play money by itself", () => ((typeof paper._state === "function" ? paper._state().auto : paper.status().auto) ? needs("on") : { state: "off", detail: "your switch, on the Paper page (play money only)" })),
+      sys("ai", "AI models (paid)", "Only when you press an AI button — your rule; every forecast above is arithmetic and costs nothing", () => ({ state: ai.guard.status().auto ? "on" : "click-only", detail: ai.guard.status().auto ? "allowed to run by itself" : "protected: nothing is spent without a click" })),
+    ];
+  };
+  app.get("/api/admin/automation", requireAdmin, (req, res) => res.json({ ...supervisor.status(), systems: automationSystems() }));
+  // look now, instead of at the next minute
+  app.post("/api/admin/automation/run", requireSuper, limiter(20, 10 * 60 * 1000), async (req, res) => {
+    supervisor.tick().catch(() => {});
+    await new Promise((r) => setTimeout(r, 150));
+    res.json({ ...supervisor.status(), systems: automationSystems() });
+  });
+
   // The live channel (one connection per browser; see src/admin/live.js) and what the hub watches. A watcher's value is a cheap fingerprint of
   // the server's own state: when it changes, its topic is published and every page that shows it re-reads.
   app.get("/api/admin/live", requireAdmin, live.handler());
@@ -1481,6 +1623,10 @@ ${e.text}
     return [robot.settings && robot.settings().on, (st.open || []).map((p) => `${p.symbol}:${p.qty}`), (st.log || []).length, Object.keys(rec.trades || {}).length, (rec.decisions || []).length, st.learned];
   });
   live.watch("horizon", () => horizon.fingerprint());
+  live.watch("automation", () => {
+    const st = supervisor.status();
+    return [st.running && st.running.id, st.behind, st.events[0] && st.events[0].at, st.duties.map((d) => d.state)];
+  });
   live.watch("open", () => openForecast.fingerprint());
   live.watch("autopilot", () => autopilot.fingerprint());
   live.watch("ai", () => [ai.guard.status(), ai.status()]);
@@ -1491,7 +1637,7 @@ ${e.text}
 
   app.get("/api/admin/health", requireAdmin, limiter(60, 60 * 1000), async (req, res) => {
     try {
-      res.json(await buildHealth({ now: opts.now, docs, dataDir, horizon, openForecast, autopilot, robot, market, ai, trading, analysis, paper, researchAuto, notifier, alertWatch, whatsapp, temple, holidays, googleConfigured: () => credentials().source !== "none" }, { secure: isSecure(req), host: req.get("host") || "" }));
+      res.json(await buildHealth({ now: opts.now, docs, dataDir, supervisor, horizon, openForecast, autopilot, robot, market, ai, trading, analysis, paper, researchAuto, notifier, alertWatch, whatsapp, temple, holidays, googleConfigured: () => credentials().source !== "none" }, { secure: isSecure(req), host: req.get("host") || "" }));
     } catch (err) {
       res.status(500).json({ error: "health_failed", message: err.message });
     }
@@ -1575,6 +1721,7 @@ ${e.text}
     openForecast,
     horizon,
     live,
+    supervisor,
     autopilot,
     get setupToken() {
       return setupToken;

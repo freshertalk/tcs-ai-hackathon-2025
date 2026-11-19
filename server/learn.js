@@ -210,6 +210,13 @@ class LearnWatch {
    * Study what is due: today (once the session is over) and up to three earlier days not yet seen.
    * One at a time. @returns { studied: [{ date, symbols, tests }], days, tests, lessons }
    */
+  /** Earlier trading days not studied yet (the evening's study was missed), while Zerodha can give their bars. For the supervisor. */
+  behind() {
+    if (this.running) return 0;
+    if (typeof this.market.mode === "function" && this.market.mode() !== "kite") return 0;
+    return this._missing(istDate(this.now()), { includeToday: false }).length;
+  }
+
   run({ force = false } = {}) {
     if (this.running) return this.running;
     this.running = this._run({ force }).finally(() => {

@@ -1422,3 +1422,25 @@ test("the live channel over HTTP: a stranger is refused; a signed-in page hears 
   assert.ok(n >= 1, "a watcher noticed the AI credit state change");
   req.destroy();
 });
+
+test("automation over HTTP: every automatic system and every catch-up duty is listed, with what needs you said plainly", async (t) => {
+  const s = await boot();
+  t.after(s.close);
+  assert.equal((await s.request("GET", "/api/admin/automation")).status, 401);
+  const r = await s.request("GET", "/api/admin/automation", { cookie: s.admin });
+  assert.equal(r.status, 200, r.text);
+  const ids = r.json.duties.map((d) => d.id);
+  for (const id of ["history", "forecaster-train", "forecaster-learn", "open-forecast", "setup-lab", "level-learner", "screener-history"]) assert.ok(ids.includes(id), `${id} is a duty`);
+  for (const d of r.json.duties) assert.ok(["ok", "behind", "waiting", "failed", "running"].includes(d.state) && d.what, `${d.id} says its state`);
+  const sys = Object.fromEntries(r.json.systems.map((x) => [x.id, x]));
+  assert.match(sys.zerodha.schedule, /cannot be automatic/);
+  assert.equal(sys.ai.state, "click-only");
+  assert.ok(sys.horizon && sys.open && sys.autopilot && sys.robot);
+  assert.deepEqual(r.json.systems.filter((x) => x.state === "unknown").map((x) => `${x.id}: ${x.detail}`), [], "no system failed to report");
+  // the health page carries the supervisor too
+  const h = await s.request("GET", "/api/admin/health", { cookie: s.admin });
+  assert.ok(h.json.checks.some((c) => c.id === "supervisor" && /behind|Nothing is behind|Catching up/.test(c.detail)));
+  // only the owner may ask it to look now
+  const run = await s.request("POST", "/api/admin/automation/run", { cookie: s.admin });
+  assert.equal(run.status, 200, run.text);
+});

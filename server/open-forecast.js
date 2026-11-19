@@ -451,6 +451,14 @@ class OpenForecast {
     };
   }
 
+  /** Forecasts of earlier sessions still waiting for their real open (their scoring was missed). For the supervisor. */
+  overdue() {
+    const today = istDate(this.now());
+    let n = 0;
+    for (const r of this._recs().values()) if (!r.actual && !r.void && r.date < today) n += 1;
+    return n;
+  }
+
   /** The learning and the latest scored forecasts across stocks, for a page. */
   board() {
     const L = this.learned();

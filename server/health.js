@@ -157,6 +157,16 @@ async function buildHealth(ctx, { secure = false, host = "" } = {}) {
 
   /* ---------------------------------------------------------------- the automation brains */
   const daysSince = (date) => (date ? Math.round((Date.parse(istDate(now)) - Date.parse(date)) / 86400000) : null);
+  if (ctx.supervisor) {
+    await check("supervisor", "Automation brains", "Automation supervisor", () => {
+      const st = ctx.supervisor.status();
+      const behind = st.duties.filter((d) => d.state !== "ok");
+      if (st.running) return { status: "ok", detail: `Catching up now: ${(st.duties.find((d) => d.id === st.running.id) || {}).name || st.running.id} (${st.running.reason}).` };
+      if (!behind.length) return { status: "ok", detail: `Nothing is behind: ${st.duties.length} duties checked every minute.` };
+      const failed = behind.filter((d) => d.state === "failed");
+      return { status: failed.length ? "warn" : "ok", detail: `${behind.length} behind — ${behind.map((d) => `${d.name}: ${d.reason}${d.state === "waiting" ? " (waits for the market to close)" : d.lastError ? ` (last try failed: ${d.lastError})` : ""}`).join("; ")}.`, hint: failed.length ? "/me → Automation shows each try." : undefined };
+    });
+  }
   if (ctx.horizon) {
     await check("horizon", "Automation brains", "15-minute forecaster", () => {
       const b = ctx.horizon.board();

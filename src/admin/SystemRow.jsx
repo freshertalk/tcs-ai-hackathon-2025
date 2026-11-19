@@ -10,12 +10,14 @@ import HealthCard from "./HealthCard";
 import WhatsAppCard from "./WhatsAppCard";
 import NotifyCard from "./NotifyCard";
 import TempleCard from "./temple/TempleCard";
+import AutomationCard from "./AutomationCard";
 
 const ICON = {
   health: "M3 12h4l2-6 4 12 2-6h6",
   whatsapp: "M4 5h16v11H9l-5 4zM8 9h8M8 12h5",
   telegram: "M21 3L3 11l7 3 3 7zM10 14l11-11",
   mandir: "M12 3l8 5H4zM6 8v10M18 8v10M4 21h16M10 21v-5h4v5",
+  auto: "M12 3v3M12 18v3M4.6 6.6l2.1 2.1M17.3 15.3l2.1 2.1M3 12h3M18 12h3M4.6 17.4l2.1-2.1M17.3 8.7l2.1-2.1M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z",
 };
 const ago = (iso) => {
   if (!iso) return "";
@@ -58,13 +60,14 @@ export default function SystemRow({ isSuper }) {
     const load = () => {
       api("/api/admin/health").then(put("health")).catch(() => {});
       api("/api/admin/temple").then(put("temple")).catch(() => {});
+      api("/api/admin/automation").then(put("auto")).catch(() => {});
       if (isSuper) {
         api("/api/admin/whatsapp").then(put("wa")).catch(() => {});
         api("/api/admin/notify").then(put("tg")).catch(() => {});
       }
     };
     load();
-    const stop = everyVisible(load, 60000, { topics: ["health", "system"] });
+    const stop = everyVisible(load, 60000, { topics: ["health", "system", "automation"] });
     return () => {
       alive = false;
       stop();
@@ -106,12 +109,29 @@ export default function SystemRow({ isSuper }) {
         ? { tone: "warn", value: "Link only", sub: "YouTube cannot play in the background" }
         : { tone: "ok", value: t.source.kind === "library" ? `${files} file${files === 1 ? "" : "s"}` : "Audio link", sub: `volume ${Math.round((t.volume || 0) * 100)}%${t.autoplay ? " · starts by itself" : ""}` };
 
+  const au = d.auto && Array.isArray(d.auto.duties) ? d.auto : null;
+  const auOn = au ? au.systems.filter((x) => ["on", "learning", "standing-by", "click-only"].includes(x.state)).length : 0;
+  const auBehind = au ? au.duties.filter((x) => x.state !== "ok") : [];
+  const needsYou = au ? au.systems.some((x) => x.state === "needs-you") : false;
+  const auto = !au
+    ? { tone: "off", value: "…", sub: "everything that runs by itself" }
+    : au.duties.some((x) => x.state === "failed")
+      ? { tone: "error", value: "A catch-up failed", sub: auBehind.map((x) => x.name).join(", ") }
+      : au.running
+        ? { tone: "ok", value: "Catching up now", sub: (au.duties.find((x) => x.id === au.running.id) || {}).name || "" }
+        : auBehind.length
+          ? { tone: "warn", value: `${auBehind.length} catching up`, sub: auBehind.map((x) => x.name).join(", ") }
+          : needsYou
+            ? { tone: "warn", value: "Waiting for Zerodha", sub: "log in to Kite: the rest runs by itself" }
+            : { tone: "ok", value: `${auOn} of ${au.systems.length} running`, sub: "nothing is behind · checked every minute" };
+
   const toggle = (id) => setOpen((o) => (o === id ? "" : id));
-  const panels = { health: <HealthCard />, wa: <WhatsAppCard />, tg: <NotifyCard />, mandir: <TempleCard /> };
+  const panels = { health: <HealthCard />, auto: <AutomationCard />, wa: <WhatsAppCard />, tg: <NotifyCard />, mandir: <TempleCard /> };
   return (
     <div className="hm-sys">
       <ul className="hm-sys__row" aria-label="System cards">
         <Tile id="health" icon="health" title="Site health" {...health} open={open === "health"} onToggle={() => toggle("health")} />
+        <Tile id="auto" icon="auto" title="Automation" {...auto} open={open === "auto"} onToggle={() => toggle("auto")} />
         {isSuper && <Tile id="wa" icon="whatsapp" title="WhatsApp Trading" {...whatsapp} open={open === "wa"} onToggle={() => toggle("wa")} />}
         {isSuper && <Tile id="tg" icon="telegram" title="Alerts on your phone" {...telegram} open={open === "tg"} onToggle={() => toggle("tg")} />}
         <Tile id="mandir" icon="mandir" title="मंदिर · Mandir" {...mandir} open={open === "mandir"} onToggle={() => toggle("mandir")} />
