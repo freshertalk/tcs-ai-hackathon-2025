@@ -11,6 +11,12 @@
 //                          big lists kept ONE RECORD PER ITEM (each item has an "id"): the trade
 //                          journal's fills. A single MongoDB record cannot exceed 16 MB, and years of
 //                          trades would. Items are read once at start and served from memory too.
+//   coldPut(name, id, value) / coldGet(name, id) / coldList(name) / coldRemove(name, ids)   (all return promises)
+//                          BIG records that are NOT kept in memory: the market recorder's sessions (about a megabyte a
+//                          day, for ever). They are read one at a time when something needs one; coldList gives their
+//                          ids, dates and sizes without their bodies.
+//   dump(emit)             every record this store holds, one entry at a time, for a backup (server/vault.js):
+//                          { kind: "doc" | "log" | "item" | "cold", name, id?, v }
 //
 // FileDocs keeps each record as a file under server/data/ (the default, and what tests use).
 // MongoDocs keeps them in MongoDB: everything is read once at start-up, served from memory,
@@ -28,8 +34,13 @@ const path = require("path");
 const RECORDS = ["db.json", "ai/world.json", "ai/news.json", "ai/live.json", "ai/journal.json", "ai/debriefs.json", "ai/coach.json", "ai/research.json", "ai/trading-skills.md", "trading/journal.json", "ai/reviews.json", "market/behaviour.json", "ai/decisions.json", "market/edge.json", "market/signals.json", "market/alerts.json", "research/auto.json"];
 const LOGS = { "trading/audit": "trading/audit.jsonl" };
 /** Lists kept one record per item (a collection of its own in MongoDB, one file otherwise). */
-const COLLECTIONS = ["journal_fills", "analysis_snapshots", "analysis_outcomes", "analysis_learnings", "robot_trades", "robot_days", "robot_study", "robot_history", "open_forecasts", "autopilot_proposals", "horizon_forecasts", "horizon_days", "horizon_learning"];
+const COLLECTIONS = ["journal_fills", "analysis_snapshots", "analysis_outcomes", "analysis_learnings", "robot_trades", "robot_days", "robot_study", "robot_history", "open_forecasts", "autopilot_proposals", "horizon_forecasts", "horizon_days", "horizon_learning", "tape_learning"];
+/** Big records read one at a time, never held in memory (a collection "cold_<name>" in MongoDB, a folder of files otherwise). */
+const COLD = ["market_tape"];
 const LOG_KEEP = 2000; // entries of a log kept in memory (the database keeps them all)
+const COLD_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,60}$/;
+/** In the file store: what is a cache (downloaded again when missing), a key or a working file — never part of a backup. */
+const NOT_RECORDS = [/^backups\//, /^media\//, /^cold\//, /^collections\//, /^market\/candles\//, /^market\/indices\//, /^market\/screener/, /^health\//, /\.key$/, /\.tmp$/, /\.corrupt-\d+$/, /^market\/instruments\.json$/, /^market\/universe\.json$/, /^nfo\.json$/, /^holidays\.json$/, /^last-crash\.json$/];
 
 const isText = (name) => name.endsWith(".md");
 const clone = (v) => (v === undefined ? v : JSON.parse(JSON.stringify(v)));
@@ -128,6 +139,100 @@ class FileDocs {
     if (!v) return;
     for (const id of ids || []) delete v[id];
     this.write(this._itemsPath(name), v);
+  }
+
+  /* ---- big records, one file each (cold/<name>/<id>.json): never read unless asked for ---- */
+  _coldDir(name) {
+    return path.join(this.dir, "cold", name);
+  }
+
+  async coldPut(name, id, value) {
+    if (!COLD_ID.test(String(id))) throw new Error("That is not a valid record id.");
+    const dir = this._coldDir(name);
+    fs.mkdirSync(dir, { recursive: true });
+    const file = path.join(dir, `${id}.json`);
+    const tmp = `${file}.${process.pid}.tmp`;
+    fs.writeFileSync(tmp, JSON.stringify({ id: String(id), at: new Date().toISOString(), v: value }), { mode: 0o600 });
+    fs.renameSync(tmp, file);
+  }
+
+  async coldGet(name, id) {
+    if (!COLD_ID.test(String(id))) return null;
+    try {
+      return JSON.parse(fs.readFileSync(path.join(this._coldDir(name), `${id}.json`), "utf8")).v;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  async coldList(name) {
+    let files = [];
+    try {
+      files = fs.readdirSync(this._coldDir(name)).filter((f) => f.endsWith(".json"));
+    } catch (_) {
+      return [];
+    }
+    return files
+      .map((f) => {
+        const st = fs.statSync(path.join(this._coldDir(name), f));
+        return { id: f.slice(0, -5), bytes: st.size, at: st.mtime.toISOString() };
+      })
+      .sort((a, b) => (a.id < b.id ? -1 : 1));
+  }
+
+  async coldRemove(name, ids) {
+    for (const id of ids || []) {
+      if (!COLD_ID.test(String(id))) continue;
+      try {
+        fs.unlinkSync(path.join(this._coldDir(name), `${id}.json`));
+      } catch (_) {
+        /* already gone */
+      }
+    }
+  }
+
+  /** Every record kept here, one entry at a time (caches, keys, media and backups are not records). `light`: documents and logs only. */
+  async dump(emit, { light = false } = {}) {
+    const walk = (rel) => {
+      let names = [];
+      try {
+        names = fs.readdirSync(path.join(this.dir, rel), { withFileTypes: true });
+      } catch (_) {
+        return [];
+      }
+      const out = [];
+      for (const d of names) {
+        const p = rel ? `${rel}/${d.name}` : d.name;
+        if (NOT_RECORDS.some((re) => re.test(d.isDirectory() ? `${p}/` : p))) continue;
+        if (d.isDirectory()) out.push(...walk(p));
+        else out.push(p);
+      }
+      return out;
+    };
+    for (const p of walk("").sort()) {
+      if (p.endsWith(".jsonl")) {
+        const name = Object.keys(LOGS).find((k) => LOGS[k] === p) || p.slice(0, -6);
+        for (const v of this.tail(name, 1e9)) await emit({ kind: "log", name, v });
+      } else if (p.endsWith(".json") || p.endsWith(".md")) {
+        const v = this.read(p, undefined);
+        if (v !== undefined && v !== null) await emit({ kind: "doc", name: p, v });
+      }
+    }
+    if (light) return;
+    let cols = [];
+    try {
+      cols = fs.readdirSync(path.join(this.dir, "collections")).filter((f) => f.endsWith(".json")).map((f) => f.slice(0, -5));
+    } catch (_) {
+      cols = [];
+    }
+    for (const name of cols.sort()) for (const v of this.items(name)) await emit({ kind: "item", name, v });
+    let cold = [];
+    try {
+      cold = fs.readdirSync(path.join(this.dir, "cold"), { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name);
+    } catch (_) {
+      cold = [];
+    }
+    for (const name of cold.sort()) for (const r of await this.coldList(name)) await emit({ kind: "cold", name, id: r.id, v: await this.coldGet(name, r.id) });
   }
 
   flush() {
@@ -286,6 +391,50 @@ class MongoDocs {
     if (list.length) this._queue(`col:${name}`, () => this.db.collection(name).deleteMany({ _id: { $in: list } }));
   }
 
+  /* ---- big records, one database record each (collection cold_<name>): read only when asked for ---- */
+  _cold(name) {
+    return this.db.collection(`cold_${name}`);
+  }
+
+  coldPut(name, id, value) {
+    if (!COLD_ID.test(String(id))) return Promise.reject(new Error("That is not a valid record id."));
+    const v = clone(value);
+    const bytes = Buffer.byteLength(JSON.stringify(v));
+    return this._queue(`cold:${name}:${id}`, () => this._cold(name).updateOne({ _id: String(id) }, { $set: { v, at: new Date(), bytes } }, { upsert: true }));
+  }
+
+  async coldGet(name, id) {
+    if (!COLD_ID.test(String(id))) return null;
+    await (this._chain.get(`cold:${name}:${id}`) || Promise.resolve()); // a write still on its way lands first
+    const rows = await this._cold(name).find({ _id: String(id) }).limit(1).toArray();
+    return rows.length ? rows[0].v : null;
+  }
+
+  async coldList(name) {
+    const rows = await this._cold(name).find({}, { projection: { v: 0 } }).toArray();
+    return rows
+      .map((r) => ({ id: String(r._id), bytes: r.bytes || (r.v ? Buffer.byteLength(JSON.stringify(r.v)) : 0), at: r.at ? new Date(r.at).toISOString() : null }))
+      .sort((a, b) => (a.id < b.id ? -1 : 1));
+  }
+
+  async coldRemove(name, ids) {
+    const col = this._cold(name);
+    for (const id of (ids || []).map(String)) await this._queue(`cold:${name}:${id}`, () => col.deleteOne({ _id: id }));
+  }
+
+  /** Every record kept here, one entry at a time: the documents, the whole of each log, every list and every big record. `light`: documents and logs only. */
+  async dump(emit, { light = false } = {}) {
+    await this.flush();
+    for (const name of [...this._cache.keys()].sort()) await emit({ kind: "doc", name, v: this._cache.get(name) });
+    for (const name of Object.keys(LOGS)) {
+      const rows = await this.logs.find({ log: name }).sort({ at: 1, _id: 1 }).toArray();
+      for (const r of rows) await emit({ kind: "log", name, v: r.v });
+    }
+    if (light) return;
+    for (const name of [...this._items.keys()].sort()) for (const v of this._items.get(name).values()) await emit({ kind: "item", name, v });
+    for (const name of COLD) for (const r of await this.coldList(name)) await emit({ kind: "cold", name, id: r.id, v: await this.coldGet(name, r.id) });
+  }
+
   async flush() {
     while (this._pending.size) await Promise.all([...this._pending]);
   }
@@ -304,4 +453,4 @@ async function openDocs({ env = process.env, dir, log = console } = {}) {
   return docs;
 }
 
-module.exports = { FileDocs, MongoDocs, openDocs, RECORDS, LOGS, COLLECTIONS };
+module.exports = { FileDocs, MongoDocs, openDocs, RECORDS, LOGS, COLLECTIONS, COLD };

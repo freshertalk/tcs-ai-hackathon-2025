@@ -1,4 +1,4 @@
-// The four system cards of /me — Site health, WhatsApp Trading, Alerts on your phone (Telegram) and the Mandir — as one
+// The system cards of /me — Site health, Automation, Data & backups, WhatsApp Trading, Alerts on your phone (Telegram) and the Mandir — as one
 // row of compact tiles. Each tile shows the live state in a glance; pressing one opens the full card (the same card as
 // before, with all its settings) in a panel under the row, one at a time. Nothing was removed: the row is only a more
 // compact front for the cards.
@@ -11,12 +11,14 @@ import WhatsAppCard from "./WhatsAppCard";
 import NotifyCard from "./NotifyCard";
 import TempleCard from "./temple/TempleCard";
 import AutomationCard from "./AutomationCard";
+import DataCard from "./DataCard";
 
 const ICON = {
   health: "M3 12h4l2-6 4 12 2-6h6",
   whatsapp: "M4 5h16v11H9l-5 4zM8 9h8M8 12h5",
   telegram: "M21 3L3 11l7 3 3 7zM10 14l11-11",
   mandir: "M12 3l8 5H4zM6 8v10M18 8v10M4 21h16M10 21v-5h4v5",
+  data: "M4 6c0-1.7 3.6-3 8-3s8 1.3 8 3-3.6 3-8 3-8-1.3-8-3zM4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6",
   auto: "M12 3v3M12 18v3M4.6 6.6l2.1 2.1M17.3 15.3l2.1 2.1M3 12h3M18 12h3M4.6 17.4l2.1-2.1M17.3 8.7l2.1-2.1M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z",
 };
 const ago = (iso) => {
@@ -61,13 +63,15 @@ export default function SystemRow({ isSuper }) {
       api("/api/admin/health").then(put("health")).catch(() => {});
       api("/api/admin/temple").then(put("temple")).catch(() => {});
       api("/api/admin/automation").then(put("auto")).catch(() => {});
+      api("/api/admin/recorder").then(put("rec")).catch(() => {});
       if (isSuper) {
         api("/api/admin/whatsapp").then(put("wa")).catch(() => {});
         api("/api/admin/notify").then(put("tg")).catch(() => {});
+        api("/api/admin/vault/status").then(put("vault")).catch(() => {});
       }
     };
     load();
-    const stop = everyVisible(load, 60000, { topics: ["health", "system", "automation"] });
+    const stop = everyVisible(load, 60000, { topics: ["health", "system", "automation", "data"] });
     return () => {
       alive = false;
       stop();
@@ -125,13 +129,26 @@ export default function SystemRow({ isSuper }) {
             ? { tone: "warn", value: "Waiting for Zerodha", sub: "log in to Kite: the rest runs by itself" }
             : { tone: "ok", value: `${auOn} of ${au.systems.length} running`, sub: "nothing is behind · checked every minute" };
 
+  // what is recorded by itself, what was learned from it, and (for the owner) the newest backup
+  const rc = d.rec && d.rec.learner && d.rec.stored ? d.rec : null;
+  const vt = d.vault && d.vault.settings ? d.vault : null;
+  const learned = rc ? (rc.learner.on ? "order book & OI in use" : rc.learner.days ? `order book & OI: ${rc.learner.days} learned, not proven yet` : "order book & OI: learning starts after the first session") : "";
+  const data = !rc
+    ? { tone: "off", value: "…", sub: "what is recorded, learned and backed up" }
+    : rc.state === "needs-zerodha"
+      ? { tone: "warn", value: "Not recording", sub: "the market is open: log in to Kite" }
+      : vt && vt.error
+        ? { tone: "warn", value: "A backup failed", sub: String(vt.error).slice(0, 70) }
+        : { tone: "ok", value: rc.state === "recording" ? `Recording · ${rc.today ? rc.today.taken : 0} min today` : `${rc.stored.sessions} session${rc.stored.sessions === 1 ? "" : "s"} recorded`, sub: `${learned}${vt ? ` · ${vt.last ? `backup ${ago(vt.last.at)}` : "no backup yet"}` : ""}` };
+
   const toggle = (id) => setOpen((o) => (o === id ? "" : id));
-  const panels = { health: <HealthCard />, auto: <AutomationCard />, wa: <WhatsAppCard />, tg: <NotifyCard />, mandir: <TempleCard /> };
+  const panels = { health: <HealthCard />, auto: <AutomationCard />, data: <DataCard />, wa: <WhatsAppCard />, tg: <NotifyCard />, mandir: <TempleCard /> };
   return (
     <div className="hm-sys">
-      <ul className="hm-sys__row" aria-label="System cards">
+      <ul className="hm-sys__row" data-n={isSuper ? 6 : 4} aria-label="System cards">
         <Tile id="health" icon="health" title="Site health" {...health} open={open === "health"} onToggle={() => toggle("health")} />
         <Tile id="auto" icon="auto" title="Automation" {...auto} open={open === "auto"} onToggle={() => toggle("auto")} />
+        <Tile id="data" icon="data" title={"Data & backups"} {...data} open={open === "data"} onToggle={() => toggle("data")} />
         {isSuper && <Tile id="wa" icon="whatsapp" title="WhatsApp Trading" {...whatsapp} open={open === "wa"} onToggle={() => toggle("wa")} />}
         {isSuper && <Tile id="tg" icon="telegram" title="Alerts on your phone" {...telegram} open={open === "tg"} onToggle={() => toggle("tg")} />}
         <Tile id="mandir" icon="mandir" title="मंदिर · Mandir" {...mandir} open={open === "mandir"} onToggle={() => toggle("mandir")} />

@@ -100,8 +100,11 @@ class Horizon {
    * @param history   () => the paper robot's HistoryStore (bars(symbol), record(symbol), status(), needs(), sync())
    * @param universe  () => the NIFTY 100's symbols
    * @param ai        the AiService, optional (its last live read for a stock; no model is asked)
+   * @param flow      the market recorder (or () => it), optional: tiltFor(symbol, barEndMs) → the order book and open
+   *                  interest recorded at that minute and the correction they have earned (server/recorder.js)
    */
-  constructor({ market, docs, history, universe, ai = null, playbook = null, now = () => Date.now(), log = console }) {
+  constructor({ market, docs, history, universe, ai = null, playbook = null, flow = null, now = () => Date.now(), log = console }) {
+    this.flow = flow;
     this.playbook = playbook; // the trading-skills file every AI feature reads: the forecaster writes its findings into it
     this.market = market;
     this.docs = docs;
@@ -561,6 +564,79 @@ class Horizon {
     return { days: dayRecords.length, to: newest };
   }
 
+  /* --------------------------------------------------------------------------- for the market recorder's learner */
+  /** Is there a model that can make a call? (None before the first training, and while it retrains with new inputs.) */
+  ready() {
+    return Boolean(this._usable()) && !(this._job && !this._job.finishedAt);
+  }
+
+  /** The newest session the stored price history holds ("" when there is none, or while it is being topped up). */
+  storedTo() {
+    const h = this._historyStore();
+    if (!h) return "";
+    try {
+      const st = h.status();
+      return st.running ? "" : st.to || "";
+    } catch (_) {
+      return "";
+    }
+  }
+
+  /**
+   * Every stock's rows on the given stored sessions, each with the present model's own call beside it (row.p, in the
+   * stock's units, for every target). `each(symbol, date, rows)` is called once per stock per session. Nothing is learned
+   * or saved here: the recorder uses it to set what the forecaster missed against what it recorded. @returns rows seen
+   */
+  async replay(dates, each) {
+    const m = this._usable();
+    if (!m) return 0;
+    const want = new Set(dates);
+    const stocks = this._stocks();
+    const mktAcc = new Map();
+    for (const s of stocks) {
+      for (const [date, raw] of this._days(s)) {
+        if (!want.has(date)) continue;
+        const bars = H.cleanBars(raw);
+        let a = mktAcc.get(date);
+        if (!a) mktAcc.set(date, (a = { s: new Float64Array(H.SESSION_BARS), c: new Float64Array(H.SESSION_BARS) }));
+        for (let i = 0; i < bars.length; i += 1) {
+          const prev = i ? bars[i - 1].c : bars[i].o;
+          a.s[bars[i].s] += (bars[i].c - prev) / prev;
+          a.c[bars[i].s] += 1;
+        }
+      }
+      await tick();
+    }
+    const mkt = new Map();
+    for (const [date, a] of mktAcc) {
+      const v = new Float64Array(H.SESSION_BARS);
+      for (let i = 0; i < H.SESSION_BARS; i += 1) v[i] = a.c[i] >= 10 ? a.s[i] / a.c[i] : NaN;
+      mkt.set(date, v);
+    }
+    const scales = m.stockCal && m.stockCal.on ? m.stockCal.recs || {} : null;
+    let seen = 0;
+    for (const s of stocks) {
+      const days = this._days(s);
+      const prof = (m.profiles || {})[s] || H.buildProfile(days, null);
+      if (prof) {
+        for (let d = 1; d < days.length; d += 1) {
+          const date = days[d][0];
+          if (!want.has(date)) continue;
+          const ctx = this._ctxFor(prof, days, d, mkt);
+          if (!ctx.prevClose) continue;
+          const rows = H.dayRows(days[d][1], ctx, { targets: true, stride: 1 });
+          if (!rows.length) continue;
+          const mult = scales ? H.stockScaleOf(scales[s]) : 1;
+          for (const row of rows) row.p = H.predictRow(m.W, row.x, m.slope, H.segFor(m.seg, row.s), mult);
+          seen += rows.length;
+          each(s, date, rows);
+        }
+      }
+      await tick();
+    }
+    return seen;
+  }
+
   /* --------------------------------------------------------------------------- the forecast for now */
   _levels(fc, prevClose) {
     const out = [];
@@ -666,10 +742,22 @@ class Horizon {
     const own = (live.bias || {})[symbol];
     const bias = own ? own.bias : 0;
     const stockScale = m.stockCal && m.stockCal.on ? H.stockScaleOf((m.stockCal.recs || {})[symbol]) : 1;
-    const probe = H.forecastFrom(done, ctx, m, { bias, tilt, levels: [], stockScale });
+    // the recorded order book and open interest as of the last finished bar: shown always, added to the forecast only once proven
+    const flow = this._flowFor(symbol, done[done.length - 1].t + H.BAR);
+    const tilts = flow && flow.on && flow.tilts ? flow.tilts : null;
+    const probe = H.forecastFrom(done, ctx, m, { bias, tilt, tilts, levels: [], stockScale });
     if (!probe) return { reason: "The forecast could not be made from today's bars." };
-    const fc = H.forecastFrom(done, ctx, m, { bias, tilt, levels: this._levels(probe, prevClose), stockScale });
-    return { fc, evidence, tilt, bias, prevClose, now };
+    const fc = H.forecastFrom(done, ctx, m, { bias, tilt, tilts, levels: this._levels(probe, prevClose), stockScale });
+    return { fc, evidence, tilt, bias, prevClose, now, flow, flowTilt: tilts ? tilts[H.HORIZONS.indexOf(3)] || 0 : 0 };
+  }
+
+  _flowFor(symbol, endMs) {
+    try {
+      const f = typeof this.flow === "function" ? this.flow() : this.flow;
+      return f && typeof f.tiltFor === "function" ? f.tiltFor(symbol, endMs) : null;
+    } catch (_) {
+      return null; // the forecast never waits on, or fails with, the recorder
+    }
   }
 
   /** The "why" list: which inputs pushed the 15-minute move, in words, biggest first. */
@@ -725,6 +813,8 @@ class Horizon {
           day: r.fc.day,
           why: head ? this._why(r.fc, m, head.h) : [],
           evidence: { news: r.evidence.news ?? null, aiLive: r.evidence.aiLive ?? null, tilt: r4(r.tilt), bias: r4(r.bias) },
+          // the order book and open interest the recorder read at the bar's close; `inUse` only once they have proved themselves
+          flow: r.flow && r.flow.read ? { ...r.flow.read, inUse: Boolean(r.flow.on), tilt: r4(r.flowTilt), gain15: r.flow.gain ?? null, scored: r.flow.evidence || 0 } : null,
         };
       }
     } catch (err) {
@@ -902,7 +992,7 @@ class Horizon {
     for (const [h, x] of Object.entries(fc.horizons)) horizons[h] = { price: x.price, low: x.low, high: x.high, pct: x.pct, pUp: x.pUp, at: x.at };
     const reach = {};
     for (const [h, x] of Object.entries(fc.reach)) reach[h] = { up: x.up.price, down: x.down.price };
-    const rec = { id, date: istDate(now), symbol, anchorEnd: fc.anchor.end, madeAt: iso(now), price: fc.anchor.price, sigma: fc.sigma, bucket: fc.bucket, horizons, reach, evidence: r.evidence, tilt: r4(r.tilt), bias: r4(r.bias), settled: false, actual: null };
+    const rec = { id, date: istDate(now), symbol, anchorEnd: fc.anchor.end, madeAt: iso(now), price: fc.anchor.price, sigma: fc.sigma, bucket: fc.bucket, horizons, reach, evidence: r.evidence, tilt: r4(r.tilt), bias: r4(r.bias), flowTilt: r4(r.flowTilt || 0), flow: r.flow && r.flow.read ? { imb: r.flow.read.imb, oi15: r.flow.read.oi15Pct } : null, settled: false, actual: null };
     this._rev = (this._rev || 0) + 1;
     this._recs().set(id, rec);
     this._pending = this._pending || [];
@@ -997,7 +1087,7 @@ class Horizon {
     for (const [s, list] of by) {
       let sum = 0;
       // σ units: + the price went higher than the model alone said (the forecast shown also carried the bias and the tilt)
-      for (const r of list) sum += (r.actual[3].pct - r.horizons[3].pct) / r.sigma + (r.bias || 0) + (r.tilt || 0);
+      for (const r of list) sum += (r.actual[3].pct - r.horizons[3].pct) / r.sigma + (r.bias || 0) + (r.tilt || 0) + (r.flowTilt || 0);
       const n = list.length;
       bias[s] = { n, bias: r4(Math.max(-0.4, Math.min(0.4, (sum / n) * (n / (n + 40))))) };
     }

@@ -1443,4 +1443,72 @@ test("automation over HTTP: every automatic system and every catch-up duty is li
   // only the owner may ask it to look now
   const run = await s.request("POST", "/api/admin/automation/run", { cookie: s.admin });
   assert.equal(run.status, 200, run.text);
+  // the recorder, its learner and the backups are duties and systems too
+  for (const id of ["flow-learner", "backup"]) assert.ok(ids.includes(id), `${id} is a duty`);
+  assert.equal(ids[ids.length - 1], "backup", "the backup is made after everything else has caught up");
+  assert.match(sys.recorder.schedule, /Every minute from 9:15 to 15:30, with no page open/);
+  assert.ok(sys.flow && sys.backup);
+  assert.ok(h.json.checks.some((c) => c.id === "recorder") && h.json.checks.some((c) => c.id === "backup"));
+});
+
+test("data and backups over HTTP: the recorder's state, every dataset as a download, a backup made and fetched — owner only", async (t) => {
+  const s = await boot();
+  t.after(s.close);
+  assert.equal((await s.request("GET", "/api/admin/recorder")).status, 401);
+  assert.equal((await s.request("GET", "/api/admin/vault")).status, 401);
+  const rec = await s.request("GET", "/api/admin/recorder", { cookie: s.admin });
+  assert.equal(rec.status, 200, rec.text);
+  assert.ok(["recording", "needs-zerodha", "closed"].includes(rec.json.state));
+  assert.match(rec.json.what, /quantity waiting to buy and to sell/);
+  assert.equal(rec.json.learner.on, false, "nothing is used before it is proven");
+  assert.equal(rec.json.learner.needed, 20000);
+
+  const v = await s.request("GET", "/api/admin/vault", { cookie: s.admin });
+  assert.equal(v.status, 200, v.text);
+  assert.deepEqual(v.json.settings, { auto: true, keep: 5 });
+  const all = v.json.datasets.flatMap((g) => g.items);
+  for (const id of ["tape", "robot_history", "horizon_forecasts", "horizon_learning", "tape_learning", "journal_fills"]) assert.ok(all.some((x) => x.id === id), `${id} is listed`);
+  assert.ok(!all.some((x) => /db\.json/.test(x.id)));
+  assert.match(v.json.restore, /node server\/restore\.js/);
+
+  // a list as JSON and as CSV; nothing outside the store can be asked for
+  const json = await s.request("GET", "/api/admin/vault/collection/horizon_forecasts?format=json", { cookie: s.admin });
+  assert.equal(json.status, 200);
+  assert.match(json.headers["content-disposition"], /attachment; filename="horizon_forecasts\.json"/);
+  assert.ok(Array.isArray(json.json));
+  const csv = await s.request("GET", "/api/admin/vault/collection/horizon_forecasts?format=csv", { cookie: s.admin });
+  assert.equal(csv.status, 200);
+  assert.match(csv.headers["content-type"], /text\/csv/);
+  assert.equal((await s.request("GET", "/api/admin/vault/collection/..%2Fdb", { cookie: s.admin })).status, 404);
+  assert.equal((await s.request("GET", "/api/admin/vault/doc?name=db.json", { cookie: s.admin })).status, 404, "the accounts record is only in a full backup");
+  assert.equal((await s.request("GET", "/api/admin/vault/doc?name=..%2Fsettings.key", { cookie: s.admin })).status, 404);
+  assert.equal((await s.request("GET", "/api/admin/vault/tape/2026-01-01", { cookie: s.admin })).status, 404);
+  assert.equal((await s.request("GET", "/api/admin/vault/history/NOPE", { cookie: s.admin })).status, 404);
+  assert.equal((await s.request("GET", "/api/admin/vault/backups/..%2F..%2Fdb.json", { cookie: s.admin })).status, 404);
+
+  // a backup now: listed, downloadable, a whole file; the settings are kept; it can be deleted
+  const made = await s.request("POST", "/api/admin/vault/backup", { cookie: s.admin });
+  assert.equal(made.status, 200, made.text);
+  assert.equal(made.json.backups.length, 1);
+  assert.match(made.json.backups[0].file, /^drishtiai-backup-\d{4}-\d{2}-\d{2}-\d{6}\.ndjson\.gz$/);
+  assert.ok(made.json.job.counts.doc >= 1);
+  const file = await new Promise((resolve, reject) => {
+    http.get({ host: "127.0.0.1", port: s.port, path: made.json.backups[0].href, headers: { cookie: s.admin } }, (res) => {
+      const parts = [];
+      res.on("data", (c) => parts.push(c));
+      res.on("end", () => resolve({ status: res.statusCode, body: Buffer.concat(parts), type: res.headers["content-type"] }));
+    }).on("error", reject);
+  });
+  assert.equal(file.status, 200);
+  assert.equal(file.type, "application/gzip");
+  const lines = require("node:zlib").gunzipSync(file.body).toString("utf8").trim().split("\n").map((l) => JSON.parse(l));
+  assert.equal(lines[0].kind, "meta");
+  assert.equal(lines[lines.length - 1].kind, "end");
+  assert.ok(lines.some((l) => l.kind === "doc" && l.name === "db.json"), "a full backup holds the settings too");
+  const set = await s.request("PUT", "/api/admin/vault/settings", { cookie: s.admin, body: { auto: false, keep: 3 } });
+  assert.deepEqual(set.json.settings, { auto: false, keep: 3 });
+  const auto = await s.request("GET", "/api/admin/automation", { cookie: s.admin });
+  assert.equal(auto.json.systems.find((x) => x.id === "backup").state, "off");
+  const del = await s.request("DELETE", `/api/admin/vault/backups/${made.json.backups[0].file}`, { cookie: s.admin });
+  assert.equal(del.json.backups.length, 0);
 });

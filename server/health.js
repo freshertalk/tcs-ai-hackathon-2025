@@ -167,6 +167,31 @@ async function buildHealth(ctx, { secure = false, host = "" } = {}) {
       return { status: failed.length ? "warn" : "ok", detail: `${behind.length} behind — ${behind.map((d) => `${d.name}: ${d.reason}${d.state === "waiting" ? " (waits for the market to close)" : d.lastError ? ` (last try failed: ${d.lastError})` : ""}`).join("; ")}.`, hint: failed.length ? "/me → Automation shows each try." : undefined };
     });
   }
+  if (ctx.recorder) {
+    await check("recorder", "Automation brains", "Market recorder", () => {
+      const st = ctx.recorder.status();
+      const kept = `${st.stored.sessions} session${st.stored.sessions === 1 ? "" : "s"} stored${st.stored.to ? ` (to ${st.stored.to})` : ""}`;
+      if (st.state === "needs-zerodha") return { status: "warn", detail: `The market is open and nothing is being recorded: ${st.detail}. ${kept}.`, hint: "Log in to Kite; the minutes missed cannot be read afterwards." };
+      if (st.state === "recording") {
+        const t = st.today;
+        if (!t || !t.taken) return { status: st.error ? "warn" : "ok", detail: st.error ? `No reading has come back yet: ${st.error}` : "Starting: the first reading is on its way." };
+        const share = t.expected ? t.taken / t.expected : 1;
+        return { status: st.error || share < 0.8 ? "warn" : "ok", detail: `Recording: ${t.taken} of ${t.expected} minutes read today for ${t.stocks} stocks and ${t.futures} futures${st.error ? ` · last problem: ${st.error}` : ""}. ${kept}.` };
+      }
+      const l = st.learner;
+      return { status: "ok", detail: `Standing by (${st.detail}). ${kept}; order book and open interest: ${l.days} session${l.days === 1 ? "" : "s"} learned, ${l.on ? "in use" : "not in use yet"}.` };
+    });
+  }
+  if (ctx.vault) {
+    await check("backup", "Automation brains", "Backups", () => {
+      const v = ctx.vault.status();
+      if (!v.settings.auto) return { status: "off", detail: v.last ? `Automatic backups are off; the newest is from ${v.last.at.slice(0, 10)}.` : "Automatic backups are off and none has been made.", hint: "/me → Data & backups." };
+      if (v.error) return { status: "warn", detail: `The last backup failed: ${v.error}`, hint: "/me → Data & backups → Back up now." };
+      if (!v.last) return { status: "ok", detail: "On: the first backup is made after the market closes." };
+      const age = Math.round((now - Date.parse(v.last.at)) / 3600000);
+      return { status: age > 72 ? "warn" : "ok", detail: `Newest backup ${age < 1 ? "under an hour" : `${age} h`} ago (${Math.round(v.last.bytes / 1024)} KB); ${v.backups.length} kept on the server's disk.`, hint: age > 72 ? "It is made in quiet hours once the other duties have caught up: see /me → Automation." : undefined };
+    });
+  }
   if (ctx.horizon) {
     await check("horizon", "Automation brains", "15-minute forecaster", () => {
       const b = ctx.horizon.board();

@@ -65,6 +65,9 @@ const { OpenForecast } = require("./open-forecast");
 const { Horizon } = require("./horizon");
 const { LiveHub } = require("./live");
 const { Supervisor } = require("./supervisor");
+const { Recorder } = require("./recorder");
+const { Vault } = require("./vault");
+const zlibLib = require("zlib");
 const { Autopilot } = require("./autopilot");
 const nseCalendar = require("./market/nse-holidays");
 const { makeDeskReaders } = require("./desk-readers");
@@ -1353,6 +1356,126 @@ ${e.text}
   app.post("/api/admin/market/horizon/train", requireSuper, limiter(6, 60 * 60 * 1000), hWrap(async () => startJob(() => horizon.train({ trigger: "you asked" }))));
   app.post("/api/admin/market/horizon/learn", requireSuper, limiter(12, 60 * 60 * 1000), hWrap(async () => startJob(() => horizon.learnDays({ trigger: "you asked" }))));
 
+  // The market recorder (server/recorder.js): every minute of every session it reads every NIFTY 100 stock, the watchlist, the indices
+  // and each one's near-month future — price, volume, the quantity waiting to buy and to sell, open interest — with no page open, keeps
+  // the session in the database, and each evening learns what those readings add to the forecaster. It reads only; it asks no AI model.
+  const recorder =
+    opts.recorder ||
+    new Recorder({ market, docs: store.docs, universe: () => robot.universe(), horizon, playbook: ai.playbook, isTradingDay: (d) => nseCalendar.isTradingDay(d), now: opts.now, log: opts.log || console });
+  horizon.flow = recorder; // the forecast shows the order book and open interest of the bar's close, and uses them once they are proven
+  if (market.ticker && opts.recorderWatch !== false && opts.alertWatch !== false && !underTest) recorder.start();
+  app.get("/api/admin/recorder", requireAdmin, (req, res) => res.json(recorder.status()));
+  app.post("/api/admin/recorder/learn", requireSuper, limiter(12, 60 * 60 * 1000), async (req, res) => {
+    recorder.learn({ trigger: "you asked" }).catch(() => {});
+    await new Promise((r) => setTimeout(r, 120));
+    res.json(recorder.status());
+  });
+
+  // The vault (server/vault.js): every dataset in the database as a download, and backups of all of it — made by itself once a day,
+  // kept on the server's disk and downloadable. Owner only. A restore is done with the server stopped (server/restore.js).
+  const vault = opts.vault || new Vault({ docs: store.docs, dataDir, recorder, now: opts.now, log: opts.log || console });
+  const vWrap = (fn) => async (req, res) => {
+    try {
+      await fn(req, res);
+    } catch (err) {
+      console.error("[vault]", err && err.message ? err.message : err);
+      if (!res.headersSent) res.status(500).json({ error: "vault_failed", message: err.message || "The download failed." });
+      else res.end();
+    }
+  };
+  const sendFile = (res, name, type, body) => {
+    res.set({ "Content-Type": type, "Content-Disposition": `attachment; filename="${name}"`, "Cache-Control": "no-store" });
+    res.send(body);
+  };
+  const missing = (res, message = "There is nothing stored under that name.") => res.status(404).json({ error: "not_found", message });
+  // a big download is written through gzip a piece at a time, so it never sits whole in memory
+  const gzStream = async (res, name, pieces) => {
+    res.set({ "Content-Type": "application/gzip", "Content-Disposition": `attachment; filename="${name}"`, "Cache-Control": "no-store" });
+    const gz = zlibLib.createGzip();
+    gz.pipe(res);
+    for await (const piece of pieces) if (piece && !gz.write(piece)) await new Promise((r) => gz.once("drain", r));
+    gz.end();
+  };
+  app.get("/api/admin/vault", requireSuper, limiter(60, 60 * 1000), vWrap(async (req, res) => res.json({ ...vault.status(), datasets: await vault.datasets(), recorder: recorder.status() })));
+  app.get("/api/admin/vault/status", requireSuper, limiter(120, 60 * 1000), vWrap(async (req, res) => res.json(vault.status())));
+  app.put("/api/admin/vault/settings", requireSuper, limiter(30, 10 * 60 * 1000), vWrap(async (req, res) => {
+    const b = req.body || {};
+    vault.setSettings({ auto: typeof b.auto === "boolean" ? b.auto : undefined, keep: Number.isInteger(b.keep) ? b.keep : undefined });
+    res.json(vault.status());
+  }));
+  app.post("/api/admin/vault/backup", requireSuper, limiter(12, 60 * 60 * 1000), vWrap(async (req, res) => {
+    await vault.backup({ trigger: "you asked" });
+    res.json(vault.status());
+  }));
+  app.get("/api/admin/vault/backups/:file", requireSuper, limiter(30, 10 * 60 * 1000), vWrap(async (req, res) => {
+    const p = vault.pathOf(String(req.params.file || ""));
+    if (!p) return missing(res, "There is no backup with that name.");
+    res.set({ "Content-Type": "application/gzip", "Content-Disposition": `attachment; filename="${path.basename(p)}"`, "Cache-Control": "no-store" });
+    fs.createReadStream(p).on("error", () => res.end()).pipe(res);
+  }));
+  app.delete("/api/admin/vault/backups/:file", requireSuper, limiter(30, 10 * 60 * 1000), vWrap(async (req, res) => {
+    if (!vault.remove(String(req.params.file || ""))) return missing(res, "There is no backup with that name.");
+    res.json(vault.status());
+  }));
+  app.get("/api/admin/vault/collection/:name", requireSuper, limiter(60, 10 * 60 * 1000), vWrap(async (req, res) => {
+    const name = String(req.params.name || "");
+    const items = vault.items(name);
+    if (!items) return missing(res);
+    if (req.query.format === "csv") {
+      const csv = vault.collectionCsv(name);
+      if (csv === null) return missing(res, "This list has its own downloads.");
+      return sendFile(res, `${name}.csv`, "text/csv; charset=utf-8", csv);
+    }
+    sendFile(res, `${name}.json`, "application/json; charset=utf-8", JSON.stringify(items));
+  }));
+  app.get("/api/admin/vault/doc", requireSuper, limiter(120, 10 * 60 * 1000), vWrap(async (req, res) => {
+    const name = String(req.query.name || "");
+    const d = vault.doc(name);
+    if (!d) return missing(res);
+    sendFile(res, name.replace(/\//g, "-"), d.type, d.body);
+  }));
+  app.get("/api/admin/vault/log", requireSuper, limiter(30, 10 * 60 * 1000), vWrap(async (req, res) => {
+    const name = String(req.query.name || "");
+    const body = vault.log_(name);
+    if (body === null) return missing(res);
+    sendFile(res, `${name.replace(/\//g, "-")}.jsonl`, "application/x-ndjson; charset=utf-8", body);
+  }));
+  // the recorded tape: one session as a spreadsheet, or every session in one compressed file
+  app.get("/api/admin/vault/tape.csv.gz", requireSuper, limiter(6, 10 * 60 * 1000), vWrap(async (req, res) => {
+    const dates = recorder.status().days.map((d) => d.date).concat(Object.keys(recorder._index().days)).filter((d, i, a) => a.indexOf(d) === i).sort();
+    await gzStream(res, "recorded-tape.csv.gz", (async function* pieces() {
+      let first = true;
+      for (const date of dates) {
+        const csv = await recorder.csv(date);
+        if (!csv) continue;
+        yield first ? csv : csv.slice(csv.indexOf("\n") + 1);
+        first = false;
+      }
+    })());
+  }));
+  app.get("/api/admin/vault/tape/:date", requireSuper, limiter(60, 10 * 60 * 1000), vWrap(async (req, res) => {
+    const date = String(req.params.date || "");
+    const csv = /^\d{4}-\d{2}-\d{2}$/.test(date) ? await recorder.csv(date) : null;
+    if (!csv) return missing(res, "No session is recorded for that date.");
+    sendFile(res, `recorded-tape-${date}.csv`, "text/csv; charset=utf-8", csv);
+  }));
+  // the NIFTY 100's stored 5-minute history: one stock as a spreadsheet, or every stock in one compressed file
+  app.get("/api/admin/vault/history.csv.gz", requireSuper, limiter(6, 10 * 60 * 1000), vWrap(async (req, res) => {
+    const symbols = vault.historySymbols();
+    await gzStream(res, "nifty100-5minute-history.csv.gz", (async function* pieces() {
+      for (let i = 0; i < symbols.length; i += 1) {
+        yield vault.historyCsv(symbols[i], i === 0);
+        await new Promise((r) => setImmediate(r));
+      }
+    })());
+  }));
+  app.get("/api/admin/vault/history/:symbol", requireSuper, limiter(120, 10 * 60 * 1000), vWrap(async (req, res) => {
+    const symbol = String(req.params.symbol || "").toUpperCase().slice(0, 25);
+    const csv = vault.historyCsv(symbol);
+    if (!csv) return missing(res, "That stock's history is not stored.");
+    sendFile(res, `${symbol.replace(/[^A-Z0-9&_-]/g, "_")}-5minute.csv`, "text/csv; charset=utf-8", csv);
+  }));
+
   // The desk's intraday knowledge base (market/knowledge.js) and the set-up lab (server/setuplab.js):
   // every classic set-up measured on the NIFTY 100's recent sessions after costs, each weekday evening.
   // Its record weighs each set-up in the live scanner and is written into the trading-skills file.
@@ -1553,6 +1676,27 @@ ${e.text}
             market.screenerStart({});
           },
         },
+        {
+          id: "flow-learner",
+          name: "Order book and open interest: evening learning",
+          what: "Sets what the forecaster missed on every recorded session against the order book and open interest recorded at that minute, scores the result out of sample, and decides whether the readings may be used.",
+          quietOnly: true,
+          due: () => {
+            const n = recorder.behind();
+            return n ? `${n} recorded session${n === 1 ? "" : "s"} not learned yet` : "";
+          },
+          run: () => recorder.learn({ trigger: "the supervisor" }),
+        },
+        {
+          // last on purpose: the day's backup is made after everything else has caught up
+          id: "backup",
+          name: "Backup of the whole database",
+          what: "Writes every record, list, log and recorded session to one compressed file on the server's disk and keeps the newest few (downloadable under /me → Data & backups).",
+          quietOnly: true,
+          every: 2 * 3600000,
+          due: () => vault.due(),
+          run: () => vault.backup({ trigger: "the supervisor" }),
+        },
       ],
     });
   if (opts.supervisorWatch !== false && opts.alertWatch !== false && !underTest) supervisor.start();
@@ -1572,6 +1716,19 @@ ${e.text}
       sys("horizon", "15-minute forecaster", "A forecast on every finished 5-minute bar; every evening at 3:40 PM it forecasts the whole NIFTY 100 day, is scored, then learns it; retrains every five weeks", () => {
         const b = horizon.board();
         return needs(b.trained ? "on" : "learning", b.trained ? `learned to ${b.learning.lastDate}; model in use: ${(b.learning.contest || {}).name || "—"}` : "no usable model yet");
+      }),
+      sys("recorder", "Market recorder", "Every minute from 9:15 to 15:30, with no page open: price, volume, the quantity waiting to buy and to sell, and the futures' open interest for every NIFTY 100 stock, your watchlist and the indices — kept in the database", () => {
+        const st = recorder.status();
+        const kept = `${st.stored.sessions} session${st.stored.sessions === 1 ? "" : "s"} stored`;
+        return needs(st.state === "recording" ? "on" : "standing-by", st.state === "recording" ? `${st.today ? st.today.taken : 0} minutes read today · ${kept}` : `${st.detail} · ${kept}`);
+      }),
+      sys("flow", "Order book and open interest learner", "Each evening: what the forecaster missed is set against the recorded readings, scored on sessions the weights had not seen, and used in the live forecast only while that really reduces the miss", () => {
+        const l = recorder.status().learner;
+        return needs(l.days ? "on" : "learning", l.days ? `${l.days} session${l.days === 1 ? "" : "s"} learned · ${l.on ? "in use" : "not in use yet (needs proof)"}` : "waiting for the first recorded session");
+      }),
+      sys("backup", "Backups", "Once a day after the close, the whole database into one file on the server; the newest few are kept and can be downloaded", () => {
+        const v = vault.status();
+        return v.settings.auto ? { state: "on", detail: v.last ? `newest: ${v.last.at.slice(0, 10)} · ${v.backups.length} kept` : "the first one is made after the close" } : { state: "off", detail: "switched off under /me → Data & backups" };
       }),
       sys("open", "Opening-price forecast", "Forecasts from 8:30 AM, final at 9:00, scored from 9:16, learns after every scoring", () => needs("on", `${openForecast.learned().n || 0} opens learned from`)),
       sys("autopilot", "Autopilot", "Playbooks before the open, triggers watched all session, proposals checked against your limits and graded afterwards — it never sends an order", () => (autopilot.settings().on ? needs("on") : { state: "off", detail: "switched off under Research → Autopilot → Limits" })),
@@ -1627,6 +1784,7 @@ ${e.text}
     const st = supervisor.status();
     return [st.running && st.running.id, st.behind, st.events[0] && st.events[0].at, st.duties.map((d) => d.state)];
   });
+  live.watch("data", () => [recorder.fingerprint(), vault.fingerprint()]);
   live.watch("open", () => openForecast.fingerprint());
   live.watch("autopilot", () => autopilot.fingerprint());
   live.watch("ai", () => [ai.guard.status(), ai.status()]);
@@ -1637,7 +1795,7 @@ ${e.text}
 
   app.get("/api/admin/health", requireAdmin, limiter(60, 60 * 1000), async (req, res) => {
     try {
-      res.json(await buildHealth({ now: opts.now, docs, dataDir, supervisor, horizon, openForecast, autopilot, robot, market, ai, trading, analysis, paper, researchAuto, notifier, alertWatch, whatsapp, temple, holidays, googleConfigured: () => credentials().source !== "none" }, { secure: isSecure(req), host: req.get("host") || "" }));
+      res.json(await buildHealth({ now: opts.now, docs, dataDir, supervisor, recorder, vault, horizon, openForecast, autopilot, robot, market, ai, trading, analysis, paper, researchAuto, notifier, alertWatch, whatsapp, temple, holidays, googleConfigured: () => credentials().source !== "none" }, { secure: isSecure(req), host: req.get("host") || "" }));
     } catch (err) {
       res.status(500).json({ error: "health_failed", message: err.message });
     }
@@ -1722,6 +1880,8 @@ ${e.text}
     horizon,
     live,
     supervisor,
+    recorder,
+    vault,
     autopilot,
     get setupToken() {
       return setupToken;

@@ -38,6 +38,8 @@ const ROUTE_TOPICS = [
   ["/api/admin/trading", ["trading", "market", "health"]],
   ["/api/admin/autopilot", ["autopilot"]],
   ["/api/admin/automation", ["automation", "health"]],
+  ["/api/admin/vault", ["data", "automation", "health"]],
+  ["/api/admin/recorder", ["data", "automation", "horizon"]],
   ["/api/admin/robot", ["robot", "paper"]],
   ["/api/admin/paper", ["paper"]],
   ["/api/admin/research", ["research", "health"]],

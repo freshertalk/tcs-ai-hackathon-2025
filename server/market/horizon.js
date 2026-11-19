@@ -676,10 +676,10 @@ const HNAME = (h) => `${h * 5} min`;
 
 /**
  * The forecast from the last finished bar. @param model { W, resSd, z70, slope, bandScale, grades }
- * @param opts { bias (σ units, per stock), tilt (σ units added to the moves), levels: [{ name, price }] }
+ * @param opts { bias (σ units, per stock), tilt (σ units added to the moves), tilts (σ units, one per horizon), levels: [{ name, price }] }
  * @returns { anchor: { t, end, price }, sigma, horizons: { [h]: {...} }, reach, levels } or null
  */
-function forecastFrom(rawBars, ctx, model, { bias = 0, tilt = 0, levels = [], stockScale = 1 } = {}) {
+function forecastFrom(rawBars, ctx, model, { bias = 0, tilt = 0, tilts = null, levels = [], stockScale = 1 } = {}) {
   if (!model || !model.W) return null;
   const rows = dayRows(rawBars, ctx, { targets: false, last: true, stride: 1000 }).filter((r, i, a) => i === a.length - 1);
   if (!rows.length) return null;
@@ -695,7 +695,8 @@ function forecastFrom(rawBars, ctx, model, { bias = 0, tilt = 0, levels = [], st
     const h = HORIZONS[k];
     if (h > left) continue;
     const sd = model.resSd[k][row.bucket] * scale;
-    const mu = clip(p[k] + bias + tilt, 2.5); // beyond 2.5σ the inputs are outside anything it has learned from
+    // `tilts`: a correction of its own for each horizon (the recorded order book and open interest, when they have earned one)
+    const mu = clip(p[k] + bias + tilt + (tilts && num(tilts[k]) ? tilts[k] : 0), 2.5); // beyond 2.5σ the inputs are outside anything it has learned from
     const move = mu * sg; // fraction
     const pUp = phi(mu / sd);
     const z = (model.z70 ? model.z70[k] : 1.04) * sd;

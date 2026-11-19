@@ -41,7 +41,7 @@ async function main() {
     process.exit(1);
   }
   flushDocs = () => docs.close();
-  const { app, setupToken, holidays } = createApp({ docs });
+  const { app, setupToken, holidays, recorder } = createApp({ docs });
 
   const server = app.listen(PORT, HOST, () => {
     // fetch the exchanges' official holiday data now, then every 6 hours
@@ -79,7 +79,8 @@ async function main() {
   // pm2 stop / restart, Ctrl+C: requests in flight finish, the live streams are closed after a
   // short grace, the last writes reach the database — and after 8 s it leaves regardless (pm2's
   // kill_timeout is 10 s), so a restart can never hang on a stuck connection
-  const shutdown = makeShutdown({ server, closers: [() => docs.close()] });
+  // the market recorder first: the minutes read since its last save go to the database before it closes
+  const shutdown = makeShutdown({ server, closers: [() => recorder.stop(), () => docs.close()] });
   process.on("SIGINT", () => shutdown("SIGINT"));
   process.on("SIGTERM", () => shutdown("SIGTERM"));
   // pm2 on Windows sends a message instead of a signal

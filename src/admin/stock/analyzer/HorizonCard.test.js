@@ -60,6 +60,7 @@ test("the card shows the price, band, high, low, chance, levels, why — and how
   expect(screen.getByText("Expected low")).toBeTruthy();
   expect(screen.getByText("Chance higher")).toBeTruthy();
   expect(screen.getByText(/the last 15 minutes were rising/)).toBeTruthy();
+  expect(screen.queryByText(/Order book at/)).toBeNull(); // nothing was recorded for this stock: nothing is claimed
   expect(screen.getByText(/right 63% of the time/)).toBeTruthy();
   expect(screen.getByText(/480 forecasts · direction 57%/)).toBeTruthy();
   expect(screen.getByText(/Tested on its history/)).toBeTruthy();
@@ -69,6 +70,23 @@ test("the card shows the price, band, high, low, chance, levels, why — and how
   fireEvent.click(screen.getByRole("button", { name: "Details" }));
   expect(screen.getByText("The last forecasts for SBIN, and what happened")).toBeTruthy();
   expect(screen.getByText("Levels: the chance the price touches them")).toBeTruthy();
+});
+
+test("the recorded order book and open interest are shown beside the forecast, and said to be unproven until they are proven", async () => {
+  api.mockResolvedValue({ ...view, flow: { at: "11:05", buyShare: 0.62, imb: 0.24, oi15Pct: 0.8, position: "long build-up", inUse: false, tilt: 0, scored: 6900 } });
+  const { unmount } = render(<HorizonCard symbol="SBIN" />);
+  expect(await screen.findByText(/Order book at 11:05:/)).toBeTruthy();
+  const line = document.querySelector(".hz-flow").textContent;
+  expect(line).toMatch(/62% of the quantity waiting is on the buy side/);
+  expect(line).toContain("futures open interest +0.80% in 15 min (long build-up)");
+  expect(line).toContain("shown only: not yet proven to improve the forecast (6,900 forecasts scored so far)");
+  unmount();
+  api.mockResolvedValue({ ...view, flow: { at: "11:05", buyShare: 0.4, imb: -0.2, oi15Pct: null, position: "", inUse: true, tilt: -0.05, scored: 31000 } });
+  render(<HorizonCard symbol="SBIN" />);
+  expect(await screen.findByText(/Order book at 11:05:/)).toBeTruthy();
+  const used = document.querySelector(".hz-flow").textContent;
+  expect(used).toMatch(/40% of the quantity waiting is on the buy side · counted in this forecast/);
+  expect(used).not.toMatch(/open interest/);
 });
 
 test("when there is no forecast it says why, in the card's own words", async () => {

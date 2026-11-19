@@ -214,6 +214,34 @@ test("the service trains on the stored history, forecasts 15+ minutes ahead, sco
   assert.equal(board.days.length, 1);
   assert.ok(board.days[0].h15.n > 500 && board.days[0].h15.dirAcc > 0.5, `the day was tested out of sample on every stock: ${JSON.stringify(board.days[0].h15)}`);
   assert.equal((await svc.learnDays({ trigger: "test" })).days, 0, "nothing new: nothing to learn");
+
+  // for the market recorder: the newest stored session, and every stock's rows on a session with the model's own call beside each
+  assert.equal(svc.storedTo(), lastBefore);
+  const seen = [];
+  const n = await svc.replay([after.lastDate], (sym, date, rows) => seen.push({ sym, date, n: rows.length, targets: rows[0].p.length, ok: rows.every((r) => Number.isFinite(r.p[2]) && Number.isFinite(r.y[2])) }));
+  assert.equal(seen.length, 24, "once per stock");
+  assert.ok(n > 24 * 55 && seen.every((x) => x.date === after.lastDate && x.targets === H.T && x.ok));
+  assert.equal(await svc.replay(["1999-01-04"], () => assert.fail("no such session is stored")), 0);
+  assert.equal(svc.model().lastDate, after.lastDate, "a replay learns and saves nothing");
+
+  // the recorder's readings in the live forecast: always shown; added to the forecast only while they are proven
+  const read = { at: "12:00", buyShare: 0.7, imb: 0.4, oi15Pct: 1.2, position: "long build-up" };
+  svc.flow = { tiltFor: () => ({ read, on: false, tilts: null, gain: null, evidence: 120 }) };
+  svc._cache.clear();
+  const shown = await svc.view("T00");
+  assert.equal(shown.available, true, shown.reason);
+  assert.deepEqual({ inUse: shown.flow.inUse, tilt: shown.flow.tilt, buyShare: shown.flow.buyShare, position: shown.flow.position, scored: shown.flow.scored }, { inUse: false, tilt: 0, buyShare: 0.7, position: "long build-up", scored: 120 });
+  svc.flow = () => ({ tiltFor: () => ({ read, on: true, tilts: [0.3, 0.3, 0.3, 0.3, 0.3], gain: 0.012, evidence: 30000 }) });
+  svc._cache.clear();
+  const used = await svc.view("T00");
+  assert.equal(used.flow.inUse, true);
+  assert.equal(used.flow.tilt, 0.3);
+  assert.ok(used.headline.pct > shown.headline.pct, `the proven readings moved the forecast: ${shown.headline.pct} → ${used.headline.pct}`);
+  svc.flow = { tiltFor: () => { throw new Error("the recorder is broken"); } };
+  svc._cache.clear();
+  const still = await svc.view("T00");
+  assert.equal(still.available, true, "the forecast never fails with the recorder");
+  assert.equal(still.flow, null);
 });
 
 test("the 15-minute headline always looks at least 15 minutes ahead, whatever the age of the last bar", () => {

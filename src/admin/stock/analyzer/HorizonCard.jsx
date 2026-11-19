@@ -329,6 +329,16 @@ export default function HorizonCard({ symbol, enabled = true, compact = false })
                   <b>Why:</b> {d.why.map((w) => w.text).join(" · ")}.
                 </p>
               )}
+              {d.flow && (
+                <p
+                  className="hz-why hz-flow"
+                  data-tip="Read by the market recorder at the close of the last 5-minute bar: the whole order book's quantity on each side, and the near-month future's open interest. They are added to the forecast only while they are proven, on sessions not seen before, to reduce its miss."
+                >
+                  <b>Order book at {d.flow.at}:</b> {isNum(d.flow.buyShare) ? `${Math.round(d.flow.buyShare * 100)}% of the quantity waiting is on the buy side` : "not read"}
+                  {isNum(d.flow.oi15Pct) ? ` · futures open interest ${sgn(d.flow.oi15Pct)} in 15 min${d.flow.position ? ` (${d.flow.position})` : ""}` : ""} ·{" "}
+                  {d.flow.inUse ? "counted in this forecast (proven on unseen sessions)" : `shown only: not yet proven to improve the forecast (${Number(d.flow.scored || 0).toLocaleString("en-IN")} forecasts scored so far)`}.
+                </p>
+              )}
             </div>
             {!compact && <Path d={d} />}
           </div>
