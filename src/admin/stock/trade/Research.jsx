@@ -308,13 +308,9 @@ export default function Research({ onOpen = null }) {
 
   return (
     <>
-    <AutopilotPanel />
-    <details className="rs-ai rs-hzboard">
-      <summary>15-minute forecaster — what it has learned and how it has done</summary>
-      <HorizonBoard />
-    </details>
     <div className="rs rs--panes">
-      {/* on a wide screen: what to prepare stays in view on the left; what was prepared fills the right */}
+      {/* on a wide screen: what to prepare stays in view on the left, from the top of the page; what the desk made by
+          itself and what was prepared fill the right */}
       <div className="rs-side">
       <IntradayResearch watchlist={watch} onOpen={onOpen} slot={slot} onResults={setHasPlans} />
       <section className="an-card rs-controls">
@@ -389,11 +385,16 @@ export default function Research({ onOpen = null }) {
       <div className="rs-main">
         {/* made by themselves: the live NIFTY 100 scanner (eligible intraday stocks now), the Top 10 to
             trade, and the live RSI extremes of the NIFTY 500 */}
+        <AutopilotPanel />
         <LiveScanner onOpen={onOpen} />
         <SetupLab />
         <TopPicks onOpen={onOpen} />
         <RsiWatch onOpen={onOpen} />
-        <div ref={setSlot} className="rs-slot" />
+        <details className="rs-ai rs-hzboard">
+          <summary>15-minute forecaster — what it has learned and how it has done</summary>
+          <HorizonBoard />
+        </details>
+        <div ref={setSlot} className="rs-slot" data-jump="Intraday plans" />
         {!report && !hasPlans && (
           <section className="an-card rs-empty">
             <h3>Nothing is prepared for this session yet</h3>
@@ -412,7 +413,7 @@ export default function Research({ onOpen = null }) {
       {report && (
         <>
           {report.summary && (
-            <section className="an-card rs-summary">
+            <section className="an-card rs-summary" data-jump="Report">
               <h3>{report.summary.headline}</h3>
               <p className="vd-note">
                 {report.phase === "pre" ? "Pre-market" : "Post-market"} · {when(report.at)} · {report.model}
@@ -453,7 +454,7 @@ export default function Research({ onOpen = null }) {
             </section>
           )}
           {report.failures && report.failures.length > 0 && <p className="adm-alert">Not everything worked: {report.failures.map((f) => `${f.symbol} (${f.error})`).join("; ")}</p>}
-          <div className="rs-stocks">
+          <div className="rs-stocks" data-jump="Stock notes">
             {report.stocks.map((r, i) => (
               <StockNote key={r.symbol} row={r} onOpen={onOpen} first={i === 0} />
             ))}

@@ -1,0 +1,183 @@
+/* ==========================================================================
+   The long workspaces as cockpits (2026-11-19), after the Desk: Research, the Advisor, the Screener, Trade Analysis.
+   Loaded after compact.css.
+
+   The same four rules as on the Desk:
+     · a ROW OF JUMPS under the top bar (terminal/PageJumps.jsx) that stays on screen: any section is one press away,
+       and the section you are in is marked
+     · what you WORK WITH stays in view — a page's head (its controls, its tabs), a side rail — sitting exactly under
+       that row (the row writes its height to --pj-h)
+     · what you ACT ON comes first; what only explains folds to a line until asked for
+     · nothing scrolls sideways
+   Nothing was removed from any page.
+   ========================================================================== */
+
+/* ---------------------------------------------------------------- the row of jumps */
+.tm .pj {
+  position: sticky;
+  top: var(--tm-top);
+  z-index: 40;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin: -8px -10px 8px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--paper) 90%, transparent);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+.tm .pj[hidden] {
+  display: none;
+}
+/* the page's parts rise into place when it opens; a bar that must stay where it is does not */
+.adm .tm-page > .pj {
+  animation: none;
+}
+.tm .pj button {
+  min-height: 24px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  background: var(--surface-2);
+  color: var(--ink-2);
+  font: inherit;
+  font-size: var(--t-small);
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.tm .pj button:hover,
+.tm .pj button:focus-visible {
+  border-color: var(--accent);
+  color: var(--ink);
+}
+.tm .pj button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.tm .pj button.is-on {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, var(--surface));
+  color: var(--ink);
+}
+/* on a phone the row is the page's list of contents at its top: it does not follow you down a small screen */
+@media (max-width: 760px) {
+  .tm .pj {
+    position: static;
+  }
+}
+/* a section jumped to lands under the bars, never behind them (for links and the keyboard as well) */
+.tm .tm-page :where(section.an-card, section.ta-card, details.an-card, details.rs-ai, [data-jump]) {
+  scroll-margin-top: calc(var(--tm-top) + var(--pj-h, 0px) + 10px);
+}
+
+/* ---------------------------------------------------------------- Research */
+/* the rail (what to prepare) starts at the top of the page now, under the jumps, and fills the height */
+@media (min-width: 1180px) {
+  .tm .rs--panes .rs-side {
+    top: calc(var(--tm-top, 52px) + var(--pj-h, 0px) + 8px);
+    max-height: calc(100vh - var(--tm-top, 52px) - var(--pj-h, 0px) - var(--tm-dock, 0px) - 20px);
+    scrollbar-width: thin;
+    scrollbar-color: var(--line-2) transparent;
+  }
+}
+.tm .rs-main > .apx-panel,
+.tm .rs-main > details.rs-ai {
+  margin-top: 0;
+}
+/* what the autopilot is: one line until asked for (press it), so its proposals are what you see */
+.tm .apx-panel .apx-intro {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+  overflow: hidden;
+  cursor: pointer;
+}
+.tm .apx-panel .apx-intro.is-open {
+  display: block;
+  -webkit-line-clamp: unset;
+}
+
+/* ---------------------------------------------------------------- the Advisor */
+@media (min-width: 761px) {
+  /* the head — your risk per trade, the filter — stays on screen above the board */
+  .tm .av-main > .av-head {
+    position: sticky;
+    top: calc(var(--tm-top) + var(--pj-h, 0px));
+    z-index: 20;
+    margin: 0 -10px;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--line);
+    background: color-mix(in srgb, var(--paper) 92%, transparent);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+  }
+  .tm .av--split .av-main > .av-head {
+    margin: 0;
+    padding: 8px 0;
+  }
+  /* a section jumped to lands under the head as well */
+  .tm .av :where(section.an-card, details.an-card, [data-jump]) {
+    scroll-margin-top: calc(var(--tm-top) + var(--pj-h, 0px) + 88px);
+  }
+  .tm .av--split .av-side,
+  .tm .av--split .av-recs {
+    scrollbar-width: thin;
+    scrollbar-color: var(--line-2) transparent;
+  }
+  .tm .av--split .av-side {
+    top: calc(var(--tm-top, 46px) + var(--pj-h, 0px) + 8px);
+    max-height: calc(100vh - var(--tm-top, 46px) - var(--pj-h, 0px) - 16px);
+  }
+}
+@media (min-width: 1700px) {
+  .tm .av--split .av-recs {
+    top: calc(var(--tm-top, 46px) + var(--pj-h, 0px) + 8px);
+    max-height: calc(100vh - var(--tm-top, 46px) - var(--pj-h, 0px) - 16px);
+  }
+}
+
+/* ---------------------------------------------------------------- Trade Analysis */
+/* its head — the eight parts of the lab — stays on screen; what the lab is folds to a line until asked for */
+.tm .ta-head > div > p.ta-dim {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+  overflow: hidden;
+  cursor: pointer;
+}
+.tm .ta-head > div > p.ta-dim.is-open {
+  display: block;
+  -webkit-line-clamp: unset;
+}
+@media (min-width: 761px) {
+  .tm .ta > .ta-head {
+    position: sticky;
+    top: calc(var(--tm-top) + var(--pj-h, 0px) + 4px);
+    z-index: 20;
+    box-shadow: 0 10px 20px -16px rgba(0, 0, 0, 0.6);
+  }
+  /* the open part's own bar (the day, the filters) stays right under the head */
+  .tm .ta > .lab-bar {
+    position: sticky;
+    top: calc(var(--tm-top) + var(--pj-h, 0px) + var(--ta-head-h, 66px) + 8px);
+    z-index: 18;
+    margin: 0 -10px;
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--line);
+    background: color-mix(in srgb, var(--paper) 92%, transparent);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+  }
+  .tm .ta :where(section.an-card, section.ta-card, details.an-card, [data-jump]) {
+    scroll-margin-top: calc(var(--tm-top) + var(--pj-h, 0px) + var(--ta-head-h, 66px) + 64px);
+  }
+}
+
+/* ---------------------------------------------------------------- the Screener */
+/* the explanation at the foot: its title, and the rest on a press */
+.tm .scr > .scr__about {
+  margin-bottom: 0;
+}

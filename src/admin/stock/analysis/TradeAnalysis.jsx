@@ -17,7 +17,7 @@
 // by the server by itself (the hourly sweep replays every recent day with trades) — no AI, no
 // typing, no orders.
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../../api";
 import { Alert, Loading } from "../../ui";
 import { DateField } from "../../DatePicker";
@@ -464,6 +464,27 @@ export default function TradeAnalysis() {
     setMode(m);
     keep(MODE_KEY, m);
   };
+  // the head stays on screen; the part's own bar (its day, its filters) stays right under it, so the head's height
+  // is written where the layout can read it (--ta-head-h) — on opening, on a new part, a resize, and a press on the
+  // head (its description opens and closes)
+  const head = useRef(null);
+  useEffect(() => {
+    const set = () => {
+      const el = head.current;
+      if (el && el.parentElement) el.parentElement.style.setProperty("--ta-head-h", `${Math.round(el.offsetHeight)}px`);
+    };
+    const soon = () => setTimeout(set, 60);
+    set();
+    const t = setTimeout(set, 400);
+    const el = head.current;
+    window.addEventListener("resize", set);
+    if (el) el.addEventListener("click", soon);
+    return () => {
+      clearTimeout(t);
+      window.removeEventListener("resize", set);
+      if (el) el.removeEventListener("click", soon);
+    };
+  }, [mode]);
   // a trade or a learning opens its day's snapshot
   const openDay = (d) => {
     setDate(d);
@@ -471,7 +492,7 @@ export default function TradeAnalysis() {
   };
   return (
     <div className="ta lab">
-      <section className="ta-card ta-head">
+      <section className="ta-card ta-head" ref={head}>
         <div>
           <h2>Trade Analysis — Execution Lab</h2>
           <p className="ta-dim">

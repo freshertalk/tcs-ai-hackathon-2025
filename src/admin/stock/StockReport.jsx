@@ -39,9 +39,11 @@ import { keyAction, SHORTCUTS } from "./terminal/shortcuts";
 import Palette from "./terminal/Palette";
 import { AlertsProvider } from "./terminal/AlertsContext";
 import BottomNav from "./terminal/BottomNav";
+import PageJumps from "./terminal/PageJumps";
 import { BOTTOM_NAV, useMedia } from "./terminal/useMedia";
 import "./terminal/terminal.css";
 import "./terminal/compact.css";
+import "./terminal/pages.css";
 
 const VIEWS = [
   { id: "analyzer", label: "Desk", tip: "Watchlist, chart, the live call, order book and co-pilot for one stock, with your positions docked below." },
@@ -58,6 +60,28 @@ const VIEWS = [
   { id: "engine", label: "AI Engine", tip: "Everything about the AI: every feature, rule and condition — and, for the superadmin, the AI brains (standing instructions every AI feature follows), the real instructions and the skills file. Word download." },
   { id: "document", label: "Document", tip: "The complete guide to this advisor in plain English: every feature, who does what, and every rule — what it does, how and when." },
 ];
+// The long workspaces get a row of jumps under the top bar (terminal/PageJumps.jsx). The sections are read from the
+// page; this only gives a short name to the titles whose own first words are not one ("" = no jump for that section).
+const PAGE_JUMPS = {
+  research: {
+    names: [
+      [/^intraday research/i, "Plan intraday"],
+      [/^research · pre-market/i, "Research run"],
+      [/^15-minute forecaster/i, "Forecaster"],
+      [/^set-ups measured/i, "Set-ups"],
+      [/^top 10/i, "Top 10"],
+      [/^nothing is prepared/i, ""],
+    ],
+  },
+  advisor: {
+    names: [
+      [/^does the method/i, "Method record"],
+      [/^how to read/i, "How to read"],
+    ],
+  },
+  screener: { names: [[/^what this rsi/i, "About RSI"]] },
+  analysis: { names: [[/^the paper robot/i, "Robot"]], skip: ".ta-head" },
+};
 const DOCK_KEY = "vpt.terminal.dock";
 // your own choice (open or closed) is remembered; until you make one the dock decides for itself (see Terminal)
 const storedDock = () => {
@@ -240,7 +264,7 @@ function Terminal() {
   const onFold = (e) => {
     const t = e.target;
     if (!t || !t.closest || t.closest("a, button, input, select, textarea, label")) return;
-    const note = t.closest(".an-card__head p, .rg__head p, .tr-switchbar__main > p, .an__disc, .tr-foot, .av-head p, .vd__foot");
+    const note = t.closest(".an-card__head p, .rg__head p, .tr-switchbar__main > p, .an__disc, .tr-foot, .av-head p, .vd__foot, .ta-head > div > p.ta-dim, .apx-intro");
     if (note) {
       note.classList.toggle("is-open");
       return;
@@ -261,6 +285,7 @@ function Terminal() {
           <Analyzer />
         ) : (
           <div className="tm-page">
+            {PAGE_JUMPS[view] && <PageJumps key={view} {...PAGE_JUMPS[view]} />}
             {view === "advisor" ? (
               <Advisor onOpen={openStock} />
             ) : view === "account" ? (

@@ -590,20 +590,20 @@ export default function Advisor({ onOpen }) {
           )}
 
           {!board ? (
-            <section className="an-card av-board">
+            <section className="an-card av-board" data-jump="Board">
               <p className="av-pending av-pending--block">Reading the board…</p>
             </section>
           ) : !rows.length ? (
             <p className="adm-alert adm-alert--info">Your watchlist is empty. Add stocks on the Desk and they are measured here.</p>
           ) : phone ? (
-            <ul className="av-cards">
+            <ul className="av-cards" data-jump="Board">
               {visible.map((r) => (
                 <BoardCard key={r.symbol} row={r} risk={risk} open={isOpen(r)} onToggle={() => toggle(r)} onOpen={onOpen} />
               ))}
               {!visible.length && <li className="av-cd av-mute av-empty">{EMPTY}</li>}
             </ul>
           ) : (
-            <section className="an-card av-board">
+            <section className="an-card av-board" data-jump="Board">
               <div className="av-scroll">
                 <table className="av-table">
                   <thead>
@@ -641,7 +641,7 @@ export default function Advisor({ onOpen }) {
 
         {split && (
           <aside className="av-side" aria-label="The selected stock’s reading">
-            <section className="an-card av-pick">
+            <section className="an-card av-pick" data-jump="Selected stock">
               {picked ? (
                 <>
                   <header className="av-pick__head">
