@@ -496,6 +496,18 @@ export function HorizonBoard() {
               {d.live.strongN ? ` · calls of 70%+ right ${pc(d.live.strongAcc, 1)} (${d.live.strongN})` : ""} · band held {pc(d.live.coverage)}.
             </p>
           )}
+          {d.learning.experts && (
+            <p className="hz-why" data-tip="Beside the one model for the whole day there is a model for the opening hour, the middle of the day and the last ninety minutes. They are blended in only as far as they beat the single model on sessions neither had seen, and that is counted again every evening.">
+              <b>Time-of-day experts:</b>{" "}
+              {d.learning.experts.horizons.some((x) => x.weight > 0)
+                ? d.learning.experts.horizons
+                    .filter((x) => x.weight > 0)
+                    .map((x) => `${x.minutes} min — weight ${Math.round(x.weight * 100)}%, error cut by ${x.gainPct}%`)
+                    .join(" · ")
+                : "not in use — on unseen sessions they did not beat the single model, so it stands alone"}
+              . Re-judged every evening on {d.learning.experts.examples.toLocaleString("en-IN")} examples.
+            </p>
+          )}
           <p className="hz-rule">
             Direction on 5-minute to 30-minute moves is hard: a hit rate well above half is rare and valuable, and it is shown as measured, never rounded up.
             The forecaster learns from its misses every evening, calibrates its stated chances, and widens or narrows its bands to hold 70% of outcomes.

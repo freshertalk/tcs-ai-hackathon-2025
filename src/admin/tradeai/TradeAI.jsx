@@ -375,7 +375,7 @@ function Answer({ m, fresh, last, onAsk, onRetry, busy }) {
   const conf = { low: 1, medium: 2, high: 3 }[r.confidence] || 1;
   return (
     <article className={`tai-msg tai-msg--ai ${fresh ? "is-fresh" : ""}`}>
-      <img className="tai-avatar" src="/logo/PanchmukhiHanuman_logo-96.png" alt="" width="30" height="30" />
+      <img className="tai-avatar" src="/vinay-avatar-sm.jpg" alt="" width="30" height="30" />
       <div className="tai-ans">
         <Process meta={meta} />
         <Markdown text={done ? text : text.slice(0, n)} className={done ? "" : "is-typing"} />
@@ -528,7 +528,7 @@ function Working({ job }) {
   const route = job.route;
   return (
     <article className="tai-msg tai-msg--ai is-working" aria-live="polite">
-      <img className="tai-avatar is-spin" src="/logo/PanchmukhiHanuman_logo-96.png" alt="" width="30" height="30" />
+      <img className="tai-avatar is-spin" src="/vinay-avatar-sm.jpg" alt="" width="30" height="30" />
       <div className="tai-ans">
         <p className="tai-shimmer">
           {now}
@@ -1119,7 +1119,7 @@ export default function TradeAI() {
             {!conv ? (
               <div className="tai-welcome">
                 <div className="tai-mark" aria-hidden="true">
-                  <img src="/logo/PanchmukhiHanuman_logo-192.png" alt="" width="64" height="64" />
+                  <img src="/vinay-avatar-sm.jpg" alt="" width="64" height="64" />
                 </div>
                 <h1>
                   {greeting()}, {firstName(user)}

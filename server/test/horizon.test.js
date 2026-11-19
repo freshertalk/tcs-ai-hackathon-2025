@@ -39,7 +39,7 @@ const openMs = (date) => Date.parse(`${date}T09:15:00Z`) - IST;
  * Sessions with a planted pattern: each 5-minute return follows the one before it (momentum, phi), plus a market
  * factor shared by all stocks, plus noise. Returns Map date → market factor array too.
  */
-function world(dates, nStocks, { phi = 0.35, seed = 7 } = {}) {
+function world(dates, nStocks, { phi = 0.35, seed = 7, phiOf = null } = {}) {
   const R = rng(seed);
   const mkt = new Map();
   for (const d of dates) mkt.set(d, Array.from({ length: 75 }, () => 0.0006 * R.n()));
@@ -55,7 +55,7 @@ function world(dates, nStocks, { phi = 0.35, seed = 7 } = {}) {
       let prev = 0;
       const bars = [];
       for (let i = 0; i < 75; i += 1) {
-        const r = phi * prev + beta * mkt.get(d)[i] + 0.0011 * R.n();
+        const r = (phiOf ? phiOf(i) : phi) * prev + beta * mkt.get(d)[i] + 0.0011 * R.n();
         prev = r;
         const o = price;
         price *= 1 + r;
@@ -227,4 +227,47 @@ test("the 15-minute headline always looks at least 15 minutes ahead, whatever th
     const h = H.headline(fc, end + lag);
     assert.ok(h && h.at - (end + lag) >= 15 * 60000 - 1000, `lag ${lag}: ${h && (h.at - end - lag) / 60000} minutes`);
   }
+});
+
+test("the time-of-day experts are adopted only when the parts of the day really differ — and then they beat the pooled model on unseen sessions", () => {
+  const dates = weekdays("2026-01-05", 130);
+  const run = (opts) => {
+    const w = world(dates, 24, opts);
+    const mk = H.marketFromStocks(w.stocks.map((s) => s.days));
+    const cut = dates[95];
+    const train = new H.Stats();
+    const seg = H.SEGMENTS.map(() => new H.Stats());
+    const val = [];
+    for (const s of w.stocks) {
+      const prof = H.buildProfile(s.days, mk);
+      for (let d = 1; d < s.days.length; d += 1) {
+        const date = s.days[d][0];
+        const ctx = { sigma: prof.sigma, day: prof.day, beta: prof.beta, vol: prof.vol, prevClose: H.cleanBars(s.days[d - 1][1]).pop().c, prevDayRet: 0, trend: 0, mkt: mk.get(date) };
+        for (const row of H.dayRows(s.days[d][1], ctx, { stride: 2 })) {
+          if (date <= cut) {
+            train.add(row.x, row.y, 1);
+            seg[H.segOf(row.s)].add(row.x, row.y, 1);
+          } else val.push(row);
+        }
+      }
+    }
+    const W = H.fit(train);
+    const Wseg = seg.map((st) => H.fit(st, H.LAMBDA, H.SEG_MIN_ROWS));
+    const alpha = H.chooseAlpha(H.alphaEvidence(null, W, Wseg, val.filter((_, i) => i % 2 === 0)));
+    // judged on the other half of the unseen rows, so the choice of alpha is not marking its own homework
+    const judge = val.filter((_, i) => i % 2 === 1);
+    const k3 = H.HORIZONS.indexOf(3);
+    const pooled = H.summariseEval(H.scoreRows(H.emptyEval(), W, judge, { keepZ: false }))[k3];
+    const blended = H.summariseEval(H.scoreRows(H.emptyEval(), W, judge, { keepZ: false, segs: { W: Wseg, alpha } }))[k3];
+    return { alpha, pooled, blended, ready: Wseg.map(Boolean) };
+  };
+  // the open and the close trend, the middle of the day reverses: one pooled model cannot be right about all three
+  const differs = run({ seed: 5, phiOf: (i) => (i < 12 || i >= 57 ? 0.45 : -0.35) });
+  assert.ok(differs.ready.every(Boolean), "each part of the day had enough examples for its own model");
+  assert.ok(differs.alpha[H.tIndex("r1")] > 0, `the experts were adopted for the next bar (alpha ${differs.alpha[H.tIndex("r1")]})`);
+  assert.ok(differs.blended.skill > differs.pooled.skill + 0.002, `blended ${differs.blended.skill} beats pooled ${differs.pooled.skill}`);
+  // the same behaviour all day: the experts have nothing to add and are not used where they do not clearly help
+  const same = run({ seed: 5, phi: 0.3 });
+  assert.ok(same.blended.skill >= same.pooled.skill - 0.002, "never clearly worse than the pooled model");
+  assert.ok(same.alpha.filter((a) => a > 0).length <= 2, `mostly left unused when the day is uniform (${same.alpha.join(",")})`);
 });

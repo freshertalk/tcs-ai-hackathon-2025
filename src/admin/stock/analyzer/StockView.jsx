@@ -27,7 +27,7 @@ import { callLabel as oddsLabel } from "../advisor/advisorMath";
 import { everyVisible } from "../../visible";
 
 const TABS = [
-  { id: "overview", label: "Overview" },
+  { id: "overview", label: "Reading" },
   { id: "behaviour", label: "Behaviour & AI" },
   { id: "setups", label: "Setups" },
   { id: "levels", label: "Levels" },
@@ -387,6 +387,71 @@ export default function StockView({ symbol, quote, status, streaming = false, in
             </div>
           )}
         </dl>
+        {/* the chart is the centre of the Desk: always in view, right under the price */}
+        <section className="an-card sv__chart" aria-label="Chart">
+          <div className="sv__chartbar">
+            <div className="sv__ranges" role="group" aria-label="Chart type">
+              <button
+                type="button"
+                aria-pressed={mode === "pro"}
+                onClick={() => pickChart("pro")}
+                data-tip="The full chart: every interval from 1 minute to 1 month, live, with indicators, drawing tools, compare, patterns, pivots and a technical summary."
+              >
+                Chart
+              </button>
+              <button type="button" aria-pressed={mode === "m1"} disabled={!live} onClick={() => pickChart("m1")}>
+                Intraday · 1 min
+              </button>
+              <button type="button" aria-pressed={mode === "m5"} disabled={!tape} onClick={() => pickChart("m5")}>
+                Intraday · 5 min
+              </button>
+              <button type="button" aria-pressed={mode === "daily"} onClick={() => pickChart("daily")}>
+                Daily
+              </button>
+            </div>
+            {mode === "daily" && (
+              <div className="sv__ranges" role="group" aria-label="Chart period">
+                {RANGES.map((r) => (
+                  <button key={r.bars} type="button" aria-pressed={bars === r.bars} onClick={() => setBars(r.bars)}>
+                    {r.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          {mode === "pro" ? (
+            <ProChart symbol={symbol} live={live} />
+          ) : mode === "m1" ? (
+            m1 ? (
+              <>
+                <IntradayChart tape={m1.tape} call={dayCall} last={px} fast={m1.fast} />
+                <FastRead fast={m1.fast} asOf={m1.tape.today ? null : m1.tape.date} />
+              </>
+            ) : minute.loading ? (
+              <Loading label="Loading the 1-minute bars…" />
+            ) : (
+              <p className="adm-alert adm-alert--info">
+                {(minute.data && minute.data.reason) || minute.error || "The 1-minute bars are not available right now."}
+              </p>
+            )
+          ) : mode === "m5" && tape ? (
+            <>
+              <IntradayChart tape={tape} call={dayCall} last={px} />
+              {dayCall && dayCall.fast && <FastRead fast={dayCall.fast} />}
+            </>
+          ) : (
+            <PriceChart chart={a.chart} levels={a.levels} />
+          )}
+          {mode === "m1" && minute.error && m1 && (
+            <p className="adm-small">
+              Could not refresh the 1-minute bars just now ({minute.error}
+              ).
+            </p>
+          )}
+          {a.barInProgress && mode === "daily" && (
+            <p className="adm-small">Today’s daily bar is unfinished: setups are judged on the close and can appear or disappear until 3:30 PM.</p>
+          )}
+        </section>
         <HorizonCard symbol={symbol} />
         <AiBrain symbol={symbol} live={live} marketHours={Boolean(status.marketHours)} foldable />
       </div>
@@ -413,75 +478,7 @@ export default function StockView({ symbol, quote, status, streaming = false, in
 
         <div role="tabpanel" key={tab} id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
           {tab === "verdict" && !wide && panel}
-          {tab === "overview" && (
-            <>
-              <section className="an-card">
-                <div className="sv__chartbar">
-                  <div className="sv__ranges" role="group" aria-label="Chart type">
-                    <button
-                      type="button"
-                      aria-pressed={mode === "pro"}
-                      onClick={() => pickChart("pro")}
-                      data-tip="The full chart: every interval from 1 minute to 1 month, live, with indicators, drawing tools, compare, patterns, pivots and a technical summary."
-                    >
-                      Chart
-                    </button>
-                    <button type="button" aria-pressed={mode === "m1"} disabled={!live} onClick={() => pickChart("m1")}>
-                      Intraday · 1 min
-                    </button>
-                    <button type="button" aria-pressed={mode === "m5"} disabled={!tape} onClick={() => pickChart("m5")}>
-                      Intraday · 5 min
-                    </button>
-                    <button type="button" aria-pressed={mode === "daily"} onClick={() => pickChart("daily")}>
-                      Daily
-                    </button>
-                  </div>
-                  {mode === "daily" && (
-                    <div className="sv__ranges" role="group" aria-label="Chart period">
-                      {RANGES.map((r) => (
-                        <button key={r.bars} type="button" aria-pressed={bars === r.bars} onClick={() => setBars(r.bars)}>
-                          {r.label}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                {mode === "pro" ? (
-                  <ProChart symbol={symbol} live={live} />
-                ) : mode === "m1" ? (
-                  m1 ? (
-                    <>
-                      <IntradayChart tape={m1.tape} call={dayCall} last={px} fast={m1.fast} />
-                      <FastRead fast={m1.fast} asOf={m1.tape.today ? null : m1.tape.date} />
-                    </>
-                  ) : minute.loading ? (
-                    <Loading label="Loading the 1-minute bars…" />
-                  ) : (
-                    <p className="adm-alert adm-alert--info">
-                      {(minute.data && minute.data.reason) || minute.error || "The 1-minute bars are not available right now."}
-                    </p>
-                  )
-                ) : mode === "m5" && tape ? (
-                  <>
-                    <IntradayChart tape={tape} call={dayCall} last={px} />
-                    {dayCall && dayCall.fast && <FastRead fast={dayCall.fast} />}
-                  </>
-                ) : (
-                  <PriceChart chart={a.chart} levels={a.levels} />
-                )}
-                {mode === "m1" && minute.error && m1 && (
-                  <p className="adm-small">
-                    Could not refresh the 1-minute bars just now ({minute.error}
-                    ).
-                  </p>
-                )}
-                {a.barInProgress && mode === "daily" && (
-                  <p className="adm-small">Today’s daily bar is unfinished: setups are judged on the close and can appear or disappear until 3:30 PM.</p>
-                )}
-              </section>
-              <ScoreCard score={a.score} cautions={a.cautions} />
-            </>
-          )}
+          {tab === "overview" && <ScoreCard score={a.score} cautions={a.cautions} />}
           {tab === "setups" && <Setups setups={a.setups} bearish={a.bearish} patterns={a.patterns} fullHistory={a.fullHistory} onSize={sizeThis} />}
           {tab === "levels" && <Levels levels={a.levels} last={px} intraday={intraday} />}
           {tab === "indicators" && <Indicators ind={a.indicators} liquidity={a.liquidity} volatilityPct={a.volatilityPct} />}

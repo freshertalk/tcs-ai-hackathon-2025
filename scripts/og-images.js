@@ -2,7 +2,7 @@
 "use strict";
 // Draws the link-preview pictures of the private area: one 1200×630 PNG per page in
 // public/img/og/, from the page list in server/previews.js (the same names and lines the server
-// puts in each page's tags). The Panchmukhi Hanuman logo (public/logo/PanchmukhiHanuman_logo.png) on the left, the page name and two lines on the
+// puts in each page's tags). Vinay's portrait (public/vinay-portrait.jpg, its top square) on the left, the page name and two lines on the
 // right, on the terminal's dark blue; quantised to 256 colours so each file stays small.
 //
 // Run by hand after a page is added or renamed:
@@ -18,7 +18,7 @@ const { PAGES, SITE, LINE, IMG_W, IMG_H } = require("../server/previews");
 
 const ROOT = path.join(__dirname, "..");
 const OUT = path.join(ROOT, "public", "img", "og");
-const ART = path.join(ROOT, "public", "logo", "PanchmukhiHanuman_logo.png");
+const ART = path.join(ROOT, "public", "vinay-portrait.jpg");
 const WINGET = "C:/Users/fresh/AppData/Local/Microsoft/WinGet/Packages/Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe/ffmpeg-9.0.2-full_build/bin/ffmpeg.exe";
 const FFMPEG = process.env.FFMPEG || (fs.existsSync(WINGET) ? WINGET : "ffmpeg");
 const FONT = process.env.OG_FONT || "C:/Windows/Fonts/segoeui.ttf";
@@ -48,7 +48,7 @@ function draw(key, p, tmp) {
   const text = (file, font, px, color, y) => `drawtext=fontfile=${font}:textfile=${file}:fontsize=${px}:fontcolor=${color}:x=${x}:y=${y}`;
   const graph = [
     `gradients=s=${IMG_W}x${IMG_H}:c0=0x0b0f14:c1=0x10233a:x0=0:y0=0:x1=${IMG_W}:y1=${IMG_H}:nb_colors=2:d=1:r=1[bg]`,
-    `[0:v]scale=540:540:flags=lanczos,format=rgba[art]`,
+    `[0:v]crop=in_w:in_w:0:0,scale=540:540:flags=lanczos,format=rgba[art]`,
     `[bg][art]overlay=45:45:format=auto`,
     text("kicker.txt", "bold.ttf", 30, GOLD, 92),
     text("name.txt", "bold.ttf", size, INK, nameY),

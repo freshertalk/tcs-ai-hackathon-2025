@@ -21,6 +21,7 @@ import { TickContext, useLiveTicks } from "./liveTicks";
 import { clock } from "./format";
 import "./analyzer.css";
 import "./desk.css";
+import "./desk2.css";
 import { everyVisible } from "../../visible";
 
 const SYMBOL_RE = /^[A-Z0-9][A-Z0-9&._ -]{0,24}$/;
@@ -36,6 +37,23 @@ export default function Analyzer() {
   // and corrected a moment later by the fresh read below
   const [status, setStatus] = useState(() => peek("/api/admin/market/status"));
   const [error, setError] = useState("");
+  // the day board can be folded away; the choice is remembered on this device
+  const [board, setBoard] = useState(() => {
+    try {
+      return window.localStorage.getItem("vpt.desk.board") !== "closed";
+    } catch (_) {
+      return true;
+    }
+  });
+  const toggleBoard = () =>
+    setBoard((b) => {
+      try {
+        window.localStorage.setItem("vpt.desk.board", b ? "closed" : "open");
+      } catch (_) {
+        /* private mode: the choice lasts for this visit */
+      }
+      return !b;
+    });
   const [symbols, setSymbols] = useState(() => {
     const seenBefore = peek("/api/admin/market/status");
     return seenBefore && Array.isArray(seenBefore.watchlist) ? seenBefore.watchlist : [];
@@ -235,10 +253,6 @@ export default function Analyzer() {
   return (
     <TickContext.Provider value={live.store}>
     <div className={`an dk ${mode === "demo" ? "an--demo" : ""}`}>
-      {/* what a day trader needs before looking at any one stock (it took the place of the old connection strip) */}
-      {mode !== "none" && <DayBoard status={status} quotes={merged} symbols={symbols} onPick={pick} />}
-      {mode === "kite" && <MarketStrip status={status} />}
-
       <div className="an__desk">
         {/* the connection: one very small button; its words, buttons and setup are in the dialog it opens */}
         <ConnectPanel status={status} flash={flash.current || null} onStatus={applyStatus} startOpen={mode === "none" && !status.kite.configured} />
@@ -264,9 +278,16 @@ export default function Analyzer() {
               </>
             )}
           </p>
+          <button type="button" className="dk-fold" onClick={toggleBoard} aria-expanded={board} aria-controls="dk-board" data-tip="Show or hide the day board (session, market, radar, checklist). The Desk remembers your choice on this device.">
+            <span aria-hidden="true">{board ? "▴" : "▾"}</span> Day board
+          </button>
           </>
         )}
       </div>
+
+      {/* what a day trader needs before looking at any one stock; folded away it leaves the whole screen to the stock */}
+      <div id="dk-board" hidden={!board}>{mode !== "none" && board && <DayBoard status={status} quotes={merged} symbols={symbols} onPick={pick} />}</div>
+      {mode === "kite" && <MarketStrip status={status} />}
 
       {mode === "none" ? (
         <section className="an-card an-empty">

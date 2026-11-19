@@ -1,0 +1,58 @@
+/* The brand shared with the public site's navbar (BrandMark.jsx): the photo in a circle, the name, a spaced kicker. */
+.vk-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+  color: var(--ink);
+}
+.vk-brand__mark {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  overflow: hidden;
+  box-shadow: 0 0 0 1px var(--line-2, var(--line)), 0 0 0 4px color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.vk-brand__mark picture,
+.vk-brand__mark img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.vk-brand__name {
+  min-width: 0;
+  font-family: var(--f-tech, "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif);
+  font-size: 1.04rem;
+  font-weight: 500;
+  line-height: 1.18;
+  letter-spacing: -0.015em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.vk-brand__name small {
+  display: block;
+  font-family: var(--f-mono, ui-monospace, monospace);
+  font-size: 0.54rem;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  line-height: 1.5;
+  text-transform: uppercase;
+  color: var(--accent-2, var(--accent));
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.vk-brand--sm .vk-brand__mark {
+  width: 32px;
+  height: 32px;
+}
+@media (max-width: 479px) {
+  .vk-brand__name small {
+    display: none;
+  }
+  .vk-brand__name {
+    font-size: 0.98rem;
+  }
+}

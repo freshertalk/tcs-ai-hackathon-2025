@@ -10,9 +10,9 @@ Trading, Telegram alerts, the Mandir, the Document — is called **DrishtiAI**.
 | With its line | **DrishtiAI — the AI Trading Advisor for NSE** (an em dash with a space on each side) |
 | Short header (narrow screens) | **DrishtiAI — AI Trading Advisor**, then **DrishtiAI** |
 | Meaning | Drishti (दृष्टि) means “sight” |
-| Logo | the Panchmukhi Hanuman picture, whole (`public/logo/PanchmukhiHanuman_logo.png`; sized copies `public/logo/PanchmukhiHanuman_logo-32/48/96/180/192/512.png`, made from it with ffmpeg) |
-| Favicon (private area) | the same logo: `public/logo/PanchmukhiHanuman_logo-32.png`, `-48`, `-180` (Apple), `-192` |
-| Link previews (private area) | `public/img/og/<page>.png`, the logo beside the page name, drawn by `scripts/og-images.js` |
+| Logo | Vinay's photo in a circle with his name and “DrishtiAI · AI Trading Advisor” under it — the public site's navbar brand (`src/admin/BrandMark.jsx`, `public/vinay-avatar-sm.*`) |
+| Favicon (private area) | the public site's own icons (`favicon.ico`, `favicon-512.png`, `logo192.png`, `apple-touch-icon.png`) |
+| Link previews (private area) | `public/img/og/<page>.png`, Vinay's portrait beside the page name, drawn by `scripts/og-images.js` |
 | Browser tab | `DrishtiAI` |
 | Files it names | `DrishtiAI-complete-guide.docx`, `DrishtiAI-AI-Engine.docx` |
 

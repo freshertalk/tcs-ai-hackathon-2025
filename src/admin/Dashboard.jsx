@@ -526,7 +526,7 @@ export default function Dashboard() {
               </a>
             </div>
           </div>
-          <img className="hm-hero__art" src="/logo/PanchmukhiHanuman_logo-512.png" srcSet="/logo/PanchmukhiHanuman_logo-192.png 1x, /logo/PanchmukhiHanuman_logo-512.png 2x" alt="" width="148" height="148" />
+          <img className="hm-hero__art" src="/vinay-avatar.jpg" alt="" width="148" height="148" />
         </section>
 
         <Pulse isSuper={isSuper} />

@@ -1,0 +1,85 @@
+/* ==========================================================================
+   The Desk, second design (2026-11-19). Loaded after desk.css.
+   The order of the page is now: search → (day board, foldable) → the stock: price bar, key figures, THE CHART,
+   the next-15-minutes forecast, the AI strip, then the detail tabs; the verdict stays in its rail on the right.
+   ========================================================================== */
+
+/* the fold switch of the day board, at the end of the search row */
+.an.dk .dk-fold {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  background: var(--surface);
+  color: var(--ink-2);
+  font: inherit;
+  font-size: var(--t-small);
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.an.dk .dk-fold:hover,
+.an.dk .dk-fold[aria-expanded="true"] {
+  border-color: var(--accent);
+  color: var(--ink);
+}
+.an.dk .dk-fold:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.an.dk #dk-board > .dkb {
+  margin-bottom: 0;
+}
+
+/* the price bar: the stock's name and its price are the two loudest things on the page */
+.an.dk .sv__ticker {
+  padding: 10px 16px;
+  border-radius: 16px;
+  background-image: linear-gradient(100deg, color-mix(in srgb, var(--accent) 9%, transparent), transparent 46%);
+}
+.an.dk .sv__ticker:has(.sv__px.is-up) {
+  background-image: linear-gradient(100deg, color-mix(in srgb, var(--accent) 9%, transparent), transparent 46%, color-mix(in srgb, var(--up) 10%, transparent));
+}
+.an.dk .sv__ticker:has(.sv__px.is-down) {
+  background-image: linear-gradient(100deg, color-mix(in srgb, var(--accent) 9%, transparent), transparent 46%, color-mix(in srgb, var(--down) 10%, transparent));
+}
+.an.dk .sv__sym {
+  font-family: var(--f-tech, inherit);
+  font-size: clamp(1.25rem, 1.7vw, 1.7rem);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.an.dk .sv__px b {
+  font-family: var(--f-tech, inherit);
+  font-size: clamp(1.4rem, 2vw, 2rem);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+/* the chart: the centre of the Desk */
+.an.dk .sv__chart {
+  margin: 0;
+  padding: 12px 14px 14px;
+  border-radius: 16px;
+}
+.an.dk .sv__chart .sv__chartbar {
+  margin-bottom: 10px;
+}
+
+/* the selected stock in the watchlist wears the accent on its edge */
+.an.dk .wl__list > li.is-sel {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+@media (max-width: 760px) {
+  .an.dk .dk-fold {
+    margin-left: 0;
+  }
+  .an.dk .sv__chart {
+    padding: 8px;
+  }
+}

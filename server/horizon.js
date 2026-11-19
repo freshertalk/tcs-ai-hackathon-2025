@@ -241,6 +241,9 @@ class Horizon {
     job.done = 0;
     const train = new H.Stats();
     const val = new H.Stats();
+    // the time-of-day experts (the challenger): the same sums, kept per part of the day
+    const trainSeg = H.SEGMENTS.map(() => new H.Stats());
+    const valSeg = H.SEGMENTS.map(() => new H.Stats());
     const valRows = [];
     const profiles = {};
     for (const s of stocks) {
@@ -256,9 +259,13 @@ class Horizon {
           const rows = H.dayRows(days[d][1], ctx, { targets: true, stride: STRIDE });
           const w = H.DECAY_DAY ** H.daysBetween(date, newest);
           for (const row of rows) {
-            if (date <= cut) train.add(row.x, row.y, w);
-            else {
+            const sg = H.segOf(row.s);
+            if (date <= cut) {
+              train.add(row.x, row.y, w);
+              trainSeg[sg].add(row.x, row.y, w);
+            } else {
               val.add(row.x, row.y, w);
+              valSeg[sg].add(row.x, row.y, w);
               if (valRows.length < 160000 && (row.s & 2) === 0) valRows.push(row);
             }
           }
@@ -272,16 +279,25 @@ class Horizon {
     await tick();
     const Wtrain = H.fit(train);
     if (!Wtrain) throw new HorizonError("Not enough examples to fit the model.", "short_history", 409);
-    let ev = H.scoreRows(H.emptyEval(), Wtrain, valRows, { keepZ: false });
+    // champion and challenger: the pooled model alone, against the pooled model blended with the expert for the part of
+    // the day — judged on the sessions neither has seen. Each target keeps the blend that missed least (often none).
+    const WsegTrain = trainSeg.map((st) => H.fit(st, H.LAMBDA, H.SEG_MIN_ROWS));
+    const evidence = H.alphaEvidence(null, Wtrain, WsegTrain, valRows);
+    const alpha = H.chooseAlpha(evidence);
+    const segsTrain = { W: WsegTrain, alpha };
+    const pooledOnly = H.summariseEval(H.scoreRows(H.emptyEval(), Wtrain, valRows, { keepZ: false }));
+    let ev = H.scoreRows(H.emptyEval(), Wtrain, valRows, { keepZ: false, segs: segsTrain });
     const resSd = H.resSdOf(ev);
-    ev = H.scoreRows(H.emptyEval(), Wtrain, valRows, { resSd, keepZ: true });
+    ev = H.scoreRows(H.emptyEval(), Wtrain, valRows, { resSd, keepZ: true, segs: segsTrain });
     const z70 = H.z70Of(ev);
-    const fin = H.scoreRows(H.emptyEval(), Wtrain, valRows, { resSd, z70, keepZ: false });
+    const fin = H.scoreRows(H.emptyEval(), Wtrain, valRows, { resSd, z70, keepZ: false, segs: segsTrain });
     const slope = fin.pp.map((pp, k) => (pp > 0 ? Math.max(0.3, Math.min(1.5, fin.pa[k] / pp)) : 1));
     // the slope is checked once more with it applied, so the numbers shown are those of the model as it is used
-    const used = H.scoreRows(H.emptyEval(), Wtrain, valRows, { resSd, z70, slope, keepZ: false });
+    const used = H.scoreRows(H.emptyEval(), Wtrain, valRows, { resSd, z70, slope, keepZ: false, segs: segsTrain });
     train.merge(val);
     const W = H.fit(train);
+    trainSeg.forEach((st, i) => st.merge(valSeg[i]));
+    const seg = { stats: trainSeg.map((st) => st.toJSON()), W: trainSeg.map((st) => H.fit(st, H.LAMBDA, H.SEG_MIN_ROWS)), alpha, evidence: { n: evidence.n, se: evidence.se.map((r) => r.map((v) => Math.round(v * 100) / 100)) } };
     job.phase = "saving";
     const old = this.model();
     const model = {
@@ -295,8 +311,9 @@ class Horizon {
       slope: Array.from(slope, (v) => Math.round(v * 1000) / 1000),
       bandScale: 1,
       profiles,
+      seg,
       live: old && old.live ? old.live : { bias: {}, tilt: {}, n: 0 },
-      validation: { from: dates.find((d) => d > cut) || null, to: newest, trainTo: cut, sessions: dates.length, stocks: Object.keys(profiles).length, examples: valRows.length, horizons: H.summariseEval(used) },
+      validation: { from: dates.find((d) => d > cut) || null, to: newest, trainTo: cut, sessions: dates.length, stocks: Object.keys(profiles).length, examples: valRows.length, horizons: H.summariseEval(used), pooled: pooledOnly.map((x) => ({ h: x.h, skill: x.skill, dirAcc: x.dirAcc })) },
       learned: { days: 0, lastAt: null },
       rows: train.n,
     };
@@ -368,8 +385,16 @@ class Horizon {
       mkt.set(date, v);
     }
     const stats = H.Stats.from(m.stats);
-    stats.scale(H.DECAY_DAY ** Math.max(1, H.daysBetween(m.lastDate, newest)));
+    const gapDecay = H.DECAY_DAY ** Math.max(1, H.daysBetween(m.lastDate, newest));
+    stats.scale(gapDecay);
     const W = m.W;
+    // the experts learn the day too, and the evidence for and against them is counted again on it (out of sample)
+    const segNow = m.seg && m.seg.W ? m.seg : null;
+    const segStats = H.SEGMENTS.map((_, i) => H.Stats.from(segNow && segNow.stats ? segNow.stats[i] : null));
+    segStats.forEach((st) => st.scale(gapDecay));
+    const evidence = { n: 0, se: Array.from({ length: H.T }, (_, k) => H.ALPHAS.map((__, i) => ((segNow && segNow.evidence && segNow.evidence.se[k] ? segNow.evidence.se[k][i] : 0) || 0) * 0.97)) };
+    evidence.n = Math.round(((segNow && segNow.evidence && segNow.evidence.n) || 0) * 0.97);
+    const segs = segNow ? { W: segNow.W, alpha: segNow.alpha } : null;
     const evs = new Map(dates.map((d) => [d, H.emptyEval()]));
     const counts = new Map(dates.map((d) => [d, 0]));
     const stockStat = m.stockStat || {};
@@ -388,8 +413,10 @@ class Horizon {
           if (!rows.length) continue;
           // first the forecast, with the model as it stood; then the lesson
           const one = H.emptyEval();
-          H.scoreRows(one, W, rows, { resSd: m.resSd, z70: m.z70, slope: m.slope, bandScale: m.bandScale, keepZ: false });
-          H.scoreRows(evs.get(date), W, rows, { resSd: m.resSd, z70: m.z70, slope: m.slope, bandScale: m.bandScale, keepZ: false });
+          H.scoreRows(one, W, rows, { resSd: m.resSd, z70: m.z70, slope: m.slope, bandScale: m.bandScale, keepZ: false, segs });
+          H.scoreRows(evs.get(date), W, rows, { resSd: m.resSd, z70: m.z70, slope: m.slope, bandScale: m.bandScale, keepZ: false, segs });
+          H.alphaEvidence(evidence, W, segNow ? segNow.W : null, rows);
+          for (const row of rows) segStats[H.segOf(row.s)].add(row.x, row.y, H.DECAY_DAY ** H.daysBetween(date, newest));
           const k3 = H.HORIZONS.indexOf(3);
           const st = stockStat[s] || { n: 0, hit: 0, miss: 0, naive: 0 };
           st.n += one.n[k3];
@@ -435,6 +462,7 @@ class Horizon {
     this.docs.putItems(DAYS, dayRecords);
     m.stats = stats.toJSON();
     m.W = Wn;
+    m.seg = { stats: segStats.map((st) => st.toJSON()), W: segStats.map((st) => H.fit(st, H.LAMBDA, H.SEG_MIN_ROWS)), alpha: H.chooseAlpha(evidence), evidence: { n: evidence.n, se: evidence.se.map((r) => r.map((v) => Math.round(v * 100) / 100)) } };
     m.resSd = resSd;
     m.slope = Array.from(slope, (v) => Math.round(v * 1000) / 1000);
     m.bandScale = r4(bandScale);
@@ -658,7 +686,24 @@ class Horizon {
       testedFrom: v.from,
       testedTo: v.to,
       bandScale: m.bandScale,
+      experts: this._experts(m),
       live: m.live ? { n: m.live.n || 0, tilt: m.live.tilt || {} } : null,
+    };
+  }
+
+  /** The time-of-day experts: how far each horizon's forecast leans on them, and what that was measured to gain. */
+  _experts(m) {
+    const seg = m && m.seg;
+    if (!seg || !seg.alpha) return null;
+    const ev = seg.evidence;
+    return {
+      examples: ev ? ev.n : 0,
+      ready: seg.W.map((w, i) => ({ part: H.SEGMENTS[i], ready: Boolean(w) })),
+      horizons: H.HORIZONS.map((h, k) => {
+        const row = ev && ev.se[k] ? ev.se[k] : null;
+        const i = H.ALPHAS.indexOf(seg.alpha[k]);
+        return { minutes: h * 5, weight: seg.alpha[k], gainPct: row && row[0] > 0 && i > 0 ? r2(((row[0] - row[i]) / row[0]) * 100) : 0 };
+      }),
     };
   }
 

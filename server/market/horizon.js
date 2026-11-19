@@ -398,8 +398,8 @@ function solve(A, b, n) {
 }
 
 /** The weights of every target from the statistics: T arrays of D numbers, or null when there are too few rows. */
-function fit(stats, lambda = LAMBDA) {
-  if (!stats || stats.n < MIN_ROWS) return null;
+function fit(stats, lambda = LAMBDA, minRows = MIN_ROWS) {
+  if (!stats || stats.n < minRows) return null;
   const A = new Float64Array(D * D);
   for (let a = 0; a < D; a += 1) for (let b = a; b < D; b += 1) A[a * D + b] = A[b * D + a] = stats.xtx[a * D + b];
   for (let a = 1; a < D; a += 1) A[a * D + a] += lambda * stats.w; // the intercept is not shrunk
@@ -436,23 +436,76 @@ const emptyEval = () => ({
   pa: new Float64Array(T),
 });
 
-/** The model's call for one row: for each target, the standardised prediction. */
-function predictRow(W, x, slope = null) {
+/* ---- the time-of-day experts: a challenger to the one pooled model, adopted only as far as the evidence supports ----
+   The opening hour, the middle of the day and the last ninety minutes do not behave alike (the open trends and gaps fill;
+   midday reverts; the close is driven by squaring-off). So beside the pooled model there is one model per part of the day,
+   fitted on that part's rows only. A part's model has far fewer examples and can simply be noisier, so it is never trusted
+   outright: the forecast is  pooled + alpha × (expert − pooled),  and alpha (0, ¼, ½, ¾ or 1, per target) is the one that
+   gave the smallest squared error on rows NEITHER model had seen. Alpha 0 — the pooled model alone — stays unless an
+   expert earns its place, and the evidence is re-counted every evening, so the choice can change as the market does. */
+const SEGMENTS = ["open", "mid", "close"];
+const ALPHAS = [0, 0.25, 0.5, 0.75, 1];
+const SEG_MIN_ROWS = 6000;
+const MIN_GAIN = 0.002; // an expert must cut the squared error by at least 0.2% to be used at all
+/** Which part of the day a 5-minute slot belongs to: 0 the first hour, 2 from 2:00 PM, 1 between. */
+const segOf = (slot) => (slot < 12 ? 0 : slot >= 57 ? 2 : 1);
+
+/** The model's call for one row: for each target, the standardised prediction. `seg` = { W, alpha } blends in an expert. */
+function predictRow(W, x, slope = null, seg = null) {
   const out = new Float64Array(T);
-  for (let k = 0; k < T; k += 1) out[k] = dot(W[k], x) * (slope ? slope[k] : 1);
+  for (let k = 0; k < T; k += 1) {
+    let p = dot(W[k], x);
+    if (seg && seg.W && seg.alpha && seg.alpha[k]) p += seg.alpha[k] * (dot(seg.W[k], x) - p);
+    out[k] = p * (slope ? slope[k] : 1);
+  }
   return out;
+}
+
+/** The expert for a row's part of the day, from a model's (or a training run's) experts. */
+function segFor(segs, slot) {
+  if (!segs || !segs.W || !segs.alpha) return null;
+  const w = segs.W[segOf(slot)];
+  return w ? { W: w, alpha: segs.alpha } : null;
+}
+
+/** Evidence for each alpha: the summed squared error per target of  pooled + alpha × (expert − pooled)  on `rows`. */
+function alphaEvidence(acc, W, Wseg, rows) {
+  const a = acc || { n: 0, se: Array.from({ length: T }, () => new Array(ALPHAS.length).fill(0)) };
+  for (const row of rows) {
+    const ws = Wseg ? Wseg[segOf(row.s)] : null;
+    a.n += 1;
+    for (let k = 0; k < T; k += 1) {
+      const p = dot(W[k], row.x);
+      const d = ws ? dot(ws[k], row.x) - p : 0;
+      for (let i = 0; i < ALPHAS.length; i += 1) {
+        const e = row.y[k] - (p + ALPHAS[i] * d);
+        a.se[k][i] += e * e;
+      }
+    }
+  }
+  return a;
+}
+
+/** The alpha each target has earned: the best one, or 0 when the best is not clearly better than the pooled model alone. */
+function chooseAlpha(acc) {
+  if (!acc || acc.n < 2000) return new Array(T).fill(0);
+  return acc.se.map((row) => {
+    let best = 0;
+    for (let i = 1; i < row.length; i += 1) if (row[i] < row[best]) best = i;
+    return row[0] > 0 && (row[0] - row[best]) / row[0] >= MIN_GAIN ? ALPHAS[best] : 0;
+  });
 }
 
 /**
  * Score a model on rows: direction, miss against "no move", the band, the stated-probability table and the residuals
  * by regime. `resSd` (T×BUCKETS) is needed for probabilities and bands; without it only residuals are gathered.
  */
-function scoreRows(ev, W, rows, { resSd = null, z70 = null, slope = null, bandScale = 1, keepZ = true, every = 1 } = {}) {
+function scoreRows(ev, W, rows, { resSd = null, z70 = null, slope = null, bandScale = 1, keepZ = true, every = 1, segs = null } = {}) {
   let c = 0;
   for (const row of rows) {
     c += 1;
     if (every > 1 && c % every !== 0) continue;
-    const p = predictRow(W, row.x, slope);
+    const p = predictRow(W, row.x, slope, segFor(segs, row.s));
     for (let k = 0; k < T; k += 1) {
       const y = row.y[k];
       const e = y - p[k];
@@ -542,7 +595,7 @@ function forecastFrom(rawBars, ctx, model, { bias = 0, tilt = 0, levels = [] } =
   const row = rows[0];
   const slope = model.slope || null;
   const scale = model.bandScale || 1;
-  const p = predictRow(model.W, row.x, slope);
+  const p = predictRow(model.W, row.x, slope, segFor(model.seg, row.s));
   const sg = row.sigma;
   const price = row.price;
   const left = SESSION_BARS - 1 - row.s; // bars after this one that the session still has
@@ -678,5 +731,6 @@ module.exports = {
   buildProfile, marketFromStocks, marketFromBars, dayRows,
   Stats, fit, solve, dot,
   emptyEval, predictRow, scoreRows, resSdOf, z70Of, summariseEval,
+  SEGMENTS, ALPHAS, SEG_MIN_ROWS, segOf, segFor, alphaEvidence, chooseAlpha,
   forecastFrom, headline, callOf, settle, HNAME,
 };

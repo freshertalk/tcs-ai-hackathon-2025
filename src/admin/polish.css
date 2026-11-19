@@ -1,0 +1,202 @@
+/* ==========================================================================
+   The finish of the private area — loaded last (AdminApp.jsx), over every page.
+   It changes how surfaces sit and how type reads; it moves nothing and hides nothing. Colours come from the tokens only,
+   so dark and light both follow.
+
+   1. Depth      a quiet glow behind the page; cards lift a little off it
+   2. Headers    the page header and the terminal's bar: glass, like the public site's navbar
+   3. Cards      one family: the same edge, radius and lift on every page
+   4. Type       section titles, small labels and numbers
+   5. Tables     quiet heads, rows that answer the pointer
+   6. Controls   fields, tabs, scrollbars, selection
+   ========================================================================== */
+
+/* ------------------------------------------------------------------ 1. depth */
+.adm,
+.adm .tm {
+  background:
+    radial-gradient(1100px 420px at 8% -120px, color-mix(in srgb, var(--accent) 10%, transparent), transparent 62%),
+    radial-gradient(900px 360px at 100% -80px, color-mix(in srgb, var(--accent-2, var(--accent)) 7%, transparent), transparent 58%),
+    var(--paper);
+  background-attachment: fixed;
+}
+.adm .tm {
+  background: transparent;
+}
+
+/* ------------------------------------------------------------------ 2. headers */
+.adm .adm-head,
+.adm .tm .tm-top {
+  background: color-mix(in srgb, var(--paper) 78%, transparent);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  backdrop-filter: blur(16px) saturate(1.4);
+  border-bottom: 1px solid var(--line);
+}
+.adm .adm-head__row {
+  min-height: 64px;
+  padding-block: 10px;
+}
+.adm .adm-brand,
+.adm .tm-brand {
+  text-decoration: none;
+}
+.adm .adm-brand:hover .vk-brand__mark,
+.adm .tm-brand:hover .vk-brand__mark {
+  box-shadow: 0 0 0 1px var(--accent), 0 0 0 4px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+/* the workspaces: the public site's links — quiet until they are yours, an underline that draws in */
+.adm .tm .tm-tabs button {
+  position: relative;
+  border-bottom-color: transparent;
+  font-weight: 500;
+  transition: color 0.25s var(--ease, ease);
+}
+.adm .tm .tm-tabs button::after {
+  content: "";
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 0;
+  height: 2px;
+  border-radius: 2px 2px 0 0;
+  background: var(--accent);
+  transform: scaleX(0);
+  transform-origin: right;
+  transition: transform 0.4s var(--ease, ease);
+}
+.adm .tm .tm-tabs button:hover::after,
+.adm .tm .tm-tabs button[aria-selected="true"]::after {
+  transform: scaleX(1);
+  transform-origin: left;
+}
+.adm .tm .tm-tabs button[aria-selected="true"] {
+  color: var(--ink);
+  font-weight: 700;
+}
+/* in the terminal the name sits beside the photo wherever the bar has two rows; on one crowded row it is the photo alone */
+.adm .tm .vk-brand__name {
+  font-size: 0.98rem;
+}
+@media (min-width: 2000px) and (max-width: 2399px) {
+  .adm .tm .vk-brand__name {
+    display: none;
+  }
+}
+@media (max-width: 1100px) {
+  .adm .tm .vk-brand__name small {
+    display: none;
+  }
+}
+@media (max-width: 700px) {
+  .adm .tm .vk-brand__name {
+    display: none;
+  }
+}
+/* the account's pill, like the public navbar's switch */
+.adm .adm-user .adm-btn--ghost {
+  border-radius: 99px;
+}
+
+/* ------------------------------------------------------------------ 3. cards: one family */
+.adm :where(.an-card, .adm-card, .ta-card, .eng-card, .ais-card, .soc-card, .sr-card, .apx-card, .av-card, .cx-card, .dkb-card, .hm-card, .hm-pc, .hm-feat, .hm-set, .hm-sys__tile, .mk, .wl, .ab, .hz, .sv__stats, .sv__ticker, .jp2-tile, .ip-tile) {
+  border-color: var(--line);
+  background-image: linear-gradient(180deg, color-mix(in srgb, var(--ink) 3%, transparent), transparent 140px);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--ink) 7%, transparent),
+    0 18px 36px -28px rgba(0, 0, 0, 0.55);
+}
+.adm :where(.an-card, .adm-card, .ta-card, .eng-card, .ais-card, .soc-card, .sr-card, .apx-card, .av-card, .cx-card) {
+  border-radius: 16px;
+}
+.adm :where(a, button):where(.hm-tile, .hm-set, .hm-pc > a, .jp2-tile):hover {
+  box-shadow: 0 14px 30px -18px rgba(0, 0, 0, 0.6);
+}
+
+/* ------------------------------------------------------------------ 4. type */
+.adm :where(.an-card__head, .ta-card__h, .eng-card__h, .ix-card__h, .sr-card__head, .tr-card__head) :where(h2, h3) {
+  font-family: var(--f-tech, inherit);
+  font-size: var(--t-title);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+.adm :where(.an-card__head, .sr-card__head) :where(h2, h3)::before {
+  content: "";
+  display: inline-block;
+  width: 3px;
+  height: 0.9em;
+  margin-right: 9px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, var(--accent), color-mix(in srgb, var(--accent-2, var(--accent)) 80%, transparent));
+  vertical-align: -0.08em;
+}
+.adm :where(.an-card__head, .ta-card__h) p {
+  color: var(--ink-3);
+}
+.adm :where(h1) {
+  font-family: var(--f-tech, inherit);
+  letter-spacing: -0.02em;
+}
+.adm :where(dt, .hm-pc__k, .hm-row__k, .hm-sys__k, .hz-box small) {
+  letter-spacing: 0.01em;
+}
+
+/* ------------------------------------------------------------------ 5. tables */
+.adm :where(.an-table, .tr-table, .hz-table, .dh-table, .ta-table, .ix-table) thead th {
+  font-size: var(--t-tag);
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.adm :where(.an-table, .tr-table, .ta-table, .ix-table) tbody tr {
+  transition: background-color 0.15s ease;
+}
+.adm :where(.an-table, .tr-table, .ta-table, .ix-table) tbody tr:hover {
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+}
+
+/* ------------------------------------------------------------------ 6. controls */
+.adm :where(input[type="text"], input[type="search"], input[type="number"], input[type="email"], input[type="password"], select, textarea) {
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.adm :where(input[type="text"], input[type="search"], input[type="number"], input[type="email"], input[type="password"], select, textarea):focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+  outline: none;
+}
+.adm :where(.sv__tabs, .sv__ranges) button[aria-selected="true"],
+.adm :where(.sv__tabs, .sv__ranges) button[aria-pressed="true"] {
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--ink) 10%, transparent), 0 6px 14px -8px rgba(0, 0, 0, 0.6);
+}
+.adm ::selection {
+  background: color-mix(in srgb, var(--accent) 35%, transparent);
+}
+.adm,
+.adm * {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--ink) 22%, transparent) transparent;
+}
+.adm ::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+.adm ::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 99px;
+  background: color-mix(in srgb, var(--ink) 22%, transparent);
+  background-clip: padding-box;
+}
+.adm ::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--ink) 38%, transparent);
+  background-clip: padding-box;
+}
+.adm ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .adm .tm .tm-tabs button::after {
+    transition: none;
+  }
+}

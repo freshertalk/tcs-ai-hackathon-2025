@@ -45,14 +45,15 @@ import "./buttons.css";
 // motion and softness: loaded last of all, it changes how things move and how their edges feel, nothing else
 import "./signin.css";
 import "./smooth.css";
-// The private area wears the Panchmukhi Hanuman logo (public/logo) as its favicon. The public site's own icons are
+// the finish: one family of surfaces, headers and type over every page (loaded last of all)
+import "./polish.css";
+// The private area wears the same icon as the public site (Vinay's photo). The public site's own link tags are
 // put aside while this area is open and put back when it is left. (A page loaded straight from
 // /me already carries these in its own head: see scripts/prerender.js.)
 const PRIVATE_ICONS = [
-  ["icon", "32x32", "/logo/PanchmukhiHanuman_logo-32.png"],
-  ["icon", "48x48", "/logo/PanchmukhiHanuman_logo-48.png"],
-  ["icon", "192x192", "/logo/PanchmukhiHanuman_logo-192.png"],
-  ["apple-touch-icon", "180x180", "/logo/PanchmukhiHanuman_logo-180.png"],
+  ["icon", "192x192", "/logo192.png"],
+  ["icon", "512x512", "/favicon-512.png"],
+  ["apple-touch-icon", "180x180", "/apple-touch-icon.png"],
 ];
 function usePrivateFavicon() {
   useEffect(() => {

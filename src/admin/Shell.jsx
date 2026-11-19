@@ -7,8 +7,8 @@ import { adminPath } from "./paths";
 import { setTipsEnabled, useTipsEnabled } from "./help/TipLayer";
 import { useDeskTheme } from "./stock/analyzer/theme";
 import { TempleButton } from "./temple/Temple";
-import Mantra from "./Mantra";
 import LiveBadge from "./LiveBadge";
+import BrandMark from "./BrandMark";
 
 const HINT_KEY = "vpt.tips.hint";
 
@@ -75,12 +75,8 @@ export default function Shell({ crumb, notice, children, narrow, wide, fluid }) 
         <div className={`${wrap} adm-head__row`}>
           <nav className="adm-crumbs" aria-label="Breadcrumb">
             <Link to={adminPath()} className="adm-brand" aria-label={`${BRAND.full}. Back to the dashboard.`} data-tip="Back to the dashboard.">
-              {/* the Panchmukhi Hanuman logo (public/logo/PanchmukhiHanuman_logo.png) */}
-              <img className="adm-brand__logo" src="/logo/PanchmukhiHanuman_logo-96.png" srcSet="/logo/PanchmukhiHanuman_logo-96.png 1x, /logo/PanchmukhiHanuman_logo-192.png 2x" alt="DrishtiAI" width="40" height="40" />
-              {/* one line at every width: the full name, then shorter forms as the screen narrows */}
-              <span className="adm-brand__full">{BRAND.full}</span>
-              <span className="adm-brand__mid" aria-hidden="true">{BRAND.mid}</span>
-              <span className="adm-brand__short" aria-hidden="true">{BRAND.short}</span>
+              {/* the same brand as the public site's navbar: the photo, the name, the product under it */}
+              <BrandMark />
             </Link>
             {crumb && (
               <span className="adm-crumbs__page">
@@ -89,7 +85,6 @@ export default function Shell({ crumb, notice, children, narrow, wide, fluid }) 
               </span>
             )}
           </nav>
-          {user && <Mantra className="adm-mantra" />}
           {user && (
             <div className="adm-user">
               {user.picture ? (

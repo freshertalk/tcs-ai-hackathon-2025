@@ -81,7 +81,7 @@ const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replac
 function previewTags(p, origin) {
   const url = `${origin}${p.path}`;
   const img = `${origin}/img/og/${p.image}.png`;
-  const alt = `${p.name} — ${SITE}, ${LINE}: the page name beside the Panchmukhi Hanuman logo`;
+  const alt = `${p.name} — ${SITE}, ${LINE}: the page name beside Vinay's portrait`;
   return [
     `<title>${esc(p.title)}</title>`,
     `<meta name="description" content="${esc(p.description)}" />`,

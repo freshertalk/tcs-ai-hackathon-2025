@@ -8,9 +8,8 @@ import { Link } from "react-router-dom";
 import { api } from "../../api";
 import { useAuth } from "../../auth";
 import { adminPath } from "../../paths";
-import { BRAND } from "../../brand";
-import Mantra from "../../Mantra";
 import LiveBadge from "../../LiveBadge";
+import BrandMark from "../../BrandMark";
 import { setTipsEnabled, useTipsEnabled } from "../../help/TipLayer";
 import { useTrade } from "../trade/TradeContext";
 import { num } from "../analyzer/format";
@@ -128,10 +127,7 @@ export default function TopBar({ views, view, onView, theme, onTheme, onHelp, on
   return (
     <header className="tm-top">
       <Link to={adminPath()} className="tm-brand" data-tip="Back to the dashboard.">
-        <span className="tm-brand__mark tm-brand__mark--img">
-          <img src="/logo/PanchmukhiHanuman_logo-96.png" srcSet="/logo/PanchmukhiHanuman_logo-96.png 1x, /logo/PanchmukhiHanuman_logo-192.png 2x" alt="DrishtiAI" width="42" height="42" decoding="async" />
-        </span>
-        <span className="tm-brand__name">{BRAND.name}</span>
+        <BrandMark size="sm" />
       </Link>
 
       <nav className="tm-tabs" role="tablist" aria-label="Workspaces">
@@ -151,7 +147,6 @@ export default function TopBar({ views, view, onView, theme, onTheme, onHelp, on
         <kbd>{mac ? "⌘" : "Ctrl"} K</kbd>
       </button>
 
-      <Mantra className="tm-mantra" />
 
       <div className="tm-status">
         <LiveBadge />

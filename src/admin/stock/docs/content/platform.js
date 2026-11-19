@@ -191,7 +191,7 @@ export const PLATFORM = [
     title: "The Mandir — Shri Hanuman Chalisa, softly, on every page",
     intro: "Shri Hanuman Chalisa — or a whole list of bhajans — plays softly in the background while the private area is open, with no floating window.",
     blocks: [
-      { p: "The Panchmukhi Hanuman logo (`public/logo/PanchmukhiHanuman_logo.png`) is the mark before “DrishtiAI — the AI Trading Advisor for NSE” in the header of every private page, in the terminal’s top bar, the tab icon of the private area and the picture in every link preview. The **Mandir** card under Settings on the dashboard controls the audio, and a small **ॐ** button in the header of every page plays or pauses it. Lines of the Chalisa (Goswami Tulsidas) are shown on the card." },
+      { p: "The brand of the private area is the same as the public site’s navbar: Vinay’s photo in a circle with his name and “DrishtiAI · AI Trading Advisor” under it — in the header of every private page and in the terminal’s top bar; the tab icon and the picture in every link preview are his photo too. The Panchmukhi Hanuman picture stays on the Mandir card. The **Mandir** card under Settings on the dashboard controls the audio, and a small **ॐ** button in the header of every page plays or pauses it. Lines of the Chalisa (Goswami Tulsidas) are shown on the card." },
       { h: "How it plays" },
       { ul: [
         "**Background sound**, at a very soft **5%** by default, on every private page, carrying on while you move between pages. No floating window: a video plays as sound too, and its picture shows only inside the Mandir card when you press **Show video**.",
