@@ -33,6 +33,7 @@ const MAX_CLIENTS = 300;
 const ROUTE_TOPICS = [
   ["/api/admin/market/horizon", ["horizon"]],
   ["/api/admin/market/ahead", ["ahead", "horizon"]],
+  ["/api/admin/market/evidence", ["evidence"]],
   ["/api/admin/market/open-forecast", ["open"]],
   ["/api/admin/market/alerts", ["alerts", "market"]],
   ["/api/admin/market", ["market"]],

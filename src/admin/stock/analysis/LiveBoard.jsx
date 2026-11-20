@@ -16,6 +16,7 @@ import { chime } from "../trade/DailyGoal";
 import { rsSigned, tone } from "./charts";
 import "./flight.css";
 import { everyVisible } from "../../visible";
+import { PositionEvidence, usePositionEvidence } from "../analyzer/EvidenceCard";
 
 const MUTE_KEY = "vpt.flight.mute";
 const WORD = { hold: "HOLD", tighten: "TIGHTEN", "book-part": "BOOK PART", "exit-now": "EXIT NOW" };
@@ -256,7 +257,7 @@ function ExitLevels({ p, onResearch, busy, aiReady, record }) {
   );
 }
 
-function Strip({ p, trade, onAsk, asking, aiReady, onResearch, researching, record }) {
+function Strip({ p, trade, onAsk, asking, aiReady, onResearch, researching, record, evidence = null }) {
   const a = p.advice;
   if (!a) {
     return (
@@ -277,6 +278,7 @@ function Strip({ p, trade, onAsk, asking, aiReady, onResearch, researching, reco
       <header className="fb-strip__h">
         <span className={`fb-side ${long ? "is-long" : "is-short"}`}>{long ? "▲ LONG" : "▼ SHORT"}</span>
         <b className="fb-sym">{p.symbol}</b>
+        <PositionEvidence reading={evidence} />
         <span className="fb-dim">
           {p.qty} @ ₹{px(p.avg)} · in since {p.entryClock} ({m.minutesIn} min){typeof m.minutesToSquareOff === "number" && m.minutesToSquareOff > 0 ? ` · ${m.minutesToSquareOff} min to square-off` : ""}
         </span>
@@ -468,6 +470,8 @@ export default function LiveBoard({ onReplay }) {
   const states = useRef(new Map());
   const reached = useRef(new Set());
   const muteRef = useRef(mute);
+  // the evidence desk's reading of the next 15 minutes for each position on the board, and whether it is with it or against it
+  const evRows = usePositionEvidence(b && Array.isArray(b.positions) ? b.positions.map((p) => ({ symbol: p.symbol, side: p.side })) : []);
   muteRef.current = mute;
 
   useEffect(() => {
@@ -636,7 +640,7 @@ export default function LiveBoard({ onReplay }) {
           )}
         </section>
       ) : (
-        b.positions.map((p) => <Strip key={p.key} p={p} trade={trade} onAsk={ask} asking={asking === p.key} aiReady={b.settings && b.settings.aiReady} onResearch={research} researching={researching === p.key} record={b.levelsRecord} />)
+        b.positions.map((p) => <Strip key={p.key} p={p} trade={trade} onAsk={ask} asking={asking === p.key} aiReady={b.settings && b.settings.aiReady} onResearch={research} researching={researching === p.key} record={b.levelsRecord} evidence={evRows[`${p.symbol}|${p.side}`]} />)
       )}
 
       {b.other && b.other.length > 0 && (

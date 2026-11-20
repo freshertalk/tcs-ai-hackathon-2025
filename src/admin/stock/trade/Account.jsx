@@ -19,6 +19,7 @@ import { DailyGoalCard } from "./DailyGoal";
 import { CASH, LIVE_STATUSES, holdingNumbers, newRef, positionDayChange, positionPnl, totals } from "./tradeMath";
 import { useLiveBook } from "./liveBook";
 import { everyVisible } from "../../visible";
+import { PositionEvidence, usePositionEvidence } from "../analyzer/EvidenceCard";
 import "./trade.css";
 
 const TABS = [
@@ -487,6 +488,9 @@ export default function Account({ compact = false }) {
     (x) => (bookOn && x.key ? x.last : x.exchange === "NSE" || CASH.has(x.exchange) ? (live.slow[x.symbol] && isNum(live.slow[x.symbol].last) ? live.slow[x.symbol].last : null) : null),
     [live.slow, bookOn]
   );
+  // the evidence desk's reading of the next 15 minutes for each open NSE position, and whether it is with it or against it
+  const evList = useMemo(() => positions.filter((p) => p.exchange === "NSE" && p.quantity !== 0).map((p) => ({ symbol: p.symbol, side: p.quantity > 0 ? "long" : "short" })), [positions]);
+  const evRows = usePositionEvidence(evList);
   const tot = totals({ positions, holdings }, liveOf);
   // today's figure, the same one the top bar and the dock show (Zerodha's day M2M, live)
   const dayPnl = bookOn ? book.day : tot.posPnl;
@@ -614,6 +618,11 @@ export default function Account({ compact = false }) {
                                   {p.symbol} <small>{p.exchange}</small>
                                   {/* on a phone the product column is dropped and its tag rides here */}
                                   <small className={`tr-prod tr-prod--${p.product} tr-prod--in`}>{p.product}</small>
+                                  {!closed && p.exchange === "NSE" && evRows[`${p.symbol}|${p.quantity > 0 ? "long" : "short"}`] && (
+                                    <div className="tr-ev">
+                                      <PositionEvidence reading={evRows[`${p.symbol}|${p.quantity > 0 ? "long" : "short"}`]} />
+                                    </div>
+                                  )}
                                 </th>
                                 <td className={`is-num is-${tone(p.quantity)}`}>{p.quantity}</td>
                                 <td className="is-num">{closed ? "—" : num(p.average)}</td>

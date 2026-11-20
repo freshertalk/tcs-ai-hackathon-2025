@@ -176,6 +176,8 @@ class KiteClient {
         oi: v.oi ?? null,
         oiHigh: v.oi_day_high ?? null,
         oiLow: v.oi_day_low ?? null,
+        // the order book: the 5 best bids and offers, each [price, shares, orders] (the evidence desk reads it, server/evidence.js)
+        depth: v.depth && (Array.isArray(v.depth.buy) || Array.isArray(v.depth.sell)) ? { b: (v.depth.buy || []).map((l) => [l.price, l.quantity, l.orders]), a: (v.depth.sell || []).map((l) => [l.price, l.quantity, l.orders]) } : null,
       };
     }
     return out;

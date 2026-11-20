@@ -90,6 +90,7 @@ class FlightDeck extends EventEmitter {
     this.docs = docs;
     this.notifier = notifier;
     this.goal = goal;
+    this.evidence = null; // set by app.js: the evidence desk (server/evidence.js) — the next 15 minutes for each position
     this.learn = null; // set by app.js: the level learner (server/learn.js) — how often each kind of level has held
     this.now = now;
     this.log = log;
@@ -426,6 +427,17 @@ class FlightDeck extends EventEmitter {
     const set = slot.levels && !slot.levels.failed ? slot.levels : null;
     const aiLevels = set ? set.targets.filter((t) => t.status === "open").map((t) => ({ label: `the AI's target ${t.n} (${t.label})`, price: t.level })) : [];
     const a = coach(pos, slot.ctx.bars, slot.tick, { now, memory: slot.memory, flow, levels: aiLevels.length ? [...slot.ctx.levels, ...aiLevels] : slot.ctx.levels, pulse: slot.ctx.pulse, tide: this.mkt.tide, forecast: this.mkt.forecast, news: slot.ctx.news, goal: goal ? { state: goal } : null, liveCall: slot.ctx.liveCall });
+    // the evidence desk's proven lean for the next 15 minutes is one more reason on the side it supports (it never changes the signal)
+    if (this.evidence && now - (slot.evAt || 0) > 60000) {
+      slot.evAt = now;
+      this.evidence
+        .forPositions([{ symbol: slot.symbol, side: slot.side }])
+        .then((list) => {
+          slot.ev = list && list[0] && list[0].available ? { ...list[0], got: this.now() } : null;
+        })
+        .catch(() => {});
+    }
+    if (slot.ev && now - slot.ev.got < 6 * 60000 && slot.ev.lean !== "none" && slot.ev.proven) (slot.ev.against ? a.reasons.exit : a.reasons.hold).push(slot.ev.text);
     const prev = slot.advice ? slot.advice.state : null;
     slot.memory = a.memory;
     const { memory, parts, ...advice } = a;
@@ -516,7 +528,7 @@ class FlightDeck extends EventEmitter {
     }
     slot.aiAt = now;
     const a = slot.advice;
-    const snapshot = this._snapshot(slot);
+    const snapshot = await this._withEvidence(this._snapshot(slot), slot);
     let r;
     try {
       r = await this.ai.exitAdvisor.advise(snapshot);
@@ -553,6 +565,19 @@ class FlightDeck extends EventEmitter {
     const today = istDate(this.now());
     d.ai = d.ai && d.ai.day === today ? { day: today, n: d.ai.n + 1 } : { day: today, n: 1 };
     this.docs.write(SETTINGS, d);
+  }
+
+  /** The evidence desk's reading of the next 15 minutes for a position (server/evidence.js), when the app has given the desk one. */
+  async _withEvidence(snapshot, slot) {
+    if (!this.evidence) return snapshot;
+    try {
+      const list = await Promise.race([this.evidence.forPositions([{ symbol: slot.symbol, side: slot.side }]), new Promise((r) => setTimeout(() => r(null), 5000))]);
+      const r = list && list[0];
+      if (r && r.available) snapshot.deskEvidenceNext15min = { lean: r.lean, firmness: r.tier, chance: r.p, proven: r.proven, againstThePosition: r.against, readingsLeaningUp: r.up, readingsLeaningDown: r.down, read: r.text };
+    } catch (_) {
+      /* the snapshot stands without it */
+    }
+    return snapshot;
   }
 
   /** What the AI Engine is told about one position: only what the desk itself holds at this moment. */
@@ -636,7 +661,7 @@ class FlightDeck extends EventEmitter {
       const pos = { symbol: slot.symbol, side: slot.side, qty: slot.qty, avg: slot.avg, entryAt: slot.entryAt };
       const rec = this.levelsRecord();
       const snapshot = {
-        ...this._snapshot(slot),
+        ...(await this._withEvidence(this._snapshot(slot), slot)),
         minutesLeftToSquareOff: map.minutesLeft,
         oneMinuteMoveRupees: map.sigma1,
         levelMap: map.anchors.map((x) => ({ id: x.id, price: x.price, what: x.label, strength: x.strength, touchesToday: x.touches, awayPct: x.awayPct, touchOddsPct: x.touchPct, ...(x.held ? { heldPct: x.held.pct, heldOfTests: x.held.n } : {}) })),

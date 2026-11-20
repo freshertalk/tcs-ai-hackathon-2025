@@ -64,6 +64,8 @@ const { LearnWatch } = require("./learn");
 const { OpenForecast } = require("./open-forecast");
 const { Horizon } = require("./horizon");
 const { Ahead } = require("./ahead");
+const { Evidence } = require("./evidence");
+const { askDefault, team: aiTeam } = require("./ai/mixture");
 const { LiveHub } = require("./live");
 const { Supervisor } = require("./supervisor");
 const { Recorder } = require("./recorder");
@@ -583,7 +585,10 @@ function createApp(opts = {}) {
     const route = `${req.method} ${logSafe(req.baseUrl + req.path)}`;
     const user = ["GET", "HEAD", "OPTIONS"].includes(req.method) ? null : currentUser(req);
     const auto = Boolean(user && req.path.startsWith("/admin/ai/live/") && req.body && req.body.reason && req.body.reason !== "manual");
-    g.run(user && !auto ? { click: true, by: user.email, route } : { click: false, route }, next);
+    // opening a stock on the Desk is not a click either: it is its own kind of request, which the evidence desk may answer with ONE
+    // AI read of that stock when its own test says the AI is needed (the owner's instruction; server/ai/spend.js, server/evidence.js)
+    const opened = Boolean(user && req.method === "POST" && /^\/admin\/market\/evidence\/[^/]+\/open$/.test(req.path));
+    g.run(opened ? { click: false, opened: true, by: user.email, route } : user && !auto ? { click: true, by: user.email, route } : { click: false, route }, next);
   });
 
   // The live hub (server/live.js): every successful state-changing request under /api/admin tells every open page which topics changed,
@@ -1180,7 +1185,7 @@ ${e.text}
     }
   };
   // AI credit protection on the AI page: the rule, what it has held back today, what the AI has used
-  app.get("/api/admin/ai/spend", requireAdmin, aWrap(() => ({ ...ai.guard.status(), today: ai.engine.status().today, saved: ai.engine.status().saved })));
+  app.get("/api/admin/ai/spend", requireAdmin, aWrap(() => ({ ...ai.guard.status(), today: ai.engine.status().today, saved: ai.engine.status().saved, open: evidence.aiStatus() })));
   app.put("/api/admin/ai/spend", requireSuper, limiter(20, 15 * 60 * 1000), aWrap((req) => ai.guard.setAuto(Boolean((req.body || {}).auto), req.user.email)));
   const symOf = (req) => String(req.params.symbol || "").trim().toUpperCase().slice(0, 25);
   app.get("/api/admin/autopilot", requireAdmin, aWrap((req) => autopilot.board({ withAccount: req.user.role === "superadmin" })));
@@ -1486,6 +1491,66 @@ ${e.text}
   app.post("/api/admin/market/ahead/train", requireSuper, limiter(6, 60 * 60 * 1000), hWrap(async () => startAhead(() => ahead.train({ trigger: "you asked" }))));
   app.post("/api/admin/market/ahead/learn", requireSuper, limiter(12, 60 * 60 * 1000), hWrap(async () => startAhead(() => ahead.learnDays({ trigger: "you asked" }))));
 
+  // The evidence desk (server/evidence.js): everything weighed into one call for the next 5 and 15 minutes — 35 day-trading
+  // techniques measured on the stored history and stacked on the forecaster's call, with the order book price by price (NSE and
+  // BSE), open interest, the option chain, NIFTY, the sector, India VIX, GIFT NIFTY, Wall Street and Asia read live, kept and
+  // checked. It may ask the AI ONCE about a stock a person has just opened, when its own test says the AI is needed (the owner's
+  // instruction of 2026-11-20; switch and limits on the AI page). Never on a timer; never an order.
+  const evidence =
+    opts.evidence ||
+    new Evidence({
+      horizon,
+      market,
+      docs: store.docs,
+      ahead,
+      ask: opts.evidenceAsk || ((req) => askDefault(ai, req)),
+      aiReady: opts.evidenceAsk ? () => true : () => aiTeam(ai).models.length > 0,
+      holding: () => {
+        const p = liveBook.positions();
+        return ((p && p.net) || []).filter((x) => x.quantity !== 0 && x.exchange === "NSE").map((x) => ({ symbol: x.symbol, side: x.quantity > 0 ? "long" : "short", quantity: Math.abs(x.quantity), average: x.average }));
+      },
+      now: opts.now,
+      log: opts.log || console,
+    });
+  ai.guard.openAllowed = () => evidence.aiSettings().mode !== "off";
+  // the board in brief for the AI's briefs, never holding an answer up for more than six seconds (the AI folder holds no timer of its own)
+  ai.deskEvidence = (symbol) => Promise.race([evidence.brief(symbol, { full: true }), new Promise((r) => setTimeout(() => r(null), 6000))]).catch(() => null);
+  flight.evidence = evidence;
+  if (market.ticker && opts.horizonWatch !== false && opts.alertWatch !== false) evidence.start();
+  const startEvidence = async (run) => {
+    const p = run();
+    const early = await Promise.race([p.then(() => null, (e) => e), new Promise((r) => setTimeout(() => r(null), 120))]);
+    if (early) throw early;
+    p.catch(() => {});
+    return evidence.board();
+  };
+  const evSym = (req) => String(req.params.symbol || "").trim().toUpperCase().slice(0, 25);
+  app.get("/api/admin/market/evidence", requireAdmin, hWrap(async () => evidence.board()));
+  // the next 15 minutes for each open position: ?list=RELIANCE:long,TCS:short (the page sends what it shows; nothing of an account is read here)
+  app.get(
+    "/api/admin/market/evidence/positions",
+    requireAdmin,
+    limiter(120, 60 * 1000),
+    hWrap(async (req) => ({
+      rows: await evidence.forPositions(
+        String(req.query.list || "")
+          .split(",")
+          .slice(0, 30)
+          .map((x) => x.split(":"))
+          .filter((x) => x[0])
+          .map(([symbol, side]) => ({ symbol: symbol.trim().toUpperCase().slice(0, 25), side: side === "short" ? "short" : "long" }))
+      ),
+    }))
+  );
+  app.get("/api/admin/market/evidence/:symbol", requireAdmin, limiter(240, 60 * 1000), hWrap(async (req) => evidence.view(evSym(req))));
+  // a stock was opened on the Desk: the AI is asked once about it when (and only when) the evidence desk's own test says it is needed
+  app.post("/api/admin/market/evidence/:symbol/open", requireAdmin, limiter(120, 60 * 1000), hWrap(async (req) => evidence.opened(evSym(req), { isOwner: req.user.role === "superadmin" })));
+  // "Ask the AI" on the board: a click
+  app.post("/api/admin/market/evidence/:symbol/ai", requireAdmin, limiter(30, 15 * 60 * 1000), hWrap(async (req) => evidence.askNow(evSym(req), { isOwner: req.user.role === "superadmin" })));
+  app.put("/api/admin/market/evidence/ai", requireSuper, limiter(30, 15 * 60 * 1000), hWrap(async (req) => evidence.setAi(req.body || {}, req.user.email)));
+  app.post("/api/admin/market/evidence/train", requireSuper, limiter(6, 60 * 60 * 1000), hWrap(async () => startEvidence(() => evidence.train({ trigger: "you asked" }))));
+  app.post("/api/admin/market/evidence/learn", requireSuper, limiter(12, 60 * 60 * 1000), hWrap(async () => startEvidence(() => evidence.learnDays({ trigger: "you asked" }))));
+
   // The market recorder (server/recorder.js): every minute of every session it reads every NIFTY 100 stock, the watchlist, the indices
   // and each one's near-month future — price, volume, the quantity waiting to buy and to sell, open interest — with no page open, keeps
   // the session in the database, and each evening learns what those readings add to the forecaster. It reads only; it asks no AI model.
@@ -1782,6 +1847,27 @@ ${e.text}
           run: () => ahead.learnDays({ trigger: "the supervisor" }),
         },
         {
+          id: "evidence-train",
+          name: "Evidence desk: training",
+          what: "Measures the 35 day-trading techniques on the whole stored history and fits them with the forecaster's call, when the evidence desk has no usable model (first start, or the forecaster's inputs changed). Runs after the forecaster's own training.",
+          due: () => {
+            const p = evidence.pending();
+            return !p.busy && p.train ? "no usable model yet" : "";
+          },
+          run: () => evidence.train({ trigger: "the supervisor" }),
+        },
+        {
+          id: "evidence-learn",
+          name: "Evidence desk: evening learning",
+          what: "Calls, checks and then learns every stored session the evidence desk has not seen (normally at 3:50 PM, after the forecaster and the early calls; here when that was missed).",
+          quietOnly: true,
+          due: () => {
+            const p = evidence.pending();
+            return !p.busy && p.learn ? `sessions to ${p.to} are stored, learned only to ${p.lastDate}` : "";
+          },
+          run: () => evidence.learnDays({ trigger: "the supervisor" }),
+        },
+        {
           id: "open-forecast",
           name: "Opening-price forecast: scoring",
           what: "Writes the real open beside forecasts of earlier sessions that were never scored, and learns from them.",
@@ -1873,6 +1959,11 @@ ${e.text}
         const proven = b.trained ? b.learning.targets.filter((t) => t.proven).length : 0;
         return needs(b.trained ? "on" : "learning", b.trained ? `learned to ${b.learning.lastDate}; ${proven} of ${b.learning.targets.length} calls proven on unseen sessions` : "no usable model yet (it trains after the forecaster)");
       }),
+      sys("evidence", "Evidence desk (techniques, order book, world)", "On every finished 5-minute bar: 35 day-trading techniques, the order book, open interest, the sector, GIFT NIFTY and the world weighed into one call for 5 and 15 minutes; every call and every reading is kept and checked, and every evening at 3:50 PM the whole NIFTY 100 day is called, checked, then learned. The AI is asked only about a stock you open, when needed", () => {
+        const b = evidence.board();
+        const working = b.techniques.filter((t) => t.record[15].verdict === "works").length;
+        return needs(b.trained ? "on" : "learning", b.trained ? `learned to ${b.learning.lastDate}; ${working} of ${b.techniques.length} techniques have a proven record here; AI reads today ${b.ai.usedToday} of ${b.ai.perDay}` : "no usable model yet (it trains after the forecaster)");
+      }),
       sys("recorder", "Market recorder", "Every minute from 9:15 to 15:30, with no page open: price, volume, the quantity waiting to buy and to sell, and the futures' open interest for every NIFTY 100 stock, your watchlist and the indices — kept in the database", () => {
         const st = recorder.status();
         const kept = `${st.stored.sessions} session${st.stored.sessions === 1 ? "" : "s"} stored`;
@@ -1937,6 +2028,7 @@ ${e.text}
   });
   live.watch("horizon", () => horizon.fingerprint());
   live.watch("ahead", () => ahead.fingerprint());
+  live.watch("evidence", () => evidence.fingerprint());
   live.watch("automation", () => {
     const st = supervisor.status();
     return [st.running && st.running.id, st.behind, st.events[0] && st.events[0].at, st.duties.map((d) => d.state)];
@@ -2037,6 +2129,7 @@ ${e.text}
     openForecast,
     horizon,
     ahead,
+    evidence,
     live,
     supervisor,
     recorder,

@@ -458,6 +458,16 @@ class Ensemble {
     }
   }
 
+  /** The evidence desk's board in brief, when the app has given one (never holds an answer up for long). */
+  async _deskEvidence(symbol) {
+    if (typeof this.ai.deskEvidence !== "function") return null;
+    try {
+      return await this.ai.deskEvidence(symbol); // the app bounds how long this may take
+    } catch (_) {
+      return null;
+    }
+  }
+
   async _liveBrief(symbol, pulse) {
     const market = this.ai.market;
     const v = await market.verdict(symbol);
@@ -499,6 +509,8 @@ class Ensemble {
       theTrader: you ? { position: you.hasPosition ? { side: you.side, quantity: you.quantity, average: you.average, pnlNow: you.pnl, deskNote: you.why } : "none in this stock", availableCash: you.cash, sizingByRisk: you.sizing || null } : "not available",
       // the knowledge base's checks on this stock now (market/situation.js), with the rules behind them
       knowledge: KC.forVerdict(v, india),
+      // the evidence desk's board (server/evidence.js): the order book price by price, open interest, the techniques with their records
+      deskEvidenceNext15min: await this._deskEvidence(symbol),
     };
   }
 

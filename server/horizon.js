@@ -682,7 +682,8 @@ class Horizon {
           const mult = scales ? H.stockScaleOf(scales[s]) : 1;
           for (const row of rows) row.p = H.predictRow(m.W, row.x, m.slope, H.segFor(m.seg, row.s), mult);
           seen += rows.length;
-          each(s, date, rows);
+          // the session's own bars and its context come too, for a reader that works from the bars (server/evidence.js)
+          each(s, date, rows, days[d][1], ctx);
         }
       }
       await tick();
@@ -863,7 +864,8 @@ class Horizon {
     const fc = H.forecastFrom(done, ctx, m, { bias: biasK, tilt, tilts, levels: this._levels(probe, prevClose), stockScale });
     // today's rows bar by bar, for the early calls (they read the same inputs, turned to face the move)
     const rows = H.dayRows(done, ctx, { targets: false, stride: 1 });
-    return { fc, rows, evidence, tilt, bias, bias1, prevClose, now, flow, flowTilt: tilts ? tilts[H.HORIZONS.indexOf(3)] || 0 : 0, flowTilt1: tilts ? tilts[H.HORIZONS.indexOf(1)] || 0 : 0 };
+    // `bars` and `ctx`: the finished bars and their context, for the evidence desk (server/evidence.js reads its techniques from them)
+    return { fc, rows, bars: done, ctx, evidence, tilt, bias, bias1, prevClose, now, flow, flowTilt: tilts ? tilts[H.HORIZONS.indexOf(3)] || 0 : 0, flowTilt1: tilts ? tilts[H.HORIZONS.indexOf(1)] || 0 : 0 };
   }
 
   _flowFor(symbol, endMs) {

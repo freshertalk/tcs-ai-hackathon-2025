@@ -18,6 +18,11 @@
 // is not available" and carry on with their own arithmetic. Every refusal is counted and listed on the AI page, so the owner can
 // see what tried to run and did not.
 //
+// ONE NARROW EXCEPTION, by the owner's instruction of 2026-11-20: when a person OPENS a stock on the Desk, the evidence desk
+// (server/evidence.js) may ask the AI once to weigh that stock's board — only when its own test says the AI is needed, within
+// its own daily limit and its own gap per stock, and only while its switch on the AI page is on. Such a request runs in an
+// "opened" context; nothing on a timer can create one.
+//
 // The owner can lift the rule (AI page → AI credit protection → "Let the AI run on its own"): off by default, and when it is on
 // each automatic feature still obeys its own switch and daily limit. Tests and tools that call the AI service directly are not
 // guarded (enforce is false until the app turns it on).
@@ -36,6 +41,7 @@ class SpendGuard {
     this.enforce = enforce;
     this.als = new AsyncLocalStorage();
     this._rec = null;
+    this.openAllowed = null; // () => boolean: is the AI read on opening a stock switched on? (set by the app, server/evidence.js)
   }
 
   /* ----------------------------------------------------------------------------------- the context */
@@ -78,6 +84,8 @@ class SpendGuard {
   allowed() {
     if (!this.enforce) return { ok: true, why: "not enforced" };
     if (this.clicked()) return { ok: true, why: "a click" };
+    const c = this.context();
+    if (c && c.opened && typeof this.openAllowed === "function" && this.openAllowed()) return { ok: true, why: "a stock was opened, and the owner allowed one AI read of it" };
     if (this._load().auto) return { ok: true, why: "the owner allowed the AI to run on its own" };
     return { ok: false, why: "no click" };
   }

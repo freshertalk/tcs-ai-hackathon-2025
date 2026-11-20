@@ -864,6 +864,13 @@ class AiService {
         latest: mine.slice(-5).flatMap((e) => e.plans.filter((p) => p.action !== "no_trade").map((p) => ({ date: e.at.slice(0, 10), horizon: p.horizon, side: p.side, entry: p.entry, stop: p.stop, target: p.target, outcome: p.outcome ? p.outcome.status : "pending", r: p.outcome ? p.outcome.r : null }))),
       },
     };
+    // the evidence desk's board for the next 5 and 15 minutes (server/evidence.js): its call with measured chances, the
+    // techniques speaking with their records, the order book price by price, open interest, the sector, GIFT NIFTY, Wall Street
+    try {
+      if (typeof this.deskEvidence === "function") brief.deskEvidenceNext15min = await this.deskEvidence(symbol); // the app bounds how long this may take
+    } catch (_) {
+      /* the brief stands without it */
+    }
     // the knowledge base's checks on this stock now (market/situation.js), with the full rules of the topics
     // behind them: what the rules of the trade say about these exact readings — read by the strategist, the
     // AI decision, the research note and the AI Research analysts beside the trading-skills file

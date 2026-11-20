@@ -24,6 +24,7 @@ import AiBrain from "./AiBrain";
 import SessionHistory from "./SessionHistory";
 import HorizonCard, { ForecastChips, useHorizon } from "./HorizonCard";
 import AheadCard, { useAhead } from "./AheadCard";
+import EvidenceCard from "./EvidenceCard";
 import { callLabel as oddsLabel } from "../advisor/advisorMath";
 import { everyVisible } from "../../visible";
 
@@ -547,6 +548,9 @@ export default function StockView({ symbol, quote, status, streaming = false, in
         <div ref={fcRef} className="sv__fcwrap">
           <HorizonCard symbol={symbol} state={horizon} />
           <AheadCard symbol={symbol} state={ahead} />
+          {/* everything weighed: the techniques, the order book, open interest, the market and the world; opening the stock tells the
+              server, which may ask the AI once about it when its own test says the AI is needed */}
+          <EvidenceCard symbol={symbol} announce />
         </div>
         <AiBrain symbol={symbol} live={live} marketHours={Boolean(status.marketHours)} foldable />
       </div>

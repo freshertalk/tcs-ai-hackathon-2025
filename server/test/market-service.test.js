@@ -160,6 +160,11 @@ async function boot(extra = {}) {
     marketFetch: kite.fetch,
     screenerIndex: "all", // the fake exchange lists made-up names; the Nifty 100 scope has its own test
     marketGaps: { quote: 0, historical: 0, other: 0 },
+    // the flight deck and the live book (server/flight.js, server/trading/livebook.js: the trading side) read the positions every
+    // two seconds once Zerodha is connected; these tests are about the market module, and a test that happened to run longer
+    // than two seconds (a busy machine) would see that read in its log of what was sent to Zerodha
+    flightWatch: false,
+    liveBook: false,
     now: () => clock.ms,
     ...extra,
   });
@@ -1326,4 +1331,83 @@ test("the weekly grouping is remembered between readings and still gives the sam
   ]);
   assert.deepEqual(toWeekly(days), wk);
   assert.throws(() => weekStart("not a date"));
+});
+
+test("the evidence desk's routes: the board, a stock's board and the positions' reading are read-only; opening a stock asks the AI only through its own gate", async (t) => {
+  const asks = [];
+  const s = await boot({
+    evidenceAsk: async (req) => {
+      asks.push(req);
+      return { data: { lean: "none", confidence: "low", why: "w", watch: "x", invalid: 0, risk: "r" }, by: ["Test model"] };
+    },
+  });
+  t.after(s.close);
+  await s.connectKite();
+  assert.equal((await s.request("GET", "/api/admin/market/evidence")).status, 401, "a stranger sees nothing");
+  const board = (await s.request("GET", "/api/admin/market/evidence", { cookie: s.admin })).json;
+  assert.deepEqual([board.techniques.length, board.live.length, board.trained, board.ai.mode, board.ai.perDay], [35, 18, false, "need", 40]);
+  // the forecaster has not learned on this made-up exchange: the board says why instead of guessing
+  const v = await s.request("GET", "/api/admin/market/evidence/INFY", { cookie: s.admin });
+  assert.equal(v.status, 200);
+  assert.equal(v.json.available, false);
+  assert.match(v.json.reason, /forecaster/i);
+  const pos = (await s.request("GET", "/api/admin/market/evidence/positions?list=INFY:long,TCS:short,:long", { cookie: s.admin })).json;
+  assert.deepEqual(pos.rows.map((r) => [r.symbol, r.side, r.available]), [["INFY", "long", false], ["TCS", "short", false]]);
+  // the AI page reads the rule for opened stocks with the rest of the credit protection
+  const spend = (await s.request("GET", "/api/admin/ai/spend", { cookie: s.admin })).json;
+  assert.deepEqual([spend.open.mode, spend.open.usedToday, spend.open.everyone], ["need", 0, false]);
+  // opening a stock is a state-changing request like any other: it needs the site's own header
+  assert.equal((await s.request("POST", "/api/admin/market/evidence/INFY/open", { cookie: s.admin, csrf: false })).status, 403);
+  // even set to read every opened stock, a stock with no board is not sent to the AI, and nothing is counted
+  assert.equal((await s.request("PUT", "/api/admin/market/evidence/ai", { cookie: s.admin, body: { mode: "always", perDay: 5 } })).json.perDay, 5);
+  const opened = (await s.request("POST", "/api/admin/market/evidence/INFY/open", { cookie: s.admin })).json;
+  assert.equal(opened.asked, false);
+  assert.equal(asks.length, 0);
+  assert.equal((await s.request("GET", "/api/admin/ai/spend", { cookie: s.admin })).json.open.usedToday, 0);
+  assert.equal((await s.request("POST", "/api/admin/market/evidence/bad%20symbol!/open", { cookie: s.admin })).status, 400);
+  // everything it sent to Zerodha is a read of market data
+  for (const c of dataCalls(s.kite)) {
+    assert.equal(c.method, "GET", `${c.method} ${c.path}`);
+    assert.match(c.path, /^\/(quote|instruments\/NSE|instruments\/historical\/\d+\/(day|5minute|minute))$/, c.path);
+  }
+});
+
+test("AI credit: opening a stock reaches the server as “opened”, never as a click; the button on the board is a click", async (t) => {
+  const seen = [];
+  const holder = {};
+  let mode = "need";
+  const fake = {
+    opened: async () => {
+      seen.push({ what: "open", ctx: { ...holder.made.ai.guard.context() }, allowed: holder.made.ai.guard.allowed() });
+      return { asked: false, why: "test" };
+    },
+    askNow: async () => {
+      seen.push({ what: "ask", ctx: { ...holder.made.ai.guard.context() }, allowed: holder.made.ai.guard.allowed() });
+      return {};
+    },
+    aiSettings: () => ({ mode }),
+    aiStatus: () => ({ mode }),
+    board: () => ({ trained: false, learning: {}, techniques: [], live: [], ai: { usedToday: 0, perDay: 40 } }),
+    view: async () => ({ available: false, reason: "test" }),
+    forPositions: async () => [],
+    brief: async () => null,
+    pending: () => ({ busy: false, train: false, learn: false }),
+    fingerprint: () => "",
+    start() {},
+  };
+  const s = await boot({ evidence: fake });
+  holder.made = s.made;
+  t.after(s.close);
+  await s.request("POST", "/api/admin/market/evidence/INFY/open", { cookie: s.admin });
+  await s.request("POST", "/api/admin/market/evidence/INFY/ai", { cookie: s.admin });
+  mode = "off";
+  await s.request("POST", "/api/admin/market/evidence/INFY/open", { cookie: s.admin });
+  const [open, ask, off] = seen;
+  assert.deepEqual([open.ctx.click, open.ctx.opened, open.allowed.ok], [false, true, true]);
+  assert.match(open.allowed.why, /a stock was opened, and the owner allowed one AI read of it/);
+  assert.deepEqual([ask.ctx.click, ask.ctx.opened, ask.allowed.why], [true, undefined, "a click"]);
+  assert.deepEqual([off.ctx.click, off.ctx.opened, off.allowed.ok], [false, true, false], "with the switch off an opened stock cannot reach the AI");
+  // a page that is only being read is neither
+  await s.request("GET", "/api/admin/market/evidence/INFY", { cookie: s.admin });
+  assert.equal(seen.length, 3);
 });

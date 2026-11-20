@@ -66,3 +66,32 @@ test("only the owner sees the switch, it is off by default, and turning it on is
   expect(document.querySelector(".ais-spend").textContent).toMatch(/Lifted by the owner \(owner@x\.org/);
   expect(document.querySelector(".ais-spend").textContent).toMatch(/each automatic feature still obeys its own switch and daily limit/);
 });
+
+test("the one exception has its own block: the AI read of a stock you open, with its limits, its record and the owner's switch", async () => {
+  const open = { mode: "need", perDay: 40, gapMin: 15, everyone: false, ready: true, usedToday: 6, record: { n: 20, ok: 12, right: 0.6 } };
+  mockApi.mockImplementation((url, opts) => (opts && opts.method === "PUT" && url === "/api/admin/market/evidence/ai" ? Promise.resolve({ ...open, mode: "off" }) : Promise.resolve(data({ open }))));
+  render(page());
+  await settle();
+  const text = () => document.querySelector(".ais-open").textContent;
+  expect(document.querySelector(".ais-spend").textContent).toMatch(/The one exception you asked for is described below: a stock you open on the Desk\./);
+  expect(text()).toMatch(/On — the one exception, at your instruction\. When you open a stock on the Desk during market hours and its readings are undecided or in conflict/);
+  expect(text()).toMatch(/Never on a timer and never for a stock nobody opened\. At most 40 a day, and one read per stock every 15 minutes\./);
+  expect(text()).toMatch(/Used today: 6 of 40\. Checked 15 minutes later, its reads were right 60% of 20 times\./);
+  // the owner turns it off: one deliberate request, and the card says so
+  await act(async () => {
+    await userEvent.selectOptions(screen.getByLabelText("When a stock is opened"), "off");
+  });
+  await settle();
+  expect(mockApi.mock.calls.some((c) => c[0] === "/api/admin/market/evidence/ai" && c[1].method === "PUT" && c[1].body.mode === "off")).toBe(true);
+  expect(text()).toMatch(/Off\. Opening a stock asks the AI nothing\./);
+});
+
+test("someone who is not the owner sees the rule for opened stocks but cannot change it", async () => {
+  mockApi.mockResolvedValue(data({ open: { mode: "always", perDay: 10, gapMin: 20, everyone: true, ready: false, usedToday: 0, record: { n: 0, ok: 0, right: null } } }));
+  render(page("admin"));
+  await settle();
+  const text = document.querySelector(".ais-open").textContent;
+  expect(text).toMatch(/When anyone signed in opens a stock on the Desk during market hours the AI reads that stock's whole evidence board once/);
+  expect(text).toMatch(/No read has been checked yet\. No AI model is set up, so nothing is asked\./);
+  expect(screen.queryByLabelText("When a stock is opened")).toBeNull();
+});

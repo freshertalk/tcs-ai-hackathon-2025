@@ -205,6 +205,44 @@
   color: var(--ink);
 }
 
+/* the AI read when a stock is opened: the one exception to "only on a click", with its own switch and limits */
+.ais-open {
+  display: grid;
+  gap: 8px;
+  margin-top: 6px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--line);
+}
+.ais-open h3 {
+  margin: 0;
+  font-size: var(--t-mid);
+}
+.ais-open__set {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 10px 16px;
+}
+.ais-open__set label:not(.ais-check) {
+  display: grid;
+  gap: 3px;
+  color: var(--ink-2);
+  font-size: var(--t-small);
+}
+.ais-open__set input[type="number"] {
+  width: 6.5em;
+}
+.ais-open__set select,
+.ais-open__set input[type="number"] {
+  min-height: 34px;
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+}
+
 .ais-chips {
   display: flex;
   flex-wrap: wrap;

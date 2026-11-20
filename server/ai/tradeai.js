@@ -270,6 +270,16 @@ class TradeAI {
     } catch (_) {
       /* the knowledge base never stops an answer */
     }
+    // the desk's own forecast for the next 5 and 15 minutes and everything it was weighed from (server/evidence.js): the call
+    // with measured chances, the techniques speaking with their records, the order book, open interest, the sector, the world
+    try {
+      if (typeof this.ai.deskEvidence === "function") {
+        const e = await this._within(this.ai.deskEvidence(symbol), 7000);
+        if (e && !e.__timeout) out.deskForecastNext15min = e;
+      }
+    } catch (_) {
+      /* the answer stands without it */
+    }
     return out;
   }
 

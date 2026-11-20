@@ -1,0 +1,430 @@
+/* ==========================================================================
+   The evidence desk (EvidenceCard.jsx): the call for 5 and 15 minutes, the techniques speaking, the order book price
+   by price, the live readings, the AI's read, and each one's record. It wears the forecast card's frame (horizon.css)
+   and the early calls' columns and meters (ahead.css). Desk tokens only: both themes follow. Nothing scrolls sideways
+   except the tables, which scroll inside their own box.
+   ========================================================================== */
+
+.ev {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+/* ---- the call ---- */
+.ev-call--up {
+  border-color: color-mix(in srgb, var(--up) 55%, var(--line));
+}
+.ev-call--down {
+  border-color: color-mix(in srgb, var(--down) 55%, var(--line));
+}
+.ev-lean {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 10px;
+  margin: 0;
+}
+.ev-lean strong {
+  font-size: 1.12rem;
+  letter-spacing: 0.02em;
+}
+.ev-lean--up strong {
+  color: var(--up);
+}
+.ev-lean--down strong {
+  color: var(--down);
+}
+.ev-lean--flat strong {
+  color: var(--ink-2);
+}
+.ev-proof {
+  padding: 1px 7px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--ink-3);
+  font-size: var(--t-tag);
+  white-space: nowrap;
+}
+.ev-proof.is-proven {
+  border-color: color-mix(in srgb, var(--accent) 60%, var(--line));
+  color: var(--ink);
+}
+.ev-chance {
+  display: grid;
+  grid-template-columns: 2.6em minmax(60px, 1fr) auto;
+  align-items: center;
+  gap: 2px 8px;
+  min-width: 0;
+}
+.ev-chance .ah-meter {
+  grid-column: auto;
+}
+.ev-chance__k {
+  color: var(--ink-2);
+  font-size: var(--t-small);
+}
+.ev-chance__v {
+  font-size: var(--t-small);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.ev-chance__v small {
+  color: var(--ink-3);
+}
+.ev-why {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0;
+}
+.ev-push {
+  padding: 1px 7px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--ink-2);
+  font-size: var(--t-tag);
+}
+.ev-push.is-for {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+  color: var(--ink);
+}
+.ev-uses {
+  margin: 0;
+  color: var(--ink-3);
+  font-size: var(--t-tag);
+  line-height: 1.45;
+}
+
+/* ---- how many readings lean each way ---- */
+.ev-count {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 0;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+  font-size: var(--t-small);
+  font-variant-numeric: tabular-nums;
+}
+.ev-count .is-up {
+  color: var(--up);
+  font-weight: 650;
+}
+.ev-count .is-down {
+  color: var(--down);
+  font-weight: 650;
+}
+
+/* ---- the AI's read ---- */
+.ev-ai {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent);
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+.ev-ai--up {
+  border-left-color: var(--up);
+}
+.ev-ai--down {
+  border-left-color: var(--down);
+}
+.ev-ai p {
+  margin: 0;
+  font-size: var(--t-small);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.ev-ai__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+}
+.ev-ai__head b {
+  font-size: var(--t-small);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.ev-ai__head small {
+  flex: 1 1 220px;
+  min-width: 0;
+  color: var(--ink-3);
+  font-size: var(--t-tag);
+}
+.ev-ai__lean strong {
+  font-size: 1rem;
+}
+.ev-ai--up .ev-ai__lean strong {
+  color: var(--up);
+}
+.ev-ai--down .ev-ai__lean strong {
+  color: var(--down);
+}
+.ev-ai__lean small {
+  color: var(--ink-3);
+  font-size: var(--t-tag);
+}
+
+/* ---- the sections ---- */
+.ev-sec {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.ev-sec > summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 10px;
+  padding: 7px 10px;
+  cursor: pointer;
+  font-size: var(--t-small);
+  font-weight: 650;
+}
+.ev-sec > summary small {
+  color: var(--ink-3);
+  font-size: var(--t-tag);
+  font-weight: 400;
+}
+.ev-sec > :not(summary) {
+  margin: 0 10px 10px;
+}
+
+/* one reading: which way · what it saw · its record */
+.ev-rows {
+  display: grid;
+  gap: 0;
+  padding: 0;
+  list-style: none;
+}
+.ev-row {
+  display: grid;
+  grid-template-columns: 1.4em minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 2px 8px;
+  padding: 5px 0;
+  border-top: 1px solid var(--line);
+  font-size: var(--t-small);
+}
+.ev-row:first-child {
+  border-top: 0;
+}
+.ev-row__s {
+  font-weight: 700;
+  line-height: 1.4;
+}
+.ev-row.is-up .ev-row__s {
+  color: var(--up);
+}
+.ev-row.is-down .ev-row__s {
+  color: var(--down);
+}
+.ev-row.is-flat .ev-row__s {
+  color: var(--ink-3);
+}
+.ev-row__t {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+  line-height: 1.4;
+}
+.ev-row__t span {
+  color: var(--ink-2);
+  overflow-wrap: anywhere;
+}
+.ev-rec {
+  justify-self: end;
+  max-width: 24em;
+  padding: 1px 7px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink-3);
+  font-size: var(--t-tag);
+  line-height: 1.4;
+  text-align: right;
+}
+.ev-rec--works {
+  border-color: color-mix(in srgb, var(--up) 55%, var(--line));
+  color: var(--ink);
+}
+.ev-rec--backwards {
+  border-color: color-mix(in srgb, var(--warn-ink, #b7791f) 60%, var(--line));
+  color: var(--ink);
+}
+
+/* ---- the order book, price by price ---- */
+.ev-ladders {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  gap: 8px;
+}
+.ev-ladder {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.ev-ladder__cap {
+  margin: 0;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--line);
+  color: var(--ink-2);
+  font-size: var(--t-tag);
+  line-height: 1.45;
+}
+.ev-ladder__cap b {
+  color: var(--ink);
+}
+.ev-ladder__t {
+  width: 100%;
+  font-variant-numeric: tabular-nums;
+}
+.ev-ladder__t th,
+.ev-ladder__t td {
+  padding-left: 6px;
+  padding-right: 6px;
+}
+.ev-ladder__q small {
+  color: var(--ink-3);
+}
+.ev-ladder__t td {
+  text-align: right;
+}
+.ev-ladder__q {
+  position: relative;
+  min-width: 5em;
+  white-space: nowrap;
+}
+.ev-ladder__q i {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  border-radius: 3px;
+  opacity: 0.55;
+}
+.ev-ladder__q--bid i {
+  right: 0;
+  background: var(--up-bg);
+  border-right: 2px solid var(--up);
+}
+.ev-ladder__q--ask i {
+  left: 0;
+  background: var(--down-bg);
+  border-left: 2px solid var(--down);
+}
+.ev-ladder__q span {
+  position: relative;
+}
+.ev-ladder__p--bid {
+  color: var(--up);
+  font-weight: 650;
+}
+.ev-ladder__p--ask {
+  color: var(--down);
+  font-weight: 650;
+}
+.ev-ladder__t td.ev-ladder__p--ask,
+.ev-ladder__t td.ev-ladder__q--ask {
+  text-align: left;
+}
+
+/* ---- indicators and levels ---- */
+.ev-ind {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 6px 14px;
+  font-size: var(--t-small);
+}
+.ev-ind div {
+  display: grid;
+  gap: 0;
+  min-width: 0;
+}
+.ev-ind dt {
+  color: var(--ink-3);
+  font-size: var(--t-tag);
+}
+.ev-ind dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.ev-lvl--above th {
+  color: var(--ink-2);
+}
+.ev-missing {
+  margin: 0;
+  color: var(--ink-3);
+  font-size: var(--t-tag);
+  line-height: 1.5;
+}
+
+/* ---- the record tables (Research) ---- */
+.ev-board {
+  display: grid;
+  gap: 10px;
+}
+.ev-led .ev-rec {
+  white-space: nowrap;
+}
+
+/* ---- one position's line (Positions, the Live board) ---- */
+.ev-pos {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 6px;
+  padding: 2px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: var(--t-tag);
+  line-height: 1.4;
+}
+.ev-pos b {
+  font-size: var(--t-small);
+}
+.ev-pos small {
+  color: var(--ink-3);
+}
+.ev-pos--with {
+  border-color: color-mix(in srgb, var(--up) 55%, var(--line));
+}
+.ev-pos--with b {
+  color: var(--up);
+}
+.ev-pos--against {
+  border-color: color-mix(in srgb, var(--down) 60%, var(--line));
+  background: var(--down-bg);
+}
+.ev-pos--against b {
+  color: var(--down);
+}
+.ev-pos__np {
+  font-style: italic;
+}
+
+/* under a position's name in the Positions table */
+.tr-ev {
+  margin-top: 3px;
+  font-weight: 400;
+}
+
+@media (max-width: 560px) {
+  .ev-row {
+    grid-template-columns: 1.4em minmax(0, 1fr);
+  }
+  .ev-rec {
+    grid-column: 2;
+    justify-self: start;
+    text-align: left;
+  }
+}

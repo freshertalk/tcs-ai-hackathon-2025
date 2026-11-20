@@ -20,6 +20,7 @@ import { SetupLab } from "./SetupLab";
 import AutopilotPanel from "../autopilot/AutopilotPanel";
 import HorizonCard, { HorizonBoard } from "../analyzer/HorizonCard";
 import AheadCard, { AheadBoard } from "../analyzer/AheadCard";
+import EvidenceCard, { EvidenceBoard } from "../analyzer/EvidenceCard";
 import { inr, isNum, num, pct, when } from "../analyzer/format";
 import "./trade.css";
 
@@ -80,6 +81,7 @@ function ResearchHorizon({ symbol, first }) {
       <summary>Next 5 and 15 minutes — price, high, low, levels, the early calls (trend, reversal, momentum) and the check for {symbol}</summary>
       {open && <HorizonCard symbol={symbol} compact />}
       {open && <AheadCard symbol={symbol} compact />}
+      {open && <EvidenceCard symbol={symbol} compact />}
     </details>
   );
 }
@@ -399,6 +401,10 @@ export default function Research({ onOpen = null }) {
         <details className="rs-ai rs-hzboard">
           <summary>Early calls (reversal, carry-on, momentum) — what they have learned and how they have done</summary>
           <AheadBoard />
+        </details>
+        <details className="rs-ai rs-hzboard">
+          <summary>Evidence desk (35 techniques, order book, open interest, the world) — what each has measured</summary>
+          <EvidenceBoard />
         </details>
         <div ref={setSlot} className="rs-slot" data-jump="Intraday plans" />
         {!report && !hasPlans && (
