@@ -77,3 +77,27 @@ test("an admin who is not the owner sees no Today cards and no owner-only status
   expect(screen.queryByText("Today at a glance")).toBeNull();
   expect(screen.getByLabelText("Status").textContent).not.toMatch(/Trading switch|P&L/);
 });
+
+test("Personal holds the Kundali tile, in Hindi, and the Expenses tile, each opening in a new tab — for superadmins only", async () => {
+  const { unmount } = render(page("superadmin"));
+  await settle();
+  expect(screen.getByRole("heading", { name: "Personal" })).toBeTruthy();
+  const spend = screen.getByText("Expenses").closest("a");
+  expect([spend.getAttribute("href"), spend.getAttribute("target"), spend.getAttribute("rel")]).toEqual(["/me/expenses", "_blank", "noopener noreferrer"]);
+  expect(spend.textContent).toMatch(/Track what you spend: by day, month, year and category/);
+  const tile = screen.getByText("जन्म कुंडली").closest("a");
+  expect(tile.getAttribute("href")).toBe("/me/kundali");
+  expect(tile.getAttribute("target")).toBe("_blank");
+  expect(tile.getAttribute("rel")).toBe("noopener noreferrer");
+  expect(tile.getAttribute("lang")).toBe("hi");
+  expect(tile.textContent).toMatch(/लग्न, ग्रह, दशा, योग, शुभ रंग और उपाय/);
+  unmount();
+
+  // an admin has no Personal block and no way in to either
+  render(page("admin"));
+  await settle();
+  expect(screen.queryByRole("heading", { name: "Personal" })).toBeNull();
+  expect(screen.queryByText("जन्म कुंडली")).toBeNull();
+  expect(document.querySelector('a[href="/me/kundali"]')).toBeNull();
+  expect(document.querySelector('a[href="/me/expenses"]')).toBeNull();
+});

@@ -5,8 +5,14 @@
    whitespace, thin rules, masked reveals, curtain image wipes.
 
    Two themes, switched by [data-theme] on a wrapper:
-     tech  — cool porcelain + architectural blue + copper (the page)
-     write — warm ivory + deep maroon + terracotta (the writer's band)
+     tech  — sandal ivory + ruby maroon + copper, a line of gold (the page)
+     write — deeper sandalwood + saffron copper + maroon (the writer's band)
+
+   THE COLOURS are the owner's own, read from his birth chart (the reasons are on his private Kundali page):
+   Leo rising with the Sun as lord of the ascendant, the Moon sign and the birth star — ruby, copper and gold;
+   Mars, lord of fortune, in his own sign — maroon and coral; Jupiter exalted — gold and saffron; the Moon — ivory.
+   The cool blue and the blue-black this site once wore are Saturn's, which that chart sets aside: no rule here uses
+   them. Ink is a deep warm brown, never pure black.
    ========================================================================== */
 
 /* --------------------------------------------------------------- tokens */
@@ -34,59 +40,62 @@
   --r-lg: 26px;
 
   /* defaults (tech-ish) so nothing is unstyled before a theme mounts */
-  --paper: #f4f5f7;
-  --paper-2: #ffffff;
-  --surface: #ffffff;
-  --surface-2: #eceff3;
-  --ink: #101620;
-  --ink-2: #4a5462;
-  --ink-3: #5f6977; /* 4.8:1 or better on every surface (was #8b94a2, 2.8:1) */
-  --line: rgba(16, 22, 32, 0.1);
-  --line-2: rgba(16, 22, 32, 0.19);
-  --accent: #1e4b7a;
-  --accent-2: #a3502a; /* readable as text: 4.6:1 or better (was #c1663a, 3.7:1) */
-  --accent-soft: #e4ecf4;
-  --on-accent: #ffffff;
-  --shadow: 0 30px 70px -44px rgba(16, 22, 32, 0.55);
-  --shadow-lg: 0 50px 110px -56px rgba(16, 22, 32, 0.6);
+  --paper: #f8f4ec; /* sandal ivory */
+  --paper-2: #fffdf9;
+  --surface: #fffdf9;
+  --surface-2: #f2eadb;
+  --ink: #21150f; /* deep warm brown: 16:1 on the paper */
+  --ink-2: #55443a;
+  --ink-3: #6b584b; /* 5.4:1 or better on every surface */
+  --line: rgba(52, 30, 16, 0.11);
+  --line-2: rgba(52, 30, 16, 0.2);
+  --accent: #7a1f2b; /* ruby maroon: 8:1 or better as text */
+  --accent-2: #96460f; /* copper: 5.3:1 or better as text */
+  --accent-soft: #f3e3d3;
+  --on-accent: #fff8ee;
+  --gold: #c8962e; /* a line of gold: rules, rings and marks, never small text on a light surface */
+  --shadow: 0 30px 70px -44px rgba(70, 38, 16, 0.5);
+  --shadow-lg: 0 50px 110px -56px rgba(70, 38, 16, 0.55);
 }
 
 /* ------------------------------------------------------------ theme: tech */
 [data-theme="tech"] {
   --f-display: var(--f-tech);
-  --paper: #f4f5f7;
-  --paper-2: #ffffff;
-  --surface: #ffffff;
-  --surface-2: #eceff3;
-  --ink: #101620;
-  --ink-2: #4a5462;
-  --ink-3: #5f6977; /* 4.8:1 or better on every surface (was #8b94a2, 2.8:1) */
-  --line: rgba(16, 22, 32, 0.1);
-  --line-2: rgba(16, 22, 32, 0.19);
-  --accent: #1e4b7a;
-  --accent-2: #a3502a; /* readable as text: 4.6:1 or better (was #c1663a, 3.7:1) */
-  --accent-soft: #e4ecf4;
-  --on-accent: #ffffff;
-  --shadow: 0 30px 70px -44px rgba(16, 22, 32, 0.5);
-  --shadow-lg: 0 50px 110px -56px rgba(16, 22, 32, 0.55);
+  --paper: #f8f4ec;
+  --paper-2: #fffdf9;
+  --surface: #fffdf9;
+  --surface-2: #f2eadb;
+  --ink: #21150f;
+  --ink-2: #55443a;
+  --ink-3: #6b584b; /* 5.4:1 or better on every surface */
+  --line: rgba(52, 30, 16, 0.11);
+  --line-2: rgba(52, 30, 16, 0.2);
+  --accent: #7a1f2b; /* ruby maroon */
+  --accent-2: #96460f; /* copper */
+  --accent-soft: #f3e3d3;
+  --on-accent: #fff8ee;
+  --gold: #c8962e;
+  --shadow: 0 30px 70px -44px rgba(70, 38, 16, 0.42);
+  --shadow-lg: 0 50px 110px -56px rgba(70, 38, 16, 0.5);
 }
 
 /* ----------------------------------------------------------- theme: write */
 [data-theme="write"] {
   --f-display: var(--f-serif);
-  --paper: #faf4e9;
-  --paper-2: #fffdf8;
-  --surface: #fffdf8;
-  --surface-2: #f2e8d7;
-  --ink: #1f1611;
-  --ink-2: #5c4b3e;
-  --ink-3: #735f4c; /* 5:1 or better on every surface (was #9a8877) */
-  --line: rgba(31, 22, 17, 0.12);
-  --line-2: rgba(31, 22, 17, 0.2);
-  --accent: #7b2b2b;
-  --accent-2: #a3502a; /* readable as text: 4.6:1 or better (was #c1663a, 3.7:1) */
-  --accent-soft: #f0dfca;
+  --paper: #f3e7d2; /* deeper sandalwood, so the writer's band still reads as its own room */
+  --paper-2: #fbf3e4;
+  --surface: #fbf3e4;
+  --surface-2: #ead9bd;
+  --ink: #21150f;
+  --ink-2: #54412f;
+  --ink-3: #66513d; /* 5.3:1 or better on every surface */
+  --line: rgba(52, 30, 16, 0.13);
+  --line-2: rgba(52, 30, 16, 0.22);
+  --accent: #8a3c08; /* saffron copper: 5.4:1 or better as text */
+  --accent-2: #7a1f2b; /* ruby maroon */
+  --accent-soft: #ecd6b6;
   --on-accent: #fff8ee;
+  --gold: #b8862a;
   --shadow: 0 30px 70px -44px rgba(63, 40, 25, 0.42);
   --shadow-lg: 0 50px 110px -56px rgba(63, 40, 25, 0.5);
 }
@@ -883,10 +892,10 @@ h4 {
 [data-theme="tech"] .hero__wash {
   background: radial-gradient(
       46% 40% at 78% 20%,
-      rgba(30, 75, 122, 0.14),
+      rgba(200, 150, 46, 0.2),
       transparent 66%
     ),
-    radial-gradient(44% 40% at 10% 82%, rgba(193, 102, 58, 0.12), transparent 68%);
+    radial-gradient(44% 40% at 10% 82%, rgba(122, 31, 43, 0.1), transparent 68%);
 }
 .hero__grid {
   position: absolute;
@@ -2489,14 +2498,14 @@ h4 {
   color: var(--ink-2);
 }
 .halves__cell--night {
-  background: #1b2330;
-  border-color: #1b2330;
+  background: #2a1712; /* night, in this palette: a deep maroon-brown, not blue-black */
+  border-color: #2a1712;
 }
 .halves__cell--night .halves__k {
-  color: #f08a5d; /* the dark card keeps a bright orange: 6.4:1 on #1b2330 */
+  color: #f0b45a; /* the dark card keeps a bright gold: 8.6:1 on #2a1712 */
 }
 .halves__cell--night p {
-  color: #d9dde5;
+  color: #ecdfd0;
   font-family: var(--f-hi-body);
   font-size: 1rem;
   line-height: 1.85;
@@ -3267,11 +3276,11 @@ h4 {
   }
 }
 
-/* the path reads down the left column, then down the right */
+/* the path reads down the left column, then down the right: five cities, three and two */
 @media (min-width: 821px) {
   .path {
     grid-auto-flow: column;
-    grid-template-rows: repeat(4, auto);
+    grid-template-rows: repeat(3, auto);
   }
 }
 

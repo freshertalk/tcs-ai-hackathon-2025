@@ -6,6 +6,25 @@
 
 /* Colour tokens for the trading desk. Every green, red and amber below comes from
    here, so the dark theme only has to redefine this list. */
+/* The private area keeps its own colours (the owner's choice, 20 Nov 2026): the public page changed its palette, and
+   its theme sits on this same element ([data-theme="tech"], src/styles/site.css), so the light values the private
+   area has always had are stated here in full. Dark has its own block below, and a person's accent (prefs.css) is
+   more specific than both. Do not take a private colour from the public theme. */
+.adm[data-theme="tech"] {
+  --paper: #f4f5f7;
+  --paper-2: #ffffff;
+  --surface: #ffffff;
+  --surface-2: #eceff3;
+  --ink: #101620;
+  --ink-2: #4a5462;
+  --line: rgba(16, 22, 32, 0.1);
+  --line-2: rgba(16, 22, 32, 0.19);
+  --accent: #1e4b7a;
+  --accent-soft: #e4ecf4;
+  --on-accent: #ffffff;
+  --shadow: 0 30px 70px -44px rgba(16, 22, 32, 0.5);
+  --shadow-lg: 0 50px 110px -56px rgba(16, 22, 32, 0.55);
+}
 .adm {
   /* readable text on every light surface (WCAG AA: 4.5:1 for small text) */
   --ink-3: #5f6977;

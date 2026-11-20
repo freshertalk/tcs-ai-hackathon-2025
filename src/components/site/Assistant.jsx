@@ -46,7 +46,7 @@ const KB = [
   },
   {
     k: ["education", "degree", "college", "study", "b.e", "engineering degree", "rgpv", "cdac", "c-dac"],
-    a: EDUCATION.map((e) => `${e.degree}, ${e.institute} (${e.year}) — ${e.score}`).join(". ") + ".",
+    a: EDUCATION.map((e) => `${e.degree}, ${e.institute}${e.city ? `, ${e.city}` : ""} (${e.year}) — ${e.score}`).join(". ") + ".",
   },
   {
     k: [
@@ -58,8 +58,8 @@ const KB = [
     a: `${PROFILE.name.split(" ")[0]} writes Hindi fiction at night. ${AUTHOR.gloss} His debut novel is ${AUTHOR.novel.title} (${AUTHOR.novel.roman}), at ${AUTHOR.novel.hrefLabel}. Reach the author at ${AUTHOR.connect.email} or on Instagram ${AUTHOR.connect.instagramLabel}. In his own words: "${AUTHOR.motto}" (${AUTHOR.mottoGloss})`,
   },
   {
-    k: ["ghazipur", "noida", "hometown", "native", "origin", "from", "grew up", "born", "personal", "person", "hobbies", "bhojpuri", "languages", "language"],
-    a: `Raised in Ghazipur, Uttar Pradesh; lives and works in Noida. Languages: English (professional), हिन्दी (native) and Bhojpuri. The distance between Ghazipur and Noida is, he says, about the distance between his days and his nights — engineering by day, writing by night.`,
+    k: ["ghazipur", "noida", "indore", "pune", "bengaluru", "bangalore", "cities", "city", "lived", "hometown", "native", "origin", "from", "grew up", "born", "personal", "person", "hobbies", "bhojpuri", "languages", "language"],
+    a: `Born in Ghazipur, Uttar Pradesh, and at school there through class 12; B.E. in Indore (2010–2014); PG-DAC at C-DAC, Pune (2015); worked in Bengaluru from September 2015 to January 2026; lives and works in Noida since January 2026. Languages: English (professional), हिन्दी (native) and Bhojpuri. The distance between Ghazipur and Noida is, he says, about the distance between his days and his nights — engineering by day, writing by night.`,
   },
   {
     k: ["contact", "email", "reach", "hire", "phone", "linkedin", "available", "mobile", "number", "location", "based"],

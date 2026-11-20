@@ -6,7 +6,8 @@
 // to show):
 //   not signed in .... the login screen (or first-run setup)
 //   admin ............ the dashboard and every settings page
-//   superadmin ....... the same, plus Admin users
+//   superadmin ....... the same, plus Admin users and the Personal pages — the Kundali and Expenses (the owner, and
+//                      anyone the owner has made one)
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { BRAND } from "./brand";
@@ -38,6 +39,8 @@ import StockReport from "./stock/StockReport";
 import ChartPage from "./stock/chart/ChartPage";
 import TradeAI from "./tradeai/TradeAI";
 import Social from "./social/Social";
+import Kundali from "./kundali/Kundali";
+import Expenses from "./expenses/Expenses";
 
 import "./admin.css";
 import "./hub.css";
@@ -215,6 +218,10 @@ export default function AdminApp() {
           <Route path={`${ADMIN_BASE}/tradeai`} element={<Gate><TradeAI /></Gate>} />
           <Route path={`${ADMIN_BASE}/social`} element={<Gate><Social /></Gate>} />
           <Route path={`${ADMIN_BASE}/personal-access`} element={<Gate><PersonalAccess /></Gate>} />
+          {/* the owner's birth chart, in Hindi: superadmins only (the server refuses everyone else too) */}
+          <Route path={`${ADMIN_BASE}/kundali`} element={<Gate superOnly><Kundali /></Gate>} />
+          {/* the owner's expense tracker: superadmins only, as the Kundali is */}
+          <Route path={`${ADMIN_BASE}/expenses`} element={<Gate superOnly><Expenses /></Gate>} />
           <Route path="*" element={<Navigate to={ADMIN_BASE} replace />} />
         </Routes>
         </TempleProvider>

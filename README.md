@@ -59,9 +59,40 @@ A login-protected control room that is **not linked from the public site**, is s
 
 | | Superadmin | Admin |
 | --- | --- | --- |
-| Sign in with Google | `vinaytiwari.iist@gmail.com` (fixed, always allowed) | Anyone the superadmin adds |
+| Sign in with Google | `vinaytiwari.iist@gmail.com` (the owner: fixed, always allowed) and anyone the owner has made a superadmin | Anyone a superadmin adds |
 | Google sign-in settings, Analytics ID, dashboard | yes | yes |
 | Add / remove admin users | **yes** | no |
+| Make someone a superadmin, or take it away | **the owner only** | no |
+| The Personal pages: the Kundali (`/me/kundali`, in Hindi) and Expenses (`/me/expenses`) | **yes** | no |
+
+**Superadmins (2026-11-20).** The owner can add a person as a superadmin or make an admin one (`POST /api/admin/admins
+{ email, role: "superadmin" }`, `PUT /api/admin/admins/:email { role }` — owner only). A superadmin is a superadmin
+everywhere (`identify()` in `server/app.js` gives the role; `owner` is true for `SUPERADMIN_EMAIL` alone), the site's
+own Zerodha account included; only the owner can add, change or remove one, and the owner cannot be removed.
+
+**The Kundali (2026-11-20; `server/kundali.js`, `src/admin/kundali/`).** The owner's birth chart, its reading in Hindi
+and the papers behind it, for superadmins only. The chart is one private record (`kundali/record.json`), the papers are
+files under `server/data/media/`; neither is in this repository or in the client bundle. The page draws the charts,
+works the Vimshottari dasha out for today (`jyotish.js`, checked against the printed tables), and reads, downloads,
+adds and removes the papers. A chart is carried to another server with Export / Import on the page.
+
+**Expenses (2026-11-20; `server/expenses.js`, `src/admin/expenses/`).** The owner's expense tracker, under Personal on
+/me, superadmins only (one shared ledger). An entry is a day, an amount, one of 31 categories in 8 groups, a few words,
+a way of paying and a note; routes `GET|POST /api/admin/expenses`, `PUT|DELETE /api/admin/expenses/:id`; one record per
+entry in collection `expenses`. The page filters by period, words, group and way of paying, and everything under the
+filter row — figures, the stacked chart (a bar a day, month or year), the split by group and category, the sortable list
+— describes the same entries; the whole ledger is also tabled month by month and year by year, and what is shown can be
+exported as CSV. The arithmetic is `ledger.js` (pure, tested); the group colours were validated for colour-blind
+separation on the private area's surfaces.
+
+**The main page's path (2026-11-20).** `JOURNEY` in `src/data/profile.js` is one stop per city with its years —
+Ghazipur, Indore, Pune, Bengaluru, Noida (the owner's own list); the hero line, the portrait tag, the scrolling strip,
+the author's bio and the search-engine text name the same cities.
+
+**Two palettes (2026-11-20).** The public site wears the owner's own colours — sandal ivory, ruby maroon, copper and a
+line of gold — chosen from his chart. The private area (/me and everything under it) keeps the navy and blue it always
+had: the owner tried the new family there and went back the same day. The private area states its light colours itself
+(`.adm[data-theme="tech"]` in `analyzer.css`) because the public theme sits on the same element. Details in `BRAND.md`.
 
 Having a Google account is not enough: only these addresses can sign in, and removing an
 admin ends their session immediately.

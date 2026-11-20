@@ -264,6 +264,83 @@ test("admin vs superadmin: same access, except managing admin users", async (t) 
   assert.match((await s.login("helper@example.com")).cb.headers.location, /error=unauthorized/);
 });
 
+test("the owner can make superadmins: they manage admins and see what the owner sees, but only the owner decides who is one", async (t) => {
+  const s = await boot();
+  t.after(s.close);
+  await s.configure();
+  const boss = (await s.login(SUPERADMIN_EMAIL)).session;
+  const row = (r, email) => r.json.admins.find((a) => a.email === email);
+
+  // the owner is told they are the owner, and that the superadmin choices are theirs
+  assert.equal((await s.request("GET", "/api/auth/status", { cookie: boss })).json.user.owner, true);
+  assert.equal((await s.request("GET", "/api/admin/admins", { cookie: boss })).json.canManageSupers, true);
+
+  // added as a superadmin in one step …
+  let r = await s.request("POST", "/api/admin/admins", { cookie: boss, body: { email: "Partner@Example.com", role: "superadmin", invite: false } });
+  assert.equal(r.status, 201);
+  assert.deepEqual([row(r, "partner@example.com").role, row(r, "partner@example.com").owner, row(r, "partner@example.com").locked], ["superadmin", false, false]);
+  assert.deepEqual([r.json.admins[0].email, r.json.admins[0].owner, r.json.admins[0].locked], [SUPERADMIN_EMAIL, true, true]);
+  assert.equal(row(r, "partner@example.com").madeSuperBy, SUPERADMIN_EMAIL);
+  // … or an admin made one afterwards
+  await s.request("POST", "/api/admin/admins", { cookie: boss, body: { email: "helper@example.com", invite: false } });
+  await s.request("POST", "/api/admin/admins", { cookie: boss, body: { email: "third@example.com", invite: false } });
+  r = await s.request("PUT", "/api/admin/admins/helper%40example.com", { cookie: boss, body: { role: "superadmin" } });
+  assert.equal(r.status, 200);
+  assert.equal(row(r, "helper@example.com").role, "superadmin");
+  // the superadmins are listed before the admins
+  assert.deepEqual(r.json.admins.map((a) => a.email), [SUPERADMIN_EMAIL, "partner@example.com", "helper@example.com", "third@example.com"]);
+  assert.equal((await s.request("PUT", "/api/admin/admins/helper%40example.com", { cookie: boss, body: { role: "boss" } })).status, 400);
+  assert.equal((await s.request("POST", "/api/admin/admins", { cookie: boss, body: { email: "x@example.com", role: "owner" } })).status, 400);
+  assert.equal((await s.request("PUT", "/api/admin/admins/nobody%40example.com", { cookie: boss, body: { role: "superadmin" } })).status, 404);
+  r = await s.request("POST", "/api/admin/admins", { cookie: boss, body: { email: "partner@example.com" } });
+  assert.equal(r.status, 409);
+  assert.match(r.json.message, /already a superadmin/);
+
+  // a superadmin is a superadmin everywhere: the role, the people page, the superadmin-only settings
+  const partner = (await s.login("partner@example.com")).session;
+  const me = (await s.request("GET", "/api/auth/status", { cookie: partner })).json.user;
+  assert.deepEqual([me.role, me.owner], ["superadmin", false]);
+  r = await s.request("GET", "/api/admin/admins", { cookie: partner });
+  assert.equal(r.status, 200);
+  assert.equal(r.json.canManageSupers, false);
+  assert.equal((await s.request("GET", "/api/admin/auth/audit", { cookie: partner })).status, 200);
+  // … and manages the admins, as the owner does
+  r = await s.request("POST", "/api/admin/admins", { cookie: partner, body: { email: "fourth@example.com", invite: false } });
+  assert.equal(r.status, 201);
+  assert.equal((await s.request("DELETE", "/api/admin/admins/fourth%40example.com", { cookie: partner })).status, 200);
+
+  // but who is a superadmin is the owner's decision alone
+  r = await s.request("POST", "/api/admin/admins", { cookie: partner, body: { email: "friend@example.com", role: "superadmin" } });
+  assert.equal(r.status, 403);
+  assert.match(r.json.message, /Only the owner can add a superadmin/);
+  assert.equal((await s.request("PUT", "/api/admin/admins/third%40example.com", { cookie: partner, body: { role: "superadmin" } })).status, 403);
+  assert.equal((await s.request("PUT", "/api/admin/admins/helper%40example.com", { cookie: partner, body: { role: "admin" } })).status, 403);
+  r = await s.request("DELETE", "/api/admin/admins/helper%40example.com", { cookie: partner });
+  assert.equal(r.status, 403);
+  assert.match(r.json.message, /Only the owner can remove a superadmin/);
+  // nor can one superadmin sign another (or the owner) out, though they can do it for an admin and for themselves
+  assert.equal((await s.request("POST", "/api/admin/admins/helper%40example.com/signout", { cookie: partner })).status, 403);
+  assert.equal((await s.request("POST", `/api/admin/admins/${encodeURIComponent(SUPERADMIN_EMAIL)}/signout`, { cookie: partner })).status, 403);
+  assert.equal((await s.request("POST", "/api/admin/admins/third%40example.com/signout", { cookie: partner })).status, 200);
+  // the owner is never changed or removed, by anyone
+  assert.equal((await s.request("PUT", `/api/admin/admins/${encodeURIComponent(SUPERADMIN_EMAIL)}`, { cookie: boss, body: { role: "admin" } })).status, 400);
+  assert.equal((await s.request("DELETE", `/api/admin/admins/${encodeURIComponent(SUPERADMIN_EMAIL)}`, { cookie: partner })).status, 400);
+
+  // made an admin again: the superadmin pages close at once, on the very next request, with the same cookie
+  r = await s.request("PUT", "/api/admin/admins/partner%40example.com", { cookie: boss, body: { role: "admin" } });
+  assert.equal(row(r, "partner@example.com").role, "admin");
+  assert.equal(row(r, "partner@example.com").madeSuperBy, undefined);
+  assert.equal((await s.request("GET", "/api/admin/admins", { cookie: partner })).status, 403);
+  assert.equal((await s.request("GET", "/api/auth/status", { cookie: partner })).json.user.role, "admin");
+  // and the owner removes a superadmin like anyone else
+  r = await s.request("DELETE", "/api/admin/admins/helper%40example.com", { cookie: boss });
+  assert.equal(r.status, 200);
+  assert.equal(row(r, "helper@example.com"), undefined);
+  // every step is in the trail
+  const types = (await s.request("GET", "/api/admin/auth/audit?limit=300", { cookie: boss })).json.entries.map((e) => e.type);
+  for (const k of ["superadmin_added", "superadmin_made", "superadmin_unmade", "superadmin_removed"]) assert.ok(types.includes(k), k);
+});
+
 /* ------------------------------------------------------------ settings */
 
 test("Google settings: validated, secret kept when left blank, never sent back", async (t) => {

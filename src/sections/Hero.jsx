@@ -95,7 +95,7 @@ export default function Hero() {
 
             <p className="hero__blurb">
               <SplitWords
-                text="Raised in Ghazipur, working from Noida. By day I architect cloud-native SAP systems where every mistake is caught; by night I write Hindi fiction about the ones where nothing can be put right."
+                text="Raised in Ghazipur, trained in Pune, seasoned in Bengaluru, working from Noida. By day I architect cloud-native SAP systems where every mistake is caught; by night I write Hindi fiction about the ones where nothing can be put right."
                 stagger={0.022}
                 delay={0.3}
               />
@@ -167,7 +167,7 @@ export default function Hero() {
               fetchPriority="high"
             />
             <span className="hero__portraitTag">
-              Ghazipur → Noida
+              Ghazipur → Pune → Bengaluru → Noida
             </span>
           </motion.div>
         </div>

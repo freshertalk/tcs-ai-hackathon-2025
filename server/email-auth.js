@@ -580,6 +580,12 @@ function mountEmailAuth(app, ctx) {
       bad(res, 404, "not_found", "No such person.");
       return null;
     }
+    // a superadmin the owner made manages the admins; another superadmin's sign-in (and the owner's) is the owner's
+    // to touch — and their own, as it is anyone's
+    if (id.role === "superadmin" && !req.user.owner && id.email !== req.user.email) {
+      bad(res, 403, "forbidden", "Only the owner can do this for a superadmin.");
+      return null;
+    }
     return id;
   };
 

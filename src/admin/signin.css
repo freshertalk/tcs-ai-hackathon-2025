@@ -406,3 +406,70 @@
   text-underline-offset: 3px;
   cursor: pointer;
 }
+
+/* ------------------------------------------------------------ people: admin or superadmin */
+.adm-lead--roles {
+  margin-top: 8px;
+  font-size: var(--t-small);
+}
+.adm-rolepick {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.adm-rolepick legend {
+  padding: 0;
+  margin-bottom: 6px;
+  font-size: var(--t-small);
+  font-weight: 600;
+  color: var(--ink-2, var(--ink));
+}
+.adm-rolepick label {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 11px 13px;
+  border: 1px solid var(--line-2, var(--line));
+  border-radius: 14px;
+  background: var(--paper);
+  cursor: pointer;
+  transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+}
+.adm-rolepick label:hover {
+  border-color: var(--accent);
+}
+.adm-rolepick label.is-on {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  box-shadow: 0 0 0 1px var(--accent) inset;
+}
+.adm-rolepick input {
+  margin-top: 3px;
+  accent-color: var(--accent);
+}
+.adm-rolepick b {
+  display: block;
+  font-size: var(--t-base);
+  color: var(--ink);
+}
+.adm-rolepick small {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--t-small);
+  color: var(--ink-2, var(--ink));
+}
+.adm-means {
+  margin: 8px 0 12px;
+  padding-left: 20px;
+  display: grid;
+  gap: 5px;
+}
+@media (max-width: 560px) {
+  .adm-rolepick {
+    grid-template-columns: 1fr;
+  }
+}

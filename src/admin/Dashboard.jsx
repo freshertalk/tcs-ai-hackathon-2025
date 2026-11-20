@@ -530,7 +530,7 @@ export default function Dashboard() {
             </p>
             <h1 id="hm-hero-h">Namaste, {firstName(user)}</h1>
             <p className="hm-me__role">
-              {isSuper ? "Owner" : user.trader ? "Member · own Zerodha account" : "Member"}
+              {isSuper ? (user.owner === false ? "Superadmin" : "Owner") : user.trader ? "Member · own Zerodha account" : "Member"}
             </p>
             <div className="hm-me__cta">
               <a className="hm-btn hm-btn--go" href={terminal(startView)} target="_blank" rel="noopener noreferrer" data-tip={`Open the trading terminal in a new tab${start && startView ? `, on ${start.label}` : ""}. Choose where it opens under Customize.`}>
@@ -544,6 +544,46 @@ export default function Dashboard() {
               </a>
             </div>
           </section>
+          {/* Personal: what is the owner's own — his Kundali and his expenses. For superadmins only; the server refuses
+              everyone else as well. */}
+          {isSuper && (
+            <section className="hm-about" aria-labelledby="hm-about-h">
+              <h2 id="hm-about-h">Personal</h2>
+              <a
+                className="hm-kundali"
+                href={adminPath("/kundali")}
+                target="_blank"
+                rel="noopener noreferrer"
+                lang="hi"
+                data-tip="The birth chart, in Hindi: the charts, the dasha running today, the reading, the colours and remedies, and the stored horoscope to read or download. Superadmins only. Opens in a new tab."
+              >
+                <span className="hm-kundali__mark" aria-hidden="true">
+                  ॐ
+                </span>
+                <span className="hm-kundali__text">
+                  <b>जन्म कुंडली</b>
+                  <small>लग्न, ग्रह, दशा, योग, शुभ रंग और उपाय · पत्रिका की प्रति</small>
+                </span>
+                <IconArrow />
+              </a>
+              <a
+                className="hm-kundali hm-kundali--expenses"
+                href={adminPath("/expenses")}
+                target="_blank"
+                rel="noopener noreferrer"
+                data-tip="Your expense tracker: add what you spend with its date, then see it by day, month, year, group and category, search and sort it, and save it as a file. Superadmins only. Opens in a new tab."
+              >
+                <span className="hm-kundali__mark" aria-hidden="true">
+                  ₹
+                </span>
+                <span className="hm-kundali__text">
+                  <b>Expenses</b>
+                  <small>Track what you spend: by day, month, year and category</small>
+                </span>
+                <IconArrow />
+              </a>
+            </section>
+          )}
           <PageJumps side within=".hm" select="[data-jump]" min={2} label="The sections of this page" />
         </aside>
 

@@ -42,7 +42,7 @@ const TICKER = [
   { text: "HANA Cloud" },
   { text: "Clean Core" },
   { text: "Agentic AI", hl: true },
-  { text: "ग़ाज़ीपुर → नोएडा" },
+  { text: "ग़ाज़ीपुर → पुणे → बेंगलुरु → नोएडा" },
   { text: "हिन्दी लेखक", hl: true },
 ];
 
@@ -50,7 +50,7 @@ export default function Home() {
   useEffect(() => {
     document
       .querySelector('meta[name="theme-color"]')
-      ?.setAttribute("content", "#f4f5f7");
+      ?.setAttribute("content", "#f8f4ec");
   }, []);
 
   return (

@@ -3,8 +3,11 @@ const { BRAND } = require("./brand");
 // The API behind /me, plus static hosting of the built site.
 //
 // Roles
-//   superadmin  SUPERADMIN_EMAIL. Everything an admin can do, plus add/remove admins.
-//   admin       Anyone the superadmin has added. Full access except admin management.
+//   owner       SUPERADMIN_EMAIL: the first superadmin. Cannot be removed or changed, and is the only one who can
+//               make someone a superadmin, make a superadmin an admin again, or remove a superadmin.
+//   superadmin  The owner, and anyone the owner has made one. Everything the owner can do (settings, people, the
+//               site's own trading account, the private pages) except what is said above.
+//   admin       Anyone a superadmin has added. Full access except admin management.
 //   (nobody else can sign in — a valid Google account is not enough on its own.)
 
 const fs = require("fs");
@@ -45,6 +48,8 @@ const { PaperService, PaperError } = require("./paper/service");
 const { DayAnalysis } = require("./analysis/service");
 const { mountAnalysis } = require("./analysis/routes");
 const { Temple, mountTemple } = require("./temple");
+const { Kundali, mountKundali } = require("./kundali");
+const { Expenses, mountExpenses } = require("./expenses");
 const { Notifier, mountNotify } = require("./notify");
 const { AlertWatch } = require("./alert-watch");
 const { DisciplineWatch } = require("./discipline-watch");
@@ -393,9 +398,10 @@ function createApp(opts = {}) {
   function identify(email) {
     const c = canonicalEmail(email);
     if (!c) return null;
-    if (c === canonicalEmail(SUPERADMIN_EMAIL)) return { email: SUPERADMIN_EMAIL, role: "superadmin" };
+    if (c === canonicalEmail(SUPERADMIN_EMAIL)) return { email: SUPERADMIN_EMAIL, role: "superadmin", owner: true };
     const a = store.data.admins.find((x) => canonicalEmail(x.email) === c);
-    return a ? { email: a.email, role: "admin" } : null;
+    // a person the owner has made a superadmin: the same role, but never the owner
+    return a ? { email: a.email, role: a.role === "superadmin" ? "superadmin" : "admin", owner: false } : null;
   }
   const roleOf = (email) => (identify(email) || {}).role || null;
 
@@ -412,6 +418,7 @@ function createApp(opts = {}) {
       name: String(p.name || ""),
       picture: /^https:\/\//.test(p.picture || "") ? p.picture : "",
       role: id.role,
+      owner: Boolean(id.owner),
     };
   }
 
@@ -608,6 +615,12 @@ function createApp(opts = {}) {
       if (req.user.role !== "superadmin") {
         return res.status(403).json({ error: "forbidden", message: "Only the superadmin can do this." });
       }
+      next();
+    });
+  // the owner alone: who is a superadmin is decided by one person, and a superadmin cannot make another
+  const requireOwner = (req, res, next) =>
+    requireSuper(req, res, () => {
+      if (!req.user.owner) return res.status(403).json({ error: "forbidden", message: "Only the owner can do this." });
       next();
     });
 
@@ -830,10 +843,12 @@ function createApp(opts = {}) {
   /* ------------------------------------------- superadmin: admin users */
   const adminRow = (email, role, extra = {}) => {
     const u = store.data.users[email] || {};
+    const owner = email === SUPERADMIN_EMAIL;
     return {
       email,
       role,
-      locked: role === "superadmin",
+      owner,
+      locked: owner, // the owner cannot be removed or changed; a superadmin the owner made can be, by the owner
       lastLogin: u.lastLogin || null,
       hasPassword: Boolean(u.passwordHash),
       googleLinked: Boolean(u.googleAt),
@@ -841,30 +856,46 @@ function createApp(opts = {}) {
       ...extra,
     };
   };
+  const isSuperRec = (a) => a.role === "superadmin";
   const adminRows = () => [
     adminRow(SUPERADMIN_EMAIL, "superadmin"),
-    ...store.data.admins.map((a) => adminRow(a.email, "admin", { addedBy: a.addedBy, addedAt: a.addedAt })),
+    // the superadmins first, then the admins, each in the order they were added
+    ...[...store.data.admins.filter(isSuperRec), ...store.data.admins.filter((a) => !isSuperRec(a))].map((a) =>
+      adminRow(a.email, isSuperRec(a) ? "superadmin" : "admin", { addedBy: a.addedBy, addedAt: a.addedAt, ...(isSuperRec(a) ? { madeSuperBy: a.madeSuperBy || a.addedBy, madeSuperAt: a.madeSuperAt || a.addedAt } : {}) })
+    ),
   ];
+  // what the page needs to know about the one asking: only the owner is offered the superadmin choices
+  const peopleView = (req, extra = {}) => ({ admins: adminRows(), canManageSupers: Boolean(req.user.owner), ...extra });
 
-  app.get("/api/admin/admins", requireSuper, (req, res) => res.json({ admins: adminRows(), emailReady: mailer.configured() }));
+  app.get("/api/admin/admins", requireSuper, (req, res) => res.json(peopleView(req, { emailReady: mailer.configured() })));
 
   app.post("/api/admin/admins", requireSuper, async (req, res) => {
     const email = normaliseEmail((req.body || {}).email);
     if (!EMAIL_RE.test(email) || email.length > 254) {
       return res.status(400).json({ error: "invalid", message: "Enter a valid email address." });
     }
+    const asked = (req.body || {}).role;
+    if (asked !== undefined && asked !== "admin" && asked !== "superadmin") {
+      return res.status(400).json({ error: "invalid", message: "A person is added as an admin or as a superadmin." });
+    }
+    const asSuper = asked === "superadmin";
+    if (asSuper && !req.user.owner) {
+      return res.status(403).json({ error: "forbidden", message: "Only the owner can add a superadmin." });
+    }
     // the same mailbox is the same person: capitals, and for Gmail dots, +tags and googlemail.com, do not make a new one
     const same = identify(email);
-    if (same && same.role === "superadmin") {
+    if (same && same.owner) {
       return res.status(400).json({ error: "invalid", message: "That is the superadmin — it already has full access." });
     }
     if (same) {
-      return res.status(409).json({ error: "exists", message: same.email === email ? "That person is already an admin." : `That is the same mailbox as ${same.email}, who is already an admin.` });
+      const what = same.role === "superadmin" ? "a superadmin" : "an admin";
+      return res.status(409).json({ error: "exists", message: same.email === email ? `That person is already ${what}.` : `That is the same mailbox as ${same.email}, who is already ${what}.` });
     }
+    const at = new Date().toISOString();
     store.update((d) => {
-      d.admins.push({ email, addedBy: req.user.email, addedAt: new Date().toISOString() });
+      d.admins.push({ email, addedBy: req.user.email, addedAt: at, ...(asSuper ? { role: "superadmin", madeSuperBy: req.user.email, madeSuperAt: at } : {}) });
     });
-    audit(req, "admin_added", email, { by: req.user.email });
+    audit(req, asSuper ? "superadmin_added" : "admin_added", email, { by: req.user.email });
     // an invitation by email, when email is set up and the superadmin did not decline it
     let invited = false;
     let inviteProblem = "";
@@ -877,14 +908,48 @@ function createApp(opts = {}) {
         inviteProblem = err.message;
       }
     }
-    res.status(201).json({ admins: adminRows(), invited, inviteProblem });
+    res.status(201).json(peopleView(req, { invited, inviteProblem }));
+  });
+
+  // An admin becomes a superadmin, or a superadmin an admin again. The owner alone decides this: a superadmin can do
+  // everything the owner can, the site's own trading account included, so nobody but the owner hands that out.
+  app.put("/api/admin/admins/:email", requireOwner, limiter(30, 10 * 60 * 1000), (req, res) => {
+    const role = (req.body || {}).role;
+    if (role !== "admin" && role !== "superadmin") {
+      return res.status(400).json({ error: "invalid", message: "Choose admin or superadmin." });
+    }
+    const id = identify(normaliseEmail(req.params.email));
+    if (!id) return res.status(404).json({ error: "not_found", message: "No such admin." });
+    if (id.owner) return res.status(400).json({ error: "locked", message: "The owner cannot be changed." });
+    if (id.role === role) return res.json(peopleView(req));
+    // a superadmin works on the site's own Zerodha account; a Zerodha account of their own is an admin's. One or the
+    // other, said before it happens — never both at once.
+    if (role === "superadmin" && accounts.allowed(id.email)) {
+      return res.status(409).json({ error: "own_account", message: "This person trades on a Zerodha account of their own. Switch that off first (Zerodha accounts): a superadmin uses the site's own account." });
+    }
+    const at = new Date().toISOString();
+    store.update((d) => {
+      const a = d.admins.find((x) => x.email === id.email);
+      if (!a) return;
+      if (role === "superadmin") Object.assign(a, { role: "superadmin", madeSuperBy: req.user.email, madeSuperAt: at });
+      else {
+        delete a.role;
+        delete a.madeSuperBy;
+        delete a.madeSuperAt;
+      }
+    });
+    audit(req, role === "superadmin" ? "superadmin_made" : "superadmin_unmade", id.email, { by: req.user.email });
+    res.json(peopleView(req));
   });
 
   app.delete("/api/admin/admins/:email", requireSuper, (req, res) => {
     const email = normaliseEmail(req.params.email);
     const id = identify(email);
-    if (id && id.role === "superadmin") {
+    if (id && id.owner) {
       return res.status(400).json({ error: "locked", message: "The superadmin cannot be removed." });
+    }
+    if (id && id.role === "superadmin" && !req.user.owner) {
+      return res.status(403).json({ error: "forbidden", message: "Only the owner can remove a superadmin." });
     }
     if (!id) {
       return res.status(404).json({ error: "not_found", message: "No such admin." });
@@ -897,8 +962,8 @@ function createApp(opts = {}) {
       d.users[id.email] = { name: old.name || "", lastLogin: old.lastLogin || null, sessionVer: (old.sessionVer || 0) + 1 };
     });
     accounts.forget(id.email); // their Zerodha key, token and trading settings go with their access
-    audit(req, "admin_removed", id.email, { by: req.user.email });
-    res.json({ admins: adminRows() });
+    audit(req, id.role === "superadmin" ? "superadmin_removed" : "admin_removed", id.email, { by: req.user.email });
+    res.json(peopleView(req));
   });
 
   /* ------------------------------------------- each person's own Zerodha account (server/accounts.js) */
@@ -914,15 +979,17 @@ function createApp(opts = {}) {
     }
   };
   const accRedirect = (req) => `${origin(req)}${ACC_PATH}/callback`;
+  // who can be given a Zerodha account of their own: the admins (a superadmin works on the site's own account)
+  const ownAccountPeople = () => store.data.admins.filter((a) => a.role !== "superadmin").map((a) => a.email);
   // the owner: who has an account of their own, and the switch for each (never a key, a position or an order)
-  app.get("/api/admin/accounts", requireSuper, accWrap(async (req) => ({ people: accounts.list(), admins: store.data.admins.map((a) => a.email), redirectUrl: accRedirect(req) })));
+  app.get("/api/admin/accounts", requireSuper, accWrap(async (req) => ({ people: accounts.list(), admins: ownAccountPeople(), redirectUrl: accRedirect(req) })));
   app.put("/api/admin/accounts/people/:email", requireSuper, limiter(60, 10 * 60 * 1000), accWrap(async (req) => {
     const id = identify(normaliseEmail(req.params.email));
     if (!id || id.role !== "admin") throw new AccountError("Add this person under People first: only someone who can sign in can be given an account.", "not_admin", 404);
     const on = Boolean((req.body || {}).allowed);
     const people = on ? accounts.grant(id.email, req.user.email) : accounts.revoke(id.email, req.user.email);
     audit(req, on ? "account_granted" : "account_revoked", id.email, { by: req.user.email });
-    return { people, admins: store.data.admins.map((a) => a.email), redirectUrl: accRedirect(req) };
+    return { people, admins: ownAccountPeople(), redirectUrl: accRedirect(req) };
   }));
   // the person: their own connection
   app.get("/api/admin/accounts/me", requireAdmin, accWrap(async (req) => ({ ...accounts.state(req.user.email), owner: req.user.role === "superadmin", redirectUrl: accRedirect(req) })));
@@ -978,6 +1045,12 @@ function createApp(opts = {}) {
   /* ------------------------------------------------ the Mandir (devotional audio) */
   const temple = opts.temple || new Temple({ docs, dir: dataDir });
   mountTemple(app, { temple, requireAdmin, requireSuper, limiter });
+  // the owner's Kundali: his birth chart, its reading and the papers it comes from — superadmins only (server/kundali.js)
+  const kundali = opts.kundali || new Kundali({ docs, dir: dataDir, now: opts.now });
+  mountKundali(app, { kundali, requireSuper, limiter, audit });
+  // the owner's expense ledger, beside it under "Personal" on /me — superadmins only (server/expenses.js)
+  const expenses = opts.expenses || new Expenses({ docs, now: opts.now });
+  mountExpenses(app, { expenses, requireSuper, limiter });
 
   /* ------------------------------------------------ messages to the owner's phone (Telegram) */
   const notifier = opts.notifier || new Notifier({ docs, secrets: { encrypt: (t) => encrypt(t, settingsKey), decrypt: (b) => decrypt(b, settingsKey) }, fetchImpl: opts.notifyFetch || globalThis.fetch, now: opts.now, log: opts.log || console });
@@ -2208,6 +2281,8 @@ ${e.text}
     ahead,
     evidence,
     expiryCal,
+    kundali,
+    expenses,
     live,
     supervisor,
     recorder,

@@ -90,7 +90,8 @@ const SKILL_GROUPS = [
 const EDUCATION = [
   {
     degree: "B.E. — Electronics & Communication Engineering",
-    institute: "RGPV, Bhopal",
+    institute: "RGPV, Bhopal", // the university; the college is in Indore
+    city: "studied in Indore",
     year: "2010 — 2014",
     score: "74.90%",
   },
@@ -107,43 +108,33 @@ const LANGUAGES = [
   { name: "हिन्दी", level: "Native" },
 ];
 
-/* The path so far, oldest first. Kept in step with EDUCATION and
-   data/experience.js — it is the same story, told as a line. */
+/* The path so far, oldest first: one stop per city, with its years (the owner's own list, 20 Nov 2026). Kept in
+   step with EDUCATION and data/experience.js — it is the same story, told as a line. */
 const JOURNEY = [
   {
-    when: "Early years",
+    when: "Till 2010",
     place: "Ghazipur, Uttar Pradesh",
-    what: "Born and raised here; the place his stories, and his Bhojpuri, still come from.",
+    what: "Born here, and at school here through class 12; the place his stories, and his Bhojpuri, still come from.",
   },
   {
     when: "2010 — 2014",
-    place: "RGPV, Bhopal",
-    what: "B.E. in Electronics & Communication Engineering.",
+    place: "Indore, Madhya Pradesh",
+    what: "B.E. in Electronics & Communication Engineering (RGPV).",
   },
   {
     when: "2015",
-    place: "C-DAC, Pune",
-    what: "PG-DAC in Advanced Computing — the turn from circuits to software.",
+    place: "Pune, Maharashtra",
+    what: "PG-DAC at C-DAC — the turn from circuits to software.",
   },
   {
-    when: "2015 — 2019",
-    place: "Bengaluru",
-    what: "Wipro, Mindtree and Cognizant: enterprise Java, microservices, telecom, IoT and cybersecurity.",
+    when: "Sep 2015 — Jan 2026",
+    place: "Bengaluru, Karnataka",
+    what: "Wipro, Mindtree, Cognizant, IBM and TCS: from enterprise Java, microservices, telecom and IoT to SAP UI5, Fiori and leading a BTP team.",
   },
   {
-    when: "2020 — 2022",
-    place: "IBM India",
-    what: "SAP UI5 and Fiori — the first years on the SAP platform.",
-  },
-  {
-    when: "2022 — 2026",
-    place: "Tata Consultancy Services",
-    what: "SAP BTP team lead; Fiori/UI5 delivery for a global MedTech platform.",
-  },
-  {
-    when: "2026 — now",
-    place: "IBM India · Noida",
-    what: "Solution architecture across nine SAP initiatives, plus the writing.",
+    when: "Jan 2026 — now",
+    place: "Noida, Uttar Pradesh",
+    what: "IBM India: solution architecture across nine SAP initiatives, plus the writing.",
   },
 ];
 

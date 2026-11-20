@@ -61,7 +61,8 @@ export default function Credentials() {
                     {e.degree}
                     <br />
                     <span style={{ color: "var(--ink-3)", fontSize: "0.84rem" }}>
-                      {e.institute} · {e.year} · {e.score}
+                      {e.institute}
+                      {e.city ? ` · ${e.city}` : ""} · {e.year} · {e.score}
                     </span>
                   </span>
                 </div>

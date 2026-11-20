@@ -1,0 +1,956 @@
+/* ==========================================================================
+   जन्म कुंडली — the Kundali page (src/admin/kundali/Kundali.jsx). Hindi throughout: Martel for headings, Tiro
+   Devanagari Hindi for reading. Every colour is a token of the private area (never the public page's), so the page
+   follows dark and light and whatever accent the person chose.
+   Devanagari needs room above and below the line, so line heights here are generous and nothing is letter-spaced.
+   ========================================================================== */
+.kd {
+  --kd-max: 1240px;
+  min-height: 100vh;
+  color: var(--ink);
+  font-family: var(--f-hi-body, "Tiro Devanagari Hindi", "Nirmala UI", serif);
+  font-size: 1.02rem;
+  line-height: 1.85;
+}
+.kd h1,
+.kd h2,
+.kd h3,
+.kd b,
+.kd th,
+.kd dt,
+.kd summary,
+.kd .adm-btn {
+  font-family: var(--f-hi, "Martel", "Nirmala UI", serif);
+  letter-spacing: 0;
+}
+.kd-wrap {
+  width: min(100% - 2 * clamp(14px, 3.2vw, 40px), var(--kd-max));
+  margin-inline: auto;
+}
+.kd p {
+  margin: 0;
+}
+.kd a {
+  color: inherit;
+}
+
+/* ------------------------------------------------------------------ the top bar */
+.kd-top {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background: color-mix(in srgb, var(--paper) 82%, transparent);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  backdrop-filter: blur(16px) saturate(1.4);
+  border-bottom: 1px solid var(--line);
+}
+.kd-top__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 60px;
+}
+.kd-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px 6px 8px;
+  border-radius: 999px;
+  text-decoration: none;
+  color: var(--ink-2);
+  font-family: var(--f-hi, serif);
+  font-weight: 600;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+.kd-back:hover {
+  background: var(--accent-soft);
+  color: var(--ink);
+}
+.kd-top__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--f-hi, serif);
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+.kd-om {
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 1.05rem;
+  line-height: 1;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 55%, transparent);
+}
+.kd-top__acts {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.kd-icon {
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--line-2);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+.kd-icon:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+.kd-icon:focus-visible,
+.kd-back:focus-visible,
+.kd-jump a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.kd-jump {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  padding-block: 2px 8px;
+  scrollbar-width: none;
+}
+.adm .kd-jump::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+.kd-jump a {
+  flex: none;
+  padding: 3px 13px;
+  border-radius: 999px;
+  text-decoration: none;
+  color: var(--ink-2);
+  font-family: var(--f-hi, serif);
+  font-size: 0.92rem;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+.kd-jump a:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* ------------------------------------------------------------------ the page */
+.kd-main {
+  display: grid;
+  gap: clamp(22px, 3vw, 38px);
+  padding-block: clamp(18px, 3vw, 34px) 48px;
+}
+.kd-sec {
+  display: grid;
+  gap: 14px;
+  scroll-margin-top: 118px;
+}
+.kd-hero {
+  scroll-margin-top: 118px;
+}
+.kd-sec__head h2 {
+  position: relative;
+  margin: 0;
+  padding-left: 16px;
+  font-size: clamp(1.3rem, 2.2vw, 1.65rem);
+  font-weight: 700;
+  line-height: 1.5;
+}
+.kd-sec__head h2::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.32em;
+  bottom: 0.32em;
+  width: 4px;
+  border-radius: 4px;
+  background: linear-gradient(180deg, var(--accent), var(--accent-2));
+}
+.kd-sec__head p,
+.kd-lead {
+  max-width: 92ch;
+  margin-top: 6px;
+  color: var(--ink-2);
+}
+.kd-card {
+  padding: clamp(14px, 1.8vw, 22px);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--surface);
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--ink) 3%, transparent), 0 18px 40px -34px color-mix(in srgb, var(--ink) 55%, transparent);
+}
+.kd-card h3 {
+  margin: 0 0 8px;
+  font-size: 1.08rem;
+  font-weight: 700;
+  line-height: 1.5;
+}
+.kd-grid3 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 14px;
+}
+.kd-note,
+.kd-small {
+  color: var(--ink-2);
+  font-size: 0.93rem;
+  line-height: 1.75;
+}
+.kd-note {
+  margin-top: 10px !important;
+}
+.kd-empty {
+  color: var(--ink-3);
+}
+.kd-eyebrow {
+  color: var(--accent-2);
+  font-family: var(--f-hi, serif);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+/* ------------------------------------------------------------------ the hero: the chart at a glance */
+.kd-hero {
+  position: relative;
+  display: grid;
+  gap: 16px;
+  padding: clamp(18px, 3vw, 34px);
+  border: 1px solid color-mix(in srgb, var(--accent) 38%, var(--line));
+  border-radius: 28px;
+  background:
+    radial-gradient(60% 90% at 100% 0%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 70%),
+    radial-gradient(50% 80% at 0% 100%, color-mix(in srgb, var(--accent-2) 10%, transparent), transparent 70%),
+    var(--surface);
+  overflow: hidden;
+}
+.kd-hero h1 {
+  margin: 0;
+  font-size: clamp(1.8rem, 4.2vw, 2.9rem);
+  font-weight: 800;
+  line-height: 1.4;
+}
+.kd-hero__sub {
+  color: var(--ink-2);
+  font-family: var(--f-hi, serif);
+  font-weight: 600;
+}
+.kd-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 10px;
+}
+.kd-tile {
+  display: grid;
+  gap: 1px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--paper) 55%, var(--surface));
+}
+.kd-tile span {
+  color: var(--ink-3);
+  font-size: 0.85rem;
+}
+.kd-tile b {
+  font-size: 1.2rem;
+  line-height: 1.5;
+  color: var(--accent);
+}
+.kd-tile small {
+  color: var(--ink-2);
+  font-size: 0.86rem;
+  line-height: 1.6;
+}
+.kd-points {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.kd-points li {
+  position: relative;
+  padding-left: 24px;
+}
+.kd-points li::before {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 0.72em;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+/* ------------------------------------------------------------------ today's dasha */
+.kd-now {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 10px;
+}
+.kd-now__p {
+  display: grid;
+  gap: 2px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+}
+.kd-now__p.is-strong {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--line));
+  background: color-mix(in srgb, var(--accent) 7%, var(--surface));
+}
+.kd-now__k {
+  color: var(--ink-3);
+  font-size: 0.85rem;
+}
+.kd-now__p b {
+  font-size: 1.25rem;
+  line-height: 1.5;
+}
+.kd-now__p small {
+  color: var(--ink-2);
+  font-size: 0.86rem;
+}
+.kd-bar {
+  position: relative;
+  display: block;
+  height: 6px;
+  margin-top: 6px;
+  border-radius: 6px;
+  background: var(--neutral-bar, var(--surface-2));
+  overflow: hidden;
+}
+.kd-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--accent), var(--accent));
+  transition: width 0.6s var(--ease, ease);
+}
+.kd-bar em {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--ink-2);
+}
+.kd-dasha {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+  gap: 14px;
+  align-items: start;
+}
+.kd-md,
+.kd-ad {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.kd-md button,
+.kd-ad button,
+.kd-ad--pd li > span {
+  display: grid;
+  grid-template-columns: 5.6em 1fr;
+  gap: 0 10px;
+  align-items: baseline;
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+.kd-md button,
+.kd-ad button {
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+.kd-ad button,
+.kd-ad--pd li > span {
+  grid-template-columns: 8.4em 1fr;
+}
+.kd-ad--pd li > span {
+  grid-template-columns: 5.6em 1fr;
+}
+.kd-md button:hover,
+.kd-ad button:hover {
+  background: var(--accent-soft);
+}
+.kd-md button:focus-visible,
+.kd-ad button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.kd-md small {
+  grid-column: 2;
+  color: var(--ink-3);
+  font-size: 0.84rem;
+}
+.kd-md span,
+.kd-ad span span,
+.kd-ad button span {
+  color: var(--ink-2);
+  font-size: 0.92rem;
+}
+.kd-md li.is-open button,
+.kd-ad li.is-open button {
+  border-color: var(--line-2);
+  background: color-mix(in srgb, var(--accent) 6%, var(--surface));
+}
+.kd-md li.is-now button,
+.kd-ad li.is-now button,
+.kd-ad--pd li.is-now > span {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.kd-md li.is-now b,
+.kd-ad li.is-now b {
+  color: var(--accent);
+}
+
+/* ------------------------------------------------------------------ the charts */
+.kd-fig {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+.kd-fig figcaption small {
+  display: block;
+  color: var(--ink-2);
+  font-size: 0.88rem;
+  line-height: 1.6;
+}
+.kd-chart {
+  display: block;
+  width: 100%;
+  max-width: 420px;
+  height: auto;
+  margin-inline: auto;
+  font-family: var(--f-hi, "Martel", "Nirmala UI", serif);
+}
+.kd-chart__frame {
+  fill: color-mix(in srgb, var(--accent) 7%, var(--surface));
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+.kd-chart__lines {
+  fill: none;
+  stroke: color-mix(in srgb, var(--accent) 75%, var(--ink-3));
+  stroke-width: 1.4;
+  stroke-linejoin: round;
+}
+.kd-chart__sign {
+  fill: var(--ink-3);
+  font-size: 12px;
+  font-weight: 600;
+}
+.kd-chart__sign.is-lagna {
+  fill: var(--accent-2);
+  font-size: 14px;
+  font-weight: 800;
+}
+.kd-chart__lagna {
+  fill: var(--accent-2);
+  font-size: 10px;
+  font-weight: 700;
+}
+.kd-chart__planets {
+  fill: var(--ink);
+  font-size: 15px;
+  font-weight: 700;
+}
+.kd-chart__mark {
+  fill: var(--warn-ink, var(--accent-2));
+  font-weight: 700;
+}
+
+/* ------------------------------------------------------------------ tables and lists */
+.kd-scroll {
+  overflow-x: auto;
+}
+.kd-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.96rem;
+}
+.kd-table th,
+.kd-table td {
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+  line-height: 1.7;
+}
+.kd-table thead th {
+  color: var(--ink-3);
+  font-size: 0.85rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.kd-table tbody tr:last-child > * {
+  border-bottom: 0;
+}
+.kd-table tbody th {
+  font-weight: 700;
+  white-space: nowrap;
+}
+.kd-table tbody tr {
+  transition: background-color 0.2s ease;
+}
+.kd-table tbody tr:hover {
+  background: color-mix(in srgb, var(--accent) 5%, transparent);
+}
+.kd-table tr.is-now > * {
+  background: var(--accent-soft);
+}
+.kd-table--num td,
+.kd-table--num thead th {
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.kd-num {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.kd-chip {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 0 9px;
+  border: 1px solid var(--line-2);
+  border-radius: 999px;
+  color: var(--ink-2);
+  font-family: var(--f-hi, serif);
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.75;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+.kd-chip--warn {
+  border-color: var(--warn-line);
+  background: var(--warn-bg);
+  color: var(--warn-ink);
+}
+.kd-chip--ok {
+  margin-left: 0;
+  border-color: var(--up-line);
+  background: var(--up-bg);
+  color: var(--up-ink);
+}
+.kd-chip--off {
+  margin-left: 0;
+}
+.kd-dl {
+  display: grid;
+  margin: 0;
+}
+.kd-dl > div {
+  display: grid;
+  grid-template-columns: minmax(7.5em, 38%) 1fr;
+  gap: 10px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--line);
+}
+.kd-dl > div:last-child {
+  border-bottom: 0;
+}
+.kd-dl dt {
+  color: var(--ink-3);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.kd-dl dd {
+  margin: 0;
+}
+.kd-more summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+.kd-more[open] summary {
+  margin-bottom: 10px;
+}
+.kd-bala {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.kd-bala li {
+  display: grid;
+  grid-template-columns: 4.2em minmax(90px, 1fr) minmax(0, 15em);
+  gap: 12px;
+  align-items: center;
+}
+.kd-bala .kd-bar {
+  height: 9px;
+  margin-top: 0;
+}
+.kd-bala small {
+  color: var(--ink-2);
+  font-size: 0.86rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------------------------------------------ houses, yogas, remedies */
+.kd-houses,
+.kd-yogas,
+.kd-cautions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 14px;
+}
+.kd-house {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+}
+.kd-house header {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.kd-house header h3 {
+  margin: 0;
+}
+.kd-house header small,
+.kd-upay header small {
+  display: block;
+  color: var(--ink-2);
+  font-size: 0.88rem;
+  line-height: 1.6;
+}
+.kd-house__n {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-family: var(--f-hi, serif);
+  font-size: 1.1rem;
+  font-weight: 800;
+  line-height: 1;
+}
+.kd-house__has span {
+  margin-right: 6px;
+  color: var(--ink-3);
+  font-size: 0.86rem;
+}
+.kd-house__has {
+  font-family: var(--f-hi, serif);
+  font-weight: 700;
+}
+.kd-house footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 2px;
+}
+.kd-house footer span {
+  padding: 0 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--paper) 60%, var(--surface-2));
+  color: var(--ink-2);
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+}
+.kd-yoga header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 10px;
+  margin-bottom: 6px;
+}
+.kd-yoga header h3 {
+  margin: 0;
+}
+.kd-yoga header .kd-chip {
+  margin-left: 0;
+}
+.kd-yoga__basis {
+  margin-bottom: 6px !important;
+  padding-left: 12px;
+  border-left: 3px solid color-mix(in srgb, var(--accent) 70%, transparent);
+  color: var(--ink-2);
+}
+.kd-upay ul,
+.kd-prose ul {
+  display: grid;
+  gap: 6px;
+  margin: 8px 0;
+  padding-left: 22px;
+}
+.kd-mantra {
+  margin-top: 8px !important;
+  padding: 8px 14px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+  color: var(--ink);
+  font-family: var(--f-hi, serif);
+  font-size: 1.05rem;
+  font-weight: 700;
+  text-align: center;
+}
+.kd-prose {
+  display: grid;
+  gap: 10px;
+}
+.kd-prose p,
+.kd-prose li {
+  max-width: 96ch;
+}
+.kd-prose--key {
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--line));
+  background: color-mix(in srgb, var(--accent) 5%, var(--surface));
+}
+.kd-caution {
+  border-left: 4px solid var(--warn);
+}
+.kd-caution h3 {
+  color: var(--warn-ink);
+}
+
+/* ------------------------------------------------------------------ the palette */
+.kd-sw {
+  display: inline-flex;
+  gap: 3px;
+  margin-right: 10px;
+  vertical-align: middle;
+}
+.kd-sw i,
+.kd-pal > i {
+  display: inline-block;
+  border: 1px solid var(--line-2);
+  border-radius: 6px;
+}
+.kd-sw i {
+  width: 18px;
+  height: 18px;
+}
+.kd-palette {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+}
+.kd-pal {
+  display: grid;
+  grid-template-columns: 54px 1fr;
+  gap: 14px;
+  align-items: start;
+  padding: 14px;
+}
+.kd-pal > i {
+  width: 54px;
+  height: 54px;
+  border-radius: 14px;
+}
+.kd-pal div {
+  display: grid;
+  gap: 1px;
+}
+.kd-pal code {
+  margin-left: 6px;
+  color: var(--ink-3);
+  font-family: var(--f-mono, monospace);
+  font-size: 0.8rem;
+  font-weight: 400;
+}
+.kd-pal span {
+  font-size: 0.94rem;
+  line-height: 1.7;
+}
+.kd-pal small {
+  color: var(--ink-2);
+  font-size: 0.86rem;
+  line-height: 1.65;
+}
+
+/* ------------------------------------------------------------------ the papers */
+.kd-papers {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.kd-papers li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 12px 14px;
+  align-items: center;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface);
+}
+.kd-papers__ic {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 54px;
+  border-radius: 10px;
+  background: var(--accent);
+  color: var(--on-accent, #fff);
+  font-family: var(--f-mono, monospace);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+.kd-papers__ic--image {
+  font-family: var(--f-hi, serif);
+}
+.kd-papers__id {
+  display: grid;
+  min-width: 0;
+}
+.kd-papers__id b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.kd-papers__id small {
+  color: var(--ink-2);
+  font-size: 0.88rem;
+}
+.kd-papers__name {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.kd-papers__name input {
+  flex: 1 1 200px;
+  min-height: 38px;
+  padding: 4px 12px;
+  border: 1px solid var(--line-2);
+  border-radius: 12px;
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+}
+.kd-papers__acts,
+.kd-papers__add {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.kd-viewer {
+  border: 1px solid var(--line-2);
+  border-radius: 18px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.kd-viewer iframe {
+  display: block;
+  width: 100%;
+  height: min(86vh, 1100px);
+  border: 0;
+  background: #fff;
+}
+.kd-viewer img {
+  display: block;
+  max-width: 100%;
+  margin-inline: auto;
+}
+.kd-chartfile {
+  display: grid;
+  gap: 8px;
+  padding: 16px;
+  border: 1px dashed var(--line-2);
+  border-radius: 18px;
+}
+.kd-chartfile h3 {
+  margin: 0;
+  font-size: 1.02rem;
+}
+.kd-status {
+  padding: 8px 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+}
+.kd-status--ok {
+  border-color: var(--up-line);
+  background: var(--up-bg);
+  color: var(--up-ink);
+}
+.kd-status--error {
+  border-color: var(--down-line);
+  background: var(--down-bg);
+  color: var(--down-ink);
+}
+.kd-foot {
+  padding-block: 18px 30px;
+  color: var(--ink-3);
+  font-size: 0.86rem;
+  text-align: center;
+}
+
+@media (max-width: 720px) {
+  .kd-top__title {
+    font-size: 1.02rem;
+  }
+  .kd-papers li {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .kd-papers__acts {
+    grid-column: 1 / -1;
+  }
+  .kd-bala li {
+    grid-template-columns: 4.2em 1fr;
+  }
+  .kd-bala small {
+    grid-column: 1 / -1;
+  }
+  .kd-md button,
+  .kd-ad button,
+  .kd-ad--pd li > span {
+    grid-template-columns: 1fr;
+  }
+  .kd-md small {
+    grid-column: 1;
+  }
+}
+
+/* on paper: the chart and its reading, without the bars, the buttons or the papers' controls */
+@media print {
+  .kd-top,
+  .kd-foot,
+  .kd-papers__acts,
+  .kd-papers__add,
+  .kd-chartfile,
+  .kd-viewer,
+  .adm-tip {
+    display: none !important;
+  }
+  .kd {
+    color: #000;
+    font-size: 11pt;
+  }
+  .kd-card,
+  .kd-hero {
+    box-shadow: none;
+    break-inside: avoid;
+  }
+  .kd-sec {
+    break-inside: auto;
+  }
+}

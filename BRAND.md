@@ -69,4 +69,30 @@ page on 15 November 2026. Rules that keep it so:
 The public homepage (`src/styles/site.css`) was brought to the same standard: `--ink-3` and
 `--accent-2` were darkened in its two themes.
 
+## Two palettes: the public site's, and the private area's (20 November 2026)
+
+**The public site (vinaytiwari.org) wears the owner's own colours**, chosen from his birth chart by the traditional
+rule (favour the colours of the lord of the ascendant and of the lords of the 1st, 5th and 9th houses). The chart and
+the reasoning are on his private Kundali page (`/me/kundali`, superadmins only) — they are not in this repository.
+
+| Colour | Value | Where (`src/styles/site.css`) |
+|---|---|---|
+| Sandal ivory | `#f8f4ec` (surfaces `#fffdf9`, `#f2eadb`) | `--paper` of the page (`[data-theme="tech"]`) |
+| Ink | `#21150f` | text: a deep warm brown, never pure black |
+| Ruby maroon | `#7a1f2b` | `--accent`: buttons, links, emphasis |
+| Copper | `#96460f` | `--accent-2` |
+| Gold | `#c8962e` | `--gold`: rules and glows only, never small text |
+| Deeper sandalwood + saffron copper | `#f3e7d2`, `#8a3c08` | the writer's band (`[data-theme="write"]`) |
+
+**The private area (/me and every page under it) keeps the colours it always had** — the owner tried the same family
+there on 20 November 2026 and chose to go back the same day. So: light porcelain `#f4f5f7` with navy `#1e4b7a`, dark
+`#0b0f14` with light blue `#6aaeee`, the logo on its dark-blue badge, blue as the built-in accent.
+
+- The public theme sits on the private area's own root element (`<div data-theme="tech" class="adm">`), so the
+  private area states its light colours in full in `.adm[data-theme="tech"]`
+  (`src/admin/stock/analyzer/analyzer.css`). **Never let a private page take a colour from the public theme**, and do
+  not use the public-only `--gold` token in private CSS.
+- A change to the public palette must be checked on `/me` in light mode, and the other way round.
+- Colours are a traditional observance. They do not change a price, and nothing in the desk's logic reads them.
+
 Named on 15 November 2026, by the owner.
