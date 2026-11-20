@@ -65,6 +65,7 @@ const { OpenForecast } = require("./open-forecast");
 const { Horizon } = require("./horizon");
 const { Ahead } = require("./ahead");
 const { Evidence } = require("./evidence");
+const { ExpiryCalendar } = require("./expiry");
 const { askDefault, team: aiTeam } = require("./ai/mixture");
 const { LiveHub } = require("./live");
 const { Supervisor } = require("./supervisor");
@@ -1551,6 +1552,27 @@ ${e.text}
   app.post("/api/admin/market/evidence/train", requireSuper, limiter(6, 60 * 60 * 1000), hWrap(async () => startEvidence(() => evidence.train({ trigger: "you asked" }))));
   app.post("/api/admin/market/evidence/learn", requireSuper, limiter(12, 60 * 60 * 1000), hWrap(async () => startEvidence(() => evidence.learnDays({ trigger: "you asked" }))));
 
+  // The expiry calendar (server/expiry.js): every weekly and monthly derivatives expiry on NSE and BSE, read from the exchanges'
+  // own contract lists (a public file: no login, no key, no AI). It reads them by itself every morning and twice a day, works
+  // the rest of the year out from the weekday those contracts fall on and the holiday calendar, and keeps every date that changes.
+  // Under test it touches no network unless a fetch is handed to it.
+  const expiryCal =
+    opts.expiryCalendar ||
+    new ExpiryCalendar({
+      docs: store.docs,
+      cal: { isTradingDay: nseCalendar.isTradingDay, holidayName: nseCalendar.holidayName, known: nseCalendar.known },
+      fetchImpl: opts.expiryFetch !== undefined ? opts.expiryFetch : underTest || opts.marketFetch ? null : globalThis.fetch,
+      now: opts.now,
+      log: opts.log || console,
+    });
+  if (!underTest && opts.expiryWatch !== false) expiryCal.start();
+  app.get("/api/admin/market/expiries", requireAdmin, limiter(120, 60 * 1000), hWrap(async () => expiryCal.view()));
+  // "Check now": read the exchanges' lists this minute (a few megabytes of public data; no AI, no login)
+  app.post("/api/admin/market/expiries/refresh", requireAdmin, limiter(12, 60 * 60 * 1000), hWrap(async () => {
+    const r = await expiryCal.refresh({ trigger: "you asked" });
+    return { ...expiryCal.view(), refreshed: r };
+  }));
+
   // The market recorder (server/recorder.js): every minute of every session it reads every NIFTY 100 stock, the watchlist, the indices
   // and each one's near-month future — price, volume, the quantity waiting to buy and to sell, open interest — with no page open, keeps
   // the session in the database, and each evening learns what those readings add to the forecaster. It reads only; it asks no AI model.
@@ -1868,6 +1890,16 @@ ${e.text}
           run: () => evidence.learnDays({ trigger: "the supervisor" }),
         },
         {
+          id: "expiry-calendar",
+          name: "Expiry calendar: reading the exchanges' contract lists",
+          what: "Reads the list of every listed derivatives contract on NSE and BSE (a public file; no login, no AI) and works the expiry calendar out again. Normally every morning before the open and every twelve hours; here when that was missed.",
+          due: () => {
+            const s = expiryCal.status();
+            return s.due ? (s.checkedAt ? `last read ${s.ageHours} hours ago` : "never read yet") : "";
+          },
+          run: () => expiryCal.refresh({ trigger: "the supervisor" }),
+        },
+        {
           id: "open-forecast",
           name: "Opening-price forecast: scoring",
           what: "Writes the real open beside forecasts of earlier sessions that were never scored, and learns from them.",
@@ -1963,6 +1995,10 @@ ${e.text}
         const b = evidence.board();
         const working = b.techniques.filter((t) => t.record[15].verdict === "works").length;
         return needs(b.trained ? "on" : "learning", b.trained ? `learned to ${b.learning.lastDate}; ${working} of ${b.techniques.length} techniques have a proven record here; AI reads today ${b.ai.usedToday} of ${b.ai.perDay}` : "no usable model yet (it trains after the forecaster)");
+      }),
+      sys("expiry", "Expiry calendar (weekly and monthly expiries)", "Every morning before the open and every twelve hours: the exchanges' own contract lists are read (a public file, no login, no AI), the calendar is worked out again, and any expiry date that changed is kept and shown on the Calendar", () => {
+        const s = expiryCal.status();
+        return { state: !s.on ? "off" : s.error ? "attention" : s.checkedAt ? "on" : "learning", detail: !s.on ? "no network access here: the calendar is worked out from the rule alone" : s.error ? `the last read failed (${s.error}); the last good list is kept` : s.checkedAt ? `last read ${s.ageHours} hours ago · ${s.changes} change${s.changes === 1 ? "" : "s"} kept` : "the first read is under way" };
       }),
       sys("recorder", "Market recorder", "Every minute from 9:15 to 15:30, with no page open: price, volume, the quantity waiting to buy and to sell, and the futures' open interest for every NIFTY 100 stock, your watchlist and the indices — kept in the database", () => {
         const st = recorder.status();
@@ -2076,6 +2112,7 @@ ${e.text}
   live.watch("data", () => [recorder.fingerprint(), vault.fingerprint()]);
   live.watch("accounts", () => accounts.fingerprint());
   live.watch("open", () => openForecast.fingerprint());
+  live.watch("expiry", () => expiryCal.fingerprint());
   live.watch("autopilot", () => autopilot.fingerprint());
   live.watch("ai", () => [ai.guard.status(), ai.status()]);
   live.watch("social", () => (market.social && typeof market.social.status === "function" ? market.social.status() : null));
@@ -2170,6 +2207,7 @@ ${e.text}
     horizon,
     ahead,
     evidence,
+    expiryCal,
     live,
     supervisor,
     recorder,

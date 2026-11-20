@@ -36,7 +36,7 @@ const WORKSPACES = [
   { view: "account", label: "Positions", text: "Positions, orders, funds", superOnly: true, traderOk: true },
   { view: "indices", label: "Indices", text: "NIFTY & SENSEX by month and year, projected" },
   { view: "analysis", label: "Trade Analysis", text: "Every day: profit, loss, taxes", superOnly: true },
-  { view: "calendar", label: "Calendar", text: "Holidays and time zones" },
+  { view: "calendar", label: "Calendar", text: "Expiries, holidays and time zones" },
   { view: "journal", label: "Journal", text: "Every trade, scored", superOnly: true },
   { view: "paper", label: "Paper trading", text: "Play money, live and history" },
   { view: "debrief", label: "Debrief", text: "Today’s calls, replayed" },

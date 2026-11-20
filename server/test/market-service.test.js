@@ -1411,3 +1411,41 @@ test("AI credit: opening a stock reaches the server as “opened”, never as a 
   await s.request("GET", "/api/admin/market/evidence/INFY", { cookie: s.admin });
   assert.equal(seen.length, 3);
 });
+
+test("the expiry calendar's routes: a stranger sees nothing; under test no network is touched; with a fetch it reads the public lists and nothing else", async (t) => {
+  const s = await boot();
+  t.after(s.close);
+  assert.equal((await s.request("GET", "/api/admin/market/expiries")).status, 401);
+  const v = (await s.request("GET", "/api/admin/market/expiries", { cookie: s.admin })).json;
+  assert.deepEqual(v.exchanges.map((x) => [x.id, x.weekday, x.fromList]), [["NSE", "Tuesday", false], ["BSE", "Thursday", false]]);
+  assert.deepEqual([v.today, v.until, v.source.on, v.source.checkedAt], ["2026-11-12", "2026-12-31", false, null]);
+  assert.ok(v.exchanges[0].rows.length === 52 && v.exchanges[0].next.date === "2026-11-17");
+  // "Check now" needs the site's header like any button, and with no network says so instead of failing
+  assert.equal((await s.request("POST", "/api/admin/market/expiries/refresh", { cookie: s.admin, csrf: false })).status, 403);
+  const r = (await s.request("POST", "/api/admin/market/expiries/refresh", { cookie: s.admin })).json;
+  assert.deepEqual(r.refreshed, { ok: false, skipped: "no network here", changed: 0 });
+  assert.equal(s.kite.log.length, 0, "nothing was asked of Zerodha's trading API for it");
+
+  // with a fetch: two GETs of the public instrument file, and the calendar is the exchange's own
+  const asked = [];
+  const head = "instrument_token,exchange_token,tradingsymbol,name,last_price,expiry,strike,tick_size,lot_size,instrument_type,segment,exchange";
+  const file = (rows) => [head, ...rows.map(([name, date, type], i) => `${i},${i},X,"${name}",0,${date},0,0.05,50,${type},S,E`)].join("\n");
+  const lists = {
+    NFO: file([["NIFTY", "2026-11-23", "FUT"], ["NIFTY", "2026-11-17", "CE"], ["NIFTY", "2026-11-23", "CE"], ["NIFTY", "2026-12-01", "CE"], ["NIFTY", "2026-12-08", "CE"], ["NIFTY", "2026-12-29", "FUT"], ["RELIANCE", "2026-11-23", "FUT"], ["RELIANCE", "2026-12-29", "FUT"]]),
+    BFO: file([["SENSEX", "2026-11-26", "FUT"], ["SENSEX", "2026-11-19", "CE"], ["SENSEX", "2026-11-26", "CE"], ["SENSEX", "2026-12-03", "CE"], ["BANKEX", "2026-11-26", "FUT"]]),
+  };
+  const w = await boot({
+    expiryFetch: async (url, init) => {
+      asked.push(`${init.method} ${url}`);
+      return { ok: true, status: 200, text: async () => lists[url.slice(-3)] };
+    },
+  });
+  t.after(w.close);
+  const got = (await w.request("POST", "/api/admin/market/expiries/refresh", { cookie: w.admin })).json;
+  assert.deepEqual(asked, ["GET https://api.kite.trade/instruments/NFO", "GET https://api.kite.trade/instruments/BFO"]);
+  assert.deepEqual(got.refreshed, { ok: true, changed: 0, error: "" });
+  const nseRows = got.exchanges[0].rows.filter((x) => !x.past);
+  assert.deepEqual(nseRows.slice(0, 4).map((x) => [x.date, x.kind, x.status]), [["2026-11-17", "weekly", "listed"], ["2026-11-23", "monthly", "listed"], ["2026-12-01", "weekly", "listed"], ["2026-12-08", "weekly", "listed"]]);
+  assert.equal(nseRows[1].what, "Monthly: NIFTY 50 and 1 stock");
+  assert.ok(got.source.checkedAt && w.made.expiryCal.status().changes === 0);
+});

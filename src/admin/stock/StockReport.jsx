@@ -30,6 +30,7 @@ import Research from "./trade/Research";
 import Journal from "./trade/Journal";
 import Advisor from "./advisor/Advisor";
 import NowView from "./now/NowView";
+import ExpiryCalendar from "./ExpiryCalendar";
 import { TradeProvider, useTrade } from "./trade/TradeContext";
 import { GoalBanner } from "./trade/DailyGoal";
 import { pulseOf, useLiveBook } from "./trade/liveBook";
@@ -57,7 +58,7 @@ const VIEWS = [
   { id: "account", label: "Positions", superOnly: true, traderOk: true, tip: "Positions, holdings, orders, funds, the trading switch and the AI coach." },
   { id: "indices", label: "Indices", tip: "NIFTY 50 and SENSEX year by year and month by month: points and percent, how each calendar month behaves, the patterns traders watch, and projections for this month and year kept beside what happened — the desk's and the AI's, backtested." },
   { id: "analysis", label: "Trade Analysis", superOnly: true, tip: "The Execution Lab: every intraday trade replayed on 1-minute bars — the share of the move you kept, where you came in, what other exits would have made, and the habits that cost money. (Daily P&L reports are in the Journal's Day book.)" },
-  { id: "calendar", label: "Calendar", tip: "World clock and upcoming exchange holidays." },
+  { id: "calendar", label: "Calendar", tip: "World clock, every weekly and monthly derivatives expiry on NSE and BSE, and the upcoming exchange holidays." },
   { id: "journal", label: "Journal", superOnly: true, tip: "Every round trip you made: win rate, profit factor, expectancy, drawdown, P&L calendar, MAE/MFE, tags and an AI review." },
   { id: "paper", label: "Paper", tip: "Paper trading: the desk’s live call followed with play money — in today’s market, on past sessions, and in an auto mode. No real orders; separate from real trading." },
   { id: "debrief", label: "Debrief", tip: "After the close: if you had followed every live call by fixed rules, what would today have made or lost? A report card for the desk’s signals — no real trades." },
@@ -322,6 +323,8 @@ function Terminal() {
               <>
                 <WorldClock />
                 <TimeConverter />
+                {/* every weekly and monthly derivatives expiry, from the exchanges' own contract lists (server/expiry.js) */}
+                <ExpiryCalendar />
                 <div className="sr-two">
                   <HolidayCalendar market="india" />
                   <HolidayCalendar market="nasdaq" />

@@ -35,6 +35,7 @@ const ROUTE_TOPICS = [
   ["/api/admin/market/ahead", ["ahead", "horizon"]],
   ["/api/admin/market/evidence", ["evidence"]],
   ["/api/admin/market/now", ["evidence"]],
+  ["/api/admin/market/expiries", ["expiry"]],
   ["/api/admin/market/open-forecast", ["open"]],
   ["/api/admin/market/alerts", ["alerts", "market"]],
   ["/api/admin/market", ["market"]],
