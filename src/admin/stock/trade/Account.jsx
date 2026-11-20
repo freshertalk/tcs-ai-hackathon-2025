@@ -643,7 +643,8 @@ export default function Account({ compact = false }) {
                     </div>
                   )}
                 </section>
-                {!compact && <CoachPanel positions={positions} canExit={canTrade} onExit={(p) => setDialog({ kind: "exit", item: p, last: liveOf(p) ?? p.last })} />}
+                {/* the AI coach reads the owner's account with the owner's AI credit: it is the owner's only */}
+                {!compact && trade.owner && <CoachPanel positions={positions} canExit={canTrade} onExit={(p) => setDialog({ kind: "exit", item: p, last: liveOf(p) ?? p.last })} />}
               </>
             )}
 

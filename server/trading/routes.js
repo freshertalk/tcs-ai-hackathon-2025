@@ -1,7 +1,13 @@
 "use strict";
-// HTTP routes for the account and for trading. Every route is for the superadmin only —
-// it is their Zerodha account. Reads always work; every write is refused by the service
-// while the trading switch is OFF.
+// HTTP routes for the account and for trading. Reads always work; every write is refused by the
+// service while the trading switch is OFF.
+//
+// WHOSE ACCOUNT: the account's own routes (status, funds, positions, orders, the switch, the limits,
+// the risk guard, the daily goal, placing / changing / cancelling an order, the stream) answer for the
+// account of whoever is signed in: the owner's (the site's Zerodha connection), or — for a person the
+// owner has switched it on for — that person's OWN Zerodha account (server/accounts.js). The account is
+// chosen by `requireTrader` from the session, never from anything the page sends; a person with neither
+// gets 403. Everything else here (the journal, the AI coach) is the owner's only.
 
 const { TradingError } = require("./service");
 const { KiteError } = require("../market/kite");
@@ -10,7 +16,17 @@ const express = require("express");
 const { periodRange } = require("./journal");
 const { JournalFiles, UploadError } = require("./uploads");
 
-function mountTrading(app, { trading, ai, requireSuper, limiter, capture = null }) {
+function mountTrading(app, { trading, ai, requireSuper, limiter, capture = null, requireTrader = null }) {
+  // without accounts (a test, a tool): only the owner, on the site's own connection
+  if (!requireTrader) {
+    requireTrader = (req, res, next) =>
+      requireSuper(req, res, () => {
+        req.trading = trading;
+        next();
+      });
+  }
+  /** The trading service of whoever is signed in (set by requireTrader). */
+  const T = (req) => req.trading;
   const wrap = (fn) => async (req, res) => {
     try {
       res.json(await fn(req, res));
@@ -25,31 +41,31 @@ function mountTrading(app, { trading, ai, requireSuper, limiter, capture = null 
   };
   const by = (req) => req.user.email;
 
-  app.get("/api/admin/trading/status", requireSuper, wrap(async () => trading.status()));
-  app.get("/api/admin/trading/summary", requireSuper, wrap(async () => trading.summary()));
-  app.get("/api/admin/trading/funds", requireSuper, wrap(async () => trading.funds()));
-  app.get("/api/admin/trading/positions", requireSuper, wrap(async () => trading.positions()));
-  app.get("/api/admin/trading/holdings", requireSuper, wrap(async () => ({ holdings: await trading.holdings() })));
-  app.get("/api/admin/trading/orders", requireSuper, wrap(async () => ({ orders: await trading.orders() })));
-  app.get("/api/admin/trading/orders/:id/history", requireSuper, wrap(async (req) => ({ history: await trading.orderHistory(req.params.id) })));
-  app.get("/api/admin/trading/trades", requireSuper, wrap(async () => ({ trades: await trading.trades() })));
-  app.get("/api/admin/trading/audit", requireSuper, wrap(async () => ({ audit: trading.audit(150) })));
+  app.get("/api/admin/trading/status", requireTrader, wrap(async (req) => T(req).status()));
+  app.get("/api/admin/trading/summary", requireTrader, wrap(async (req) => T(req).summary()));
+  app.get("/api/admin/trading/funds", requireTrader, wrap(async (req) => T(req).funds()));
+  app.get("/api/admin/trading/positions", requireTrader, wrap(async (req) => T(req).positions()));
+  app.get("/api/admin/trading/holdings", requireTrader, wrap(async (req) => ({ holdings: await T(req).holdings() })));
+  app.get("/api/admin/trading/orders", requireTrader, wrap(async (req) => ({ orders: await T(req).orders() })));
+  app.get("/api/admin/trading/orders/:id/history", requireTrader, wrap(async (req) => ({ history: await T(req).orderHistory(req.params.id) })));
+  app.get("/api/admin/trading/trades", requireTrader, wrap(async (req) => ({ trades: await T(req).trades() })));
+  app.get("/api/admin/trading/audit", requireTrader, wrap(async (req) => ({ audit: T(req).audit(150) })));
 
-  app.put("/api/admin/trading/switch", requireSuper, wrap(async (req) => trading.setSwitch(Boolean((req.body || {}).on), by(req))));
-  app.put("/api/admin/trading/limits", requireSuper, wrap(async (req) => trading.setLimits(req.body || {}, by(req))));
+  app.put("/api/admin/trading/switch", requireTrader, wrap(async (req) => T(req).setSwitch(Boolean((req.body || {}).on), by(req))));
+  app.put("/api/admin/trading/limits", requireTrader, wrap(async (req) => T(req).setLimits(req.body || {}, by(req))));
 
   // the pre-trade check: margin and charges by Zerodha's calculator, plus the desk's own rules.
   // It places nothing, and answers with the switch off.
-  app.post("/api/admin/trading/preview", requireSuper, limiter(120, 60 * 1000), wrap(async (req) => trading.preview(req.body || {})));
+  app.post("/api/admin/trading/preview", requireTrader, limiter(120, 60 * 1000), wrap(async (req) => T(req).preview(req.body || {})));
 
   // writes: rate-limited well above what a person can click, well below a runaway loop
   const writes = limiter(60, 60 * 1000);
-  app.post("/api/admin/trading/orders", requireSuper, writes, wrap(async (req) => trading.place(req.body || {}, by(req))));
-  app.put("/api/admin/trading/orders/:variety/:id", requireSuper, writes, wrap(async (req) => trading.modify(req.params.variety, req.params.id, req.body || {}, by(req))));
-  app.delete("/api/admin/trading/orders/:variety/:id", requireSuper, writes, wrap(async (req) => trading.cancel(req.params.variety, req.params.id, req.body || {}, by(req))));
-  app.post("/api/admin/trading/exit", requireSuper, writes, wrap(async (req) => trading.exit(req.body || {}, by(req))));
-  app.post("/api/admin/trading/exit-all", requireSuper, writes, wrap(async (req) => trading.exitAll(req.body || {}, by(req))));
-  app.post("/api/admin/trading/sell-holding", requireSuper, writes, wrap(async (req) => trading.sellHolding(req.body || {}, by(req))));
+  app.post("/api/admin/trading/orders", requireTrader, writes, wrap(async (req) => T(req).place(req.body || {}, by(req))));
+  app.put("/api/admin/trading/orders/:variety/:id", requireTrader, writes, wrap(async (req) => T(req).modify(req.params.variety, req.params.id, req.body || {}, by(req))));
+  app.delete("/api/admin/trading/orders/:variety/:id", requireTrader, writes, wrap(async (req) => T(req).cancel(req.params.variety, req.params.id, req.body || {}, by(req))));
+  app.post("/api/admin/trading/exit", requireTrader, writes, wrap(async (req) => T(req).exit(req.body || {}, by(req))));
+  app.post("/api/admin/trading/exit-all", requireTrader, writes, wrap(async (req) => T(req).exitAll(req.body || {}, by(req))));
+  app.post("/api/admin/trading/sell-holding", requireTrader, writes, wrap(async (req) => T(req).sellHolding(req.body || {}, by(req))));
 
   // the position coach: this route reads the account and hands the figures to the AI as plain
   // data. The AI cannot reach the broker itself, and nothing it says is acted on.
@@ -62,21 +78,21 @@ function mountTrading(app, { trading, ai, requireSuper, limiter, capture = null 
   }));
 
   /* ---- risk guard */
-  app.get("/api/admin/trading/risk", requireSuper, wrap(async () => {
-    const st = trading.status();
+  app.get("/api/admin/trading/risk", requireTrader, wrap(async (req) => {
+    const st = T(req).status();
     if (!st.connected) return { config: st.risk, lock: st.riskLock, standing: null };
-    const s = await trading.riskStatus();
+    const s = await T(req).riskStatus();
     return { config: s.config, lock: s.lock, standing: s };
   }));
-  app.put("/api/admin/trading/risk", requireSuper, wrap(async (req) => trading.setRisk(req.body || {}, by(req))));
+  app.put("/api/admin/trading/risk", requireTrader, wrap(async (req) => T(req).setRisk(req.body || {}, by(req))));
 
   /* ---- the daily goal: target, stop and profit protection (reminders only; it never trades) */
-  app.get("/api/admin/trading/discipline", requireSuper, wrap(async () => {
-    const st = trading.status();
-    if (!st.connected) return { available: false, enabled: trading._discipline().enabled, config: trading._discipline(), reason: "Connect Zerodha to see today's target and stop: they come from your available margin." };
-    return trading.disciplineStatus();
+  app.get("/api/admin/trading/discipline", requireTrader, wrap(async (req) => {
+    const st = T(req).status();
+    if (!st.connected) return { available: false, enabled: T(req)._discipline().enabled, config: T(req)._discipline(), reason: "Connect Zerodha to see today's target and stop: they come from your available margin." };
+    return T(req).disciplineStatus();
   }));
-  app.put("/api/admin/trading/discipline", requireSuper, wrap(async (req) => ({ config: trading.setDiscipline(req.body || {}, by(req)) })));
+  app.put("/api/admin/trading/discipline", requireTrader, wrap(async (req) => ({ config: T(req).setDiscipline(req.body || {}, by(req)) })));
 
   /* ---- journal: every fill from Zerodha (Kite each day, Console tradebooks for the history) */
   const DAY = 86400000;
@@ -234,7 +250,8 @@ function mountTrading(app, { trading, ai, requireSuper, limiter, capture = null 
   }));
 
   // order updates from Zerodha's stream, as they arrive
-  app.get("/api/admin/trading/stream", requireSuper, (req, res) => {
+  app.get("/api/admin/trading/stream", requireTrader, (req, res) => {
+    const trading = T(req); // this person's account for the life of the connection (the owner's has the live book too)
     res.writeHead(200, { "Content-Type": "text/event-stream; charset=utf-8", "Cache-Control": "no-cache, no-transform", Connection: "keep-alive", "X-Accel-Buffering": "no" });
     res.write("retry: 3000\n\n");
     let open = true;

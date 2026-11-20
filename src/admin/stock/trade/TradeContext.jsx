@@ -1,8 +1,11 @@
 // Trading for the whole Stock Report: the switch's state, the order ticket (one, shared by
 // every Buy / Sell button), and order updates from Zerodha as they arrive.
 //
-// Only the superadmin gets any of it — it is their Zerodha account. For anyone else the
-// context is null and no Buy / Sell button is drawn.
+// Who gets it: the owner (the site's own Zerodha connection), and a person the owner has let use
+// their OWN Zerodha account here (server/accounts.js) — for them every figure, the switch and every
+// order are their account's, chosen by the server from who is signed in. For anyone else the context
+// is null and no Buy / Sell button is drawn. `owner` says which of the two it is: the journal, the AI
+// coach and the streamed live book are the owner's only.
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../../api";
@@ -22,7 +25,8 @@ export const useTrade = () => useContext(TradeContext);
 
 export function TradeProvider({ children }) {
   const { user } = useAuth();
-  const allowed = Boolean(user && user.role === "superadmin");
+  const owner = Boolean(user && user.role === "superadmin");
+  const allowed = owner || Boolean(user && user.trader);
   const [status, setStatus] = useState(null);
   const [ticket, setTicket] = useState(null); // the prefill of the open ticket, or null
   const [version, setVersion] = useState(0); // goes up whenever the account may have changed
@@ -184,6 +188,7 @@ export function TradeProvider({ children }) {
       allowed
         ? {
             status,
+            owner,
             enabled: Boolean(status && status.enabled),
             connected: Boolean(status && status.connected),
             refresh,
@@ -197,7 +202,7 @@ export function TradeProvider({ children }) {
             openTicket: (prefill) => setTicket({ ...prefill, key: Date.now() }),
           }
         : null,
-    [allowed, status, refresh, setSwitch, version, say, pulse, goal, reloadGoal]
+    [allowed, owner, status, refresh, setSwitch, version, say, pulse, goal, reloadGoal]
   );
 
   return (

@@ -40,6 +40,7 @@ import Palette from "./terminal/Palette";
 import { AlertsProvider } from "./terminal/AlertsContext";
 import BottomNav from "./terminal/BottomNav";
 import PageJumps from "./terminal/PageJumps";
+import { arrangeViews, usePrefs } from "../prefs";
 import { BOTTOM_NAV, useMedia } from "./terminal/useMedia";
 import "./terminal/terminal.css";
 import "./terminal/compact.css";
@@ -50,7 +51,8 @@ const VIEWS = [
   { id: "research", label: "Research", tip: "Pre-market and post-market research for your watchlist." },
   { id: "advisor", label: "Advisor", tip: "Your watchlist read by measured odds: what followed the days most like today, whether such calls held up when tested forward, and a plan sized for your risk." },
   { id: "screener", label: "Screener", tip: "Any NSE index — NIFTY 50, BANK, NEXT 50, broad and sector indices: top gainers and losers, RSI, VWAP, volume and the 52-week range, live; RSI search over the Nifty 500." },
-  { id: "account", label: "Positions", superOnly: true, tip: "Positions, holdings, orders, funds, the trading switch and the AI coach." },
+  // the owner's — and, for a person with their own Zerodha account here (server/accounts.js), THEIR account
+  { id: "account", label: "Positions", superOnly: true, traderOk: true, tip: "Positions, holdings, orders, funds, the trading switch and the AI coach." },
   { id: "indices", label: "Indices", tip: "NIFTY 50 and SENSEX year by year and month by month: points and percent, how each calendar month behaves, the patterns traders watch, and projections for this month and year kept beside what happened — the desk's and the AI's, backtested." },
   { id: "analysis", label: "Trade Analysis", superOnly: true, tip: "The Execution Lab: every intraday trade replayed on 1-minute bars — the share of the move you kept, where you came in, what other exits would have made, and the habits that cost money. (Daily P&L reports are in the Journal's Day book.)" },
   { id: "calendar", label: "Calendar", tip: "World clock and upcoming exchange holidays." },
@@ -155,7 +157,11 @@ function Terminal() {
   const { user } = useAuth();
   const trade = useTrade();
   const isSuper = Boolean(user && user.role === "superadmin");
-  const views = VIEWS.filter((v) => !v.superOnly || isSuper);
+  const isTrader = Boolean(user && user.trader); // has their own Zerodha account here
+  const { prefs } = usePrefs();
+  // first what this person MAY open (their role), then THEIR arrangement of it: order, and what they hid (/me → Customize)
+  const allowedViews = VIEWS.filter((v) => !v.superOnly || isSuper || (v.traderOk && isTrader));
+  const views = arrangeViews(allowedViews, prefs);
   const asked = params.get("view");
   const view = views.some((v) => v.id === asked) ? asked : "analyzer";
   const [theme, toggleTheme] = useDeskTheme();

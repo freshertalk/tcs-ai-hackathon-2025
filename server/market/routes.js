@@ -7,6 +7,10 @@ const { KiteError } = require("./kite");
 
 function mountMarket(app, deps) {
   const { market, requireAdmin, limiter, currentUser, adminBase, helpers } = deps;
+  // The site's own Zerodha connection is the OWNER's account: its key and its disconnect are the owner's alone. (Before
+  // other people could have accounts of their own here, any admin could change them; one could then have pointed the
+  // owner's trading pages at a different Zerodha account.) Another person's key belongs in server/accounts.js.
+  const requireOwner = deps.requireSuper || requireAdmin;
   const { cookie, parseCookies, sign, verify, safeEqual, randomToken, sessionKey, isSecure } = helpers;
 
   const STATE_COOKIE = "vpt_kite";
@@ -47,7 +51,7 @@ function mountMarket(app, deps) {
   app.get("/api/admin/market/strategies", requireAdmin, wrap(async () => ({ strategies: market.strategies() })));
 
   /* ------------------------------------------------- Zerodha connection */
-  app.put("/api/admin/market/kite", requireAdmin, wrap(async (req) => {
+  app.put("/api/admin/market/kite", requireOwner, wrap(async (req) => {
     const b = req.body || {};
     market.setKiteCredentials(b.apiKey, b.apiSecret);
     console.log(`[market] Kite API credentials updated by ${req.user.email}`);
@@ -91,7 +95,7 @@ function mountMarket(app, deps) {
     }
   });
 
-  app.post(`${STATE_PATH}/disconnect`, requireAdmin, wrap(async () => {
+  app.post(`${STATE_PATH}/disconnect`, requireOwner, wrap(async () => {
     market.disconnect();
     return market.status();
   }));

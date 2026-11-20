@@ -19,6 +19,7 @@ import { Loading } from "./ui";
 import Shell from "./Shell";
 import TipLayer from "./help/TipLayer";
 import { DialogProvider } from "./dialog/DialogProvider";
+import { PrefsProvider } from "./prefs";
 import { TempleProvider } from "./temple/Temple";
 
 
@@ -193,6 +194,8 @@ export default function AdminApp() {
   return (
     <div data-theme="tech" className="adm">
       <AuthContext.Provider value={value}>
+        {/* your preferences (/me → Customize): the look, the workspaces, the Desk's start — read once signed in */}
+        <PrefsProvider enabled={Boolean(value.user)}>
         <DialogProvider>
         {/* the Mandir: devotional audio on every private page, once signed in */}
         <TempleProvider>
@@ -215,6 +218,7 @@ export default function AdminApp() {
         </Routes>
         </TempleProvider>
         </DialogProvider>
+        </PrefsProvider>
       </AuthContext.Provider>
       {/* hover help: one bubble for every label and button that has an explanation */}
       <TipLayer />

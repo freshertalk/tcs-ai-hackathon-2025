@@ -148,7 +148,9 @@ const DOCS = {
   },
 };
 const GROUPS = ["Recorded market data", "The learning brain", "Forecasts and their scores", "Trading records", "Other records"];
-const PRIVATE_DOC = /(^|\/)db\.json$|\.key$|secret/i;
+// never served one by one: the accounts-and-settings record, anything with a key or a secret in its name, and other
+// people's own trading records (accounts/…) — a full backup still holds them, as it must
+const PRIVATE_DOC = /(^|\/)db\.json$|\.key$|secret|^accounts\//i;
 
 /* ============================================================================ CSV */
 

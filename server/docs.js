@@ -83,7 +83,18 @@ class FileDocs {
     fs.mkdirSync(path.dirname(file), { recursive: true });
     const tmp = `${file}.${process.pid}.tmp`;
     fs.writeFileSync(tmp, isText(name) ? String(value) : JSON.stringify(value, null, name === "db.json" ? 2 : 0), { mode: 0o600 });
-    fs.renameSync(tmp, file);
+    // On Windows another program (a virus scanner, the search indexer) may hold the file for a moment, and the rename is
+    // refused with EPERM / EBUSY / EACCES. Wait a few milliseconds and try again (about 1.5 s in all) before giving up:
+    // a refused write used to leave the request that made it unanswered.
+    for (let tries = 0; ; tries += 1) {
+      try {
+        fs.renameSync(tmp, file);
+        return;
+      } catch (e) {
+        if (tries >= 30 || !["EPERM", "EBUSY", "EACCES"].includes(e && e.code)) throw e;
+        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 10 + tries * 3);
+      }
+    }
   }
 
   remove(name) {

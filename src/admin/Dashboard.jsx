@@ -1,11 +1,13 @@
-// The home of the private area, laid out as a command centre:
-//   1. a welcome with the one big way in (the trading terminal) and the next most useful ones,
-//   2. a live status row (market session, Zerodha, trading switch, today's P&L, the Advisor, the forecaster, AI credit),
-//      re-read every 30 seconds and the moment you come back to the tab,
-//   3. the owner's "today" numbers, the workspaces in three groups with a finder, and the three AI/feed tiles
-//      (TradeAI, paper trading, Social Media) side by side,
-//   4. settings and system health below.
-// Every link into the terminal opens it in its own tab.
+// The home of the private area, laid out as a control panel (third design, 2026-11-19):
+//   AT THE SIDE  who you are, the one big way in (the trading terminal, on the workspace you chose), the next most
+//                useful ones, and the list of this page's sections — it stays on screen and marks where you are
+//   BESIDE IT    a live status row (market session, Zerodha, the trading switch, today's P&L, the Advisor, the
+//                forecaster, AI credit), then the sections:
+//                  Today · Workspaces · Tools (TradeAI, paper trading, Social Media) · Zerodha accounts (yours, or —
+//                  for the owner — who may use their own) · Customize (the look, the workspaces, the Desk's start,
+//                  this page) · Settings & system
+// What you hid under Customize is not drawn; a workspace you may not open never is. On a phone the side column is the
+// top of the page and the sections follow. Every link into the terminal opens it in its own tab.
 
 import "./home.css";
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -18,13 +20,18 @@ import { useAiStatus } from "./aiStatus";
 import SystemRow from "./SystemRow";
 import { IconArrow, IconChart, IconKey, IconMail, IconShield, IconUsers } from "./icons";
 import { everyVisible } from "./visible";
+import { usePrefs } from "./prefs";
+import { mayOpen } from "./workspaces";
+import PageJumps from "./stock/terminal/PageJumps";
+import CustomizeCard from "./CustomizeCard";
+import ZerodhaAccounts from "./ZerodhaAccounts";
 
 const WORKSPACES = [
   { view: "", label: "Desk", text: "Chart, live call, order book, 5- and 15-minute forecast" },
   { view: "research", label: "Research", text: "Pre- and post-market, autopilot" },
   { view: "advisor", label: "Advisor", text: "Measured odds for the watchlist" },
   { view: "screener", label: "Screener", text: "Top gainers, losers, RSI" },
-  { view: "account", label: "Positions", text: "Positions, orders, funds", superOnly: true },
+  { view: "account", label: "Positions", text: "Positions, orders, funds", superOnly: true, traderOk: true },
   { view: "indices", label: "Indices", text: "NIFTY & SENSEX by month and year, projected" },
   { view: "analysis", label: "Trade Analysis", text: "Every day: profit, loss, taxes", superOnly: true },
   { view: "calendar", label: "Calendar", text: "Holidays and time zones" },
@@ -229,7 +236,7 @@ function TodayCard({ isSuper }) {
   const pct = (x) => (typeof x === "number" ? `${x > 0 ? "+" : x < 0 ? "−" : ""}${Math.abs(x).toFixed(2)}%` : null);
   const tone = (x) => (typeof x === "number" ? (x > 0 ? "is-up" : x < 0 ? "is-down" : "") : "");
   return (
-    <section className="hm-card hm-today" aria-labelledby="hm-today-h">
+    <section className="hm-card hm-today" aria-labelledby="hm-today-h" data-jump="Today">
       <h2 id="hm-today-h" className="hm-h">
         Today at a glance
       </h2>
@@ -436,7 +443,7 @@ function SocialFeat() {
 }
 
 /** The workspaces, in three groups, with a finder (press / to jump to it). */
-function Workspaces({ isSuper }) {
+function Workspaces({ user, hidden = [] }) {
   const [q, setQ] = useState("");
   const box = useRef(null);
   useEffect(() => {
@@ -450,7 +457,9 @@ function Workspaces({ isSuper }) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
-  const visible = useMemo(() => WORKSPACES.filter((w) => !w.superOnly || isSuper), [isSuper]);
+  // what you may open (your role; your own Zerodha account opens Positions), less what you hid under Customize
+  const hide = hidden.join(",");
+  const visible = useMemo(() => WORKSPACES.filter((w) => mayOpen(w, user) && !hide.split(",").includes(w.view || "analyzer")), [user, hide]);
   const needle = q.trim().toLowerCase();
   const hit = (w) => !needle || `${w.label} ${w.text}`.toLowerCase().includes(needle);
   const groups = GROUPS.map((g) => ({ ...g, items: g.labels.map((l) => visible.find((w) => w.label === l)).filter((w) => w && hit(w)) })).filter((g) => g.items.length);
@@ -458,7 +467,7 @@ function Workspaces({ isSuper }) {
   const rest = visible.filter((w) => !known.has(w.label) && hit(w));
   if (rest.length) groups.push({ id: "more", name: "More", note: "", items: rest });
   return (
-    <nav className="hm-card hm-ws" aria-label="Open a workspace">
+    <nav className="hm-card hm-ws" aria-label="Open a workspace" data-jump="Workspaces">
       <div className="hm-ws__head">
         <h2 className="hm-h">Workspaces</h2>
         <label className="hm-find">
@@ -502,20 +511,27 @@ export default function Dashboard() {
     api("/api/admin/settings").then(setS).catch(() => {});
   }, []);
   const isSuper = user.role === "superadmin";
+  const { prefs } = usePrefs();
   const today = new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  // "Open the terminal" goes to the workspace you chose under Customize (the Desk unless you chose another)
+  const start = WORKSPACES.find((w) => (w.view || "analyzer") === prefs.start && mayOpen(w, user) && !prefs.nav.hidden.includes(prefs.start));
+  const startView = start ? start.view : "";
 
   return (
     <Shell wide>
-      <div className="hm">
-        <section className="hm-hero" aria-labelledby="hm-hero-h">
-          <div className="hm-hero__txt">
+      <div className="hm hm--panel">
+        <aside className="hm-side" aria-label="You, the way in, and this page's sections">
+          <section className="hm-me" aria-labelledby="hm-hero-h">
+            <img className="hm-me__art" src="/vinay-avatar.jpg" alt="" width="72" height="72" />
             <p className="hm-hero__k">
               {greeting()} · {today}
             </p>
             <h1 id="hm-hero-h">Namaste, {firstName(user)}</h1>
-            <p className="hm-hero__d">Your trading desk, research, forecasts and automation in one place. Everything below is live: the status row refreshes by itself.</p>
-            <div className="hm-hero__cta">
-              <a className="hm-btn hm-btn--go" href={terminal("")} target="_blank" rel="noopener noreferrer" data-tip="Open the trading terminal in a new tab.">
+            <p className="hm-me__role">
+              {isSuper ? "Owner" : user.trader ? "Member · own Zerodha account" : "Member"}
+            </p>
+            <div className="hm-me__cta">
+              <a className="hm-btn hm-btn--go" href={terminal(startView)} target="_blank" rel="noopener noreferrer" data-tip={`Open the trading terminal in a new tab${start && startView ? `, on ${start.label}` : ""}. Choose where it opens under Customize.`}>
                 Open the terminal <IconArrow />
               </a>
               <a className="hm-btn" href={terminal("research")} target="_blank" rel="noopener noreferrer" data-tip="Research, the autopilot and the 15-minute forecaster.">
@@ -525,23 +541,28 @@ export default function Dashboard() {
                 Ask TradeAI
               </a>
             </div>
-          </div>
-          <img className="hm-hero__art" src="/vinay-avatar.jpg" alt="" width="148" height="148" />
-        </section>
+          </section>
+          <PageJumps side within=".hm" select="[data-jump]" min={2} label="The sections of this page" />
+        </aside>
 
-        <Pulse isSuper={isSuper} />
+        <div className="hm-main">
+        {prefs.home.status && <Pulse isSuper={isSuper} />}
 
-        <TodayCard isSuper={isSuper} />
+        {prefs.home.today && <TodayCard isSuper={isSuper} />}
 
-        <Workspaces isSuper={isSuper} />
+        {prefs.home.workspaces && <Workspaces user={user} hidden={prefs.nav.hidden} />}
 
-        <div className="hm-feats" aria-label="TradeAI, paper trading and Social Media">
+        <div className="hm-feats" aria-label="TradeAI, paper trading and Social Media" data-jump="Tools">
           <TradeAiFeat />
           <PaperFeat />
           <SocialFeat />
         </div>
 
-        <section className="hm-sets" aria-labelledby="hm-sets-h">
+        <ZerodhaAccounts />
+
+        <CustomizeCard />
+
+        <section className="hm-sets" aria-labelledby="hm-sets-h" data-jump="Settings & system">
           <div className="hm-sets__head">
             <h2 id="hm-sets-h" className="hm-h">
               Settings &amp; system
@@ -571,6 +592,7 @@ export default function Dashboard() {
           </div>
           <SystemRow isSuper={isSuper} />
         </section>
+        </div>
       </div>
     </Shell>
   );

@@ -1026,3 +1026,498 @@
     justify-content: flex-start;
   }
 }
+
+/* ==========================================================================
+   /me as a control panel (third design, 2026-11-19).
+   A side column — you, the way in, this page's sections — that stays on screen; the page beside it.
+   Below 1100px the side column is the top of the page and its list of sections becomes a row.
+   ========================================================================== */
+.hm--panel {
+  --hm-side-top: 68px; /* under the page's own sticky header */
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+}
+.hm-side {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.hm-main {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+.hm-main > * {
+  min-width: 0;
+  scroll-margin-top: calc(var(--hm-side-top) + 8px);
+}
+
+/* who you are and the way in */
+.hm-me {
+  position: relative;
+  display: grid;
+  gap: 4px;
+  padding: 16px;
+  border: 1px solid color-mix(in srgb, var(--hm-gold) 38%, var(--line));
+  border-radius: 18px;
+  overflow: hidden;
+  background:
+    radial-gradient(420px 200px at 100% -10%, color-mix(in srgb, var(--hm-saffron) 22%, transparent), transparent 64%),
+    linear-gradient(150deg, color-mix(in srgb, var(--hm-gold) 9%, var(--surface)), var(--surface) 64%);
+}
+.hm-me__art {
+  width: 72px;
+  height: 72px;
+  margin-bottom: 6px;
+  border: 2px solid color-mix(in srgb, var(--hm-gold) 60%, var(--line));
+  border-radius: 50%;
+  object-fit: cover;
+}
+.hm-me h1 {
+  margin: 0;
+  font-size: clamp(1.3rem, 1.2rem + 0.6vw, 1.7rem);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+.hm-me__role {
+  justify-self: start;
+  margin: 2px 0 8px;
+  padding: 1px 9px;
+  border: 1px solid var(--line-2, var(--line));
+  border-radius: 99px;
+  color: var(--ink-2);
+  font-size: var(--t-small);
+  font-weight: 600;
+}
+.hm-me__cta {
+  display: grid;
+  gap: 6px;
+}
+.hm-me__cta .hm-btn {
+  justify-content: center;
+}
+
+/* the page's sections, as a list at the side */
+.hm .pj--side {
+  display: grid;
+  gap: 2px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+}
+.hm .pj--side[hidden] {
+  display: none;
+}
+.hm .pj--side button {
+  display: block;
+  width: 100%;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 0;
+  border-left: 3px solid transparent;
+  border-radius: 8px;
+  background: none;
+  color: var(--ink-2);
+  font: inherit;
+  font-size: var(--t-base);
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+.hm .pj--side button:hover,
+.hm .pj--side button:focus-visible {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+.hm .pj--side button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.hm .pj--side button.is-on {
+  border-left-color: var(--accent);
+  background: var(--accent-soft, var(--surface-2));
+  color: var(--ink);
+}
+
+@media (min-width: 1100px) {
+  .hm--panel {
+    grid-template-columns: clamp(232px, 20vw, 300px) minmax(0, 1fr);
+    gap: 16px;
+  }
+  .hm-side {
+    position: sticky;
+    top: var(--hm-side-top);
+    max-height: calc(100vh - var(--hm-side-top) - 12px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: var(--line-2) transparent;
+    padding-right: 2px;
+  }
+}
+@media (max-width: 1099.98px) {
+  /* the way in: three buttons in a row; the sections: a row of chips under them */
+  .hm-me {
+    grid-template-columns: auto minmax(0, 1fr);
+    column-gap: 14px;
+    align-items: center;
+  }
+  .hm-me__art {
+    grid-row: 1 / 4;
+    margin: 0;
+  }
+  .hm-me__cta {
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr));
+    margin-top: 8px;
+  }
+  .hm .pj--side {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .hm .pj--side button {
+    width: auto;
+    min-height: 30px;
+    border: 1px solid var(--line);
+    border-radius: 99px;
+  }
+  .hm .pj--side button.is-on {
+    border-color: var(--accent);
+  }
+}
+
+/* ---- Customize (CustomizeCard.jsx) and the Zerodha accounts (ZerodhaAccounts.jsx) */
+.cz,
+.za {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.cz-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 6px 16px;
+}
+.cz-head p {
+  margin: 2px 0 0;
+  color: var(--ink-3);
+  font-size: var(--t-small);
+  line-height: 1.5;
+}
+.cz-state {
+  padding: 1px 9px;
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  color: var(--ink-3);
+  font-size: var(--t-small);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.cz-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  gap: 12px;
+  align-items: start;
+}
+.cz-box {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface-2);
+}
+.cz-box h3 {
+  margin: 0;
+  color: var(--ink);
+  font-size: var(--t-base);
+  font-weight: 700;
+}
+.cz-box h3 + h3,
+.cz-box * + h3 {
+  margin-top: 4px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+/* a setting: its name, the control beside it, and — under the control — what it does */
+.cz-row {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  gap: 3px 12px;
+  align-items: center;
+}
+.cz-row__k {
+  color: var(--ink-2);
+  font-size: var(--t-small);
+  font-weight: 600;
+}
+.cz-row__h {
+  grid-column: 2;
+}
+.cz-row__h,
+.cz-note,
+.cz-foot small {
+  color: var(--ink-3);
+  font-size: var(--t-small);
+  line-height: 1.45;
+}
+.cz-note {
+  margin: 0;
+}
+.cz-row__v {
+  min-width: 0;
+}
+.cz-seg {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.cz-seg button {
+  flex: 1 1 auto;
+  min-height: 28px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 7px;
+  background: none;
+  color: var(--ink-2);
+  font: inherit;
+  font-size: var(--t-small);
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.cz-seg button:hover {
+  color: var(--ink);
+}
+.cz-seg button[aria-pressed="true"] {
+  background: var(--accent-soft, var(--surface-2));
+  box-shadow: inset 0 0 0 1px var(--accent);
+  color: var(--ink);
+}
+.cz-seg button:focus-visible,
+.cz-swatches button:focus-visible,
+.cz-move button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.cz-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.cz-swatches button {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  background: var(--sw);
+  box-shadow: 0 0 0 1px var(--line-2, var(--line));
+  cursor: pointer;
+}
+.cz-swatches button[aria-pressed="true"] {
+  box-shadow: 0 0 0 2px var(--ink);
+}
+.cz-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--ink-2);
+  font-size: var(--t-small);
+  cursor: pointer;
+}
+.cz-check input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+}
+.cz-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+}
+.cz-list {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.cz-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 3px 6px 3px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+.cz-list li.is-off .cz-check {
+  color: var(--ink-3);
+  text-decoration: line-through;
+}
+.cz-move {
+  display: inline-flex;
+  gap: 2px;
+}
+.cz-move button {
+  width: 26px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface-2);
+  color: var(--ink-2);
+  font: inherit;
+  font-size: var(--t-small);
+  cursor: pointer;
+}
+.cz-move button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.cz select,
+.za-fields input {
+  width: 100%;
+  min-height: 32px;
+  padding: 4px 8px;
+  border: 1px solid var(--line-2, var(--line));
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--t-small);
+}
+.cz-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+}
+
+.za-dim {
+  margin: 0;
+  color: var(--ink-3);
+  font-size: var(--t-small);
+  line-height: 1.55;
+}
+.za-dim b {
+  color: var(--ink-2);
+}
+.za code {
+  padding: 1px 6px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface-2);
+  color: var(--ink);
+  font-size: 0.92em;
+  overflow-wrap: anywhere;
+}
+.za-list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.za-list li {
+  --s: var(--ink-3);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--s);
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+.za-list li.is-ok {
+  --s: var(--up);
+}
+.za-list li.is-warn {
+  --s: var(--warn);
+}
+.za-who {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+  flex: 1 1 240px;
+}
+.za-who b {
+  color: var(--ink);
+  font-size: var(--t-base);
+  overflow-wrap: anywhere;
+}
+.za-who small {
+  color: var(--ink-3);
+  font-size: var(--t-small);
+  line-height: 1.45;
+}
+.za-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--ink-2);
+  font-size: var(--t-small);
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.za-switch input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+}
+.za-acts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+}
+.za-form {
+  display: grid;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+.za-steps {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding-left: 20px;
+  color: var(--ink-2);
+  font-size: var(--t-small);
+  line-height: 1.55;
+}
+.za-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: 8px 12px;
+  align-items: end;
+}
+.za-fields label {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.za-fields label span {
+  color: var(--ink-3);
+  font-size: var(--t-small);
+  font-weight: 600;
+}

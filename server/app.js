@@ -66,6 +66,8 @@ const { Horizon } = require("./horizon");
 const { LiveHub } = require("./live");
 const { Supervisor } = require("./supervisor");
 const { Recorder } = require("./recorder");
+const { Accounts, AccountError } = require("./accounts");
+const { Prefs, DEFAULTS: PREF_DEFAULTS, OPTIONS: PREF_OPTIONS } = require("./prefs");
 const { Vault } = require("./vault");
 const zlibLib = require("zlib");
 const { Autopilot } = require("./autopilot");
@@ -246,6 +248,24 @@ function createApp(opts = {}) {
       now: opts.now,
       gapMs: opts.marketGaps ? 0 : undefined,
     });
+
+  // A person's OWN Zerodha account (server/accounts.js): someone on the admin list, switched on by the owner, connects
+  // their own Kite ID and trades on it — their key, their switch, their limits, their audit trail. Each gets a trading
+  // service of their own; the owner's (above) is untouched. And each person's preferences for the private area.
+  const accounts =
+    opts.accounts ||
+    new Accounts({
+      docs: store.docs,
+      secrets: { encrypt: (t) => encrypt(t, settingsKey), decrypt: (b) => decrypt(b, settingsKey) },
+      market,
+      dataDir,
+      isAdmin: (email) => roleOf(email) === "admin",
+      fetchImpl: opts.tradingFetch || opts.marketFetch,
+      now: opts.now,
+      log: opts.log || console,
+      gapMs: opts.marketGaps ? 0 : undefined,
+    });
+  const prefs = opts.prefs || new Prefs({ docs: store.docs });
 
   // What AI Live and AI Research may know about the trader, READ-ONLY: this stock's position and the
   // available margin. Nothing here places, changes or cancels anything; a failure is simply "not known".
@@ -584,6 +604,22 @@ function createApp(opts = {}) {
       next();
     });
 
+  // Whose account? The owner's is the site's own Zerodha connection; a person the owner has switched it on for gets
+  // THEIR OWN (server/accounts.js). The account comes from the session and from nothing else; anyone else is refused.
+  const requireTrader = (req, res, next) =>
+    requireAdmin(req, res, () => {
+      if (req.user.role === "superadmin") {
+        req.trading = trading;
+        return next();
+      }
+      try {
+        req.trading = accounts.tradingFor(req.user.email);
+      } catch (err) {
+        return res.status(err.status || 403).json({ error: err.code || "forbidden", message: err.message });
+      }
+      next();
+    });
+
   /* ------------------------------------------------------- public API */
 
   // What the public site needs: the analytics ID (never on a local machine,
@@ -601,7 +637,8 @@ function createApp(opts = {}) {
     res.json({
       configured,
       needsSetup: !configured,
-      user: u ? { ...u, hasPassword: Boolean((store.data.users[u.email] || {}).passwordHash) } : null,
+      // trader: this person may use their OWN Zerodha account here (the owner uses the site's own connection)
+      user: u ? { ...u, hasPassword: Boolean((store.data.users[u.email] || {}).passwordHash), trader: u.role !== "superadmin" && accounts.allowed(u.email) } : null,
       methods: emailAuth.methods(),
       emailReady: mailer.configured(), // links by email can be sent (to choose or reset a password)
     });
@@ -852,9 +889,80 @@ function createApp(opts = {}) {
       const old = d.users[id.email] || {};
       d.users[id.email] = { name: old.name || "", lastLogin: old.lastLogin || null, sessionVer: (old.sessionVer || 0) + 1 };
     });
+    accounts.forget(id.email); // their Zerodha key, token and trading settings go with their access
     audit(req, "admin_removed", id.email, { by: req.user.email });
     res.json({ admins: adminRows() });
   });
+
+  /* ------------------------------------------- each person's own Zerodha account (server/accounts.js) */
+  const ACC_COOKIE = "vpt_kite_acc";
+  const ACC_PATH = "/api/admin/accounts/kite";
+  const accWrap = (fn) => async (req, res) => {
+    try {
+      res.json(await fn(req));
+    } catch (err) {
+      if (err instanceof AccountError) return res.status(err.status).json({ error: err.code, message: err.message });
+      console.error("[accounts]", err && err.message ? err.message : err);
+      res.status(502).json({ error: "kite_error", message: err && err.message ? `Zerodha said: ${err.message}` : "Could not reach Zerodha." });
+    }
+  };
+  const accRedirect = (req) => `${origin(req)}${ACC_PATH}/callback`;
+  // the owner: who has an account of their own, and the switch for each (never a key, a position or an order)
+  app.get("/api/admin/accounts", requireSuper, accWrap(async (req) => ({ people: accounts.list(), admins: store.data.admins.map((a) => a.email), redirectUrl: accRedirect(req) })));
+  app.put("/api/admin/accounts/people/:email", requireSuper, limiter(60, 10 * 60 * 1000), accWrap(async (req) => {
+    const id = identify(normaliseEmail(req.params.email));
+    if (!id || id.role !== "admin") throw new AccountError("Add this person under People first: only someone who can sign in can be given an account.", "not_admin", 404);
+    const on = Boolean((req.body || {}).allowed);
+    const people = on ? accounts.grant(id.email, req.user.email) : accounts.revoke(id.email, req.user.email);
+    audit(req, on ? "account_granted" : "account_revoked", id.email, { by: req.user.email });
+    return { people, admins: store.data.admins.map((a) => a.email), redirectUrl: accRedirect(req) };
+  }));
+  // the person: their own connection
+  app.get("/api/admin/accounts/me", requireAdmin, accWrap(async (req) => ({ ...accounts.state(req.user.email), owner: req.user.role === "superadmin", redirectUrl: accRedirect(req) })));
+  app.put("/api/admin/accounts/me/kite", requireAdmin, limiter(20, 15 * 60 * 1000), accWrap(async (req) => {
+    const b = req.body || {};
+    return { ...accounts.setCredentials(req.user.email, b.apiKey, b.apiSecret), owner: false, redirectUrl: accRedirect(req) };
+  }));
+  app.post("/api/admin/accounts/me/disconnect", requireAdmin, accWrap(async (req) => ({ ...accounts.disconnect(req.user.email), owner: false, redirectUrl: accRedirect(req) })));
+  app.delete("/api/admin/accounts/me/kite", requireAdmin, accWrap(async (req) => ({ ...accounts.removeKeys(req.user.email), owner: false, redirectUrl: accRedirect(req) })));
+  // the daily login: the password and 2FA are typed on kite.zerodha.com, never here; Zerodha sends the browser back with a one-time token
+  app.get(`${ACC_PATH}/login`, limiter(20, 15 * 60 * 1000), (req, res) => {
+    const u = currentUser(req);
+    if (!u) return res.redirect(ADMIN_BASE);
+    try {
+      const state = randomToken(18);
+      res.append("Set-Cookie", cookie(ACC_COOKIE, sign({ state, email: u.email }, sessionKey, 600), { maxAge: 600, path: ACC_PATH, secure: isSecure(req) }));
+      res.redirect(accounts.loginUrl(u.email, state));
+    } catch (err) {
+      res.redirect(`${ADMIN_BASE}?account=error&reason=${encodeURIComponent(err.message)}`);
+    }
+  });
+  app.get(`${ACC_PATH}/callback`, async (req, res) => {
+    const clear = cookie(ACC_COOKIE, "", { maxAge: 0, path: ACC_PATH, secure: isSecure(req) });
+    const fail = (reason) => {
+      res.append("Set-Cookie", clear);
+      res.redirect(`${ADMIN_BASE}?account=error&reason=${encodeURIComponent(reason)}`);
+    };
+    const u = currentUser(req);
+    if (!u) return res.redirect(ADMIN_BASE);
+    const pending = verify(parseCookies(req.headers.cookie)[ACC_COOKIE], sessionKey);
+    // the attempt must have started here, in this browser, by this same person
+    if (!pending || pending.email !== u.email || typeof req.query.state !== "string" || !safeEqual(req.query.state, pending.state)) return fail("That login attempt expired or did not start here. Please try again.");
+    if (req.query.status && req.query.status !== "success") return fail("The Kite login was cancelled.");
+    try {
+      await accounts.completeLogin(u.email, req.query.request_token);
+      res.append("Set-Cookie", clear);
+      res.redirect(`${ADMIN_BASE}?account=connected`);
+    } catch (err) {
+      console.error("[accounts] Kite login failed:", err.message);
+      fail(err instanceof AccountError ? err.message : `Zerodha said: ${err.message || "the login could not be completed"}`);
+    }
+  });
+
+  /* ------------------------------------------- each person's preferences (server/prefs.js; /me → Customize) */
+  app.get("/api/admin/prefs", requireAdmin, (req, res) => res.json({ prefs: prefs.get(req.user.email), stored: prefs.stored(req.user.email), defaults: PREF_DEFAULTS, options: PREF_OPTIONS }));
+  app.put("/api/admin/prefs", requireAdmin, limiter(240, 10 * 60 * 1000), (req, res) => res.json({ prefs: prefs.set(req.user.email, req.body || {}), defaults: PREF_DEFAULTS, options: PREF_OPTIONS }));
+  app.delete("/api/admin/prefs", requireAdmin, limiter(60, 10 * 60 * 1000), (req, res) => res.json({ prefs: prefs.reset(req.user.email), defaults: PREF_DEFAULTS, options: PREF_OPTIONS }));
 
   /* ------------------------------------------- stock report: the AI strategist */
   mountAi(app, { ai, requireAdmin, requireSuper, limiter });
@@ -902,7 +1010,9 @@ ${e.text}
   if (market.events && typeof trading.pushStatus === "function") market.events.on("kite", () => trading.pushStatus());
   trading.livePositions = () => liveBook.fresh();
   if (opts.liveBook !== false && opts.alertWatch !== false) liveBook.start();
-  app.get("/api/admin/trading/live", requireSuper, async (req, res) => {
+  app.get("/api/admin/trading/live", requireTrader, async (req, res) => {
+    // a person's own account has no streamed book: its positions are read from Zerodha as they are
+    if (req.user.role !== "superadmin") return res.json(await accounts.book(req.user.email));
     try {
       if (!liveBook.base || req.query.fresh === "1") await liveBook.refresh();
       res.json(liveBook.view());
@@ -1215,12 +1325,13 @@ ${e.text}
   // the journal reads today's trades from Kite by itself (Kite keeps only the current day's)
   const journalCapture = opts.journalCaptureService || new JournalCapture({ trading, market, now: opts.now, log: opts.log || console });
   if (opts.journalCapture !== false) journalCapture.start();
-  mountTrading(app, { trading, ai, requireSuper, limiter, capture: journalCapture });
+  mountTrading(app, { trading, ai, requireSuper, requireTrader, limiter, capture: journalCapture });
 
   /* ------------------------------------------- stock report: the analyzer */
   mountMarket(app, {
     market,
     requireAdmin,
+    requireSuper,
     limiter,
     currentUser,
     origin,
@@ -1785,6 +1896,7 @@ ${e.text}
     return [st.running && st.running.id, st.behind, st.events[0] && st.events[0].at, st.duties.map((d) => d.state)];
   });
   live.watch("data", () => [recorder.fingerprint(), vault.fingerprint()]);
+  live.watch("accounts", () => accounts.fingerprint());
   live.watch("open", () => openForecast.fingerprint());
   live.watch("autopilot", () => autopilot.fingerprint());
   live.watch("ai", () => [ai.guard.status(), ai.status()]);
@@ -1882,6 +1994,8 @@ ${e.text}
     supervisor,
     recorder,
     vault,
+    accounts,
+    prefs,
     autopilot,
     get setupToken() {
       return setupToken;
