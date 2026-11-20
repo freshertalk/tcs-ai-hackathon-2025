@@ -19,6 +19,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../../api";
+import { useTopics } from "../../live";
 import { Alert, Loading } from "../../ui";
 import { DateField } from "../../DatePicker";
 import { HBars, Spark, dayLong, rs, rsSigned, tone } from "./charts";
@@ -185,7 +186,7 @@ function Trades({ trades, flights = [] }) {
               <th scope="col" className="is-num" data-tip="Your profit as a share of the best move while you were in (MFE).">
                 Kept
               </th>
-              <th scope="col" className="is-num" data-tip="How much further the price went your way after you left, up to 3:15 PM.">
+              <th scope="col" className="is-num" data-tip="How much further the price went your way after you left, up to the square-off.">
                 Ran on
               </th>
               <th scope="col">Entry</th>
@@ -241,7 +242,7 @@ function Trades({ trades, flights = [] }) {
                         <ul className="lab-whatif">
                           {Object.entries(t.whatIf).map(([id, w]) => (
                             <li key={id}>
-                              <b>{{ fixed: "Stop 0.5% · target 1%", trail: "Trailing 0.5%", breakeven: "Break-even stop", close: "Hold to 3:15", coach: "The exit coach" }[id] || id}</b> — out at {w.exit} ({w.how}) · <span className={tone(w.net)}>{rsSigned(w.net)}</span>
+                              <b>{{ fixed: "Stop 0.5% · target 1%", trail: "Trailing 0.5%", breakeven: "Break-even stop", close: "Hold to the square-off", coach: "The exit coach" }[id] || id}</b> — out at {w.exit} ({w.how}) · <span className={tone(w.net)}>{rsSigned(w.net)}</span>
                               <small> ({rsSigned(w.net - t.net)} against yours)</small>
                             </li>
                           ))}
@@ -269,17 +270,19 @@ function Trades({ trades, flights = [] }) {
 function DayLab({ date, setDate }) {
   const [st, setSt] = useState({ loading: true, lab: null, error: "" });
   const load = useCallback(
-    (refresh = false) => {
-      setSt((s) => ({ ...s, loading: true, error: "" }));
+    (refresh = false, quiet = false) => {
+      if (!quiet) setSt((s) => ({ ...s, loading: true, error: "" }));
       return api(`/api/admin/analysis/lab/${date}${refresh ? "?refresh=1" : ""}`)
         .then((lab) => setSt({ loading: false, lab, error: "" }))
-        .catch((e) => setSt({ loading: false, lab: null, error: e.message }));
+        .catch((e) => setSt((s) => (quiet ? { ...s, loading: false } : { loading: false, lab: null, error: e.message })));
     },
     [date]
   );
   useEffect(() => {
     load();
   }, [load]);
+  // a trade filled, a position closed or a report saved anywhere: the day is read again at once, quietly
+  useTopics(["analysis", "trading"], () => load(false, true));
   const l = st.lab;
   const { flights, record } = useFlightDay(date);
   const ai = aiLevelsOf(flights);
@@ -301,11 +304,11 @@ function DayLab({ date, setDate }) {
             <ScoreKpi score={l.summary.score} label={l.summary.label} />
             <Kpi label="Net after charges" value={rsSigned(l.summary.net)} cls={tone(l.summary.net)} sub={`${l.summary.trades} trade${l.summary.trades === 1 ? "" : "s"} · gross ${rsSigned(l.summary.gross)} · charges ${rs(l.summary.charges)}`} />
             <Kpi label="Share of the move kept" value={typeof l.summary.capture === "number" ? `${l.summary.capture}%` : "—"} sub="your profit ÷ the best move while in" tip="All replayed trades together: the profit you took against the most the price offered while you were in (MFE)." />
-            <Kpi label="Ran on after your exits" value={rs(l.summary.ranOn)} sub={`leaving spared you up to ${rs(l.summary.avoided)}`} tip="How much further the price went your way after each exit, up to 3:15 PM — and how far it went against you (what leaving spared you)." />
+            <Kpi label="Ran on after your exits" value={rs(l.summary.ranOn)} sub={`leaving spared you up to ${rs(l.summary.avoided)}`} tip="How much further the price went your way after each exit, up to the square-off — and how far it went against you (what leaving spared you)." />
             <Kpi label="Best other exit" value={l.best ? rsSigned(l.best.vsActual) : "—"} cls={l.best ? tone(l.best.vsActual) : ""} sub={l.best ? l.best.name : "no replay"} />
             <Kpi label="Exit efficiency" value={typeof l.summary.efficiency === "number" ? `${l.summary.efficiency}%` : "—"} sub={typeof l.summary.bestPossible === "number" ? `of ${rs(l.summary.bestPossible)} on offer · ${rs(l.summary.leftOnTable)} left` : "no replay"} tip="Your profit as a share of the most that was on offer while you were in each trade (hindsight's ceiling)." />
             <Kpi label="Exit timing" value={`${l.summary.late || 0} late · ${l.summary.onTime || 0} on time`} sub={typeof l.summary.avgGapMin === "number" ? `on average ${l.summary.avgGapMin} min after the best moment${l.summary.early ? ` · ${l.summary.early} left before a bigger move` : ""}` : ""} tip="Late: you stayed more than two minutes past the trade's best moment." />
-            <Kpi label="The coach against you" value={typeof l.summary.coachVsYours === "number" ? rsSigned(l.summary.coachVsYours) : "—"} cls={tone(l.summary.coachVsYours)} sub="the same entries closed at the coach's EXIT NOW" tip="What the day would have made had every trade been closed where the exit coach, replayed on the bars, first said EXIT NOW (or at 3:15 PM)." />
+            <Kpi label="The coach against you" value={typeof l.summary.coachVsYours === "number" ? rsSigned(l.summary.coachVsYours) : "—"} cls={tone(l.summary.coachVsYours)} sub="the same entries closed at the coach's EXIT NOW" tip="What the day would have made had every trade been closed where the exit coach, replayed on the bars, first said EXIT NOW (or at the square-off)." />
             {ai.given > 0 && <Kpi label="The AI's exit levels" value={ai.sets ? `${ai.reached} of ${ai.sets} reached` : "not scored yet"} sub={ai.sets ? `first target before the stop · the stop came first on ${ai.stopped}` : "scored after the close, on the day's bars"} tip={record && record.judged ? `All days: ${record.text}` : "Each set of levels the AI researched live is scored after the close on the day's 1-minute bars: which came first, its first target or its stop."} />}
           </div>
           <ExitTiming trades={l.trades} />

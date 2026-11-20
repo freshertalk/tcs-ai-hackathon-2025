@@ -1,6 +1,6 @@
 // The Execution Lab's replay extras:
 //   ExitTiming   for every trade of a day — when you left, the best moment to have left while you were
-//                in (the least loss when it never paid), the best up to 3:15 PM, and when the exit
+//                in (the least loss when it never paid), the best up to the square-off, and when the exit
 //                coach would have said EXIT NOW, each with its time, price and P&L
 //   TradeChart   one trade's price path with those moments marked, and the coach's signals in order
 //                (from the day's recording when the flight deck was watching, else replayed on bars),
@@ -55,8 +55,8 @@ export function ExitTiming({ trades }) {
               <th scope="col" data-tip="Minutes you stayed after the best moment.">
                 Gap
               </th>
-              <th scope="col" data-tip="The best moment from your entry to 3:15 PM, had you stayed.">
-                Best up to 3:15
+              <th scope="col" data-tip="The best moment from your entry to the square-off, had you stayed.">
+                Best up to the square-off
               </th>
               <th scope="col" data-tip="When the desk's exit coach, replayed on the same bars, first said EXIT NOW.">
                 The coach said EXIT
@@ -92,7 +92,7 @@ export function ExitTiming({ trades }) {
                   <td>
                     <When x={r.bestExitDay} />
                   </td>
-                  <td>{r.coach ? <When x={r.coach.exit} label={r.coach.exit.said ? `${rsSigned(r.coach.vsYours)} against yours` : "no EXIT before 3:15"} /> : <span className="ta-dim">—</span>}</td>
+                  <td>{r.coach ? <When x={r.coach.exit} label={r.coach.exit.said ? `${rsSigned(r.coach.vsYours)} against yours` : "no EXIT before the square-off"} /> : <span className="ta-dim">—</span>}</td>
                   <td className="is-num">{typeof r.timing.efficiency === "number" ? `${r.timing.efficiency}%` : "—"}</td>
                 </tr>
               );
@@ -173,7 +173,7 @@ export function TradeChart({ t, flight }) {
         )}
         {r.bestExitDay && r.bestExitDay.at > t.exitAt && (
           <li>
-            Up to 3:15 the best was <b>{r.bestExitDay.clock}</b> at ₹{px(r.bestExitDay.price)} ({rsSigned(r.bestExitDay.pnl)})
+            Up to the square-off the best was <b>{r.bestExitDay.clock}</b> at ₹{px(r.bestExitDay.price)} ({rsSigned(r.bestExitDay.pnl)})
           </li>
         )}
         {r.worst && (

@@ -51,7 +51,10 @@ const dayOf = (t) => String(t).slice(0, 10);
 const LEAN_AT = 22; // the outlook's own threshold for a lean
 const OR_END = "09:30"; // the opening range is 9:15–9:30: the first fifteen minutes
 const LAST_ENTRY = "15:00";
-const SQUARE_OFF = "15:15";
+const { exitHmFor, exitMinFor, clockOf } = require("./session");
+// everything still open is closed at the open of the last bar before the broker's square-off for that day (market/session.js):
+// 3:15 PM under the old rules, 3:10 PM since 3 August 2026 (closing-auction stocks are squared off at 3:12 PM)
+const exitHmOf = (bars) => (bars.length ? exitHmFor(dayOf(bars[0].t)) : "15:15");
 const DAILY_WINDOW = 260; // daily bars handed to each past outlook: enough for the 200-day average
 const MIN_SESSION_BARS = 60; // of 75: shorter sessions (special or broken days) are left out
 
@@ -73,7 +76,7 @@ function dayRange(daily, k) {
  *          stop at the pivot or the previous low, held between 0.3 and 0.5 of a normal day's range;
  *          targets at the first resistance paying 1.2× the risk (else 1.5×), the next (else 2.5×)
  *   short  the mirror image below the previous low — intraday only
- *   exit   at the stop, at target 1, or at 3:15 PM; no new entry after 3:00 PM
+ *   exit   at the stop, at target 1, or before the broker's square-off (3:10 PM since August 2026, 3:15 PM before); no new entry after 3:00 PM
  */
 function plansFor(prev, dayR) {
   const pv = I.pivots({ h: prev.h, l: prev.l, c: prev.c });
@@ -130,10 +133,11 @@ function play(bars, plan, side, costPct, from = startOf(bars)) {
     return { idx, fill: r2(fill), exit: r2(exit), how, r: r2((move - cost) / risk), at: hmOf(bars[idx].t) };
   };
   const first = bars[idx];
+  const exitHm = exitHmOf(bars);
   if (side === "long" ? first.l <= plan.stop : first.h >= plan.stop) return done(plan.stop, "stop");
   for (let j = idx + 1; j < bars.length; j += 1) {
     const b = bars[j];
-    if (hmOf(b.t) >= SQUARE_OFF) return done(b.o, "time");
+    if (hmOf(b.t) >= exitHm) return done(b.o, "time");
     if (side === "long") {
       if (b.l <= plan.stop) return done(Math.min(plan.stop, b.o), "stop");
       if (b.h >= t1) return done(Math.max(t1, b.o), "target");
@@ -229,6 +233,9 @@ function buildIntradayPlan({ daily, forming = false, bars5 = [], outlook = null,
   const done = forming ? daily.slice(0, -1) : daily;
   const k = done.length - 1;
   const prev = done[k];
+  // the day the plan is for, and the last moment its trades may be open: before the broker's square-off on that day
+  const planDay = forming ? dayOf(daily[daily.length - 1].t) : nextWeekday(prev.t);
+  const outBy = clockOf(exitMinFor(planDay));
   const atr = I.atr(done.slice(-120), 14).slice(-1)[0];
   const dr = dayRange(done, k);
   if (!num(atr) || !dr || !(dr.rs > 0)) return { available: false, reason: "The daily bars have no range to measure." };
@@ -413,7 +420,7 @@ function buildIntradayPlan({ daily, forming = false, bars5 = [], outlook = null,
       orb: stats(orb),
       recent: tail(lean.all.length >= 6 ? lean.all : both),
       recentPolicy: lean.all.length >= 6 ? "lean" : "both",
-      rule: `Every past session with 5-minute bars was planned with the daily bars up to the evening before only, by the same rules as tomorrow's plan, then played on that day's bars: an entry only after 9:30 and before 3:00 PM, out at the stop, at target 1 or at 3:15 PM; a bar that touches both the entry and the stop counts as a loss. "Followed the lean" takes the long only after an up-leaning chart and the short only after a down-leaning one. Results are in R (1R = the planned risk) after a ${costPct}% round-trip cost.`,
+      rule: `Every past session with 5-minute bars was planned with the daily bars up to the evening before only, by the same rules as tomorrow's plan, then played on that day's bars: an entry only after 9:30 and before 3:00 PM, out at the stop, at target 1 or before the broker's square-off (3:10 PM since August 2026, 3:15 PM before); a bar that touches both the entry and the stop counts as a loss. "Followed the lean" takes the long only after an up-leaning chart and the short only after a down-leaning one. Results are in R (1R = the planned risk) after a ${costPct}% round-trip cost.`,
     };
   }
 
@@ -645,11 +652,11 @@ function buildIntradayPlan({ daily, forming = false, bars5 = [], outlook = null,
     checklist.push(`The stop at ${sym(p.stop)} goes in with the order; size so that ${sym(p.riskPerShare)} a share is at most 1% of your capital.`);
     const wall = opt ? (kind === "long" ? opt.resistance : opt.support) : null;
     if (wall && (kind === "long" ? wall.strike > p.entry && wall.strike < p.targets[0] : wall.strike < p.entry && wall.strike > p.targets[0])) checklist.push(`The ${kind === "long" ? "call" : "put"} wall at ${sym(wall.strike)} (the most ${kind === "long" ? "call" : "put"} open interest) stands before target 1: expect selling${kind === "long" ? "" : " to dry up"} there — book part at the wall.`);
-    checklist.push(`Book at least part at ${sym(p.targets[0])}; everything out by 3:15 PM${kind === "short" ? " (a cash-market short must be bought back the same day)" : ""}.`);
+    checklist.push(`Book at least part at ${sym(p.targets[0])}; everything out by ${outBy}${kind === "short" ? " (a cash-market short must be bought back the same day)" : ""}.`);
   } else if (kind === "orb") {
     checklist.push("Mark the high and low of 9:15–9:30. Enter only on a break after 9:30, on the side that breaks first.");
     checklist.push(`Stop at the other side of that range, but never more than ${sym(0.5 * dr.rs)} away (half a normal day's range).`);
-    checklist.push("Target 1.5× the risk; everything out by 3:15 PM. If the first break fails back inside the range, do not flip sides on the same day.");
+    checklist.push(`Target 1.5× the risk; everything out by ${outBy}. If the first break fails back inside the range, do not flip sides on the same day.`);
   } else if (kind === "wait") {
     const jumped = open.expected > plans.long.entry || open.expected < plans.short.entry;
     checklist.push(
@@ -662,7 +669,7 @@ function buildIntradayPlan({ daily, forming = false, bars5 = [], outlook = null,
     checklist.push("Pick a stock that moves more in a day — the Screener's movers or the Advisor's list.");
   }
 
-  const nextSession = forming ? dayOf(daily[daily.length - 1].t) : nextWeekday(prev.t);
+  const nextSession = planDay;
   return {
     available: true,
     asOf: prev.t,
@@ -673,7 +680,7 @@ function buildIntradayPlan({ daily, forming = false, bars5 = [], outlook = null,
     odds: { now: nowBucket, ...odds },
     open,
     range,
-    plans: { long: plans.long, short: plans.short, orb: { rule: "Break of the 9:15–9:30 high or low after 9:30; stop at the other side (held between 0.15 and 0.5 of a normal day's range); target 1.5× the risk; out by 3:15 PM.", typicalRangePct: habits ? habits.openingRange.medianPct : null } },
+    plans: { long: plans.long, short: plans.short, orb: { rule: `Break of the 9:15–9:30 high or low after 9:30; stop at the other side (held between 0.15 and 0.5 of a normal day's range); target 1.5× the risk; out by ${outBy}.`, typicalRangePct: habits ? habits.openingRange.medianPct : null } },
     pivots: { p: onTick(pv.p), r1: onTick(pv.r1), r2: onTick(pv.r2), s1: onTick(pv.s1), s2: onTick(pv.s2) },
     ladder,
     habits,

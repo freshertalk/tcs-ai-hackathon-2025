@@ -58,7 +58,15 @@ const BREAK_WITHIN = 6;
 const MAX_BARS = 24; // two hours of 5-minute bars
 const FIRST = 3; // the opening range is the first three bars; tests start at 9:30
 const LAST_MIN = 14 * 60 + 30; // no test starts after 2:30 PM
-const SQUARE_MIN = 15 * 60 + 15;
+const { exitMinFor } = require("../market/session");
+// a test still open is closed at the last 5-minute bar before the broker's square-off on that day: 3:15 PM under the old
+// rules, 3:10 PM since 3 August 2026
+const exitMemo = new Map();
+const exitMinOf = (ms) => {
+  const date = new Date(ms + IST).toISOString().slice(0, 10);
+  if (!exitMemo.has(date)) exitMemo.set(date, exitMinFor(date));
+  return exitMemo.get(date);
+};
 const K_SHRINK = 8; // a stock's own record counts for this many pooled tests when shrunk
 const WINDOW = 120; // sessions in the book (the stored year gives more than that; the older ones count for less than the recent)
 const MIN_POOLED = 40;
@@ -96,7 +104,7 @@ function walk(bars, from, entry, stop, target, dir) {
     const hitTarget = dir > 0 ? b.h >= target : b.l <= target;
     if (hitStop) return { r: -1, why: "stop", bar: i };
     if (hitTarget) return { r: TARGET_R, why: "target", bar: i };
-    if (minOf(b.t) >= SQUARE_MIN) return { r: (dir * (b.c - entry)) / Math.abs(entry - stop), why: "time", bar: i };
+    if (minOf(b.t) >= exitMinOf(b.t)) return { r: (dir * (b.c - entry)) / Math.abs(entry - stop), why: "time", bar: i };
   }
   const b = bars[last];
   return { r: (dir * (b.c - entry)) / Math.abs(entry - stop), why: "time", bar: last };

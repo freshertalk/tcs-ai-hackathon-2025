@@ -12,7 +12,7 @@
 
 const crypto = require("crypto");
 
-const VIEWS = ["analyzer", "research", "advisor", "screener", "account", "indices", "analysis", "calendar", "journal", "paper", "debrief", "engine", "document"];
+const VIEWS = ["analyzer", "now", "research", "advisor", "screener", "account", "indices", "analysis", "calendar", "journal", "paper", "debrief", "engine", "document"];
 const OPTIONS = {
   theme: ["dark", "light"],
   accent: ["blue", "teal", "green", "amber", "rose", "violet"],

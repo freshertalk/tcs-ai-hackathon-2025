@@ -4,7 +4,7 @@
 //
 // The scorecard needs no AI. It replays the live call over the session's 5-minute bars
 // for every stock on the watchlist and scores each "in play" call: stop first, then the
-// 1R target, otherwise out at the 3:15 PM square-off — before and after an assumed cost.
+// 1R target, otherwise out at the square-off — before and after an assumed cost.
 // It is not a record of anything that was traded.
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
@@ -395,7 +395,7 @@ export default function Debrief({ onOpen = null }) {
               <Tile k="Calls made" v={t.calls} sub={`on ${t.stocks} stock${t.stocks === 1 ? "" : "s"}${t.open ? ` · ${t.open} still open` : ""}`} />
               <Tile k="✓ Reached target" v={t.target} sub="made what they risked (+1 R)" />
               <Tile k="✕ Stopped out" v={t.stop} sub="lost what they risked (−1 R or worse)" />
-              <Tile k="◦ Closed at 3:15 PM" v={t.squareOff + t.flip} sub="neither stop nor target" />
+              <Tile k="◦ Closed at the square-off" v={t.squareOff + t.flip} sub="neither stop nor target" />
               <Tile k="Before costs" v={fmtR(t.grossR)} t={rTone(t.grossR)} />
               <Tile k="Costs" v={fmtR(-t.costR)} sub={`at ${data.costPct}% a round trip`} />
               <Tile k="After costs" v={fmtR(t.netR)} t={rTone(t.netR)} sub="all finished calls together" />
@@ -523,7 +523,7 @@ export default function Debrief({ onOpen = null }) {
           <li>
             <b>How a call is replayed.</b> At each 5-minute close the engine is asked for its call with only what was known then. A change to “in play” opens one imaginary trade at
             that close. The stop is checked first — a bar that touches both stop and target counts as a stop, and a gap through the stop is filled at the bar’s open — then the 1 R
-            target; otherwise it is closed at the open of the 3:15 PM bar. One trade at a time per stock.
+            target; otherwise it is closed at the open of the last bar before the broker's square-off. One trade at a time per stock.
           </li>
           <li>
             <b>Why it can differ from what you saw.</b> The live call is read every two seconds and also weighs the market’s direction, the tick stream and the order book. The replay

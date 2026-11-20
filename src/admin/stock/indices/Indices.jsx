@@ -6,6 +6,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../../api";
+import { useTopics } from "../../live";
 import { useAuth } from "../../auth";
 import { Alert, Loading } from "../../ui";
 import { Fan, MonthBars, PairBars, SeasonalPath, YearBars, dayLabel, lvl, pct, pts } from "./IndexCharts";
@@ -1053,6 +1054,8 @@ export default function Indices() {
   useEffect(() => {
     if (tab === "compare" ? !cmp : !views[tab]) load(tab);
   }, [tab, load, cmp, views]);
+  // a refresh, a projection checked or an AI answer anywhere: the tab in view is read again at once
+  useTopics(["indices"], () => load(tab));
   const v = tab !== "compare" ? views[tab] : null;
   const ask = async (horizon) => {
     setAsking(horizon);

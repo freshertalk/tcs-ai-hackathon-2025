@@ -23,6 +23,7 @@
 // in). A replay is a measurement of the past, not a promise about the next trade.
 
 const { replay: coachReplay } = require("../trading/exitcoach");
+const { squareOffAt } = require("../market/session");
 
 const IST = 5.5 * 3600 * 1000;
 const num = (x) => typeof x === "number" && Number.isFinite(x);
@@ -30,7 +31,8 @@ const r2 = (x) => (num(x) ? Math.round(x * 100) / 100 : null);
 const r1 = (x) => (num(x) ? Math.round(x * 10) / 10 : null);
 const OPEN = (date) => Date.parse(`${date}T03:45:00Z`); // 9:15 AM IST
 const OR_END = (date) => Date.parse(`${date}T04:00:00Z`); // 9:30 AM IST
-const SQUARE = (date) => Date.parse(`${date}T09:45:00Z`); // 3:15 PM IST
+// the broker's square-off on that day (market/session.js): 3:12 PM in a closing-auction stock since 3 August 2026, 3:15 PM before
+const SQUARE = (date) => squareOffAt(Date.parse(`${date}T05:00:00Z`));
 const istDate = (ms) => new Date(ms + IST).toISOString().slice(0, 10);
 const istHour = (ms) => new Date(ms + IST).getUTCHours();
 const istClock = (ms) => new Date(ms + IST).toISOString().slice(11, 16);
@@ -41,7 +43,7 @@ const RULES = [
   { id: "fixed", name: "Stop 0.5% · target 1% (2R)", stopPct: 0.5, targetPct: 1 },
   { id: "trail", name: "Trailing stop 0.5%", trailPct: 0.5 },
   { id: "breakeven", name: "Stop 0.5%, to break-even at +0.5%", stopPct: 0.5, bePct: 0.5 },
-  { id: "close", name: "Hold to 3:15 PM" },
+  { id: "close", name: "Hold to the square-off" },
   { id: "coach", name: "The exit coach's EXIT NOW" },
 ];
 
@@ -233,7 +235,7 @@ function labDay({ date, trips = [], bars = {}, limits = null, maxTrades = 6 }) {
       }
       // the desk's exit coach on the same bars: its signals minute by minute, and where it said EXIT NOW
       const cr = coachReplay({ symbol: t.symbol, side: t.side, qty, entryAvg: t.entryAvg, entryAt: t.entryAt }, b);
-      const end = cr.exit || (whatIf.close ? { at: whatIf.close.at, clock: istClock(whatIf.close.at), price: whatIf.close.exit, pnl: whatIf.close.pnl, why: "No EXIT NOW before 3:15 PM." } : null);
+      const end = cr.exit || (whatIf.close ? { at: whatIf.close.at, clock: istClock(whatIf.close.at), price: whatIf.close.exit, pnl: whatIf.close.pnl, why: "No EXIT NOW before the square-off." } : null);
       if (end) {
         whatIf.coach = { exit: end.price, how: cr.exit && cr.exit.kind !== "time" ? "coach" : "time", at: end.at, pnl: end.pnl, net: r2(end.pnl - base.charges) };
         read.coach = { exit: { ...end, said: Boolean(cr.exit && cr.exit.kind !== "time") }, changes: cr.changes.slice(0, 12), gapMin: Math.round((t.exitAt - end.at) / 60000), vsYours: r2(end.pnl - t.pnl) };

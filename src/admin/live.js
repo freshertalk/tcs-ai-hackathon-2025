@@ -11,7 +11,7 @@
 //   same happens when the network comes back or a tab is shown again after a long absence. Pages also keep their own slow
 //   polling as a safety net, so a dead connection can only make things slower, never wrong.
 
-import { useSyncExternalStore } from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
 
 const URL_PATH = "/api/admin/live";
 const CHANNEL = "vpt-live";
@@ -207,6 +207,54 @@ export const isLive = () => state.status === "live";
 /** { status: "live" | "connecting" | "reconnecting" | "offline" | "idle", leader, last } — re-renders when it changes. */
 export function useLive() {
   return useSyncExternalStore(subscribe, snapshot, snapshot);
+}
+
+/**
+ * Run `fn` the moment the server says one of `topics` changed — for a screen that reads once and has no timer of its own
+ * (a report, a list, a settings card). At most about once a second; a burst of changes becomes one run; a tab in the
+ * background runs it when it is shown again. `fn` should re-read quietly (no "loading" flash): the data is already on screen.
+ */
+export function useTopics(topics, fn, { gap = 1000 } = {}) {
+  const ref = useRef(fn);
+  ref.current = fn;
+  const key = (topics || []).join(",");
+  useEffect(() => {
+    if (!key) return undefined;
+    let last = 0;
+    let trail = null;
+    let dirty = false;
+    const hidden = () => typeof document !== "undefined" && document.visibilityState === "hidden";
+    const run = () => {
+      last = Date.now();
+      dirty = false;
+      ref.current();
+    };
+    const poke = () => {
+      if (hidden()) {
+        dirty = true;
+        return;
+      }
+      const wait = gap - (Date.now() - last);
+      if (wait <= 0) run();
+      else if (!trail) {
+        trail = setTimeout(() => {
+          trail = null;
+          if (hidden()) dirty = true;
+          else run();
+        }, wait);
+      }
+    };
+    const off = onTopics(key.split(","), poke);
+    const onShow = () => {
+      if (!hidden() && dirty) run();
+    };
+    if (typeof document !== "undefined") document.addEventListener("visibilitychange", onShow);
+    return () => {
+      off();
+      clearTimeout(trail);
+      if (typeof document !== "undefined") document.removeEventListener("visibilitychange", onShow);
+    };
+  }, [key, gap]);
 }
 
 /** For tests. */

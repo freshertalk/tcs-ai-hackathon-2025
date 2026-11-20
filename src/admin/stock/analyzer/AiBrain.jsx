@@ -326,7 +326,7 @@ function Pane({ kind, floor, run, symbol }) {
             <div className="ab-plans">
               <Plan side="long" p={shown.plans && shown.plans.long} called={shown.call === "long" || shown.call === "long-bias"} sizing={live && you && you.sizing && shown.call === "long" ? you.sizing : null} />
               <Plan side="short" p={shown.plans && shown.plans.short} called={shown.call === "short" || shown.call === "short-bias"} sizing={live && you && you.sizing && shown.call === "short" ? you.sizing : null} />
-              <p className="ab-dim ab-plans__note">Both sides are always shown. A short in the cash market is intraday-only and must be bought back before the 3:15 PM square-off. Open the order ticket to trade — nothing here places an order.</p>
+              <p className="ab-dim ab-plans__note">Both sides are always shown. A short in the cash market is intraday-only and must be bought back before the square-off. Open the order ticket to trade — nothing here places an order.</p>
             </div>
             <div className="ab-side">
               {shown.expected && isNum(shown.expected.low) && (

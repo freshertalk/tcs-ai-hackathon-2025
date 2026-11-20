@@ -7,7 +7,7 @@ import { minOf } from "./tapeAxis";
 export const WHY = {
   target: { mark: "✓", label: "Target reached", text: "target reached" },
   stop: { mark: "✕", label: "Stopped out", text: "stopped out" },
-  "square-off": { mark: "◦", label: "Closed at the 3:15 PM square-off", text: "closed at the 3:15 PM square-off" },
+  "square-off": { mark: "◦", label: "Closed at the square-off", text: "closed at the square-off" },
   flip: { mark: "⇄", label: "Closed by the opposite call", text: "closed by the opposite call" },
   open: { mark: "…", label: "Still open", text: "still open" },
 };

@@ -1345,7 +1345,7 @@ test("the evidence desk's routes: the board, a stock's board and the positions' 
   await s.connectKite();
   assert.equal((await s.request("GET", "/api/admin/market/evidence")).status, 401, "a stranger sees nothing");
   const board = (await s.request("GET", "/api/admin/market/evidence", { cookie: s.admin })).json;
-  assert.deepEqual([board.techniques.length, board.live.length, board.trained, board.ai.mode, board.ai.perDay], [35, 18, false, "need", 40]);
+  assert.deepEqual([board.techniques.length, board.live.length, board.trained, board.ai.mode, board.ai.perDay], [40, 20, false, "need", 40]);
   // the forecaster has not learned on this made-up exchange: the board says why instead of guessing
   const v = await s.request("GET", "/api/admin/market/evidence/INFY", { cookie: s.admin });
   assert.equal(v.status, 200);

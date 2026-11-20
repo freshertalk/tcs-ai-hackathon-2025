@@ -174,7 +174,7 @@ function ExitLevels({ p, onResearch, busy, aiReady, record }) {
               <th scope="col" className="is-num">
                 Away
               </th>
-              <th scope="col" data-tip="The odds of a touch before 3:15 PM with no trend assumed, from today's one-minute moves. A yardstick for reach, not a forecast.">
+              <th scope="col" data-tip="The odds of a touch before the square-off with no trend assumed, from today's one-minute moves. A yardstick for reach, not a forecast.">
                 Reach
               </th>
             </tr>
@@ -596,7 +596,7 @@ export default function LiveBoard({ onReplay }) {
         </span>
         {!b.connected && <span className="fb-chip is-bad">Zerodha not connected</span>}
         {b.connected && !b.streaming && b.marketOpen && <span className="fb-chip" data-tip="The price stream is not live, so the coach looks with a quote every two seconds and has no order book.">quotes only</span>}
-        {b.marketOpen && b.minutesToSquareOff > 0 && <span className="fb-chip">{b.minutesToSquareOff} min to 3:15</span>}
+        {b.marketOpen && b.minutesToSquareOff > 0 && <span className="fb-chip">{b.minutesToSquareOff} min to the square-off</span>}
         {mk.tide && (
           <span className="fb-chip" data-tip={mk.tide.summary || ""}>
             Tide {mk.tide.score > 0 ? "+" : ""}

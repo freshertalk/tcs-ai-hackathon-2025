@@ -94,7 +94,7 @@ test("each fresh 'in play' call becomes one trade: entered at that close, stop o
     assert.ok(near(t.r, (dir * (t.exit - t.entry)) / Math.abs(t.entry - t.stop), 0.03), JSON.stringify(t));
     if (t.why === "target") assert.ok(near(t.r, 1, 0.02));
     if (t.why === "stop") assert.ok(t.r <= -0.98);
-    if (t.why === "square-off") assert.equal(t.exitAt, "15:15");
+    if (t.why === "square-off") assert.equal(t.exitAt, "15:10"); // the last bar before the 3:12 PM square-off (since 3 August 2026)
     // costs: an assumed share of the position's value, expressed against the risk taken
     assert.ok(near(t.costR, ((DEFAULT_COST_PCT / 100) * t.entry) / Math.abs(t.entry - t.stop), 0.02));
     assert.ok(near(t.netR, t.r - t.costR));
@@ -173,7 +173,7 @@ test("stop before target: a bar that touches both counts as a stop, and a gap th
   assert.ok(win.netR < win.r, "and costs come off even a winner");
 });
 
-test("neither stop nor target: the trade is closed at the open of the 3:15 PM bar", () => {
+test("neither stop nor target: the trade is closed at the open of the last bar before the broker's square-off (3:10 PM since August 2026)", () => {
   const t = rerun((k, tr) => {
     const quiet = [];
     const drift = (tr.side === "long" ? 1 : -1) * 0.3 * tr.riskPerShare;
@@ -181,7 +181,7 @@ test("neither stop nor target: the trade is closed at the open of the 3:15 PM ba
     return quiet;
   });
   assert.equal(t.why, "square-off");
-  assert.equal(t.exitAt, "15:15");
+  assert.equal(t.exitAt, "15:10");
   assert.ok(near(t.r, 0.3, 0.03));
 });
 

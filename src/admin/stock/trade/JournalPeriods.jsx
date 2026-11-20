@@ -6,6 +6,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../../api";
+import { useTopics } from "../../live";
 import { Alert } from "../../ui";
 import { useDialog } from "../../dialog/DialogProvider";
 import { DateField, DateRangeField } from "../../DatePicker";
@@ -588,6 +589,7 @@ export function UploadPanel({ onDone }) {
   useEffect(() => {
     loadFiles();
   }, [loadFiles]);
+  useTopics(["trading"], loadFiles);
 
   const send = async (list) => {
     setErr("");

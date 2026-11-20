@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { api } from "./api";
+import { useTopics } from "./live";
 import Shell from "./Shell";
 import { Alert, Field, Loading } from "./ui";
 import { useDialog } from "./dialog/DialogProvider";
@@ -32,6 +33,18 @@ export default function AdminUsers() {
       .then((d) => setRequests(d.requests || []))
       .catch(() => {});
   }, []);
+  // someone asked for access, or the list was changed from another tab or device
+  useTopics(["system"], () => {
+    api("/api/admin/admins")
+      .then((d) => {
+        setRows(d.admins);
+        setEmailReady(Boolean(d.emailReady));
+      })
+      .catch(() => {});
+    api("/api/admin/requests")
+      .then((d) => setRequests(d.requests || []))
+      .catch(() => {});
+  });
 
   const decide = async (r, verb) => {
     setBusy(true);

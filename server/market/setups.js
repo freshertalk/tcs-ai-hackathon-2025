@@ -38,7 +38,13 @@ const I = require("./indicators");
 const IST = 5.5 * 3600 * 1000;
 const FROM = 570; // 9:30
 const TO = 885; // 14:45: no new entry after this
-const EXIT = 915; // 15:15: anything still open is closed
+const { exitMinFor } = require("./session");
+const EXIT = 915; // 15:15 under the old rules; each day's own minute comes from the session table (3:10 PM since August 2026)
+const exitMemo = new Map();
+const exitOf = (date) => {
+  if (!exitMemo.has(date)) exitMemo.set(date, exitMinFor(date));
+  return exitMemo.get(date);
+};
 const num = (x) => typeof x === "number" && Number.isFinite(x);
 const r2 = (x) => (num(x) ? Math.round(x * 100) / 100 || 0 : null);
 const r3 = (x) => (num(x) ? Math.round(x * 1000) / 1000 || 0 : null);
@@ -391,7 +397,7 @@ function backtest(bars, { symbol = "", notional = 100000, cost = roughCost } = {
           how = "target";
           break;
         }
-        if (P.min[j] >= EXIT) {
+        if (P.min[j] >= exitOf(P.day[i])) {
           exit = z.c;
           break;
         }

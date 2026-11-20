@@ -85,7 +85,7 @@ function SessionCard({ now, status }) {
         <span>3:20</span>
       </p>
       <p className="dkb-tip">{s.tip}</p>
-      {s.phase === "open" && now.min < 15 * 60 && <p className="dkb-flag">Intraday positions are squared off by the broker from about 3:20 PM.</p>}
+      {s.phase === "open" && now.min < 15 * 60 && <p className="dkb-flag">Zerodha squares off intraday positions at 3:12 PM in F&O stocks (they stop trading at 3:15 PM for the closing auction) and at 3:25 PM in the rest.</p>}
     </section>
   );
 }

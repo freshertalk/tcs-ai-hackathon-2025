@@ -8,7 +8,7 @@ import { inr, isNum, when } from "../analyzer/format";
 
 const enc = encodeURIComponent;
 const clock = (iso) => (iso ? new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "");
-const HOW = { target: "reached target 1", stop: "hit the stop", time: "closed out at 3:15 PM" };
+const HOW = { target: "reached target 1", stop: "hit the stop", time: "closed out at the square-off" };
 
 export function outcomeText(p) {
   if (!p.outcome) return "";

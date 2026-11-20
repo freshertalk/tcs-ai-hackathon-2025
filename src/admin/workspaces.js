@@ -5,6 +5,7 @@
 
 export const WORKSPACE_LIST = [
   { id: "analyzer", label: "Desk" },
+  { id: "now", label: "Now" },
   { id: "research", label: "Research" },
   { id: "advisor", label: "Advisor" },
   { id: "screener", label: "Screener" },

@@ -9,7 +9,7 @@
 //   POSITION   entered at the pick's price with a little slippage; the pick's own stop and targets; half
 //              booked at the first target and the stop moved to the entry; a trailing stop after it;
 //              out on the stop, the second target, a give-back of the best gain, the advisor turning
-//              against the trade, too long in it, or the 3:15 PM square-off.
+//              against the trade, too long in it, or the broker's square-off (market/session.js: 3:12 PM since August 2026).
 //   OUTCOME    each finished trade is classed by what became of its best moment — the same classes the
 //              Trade Analysis snapshots use for the trader's own trades, so the two can be compared.
 //
@@ -27,7 +27,13 @@ const minOf = (ms) => {
   return d.getUTCHours() * 60 + d.getUTCMinutes();
 };
 const clockOf = (ms) => new Date(ms + IST).toISOString().slice(11, 16);
-const SQUARE = 15 * 60 + 15;
+const SESSION = require("../market/session");
+const SQUARE = 15 * 60 + 15; // the old rules' minute, kept for whoever imports it; each day's own comes from the session table
+/** The broker's square-off on the IST day of `ms`, as { min, clock }: 3:12 PM in a closing-auction stock since August 2026. */
+const squareOf = (ms) => {
+  const day = SESSION.sessionFor(new Date(ms + IST).toISOString().slice(0, 10));
+  return { min: day.squareOffMin, clock: day.squareOffClock };
+};
 
 const DEFAULTS = {
   capital: 1000000,
@@ -271,8 +277,9 @@ function step(pos, price, now, rules, ctx = {}) {
     exitPart(pos, pos.qty, price * (1 - dir * slip), "flip", now, `${ctx.reason || "The advisor now says the other side"}: out ${pos.qty} at ₹${price.toFixed(2)}.`);
     return pos;
   }
-  if (m >= SQUARE) {
-    exitPart(pos, pos.qty, price * (1 - dir * slip), "square-off", now, `3:15 PM square-off: out ${pos.qty} at ₹${price.toFixed(2)}.`);
+  const sq = squareOf(now);
+  if (m >= sq.min) {
+    exitPart(pos, pos.qty, price * (1 - dir * slip), "square-off", now, `${sq.clock} square-off: out ${pos.qty} at ₹${price.toFixed(2)}.`);
     return pos;
   }
   if (now - pos.entryAt >= rules.maxHoldMin * 60000) {
@@ -335,4 +342,4 @@ function watchAfter(t, price, now) {
   return true;
 }
 
-module.exports = { DEFAULTS, BOUNDS, clampRules, costOf, gate, openPosition, step, finish, outcomeOf, watchAfter, minOf, clockOf, SQUARE };
+module.exports = { DEFAULTS, BOUNDS, clampRules, costOf, gate, openPosition, step, finish, outcomeOf, watchAfter, minOf, clockOf, SQUARE, squareOf };

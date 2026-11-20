@@ -62,7 +62,9 @@ const FEATURES = [
 const BASE_D = 19;
 const V2_D = 28; // the inputs up to the first addition: that model is a corner of the full one's sums
 const D = FEATURES.length;
-const MODEL_VERSION = 3; // the stored sums are tied to the list of inputs: a model of another version is retrained
+// 4 (2026-11-20): the closing rush and the last-hour input count back from when continuous trading really ends in the
+// stock (ctx.closeSlot: 3:15 PM for stocks with a closing auction since 3 August 2026), not from a fixed 3:30 PM.
+const MODEL_VERSION = 4; // the stored sums are tied to the list of inputs: a model of another version is retrained
 const T = TARGETS.length;
 const MAXH = Math.max(...HORIZONS);
 const DECAY_DAY = 0.998; // an old day counts a little less each calendar day (half-life about a year)
@@ -72,6 +74,8 @@ const MIN_ROWS = 20000; // fewer examples than this and the model is not used
 const NO_EDGE = 0.55;
 
 const num = (x) => typeof x === "number" && Number.isFinite(x);
+/** The slot after a session's last bar of continuous trading: 75 (3:30 PM) unless the context says it ends earlier. */
+const closeOf = (ctx) => (ctx && num(ctx.closeSlot) && ctx.closeSlot >= 60 && ctx.closeSlot <= SESSION_BARS ? ctx.closeSlot : SESSION_BARS);
 const r2 = (x) => (num(x) ? Math.round(x * 100) / 100 : null);
 const r4 = (x) => (num(x) ? Math.round(x * 10000) / 10000 : null);
 const clip = (x, a) => (x > a ? a : x < -a ? -a : x);
@@ -294,6 +298,7 @@ function dayRows(rawBars, ctx, { targets = true, stride = 1, last = false, needA
   const beta = ctx.beta || 1;
   const mkt = ctx.mkt || null;
   const vol = ctx.vol || null;
+  const close = closeOf(ctx);
   let pv = 0;
   let vv = 0;
   let hi = -Infinity;
@@ -403,7 +408,7 @@ function dayRows(rawBars, ctx, { targets = true, stride = 1, last = false, needA
     for (let j = i - w + 1; j <= i; j += 1) ar += absRets[j];
     x[12] = i >= 1 ? clip(Math.log(Math.max(ar / w, 1e-9) / sigma), 1.5) : 0;
     x[13] = Math.max(0, 1 - b.s / 12);
-    x[14] = Math.max(0, (b.s - 58) / 16);
+    x[14] = Math.max(0, (b.s - (close - 17)) / 16); // the closing rush: the last 85 minutes of continuous trading
     if (mkt) {
       let s3 = 0;
       let s6 = 0;
@@ -446,7 +451,7 @@ function dayRows(rawBars, ctx, { targets = true, stride = 1, last = false, needA
       const dn = Math.min(o0, ref) * (1 - nz);
       x[29] = clip((b.c > up ? (b.c - up) / b.c : b.c < dn ? (b.c - dn) / b.c : 0) / sigH, 6);
     }
-    if (b.s >= 63 && num(firstHalf)) x[30] = clip(firstHalf / dayR, 4) * Math.min(1, (b.s - 62) / 7);
+    if (b.s >= close - 12 && num(firstHalf)) x[30] = clip(firstHalf / dayR, 4) * Math.min(1, (b.s - (close - 13)) / 7); // the last hour
     if (tod) {
       if (num(tod[b.s + 1])) x[31] = clip(tod[b.s + 1] / sigma, 3);
       if (num(tod[b.s + 1]) && num(tod[b.s + 2]) && num(tod[b.s + 3])) x[32] = clip((tod[b.s + 1] + tod[b.s + 2] + tod[b.s + 3]) / sigma / Math.sqrt(3), 3);
@@ -825,7 +830,7 @@ function forecastFrom(rawBars, ctx, model, { bias = 0, tilt = 0, tilts = null, l
   const p = predictRow(model.W, row.x, slope, segFor(model.seg, row.s), stockScale);
   const sg = row.sigma;
   const price = row.price;
-  const left = SESSION_BARS - 1 - row.s; // bars after this one that the session still has
+  const left = closeOf(ctx) - 1 - row.s; // bars of continuous trading after this one that the session still has
   const horizons = {};
   for (let k = 0; k < HORIZONS.length; k += 1) {
     const h = HORIZONS[k];
@@ -973,7 +978,7 @@ function verdictOf(f, a) {
 
 module.exports = {
   BAR, OPEN_MIN, SESSION_BARS, HORIZONS, REACH, TARGETS, FEATURES, D, T, MAXH, DECAY_DAY, LAMBDA, BUCKETS, MIN_ROWS, NO_EDGE, BINS,
-  phi, cleanBars, slotOf, dateOf, minOf, daysBetween, tIndex,
+  phi, cleanBars, slotOf, dateOf, minOf, daysBetween, tIndex, closeOf,
   buildProfile, marketFromStocks, marketFromBars, dayRows, dayStat, priorContext,
   Stats, fit, solve, dot,
   emptyEval, predictRow, scoreRows, resSdOf, z70Of, summariseEval,

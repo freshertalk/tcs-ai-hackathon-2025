@@ -20,6 +20,7 @@
 // routes hand it, but it has no way to reach this module.
 
 const path = require("path");
+const { sessionFor } = require("../market/session");
 const { FileDocs } = require("../docs");
 const { KiteError } = require("../market/kite");
 const { KiteBroker } = require("./broker");
@@ -654,7 +655,12 @@ class TradingService {
       const d = new Date(this.now() + 5.5 * 3600000);
       const m = d.getUTCHours() * 60 + d.getUTCMinutes();
       if (m >= 555 && m < 570) say("warn", "The opening range is still forming (9:15–9:30 AM): the desk does not take intraday entries yet.");
-      else if (m >= 885 && m < 930) say("warn", m >= 915 ? "Square-off window: brokers close intraday positions around 3:15–3:20 PM." : "Last hour: the desk takes no fresh intraday entries after 2:45 PM.");
+      else if (m >= 885 && m < 930) {
+        // the broker's square-off today (market/session.js): 3:12 PM in a closing-auction stock, 3:25 PM in the rest
+        const day = sessionFor(d.toISOString().slice(0, 10));
+        const other = sessionFor(d.toISOString().slice(0, 10), { cas: false });
+        say("warn", m >= day.squareOffMin ? `Square-off window: Zerodha closes intraday positions from ${day.squareOffClock} in stocks with futures and options${other.squareOffMin !== day.squareOffMin ? ` (they stop trading at ${day.closeClock}) and from ${other.squareOffClock} in the rest` : ""}.` : "Last hour: the desk takes no fresh intraday entries after 2:45 PM.");
+      }
     }
     if (cash && this.market && this.market.verdict) {
       try {

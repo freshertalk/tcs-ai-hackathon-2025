@@ -80,7 +80,7 @@ test("the book, the pulse, the tide and the news each add to the pressure; a sho
 test("five minutes before the square-off the coach says EXIT NOW whatever the tape says", () => {
   const a = coach({ ...POS, entryAt: at("14:30"), avg: 101.2 }, dayBars("15:11"), { last: 101.05 }, { now: at("15:11") });
   assert.equal(a.state, "exit-now");
-  assert.match(a.reasons.exit[0], /minutes to the 3:15 PM square-off/);
+  assert.match(a.reasons.exit[0], /minutes to the 3:12 PM square-off/);
 });
 
 test("a finished trade replayed: the coach's signals minute by minute and where it would have left", () => {
@@ -357,7 +357,7 @@ function mapAt(hhmm = "10:30", last = 102.1) {
 test("the level map: every level is a real price from the desk's data, merged where they sit together, numbered above and below", () => {
   const m = mapAt();
   assert.equal(m.last, 102.1);
-  assert.equal(m.minutesLeft, 285, "to the 3:15 PM square-off");
+  assert.equal(m.minutesLeft, 282, "to the 3:12 PM square-off of a closing-auction stock (since 3 August 2026)");
   assert.ok(m.sigma1 > 0);
   const ids = m.anchors.map((a) => a.id);
   assert.ok(ids.includes("A1") && ids.includes("B1"));
@@ -423,7 +423,7 @@ test("the check on the AI's answer: only levels from the map, at the desk's pric
   const late = levelMap(POS, dayBars("15:00"), { now: at("15:00", 30), last: 101.1, ladder: [{ label: "R2", price: 103.4 }, { label: "S1", price: 100.95 }] });
   const far = verify({ targets: [{ anchor: late.anchors.find((a) => /R2/.test(a.label)).id, price: 103.4, why: "" }], stop: { anchor: late.anchors.find((a) => /S1/.test(a.label)).id, price: 100.95, why: "" }, reversal: { anchor: "", sign: "" } }, late, POS, { last: 101.1, coachStop: 100.5, unit: 0.25 });
   assert.equal(far.targets.length, 0);
-  assert.match(far.rejected[0].why, /out of reach before 3:15 PM/);
+  assert.match(far.rejected[0].why, /out of reach before 3:12 PM/);
   assert.equal(far.stop.clamped, false);
   assert.equal(far.stop.level, 100.95);
   assert.equal(far.stop.price, 100.85, "two ticks beyond the level");
@@ -505,7 +505,7 @@ test("the AI Engine researches the exit levels from the desk's map; only what pa
   assert.ok(snap.sessionIn5MinuteBars.rows.length >= 10);
   assert.equal(snap.levels, undefined);
   assert.equal(snap.yourRecordOnThisDesk, null, "no record yet");
-  assert.equal(snap.minutesLeftToSquareOff, 285);
+  assert.equal(snap.minutesLeftToSquareOff, 282);
   // what came out
   assert.equal(set.by, "Claude Sonnet 5.5");
   assert.equal(set.failed, false);

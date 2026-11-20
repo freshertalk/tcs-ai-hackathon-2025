@@ -1,6 +1,6 @@
 import { act, render, screen } from "@testing-library/react";
 import React from "react";
-import { __reset, onTopics, resync, useLive } from "./live";
+import { __reset, onTopics, resync, useLive, useTopics } from "./live";
 import { everyVisible } from "./visible";
 import LiveBadge from "./LiveBadge";
 
@@ -130,4 +130,33 @@ test("useLive reports the connection to any component", () => {
   }
   render(<Probe />);
   expect(screen.getByText("connecting")).toBeTruthy();
+});
+
+test("useTopics: a screen that reads once re-reads the moment its topic changes — once for a burst, with the newest function, and not after it is gone", () => {
+  const calls = [];
+  function Screen({ tag }) {
+    useTopics(["analysis", "trading"], () => calls.push(tag));
+    return <p>screen</p>;
+  }
+  const view = render(<Screen tag="first" />);
+  act(() => last().emit("hello", { boot: "b", seq: 0 }));
+  act(() => last().emit("change", { topic: "market" }, 1));
+  expect(calls).toEqual([]);
+  act(() => last().emit("change", { topic: "trading" }, 2));
+  expect(calls).toEqual(["first"]);
+  // a burst within a second becomes one more run; the function used is the one from the newest render
+  view.rerender(<Screen tag="second" />);
+  act(() => last().emit("change", { topic: "analysis" }, 3));
+  act(() => last().emit("change", { topic: "trading" }, 4));
+  expect(calls).toEqual(["first"]);
+  act(() => jest.advanceTimersByTime(1000));
+  expect(calls).toEqual(["first", "second"]);
+  // a resync (the server restarted, or events were missed) reaches it too
+  act(() => jest.advanceTimersByTime(2000));
+  act(() => resync());
+  expect(calls).toEqual(["first", "second", "second"]);
+  view.unmount();
+  act(() => last().emit("change", { topic: "trading" }, 5));
+  act(() => jest.advanceTimersByTime(2000));
+  expect(calls.length).toBe(3);
 });

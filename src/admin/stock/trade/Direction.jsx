@@ -4,6 +4,7 @@
 
 import React, { useEffect, useState } from "react";
 import { api } from "../../api";
+import { useTopics } from "../../live";
 import { inr, num } from "../analyzer/format";
 
 const TONE = { buy: "up", watch: "up-soft", "no-trade": "flat", caution: "down-soft", avoid: "down" };
@@ -84,6 +85,8 @@ export function AutoResearch({ canChange }) {
       .then(setS)
       .catch((e) => setErr(e.message));
   }, []);
+  // the morning research ran, or its settings were changed in another tab
+  useTopics(["research"], () => api("/api/admin/research/auto").then(setS).catch(() => {}));
   const set = async (patch) => {
     setErr("");
     try {

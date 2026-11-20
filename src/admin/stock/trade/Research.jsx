@@ -403,7 +403,7 @@ export default function Research({ onOpen = null }) {
           <AheadBoard />
         </details>
         <details className="rs-ai rs-hzboard">
-          <summary>Evidence desk (35 techniques, order book, open interest, the world) — what each has measured</summary>
+          <summary>Evidence desk (40 techniques, order book, open interest, the world) — what each has measured</summary>
           <EvidenceBoard />
         </details>
         <div ref={setSlot} className="rs-slot" data-jump="Intraday plans" />

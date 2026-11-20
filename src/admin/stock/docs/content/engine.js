@@ -25,7 +25,7 @@ export const ENGINE = [
       { logic: {
         title: "The one exception: the AI read of a stock you open",
         who: "The evidence desk (server/evidence.js), by the owner's instruction of 20 November 2026.",
-        when: "When a signed-in person opens a stock on the Desk while the market is open (9:20 AM to 3:15 PM). Never on a timer; never for a stock nobody opened.",
+        when: "When a signed-in person opens a stock on the Desk while the market is open (from 9:20 AM until 15 minutes before the close). Never on a timer; never for a stock nobody opened.",
         steps: [
           "Opening a stock on the Desk sends its own kind of request — “this stock was opened” — which is **not** a click and is marked as *opened*. Only that mark, and only while the switch below is on, lets one request through to the AI company.",
           "**The need test comes first.** The server looks at the stock's evidence board: is the desk's own call undecided or not yet proven, do the readings disagree, is a reversal warned, is the volume unusual, do you hold a position in it? If none of these, the AI is **not** asked and the card says “no AI was needed”.",

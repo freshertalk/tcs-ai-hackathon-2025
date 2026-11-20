@@ -9,6 +9,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../../api";
+import { useTopics } from "../../live";
 import { Alert, Loading } from "../../ui";
 import { DateField } from "../../DatePicker";
 import { dayLong, rs, rsSigned, tone } from "./charts";
@@ -200,17 +201,18 @@ function Timeline({ moments }) {
 export function DaySnapshot({ date, setDate }) {
   const [st, setSt] = useState({ loading: true, s: null, error: "" });
   const load = useCallback(
-    (refresh = false) => {
-      setSt((x) => ({ ...x, loading: true, error: "" }));
+    (refresh = false, quiet = false) => {
+      if (!quiet) setSt((x) => ({ ...x, loading: true, error: "" }));
       return api(`/api/admin/analysis/snapshot/${date}${refresh ? "?refresh=1" : ""}`)
         .then((s) => setSt({ loading: false, s, error: "" }))
-        .catch((e) => setSt({ loading: false, s: null, error: e.message }));
+        .catch((e) => setSt((x) => (quiet ? { ...x, loading: false } : { loading: false, s: null, error: e.message })));
     },
     [date]
   );
   useEffect(() => {
     load();
   }, [load]);
+  useTopics(["analysis", "trading"], () => load(false, true));
   const s = st.s;
   return (
     <>

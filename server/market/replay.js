@@ -10,7 +10,8 @@
 //     and a gap through the stop is filled at the bar's open, not at the stop
 //   • then the 1R target
 //   • the opposite call closes it at that bar's close
-//   • otherwise it is closed at the open of the 3:15 PM bar (the square-off)
+//   • otherwise it is closed at the open of the last bar before the broker's square-off (market/session.js): the 3:15 PM bar
+//     under the old rules, the 3:10 PM bar since 3 August 2026 (closing-auction stocks are squared off at 3:12 PM)
 // One trade at a time; a call that merely repeats itself while a trade is open is not
 // a new trade. Results are in multiples of the risk taken (R), before and after an
 // assumed cost per round trip.
@@ -26,7 +27,8 @@ const { barStart } = require("./intraday");
 
 const IST = 5.5 * 3600 * 1000;
 const STEP_MS = 5 * 60000;
-const SQUARE_OFF = "15:15";
+const { exitHmFor } = require("./session");
+const SQUARE_OFF = "15:15"; // the old rules' bar, kept for whoever imports it; each day's own bar comes from exitHmFor()
 // Brokerage, STT, exchange fees, GST and stamp duty on an intraday round trip, as a share
 // of the position's value. An assumption, not a quote: the contract note is the truth.
 const DEFAULT_COST_PCT = 0.1;
@@ -83,6 +85,7 @@ function* run({ analysis, candles, bars, prior = [], circuit = null, costPct = D
     if (why !== "open") open = null;
   };
 
+  let exitHm = "";
   for (let i = 0; i < bars.length; i += 1) {
     const b = bars[i];
     const start = barStart(b.t);
@@ -90,6 +93,7 @@ function* run({ analysis, candles, bars, prior = [], circuit = null, costPct = D
     const at = start + STEP_MS; // the moment this bar closed
     const began = clock(start);
     const closedAt = clock(at);
+    if (!exitHm) exitHm = exitHmFor(new Date(start + IST).toISOString().slice(0, 10)); // this day's square-off bar
     high = Math.max(high, b.h);
     low = Math.min(low, b.l);
     volume += b.v || 0;
@@ -97,7 +101,7 @@ function* run({ analysis, candles, bars, prior = [], circuit = null, costPct = D
     /* 1. a trade that is already open lives through this bar first */
     if (open) {
       const long = open.side === "long";
-      if (began >= SQUARE_OFF) finish(open, began, b.o, "square-off");
+      if (began >= exitHm) finish(open, began, b.o, "square-off");
       else if (long ? b.l <= open.stop : b.h >= open.stop) finish(open, began, long ? Math.min(open.stop, b.o) : Math.max(open.stop, b.o), "stop");
       else if (num(open.target) && (long ? b.h >= open.target : b.l <= open.target)) finish(open, began, open.target, "target");
     }

@@ -29,6 +29,7 @@ import Account from "./trade/Account";
 import Research from "./trade/Research";
 import Journal from "./trade/Journal";
 import Advisor from "./advisor/Advisor";
+import NowView from "./now/NowView";
 import { TradeProvider, useTrade } from "./trade/TradeContext";
 import { GoalBanner } from "./trade/DailyGoal";
 import { pulseOf, useLiveBook } from "./trade/liveBook";
@@ -48,6 +49,7 @@ import "./terminal/pages.css";
 
 const VIEWS = [
   { id: "analyzer", label: "Desk", tip: "Watchlist, chart, the live call, order book and co-pilot for one stock, with your positions docked below." },
+  { id: "now", label: "Now", tip: "The command screen: every followed stock with its price as it ticks and its calls for 5 and 15 minutes, your positions with the evidence for or against them, the market, the checks so far and what every automatic system is doing — all live, on one page." },
   { id: "research", label: "Research", tip: "Pre-market and post-market research for your watchlist." },
   { id: "advisor", label: "Advisor", tip: "Your watchlist read by measured odds: what followed the days most like today, whether such calls held up when tested forward, and a plan sized for your risk." },
   { id: "screener", label: "Screener", tip: "Any NSE index — NIFTY 50, BANK, NEXT 50, broad and sector indices: top gainers and losers, RSI, VWAP, volume and the 52-week range, live; RSI search over the Nifty 500." },
@@ -292,7 +294,9 @@ function Terminal() {
         ) : (
           <div className="tm-page">
             {PAGE_JUMPS[view] && <PageJumps key={view} {...PAGE_JUMPS[view]} />}
-            {view === "advisor" ? (
+            {view === "now" ? (
+              <NowView onOpen={openStock} />
+            ) : view === "advisor" ? (
               <Advisor onOpen={openStock} />
             ) : view === "account" ? (
               <Account />

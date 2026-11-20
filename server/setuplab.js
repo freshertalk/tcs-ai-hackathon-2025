@@ -182,7 +182,7 @@ class SetupLab {
       stocks,
       trades: trades.length,
       failed: failed.slice(0, 20),
-      basis: "NIFTY 100, 5-minute bars, the signal at a bar's close, entry at the next bar's open, out at the stop (first when both fall in one bar), the target or 3:15 PM, one trade per set-up, side and stock a day, Zerodha-style intraday charges on ₹1 lakh taken off",
+      basis: "NIFTY 100, 5-minute bars, the signal at a bar's close, entry at the next bar's open, out at the stop (first when both fall in one bar), the target or the last bar before the broker's square-off (3:15 PM until July 2026, 3:10 PM since), one trade per set-up, side and stock a day, Zerodha-style intraday charges on ₹1 lakh taken off",
       summary,
       // the best and worst stocks for each set-up are not kept: thirty sessions per stock are too few to rank stocks
     };
@@ -205,7 +205,7 @@ class SetupLab {
     const paid = rows.filter((r) => r.avgR > 0.03).slice(0, 6);
     const lost = rows.filter((r) => r.avgR < -0.03).sort((a, z) => a.avgR - z.avgR).slice(0, 5);
     const body = [
-      `Measured ${istDate(Date.parse(rec.at))} on the NIFTY 100's last ${rec.sessions} sessions (${rec.trades} trades): entry at the next 5-minute bar's open, out at the stop, the target or 3:15 PM, after intraday charges on ₹1 lakh. A guide to what has worked here lately, not a promise.`,
+      `Measured ${istDate(Date.parse(rec.at))} on the NIFTY 100's last ${rec.sessions} sessions (${rec.trades} trades): entry at the next 5-minute bar's open, out at the stop, the target or the last bar before the broker's square-off, after intraday charges on ₹1 lakh. A guide to what has worked here lately, not a promise.`,
       paid.length ? "Has paid:" : "Nothing has paid after costs over this period.",
       ...paid.map(line),
       ...(lost.length ? ["Has lost money — avoid, or demand much more evidence:", ...lost.map(line)] : []),

@@ -61,7 +61,7 @@ function SessionBar({ session }) {
         className="vd-session__bar"
         role="img"
         aria-label={`${session.elapsedPct}% of the trading day has passed`}
-        data-tip="The trading day, 9:15 AM to 3:30 PM. The marks are 9:30 (opening range set), 11:30 and 1:30 (the midday lull), 2:45 (last new entries) and 3:15 (square-off)."
+        data-tip="The trading day, 9:15 AM to 3:30 PM. The marks are 9:30 (opening range set), 11:30 and 1:30 (the midday lull), 2:45 (last new entries) and 3:15 (stocks with futures and options stop trading; Zerodha squares their intraday positions off at 3:12)."
       >
         <span style={{ width: `${session.elapsedPct}%` }} />
         {marks.map(([x, label]) => (

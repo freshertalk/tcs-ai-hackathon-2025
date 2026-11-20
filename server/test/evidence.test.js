@@ -16,6 +16,7 @@ const { Horizon } = require("../horizon");
 const { Ahead } = require("../ahead");
 const { Evidence, CALLS, DAYS, LIVE } = require("../evidence");
 const { SpendGuard } = require("../ai/spend");
+const { FlowEngine } = require("../market/flow");
 const { FileDocs, COLLECTIONS } = require("../docs");
 
 const IST = 5.5 * 3600 * 1000;
@@ -104,6 +105,116 @@ test("the techniques read the bars as the books describe them: breakout, held, f
   // every technique has a name, a family and a sentence saying what it is
   for (const w of E.WITS) assert.ok(w.name && E.FAMILIES.includes(w.fam) && w.what.length > 40 && typeof w.ev === "function" && typeof w.say === "function", w.id);
   assert.equal(new Set(E.WITS.map((w) => w.id)).size, E.W);
+});
+
+test("which comes first: the move up, the move down, or neither within 30 minutes — and never a guess", () => {
+  // a usual 5-minute move is 0.2%: the two barriers are one usual 15-minute move away, 100.3464 and 99.6536
+  const flat = [100, 100.1, 99.9, 100, 1000];
+  const day = (rows) => mk([[100, 100.1, 99.9, 100, 1000], ...rows]);
+  assert.deepEqual(E.firstBarrier(H.cleanBars(day([flat, [100, 100.4, 99.95, 100.3, 1000], flat])), 0, 0.002), [1, 0], "the high reached the upper barrier first");
+  assert.deepEqual(E.firstBarrier(H.cleanBars(day([flat, [100, 100.05, 99.6, 99.7, 1000], [99.7, 100.5, 99.7, 100.4, 1000]])), 0, 0.002), [0, 1], "the lower barrier came first; what followed does not matter");
+  assert.equal(E.firstBarrier(H.cleanBars(day([[100, 100.5, 99.5, 100, 1000]])), 0, 0.002), null, "both inside one bar: which came first is not in the bar, so the bar is not used");
+  // the barriers are set in the moves of the moment: after a wild half-hour "one usual move" is further away
+  const calm = E.prep(mk(Array.from({ length: 10 }, () => [100, 100.05, 99.95, 100, 1000])), { sigma: 0.002 });
+  const wild = E.prep(mk(Array.from({ length: 10 }, (_, i) => [100, 101, 99, i % 2 ? 100.8 : 99.2, 1000])), { sigma: 0.002 });
+  assert.ok(Math.abs(calm.sloc[9] - 0.002 * Math.sqrt(0.5)) < 1e-6, `a dead-quiet stretch halves the variance, no more: ${calm.sloc[9]}`);
+  assert.ok(wild.sloc[9] > 0.006 && wild.sloc[9] <= 0.002 * Math.sqrt(13) + 1e-9, `${wild.sloc[9]}`);
+  assert.deepEqual(E.firstBarrier(H.cleanBars(day([flat, flat, flat, flat, flat, flat, [100, 101, 100, 101, 1000]])), 0, 0.002), [0, 0], "neither within six bars; the seventh is past the clock");
+  assert.equal(E.firstBarrier(H.cleanBars(day([flat, flat])), 0, 0.002), null, "the session ends before the clock and neither came: unknown, not “neither”");
+  const gap = mk([[100, 100.1, 99.9, 100, 1000], flat, flat]);
+  gap[2].t += 300000; // a missing bar
+  assert.equal(E.firstBarrier(H.cleanBars(gap), 0, 0.002), null, "nothing is said across a gap in the session");
+  // as a question for the model: [up first, down first], with a sign that says which
+  assert.deepEqual(E.outcomeAt({ y: [0.5, NaN], tb: [0, 1] }, 2), { y: [0, 1], yv: -1 });
+  assert.deepEqual(E.outcomeAt({ y: [0.5, NaN], tb: null }, 2), null);
+  assert.deepEqual(E.outcomeAt({ y: [0.5, NaN], tb: null }, 0), { y: [1, 0], yv: 0.5 });
+  assert.equal(E.outcomeAt({ y: [0.5, NaN], tb: null }, 1), null);
+  // a kept call is checked the same way, from the price it was made at
+  const bars = day([flat, [100, 100.4, 99.95, 100.3, 1000], flat, flat, flat, flat]);
+  assert.equal(E.settle({ anchorEnd: T0 + 300000, price: 100, sigma: 0.002 }, bars).tb, 1);
+  assert.equal(E.settle({ anchorEnd: T0 + 300000, price: 100.2, sigma: 0.002 }, bars).tb, 0, "from 100.20 the barriers are further: neither was reached");
+});
+
+test("each technique speaks in the regime the bar is in: a trend or a range", () => {
+  const ctx = { sigma: 0.002, vol: new Array(75).fill(1000) };
+  // a straight climb travels no further than it gains: efficiency 1, a trend
+  const climb = E.prep(mk(Array.from({ length: 14 }, (_, i) => [100 + i * 0.1, 100.15 + i * 0.1, 99.95 + i * 0.1, 100.1 + i * 0.1, 1000])), ctx);
+  assert.equal(climb.er[13], 1);
+  assert.equal(E.trendAt(climb, 13), true);
+  // a zigzag travels far and gets nowhere: a range
+  const zig = E.prep(mk(Array.from({ length: 14 }, (_, i) => [100, 100.3, 99.7, i % 2 ? 100.2 : 99.8, 1000])), ctx);
+  assert.ok(zig.er[13] < 0.1, `${zig.er[13]}`);
+  assert.equal(E.trendAt(zig, 13), false);
+  assert.equal(E.trendAt(zig, 1), false, "too early in the session to call a trend");
+  // the same technique has its own input, and so its own weight, in each
+  const w = Object.assign(new Int8Array(E.W), { 4: -1 });
+  const inTrend = E.inputsOf(0.5, w, true);
+  const inRange = E.inputsOf(0.5, w, false);
+  assert.equal(E.D, 2 + 2 * E.W);
+  assert.deepEqual([inTrend[0], inTrend[1], inTrend[E.weightAt(4, true)], inTrend[E.weightAt(4, false)]], [1, 0.5, -1, 0]);
+  assert.deepEqual([inRange[E.weightAt(4, true)], inRange[E.weightAt(4, false)]], [0, -1]);
+  assert.deepEqual([E.weightAt(0, true), E.weightAt(0, false)], [2, 2 + E.W]);
+  const rows = E.witnessRows(mk(Array.from({ length: 14 }, (_, i) => [100 + i * 0.1, 100.15 + i * 0.1, 99.95 + i * 0.1, 100.1 + i * 0.1, 1000])), ctx);
+  assert.deepEqual([rows[13].tr, rows[1].tr], [1, 0]);
+});
+
+test("researched additions, read from the bars: the last half-hour's patterns and a sudden jump", () => {
+  // a full session: the market climbs all day, the stock slides — by 2:30 PM it is far behind what the market explains
+  const mkt = new Float64Array(75).fill(0.0003);
+  const ctx = { sigma: 0.002, vol: new Array(75).fill(1000), prevClose: 100, beta: 1, mkt };
+  const slide = (n) => mk(Array.from({ length: n }, (_, i) => [100 * (1 - 0.0002 * i), 100 * (1 - 0.0002 * i) + 0.03, 100 * (1 - 0.0002 * (i + 1)) - 0.03, 100 * (1 - 0.0002 * (i + 1)), 1000]));
+  const S = E.statesAll(E.prep(slide(75), ctx));
+  assert.deepEqual([at(S[68], "eodMkt"), at(S[68], "eodLoser"), at(S[68], "eodWinner")], [0, 0, 0], "nothing is said before the last half-hour");
+  assert.deepEqual([at(S[69], "eodMkt"), at(S[69], "eodLoser"), at(S[69], "eodWinner")], [1, 1, 0], "from 3:00 PM: the market's day carries on, the laggard bounces");
+  assert.deepEqual([at(S[74], "eodMkt"), at(S[74], "eodLoser")], [1, 1]);
+  // where a closing auction ends continuous trading at 3:15 PM, the last half-hour starts at 2:45 PM
+  const early = E.statesAll(E.prep(slide(72), { ...ctx, closeSlot: 72 }));
+  assert.deepEqual([at(early[65], "eodLoser"), at(early[66], "eodLoser"), at(early[71], "eodMkt")], [0, 1, 1]);
+  // mirrored: a stock far ahead of a falling market
+  const up = mk(Array.from({ length: 75 }, (_, i) => [100 * (1 + 0.0002 * i), 100 * (1 + 0.0002 * (i + 1)) + 0.03, 100 * (1 + 0.0002 * i) - 0.03, 100 * (1 + 0.0002 * (i + 1)), 1000]));
+  const U = E.statesAll(E.prep(up, { ...ctx, mkt: new Float64Array(75).fill(-0.0003) }));
+  assert.deepEqual([at(U[70], "eodMkt"), at(U[70], "eodLoser"), at(U[70], "eodWinner")], [-1, 0, -1]);
+  // without the market's own returns nothing is claimed about the end of the day
+  assert.deepEqual([at(E.statesAll(E.prep(slide(75), { ...ctx, mkt: null }))[70], "eodLoser")], [0]);
+
+  // a sudden drop of 1% after quiet bars: three and a half times the moves just before it, remembered for two bars
+  const rows = Array.from({ length: 8 }, () => [100, 100.05, 99.95, 100, 1000]);
+  rows.push([100, 100, 98.9, 99, 3000], [99, 99.1, 98.9, 99, 1000], [99, 99.1, 98.9, 99, 1000]);
+  const J = E.statesAll(E.prep(mk(rows), { sigma: 0.002, vol: new Array(75).fill(1000) }));
+  assert.deepEqual([at(J[7], "jumpDown"), at(J[8], "jumpDown"), at(J[9], "jumpDown"), at(J[10], "jumpDown"), at(J[8], "jumpUp")], [0, 1, 1, 0, 0]);
+  const now = E.readNow(mk(rows.slice(0, 9)), { sigma: 0.002, vol: new Array(75).fill(1000) });
+  assert.match(now.said.find((x) => x.id === "jumpDown").text, /fell -1\.00% in one bar, [\d.]+× the moves just before it/);
+});
+
+test("order-flow imbalance: what was added and taken away at the five nearest prices, not what is waiting", () => {
+  const F = new FlowEngine();
+  const t0 = Date.parse("2026-11-20T05:00:00Z");
+  const tick = (bid1, ask1, i) => ({ last: 100, volume: 1000 + i, bid: 99.95, ask: 100.05, buyQty: 50000, sellQty: 50000, depth: { b: [[99.95, bid1, 5], [99.9, 1000, 5], [99.85, 1000, 5], [99.8, 1000, 5], [99.75, 1000, 5]], a: [[100.05, ask1, 5], [100.1, 1000, 5], [100.15, 1000, 5], [100.2, 1000, 5], [100.25, 1000, 5]] } });
+  // buyers keep adding at the best bid while the offer is eaten away: the book looks balanced, the FLOW is one-sided
+  let snap = null;
+  for (let i = 0; i < 4; i += 1) snap = F.update(7, tick(1000 + i * 400, 3000 - i * 400, i), t0 + i * 1000);
+  assert.equal(snap.ofi60, null, "too few changes to say");
+  for (let i = 4; i < 10; i += 1) snap = F.update(7, tick(1000 + i * 400, 3000 - i * 400, i), t0 + i * 1000);
+  assert.ok(snap.ofi60 > 0.5 && snap.ofi300 === snap.ofi60, `net buying, in average levels: ${snap.ofi60}`);
+  // the mirror: size pulled from the bid and piled on the offer
+  const G = new FlowEngine();
+  for (let i = 0; i < 10; i += 1) snap = G.update(7, tick(4600 - i * 400, 1000 + i * 400, i), t0 + i * 1000);
+  assert.ok(snap.ofi60 < -0.5, `${snap.ofi60}`);
+  // a bid that steps UP a price is all new size; nothing changing is no flow at all
+  const K = new FlowEngine();
+  for (let i = 0; i < 8; i += 1) snap = K.update(7, tick(1000, 1000, i), t0 + i * 1000);
+  assert.equal(snap.ofi60, 0);
+  // as a live reading: a whole level's worth of net buying in five minutes leans up; on expiry afternoon the heaviest strike pulls
+  const chain = { available: true, daysToExpiry: 0.1, spot: 1432.5, rows: [{ strike: 1420, ce: { oi: 1000 }, pe: { oi: 2000 } }, { strike: 1440, ce: { oi: 9000 }, pe: { oi: 4000 } }, { strike: 1500, ce: { oi: 90000 }, pe: { oi: 0 } }] };
+  const by = (L) => Object.fromEntries(E.liveWitnesses(L).rows.map((r) => [r.id, r]));
+  const a = by({ last: 1432.5, minute: 14 * 60, flow: { available: true, ofi300: 1.4, ofi60: -0.2 }, chain });
+  assert.equal(a.ofi.state, 1);
+  assert.match(a.ofi.text, /net buying worth 1\.4 average price levels at the 5 nearest prices in the last 5 minutes \(0\.2 of selling in the last minute\)/);
+  assert.equal(a.pin.state, 1);
+  assert.match(a.pin.text, /expiry today: the heaviest strike 1,440\.00 is 0\.52% above the price/);
+  assert.equal(by({ last: 1432.5, minute: 14 * 60, flow: { available: true, ofi300: -0.4 } }).ofi.state, 0, "less than a level's worth is no lean");
+  assert.equal(by({ last: 1432.5, minute: 11 * 60, chain }).pin, undefined, "not before the afternoon");
+  assert.equal(by({ last: 1432.5, minute: 14 * 60, chain: { ...chain, daysToExpiry: 3 } }).pin, undefined, "not on any other day");
 });
 
 test("a technique's record is measured: works, works the other way, no edge, or too few cases", () => {
@@ -444,6 +555,9 @@ test("the service measures the techniques on the stored history, makes the call,
   assert.equal(ev.pending().train, false);
   const m = ev.model();
   assert.deepEqual([m.version, m.forecaster], [E.MODEL_VERSION, H.MODEL_VERSION]);
+  // the third question — which comes first within 30 minutes — is fitted and measured like the other two
+  assert.ok(m.hz.tb && m.hz.tb.W.length === 2 && m.hz.tb.W[0].length === E.D && out.validation.shown.tb.n > 5000);
+  assert.ok(m.hz.tb.base[0] > 0.1 && m.hz.tb.base[0] < 0.5 && m.hz.tb.base[1] > 0.1 && m.hz.tb.base[1] < 0.5, `how often each barrier comes first: ${m.hz.tb.base}`);
   for (const h of E.HZ) {
     const s = out.validation.shown[h];
     assert.ok(s.n > 5000 && typeof s.on === "boolean" && Number.isFinite(s.adds), JSON.stringify(s));
@@ -460,6 +574,9 @@ test("the service measures the techniques on the stored history, makes the call,
   // …and the fades of a move work the OTHER way here: the desk says so instead of repeating the textbook
   const rsi2 = board.techniques.find((t) => t.id === "rsi2");
   assert.equal(rsi2.record[5].verdict, "backwards", JSON.stringify(rsi2.record));
+  // each record is also kept apart for bars in a trend and bars in a range, and the two add up to the whole
+  assert.equal(three.trend15.n + three.range15.n, three.record[15].n);
+  assert.ok(three.trend15.n > 500 && three.range15.n > 0 && "trend" in three.weight15 && "range" in three.weight15);
   assert.equal(board.live.length, E.LIVE.length);
   assert.ok(board.live.every((x) => x.record[15].verdict === "thin"), "no live reading has a record yet");
 
@@ -475,8 +592,14 @@ test("the service measures the techniques on the stored history, makes the call,
     assert.ok(Date.parse(c.at) > clock.ms && c.read.length > 30 && Number.isFinite(c.forecaster.pUp));
     assert.deepEqual(c.live, [], "no live reading has earned a say yet");
   }
-  // every technique speaking has its sentence and its record beside it
-  for (const x of v.witnesses) assert.ok(x.text.length > 10 && [1, -1].includes(x.state) && x.record[15].n >= 0 && x.what.length > 40, JSON.stringify(x));
+  // every technique speaking has its sentence and its record beside it — overall, and for the regime the stock is in now
+  assert.ok(["trend", "range"].includes(v.regime.name) && v.regime.er >= 0 && v.regime.er <= 1);
+  for (const x of v.witnesses) assert.ok(x.text.length > 10 && [1, -1].includes(x.state) && x.record[15].n >= 0 && x.what.length > 40 && x.regime.name === v.regime.name && x.regime[15].n <= x.record[15].n, JSON.stringify(x));
+  // which comes first within 30 minutes: the two prices, each with its chance beside its usual rate
+  const fst = v.first;
+  assert.ok(fst && fst.minutes === 30 && fst.up.price > v.anchor.price && fst.down.price < v.anchor.price && fst.movePct > 0.1 && fst.movePct < 1);
+  assert.ok(fst.up.p > 0 && fst.down.p > 0 && fst.up.p + fst.down.p < 1 && Math.abs(fst.up.usual - m.hz.tb.base[0]) < 1e-9 && ["up", "down", "none"].includes(fst.lean));
+  assert.match(fst.read, /comes first \d+% of the time \(usual \d+%\)/);
   assert.equal(v.count.up + v.count.down, v.witnesses.length + v.live.filter((r) => r.state).length);
   // what is only known live was read from the market: the book price by price on both exchanges, the market, the world
   const lv = Object.fromEntries(v.live.map((r) => [r.id, r]));
@@ -498,7 +621,7 @@ test("the service measures the techniques on the stored history, makes the call,
   await ev.view("T00");
   assert.equal(docs.items(CALLS).length, 1);
   const kept = docs.items(CALLS)[0];
-  assert.ok(kept.symbol === "T00" && kept.c[1].length === 5 && kept.c[3].length === 5 && kept.settled === false);
+  assert.ok(kept.symbol === "T00" && kept.c[1].length === 5 && kept.c[3].length === 5 && kept.c.tb.length === 5 && kept.settled === false);
   assert.deepEqual([kept.lw.book5, kept.lw.tide, kept.lw.us], [1, 1, undefined], "a reading with no lean is not kept");
 
   // a sweep keeps the call of every stock followed, with one shared request for their order books
@@ -512,7 +635,7 @@ test("the service measures the techniques on the stored history, makes the call,
   clock.ms += 40 * 60000;
   assert.equal(await ev.score(), 2);
   const rec = docs.items(CALLS).find((r) => r.symbol === "T00");
-  assert.ok(rec.settled && Number.isFinite(rec.actual[1]) && Number.isFinite(rec.actual[3]));
+  assert.ok(rec.settled && Number.isFinite(rec.actual[1]) && Number.isFinite(rec.actual[3]) && [-1, 0, 1].includes(rec.actual.tb), JSON.stringify(rec.actual));
   const live = docs.read(LIVE);
   assert.equal(live.n, 2);
   const open = live.ledgerDays[w.all[121]];
@@ -546,6 +669,10 @@ test("the service measures the techniques on the stored history, makes the call,
     assert.equal(pos[1].against, pos[1].lean === "up", "the same lean is against the opposite position");
     assert.match(pos[0].against ? pos[0].text : pos[1].text, /AGAINST your/);
   }
+  // …and which comes first for each side: the long's favourable move is the short's adverse one
+  assert.ok(pos[0].first.favour.price > pos[0].first.against.price && pos[1].first.favour.price < pos[1].first.against.price);
+  assert.deepEqual(pos[0].first.favour, pos[1].first.against);
+  assert.match(pos[0].text, /Within 30 minutes a move of 0\.\d\d% in your favour \(to [\d.]+\) comes first \d+% of the time; the same move against you/);
 
   // in brief, for an AI and for TradeAI: the ladder, the readings, the levels — and the owner's position only when asked for
   const brief = await ev.brief("T00");
@@ -553,10 +680,26 @@ test("the service measures the techniques on the stored history, makes the call,
   assert.ok(brief.orderBookNSE.bids.length === 5 && brief.orderBookBSE.offers.length === 5 && brief.deskCall.length === 2 && brief.liveReadings.length >= 8 && brief.levels.length >= 6);
   assert.ok(Array.isArray(brief.earlyCalls) || brief.earlyCalls === null);
   assert.equal("openPosition" in brief, false);
+  assert.ok(brief.whichComesFirst.withinMinutes === 30 && brief.whichComesFirst.upFirst.toPrice > brief.whichComesFirst.downFirst.toPrice && /^(trend|range) \(efficiency ratio/.test(brief.regimeNow));
   w.holding.list = [{ symbol: "T00", side: "long", quantity: 10, average: 100 }];
   assert.equal((await ev.brief("T00", { withPosition: true })).openPosition.quantity, 10);
   assert.equal((await ev.brief("T01", { withPosition: true })).openPosition, "none in this stock");
   w.holding.list = [];
+
+  // the command screen's board: every followed stock at once, with one shared request for all their order books
+  ev._cache.clear();
+  const n1 = w.asked.quotes.length;
+  const nowB = await ev.nowBoard(["T00", "t01", "T01", "bad symbol!", "T99"]);
+  assert.deepEqual(w.asked.quotes.slice(n1), [["NSE:T00", "NSE:T01", "NSE:T99"]], "one request, each stock once, nothing that is not a symbol");
+  assert.deepEqual(nowB.rows.map((r) => [r.symbol, r.available]), [["T00", true], ["T01", true], ["T99", false]]);
+  const row = nowB.rows[0];
+  assert.ok(row.last > 0 && row.changePct === 0.8 && ["up", "down", "none"].includes(row.calls[15].lean) && row.calls[5] && Date.parse(row.calls[15].at) > Date.parse(row.asOf));
+  assert.equal(row.up + row.down, row.speaking);
+  assert.ok(Number.isFinite(row.vsVwapPct) && Number.isFinite(row.volumeX) && row.forecaster.pUp > 0 && Array.isArray(row.top));
+  assert.ok(row.early === null || typeof row.early.read === "string", "the early call rides along when there is one");
+  assert.ok(nowB.rows[2].reason.length > 5, "a stock it cannot read says why");
+  assert.ok(nowB.trained && nowB.liveCalls[3] && nowB.ai.perDay === 40 && nowB.checked === 2);
+  assert.equal(await ev.nowBoard(["T00", "T01", "T99"]), nowB, "within ten seconds the same board is served again");
 
   // the evening: a new stored session is called with the model as it stood, checked, then learned
   assert.equal(ev.pending().learn, false, "nothing new is stored");
@@ -586,9 +729,9 @@ test("honest: in a market with nothing to find, the techniques earn no place and
   const w = await setup({ phi: 0, seed: 23 });
   await w.horizon.train({ trigger: "test" });
   const out = await w.evidence.train({ trigger: "test" });
-  for (const h of E.HZ) {
+  for (const h of E.KEYS) {
     const s = out.validation.shown[h];
-    assert.equal(s.on, false, `nothing was planted, yet the techniques claim to add ${s.adds} at ${h * 5} minutes`);
+    assert.equal(s.on, false, `nothing was planted, yet the techniques claim to add ${s.adds} at ${h}`);
     assert.equal(s.all.proven, false, JSON.stringify(s.all));
     for (const t of E.TIERS) assert.equal(s.tiers[t].proven, false);
   }
@@ -599,7 +742,7 @@ test("honest: in a market with nothing to find, the techniques earn no place and
     assert.equal(c.proven, false);
     assert.deepEqual(c.why, [], "techniques that are not in the call push nothing");
   }
-  // a technique may look good by luck among 35 × 2 tries; no more than a couple may, and none strongly
+  // a technique may look good by luck among 40 × 2 tries; no more than a couple may, and none strongly
   const lucky = w.evidence.board().techniques.flatMap((t) => [t.record[5], t.record[15]]).filter((r) => r.verdict === "works" || r.verdict === "backwards");
   assert.ok(lucky.length <= 3, `${lucky.length} techniques claim an edge in noise: ${JSON.stringify(lucky)}`);
   for (const r of lucky) assert.ok(Math.abs(r.right - 0.5) < 0.04, JSON.stringify(r));

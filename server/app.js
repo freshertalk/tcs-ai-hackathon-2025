@@ -1491,7 +1491,7 @@ ${e.text}
   app.post("/api/admin/market/ahead/train", requireSuper, limiter(6, 60 * 60 * 1000), hWrap(async () => startAhead(() => ahead.train({ trigger: "you asked" }))));
   app.post("/api/admin/market/ahead/learn", requireSuper, limiter(12, 60 * 60 * 1000), hWrap(async () => startAhead(() => ahead.learnDays({ trigger: "you asked" }))));
 
-  // The evidence desk (server/evidence.js): everything weighed into one call for the next 5 and 15 minutes — 35 day-trading
+  // The evidence desk (server/evidence.js): everything weighed into one call for the next 5 and 15 minutes — 40 day-trading
   // techniques measured on the stored history and stacked on the forecaster's call, with the order book price by price (NSE and
   // BSE), open interest, the option chain, NIFTY, the sector, India VIX, GIFT NIFTY, Wall Street and Asia read live, kept and
   // checked. It may ask the AI ONCE about a stock a person has just opened, when its own test says the AI is needed (the owner's
@@ -1849,7 +1849,7 @@ ${e.text}
         {
           id: "evidence-train",
           name: "Evidence desk: training",
-          what: "Measures the 35 day-trading techniques on the whole stored history and fits them with the forecaster's call, when the evidence desk has no usable model (first start, or the forecaster's inputs changed). Runs after the forecaster's own training.",
+          what: "Measures the 40 day-trading techniques on the whole stored history and fits them with the forecaster's call, when the evidence desk has no usable model (first start, or the forecaster's inputs changed). Runs after the forecaster's own training.",
           due: () => {
             const p = evidence.pending();
             return !p.busy && p.train ? "no usable model yet" : "";
@@ -1959,7 +1959,7 @@ ${e.text}
         const proven = b.trained ? b.learning.targets.filter((t) => t.proven).length : 0;
         return needs(b.trained ? "on" : "learning", b.trained ? `learned to ${b.learning.lastDate}; ${proven} of ${b.learning.targets.length} calls proven on unseen sessions` : "no usable model yet (it trains after the forecaster)");
       }),
-      sys("evidence", "Evidence desk (techniques, order book, world)", "On every finished 5-minute bar: 35 day-trading techniques, the order book, open interest, the sector, GIFT NIFTY and the world weighed into one call for 5 and 15 minutes; every call and every reading is kept and checked, and every evening at 3:50 PM the whole NIFTY 100 day is called, checked, then learned. The AI is asked only about a stock you open, when needed", () => {
+      sys("evidence", "Evidence desk (techniques, order book, world)", "On every finished 5-minute bar: 40 day-trading techniques (each weighed apart in a trend and in a range), the order book, open interest, the sector, GIFT NIFTY and the world weighed into one call for 5 and 15 minutes; every call and every reading is kept and checked, and every evening at 3:50 PM the whole NIFTY 100 day is called, checked, then learned. The AI is asked only about a stock you open, when needed", () => {
         const b = evidence.board();
         const working = b.techniques.filter((t) => t.record[15].verdict === "works").length;
         return needs(b.trained ? "on" : "learning", b.trained ? `learned to ${b.learning.lastDate}; ${working} of ${b.techniques.length} techniques have a proven record here; AI reads today ${b.ai.usedToday} of ${b.ai.perDay}` : "no usable model yet (it trains after the forecaster)");
@@ -1993,6 +1993,46 @@ ${e.text}
     ];
   };
   app.get("/api/admin/automation", requireAdmin, (req, res) => res.json({ ...supervisor.status(), systems: automationSystems() }));
+  // The command screen ("Now"): every followed stock with its price and its calls for 5 and 15 minutes, the market's own
+  // state, what every automatic system is doing and how today's checks have gone — one read, refreshed the moment any of
+  // it changes (the live topics "now", "evidence", "horizon", "market", "automation"). Nothing of an account is in it.
+  app.get(
+    "/api/admin/market/now",
+    requireAdmin,
+    limiter(240, 60 * 1000),
+    hWrap(async () => {
+      let symbols = [];
+      try {
+        symbols = horizon.watching();
+      } catch (_) {
+        symbols = [];
+      }
+      const board = await evidence.nowBoard(symbols);
+      let ctx = null;
+      try {
+        ctx = await market.context();
+      } catch (_) {
+        ctx = null;
+      }
+      const gift = ctx && ctx.available ? (ctx.items || []).find((x) => x.id === "gift" && x.available !== false) : null;
+      const systems = automationSystems().map((s) => ({ id: s.id, name: s.name, state: s.state, detail: s.detail }));
+      let forecaster = null;
+      let early = null;
+      try {
+        forecaster = horizon.checkTotals();
+        early = ahead.board().live || null;
+      } catch (_) {
+        forecaster = null;
+      }
+      return {
+        ...board,
+        mode: market.mode(),
+        market: ctx && ctx.available ? { available: true, session: ctx.session, tide: ctx.tide ? { label: ctx.tide.label, score: ctx.tide.score, summary: ctx.tide.summary } : null, nifty: ctx.nifty, vix: ctx.vix, gift: gift ? { last: gift.last, changePct: gift.changePct } : null, breadth: ctx.breadth, sectors: (ctx.sectors || []).map((s) => ({ name: s.name, changePct: s.changePct })) } : { available: false, reason: (ctx && ctx.reason) || "The market could not be read." },
+        systems,
+        checks: { forecaster, early },
+      };
+    })
+  );
   // look now, instead of at the next minute
   app.post("/api/admin/automation/run", requireSuper, limiter(20, 10 * 60 * 1000), async (req, res) => {
     supervisor.tick().catch(() => {});

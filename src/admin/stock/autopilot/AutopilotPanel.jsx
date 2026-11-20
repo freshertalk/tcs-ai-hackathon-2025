@@ -192,7 +192,7 @@ function Scorecard({ board, canEdit, onChanged }) {
       {o ? (
         <>
           <p>
-            <b>{o.n}</b> graded · <b>{o.winRate}%</b> won · average <b>{o.avgR}R</b> after costs · total {o.totalR}R{o.profitFactor ? ` · profit factor ${o.profitFactor}` : ""} · {o.how.target} to target, {o.how.stop} to the stop, {o.how.time} out at 3:15.
+            <b>{o.n}</b> graded · <b>{o.winRate}%</b> won · average <b>{o.avgR}R</b> after costs · total {o.totalR}R{o.profitFactor ? ` · profit factor ${o.profitFactor}` : ""} · {o.how.target} to target, {o.how.stop} to the stop, {o.how.time} out at the square-off.
           </p>
           <div className="apx-scroll">
             <table className="apx-table">
@@ -222,7 +222,7 @@ function Scorecard({ board, canEdit, onChanged }) {
           </div>
         </>
       ) : (
-        <p className="ab-dim">Nothing graded yet. The first proposals are graded as soon as they reach their stop, their first target or 3:15 PM.</p>
+        <p className="ab-dim">Nothing graded yet. The first proposals are graded as soon as they reach their stop, their first target or the square-off.</p>
       )}
 
       <h4>The research itself, graded on a year of history</h4>

@@ -35,6 +35,7 @@ const { EventEmitter } = require("node:events");
 const { coach, newMemory, RANK } = require("./trading/exitcoach");
 const { levelMap, verify, track, settle, record, fiveMinute } = require("./trading/exitlevels");
 const { nseOpen } = require("./alert-watch");
+const { squareOffAt } = require("./market/session");
 const { BRAND } = require("./brand");
 const KC = require("./market/situation");
 
@@ -90,6 +91,8 @@ class FlightDeck extends EventEmitter {
     this.docs = docs;
     this.notifier = notifier;
     this.goal = goal;
+    this._fno = null; // the stocks that have futures or options: these have a closing auction and are squared off earlier
+    this._fnoDay = "";
     this.evidence = null; // set by app.js: the evidence desk (server/evidence.js) — the next 15 minutes for each position
     this.learn = null; // set by app.js: the level learner (server/learn.js) — how often each kind of level has held
     this.now = now;
@@ -192,6 +195,27 @@ class FlightDeck extends EventEmitter {
     const d = this.docs.read(dayName(date), null);
     if (!d) return { available: false, date, reason: "Nothing was recorded on that day (the recorder runs while Zerodha is connected and a position is open)." };
     return { available: true, ...d, flights: Object.values(d.flights || {}), levelsRecord: this.levelsRecord() };
+  }
+
+  /**
+   * Does this stock have a closing auction (is it in the F&O list)? Such a stock stops trading at 3:15 PM and Zerodha
+   * squares its intraday positions off at 3:12 PM, the rest at 3:25 PM (market/session.js). Until the list has been read
+   * the answer is yes: the earlier time.
+   */
+  _cas(symbol) {
+    const day = istDate(this.now());
+    if (this._fnoDay !== day && this.market && typeof this.market.derivatives === "function") {
+      this._fnoDay = day;
+      Promise.resolve()
+        .then(() => this.market.derivatives())
+        .then((list) => {
+          if (Array.isArray(list) && list.length >= 20) this._fno = new Set(list.map((x) => x.n).filter(Boolean));
+        })
+        .catch(() => {
+          this._fnoDay = ""; // try again on the next look
+        });
+    }
+    return this._fno ? this._fno.has(symbol) : true;
   }
 
   /* ------------------------------------------------------------------------ the positions */
@@ -363,6 +387,7 @@ class FlightDeck extends EventEmitter {
     try {
       return levelMap(pos, slot.ctx.bars, {
         now: this.now(),
+        cas: this._cas(slot.symbol),
         last: slot.tick && num(slot.tick.last) ? slot.tick.last : a ? a.metrics.last : undefined,
         daily: slot.daily,
         ladder: slot.ctx.levels,
@@ -426,7 +451,7 @@ class FlightDeck extends EventEmitter {
     // a target the AI chose (and the desk checked) is a level like any other on the ladder
     const set = slot.levels && !slot.levels.failed ? slot.levels : null;
     const aiLevels = set ? set.targets.filter((t) => t.status === "open").map((t) => ({ label: `the AI's target ${t.n} (${t.label})`, price: t.level })) : [];
-    const a = coach(pos, slot.ctx.bars, slot.tick, { now, memory: slot.memory, flow, levels: aiLevels.length ? [...slot.ctx.levels, ...aiLevels] : slot.ctx.levels, pulse: slot.ctx.pulse, tide: this.mkt.tide, forecast: this.mkt.forecast, news: slot.ctx.news, goal: goal ? { state: goal } : null, liveCall: slot.ctx.liveCall });
+    const a = coach(pos, slot.ctx.bars, slot.tick, { now, cas: this._cas(slot.symbol), memory: slot.memory, flow, levels: aiLevels.length ? [...slot.ctx.levels, ...aiLevels] : slot.ctx.levels, pulse: slot.ctx.pulse, tide: this.mkt.tide, forecast: this.mkt.forecast, news: slot.ctx.news, goal: goal ? { state: goal } : null, liveCall: slot.ctx.liveCall });
     // the evidence desk's proven lean for the next 15 minutes is one more reason on the side it supports (it never changes the signal)
     if (this.evidence && now - (slot.evAt || 0) > 60000) {
       slot.evAt = now;
@@ -783,7 +808,7 @@ class FlightDeck extends EventEmitter {
     } catch (_) {
       connected = false;
     }
-    const sq = Date.parse(`${istDate(now)}T09:45:00Z`);
+    const sq = squareOffAt(now, { cas: true }); // the earliest square-off of the day: closing-auction stocks
     return {
       at: new Date(now).toISOString(),
       marketOpen: nseOpen(now),

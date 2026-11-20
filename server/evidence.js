@@ -76,7 +76,7 @@ class EvidenceError extends Error {
 }
 
 const RULE =
-  "On every finished 5-minute bar the desk asks 35 day-trading techniques what they see (opening-range and first-hour breaks, VWAP as trend, pullback and stretch, the 9/20 EMAs, Supertrend, MACD, ADX, the central pivot range and Camarilla levels, yesterday's high and low, gaps, NR7 and inside bars, the Bollinger squeeze, RSI extremes and divergence, the volume climax, liquidity sweeps, pin and engulfing bars, up-volume against down-volume, the market's push and relative strength) and puts them together with the 15-minute forecaster's own call. The chances shown are measured frequencies on sessions the model had not seen, set beside the usual rate. The techniques are used only where they made the call miss less than the forecaster alone; otherwise the call is the forecaster's and the techniques are shown for reading. What is only known live — the order book on NSE and BSE, open interest, the option chain, NIFTY, the sector, India VIX, GIFT NIFTY, Wall Street, Asia — is shown, kept with every call and checked; a live reading moves the call only after its own live record has proven it. No call is certain: read 58% as 58%.";
+  "On every finished 5-minute bar the desk asks its day-trading techniques what they see (opening-range and first-hour breaks, VWAP as trend, pullback and stretch, the 9/20 EMAs, Supertrend, MACD, ADX, the central pivot range and Camarilla levels, yesterday's high and low, gaps, NR7 and inside bars, the Bollinger squeeze, RSI extremes and divergence, the volume climax, liquidity sweeps, pin and engulfing bars, up-volume against down-volume, sudden jumps, the market's push, relative strength and the last half-hour's patterns) and puts them together with the 15-minute forecaster's own call. Each technique has its own weight in a trend and in a range. Besides the direction it says which comes first within 30 minutes: a usual move up, or the same move down. The chances shown are measured frequencies on sessions the model had not seen, set beside the usual rate. The techniques are used only where they made the call miss less than the forecaster alone; otherwise the call is the forecaster's and the techniques are shown for reading. What is only known live — the order book on NSE and BSE, open interest, the option chain, NIFTY, the sector, India VIX, GIFT NIFTY, Wall Street, Asia — is shown, kept with every call and checked; a live reading moves the call only after its own live record has proven it. No call is certain: read 58% as 58%.";
 const CHECK_RULE = "Every call kept is checked 5 and 15 minutes after it was made: a lean counts as right when the price ended on the side it named. A call with no lean says nothing and is not counted.";
 
 const AI_SYSTEM = `You are the senior intraday analyst on a private NSE (India) trading desk. A trader has just opened ONE stock and the desk's arithmetic is undecided or its readings disagree. You are given the desk's whole evidence board for this stock at this moment: its own call for the next 5 and 15 minutes with measured chances, the day-trading techniques that are speaking (each with its measured record on this desk's history), the indicators (RSI, VWAP and its bands, Bollinger, MACD, ADX, Supertrend, EMAs, volume against usual), the price levels, the order book price by price on NSE and BSE, the pending buy and sell orders, futures open interest, the option chain, the NIFTY tide, the sector, India VIX, GIFT NIFTY, Wall Street and Asia, the early calls (reversal, carry-on, momentum) and any open position.
@@ -143,6 +143,7 @@ class Evidence {
     this._aiBusy = new Set();
     this._ledNow = null;
     this._late = null;
+    this._nowHit = null;
     this.lastError = "";
   }
 
@@ -157,7 +158,7 @@ class Evidence {
   }
   _usable() {
     const m = this.model();
-    return m && m.version === E.MODEL_VERSION && m.forecaster === H.MODEL_VERSION && m.hz && E.HZ.every((h) => m.hz[h] && m.hz[h].W && m.hz[h].W0) ? m : null;
+    return m && m.version === E.MODEL_VERSION && m.forecaster === H.MODEL_VERSION && m.hz && E.KEYS.every((h) => m.hz[h] && m.hz[h].W && m.hz[h].W0) ? m : null;
   }
   _saveModel(m) {
     this._rev += 1;
@@ -201,7 +202,7 @@ class Evidence {
   _curvesOf(m) {
     if (this._curves && this._curves.m === m) return this._curves.v;
     const v = {};
-    for (const h of E.HZ) {
+    for (const h of E.KEYS) {
       const x = m.hz[h];
       v[h] = { full: { W: x.W, base: x.base, curves: E.curvesOf(x.cal, x.base) }, alone: { W: x.W0, base: x.base, curves: E.curvesOf(x.cal0, x.base) }, on: E.techniquesOn(x.ev) };
     }
@@ -236,10 +237,10 @@ class Evidence {
     if (dates.length < 40) throw new EvidenceError(`Only ${dates.length} stored sessions: the evidence desk needs at least 40 to learn from.`, "short_history", 409);
     const cut = dates[Math.floor(dates.length * 0.75)];
     const newest = dates[dates.length - 1];
-    const train = E.HZ.map(() => new E.Sums());
-    const val = E.HZ.map(() => new E.Sums());
-    const held = E.HZ.map(() => []);
-    const seen = E.HZ.map(() => 0);
+    const train = E.KEYS.map(() => new E.Sums());
+    const val = E.KEYS.map(() => new E.Sums());
+    const held = E.KEYS.map(() => []);
+    const seen = E.KEYS.map(() => 0);
     const ledger = E.emptyLedger();
     const dayLed = new Map(dates.map((d) => [d, E.emptyDay()])); // each technique's tally session by session (the stocks of a session move together)
     // of the unseen sessions, every other one sets the calibration and the rest give the numbers shown: whole sessions, never shared
@@ -259,15 +260,17 @@ class Evidence {
         for (const r of wr) {
           if (!fOf.has(r.s)) continue;
           const f = E.forecasterOf(fOf.get(r.s));
-          for (let k = 0; k < E.HZ.length; k += 1) {
-            const y = E.outcomesOf(r.y[k]);
-            if (!y) continue;
-            const z = E.inputsOf(f[k], r.w);
+          for (let k = 0; k < E.KEYS.length; k += 1) {
+            const o = E.outcomeAt(r, k);
+            if (!o) continue;
+            const y = o.y;
+            // "which comes first" reads the forecaster's 15-minute call; every question reads each technique in the bar's regime
+            const z = E.inputsOf(f[Math.min(k, 1)], r.w, r.tr);
             (unseen ? val : train)[k].add(z, y, w);
-            for (let j = 0; j < E.W; j += 1) if (r.w[j]) E.dayAdd(dayLed.get(date), E.WITS[j].id, k, r.w[j], r.y[k]);
+            if (k < E.HZ.length) this._ledgerRow(dayLed.get(date), r, k);
             if (unseen) {
               seen[k] += 1;
-              if (seen[k] % STRIDE === 0 && held[k].length < HELD_MAX) held[k].push({ z: Float32Array.from(z), y, yv: r.y[k], d: date });
+              if (seen[k] % STRIDE === 0 && held[k].length < HELD_MAX) held[k].push({ z: Float32Array.from(z), y, yv: o.yv, d: date });
             }
           }
         }
@@ -279,8 +282,8 @@ class Evidence {
     job.phase = "measuring it on sessions it has not seen";
     const hz = {};
     const shown = {};
-    for (let k = 0; k < E.HZ.length; k += 1) {
-      const h = E.HZ[k];
+    for (let k = 0; k < E.KEYS.length; k += 1) {
+      const h = E.KEYS[k];
       const Wt = E.fit(train[k]);
       const W0t = E.fit(train[k], 2);
       if (!Wt || !W0t) throw new EvidenceError("Not enough examples to fit the evidence desk.", "short_history", 409);
@@ -335,6 +338,15 @@ class Evidence {
     return { rows: hz[3].rows, sessions: dates.length, validation: model.validation };
   }
 
+  /** One bar into a session's tally: each technique that spoke, overall and in the regime the bar was in ("@t" trend, "@r" range). */
+  _ledgerRow(day, r, k) {
+    for (let j = 0; j < E.W; j += 1) {
+      if (!r.w[j]) continue;
+      E.dayAdd(day, E.WITS[j].id, k, r.w[j], r.y[k]);
+      E.dayAdd(day, `${E.WITS[j].id}${r.tr ? "@t" : "@r"}`, k, r.w[j], r.y[k]);
+    }
+  }
+
   /* --------------------------------------------------------------------------- learning each evening */
   learnDays({ trigger = "itself" } = {}) {
     if (this._busy()) return Promise.resolve({ busy: true });
@@ -356,7 +368,7 @@ class Evidence {
     const asStood = this._curvesOf(m);
     const fade = FADE ** dates.length;
     const gap = E.DECAY_DAY ** Math.max(1, H.daysBetween(m.lastDate, newest));
-    const st = E.HZ.map((h) => ({ sums: E.Sums.from(m.hz[h].stats).scale(gap), cal: E.calScale(m.hz[h].cal || E.emptyCal(), fade), cal0: E.calScale(m.hz[h].cal0 || E.emptyCal(), fade), ev: E.evScale(m.hz[h].ev || E.emptyEv(), fade), day: new Map(dates.map((d) => [d, E.emptyEv()])) }));
+    const st = E.KEYS.map((h) => ({ sums: E.Sums.from(m.hz[h].stats).scale(gap), cal: E.calScale(m.hz[h].cal || E.emptyCal(), fade), cal0: E.calScale(m.hz[h].cal0 || E.emptyCal(), fade), ev: E.evScale(m.hz[h].ev || E.emptyEv(), fade), day: new Map(dates.map((d) => [d, E.emptyEv()])) }));
     const ledger = E.ledgerScale(m.ledger || E.emptyLedger(), gap);
     const dayLed = new Map(dates.map((d) => [d, E.emptyDay()]));
     const counts = new Map(dates.map((d) => [d, 0]));
@@ -371,17 +383,18 @@ class Evidence {
         for (const r of wr) {
           if (!fOf.has(r.s)) continue;
           const f = E.forecasterOf(fOf.get(r.s));
-          for (let k = 0; k < E.HZ.length; k += 1) {
-            const y = E.outcomesOf(r.y[k]);
-            if (!y) continue;
-            const z = E.inputsOf(f[k], r.w);
-            const a = asStood[E.HZ[k]];
+          for (let k = 0; k < E.KEYS.length; k += 1) {
+            const o = E.outcomeAt(r, k);
+            if (!o) continue;
+            const y = o.y;
+            const z = E.inputsOf(f[Math.min(k, 1)], r.w, r.tr);
+            const a = asStood[E.KEYS[k]];
             // first the call, with the model as it stood; then the lesson
-            E.evAdd(st[k].day.get(date), a.full, a.alone, z, y, r.y[k]);
+            E.evAdd(st[k].day.get(date), a.full, a.alone, z, y, o.yv);
             E.calAdd(st[k].cal, a.full.W, z, y);
             E.calAdd(st[k].cal0, a.alone.W, z, y);
             st[k].sums.add(z, y, w);
-            for (let j = 0; j < E.W; j += 1) if (r.w[j]) E.dayAdd(dayLed.get(date), E.WITS[j].id, k, r.w[j], r.y[k]);
+            if (k < E.HZ.length) this._ledgerRow(dayLed.get(date), r, k);
           }
         }
         counts.set(date, counts.get(date) + wr.length);
@@ -395,9 +408,9 @@ class Evidence {
     const dayRecords = [];
     for (const date of dates) {
       if (!counts.get(date)) continue;
-      dayRecords.push({ id: date, date, at: iso(this.now()), rows: counts.get(date), shown: Object.fromEntries(E.HZ.map((h, k) => [h, E.summarise(st[k].day.get(date))])) });
+      dayRecords.push({ id: date, date, at: iso(this.now()), rows: counts.get(date), shown: Object.fromEntries(E.KEYS.map((h, k) => [h, E.summarise(st[k].day.get(date))])) });
     }
-    E.HZ.forEach((h, k) => {
+    E.KEYS.forEach((h, k) => {
       for (const ev of st[k].day.values()) E.evMerge(st[k].ev, ev);
       m.hz[h] = { stats: st[k].sums.toJSON(), W: E.fit(st[k].sums) || m.hz[h].W, W0: E.fit(st[k].sums, 2) || m.hz[h].W0, base: st[k].sums.base().map(r4), cal: st[k].cal, cal0: st[k].cal0, ev: st[k].ev, rows: st[k].sums.n };
     });
@@ -517,24 +530,25 @@ class Evidence {
     if (!read) return { reason: "No finished 5-minute bar yet today." };
     const m = this._usable();
     const fc = inp.fc;
-    const left = H.SESSION_BARS - 1 - fc.anchor.slot;
+    const left = H.closeOf(inp.ctx) - 1 - fc.anchor.slot; // bars of continuous trading left (it ends at 3:15 PM in a closing-auction stock)
     const { L, sources, quote } = await this._liveFor(symbol, inp, { full, pre });
     const live = E.liveWitnesses(L);
     const calls = {};
     const f = [];
-    E.HZ.forEach((h, k) => {
-      const fh = fc.horizons[h];
-      f[k] = fh && fc.sigma > 0 ? clip(fh.pct / fc.sigma / Math.sqrt(h), 2.5) : 0;
-      if (!m || h > left || !fh) return;
+    E.KEYS.forEach((h, k) => {
+      const hb = k < E.HZ.length ? h : 3; // "which comes first" reads the forecaster's 15-minute call
+      const fh = fc.horizons[hb];
+      if (k < E.HZ.length) f[k] = fh && fc.sigma > 0 ? clip(fh.pct / fc.sigma / Math.sqrt(hb), 2.5) : 0;
+      if (!m || (k < E.HZ.length ? h : E.TB_BARS) > left || !fh) return;
       const cv = this._curvesOf(m)[h];
-      const z = E.inputsOf(f[k], read.states);
+      const z = E.inputsOf(f[Math.min(k, 1)], read.states, read.trend);
       const mdl = cv.on ? cv.full : cv.alone;
       const raw = E.callOf(mdl, z);
       // a live reading moves the call only once its own record has proven it
       const moved = [];
       let tilt = 0;
       for (const row of live.rows) {
-        const t = this._liveTilt(row.id, k, row.state);
+        const t = this._liveTilt(row.id, Math.min(k, 1), row.state);
         if (t.tilt) {
           tilt += t.tilt;
           moved.push({ id: row.id, name: row.name, points: r4(t.tilt) });
@@ -550,7 +564,7 @@ class Evidence {
         const wk = cv.full.W[lean.side < 0 ? 1 : 0];
         for (let j = 0; j < E.W; j += 1) {
           if (!read.states[j]) continue;
-          const push = wk[2 + j] * read.states[j];
+          const push = wk[E.weightAt(j, read.trend)] * read.states[j];
           if (Math.abs(push) >= 0.002) why.push({ id: E.WITS[j].id, name: E.WITS[j].name, push: r4(push) });
         }
         why.sort((a, b) => Math.abs(b.push) - Math.abs(a.push));
@@ -576,7 +590,8 @@ class Evidence {
     const led = (c.m && c.m.ledger) || {};
     return c.read.said.map((s) => {
       const def = E.WITS[E.WIX[s.id]];
-      return { id: s.id, name: s.name, fam: s.fam, what: def.what, state: s.state, text: s.text, record: { 5: E.recordOf((led[s.id] || [])[0]), 15: E.recordOf((led[s.id] || [])[1]) } };
+      const rk = `${s.id}${c.read.trend ? "@t" : "@r"}`;
+      return { id: s.id, name: s.name, fam: s.fam, what: def.what, state: s.state, text: s.text, record: { 5: E.recordOf((led[s.id] || [])[0]), 15: E.recordOf((led[s.id] || [])[1]) }, regime: { name: c.read.trend ? "trend" : "range", 5: E.recordOf((led[rk] || [])[0]), 15: E.recordOf((led[rk] || [])[1]) } };
     });
   }
   _liveRows(c) {
@@ -613,6 +628,25 @@ class Evidence {
           const at = end + h * E.BAR;
           return { key: String(h * 5), minutes: h * 5, at: iso(at), lean: x.side > 0 ? "up" : x.side < 0 ? "down" : "none", tier: x.tier || "none", pUp: x.pUp, pDown: x.pDown, usualUp: x.usualUp, usualDown: x.usualDown, proven: x.proven, right: x.right, n: x.n, uses: x.on ? "techniques" : "forecaster", adds: x.adds, why: x.why, live: x.live, forecaster: x.forecaster, read: this._sentence(x, (at - now) / 60000, clock(at)) };
         });
+        const tb = c.calls.tb || null;
+        const unit = c.read.sloc * E.TB_UNIT; // one usual 15-minute move, in the moves of the moment
+        const last0 = c.inp.fc.anchor.price;
+        const first = tb
+          ? {
+              minutes: E.TB_BARS * 5,
+              by: iso(end + E.TB_BARS * E.BAR),
+              movePct: r4(unit * 100),
+              up: { price: Math.round(last0 * (1 + unit) * 20) / 20, p: tb.pUp, usual: tb.usualUp },
+              down: { price: Math.round(last0 * (1 - unit) * 20) / 20, p: tb.pDown, usual: tb.usualDown },
+              lean: tb.side > 0 ? "up" : tb.side < 0 ? "down" : "none",
+              tier: tb.tier || "none",
+              proven: tb.proven,
+              right: tb.right,
+              n: tb.n,
+              uses: tb.on ? "techniques" : "forecaster",
+              read: `Within ${E.TB_BARS * 5} minutes, a move of ${(unit * 100).toFixed(2)}% up (to ${(Math.round(last0 * (1 + unit) * 20) / 20).toFixed(2)}) comes first ${pc(tb.pUp)} of the time (usual ${pc(tb.usualUp)}); the same move down (to ${(Math.round(last0 * (1 - unit) * 20) / 20).toFixed(2)}) comes first ${pc(tb.pDown)} (usual ${pc(tb.usualDown)}); otherwise neither.`,
+            }
+          : null;
         const firing = [...witnesses, ...liveRows.filter((r) => r.state)];
         const good = (r) => r.record[15].verdict === "works" || r.record[15].verdict === "backwards";
         const sideOf = (r) => (r.record[15].verdict === "backwards" ? -r.state : r.state);
@@ -624,6 +658,8 @@ class Evidence {
           anchor: { at: iso(end), price: c.inp.fc.anchor.price },
           last: c.L.last,
           calls,
+          first,
+          regime: { name: c.read.trend ? "trend" : "range", er: c.read.er },
           count: { up: firing.filter((r) => r.state > 0).length, down: firing.filter((r) => r.state < 0).length, silent: E.W - witnesses.length, provenUp: firing.filter((r) => good(r) && sideOf(r) > 0).length, provenDown: firing.filter((r) => good(r) && sideOf(r) < 0).length },
           witnesses,
           live: liveRows,
@@ -651,7 +687,7 @@ class Evidence {
 
   _learning(m) {
     if (!m) return { trainedAt: null, rows: 0, sessions: 0, lastDate: null, validation: null, days: 0 };
-    return { trainedAt: m.trainedAt, rows: m.hz[3].rows, sessions: m.validation ? m.validation.sessions : 0, lastDate: m.lastDate, validation: m.validation, days: (m.learned && m.learned.days) || 0, lastLearnedAt: m.learned ? m.learned.lastAt : null, now: Object.fromEntries(E.HZ.map((h) => [h, E.summarise(m.hz[h].ev)])) };
+    return { trainedAt: m.trainedAt, rows: m.hz[3].rows, sessions: m.validation ? m.validation.sessions : 0, lastDate: m.lastDate, validation: m.validation, days: (m.learned && m.learned.days) || 0, lastLearnedAt: m.learned ? m.learned.lastAt : null, now: Object.fromEntries(E.KEYS.map((h) => [h, E.summarise(m.hz[h].ev)])) };
   }
 
   /* --------------------------------------------------------------------------- keeping and checking */
@@ -664,10 +700,10 @@ class Evidence {
     const id = `${date}|${symbol}|${end}`;
     if (this._recs().has(id)) return;
     const calls = {};
-    for (const h of E.HZ) if (c.calls[h]) calls[h] = [c.calls[h].pUp, c.calls[h].pDown, c.calls[h].side, c.calls[h].tier ? TIER_IX[c.calls[h].tier] : -1, c.calls[h].on ? 1 : 0];
+    for (const h of E.KEYS) if (c.calls[h]) calls[h] = [c.calls[h].pUp, c.calls[h].pDown, c.calls[h].side, c.calls[h].tier ? TIER_IX[c.calls[h].tier] : -1, c.calls[h].on ? 1 : 0];
     const lw = {};
     for (const r of c.live.rows) if (r.state) lw[r.id] = r.state;
-    const rec = { id, date, symbol, anchorEnd: end, madeAt: iso(c.now || this.now()), price: c.inp.fc.anchor.price, sigma: c.read.P.sigma, c: calls, lw, settled: false, actual: null };
+    const rec = { id, date, symbol, anchorEnd: end, madeAt: iso(c.now || this.now()), price: c.inp.fc.anchor.price, sigma: c.read.P.sigma, sl: r4(c.read.sloc * 100) / 100, c: calls, lw, settled: false, actual: null };
     this._rev += 1;
     this._recs().set(id, rec);
     this._pending.push(rec);
@@ -682,7 +718,8 @@ class Evidence {
   /** Check every kept call whose 15 minutes are over; the live readings and the AI reads learn from it. */
   async score() {
     const now = this.now();
-    const due = [...this._recs().values()].filter((r) => !r.settled && !r.void && now >= r.anchorEnd + 3 * E.BAR + 20000);
+    // a call with a "which comes first" part is checked when its 30 minutes are over; one without, after 15
+    const due = [...this._recs().values()].filter((r) => !r.settled && !r.void && now >= r.anchorEnd + (r.c && r.c.tb ? E.TB_BARS : 3) * E.BAR + 20000);
     const reads = this._live().aiReads.filter((r) => !r.settled && now >= r.anchorEnd + 3 * E.BAR + 20000);
     if (!due.length && !reads.length) return 0;
     const today = istDate(now);
@@ -739,6 +776,13 @@ class Evidence {
         const day = r.date < today ? (this._late || (this._late = {}))[r.date] || (this._late[r.date] = E.emptyDay()) : live.ledgerDays[r.date] || (live.ledgerDays[r.date] = E.emptyDay());
         for (const [id, state] of Object.entries(r.lw || {})) E.dayAdd(day, id, k, state, y);
       });
+      // which came first: a lean is right when the move it named came first
+      if (r.c.tb && r.c.tb[2] && num(all.tb)) {
+        const tier = E.TIERS[r.c.tb[3]] || "slight";
+        const t = (live.calls.tb || (live.calls.tb = {}))[tier] || (live.calls.tb[tier] = [0, 0]);
+        t[0] += 1;
+        if (all.tb === r.c.tb[2]) t[1] += 1;
+      }
       live.n += 1;
     }
     let aiDone = 0;
@@ -785,7 +829,7 @@ class Evidence {
   _liveTally() {
     const calls = this._live().calls;
     const out = {};
-    for (const h of E.HZ) {
+    for (const h of E.KEYS) {
       const t = calls[h] || {};
       const all = E.TIERS.reduce((a, x) => [a[0] + ((t[x] || [0, 0])[0]), a[1] + ((t[x] || [0, 0])[1])], [0, 0]);
       out[h] = { n: all[0], ok: all[1], tiers: Object.fromEntries(E.TIERS.map((x) => [x, { n: (t[x] || [0, 0])[0], ok: (t[x] || [0, 0])[1] }])) };
@@ -799,13 +843,14 @@ class Evidence {
     const led = (m && m.ledger) || {};
     const liveLed = this._liveLedger();
     const days = this.docs.items(DAYS).sort((a, b) => (a.date < b.date ? 1 : -1)).slice(0, 30);
-    const weightOf = (id) => (m && this._curvesOf(m)[3].on ? r4(m.hz[3].W[0][2 + E.WIX[id]] - m.hz[3].W[1][2 + E.WIX[id]]) : null);
+    // a technique's pull on the 15-minute call (towards a rise minus towards a fall), in a trend and in a range
+    const weightOf = (id, trend) => (m && this._curvesOf(m)[3].on ? r4(m.hz[3].W[0][E.weightAt(E.WIX[id], trend)] - m.hz[3].W[1][E.weightAt(E.WIX[id], trend)]) : null);
     return {
       trained: Boolean(m),
       learning: this._learning(m),
-      techniques: E.WITS.map((w) => ({ id: w.id, name: w.name, fam: w.fam, what: w.what, record: { 5: E.recordOf((led[w.id] || [])[0]), 15: E.recordOf((led[w.id] || [])[1]) }, weight15: weightOf(w.id) })),
+      techniques: E.WITS.map((w) => ({ id: w.id, name: w.name, fam: w.fam, what: w.what, record: { 5: E.recordOf((led[w.id] || [])[0]), 15: E.recordOf((led[w.id] || [])[1]) }, trend15: E.recordOf((led[`${w.id}@t`] || [])[1]), range15: E.recordOf((led[`${w.id}@r`] || [])[1]), weight15: { trend: weightOf(w.id, true), range: weightOf(w.id, false) } })),
       live: E.LIVE.map((w) => ({ id: w.id, name: w.name, fam: w.fam, what: w.what, record: { 5: E.recordOf((liveLed[w.id] || [])[0], LIVE_MIN, LIVE_DAYS), 15: E.recordOf((liveLed[w.id] || [])[1], LIVE_MIN, LIVE_DAYS) } })),
-      days: days.map((d) => ({ date: d.date, rows: d.rows, call15: d.shown[3], call5: d.shown[1] })),
+      days: days.map((d) => ({ date: d.date, rows: d.rows, call15: d.shown[3], call5: d.shown[1], first: d.shown.tb || null })),
       liveCalls: this._liveTally(),
       checked: this._live().n,
       ai: this.aiStatus(),
@@ -842,9 +887,72 @@ class Evidence {
       const withIt = c.lean !== "none" && !against;
       const p15 = c.lean === "up" ? c.pUp : c.lean === "down" ? c.pDown : null;
       const text = c.lean === "none" ? `No clear lean for the next ${c.minutes} minutes.` : `The evidence ${c.tier === "slight" ? "leans slightly" : c.tier === "strong" ? "points" : "leans"} ${c.lean.toUpperCase()} for the next ${c.minutes} minutes (${pc(p15)} against a usual ${pc(c.lean === "up" ? c.usualUp : c.usualDown)}): ${against ? `AGAINST your ${long ? "long" : "short"}` : `with your ${long ? "long" : "short"}`}${c.proven ? "" : " — a lean of this firmness is not yet proven"}.`;
-      out.push({ symbol, side: p.side, available: true, minutes: c.minutes, lean: c.lean, tier: c.tier, p: p15, pUp: c.pUp, pDown: c.pDown, proven: c.proven, against, with: withIt, text, up: v.count.up, down: v.count.down, at: c.at });
+      // which comes first for THIS position: the move in its favour, or the same move against it
+      const fst = v.first ? { minutes: v.first.minutes, movePct: v.first.movePct, favour: long ? v.first.up : v.first.down, against: long ? v.first.down : v.first.up, proven: v.first.proven } : null;
+      const firstText = fst ? ` Within ${fst.minutes} minutes a move of ${fst.movePct.toFixed(2)}% in your favour (to ${fst.favour.price.toFixed(2)}) comes first ${pc(fst.favour.p)} of the time; the same move against you (to ${fst.against.price.toFixed(2)}) ${pc(fst.against.p)}.` : "";
+      out.push({ symbol, side: p.side, available: true, minutes: c.minutes, lean: c.lean, tier: c.tier, p: p15, pUp: c.pUp, pDown: c.pDown, proven: c.proven, against, with: withIt, text: text + firstText, first: fst, up: v.count.up, down: v.count.down, at: c.at });
     }
     return out;
+  }
+
+  /**
+   * The command screen's board: every followed stock with its price and its calls for 5 and 15 minutes, read with ONE shared
+   * request for all their order books. Kept for ten seconds; every call it makes is kept and checked like any other.
+   * @param symbols  the stocks to show (the watchlist and the ones looked at lately)
+   * @returns { at, trained, rows: [{ symbol, available, last, changePct, calls: { 5, 15 }, up, down, speaking, early, reason }] }
+   */
+  async nowBoard(symbols) {
+    const list = [...new Set((symbols || []).map((s) => String(s || "").toUpperCase()))].filter((s) => SYMBOL_RE.test(s)).slice(0, 40);
+    const now = this.now();
+    const key = list.join(",");
+    if (this._nowHit && this._nowHit.key === key && now - this._nowHit.at < 10000) return this._nowHit.v;
+    const pre = await this._quotes(list.map((s) => `NSE:${s}`));
+    const rows = [];
+    const brief = (x, end) => (x ? { lean: x.side > 0 ? "up" : x.side < 0 ? "down" : "none", tier: x.tier || "none", p: x.side > 0 ? x.pUp : x.side < 0 ? x.pDown : null, pUp: x.pUp, pDown: x.pDown, usualUp: x.usualUp, usualDown: x.usualDown, proven: x.proven, at: iso(end + x.h * E.BAR) } : null);
+    for (const s of list) {
+      const q = pre[`NSE:${s}`] || null;
+      const base = { symbol: s, last: q && num(q.last) ? q.last : null, changePct: q && num(q.changePct) ? r2(q.changePct) : null };
+      try {
+        const c = await this._compute(s, { full: false, pre });
+        if (!c.read) {
+          rows.push({ ...base, available: false, reason: c.reason || "No reading." });
+          continue;
+        }
+        this._keep(s, c);
+        const end = c.inp.fc.anchor.end;
+        const speaking = c.read.said.length + c.live.rows.filter((r) => r.state).length;
+        let early = null;
+        try {
+          const a = this.ahead ? await this.ahead.view(s) : null;
+          const h = a && a.available ? a.horizons.find((x) => x.key === "15") || a.horizons[0] : null;
+          if (h) early = { tone: h.tone, read: h.read, reversal: h.reversal ? h.reversal.tier : null, momentum: h.momentum ? h.momentum.state : null };
+        } catch (_) {
+          early = null;
+        }
+        const i = c.read.P.n - 1;
+        rows.push({
+          ...base,
+          last: base.last !== null ? base.last : c.L.last,
+          available: true,
+          asOf: iso(end),
+          calls: { 5: brief(c.calls[1], end), 15: brief(c.calls[3], end) },
+          forecaster: c.inp.fc.horizons[3] ? { pUp: c.inp.fc.horizons[3].pUp, pct: c.inp.fc.horizons[3].pct, low: c.inp.fc.horizons[3].low, high: c.inp.fc.horizons[3].high } : null,
+          up: c.read.said.filter((r) => r.state > 0).length + c.live.rows.filter((r) => r.state > 0).length,
+          down: c.read.said.filter((r) => r.state < 0).length + c.live.rows.filter((r) => r.state < 0).length,
+          speaking,
+          top: c.read.said.slice(0, 2).map((r) => ({ name: r.name, state: r.state })),
+          vsVwapPct: r2((c.read.P.c[i] / c.read.P.vwap[i] - 1) * 100),
+          volumeX: r2(c.read.P.rvol[i]),
+          early,
+        });
+      } catch (err) {
+        rows.push({ ...base, available: false, reason: err.message || "No reading." });
+      }
+    }
+    this._flush();
+    const v = { at: iso(now), trained: Boolean(this._usable()), rows, liveCalls: this._liveTally(), checked: this._live().n, ai: this.aiStatus() };
+    this._nowHit = { key, at: now, v };
+    return v;
   }
 
   /** The board in brief, for an AI and for TradeAI: numbers and sentences only. */
@@ -872,8 +980,10 @@ class Evidence {
       timeIST: clock(this.now()),
       last: v.last,
       deskCall: v.calls.map((c) => ({ minutes: c.minutes, by: clock(Date.parse(c.at)), lean: c.lean, firmness: c.tier, chanceUp: c.pUp, chanceDown: c.pDown, usualUp: c.usualUp, usualDown: c.usualDown, proven: c.proven, read: c.read, forecasterAlone: c.forecaster })),
+      whichComesFirst: v.first ? { withinMinutes: v.first.minutes, movePct: v.first.movePct, upFirst: { toPrice: v.first.up.price, chance: v.first.up.p, usual: v.first.up.usual }, downFirst: { toPrice: v.first.down.price, chance: v.first.down.p, usual: v.first.down.usual }, proven: v.first.proven } : null,
+      regimeNow: v.regime ? `${v.regime.name} (efficiency ratio ${v.regime.er}; each technique's record below is the one for this regime where it is known)` : null,
       readingsLeaning: v.count,
-      techniquesSpeaking: v.witnesses.map((w) => ({ name: w.name, leans: w.state > 0 ? "up" : "down", what: w.text, record15min: rec(w.record[15]) })),
+      techniquesSpeaking: v.witnesses.map((w) => ({ name: w.name, leans: w.state > 0 ? "up" : "down", what: w.text, record15min: rec(w.record[15]), ...(w.regime && w.regime[15].n ? { [`record15minInA${w.regime.name === "trend" ? "Trend" : "Range"}`]: rec(w.regime[15]) } : {}) })),
       liveReadings: v.live.map((w) => ({ group: w.fam, name: w.name, leans: w.state > 0 ? "up" : w.state < 0 ? "down" : "neither", what: w.text, liveRecord15min: rec(w.record[15]) })),
       orderBookNSE: lad(v.book.nse),
       orderBookBSE: v.book.bse ? { ...lad(v.book.bse), last: v.book.bse.last, volume: v.book.bse.volume } : null,
@@ -969,12 +1079,13 @@ class Evidence {
     if (!isOwner && !s.everyone) return { asked: false, why: "The AI read on opening a stock runs for the owner only." };
     const now = this.now();
     const min = minuteOfDay(now);
-    if (!weekday(istDate(now)) || min < OPEN_FROM || min > OPEN_TO - 15) return { asked: false, why: "The AI reads the next 15 minutes only while the market is open (9:20 AM to 3:15 PM)." };
+    if (!weekday(istDate(now)) || min < OPEN_FROM || min > OPEN_TO - 15) return { asked: false, why: "The AI reads the next 15 minutes only while the market is open (from 9:20 AM until 15 minutes before the close)." };
     if (this._aiBusy.has(symbol)) return { asked: false, why: "The AI is already reading this stock." };
     const last = this._aiLast(symbol);
     if (last && now - Date.parse(last.at) < s.gapMin * 60000) return { asked: false, why: `The AI read this stock ${Math.max(1, Math.round((now - Date.parse(last.at)) / 60000))} minutes ago.` };
     if (this._aiCount().count >= s.perDay) return { asked: false, why: `Today's limit of ${s.perDay} automatic AI reads is used up.` };
     const v = await this.view(symbol, { full: true });
+    if (v.available && v.trained && !v.calls.some((c) => c.key === "15")) return { asked: false, why: "Too close to the end of continuous trading in this stock for a 15-minute read." };
     const need = s.mode === "always" ? { need: v.available, why: v.available ? "it was opened (the AI is set to read every opened stock)" : v.reason } : await this._aiNeed(symbol, v, isOwner);
     if (!need.need) return { asked: false, why: need.why };
     this._aiRead(symbol, need.why, { auto: true, isOwner }).catch((err) => this.log.error(`[evidence] the AI read of ${symbol} failed: ${err.message}`));

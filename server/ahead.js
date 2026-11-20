@@ -370,7 +370,7 @@ class Ahead {
     const it = items[items.length - 1];
     if (!it || it.t + A.BAR !== r.fc.anchor.end) return { reason: "The early calls could not be made from today's bars." };
     const curves = this._curvesOf(m);
-    const left = H.SESSION_BARS - 1 - it.s;
+    const left = H.closeOf(r.ctx) - 1 - it.s; // bars of continuous trading left (it ends at 3:15 PM in a closing-auction stock)
     const calls = {}; // name → { p, usual, tier, proven, raw, off }
     for (const set of A.SETS) {
       if (set.id === "run" && !it.run) continue;

@@ -26,6 +26,8 @@
 // on its 1-minute bars (`replay`) to show when the coach would have said EXIT. A reading of the
 // evidence — never a promise, and never an instruction that is carried out by itself.
 
+const { squareOffAt, clockAt } = require("../market/session");
+
 const IST = 5.5 * 3600 * 1000;
 const TICK = 0.05;
 const num = (x) => typeof x === "number" && Number.isFinite(x);
@@ -36,7 +38,10 @@ const onTick = (x) => (num(x) ? Math.round(Math.round(x / TICK) * TICK * 100) / 
 const rs = (x) => (num(x) ? `₹${Number(x).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—");
 const pc = (x) => (num(x) ? `${x > 0 ? "+" : ""}${x.toFixed(2)}%` : "—");
 const clock = (ms) => new Date(ms + IST).toISOString().slice(11, 16);
-const squareOffOf = (ms) => Date.parse(`${new Date(ms + IST).toISOString().slice(0, 10)}T09:45:00Z`); // 3:15 PM IST
+// When the broker squares off intraday positions on that day (market/session.js): 3:12 PM in a stock with a closing auction
+// (the F&O list) since 3 August 2026, 3:25 PM in the rest; before that the desk counted to 3:15 PM. `cas` = the stock has a
+// closing auction; when that is not known it is assumed to (the earlier time: early is safe, late is the broker's market order).
+const squareOffOf = (ms, cas = true) => squareOffAt(ms, { cas });
 
 const RANK = { hold: 0, tighten: 1, "book-part": 2, "exit-now": 3 };
 const WORD = { hold: "HOLD", tighten: "TIGHTEN", "book-part": "BOOK PART", "exit-now": "EXIT NOW" };
@@ -117,8 +122,9 @@ function coach(pos, bars, tick, opts = {}) {
   const troughPct = (s * (mem.trough - e)) / e * 100;
   const pnl = s * (last - e) * qty;
   const minutesIn = Math.max(0, Math.round((now - pos.entryAt) / 60000));
-  const sqAt = opts.squareOffAt || squareOffOf(now);
+  const sqAt = opts.squareOffAt || squareOffOf(now, opts.cas !== false);
   const minsToSq = Math.round((sqAt - now) / 60000);
+  const sqClock = clockAt(sqAt);
   const intraday = !pos.product || pos.product === "MIS";
 
   /* ---- the stock's own step: the trail distance from its one-minute ranges */
@@ -158,7 +164,7 @@ function coach(pos, bars, tick, opts = {}) {
   const stopHit = s * (loNow - stop) <= 0;
   let hard = "";
   if (stopHit) hard = `The ${stopKind} at ${rs(stop)} is hit.`;
-  else if (intraday && minsToSq <= 5 && minsToSq > -30) hard = `${Math.max(0, minsToSq)} minutes to the 3:15 PM square-off: exit yourself rather than at the broker's market order.`;
+  else if (intraday && minsToSq <= 5 && minsToSq > -30) hard = `${Math.max(0, minsToSq)} minutes to the ${sqClock} square-off: exit yourself rather than at the broker's market order.`;
 
   /* ---- the position */
   const giveback = peakPct >= 0.4 ? clamp((peakPct - gainPct) / peakPct, 0, 2) : null;
@@ -167,8 +173,8 @@ function coach(pos, bars, tick, opts = {}) {
   if (gainPct <= -0.8) add("loss", 22, `Down ${pc(gainPct)} from the entry: beyond a normal intraday stop.`);
   else if (gainPct <= -0.5) add("loss", 12, `Down ${pc(gainPct)} from the entry.`);
   if (gainPct < 0 && minutesIn >= 30 && troughPct <= -1) add("heldLoser", 10, `A loser held for ${minutesIn} minutes (it has been ${pc(troughPct)} against you).`);
-  if (intraday && minsToSq <= 15 && minsToSq > 5) add("time", 15, `${minsToSq} minutes to the 3:15 PM square-off.`);
-  else if (intraday && minsToSq <= 30 && minsToSq > 15) add("time", 6, `${minsToSq} minutes to the 3:15 PM square-off.`);
+  if (intraday && minsToSq <= 15 && minsToSq > 5) add("time", 15, `${minsToSq} minutes to the ${sqClock} square-off.`);
+  else if (intraday && minsToSq <= 30 && minsToSq > 15) add("time", 6, `${minsToSq} minutes to the ${sqClock} square-off.`);
 
   /* ---- the tape */
   let m3 = null;

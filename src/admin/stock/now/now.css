@@ -1,0 +1,508 @@
+/* ==========================================================================
+   Now — the command screen (NowView.jsx). Desk tokens only, so both themes, every accent and every density follow.
+   Mobile first: tiles wrap, the board scrolls inside its own box, nothing makes the page slide sideways.
+   ========================================================================== */
+
+.nw {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding: 12px 0 28px;
+}
+.nw-dim {
+  color: var(--ink-3);
+  font-size: var(--t-small);
+}
+.nw .is-up {
+  color: var(--up);
+}
+.nw .is-down {
+  color: var(--down);
+}
+
+/* ---- the head: the title and the state of the live connection ---- */
+.nw-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+.nw-head h2 {
+  font-size: var(--t-large);
+  font-weight: 600;
+}
+.nw-conn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 11px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink-2);
+  font-size: var(--t-small);
+}
+.nw-conn small {
+  color: var(--ink-3);
+}
+.nw-conn i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ink-3);
+}
+.nw-conn.is-live {
+  border-color: var(--up-line);
+  color: var(--ink);
+}
+.nw-conn.is-live i {
+  background: var(--up);
+  box-shadow: 0 0 0 0 var(--up-line);
+  animation: nw-beat 2.4s ease-out infinite;
+}
+.nw-conn.is-offline i,
+.nw-conn.is-reconnecting i {
+  background: var(--warn);
+}
+@keyframes nw-beat {
+  0% {
+    box-shadow: 0 0 0 0 var(--up-line);
+  }
+  70%,
+  100% {
+    box-shadow: 0 0 0 7px transparent;
+  }
+}
+
+/* ---- the tiles: the market, the board in one number, the checks, the AI ---- */
+.nw-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 158px), 1fr));
+  gap: 8px;
+}
+.nw-tile {
+  display: grid;
+  align-content: start;
+  gap: 2px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-top: 3px solid var(--line-2);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.nw-tile--up {
+  border-top-color: var(--up);
+}
+.nw-tile--down {
+  border-top-color: var(--down);
+}
+.nw-tile--wide {
+  grid-column: span 2;
+}
+.nw-tile small {
+  color: var(--ink-3);
+  font-size: var(--t-tag);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.nw-tile b {
+  font-size: var(--t-title);
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+.nw-tile--up b {
+  color: var(--up);
+}
+.nw-tile--down b {
+  color: var(--down);
+}
+.nw-tile > span {
+  color: var(--ink-2);
+  font-size: var(--t-small);
+  overflow-wrap: anywhere;
+}
+
+/* ---- a card ---- */
+.nw-card {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.nw-card h3 {
+  font-size: var(--t-lead);
+  font-weight: 600;
+}
+.nw-card h3 small {
+  margin-left: 6px;
+  color: var(--ink-3);
+  font-weight: 400;
+}
+.nw-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 14px;
+}
+.nw-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.nw-chip {
+  min-height: 30px;
+  padding: 3px 11px;
+  border: 1px solid var(--line-2);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-2);
+  font-size: var(--t-small);
+  cursor: pointer;
+}
+.nw-chip.is-on {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--ink);
+  font-weight: 600;
+}
+.nw-chip:focus-visible,
+.nw-sym:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.nw-note {
+  padding: 7px 10px;
+  border: 1px solid var(--warn-line);
+  border-radius: 8px;
+  background: var(--warn-bg);
+  color: var(--ink);
+  font-size: var(--t-small);
+}
+
+/* ---- the board ---- */
+.nw-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.nw-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--t-mid);
+}
+.nw-table th,
+.nw-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+.nw-table thead th {
+  background: var(--surface-2);
+  color: var(--ink-3);
+  font-size: var(--t-tag);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.nw-table tbody tr:last-child th,
+.nw-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+.nw-table tbody tr:hover {
+  background: var(--surface-2);
+}
+.nw-table .is-num {
+  text-align: right;
+}
+.nw-table td.is-num small {
+  display: block;
+  font-size: var(--t-tag);
+}
+.nw-table tr.is-off {
+  color: var(--ink-3);
+}
+.nw-table tbody th {
+  white-space: normal;
+  min-width: 9.5em;
+}
+.nw-sym {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--t-base);
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+.nw-sym:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+.nw-top {
+  display: block;
+  max-width: 26em;
+  color: var(--ink-3);
+  font-size: var(--t-tag);
+  font-weight: 400;
+  line-height: 1.35;
+  white-space: normal;
+}
+
+/* a price that has just moved */
+.nw-px {
+  display: inline-block;
+  padding: 0 3px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+.nw-px.is-up {
+  animation: nw-flash-up 0.7s ease-out;
+}
+.nw-px.is-down {
+  animation: nw-flash-down 0.7s ease-out;
+}
+@keyframes nw-flash-up {
+  from {
+    background: var(--up-bg);
+    box-shadow: 0 0 0 2px var(--up-line);
+  }
+  to {
+    background: transparent;
+    box-shadow: 0 0 0 2px transparent;
+  }
+}
+@keyframes nw-flash-down {
+  from {
+    background: var(--down-bg);
+    box-shadow: 0 0 0 2px var(--down-line);
+  }
+  to {
+    background: transparent;
+    box-shadow: 0 0 0 2px transparent;
+  }
+}
+
+/* one horizon's call */
+.nw-lean {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 2px 9px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink-3);
+  font-size: var(--t-small);
+}
+.nw-lean b {
+  font-size: var(--t-mid);
+}
+.nw-lean small {
+  color: var(--ink-3);
+  font-size: var(--t-tag);
+}
+.nw-lean--up {
+  border-color: var(--up-line);
+  color: var(--ink);
+}
+.nw-lean--up b {
+  color: var(--up);
+}
+.nw-lean--down {
+  border-color: var(--down-line);
+  color: var(--ink);
+}
+.nw-lean--down b {
+  color: var(--down);
+}
+.nw-lean--up.is-proven {
+  background: var(--up-bg);
+}
+.nw-lean--down.is-proven {
+  background: var(--down-bg);
+}
+.nw-lean.is-proven small {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+/* how many readings lean each way */
+.nw-split {
+  display: inline-grid;
+  grid-template-columns: 1.6em 74px 1.6em;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--t-small);
+}
+.nw-split__n {
+  font-weight: 600;
+  text-align: right;
+}
+.nw-split__n.is-down {
+  text-align: left;
+}
+.nw-split__bar {
+  display: flex;
+  height: 6px;
+  border-radius: 99px;
+  background: var(--neutral-bar);
+  overflow: hidden;
+}
+.nw-split__bar i.is-up {
+  background: var(--up);
+}
+.nw-split__bar i.is-down {
+  margin-left: auto;
+  background: var(--down);
+}
+
+/* an early call */
+.nw-early {
+  padding: 2px 9px;
+  border: 1px solid var(--line-2);
+  border-radius: 999px;
+  color: var(--ink);
+  font-size: var(--t-small);
+  font-weight: 600;
+}
+.nw-early--warn {
+  border-color: var(--warn-line);
+  background: var(--warn-bg);
+}
+.nw-early--alert {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.nw-early--up {
+  border-color: var(--up-line);
+}
+.nw-early--down {
+  border-color: var(--down-line);
+}
+.nw-early--quiet {
+  color: var(--ink-2);
+  font-weight: 400;
+}
+
+/* ---- your positions ---- */
+.nw-pos {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.nw-pos li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+  padding: 8px 0;
+  border-top: 1px solid var(--line);
+}
+.nw-pos li:first-child {
+  border-top: 0;
+}
+.nw-side {
+  font-size: var(--t-small);
+  font-weight: 600;
+}
+.nw-side.is-long {
+  color: var(--up);
+}
+.nw-side.is-short {
+  color: var(--down);
+}
+
+/* ---- the automatic systems ---- */
+.nw-sys {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.nw-sys li {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 2px 8px;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+.nw-sys i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ink-3);
+}
+.nw-sys li.is-on i {
+  background: var(--up);
+}
+.nw-sys li.is-learning i {
+  background: var(--accent);
+}
+.nw-sys li.is-needs-zerodha i,
+.nw-sys li.is-needs-you i,
+.nw-sys li.is-attention i {
+  background: var(--warn);
+}
+.nw-sys b {
+  overflow: hidden;
+  font-size: var(--t-mid);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.nw-sys__state {
+  color: var(--ink-2);
+  font-size: var(--t-tag);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.nw-sys small {
+  grid-column: 2 / -1;
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--ink-3);
+  font-size: var(--t-tag);
+  line-height: 1.4;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.nw-foot {
+  color: var(--ink-3);
+  font-size: var(--t-tag);
+}
+
+@media (max-width: 560px) {
+  .nw-tile--wide {
+    grid-column: auto;
+  }
+  .nw-table th,
+  .nw-table td {
+    padding: 7px 8px;
+  }
+  /* on a phone the stock, its price and the 15-minute call fit side by side; the rest is a swipe away */
+  .nw-table tbody th {
+    min-width: 6.5em;
+    max-width: 8.5em;
+    overflow-wrap: anywhere;
+  }
+  .nw-top {
+    display: none;
+  }
+}

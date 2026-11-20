@@ -329,7 +329,7 @@ export default function IntradayPlan({ symbol, data = null, onOpen = null }) {
           ) : null}
           <PlanCard side="long" plan={p.plans.long} called={d.kind === "long"} />
           <PlanCard side="short" plan={p.plans.short} called={d.kind === "short"} />
-          <p className="ab-dim">Both sides are shown. Entries only after 9:30 and before 3:00 PM; everything out by 3:15 PM. A cash-market short is intraday only. Open the order ticket to trade — nothing here places an order.</p>
+          <p className="ab-dim">Both sides are shown. Entries only after 9:30 and before 3:00 PM; everything out before the broker's square-off (the checklist gives the time for that day). A cash-market short is intraday only. Open the order ticket to trade — nothing here places an order.</p>
         </div>
         <div className="ip-col">
           <h4 className="ip-h">Levels for the day</h4>

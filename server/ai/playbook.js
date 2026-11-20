@@ -38,7 +38,7 @@ How this desk trades NSE cash equities. The strategist follows these rules in ev
 ## Day trading on NSE
 - The first 15 minutes set the opening range. No entries before 9:30 AM.
 - 9:30–11:30 AM and 1:30–2:45 PM carry the cleanest moves. 11:30 AM–1:30 PM is thin: demand stronger evidence.
-- No fresh entries after 2:45 PM. Be flat before the broker's auto square-off (about 3:15–3:20 PM).
+- No fresh entries after 2:45 PM. Be flat before the broker's auto square-off (3:12 PM in a stock with a closing auction — every stock with futures and options; 3:25 PM in any other).
 - VWAP is the day's fair price: longs above it, shorts below it. A long below VWAP or a short above it needs a very good reason.
 - A short in the cash market is intraday-only (MIS). It must be bought back the same day.
 - Respect circuit limits. Never plan a target beyond a circuit, and never enter within about 1.5% of one.

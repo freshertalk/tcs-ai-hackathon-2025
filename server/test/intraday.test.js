@@ -65,7 +65,17 @@ test("the session clock: each part of the NSE day, in IST", () => {
   assert.equal(s.open, true);
   assert.equal(s.entries, true);
   assert.equal(s.minutesToCutoff, 235);
-  assert.equal(s.minutesToSquareOff, 265);
+  // counted to the broker's square-off for that date: 3:12 PM in a closing-auction stock (the default), 3:25 PM in the rest
+  assert.equal(s.minutesToSquareOff, 262);
+  assert.equal(s.squareOffClock, "3:12 PM");
+  const other = sessionAt(at("10:50"), { cas: false });
+  assert.deepEqual([other.minutesToSquareOff, other.squareOffClock], [275, "3:25 PM"]);
+  assert.equal(sessionAt(at("15:13")).phase, "squareoff");
+  assert.match(sessionAt(at("15:13")).note, /closes open intraday \(MIS\) positions automatically from 3:12 PM; continuous trading in this stock ends at 3:15 PM/);
+  assert.equal(sessionAt(at("15:13"), { cas: false }).phase, "late", "a stock with no closing auction has until 3:25 PM");
+  // before the closing auction existed the desk counted to 3:15 PM
+  const old = sessionAt(Date.parse("2026-07-31T10:50:00+05:30"));
+  assert.deepEqual([old.minutesToSquareOff, old.squareOffClock], [265, "3:15 PM"]);
   assert.equal(s.elapsedPct, 25);
   assert.equal(sessionAt(at("14:50")).entries, false);
   assert.equal(sessionAt(at("14:50")).minutesToCutoff, 0);

@@ -14,7 +14,7 @@ import { everyVisible } from "../../visible";
 const rText = (r) => (isNum(r) ? `${r > 0 ? "+" : ""}${num(r, 2)}R` : "—");
 const rs = (x) => (isNum(x) ? `${x < 0 ? "−" : x > 0 ? "+" : ""}₹${Math.abs(Math.round(x)).toLocaleString("en-IN")}` : "—");
 const tone = (x) => (isNum(x) ? (x > 0 ? "is-up" : x < 0 ? "is-down" : "") : "");
-const WHY = { target: "Target", stop: "Stop", "square-off": "3:15 square-off", flip: "Opposite call", open: "Open" };
+const WHY = { target: "Target", stop: "Stop", "square-off": "square-off", flip: "Opposite call", open: "Open" };
 
 function Tiles({ items }) {
   return (
@@ -167,7 +167,7 @@ export default function Paper() {
             </h3>
             <p>
               The desk’s own live call, followed with paper money: a fresh <b>Long / Short — in play</b> call at a 5-minute close is entered at that close, with the call’s stop and first target,
-              and closed on the opposite call or at the 3:15 PM square-off — the same engine and rules as the Desk and the Debrief. <b>No order is ever sent.</b>
+              and closed on the opposite call or at the square-off — the same engine and rules as the Desk and the Debrief. <b>No order is ever sent.</b>
             </p>
           </div>
           <label className={`pp-switch ${s.auto ? "is-on" : ""}`} data-tip="Auto mode: paper-trades today’s market every five minutes while it is open, and after the close tests the setup on past sessions — by itself. It never places an order and has no effect on real trading.">

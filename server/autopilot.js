@@ -9,7 +9,7 @@
 //                sector and correlation limits, event windows) and becomes an ORDER PROPOSAL: the trade, the size, the stop, the
 //                reasons — or a recorded refusal with its reason. You press Review and the order ticket opens ready-filled; the
 //                autopilot itself never sends an order
-//   GRADES       every proposal is followed on the 1-minute bars to its stop, its first target or 3:15 PM, in R after costs,
+//   GRADES       every proposal is followed on the 1-minute bars to its stop, its first target or the broker's square-off, in R after costs,
 //                whether or not you took it. The record is kept per scenario; a setup whose last proposals lost money is paused
 //   CALIBRATES   after the close, the outlook is graded against a year of history (market/calibrate.js): how reliable has the
 //                lean been, and which of its voices has paid
@@ -18,6 +18,7 @@
 // It reads the market and the account. It cannot place, change or cancel an order.
 
 const { regimeOf, scriptFor, buildScenarios, evaluate, openingRange } = require("./market/scenarios");
+const { sessionFor, squareOffAt } = require("./market/session");
 const { autoEvents, cleanCustom, fromCustom, eventsOn, upcoming, expiriesFrom } = require("./market/events");
 const { calibrate, sentenceFor } = require("./market/calibrate");
 const { gate, cleanSettings, correlation, DEFAULTS } = require("./risk-gate");
@@ -416,7 +417,7 @@ class Autopilot {
   }
 
   /* ----------------------------------------------------------------------------------------- the grading */
-  /** Follow every open proposal on the 1-minute bars to its stop, its first target or 3:15 PM. */
+  /** Follow every open proposal on the 1-minute bars to its stop, its first target or the broker's square-off (market/session.js). */
   async grade() {
     const now = this.now();
     const today = istDate(now);
@@ -425,7 +426,7 @@ class Autopilot {
     for (const r of open) {
       let bars = [];
       try {
-        bars = await this.market.minuteBarsBetween(r.symbol, Date.parse(r.createdAt), Math.min(now, dayStart(r.date) + 15.25 * 3600000));
+        bars = await this.market.minuteBarsBetween(r.symbol, Date.parse(r.createdAt), Math.min(now, squareOffAt(dayStart(r.date) + 6 * 3600000)));
       } catch (_) {
         continue;
       }
@@ -449,7 +450,7 @@ class Autopilot {
           break;
         }
       }
-      const past = r.date < today || minuteOf(now) >= 15 * 60 + 15;
+      const past = r.date < today || minuteOf(now) >= sessionFor(today).squareOffMin;
       if (!how && past && after.length) {
         how = "time";
         const lastBar = after[after.length - 1];
@@ -589,7 +590,7 @@ class Autopilot {
         await this.watch();
         await this.grade();
       }
-      if (minute >= 15 * 60 + 15 && minute < 17 * 60) await this.grade();
+      if (minute >= sessionFor(today).squareOffMin && minute < 17 * 60) await this.grade();
     }
     // after the close, once a day: how good has the research been?
     if ((minute >= 15 * 60 + 45 || !trading) && now - this._calibAt >= 12 * 3600000 && live) {

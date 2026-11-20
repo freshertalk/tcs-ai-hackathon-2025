@@ -156,7 +156,7 @@ function makeDeskReaders({ market, flight, analysis = null, learn = null, now = 
         symbol,
         last: map.last,
         minutesToSquareOff: map.minutesLeft,
-        note: "Every level is a price from the desk's own data. reachPct = the odds of a touch before 3:15 PM with no trend assumed. held = how often levels of that kind held when tested (the level learner).",
+        note: "Every level is a price from the desk's own data. reachPct = the odds of a touch before the broker's square-off with no trend assumed. held = how often levels of that kind held when tested (the level learner).",
         above: map.anchors.filter((a) => a.side === "above").sort((x, y) => x.price - y.price).slice(0, 7).map(levelRow),
         below: map.anchors.filter((a) => a.side === "below").sort((x, y) => y.price - x.price).slice(0, 7).map(levelRow),
       };

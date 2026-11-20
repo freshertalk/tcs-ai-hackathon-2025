@@ -18,6 +18,7 @@
 // this folder, and the only outside hosts it talks to are the AI companies in providers.js.
 
 const path = require("path");
+const { exitHmFor } = require("../market/session");
 const crypto = require("crypto");
 
 const { AiError, MODELS: ANTHROPIC_MODELS, DEFAULT_MODEL } = require("./client");
@@ -976,10 +977,11 @@ class AiService {
           if (p.horizon === "intraday") {
             const key = `${e.symbol}|${madeOn}`;
             if (!tapeCache.has(key)) tapeCache.set(key, await this.market.intradayOn(e.symbol, madeOn));
-            // only bars that began after the plan, and nothing past the 3:15 PM square-off
+            // only bars that began after the plan, and nothing from the bar of the broker's square-off on (market/session.js)
+            const outHm = exitHmFor(madeOn);
             bars = tapeCache.get(key).filter((b) => {
               const s = barStart(b.t);
-              return s !== null && s >= madeAt && String(b.t).slice(11, 16) < "15:15";
+              return s !== null && s >= madeAt && String(b.t).slice(11, 16) < outHm;
             });
             expire = madeOn < today || new Date(now + IST).getUTCHours() * 60 + new Date(now + IST).getUTCMinutes() >= 15 * 60 + 30;
           } else {

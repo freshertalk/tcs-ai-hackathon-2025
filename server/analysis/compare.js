@@ -41,7 +41,7 @@ const ACTION = {
   heldLoser: "Put the stop in with the entry and never move it away. When the Live board says EXIT NOW on a losing position, leave on that tick.",
   cutWinner: "Once a trade is +0.5%, stop exiting by feel: trail the stop the Live board shows and let the stop take you out.",
   firstMinutes: "No entry before 9:20 AM. Let the first five minutes print the opening range.",
-  late: "No new entry after 2:45 PM: there is too little time before the 3:15 square-off.",
+  late: "No new entry after 2:45 PM: there is too little time before the square-off.",
   againstVwap: "Longs only above VWAP, shorts only below it. Wait for the price to reclaim VWAP before the entry.",
   chased: "Do not buy the top tenth of the day's range or sell the bottom tenth: wait for a pullback towards VWAP.",
   costs: "Skip trades whose likely move is under three times the charges: small scalps hand the profit to costs.",

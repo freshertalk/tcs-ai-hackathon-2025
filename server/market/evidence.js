@@ -36,8 +36,19 @@ const { bookStats } = require("./flow");
 
 const BAR = H.BAR;
 const HZ = [1, 3]; // bars of five minutes: 5 and 15 minutes
+// What the model answers: the direction 5 and 15 minutes on, and "tb" — WHICH COMES FIRST within 30 minutes, a move of one
+// usual 15-minute move up or the same move down (the triple-barrier label of López de Prado, "Advances in Financial Machine
+// Learning", 2018: a trade ends at its target, at its stop, or at the clock, so that is what a forecast for a trader
+// should be about).
+const KEYS = [1, 3, "tb"];
+const TB_BARS = 6; // the clock: 30 minutes
+const TB_UNIT = Math.sqrt(3); // the two barriers: one usual 15-minute move away, either side
 const UP_MIN = 0.3; // "it rose" / "it fell": by at least 0.3 of a usual move for that time
-const MODEL_VERSION = 1; // tied to the list of witnesses below and to the forecaster's own inputs (H.MODEL_VERSION)
+// A technique does not mean the same thing in a trend and in a range (an RSI extreme is a fade in a range and a sign of
+// strength in a trend), so each technique has one weight for each. The regime is the efficiency ratio of the last hour
+// (Kaufman): the net move over the distance travelled. A random walk of 12 bars gives about 0.29.
+const TREND_ER = 0.4;
+const MODEL_VERSION = 2; // tied to the list of witnesses below and to the forecaster's own inputs (H.MODEL_VERSION)
 const LAMBDA = 6e-3;
 const MIN_ROWS = 15000;
 const NB = 25; // calibration bins over the raw score, 0 … 1
@@ -180,8 +191,28 @@ function prep(rawBars, ctx = {}) {
     if (known < Math.min(3, n)) mk = null;
   }
   const dayR = num(ctx.day) && ctx.day > 0 ? ctx.day : sigma * 15;
+  // the efficiency ratio of the last hour (12 bars, fewer early in the session): net move ÷ distance travelled
+  const er = new Array(n).fill(0);
+  for (let i = 3; i < n; i += 1) {
+    const from = Math.max(0, i - 12);
+    let path = 0;
+    for (let j = from + 1; j <= i; j += 1) path += Math.abs(c[j] - c[j - 1]);
+    er[i] = path > 0 ? Math.abs(c[i] - c[from]) / path : 0;
+  }
+  // the usual 5-minute move RIGHT NOW: the stock's own long-run figure blended half and half with what the last half-hour
+  // actually did. Moves cluster (a busy stretch follows a busy one) and the open is twice as wide as midday, so a target
+  // or a stop "one usual move away" has to be measured in the moves of the moment (the multiplicative volatility models of
+  // Engle & Sokalska 2012 put it the same way: a daily level, a time-of-day shape, and what the last bars add).
+  const sloc = new Array(n).fill(sigma);
+  for (let i = 1; i < n; i += 1) {
+    const from = Math.max(1, i - 5);
+    let sq = 0;
+    for (let j = from; j <= i; j += 1) sq += ((c[j] - c[j - 1]) / c[j - 1]) ** 2;
+    sloc[i] = Math.sqrt(0.5 * sigma * sigma + 0.5 * Math.min(sq / (i - from + 1), 25 * sigma * sigma));
+  }
+  const closeSlot = num(ctx.closeSlot) && ctx.closeSlot >= 60 && ctx.closeSlot <= H.SESSION_BARS ? ctx.closeSlot : H.SESSION_BARS;
   return {
-    bars, n, c, u, sigma, dayR, beta: num(ctx.beta) && ctx.beta > 0 ? ctx.beta : 1,
+    bars, n, c, u, sigma, dayR, er, sloc, closeSlot, beta: num(ctx.beta) && ctx.beta > 0 ? ctx.beta : 1,
     vwap, vsd, rvol, hiBefore, loBefore, hcBefore, hcAt, lcBefore, lcAt,
     ema9: emaSeed(c, 9), ema20: emaSeed(c, 20),
     rsi14: I.rsi(c, 14), rsi2: I.rsi(c, 2), bb: I.bollinger(c, 20, 2), macd: I.macd(c), st: I.supertrend(bars, 10, 3), adx: I.adx(bars, 14), atr: I.atr(bars, 14),
@@ -588,11 +619,71 @@ const WITS = [
     },
     say: (P, i, s) => `${side(s, "stronger", "weaker")} than the market since the open by ${sp(Math.abs(P.c[i] / P.bars[0].o - 1 - P.beta * P.mk[i]) * 100)}`,
   },
+  // ---- added on 2026-11-20 from published research (each is measured here like the rest; none is assumed to work on NSE) ----
+  {
+    id: "eodMkt", fam: "Time of day", name: "The market's day carried into the last half-hour", hold: 1,
+    what: "In the last 30 minutes of continuous trading the index tends to continue the move it has made since the previous close, as hedgers and funds finish the day's orders (Baltussen, Da, Lammers & Martens 2021).",
+    ev: (P, i) => {
+      if (!P.mk || P.bars[i].s < P.closeSlot - 6) return 0;
+      return Math.abs(P.mk[i]) * P.beta >= 0.6 * P.sigma * Math.sqrt(i + 1) ? sgn(P.mk[i]) : 0;
+    },
+    say: (P, i, s) => `the market is ${sp(P.mk[i] * 100)} since the open with the last half-hour under way: such days tend to finish the same way`,
+  },
+  {
+    id: "eodLoser", fam: "Time of day", name: "The day's laggard bouncing into the close", hold: 1,
+    what: "A stock that has fallen behind the market by an hour before the close tends to recover part of it in the last half-hour: sellers who had to sell are done, and intraday shorts are covered (Soebhag, Baltussen & Da 2025).",
+    ev: (P, i) => (eodRel(P, i) <= -0.8 ? 1 : 0),
+    say: (P) => `an hour before the close it was ${sp(eodRelPct(P))} behind what the market's move explains`,
+  },
+  {
+    id: "eodWinner", fam: "Time of day", name: "The day's leader given back into the close", hold: 1,
+    what: "The mirror of the laggard's bounce: a stock well ahead of the market an hour before the close tends to give a little back in the last half-hour. The published effect is weaker than for laggards.",
+    ev: (P, i) => (eodRel(P, i) >= 0.8 ? -1 : 0),
+    say: (P) => `an hour before the close it was ${sp(eodRelPct(P))} ahead of what the market's move explains`,
+  },
+  {
+    id: "jumpDown", fam: "Reversal", name: "A sudden drop with nothing behind it", hold: 2,
+    what: "A 5-minute fall three and a half times the size of the moves just before it. Jumps that come without news tend to be reversed over the next 15 to 60 minutes, falls more than rises (Xiao, Yin & Zhao 2020). The desk cannot see the news here, so the record below says how often it held.",
+    ev: (P, i) => (i >= 3 && (P.c[i] - P.c[i - 1]) / P.c[i - 1] <= -3.5 * P.sloc[i - 1] ? 1 : 0),
+    say: (P, i) => `fell ${sp(((P.c[i] - P.c[i - 1]) / P.c[i - 1]) * 100)} in one bar, ${r2(Math.abs((P.c[i] - P.c[i - 1]) / P.c[i - 1]) / P.sloc[i - 1])}× the moves just before it`,
+  },
+  {
+    id: "jumpUp", fam: "Reversal", name: "A sudden spike with nothing behind it", hold: 2,
+    what: "A 5-minute rise three and a half times the size of the moves just before it. Without news behind it such a spike tends to be given back, though less reliably than a sudden drop is recovered.",
+    ev: (P, i) => (i >= 3 && (P.c[i] - P.c[i - 1]) / P.c[i - 1] >= 3.5 * P.sloc[i - 1] ? -1 : 0),
+    say: (P, i) => `rose ${sp(((P.c[i] - P.c[i - 1]) / P.c[i - 1]) * 100)} in one bar, ${r2(Math.abs((P.c[i] - P.c[i - 1]) / P.c[i - 1]) / P.sloc[i - 1])}× the moves just before it`,
+  },
 ];
+/** The bar an hour before continuous trading ends (or the last one before it). */
+function eodAnchor(P) {
+  let j = -1;
+  for (let k = 0; k < P.n; k += 1) {
+    if (P.bars[k].s <= P.closeSlot - 13) j = k;
+    else break;
+  }
+  return j;
+}
+/** In the last half-hour: how far the stock stood from what the market's move explained, an hour before the close (as a fraction). */
+function eodRelPct(P) {
+  const j = eodAnchor(P);
+  if (j < 0 || !P.mk) return null;
+  const from = P.prevClose || P.bars[0].o;
+  return ((P.c[j] / from - 1) - P.beta * P.mk[j]) * 100;
+}
+/** …the same in the stock's usual moves for that stretch of the day; 0 outside the last half-hour. */
+function eodRel(P, i) {
+  if (!P.mk || P.bars[i].s < P.closeSlot - 6) return 0;
+  const j = eodAnchor(P);
+  if (j < 6) return 0;
+  const from = P.prevClose || P.bars[0].o;
+  return (P.c[j] / from - 1 - P.beta * P.mk[j]) / (P.sigma * Math.sqrt(j + 1));
+}
 const W = WITS.length;
 const WIX = Object.fromEntries(WITS.map((w, k) => [w.id, k]));
-const D = 2 + W; // the intercept, the forecaster's own call, then every bar witness
-const FAMILIES = ["Breakout", "Trend", "Pullback", "Reversal", "Volume", "Market"];
+const D = 2 + 2 * W; // the intercept, the forecaster's own call, then every bar witness twice: in a trend, and in a range
+/** Is the stock trending on this bar (as against ranging)? */
+const trendAt = (P, i) => P.er[i] >= TREND_ER;
+const FAMILIES = ["Breakout", "Trend", "Pullback", "Reversal", "Volume", "Market", "Time of day"];
 
 /**
  * What every bar witness says on every bar of the session: an n × W table of −1 / 0 / +1.
@@ -641,9 +732,44 @@ function witnessRows(rawBars, ctx, { labels = true } = {}) {
         if (i + h < P.n && P.bars[i + h].s - b.s === h) y[k] = clip((P.bars[i + h].c - b.c) / b.c / (P.sigma * Math.sqrt(h)), 8);
       }
     }
-    rows.push({ s: b.s, t: b.t, price: b.c, w: states[i], y });
+    rows.push({ s: b.s, t: b.t, price: b.c, w: states[i], y, tr: trendAt(P, i) ? 1 : 0, sl: P.sloc[i], tb: labels ? firstBarrier(P.bars, i, P.sloc[i]) : null });
   }
   return rows;
+}
+
+/**
+ * Which comes first after bar i, within TB_BARS bars: the price one usual 15-minute move higher, or the same move lower?
+ * `sigma` is the usual 5-minute move of the moment (prep's `sloc`).
+ * @returns [up first, down first] (both 0 = neither within the time), or null when it cannot be known: the session ends
+ *          before the time is up with neither reached, or both lie inside one 5-minute bar (which came first is not in the bar)
+ */
+function firstBarrier(bars, i, sigma) {
+  const base = bars[i].c;
+  const up = base * (1 + sigma * TB_UNIT);
+  const down = base * (1 - sigma * TB_UNIT);
+  let seen = 0;
+  for (let j = i + 1; j < bars.length && j <= i + TB_BARS; j += 1) {
+    if (bars[j].s - bars[i].s !== j - i) return null; // a gap in the session: nothing is said across it
+    seen += 1;
+    const hitUp = bars[j].h >= up;
+    const hitDown = bars[j].l <= down;
+    if (hitUp && hitDown) return null;
+    if (hitUp) return [1, 0];
+    if (hitDown) return [0, 1];
+  }
+  return seen >= TB_BARS ? [0, 0] : null;
+}
+
+/**
+ * What one of the model's questions turned out to be for a row: { y: [first outcome, second], yv (its sign says which) },
+ * or null when the session does not hold the answer. k: 0 = 5 minutes, 1 = 15 minutes, 2 = which comes first.
+ */
+function outcomeAt(r, k) {
+  if (k < HZ.length) {
+    const y = outcomesOf(r.y[k]);
+    return y ? { y, yv: r.y[k] } : null;
+  }
+  return r.tb ? { y: r.tb, yv: r.tb[0] - r.tb[1] } : null;
 }
 
 /** The forecaster's own call for one of its rows, in usual moves for that time: [5 minutes, 15 minutes]. */
@@ -652,14 +778,17 @@ function forecasterOf(p) {
   return HZ.map((h) => clip((p[H.tIndex(`r${h}`)] || 0) / Math.sqrt(h), 2.5));
 }
 
-/** The inputs of the stacked model for one bar and one horizon. */
-function inputsOf(f, w) {
+/** The inputs of the stacked model for one bar and one question: each technique speaks in the regime the bar is in. */
+function inputsOf(f, w, trend = true) {
   const z = new Float64Array(D);
   z[0] = 1;
   z[1] = f;
-  for (let k = 0; k < W; k += 1) z[2 + k] = w[k];
+  const at = trend ? 2 : 2 + W;
+  for (let k = 0; k < W; k += 1) z[at + k] = w[k];
   return z;
 }
+/** Where a technique's weight sits among the model's inputs, for the regime. */
+const weightAt = (k, trend) => 2 + (trend ? 0 : W) + k;
 /** The two outcomes of a bar at one horizon: [it rose, it fell]; null when the session does not hold that bar. */
 const outcomesOf = (y) => (num(y) ? [y >= UP_MIN ? 1 : 0, y <= -UP_MIN ? 1 : 0] : null);
 
@@ -1032,7 +1161,7 @@ function readNow(rawBars, ctx) {
     }
     said.push({ id: WITS[k].id, name: WITS[k].name, fam: WITS[k].fam, state: states[k], text });
   }
-  return { P, states, said };
+  return { P, states, said, trend: trendAt(P, i), er: r2(P.er[i]), sloc: P.sloc[i] };
 }
 
 /* ================================================================================ the live witnesses */
@@ -1045,9 +1174,11 @@ const LIVE = [
   { id: "wall", fam: "Order book", name: "A wall of orders", what: "One price holding three or more times the quantity of the levels around it: a bid wall props the price, an offer wall caps it." },
   { id: "press", fam: "Order book", name: "Order-flow pressure", what: "The desk's running read of the book and of who is hitting whom (only while the stock is open on the live stream)." },
   { id: "delta", fam: "Order book", name: "Who traded at whose price in the last minute", what: "Volume that lifted the offer against volume that hit the bid: the aggressor." },
+  { id: "ofi", fam: "Order book", name: "Order-flow imbalance over 5 minutes", what: "Not how much is waiting on each side but how much was ADDED and TAKEN AWAY at the five nearest prices in the last five minutes (Cont, Kukanov & Stoikov 2014; on NSE its pull on the price is strongest in the next five minutes and gone within thirty: Tripathi, Dixit & Vipul 2021). Read only while the stock is open on the live stream." },
   { id: "oi15", fam: "Futures & options", name: "Futures open interest against price", what: "Price up with open interest up is a long build-up, price up with it down is short covering; price down with it up is a short build-up, down with it down is long unwinding." },
   { id: "optBias", fam: "Futures & options", name: "The option chain's lean", what: "Put-call ratio, fresh writing and where the walls sit, read together." },
   { id: "optWall", fam: "Futures & options", name: "An option wall close to the price", what: "The strike with the most call open interest just above caps the price; the heaviest put strike just below props it." },
+  { id: "pin", fam: "Futures & options", name: "Expiry-day pull toward the heaviest strike", what: "On the afternoon of expiry the price of a stock with options tends to be drawn toward the strike that holds the most open interest (Ni, Pearson & Poteshman 2005). Spoken only on expiry day after 1 PM, when that strike is within 1%." },
   { id: "tide", fam: "NSE market", name: "The NIFTY tide", what: "The index's day, its 5-minute trend, the sectors and India VIX read as one: rising, falling or slack." },
   { id: "sector", fam: "NSE market", name: "The stock's own sector", what: "The sector index against NIFTY today: a stock rarely fights its sector for long." },
   { id: "breadth", fam: "NSE market", name: "Sectors rising against falling", what: "How broad the day's move is across the NSE sector indices." },
@@ -1087,6 +1218,7 @@ function liveWitnesses(L = {}) {
   const f = L.flow;
   if (f && f.available !== false) {
     if (num(f.pressure)) say("press", f.pressure >= 30 ? 1 : f.pressure <= -30 ? -1 : 0, `${f.label || "pressure"} (${f.pressure > 0 ? "+" : ""}${Math.round(f.pressure)} on a scale of −100 to +100)`);
+    if (num(f.ofi300)) say("ofi", f.ofi300 >= 1 ? 1 : f.ofi300 <= -1 ? -1 : 0, `net ${f.ofi300 >= 0 ? "buying" : "selling"} worth ${Math.abs(f.ofi300).toFixed(1)} average price levels at the 5 nearest prices in the last 5 minutes${num(f.ofi60) ? ` (${Math.abs(f.ofi60).toFixed(1)} ${f.ofi60 >= 0 ? "of buying" : "of selling"} in the last minute)` : ""}`);
     if (num(f.deltaRatio60Pct)) say("delta", f.deltaRatio60Pct >= 20 ? 1 : f.deltaRatio60Pct <= -20 ? -1 : 0, `in the last minute ${f.deltaRatio60Pct >= 0 ? "buyers lifted the offer" : "sellers hit the bid"} for a net ${Math.abs(Math.round(f.deltaRatio60Pct))}% of the volume`);
   }
   const t = L.tape;
@@ -1104,6 +1236,19 @@ function liveWitnesses(L = {}) {
       const nearRes = num(res) && res >= spot && (res / spot - 1) * 100 <= 0.5;
       const nearSup = num(sup) && sup <= spot && (1 - sup / spot) * 100 <= 0.5;
       say("optWall", nearRes && !nearSup ? -1 : nearSup && !nearRes ? 1 : 0, `heaviest calls at ${num(res) ? px(res) : "—"} (a cap), heaviest puts at ${num(sup) ? px(sup) : "—"} (a floor); the price is ${px(spot)}`);
+    }
+  }
+  // expiry-day pinning: only on expiry day, in the afternoon, toward the strike holding the most open interest within 1%
+  if (ch && ch.available && num(ch.daysToExpiry) && ch.daysToExpiry <= 0.3 && minute >= 13 * 60 && Array.isArray(ch.rows)) {
+    const spot = num(ch.spot) ? ch.spot : L.last;
+    let best = null;
+    for (const r of ch.rows) {
+      const oi = ((r.ce && r.ce.oi) || 0) + ((r.pe && r.pe.oi) || 0);
+      if (num(r.strike) && num(spot) && Math.abs(r.strike / spot - 1) <= 0.01 && oi > 0 && (!best || oi > best.oi)) best = { strike: r.strike, oi };
+    }
+    if (best) {
+      const d = (best.strike / spot - 1) * 100;
+      say("pin", d >= 0.1 ? 1 : d <= -0.1 ? -1 : 0, `expiry today: the heaviest strike ${px(best.strike)} is ${Math.abs(d).toFixed(2)}% ${d >= 0 ? "above" : "below"} the price`);
     }
   }
   const mk = L.market;
@@ -1160,13 +1305,19 @@ function settle(rec, rawBars) {
     const b = bars.find((x) => x.s === at + h);
     if (b && num(rec.price) && rec.price > 0 && num(rec.sigma) && rec.sigma > 0) out[h] = r4(clip((b.c - rec.price) / rec.price / (rec.sigma * Math.sqrt(h)), 8));
   }
+  // which came first, from the price the call was made at: +1 the move up, −1 the move down, 0 neither
+  const i = bars.findIndex((x) => x.s === at);
+  if (i >= 0 && num(rec.price) && rec.price > 0 && num(rec.sigma) && rec.sigma > 0) {
+    const tb = firstBarrier(bars.map((x, j) => (j === i ? { ...x, c: rec.price } : x)), i, num(rec.sl) && rec.sl > 0 ? rec.sl : rec.sigma);
+    if (tb) out.tb = tb[0] - tb[1];
+  }
   return out;
 }
 
 module.exports = {
-  BAR, HZ, UP_MIN, MODEL_VERSION, LAMBDA, MIN_ROWS, MIN_PROOF, MIN_ADD, LEDGER_MIN, DECAY_DAY, TIERS, NB,
+  BAR, HZ, KEYS, TB_BARS, TB_UNIT, TREND_ER, UP_MIN, MODEL_VERSION, LAMBDA, MIN_ROWS, MIN_PROOF, MIN_ADD, LEDGER_MIN, DECAY_DAY, TIERS, NB,
   WITS, W, WIX, D, FAMILIES, LIVE, LIVE_IX, LIVE_FAMS,
-  prep, statesAll, witnessRows, forecasterOf, inputsOf, outcomesOf,
+  prep, statesAll, witnessRows, firstBarrier, outcomeAt, trendAt, weightAt, forecasterOf, inputsOf, outcomesOf,
   Sums, fit, rawOf, emptyCal, calAdd, calScale, calCurve, curvesOf, probOf,
   leanOf, callOf, emptyEv, evAdd, evClose, evScale, evMerge, addsOf, techniquesOn, provenOf, summarise,
   emptyLedger, emptyDay, dayAdd, ledgerFold, ledgerScale, ledgerMerge, recordOf, LEDGER_DAYS,

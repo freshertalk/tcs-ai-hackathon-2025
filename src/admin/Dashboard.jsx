@@ -29,6 +29,7 @@ import DrishtiLogo from "./DrishtiLogo";
 
 const WORKSPACES = [
   { view: "", label: "Desk", text: "Chart, live call, order book, 5- and 15-minute forecast" },
+  { view: "now", label: "Now", text: "Every followed stock, your positions, the market and the systems, live" },
   { view: "research", label: "Research", text: "Pre- and post-market, autopilot" },
   { view: "advisor", label: "Advisor", text: "Measured odds for the watchlist" },
   { view: "screener", label: "Screener", text: "Top gainers, losers, RSI" },

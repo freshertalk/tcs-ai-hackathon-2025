@@ -46,8 +46,9 @@ test("the look: each choice is saved the moment it is made, and the one that is 
 test("the workspaces: yours to order and to hide — the Desk always stays, and a hidden one cannot be where the terminal opens", () => {
   mockPrefs = { nav: { order: ["research", "analyzer"], hidden: ["paper"] }, start: "advisor" };
   render(<CustomizeCard />);
-  expect(names().slice(0, 3)).toEqual(["Research", "Desk", "Advisor"]);
-  expect(screen.getByText(/12 of 13 shown/)).toBeTruthy();
+  // (Now, the command screen, is the first workspace nobody has ranked yet)
+  expect(names().slice(0, 4)).toEqual(["Research", "Desk", "Now", "Advisor"]);
+  expect(screen.getByText(/13 of 14 shown/)).toBeTruthy();
   expect(screen.getByRole("checkbox", { name: "Desk" }).disabled).toBe(true);
   expect(screen.getByRole("checkbox", { name: "Paper" }).checked).toBe(false);
   // hiding the workspace the terminal opens on sends it back to the Desk
@@ -58,7 +59,7 @@ test("the workspaces: yours to order and to hide — the Desk always stays, and 
   expect(mockSave).toHaveBeenLastCalledWith({ nav: { hidden: [] } });
   // the arrows move a workspace one place; the whole order is saved
   fireEvent.click(screen.getByRole("button", { name: "Move Desk up" }));
-  expect(mockSave.mock.calls[mockSave.mock.calls.length - 1][0].nav.order.slice(0, 3)).toEqual(["analyzer", "research", "advisor"]);
+  expect(mockSave.mock.calls[mockSave.mock.calls.length - 1][0].nav.order.slice(0, 4)).toEqual(["analyzer", "research", "now", "advisor"]);
   expect(screen.getByRole("button", { name: "Move Research up" }).disabled).toBe(true);
   // where the terminal opens: only a workspace that is shown
   const opens = screen.getByRole("combobox", { name: /The workspace the terminal opens on/ });
@@ -73,7 +74,7 @@ test("a person sees only the workspaces their role allows; their own Zerodha acc
   expect(names()).not.toContain("Positions");
   expect(names()).not.toContain("Journal");
   expect(names()).not.toContain("Trade Analysis");
-  expect(screen.getByText(/10 of 10 shown/)).toBeTruthy();
+  expect(screen.getByText(/11 of 11 shown/)).toBeTruthy();
   first.unmount();
   mockUser = { role: "admin", trader: true };
   render(<CustomizeCard />);

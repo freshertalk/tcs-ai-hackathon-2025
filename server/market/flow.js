@@ -138,7 +138,7 @@ class FlowEngine {
     let st = this.state.get(token);
     // a new day is a new tape: yesterday's order flow says nothing about today's
     if (!st || st.day !== day) {
-      st = { day, prev: null, sign: 0, trades: [], mids: [], pending: [], w: new Array(FEATURES).fill(0), samples: 0, flat: 0, calls: 0, hits: 0, recent: [], lastSampleAt: 0, snap: null };
+      st = { day, prev: null, sign: 0, book: null, ofi: [], trades: [], mids: [], pending: [], w: new Array(FEATURES).fill(0), samples: 0, flat: 0, calls: 0, hits: 0, recent: [], lastSampleAt: 0, snap: null };
       this.state.set(token, st);
     }
     return st;
@@ -182,6 +182,46 @@ class FlowEngine {
       st.snap = { available: false, reason: "No market depth on this tick." };
       return st.snap;
     }
+
+    /* ---- order-flow imbalance (Cont, Kukanov & Stoikov 2014; over several levels: Xu, Gould & Howison 2019): not how much
+       is waiting on each side, but how much was ADDED and TAKEN AWAY on each side since the last tick. Size arriving at the
+       bid (or a higher bid) and size leaving the offer push the price up; the mirror pushes it down. Each tick's net flow is
+       kept for five minutes and set against the average size of a level, so +1 means "one whole level's worth of net buying". */
+    const lv = tick.depth ? { b: (tick.depth.b || []).filter((l) => l[0] > 0).slice(0, 5), a: (tick.depth.a || []).filter((l) => l[0] > 0).slice(0, 5) } : null;
+    if (lv && st.book) {
+      let e = 0;
+      let k = 0;
+      for (let m = 0; m < 5; m += 1) {
+        const b1 = lv.b[m];
+        const b0 = st.book.b[m];
+        const a1 = lv.a[m];
+        const a0 = st.book.a[m];
+        if (!b1 || !b0 || !a1 || !a0) continue;
+        e += (b1[0] >= b0[0] ? b1[1] : 0) - (b1[0] <= b0[0] ? b0[1] : 0) - (a1[0] <= a0[0] ? a1[1] : 0) + (a1[0] >= a0[0] ? a0[1] : 0);
+        k += 1;
+      }
+      if (k) {
+        const sizes = [...lv.b, ...lv.a].map((l) => l[1] || 0);
+        st.ofi.push([now, e / k, sizes.reduce((s, q) => s + q, 0) / Math.max(1, sizes.length)]);
+      }
+    }
+    if (lv) st.book = lv;
+    while (st.ofi.length && now - st.ofi[0][0] > 300000) st.ofi.shift();
+    const ofiOf = (ms) => {
+      let flow = 0;
+      let depth = 0;
+      let n = 0;
+      for (const [t, e, q] of st.ofi) {
+        if (now - t <= ms) {
+          flow += e;
+          depth += q;
+          n += 1;
+        }
+      }
+      return n >= 5 && depth > 0 ? flow / (depth / n) : null;
+    };
+    const ofi60 = ofiOf(60000);
+    const ofi300 = ofiOf(300000);
 
     /* ---- pressure: one number from the book and the trades */
     const pressure = Math.round(100 * clamp(0.35 * book.imbalance + 0.25 * book.microEdge + 0.25 * f60.ratio + 0.15 * book.imbalanceTotal, -1, 1));
@@ -257,6 +297,9 @@ class FlowEngine {
       delta300: Math.round(f300.delta),
       volume60: Math.round(f60.volume),
       deltaRatio60Pct: Math.round(f60.ratio * 100),
+      // net size added and taken away at the 5 nearest prices, in "average levels": + is net buying
+      ofi60: ofi60 === null ? null : r2(ofi60),
+      ofi300: ofi300 === null ? null : r2(ofi300),
       lean: {
         dir, // "learning" | "up" | "down" | "none"
         upPct: Math.round(p * 100),

@@ -8,6 +8,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../../api";
+import { useTopics } from "../../live";
 import { Alert, Loading } from "../../ui";
 import { useDialog } from "../../dialog/DialogProvider";
 import { DateField, DateRangeField } from "../../DatePicker";
@@ -452,15 +453,19 @@ function DayView({ date, onBack, onChanged }) {
   const [st, setSt] = useState({ loading: true, d: null, error: "", missing: false });
   const [msg, setMsg] = useState({ kind: "", text: "" });
   const [busy, setBusy] = useState("");
-  const load = useCallback(() => {
-    setSt((s) => ({ ...s, loading: true }));
-    return api(`/api/admin/analysis/day/${date}`)
-      .then((d) => setSt({ loading: false, d, error: "", missing: false }))
-      .catch((e) => setSt({ loading: false, d: null, error: e.message, missing: /No report is saved/.test(e.message) }));
-  }, [date]);
+  const load = useCallback(
+    (quiet = false) => {
+      if (quiet !== true) setSt((s) => ({ ...s, loading: true }));
+      return api(`/api/admin/analysis/day/${date}`)
+        .then((d) => setSt({ loading: false, d, error: "", missing: false }))
+        .catch((e) => setSt((s) => (quiet === true ? { ...s, loading: false } : { loading: false, d: null, error: e.message, missing: /No report is saved/.test(e.message) })));
+    },
+    [date]
+  );
   useEffect(() => {
     load();
   }, [load]);
+  useTopics(["analysis", "trading"], () => load(true));
   const act = async (what, fn, ok) => {
     setBusy(what);
     setMsg({ kind: "", text: "" });
@@ -831,6 +836,11 @@ export default function DayBook() {
   useEffect(() => {
     loadAn();
   }, [loadAn, list.days.length]);
+  // a report saved, a day scored or a trade filled elsewhere: the list and the analytics are read again at once
+  useTopics(["analysis", "trading"], () => {
+    loadList();
+    loadAn();
+  });
 
   const changed = useCallback(() => {
     loadList();

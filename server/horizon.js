@@ -54,6 +54,9 @@ const weekday = (date) => {
 const tick = () => new Promise((r) => setImmediate(r));
 const iso = (ms) => new Date(ms).toISOString();
 
+const SESSION = require("./market/session");
+const { liveCloseSlot } = SESSION;
+
 class HorizonError extends Error {
   constructor(message, code = "horizon", status = 400) {
     super(message);
@@ -107,6 +110,13 @@ const WHY = {
   sqz: ["a rise out of a quiet stretch", "a fall out of a quiet stretch"],
 };
 const CHECK_RULE = "A call that leans (55% or more one way) is CORRECT when the price went that way by its time; a call with no lean is CORRECT when the price ended inside its band. Every forecast kept is checked this way, 5 and 15 minutes after it was made.";
+
+/** The slot after a session's last bar, when the session ran into the afternoon; otherwise the usual 75 (3:30 PM). */
+function closeSlotOf(rawBars) {
+  const bars = H.cleanBars(rawBars || []);
+  const last = bars.length ? bars[bars.length - 1].s + 1 : 0;
+  return last >= 66 ? last : H.SESSION_BARS;
+}
 
 class Horizon {
   /**
@@ -229,6 +239,9 @@ class Horizon {
       prevLow: pc ? pc.prevLow : null,
       noise: pc ? pc.noise : null,
       tod: pc ? pc.tod : null,
+      // when continuous trading ended on this session, as a 5-minute slot (75 = 3:30 PM; 72 = 3:15 PM where a closing auction
+      // follows): the evidence desk's end-of-day techniques count back from it (server/market/evidence.js)
+      closeSlot: closeSlotOf(days[idx][1]),
     };
   }
 
@@ -807,7 +820,10 @@ class Horizon {
     const done = bars0.filter((b) => b.t + H.BAR <= now + 1000);
     const min = minuteOfDay(now);
     if (!done.length) return { reason: min < 9 * 60 + 15 ? "The market opens at 9:15; the first forecast comes at 9:20, after the first 5-minute bar." : "No finished 5-minute bar yet today; the first forecast comes at 9:20.", closed: min >= OPEN_TO };
-    if (min >= OPEN_TO + 5) return { reason: "The market has closed; the next forecast comes at 9:20 on the next trading day.", closed: true };
+    // continuous trading ends at 3:15 PM in a stock with a closing auction, at 3:30 PM in the rest (market/session.js)
+    const closeSlot = liveCloseSlot(closeSlotOf(prior), prior.length ? istDate(prior[prior.length - 1].t) : null, today);
+    const closeMin = SESSION.OPEN_MIN + closeSlot * 5;
+    if (min >= closeMin + 5) return { reason: closeSlot < H.SESSION_BARS ? `Continuous trading in this stock ended at ${SESSION.clockOf(closeMin)} (its closing auction follows); the next forecast comes at 9:20 on the next trading day.` : "The market has closed; the next forecast comes at 9:20 on the next trading day.", closed: true };
     let daily = [];
     try {
       daily = ((await this.market.daily(symbol)).candles || []).filter((c) => String(c.t).slice(0, 10) < today);
@@ -846,6 +862,8 @@ class Horizon {
     ctx.prevLow = y && num(y.l) ? y.l : earlier ? earlier.prevLow : null;
     ctx.noise = earlier ? earlier.noise : null;
     ctx.tod = earlier ? earlier.tod : null;
+    // continuous trading ends today when it ended on the last session — or, on the first day of new rules, when the table says
+    ctx.closeSlot = closeSlot;
     const live = m.live || { bias: {}, tilt: {} };
     const evidence = this._evidence(symbol, now);
     let tilt = 0;

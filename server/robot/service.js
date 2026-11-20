@@ -9,7 +9,7 @@
 //             the robot's gate (engine.js); one that passes is entered at the price seen with a little
 //             slippage, sized from the paper capital and the risk to the stop, and run by the rulebook:
 //             half at the first target, the stop to the entry, a trailing stop, out on the give-back, a flip
-//             of the advisor's call, too long in it, or the 3:15 PM square-off.
+//             of the advisor's call, too long in it, or the broker's square-off (3:12 PM since August 2026).
 //   RECORD    the flight recorder: a frame of every open position every 15 seconds (price, P&L, the
 //             scanner's score), every event (entry, stop moved, target, exit) and every decision —
 //             including each call it skipped and the first reason why — kept one record per day
@@ -35,6 +35,7 @@
 // fills: it is not advice and it promises nothing.
 
 const E = require("./engine");
+const { squareOffAt } = require("../market/session");
 const L = require("./levels");
 const I = require("./improve");
 const C = require("./compare");
@@ -404,7 +405,7 @@ class PaperRobot {
   _closeOut(now) {
     for (const pos of [...this.s.open]) {
       const price = num(pos.last) ? pos.last : pos.entryAvg;
-      E.step(pos, price, Math.max(now, Date.parse(`${pos.date}T09:45:00Z`)), this.s.rules, {});
+      E.step(pos, price, Math.max(now, squareOffAt(Date.parse(`${pos.date}T05:00:00Z`))), this.s.rules, {}); // at or after that day's square-off
       if (pos.status === "closed") this._land(pos, now);
     }
   }

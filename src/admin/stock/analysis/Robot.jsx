@@ -22,7 +22,7 @@ import "./robot.css";
 const shortDay = (d) => new Date(`${d}T12:00:00Z`).toLocaleDateString("en-IN", { day: "numeric", month: "short", timeZone: "UTC" });
 const sgR = (x) => (typeof x === "number" ? `${x > 0 ? "+" : x < 0 ? "−" : ""}${Math.abs(x).toFixed(2)}R` : "—");
 const price = (x) => (typeof x === "number" ? x.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "—");
-const WHY = { stop: "stop", "break-even": "break-even stop", trail: "trailing stop", target: "second target", target1: "first target", giveback: "gave back", flip: "advisor flipped", "square-off": "3:15 square-off", time: "held too long" };
+const WHY = { stop: "stop", "break-even": "break-even stop", trail: "trailing stop", target: "second target", target1: "first target", giveback: "gave back", flip: "advisor flipped", "square-off": "square-off", time: "held too long" };
 const KIND = { entry: "In", target: "Target", stop: "Stop", exit: "Out" };
 
 function useLoad(url, deps = [], every = 0) {
@@ -846,7 +846,7 @@ export function LevelBook() {
           </table>
         </div>
       </section>
-      <p className="ta-dim">Each test is the level&rsquo;s first touch of a session traded on 5-minute bars: entered at the level (holds) or after a close 0.2 ATR beyond it (breaks), stop 0.6 ATR, target 1.5R, out after two hours or at 3:15 PM, charges taken off. It is a measurement of the past and not advice.</p>
+      <p className="ta-dim">Each test is the level&rsquo;s first touch of a session traded on 5-minute bars: entered at the level (holds) or after a close 0.2 ATR beyond it (breaks), stop 0.6 ATR, target 1.5R, out after two hours or at the last bar before the broker's square-off, charges taken off. It is a measurement of the past and not advice.</p>
     </>
   );
 }

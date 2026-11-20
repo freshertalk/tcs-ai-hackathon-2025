@@ -126,9 +126,33 @@ const recTip = (r, live) =>
       ? "Nothing checked yet: every time this reading leans it is kept with the call and checked 5 and 15 minutes later."
       : "This technique has not spoken on the stored history yet.";
 
+/** Which comes first within 30 minutes: the move up or the same move down — a target and a stop the same distance apart. */
+function First({ f }) {
+  if (!f) return null;
+  const tone = f.lean === "up" ? "up" : f.lean === "down" ? "down" : "flat";
+  return (
+    <div className={`ev-first ev-first--${tone}`} data-tip="A trade ends at its target, at its stop or at the clock. This is the measured chance that a move of this size up comes before the same move down within 30 minutes (and the reverse), on sessions the model had not seen. What is left over is “neither”.">
+      <div className="ev-first__head">
+        <b>Which comes first, within {f.minutes} minutes</b>
+        <small>
+          a move of {f.movePct.toFixed(2)}% either way
+          {f.lean !== "none" ? ` · ${f.proven ? `proven · right ${pc(f.right)} of ${num(f.n)}` : "not proven yet"}` : ""}
+        </small>
+      </div>
+      <div className="ev-first__rows">
+        <Chance label={`▲ ${px(f.up.price)}`} p={f.up.p} usual={f.up.usual} tone={f.lean === "up" ? "up" : "flat"} />
+        <Chance label={`▽ ${px(f.down.price)}`} p={f.down.p} usual={f.down.usual} tone={f.lean === "down" ? "down" : "flat"} />
+      </div>
+    </div>
+  );
+}
+
 /** One reading: which way it leans, what it saw, and its record. */
 function Row({ r, live = false }) {
-  const rec = r.record ? r.record[15] : null;
+  // a technique's record for the regime the stock is in now (a trend or a range) when it has spoken often enough there
+  const own = r.regime && r.regime[15] && r.regime[15].verdict !== "thin" ? r.regime[15] : null;
+  const rec = own || (r.record ? r.record[15] : null);
+  const where = own ? `in a ${r.regime.name}: ` : "";
   return (
     <li className={`ev-row ${r.state > 0 ? "is-up" : r.state < 0 ? "is-down" : "is-flat"}`} data-tip={r.what}>
       <span className="ev-row__s" aria-label={r.state > 0 ? "leans up" : r.state < 0 ? "leans down" : "no lean"}>
@@ -139,7 +163,8 @@ function Row({ r, live = false }) {
         <span>{r.text}</span>
       </span>
       {rec && (
-        <span className={`ev-rec ev-rec--${rec.verdict}`} data-tip={recTip(rec, live)}>
+        <span className={`ev-rec ev-rec--${rec.verdict}`} data-tip={`${own ? `Counted only on bars where the stock was in a ${r.regime.name}, as it is now. ` : ""}${recTip(rec, live)}`}>
+          {where}
           {recText(rec)}
         </span>
       )}
@@ -310,6 +335,7 @@ export default function EvidenceCard({ symbol, enabled = true, compact = false, 
           ))}
         </div>
       )}
+      <First f={d.first} />
       <p className="ev-count" data-tip="Every technique and live reading that is leaning one way on this bar. “Proven” counts only the ones whose own record is clear of chance (a reading that works the other way counts for the side it really favours).">
         <span className="is-up">▲ {d.count.up} lean up</span>
         <span className="is-down">▽ {d.count.down} lean down</span>
@@ -317,6 +343,7 @@ export default function EvidenceCard({ symbol, enabled = true, compact = false, 
           proven: {d.count.provenUp} up, {d.count.provenDown} down
         </span>
         <span className="hz-dim">{d.count.silent} techniques silent</span>
+        {d.regime && <span className="hz-dim">the stock is {d.regime.name === "trend" ? "trending" : "ranging"} now</span>}
       </p>
       <AiRead symbol={symbol} ai={ai} opened={s.opened} onAsked={setAiNow} />
       {!compact && (
@@ -465,7 +492,7 @@ export function EvidenceBoard() {
   const callRow = (h, x) =>
     x ? (
       <tr key={h}>
-        <th scope="row">{h} minutes</th>
+        <th scope="row">{h}</th>
         <td>{x.on ? `in use · cut the miss by ${pc1(x.adds)}` : `not in use (${x.adds >= 0.0005 ? `the miss fell only ${pc1(x.adds)}, or not on every session` : "no real gain"})`}</td>
         <td>{cell(x.all)}</td>
         <td>{cell(x.alone)}</td>
@@ -523,15 +550,16 @@ export function EvidenceBoard() {
               </tr>
             </thead>
             <tbody>
-              {callRow(5, now[1])}
-              {callRow(15, now[3])}
+              {callRow("5 minutes", now[1])}
+              {callRow("15 minutes", now[3])}
+              {callRow("Which first, 30 min", now.tb)}
             </tbody>
           </table>
         </div>
       )}
       <div className="hz-scroll">
         <table className="hz-table ev-led">
-          <caption>Each technique’s own record on the stored history: when it spoke, how often the price then went its way. “Works” and “works the other way” are clear of chance counted session by session; the rest is noise here.</caption>
+          <caption>Each technique’s own record on the stored history: when it spoke, how often the price then went its way — overall, and apart for bars in a trend and bars in a range (the same signal can work in one and fail in the other). “Works” and “works the other way” are clear of chance counted session by session; the rest is noise here.</caption>
           <thead>
             <tr>
               <th scope="col">Technique</th>
@@ -539,6 +567,8 @@ export function EvidenceBoard() {
               <th scope="col">5 minutes later</th>
               <th scope="col">15 minutes later</th>
               <th scope="col">Verdict (15 min)</th>
+              <th scope="col">In a trend</th>
+              <th scope="col">In a range</th>
             </tr>
           </thead>
           <tbody>
@@ -551,6 +581,17 @@ export function EvidenceBoard() {
                 <td>
                   <span className={`ev-rec ev-rec--${t.record[15].verdict}`}>{VERDICT[t.record[15].verdict]}</span>
                 </td>
+                {[t.trend15, t.range15].map((r, i) => (
+                  <td key={i}>
+                    {r && r.n ? (
+                      <span className={`ev-rec ev-rec--${r.verdict}`} data-tip={`${VERDICT[r.verdict]}: went its way ${pc(r.right)} of ${num(r.n)} on ${r.days} sessions`}>
+                        {pc(r.right)} of {num(r.n)}
+                      </span>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
+                ))}
               </tr>
             ))}
           </tbody>
@@ -660,6 +701,11 @@ export function PositionEvidence({ reading }) {
   const tone = reading.lean === "none" ? "flat" : reading.against ? "against" : "with";
   return (
     <span className={`ev-pos ev-pos--${tone}`} data-tip={`${reading.text} ${reading.up} readings lean up, ${reading.down} lean down. From the evidence desk (the Desk shows the whole board for this stock).`}>
+      {reading.first && (
+        <small className="ev-pos__first">
+          in favour first {pc(reading.first.favour.p)} · against first {pc(reading.first.against.p)}
+        </small>
+      )}
       <b>{reading.lean === "none" ? "No clear lean" : `${LEAN[reading.lean]} ${pc(reading.p)}`}</b>
       <small>{reading.lean === "none" ? "next 15 min" : reading.against ? "against you · next 15 min" : "with you · next 15 min"}</small>
       {reading.lean !== "none" && !reading.proven && <small className="ev-pos__np">not proven</small>}

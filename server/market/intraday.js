@@ -11,6 +11,7 @@
 // it. A call can flip within minutes, and that is the point of a stop-loss.
 
 const I = require("./indicators");
+const { sessionFor, clockOf } = require("./session");
 
 const num = I.isNum;
 const TICK = 0.05;
@@ -34,12 +35,18 @@ const PHASES = {
   midday: { label: "Midday lull", note: "11:30 AM – 1:30 PM: volume thins and breakouts fail more often, so a stronger reading is required.", entries: true },
   afternoon: { label: "Afternoon session", note: "1:30 – 2:45 PM: trends often resume. Entries still have time to work.", entries: true },
   late: { label: "Last hour — no fresh entries", note: "After 2:45 PM a new trade has too little time. Manage what is open; do not start anything.", entries: false },
-  squareoff: { label: "Square-off window", note: "Brokers close open intraday (MIS) positions automatically around 3:15 – 3:20 PM. Be flat before that.", entries: false },
+  squareoff: { label: "Square-off window", note: "The broker closes open intraday (MIS) positions automatically from now. Be flat before that.", entries: false },
 };
 
-/** Where the clock is in the trading day. Holidays are not known here — no bars means no call. */
-function sessionAt(nowMs) {
+/**
+ * Where the clock is in the trading day. Holidays are not known here — no bars means no call.
+ * The square-off is the broker's for that date (market/session.js): 3:12 PM in a stock with a closing auction (the F&O list)
+ * since 3 August 2026, 3:25 PM in the rest; 3:15 PM before. `cas` = the stock has a closing auction (assumed when not known).
+ */
+function sessionAt(nowMs, { cas = true } = {}) {
   const d = new Date(nowMs + IST);
+  const day = sessionFor(d.toISOString().slice(0, 10), { cas });
+  const squareOff = day.squareOffMin;
   const dow = d.getUTCDay();
   const m = d.getUTCHours() * 60 + d.getUTCMinutes();
   const weekday = dow >= 1 && dow <= 5;
@@ -50,8 +57,8 @@ function sessionAt(nowMs) {
     else if (m >= T.rangeSet && m < T.midday) phase = "morning";
     else if (m >= T.midday && m < T.afternoon) phase = "midday";
     else if (m >= T.afternoon && m < T.cutoff) phase = "afternoon";
-    else if (m >= T.cutoff && m < T.squareOff) phase = "late";
-    else if (m >= T.squareOff && m < T.close) phase = "squareoff";
+    else if (m >= T.cutoff && m < squareOff) phase = "late";
+    else if (m >= squareOff && m < T.close) phase = "squareoff";
   }
   const open = weekday && m >= T.open && m < T.close;
   const hh = String(d.getUTCHours()).padStart(2, "0");
@@ -60,12 +67,13 @@ function sessionAt(nowMs) {
     ist: `${hh}:${mm}`,
     phase,
     label: PHASES[phase].label,
-    note: PHASES[phase].note,
+    note: phase === "squareoff" ? `The broker closes open intraday (MIS) positions automatically from ${day.squareOffClock}${day.closeMin < T.close ? `; continuous trading in this stock ends at ${day.closeClock}` : ""}. Be flat before that.` : PHASES[phase].note,
     open,
     entries: PHASES[phase].entries,
     elapsedPct: open ? Math.round(((m - T.open) / SESSION_MIN) * 100) : null,
     minutesToCutoff: open && m < T.cutoff ? T.cutoff - m : open ? 0 : null,
-    minutesToSquareOff: open && m < T.squareOff ? T.squareOff - m : open ? 0 : null,
+    minutesToSquareOff: open && m < squareOff ? squareOff - m : open ? 0 : null,
+    squareOffClock: clockOf(squareOff),
     minutesToClose: open ? T.close - m : null,
   };
 }

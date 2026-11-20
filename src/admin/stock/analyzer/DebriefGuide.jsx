@@ -41,7 +41,7 @@ export default function DebriefGuide() {
         </li>
         <li>
           <b>Simulated trade.</b> Each time a stock turns “in play”, a pretend trade starts at that price, with the stop the call gave. It ends at the stop, at the target (one
-          times the risk, “1R”), or at the 3:15 PM square-off — whichever comes first.
+          times the risk, “1R”), or at the square-off — whichever comes first.
         </li>
         <li>
           <b>Score in R.</b> Results are counted in <b>R</b>, the amount risked: +1R means it made what it risked; −1R means the stop was hit. Rupees depend on how much you buy; R

@@ -29,6 +29,7 @@
 // Pure arithmetic: no AI, no network, no timer, no order.
 
 const { bollinger } = require("../market/tape");
+const { squareOffAt, clockAt } = require("../market/session");
 
 const IST = 5.5 * 3600 * 1000;
 const TICK = 0.05;
@@ -224,7 +225,8 @@ function levelMap(pos, bars, opts = {}) {
     return n;
   };
   const sigma1 = sigmaOf(today, last);
-  const sqAt = opts.squareOffAt || Date.parse(`${day}T09:45:00Z`);
+  // the broker's square-off for this stock on this day (market/session.js); a closing-auction stock unless told otherwise
+  const sqAt = opts.squareOffAt || squareOffAt(now, { cas: opts.cas !== false });
   const minutesLeft = Math.max(0, Math.round((sqAt - now) / 60000));
   let merged = groups.map((g) => {
     const best = g.items.slice().sort((a, b) => (WEIGHT[b.source] || 1) - (WEIGHT[a.source] || 1))[0];
@@ -339,7 +341,7 @@ function verify(answer, map, pos, opts = {}) {
       continue;
     }
     if (num(a.touchPct) && a.touchPct < 8) {
-      rejected.push({ what: "target", price: a.price, why: `${a.label} ₹${a.price.toFixed(2)} is out of reach before 3:15 PM on today's movement (about ${a.touchPct}% odds of a touch with no trend).` });
+      rejected.push({ what: "target", price: a.price, why: `${a.label} ₹${a.price.toFixed(2)} is out of reach before ${clockAt(map.at + map.minutesLeft * 60000)} on today's movement (about ${a.touchPct}% odds of a touch with no trend).` });
       continue;
     }
     const front = Math.max(TICK, Math.min(unit * 0.1, a.price * 0.0004)); // a limit a touch before the level gets filled when the level holds

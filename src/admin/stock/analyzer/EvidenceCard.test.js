@@ -43,10 +43,12 @@ const view = (over = {}) => ({
   anchor: { at: "2026-11-20T05:40:00.000Z", price: 1432.5 },
   last: 1432.6,
   calls: [call("5", { lean: "none", tier: "none", proven: false, n: 0, right: null, why: [], read: "No clear lean by 11:15 (4 min): a rise is 39% likely (usual 38%), a fall 36% (usual 37%).", uses: "forecaster" }), call("15")],
+  first: { minutes: 30, by: "2026-11-20T06:10:00.000Z", movePct: 0.28, up: { price: 1436.5, p: 0.38, usual: 0.31 }, down: { price: 1428.5, p: 0.27, usual: 0.3 }, lean: "up", tier: "clear", proven: false, right: 0.55, n: 420, uses: "techniques", read: "Within 30 minutes…" },
+  regime: { name: "trend", er: 0.52 },
   count: { up: 6, down: 2, silent: 31, provenUp: 2, provenDown: 0 },
   witnesses: [
-    { id: "vwapPull", name: "Pullback to VWAP in a trend", fam: "Pullback", what: "In a move that has stayed on one side of VWAP, the price came back to VWAP and closed away from it again.", state: 1, text: "came back to VWAP 1,430.20 in an up-move and closed up from it", record: { 5: rec("works", 9100, 0.53, 0.04), 15: rec("works", 9000, 0.54, 0.05) } },
-    { id: "rsi2", name: "RSI(2) at an extreme", fam: "Reversal", what: "Connors' two-period RSI below 5 or above 95.", state: -1, text: "RSI(2) is 96.4", record: { 5: rec("backwards", 22000, 0.47, -0.05), 15: rec("backwards", 21000, 0.48, -0.03) } },
+    { id: "vwapPull", name: "Pullback to VWAP in a trend", fam: "Pullback", what: "In a move that has stayed on one side of VWAP, the price came back to VWAP and closed away from it again.", state: 1, text: "came back to VWAP 1,430.20 in an up-move and closed up from it", record: { 5: rec("works", 9100, 0.53, 0.04), 15: rec("works", 9000, 0.54, 0.05) }, regime: { name: "trend", 5: rec("works", 3200, 0.55, 0.06), 15: rec("works", 3100, 0.56, 0.07) } },
+    { id: "rsi2", name: "RSI(2) at an extreme", fam: "Reversal", what: "Connors' two-period RSI below 5 or above 95.", state: -1, text: "RSI(2) is 96.4", record: { 5: rec("backwards", 22000, 0.47, -0.05), 15: rec("backwards", 21000, 0.48, -0.03) }, regime: { name: "trend", 5: rec("thin", 90, 0.5, 0), 15: rec("thin", 88, 0.5, 0) } },
     { id: "pinBar", name: "Pin bar (long rejection wick)", fam: "Reversal", what: "A bar whose wick is most of its range.", state: 1, text: "a long lower wick: the fall was rejected", record: { 5: rec("none", 14000, 0.5, 0.001), 15: rec("none", 13800, 0.5, 0) } },
   ],
   live: [
@@ -93,8 +95,14 @@ test("the board says the call for 5 and 15 minutes with its chances beside the u
   expect(c15.querySelector(".ev-push.is-for").textContent).toBe("+ Pullback to VWAP in a trend");
   expect(c15.querySelector(".ev-push.is-against").textContent).toBe("− RSI(2) at an extreme");
   expect(c15.textContent).toMatch(/The techniques are in this call: with them it missed 0\.4% less than the forecaster alone/);
+  // which comes first within 30 minutes: the two prices, each with its chance beside its usual rate
+  const first = document.querySelector(".ev-first");
+  expect(first.className).toMatch(/ev-first--up/);
+  expect(first.textContent).toMatch(/Which comes first, within 30 minutesa move of 0\.28% either way · not proven yet/);
+  expect(first.textContent).toMatch(/▲ 1,436\.5038% usual 31%/);
+  expect(first.textContent).toMatch(/▽ 1,428\.5027% usual 30%/);
   // how many readings lean each way, and how many of those have a proven record
-  expect(document.querySelector(".ev-count").textContent).toMatch(/▲ 6 lean up.*▽ 2 lean down.*proven: 2 up, 0 down.*31 techniques silent/);
+  expect(document.querySelector(".ev-count").textContent).toMatch(/▲ 6 lean up.*▽ 2 lean down.*proven: 2 up, 0 down.*31 techniques silent.*the stock is trending now/);
   // it was only read: opening is announced by the Desk alone
   expect(api.mock.calls.map((c) => c[0])).toEqual(["/api/admin/market/evidence/RELIANCE"]);
 });
@@ -106,9 +114,10 @@ test("every technique speaking shows what it saw and its own record; the order b
   const rows = [...document.querySelectorAll(".ev-sec")[0].querySelectorAll(".ev-row")];
   expect(rows.length).toBe(3);
   expect(rows[0].className).toMatch(/is-up/);
-  expect(rows[0].textContent).toMatch(/Pullback to VWAP in a trend.*came back to VWAP 1,430\.20.*works here · went its way 54% of 9,000/);
+  // its record for the regime the stock is in now, when it has spoken often enough there…
+  expect(rows[0].textContent).toMatch(/Pullback to VWAP in a trend.*came back to VWAP 1,430\.20.*in a trend: works here · went its way 56% of 3,100/);
   expect(rows[1].className).toMatch(/is-down/);
-  // a textbook signal that fails here is said to fail here
+  // …and its overall record when it has not; a textbook signal that fails here is said to fail here
   expect(rows[1].querySelector(".ev-rec--backwards").textContent).toBe("works the other way here · went its way 48% of 21,000");
   expect(rows[2].querySelector(".ev-rec--none").textContent).toMatch(/no edge found here/);
   // the ladders: bids on the left, offers on the right, with shares and orders at each price
@@ -186,8 +195,8 @@ test("the board in Research: the call on unseen sessions against the forecaster 
   const sum = (on, adds, all, alone) => ({ n: 31000, adds, on, all, alone, tiers: { strong: { n: 400, right: 0.61, proven: false }, clear: { n: 2500, right: 0.57, proven: true }, slight: { n: 6100, right: 0.53, proven: true } } });
   const board = {
     trained: true,
-    learning: { trainedAt: "2026-11-19T10:25:00.000Z", rows: 1240000, sessions: 240, lastDate: "2026-11-19", days: 3, now: { 1: sum(false, 0.0002, { n: 5200, right: 0.54, proven: true }, { n: 5000, right: 0.54, proven: true }), 3: sum(true, 0.0041, { n: 9000, right: 0.55, proven: true }, { n: 7000, right: 0.53, proven: true }) } },
-    techniques: view().witnesses.map((w) => ({ id: w.id, name: w.name, fam: w.fam, what: w.what, record: w.record, weight15: 0.02 })),
+    learning: { trainedAt: "2026-11-19T10:25:00.000Z", rows: 1240000, sessions: 240, lastDate: "2026-11-19", days: 3, now: { 1: sum(false, 0.0002, { n: 5200, right: 0.54, proven: true }, { n: 5000, right: 0.54, proven: true }), 3: sum(true, 0.0041, { n: 9000, right: 0.55, proven: true }, { n: 7000, right: 0.53, proven: true }), tb: sum(true, 0.002, { n: 3000, right: 0.56, proven: true }, { n: 2500, right: 0.54, proven: true }) } },
+    techniques: view().witnesses.map((w) => ({ id: w.id, name: w.name, fam: w.fam, what: w.what, record: w.record, trend15: rec("works", 3100, 0.56, 0.07), range15: rec("none", 5900, 0.51, 0.01), weight15: { trend: 0.03, range: 0.01 } })),
     live: view().live.map((w) => ({ id: w.id, name: w.name, fam: w.fam, what: w.what, record: w.record })),
     days: [{ date: "2026-11-19", rows: 7400, call5: { all: { n: 300, right: 0.52 }, alone: { n: 280, right: 0.52 } }, call15: { all: { n: 520, right: 0.56 }, alone: { n: 410, right: 0.53 } } }],
     liveCalls: { 1: { n: 0, ok: 0 }, 3: { n: 40, ok: 24 } },
@@ -208,8 +217,9 @@ test("the board in Research: the call on unseen sessions against the forecaster 
   const [r5, r15] = tables[0].querySelectorAll("tbody tr");
   expect(r5.textContent).toMatch(/5 minutesnot in use \(no real gain\)54% of 5,20054% of 5,000/);
   expect(r15.textContent).toMatch(/15 minutesin use · cut the miss by 0\.4%55% of 9,00053% of 7,000/);
+  expect(tables[0].querySelectorAll("tbody tr")[2].textContent).toMatch(/Which first, 30 minin use · cut the miss by 0\.2%56% of 3,00054% of 2,500/);
   // each technique with its record and its verdict
-  expect(tables[1].textContent).toMatch(/Pullback to VWAP in a trendPullback53% of 9,10054% of 9,000works here/);
+  expect(tables[1].textContent).toMatch(/Pullback to VWAP in a trendPullback53% of 9,10054% of 9,000works here56% of 3,10051% of 5,900/);
   expect(tables[1].textContent).toMatch(/RSI\(2\) at an extremeReversal47% of 22,00048% of 21,000works the other way here/);
   // the live readings, with how many calls have been checked
   expect(tables[2].querySelector("caption").textContent).toMatch(/64 calls checked so far/);
