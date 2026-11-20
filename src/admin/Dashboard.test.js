@@ -6,7 +6,7 @@ import Dashboard from "./Dashboard";
 jest.mock("./api", () => ({ api: () => Promise.resolve({}) }));
 jest.mock("react-router-dom", () => {
   const { createElement } = require("react");
-  return { Link: ({ to, children, ...rest }) => createElement("a", { href: to, ...rest }, children) };
+  return { Link: ({ to, children, ...rest }) => createElement("a", { href: to, ...rest }, children), useSearchParams: () => [new URLSearchParams(), () => {}] };
 });
 
 const page = (role) => (
@@ -33,8 +33,10 @@ test("the Stock Report is the main way in, with a direct link to each workspace"
   const main = screen.getByText("Open the terminal").closest("a");
   expect(main.getAttribute("href")).toBe("/me/stock-report");
   expect(main.getAttribute("target")).toBe("_blank");
-  expect(screen.getByText("Advisor").closest("a").getAttribute("href")).toBe("/me/stock-report?view=advisor");
-  expect(screen.getByText("Positions").closest("a").getAttribute("href")).toBe("/me/stock-report?view=account");
+  // (the Customize card names the workspaces too: the LINK is the one in the Workspaces list)
+  const linkOf = (text) => screen.getAllByText(text).map((el) => el.closest("a")).find(Boolean);
+  expect(linkOf("Advisor").getAttribute("href")).toBe("/me/stock-report?view=advisor");
+  expect(linkOf("Positions").getAttribute("href")).toBe("/me/stock-report?view=account");
 });
 
 test("an admin who is not the owner does not get the account workspaces", async () => {
@@ -42,7 +44,7 @@ test("an admin who is not the owner does not get the account workspaces", async 
   await settle();
   expect(screen.queryByText("Positions")).toBeNull();
   expect(screen.queryByText("Journal")).toBeNull();
-  expect(screen.getByText("Advisor")).toBeTruthy();
+  expect(screen.getAllByText("Advisor").some((el) => el.closest("a"))).toBe(true);
 });
 
 test("the Social Media tile opens its page in a new tab", async () => {
@@ -65,7 +67,8 @@ test("the status row, the owner's Today cards and the three tiles are there; an 
   expect(screen.getByText("Autopilot")).toBeTruthy();
   expect(screen.getByText("Open TradeAI").closest("a").getAttribute("href")).toBe("/me/tradeai");
   expect(screen.getByText("Open paper trading").closest("a").getAttribute("href")).toBe("/me/stock-report?view=paper");
-  expect(screen.getByText("Settings & system")).toBeTruthy();
+  // the section's heading, and the same name in the side column's list of sections
+  expect(screen.getByRole("heading", { name: "Settings & system" })).toBeTruthy();
 });
 
 test("an admin who is not the owner sees no Today cards and no owner-only status", async () => {

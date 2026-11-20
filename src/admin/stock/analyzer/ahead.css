@@ -1,0 +1,234 @@
+/* ==========================================================================
+   The early calls (AheadCard.jsx): trend, reversal, carry-on and momentum, 5 and 15 minutes ahead, and their check.
+   It wears the forecast card's frame (horizon.css). Desk tokens only: both themes follow. Nothing scrolls sideways
+   except the tables, which scroll inside their own box.
+   ========================================================================== */
+
+.ah--warn {
+  border-left-color: var(--warn-ink, #b7791f);
+}
+.ah--up {
+  border-left-color: var(--up);
+}
+.ah--down {
+  border-left-color: var(--down);
+}
+.ah--alert {
+  border-left-color: var(--accent);
+}
+
+/* the two horizons side by side; one under the other where the card is narrow */
+.ah-cols {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  gap: 8px;
+}
+.ah-col {
+  display: grid;
+  align-content: start;
+  gap: 5px;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+.ah-col--warn {
+  border-color: color-mix(in srgb, var(--warn-ink, #b7791f) 55%, var(--line));
+}
+.ah-col--alert {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--line));
+}
+.ah-col__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+  padding-bottom: 3px;
+  border-bottom: 1px solid var(--line);
+}
+.ah-col__head b {
+  font-size: var(--t-small);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.ah-col__head small {
+  color: var(--ink-3);
+  font-size: var(--t-tag);
+}
+
+/* one call: name · what it is called · the chance and the usual rate · the meter */
+.ah-line {
+  display: grid;
+  grid-template-columns: 5.4em auto minmax(0, 1fr);
+  align-items: center;
+  gap: 2px 8px;
+  min-width: 0;
+}
+.ah-line__k {
+  color: var(--ink-2);
+  font-size: var(--t-small);
+  font-weight: 600;
+}
+.ah-line__v {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 0 6px;
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+}
+.ah-line__v b {
+  font-size: var(--t-base);
+}
+.ah-line__v small {
+  color: var(--ink-3);
+  font-size: var(--t-tag);
+}
+.ah-tier {
+  justify-self: start;
+  padding: 0 8px;
+  border: 1px solid var(--line-2, var(--line));
+  border-radius: 99px;
+  color: var(--ink-3);
+  font-size: var(--t-tag);
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  line-height: 1.7;
+  white-space: nowrap;
+}
+.ah-line--warn .ah-tier--raised,
+.ah-line--warn .ah-tier--likely {
+  border-color: var(--warn-ink, #b7791f);
+  color: var(--warn-ink, #b7791f);
+}
+.ah-line--up .ah-tier--raised,
+.ah-line--up .ah-tier--likely,
+.ah-tier--up {
+  border-color: var(--up);
+  color: var(--up);
+}
+.ah-line--down .ah-tier--raised,
+.ah-line--down .ah-tier--likely,
+.ah-tier--down {
+  border-color: var(--down);
+  color: var(--down);
+}
+.ah-line--accent .ah-tier {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.ah-line--quiet .ah-tier,
+.ah-tier--low {
+  color: var(--ink-2);
+}
+.ah-unproven {
+  grid-column: 2 / -1;
+  color: var(--ink-3);
+  font-size: var(--t-tag);
+  font-style: italic;
+}
+
+/* the meter: filled to the call; the tick is the usual rate */
+.ah-meter {
+  position: relative;
+  grid-column: 1 / -1;
+  height: 5px;
+  border-radius: 99px;
+  background: color-mix(in srgb, var(--ink-3) 22%, transparent);
+}
+.ah-meter i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 99px;
+  background: var(--ink-3);
+}
+.ah-meter u {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 2px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background: var(--ink);
+  text-decoration: none;
+}
+.ah-meter--warn i {
+  background: var(--warn-ink, #b7791f);
+}
+.ah-meter--up i {
+  background: var(--up);
+}
+.ah-meter--down i {
+  background: var(--down);
+}
+.ah-meter--accent i {
+  background: var(--accent);
+}
+
+.ah-read {
+  margin: 3px 0 0;
+  color: var(--ink);
+  font-size: var(--t-small);
+  font-weight: 600;
+  line-height: 1.45;
+}
+.ah-why {
+  margin: 0;
+  color: var(--ink-3);
+  font-size: var(--t-tag);
+  line-height: 1.5;
+}
+.ah-why b {
+  color: var(--ink-2);
+}
+.ah-why i {
+  font-style: normal;
+  opacity: 0.85;
+}
+
+/* the check */
+.ah-check {
+  display: grid;
+  gap: 4px;
+  padding-top: 6px;
+  border-top: 1px dashed var(--line);
+}
+.ah-check h4 {
+  margin: 0;
+  font-size: var(--t-small);
+  font-weight: 700;
+}
+.ah-check__cols {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  gap: 6px 16px;
+}
+.ah-check__cols small {
+  color: var(--ink-3);
+  font-size: var(--t-tag);
+  font-weight: 600;
+}
+.ah-check ul {
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 2px;
+  color: var(--ink-2);
+  font-size: var(--t-small);
+  line-height: 1.45;
+}
+.ah-check li b {
+  color: var(--ink);
+}
+.ah-table td small {
+  color: var(--ink-3);
+}
+.ah-cells {
+  white-space: normal;
+}
+.ah-cells .hz-v {
+  margin: 1px 4px 1px 0;
+}

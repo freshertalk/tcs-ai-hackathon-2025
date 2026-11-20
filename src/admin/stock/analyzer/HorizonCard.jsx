@@ -297,9 +297,14 @@ function Details({ d }) {
  * The forecast in two small chips for the price bar: which way the 5- and the 15-minute calls lean and how surely, and
  * how many of this stock's last checked 15-minute forecasts were correct. Pressing it goes to the full card.
  */
-export function ForecastChips({ state, onOpen }) {
+export function ForecastChips({ state, onOpen, ahead = null }) {
   const d = state && state.data;
   if (!d || !d.available || !d.headline) return null;
+  // the early calls (AheadCard.jsx): one more chip, only when something is called for the next 15 minutes
+  const ad = ahead && ahead.data && ahead.data.available ? ahead.data : null;
+  const ah = ad ? ad.horizons.find((x) => x.key === "15") || ad.horizons[0] : null;
+  const rev = ah && ah.reversal && (ah.reversal.tier === "raised" || ah.reversal.tier === "likely") ? ah.reversal : null;
+  const early = !ah ? null : rev ? { tone: "warn", label: "turn?", value: pc(rev.p) } : ah.momentum.state === "building" ? { tone: "accent", label: "momentum", value: `▲ ${pc(ah.momentum.big.p)}` } : ah.momentum.state === "fading" ? { tone: "quiet", label: "momentum", value: `▽ ${pc(ah.momentum.calm.p)}` } : null;
   const chip = (label, head) => {
     if (!head || !head.call) return null;
     const c = head.call;
@@ -318,7 +323,7 @@ export function ForecastChips({ state, onOpen }) {
       type="button"
       className="sv__fc"
       onClick={onOpen}
-      data-tip={`The forecast: the 5-minute call for ${d.headline5 ? clock(d.headline5.at) : "—"} and the 15-minute call for ${clock(d.headline.at)} (${inr(d.headline.price)}, ${sgn(d.headline.pct)}). The arrow is the side it leans to, the number the chance it gives that side.${k && k.n ? ` Of this stock's last ${k.n} checked 15-minute forecasts, ${k.ok} were correct.` : ""} Press for the full forecast and the check.`}
+      data-tip={`The forecast: the 5-minute call for ${d.headline5 ? clock(d.headline5.at) : "—"} and the 15-minute call for ${clock(d.headline.at)} (${inr(d.headline.price)}, ${sgn(d.headline.pct)}). The arrow is the side it leans to, the number the chance it gives that side.${k && k.n ? ` Of this stock's last ${k.n} checked 15-minute forecasts, ${k.ok} were correct.` : ""} ${early ? ` Early call: ${ah.read}` : ""} Press for the full forecast and the check.`}
     >
       {chip("5m", d.headline5)}
       {chip("15m", d.headline)}
@@ -328,6 +333,12 @@ export function ForecastChips({ state, onOpen }) {
           <b>
             {k.ok}/{k.n}
           </b>
+        </span>
+      )}
+      {early && (
+        <span className={`fc-chip fc-chip--early is-${early.tone}`}>
+          <small>{early.label}</small>
+          <b>{early.value}</b>
         </span>
       )}
     </button>

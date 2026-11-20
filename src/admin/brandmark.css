@@ -1,4 +1,4 @@
-/* The brand shared with the public site's navbar (BrandMark.jsx): the photo in a circle, the name, a spaced kicker. */
+/* The brand of the trading area (BrandMark.jsx): the DrishtiAI logo in a circle, the name, a spaced line under it. */
 .vk-brand {
   display: inline-flex;
   align-items: center;
@@ -24,13 +24,23 @@
 .vk-brand__name {
   min-width: 0;
   font-family: var(--f-tech, "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif);
-  font-size: 1.04rem;
-  font-weight: 500;
+  font-size: 1.12rem;
+  font-weight: 650;
   line-height: 1.18;
-  letter-spacing: -0.015em;
+  letter-spacing: -0.02em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.vk-brand__word {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* the "AI" of DrishtiAI wears the accent */
+.vk-brand__word b {
+  font-weight: inherit;
+  color: var(--accent);
 }
 .vk-brand__name small {
   display: block;
@@ -54,5 +64,11 @@
   }
   .vk-brand__name {
     font-size: 0.98rem;
+  }
+}
+/* a phone's page header is crowded (account, live dot, theme, sign out): the logo stands alone there, as in the terminal */
+@media (max-width: 419px) {
+  .adm-head .vk-brand__name {
+    display: none;
   }
 }

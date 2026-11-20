@@ -75,7 +75,7 @@ export default function Shell({ crumb, notice, children, narrow, wide, fluid }) 
         <div className={`${wrap} adm-head__row`}>
           <nav className="adm-crumbs" aria-label="Breadcrumb">
             <Link to={adminPath()} className="adm-brand" aria-label={`${BRAND.full}. Back to the dashboard.`} data-tip="Back to the dashboard.">
-              {/* the same brand as the public site's navbar: the photo, the name, the product under it */}
+              {/* the trading area's brand: the DrishtiAI logo, the name, "AI Trading Advisor" under it */}
               <BrandMark />
             </Link>
             {crumb && (

@@ -63,6 +63,7 @@ const { FlightDeck, FlightError } = require("./flight");
 const { LearnWatch } = require("./learn");
 const { OpenForecast } = require("./open-forecast");
 const { Horizon } = require("./horizon");
+const { Ahead } = require("./ahead");
 const { LiveHub } = require("./live");
 const { Supervisor } = require("./supervisor");
 const { Recorder } = require("./recorder");
@@ -1467,6 +1468,24 @@ ${e.text}
   app.post("/api/admin/market/horizon/train", requireSuper, limiter(6, 60 * 60 * 1000), hWrap(async () => startJob(() => horizon.train({ trigger: "you asked" }))));
   app.post("/api/admin/market/horizon/learn", requireSuper, limiter(12, 60 * 60 * 1000), hWrap(async () => startJob(() => horizon.learnDays({ trigger: "you asked" }))));
 
+  // The early calls (server/ahead.js): 5 and 15 minutes before it happens — will the move that is on turn or carry on,
+  // is a large move or a quiet stretch coming — beside the forecaster's trend call. Learns from the same stored
+  // sessions through the forecaster, keeps and checks every call, learns again each evening. Reads the market; never
+  // trades, never asks an AI model.
+  const ahead = opts.ahead || new Ahead({ horizon, docs: store.docs, now: opts.now, log: opts.log || console });
+  if (market.ticker && opts.horizonWatch !== false && opts.alertWatch !== false) ahead.start();
+  const startAhead = async (run) => {
+    const p = run();
+    const early = await Promise.race([p.then(() => null, (e) => e), new Promise((r) => setTimeout(() => r(null), 120))]);
+    if (early) throw early;
+    p.catch(() => {});
+    return ahead.board();
+  };
+  app.get("/api/admin/market/ahead", requireAdmin, hWrap(async () => ahead.board()));
+  app.get("/api/admin/market/ahead/:symbol", requireAdmin, limiter(240, 60 * 1000), hWrap(async (req) => ahead.view(String(req.params.symbol || "").trim().toUpperCase().slice(0, 25))));
+  app.post("/api/admin/market/ahead/train", requireSuper, limiter(6, 60 * 60 * 1000), hWrap(async () => startAhead(() => ahead.train({ trigger: "you asked" }))));
+  app.post("/api/admin/market/ahead/learn", requireSuper, limiter(12, 60 * 60 * 1000), hWrap(async () => startAhead(() => ahead.learnDays({ trigger: "you asked" }))));
+
   // The market recorder (server/recorder.js): every minute of every session it reads every NIFTY 100 stock, the watchlist, the indices
   // and each one's near-month future — price, volume, the quantity waiting to buy and to sell, open interest — with no page open, keeps
   // the session in the database, and each evening learns what those readings add to the forecaster. It reads only; it asks no AI model.
@@ -1742,6 +1761,27 @@ ${e.text}
           run: () => horizon.learnDays({ trigger: "the supervisor" }),
         },
         {
+          id: "early-calls-train",
+          name: "Early calls: training",
+          what: "Trains the reversal, carry-on and momentum calls from the whole stored history when they have no usable model (first start, or the forecaster's inputs changed). Runs after the forecaster's own training.",
+          due: () => {
+            const p = ahead.pending();
+            return !p.busy && p.train ? "no usable model yet" : "";
+          },
+          run: () => ahead.train({ trigger: "the supervisor" }),
+        },
+        {
+          id: "early-calls-learn",
+          name: "Early calls: evening learning",
+          what: "Calls, checks and then learns every stored session the early calls have not seen (normally at 3:45 PM, after the forecaster; here when that was missed).",
+          quietOnly: true,
+          due: () => {
+            const p = ahead.pending();
+            return !p.busy && p.learn ? `sessions to ${p.to} are stored, learned only to ${p.lastDate}` : "";
+          },
+          run: () => ahead.learnDays({ trigger: "the supervisor" }),
+        },
+        {
           id: "open-forecast",
           name: "Opening-price forecast: scoring",
           what: "Writes the real open beside forecasts of earlier sessions that were never scored, and learns from them.",
@@ -1828,6 +1868,11 @@ ${e.text}
         const b = horizon.board();
         return needs(b.trained ? "on" : "learning", b.trained ? `learned to ${b.learning.lastDate}; model in use: ${(b.learning.contest || {}).name || "—"}` : "no usable model yet");
       }),
+      sys("ahead", "Early calls (reversal, momentum)", "On every finished 5-minute bar: will the move turn or carry on, is a large move or a quiet stretch coming, 5 and 15 minutes ahead; every call is kept and checked, and every evening at 3:45 PM the whole NIFTY 100 day is called, checked, then learned", () => {
+        const b = ahead.board();
+        const proven = b.trained ? b.learning.targets.filter((t) => t.proven).length : 0;
+        return needs(b.trained ? "on" : "learning", b.trained ? `learned to ${b.learning.lastDate}; ${proven} of ${b.learning.targets.length} calls proven on unseen sessions` : "no usable model yet (it trains after the forecaster)");
+      }),
       sys("recorder", "Market recorder", "Every minute from 9:15 to 15:30, with no page open: price, volume, the quantity waiting to buy and to sell, and the futures' open interest for every NIFTY 100 stock, your watchlist and the indices — kept in the database", () => {
         const st = recorder.status();
         const kept = `${st.stored.sessions} session${st.stored.sessions === 1 ? "" : "s"} stored`;
@@ -1891,6 +1936,7 @@ ${e.text}
     return [robot.settings && robot.settings().on, (st.open || []).map((p) => `${p.symbol}:${p.qty}`), (st.log || []).length, Object.keys(rec.trades || {}).length, (rec.decisions || []).length, st.learned];
   });
   live.watch("horizon", () => horizon.fingerprint());
+  live.watch("ahead", () => ahead.fingerprint());
   live.watch("automation", () => {
     const st = supervisor.status();
     return [st.running && st.running.id, st.behind, st.events[0] && st.events[0].at, st.duties.map((d) => d.state)];
@@ -1990,6 +2036,7 @@ ${e.text}
     setupLab,
     openForecast,
     horizon,
+    ahead,
     live,
     supervisor,
     recorder,

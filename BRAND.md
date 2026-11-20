@@ -10,9 +10,12 @@ Trading, Telegram alerts, the Mandir, the Document — is called **DrishtiAI**.
 | With its line | **DrishtiAI — the AI Trading Advisor for NSE** (an em dash with a space on each side) |
 | Short header (narrow screens) | **DrishtiAI — AI Trading Advisor**, then **DrishtiAI** |
 | Meaning | Drishti (दृष्टि) means “sight” |
-| Logo | Vinay's photo in a circle with his name and “DrishtiAI · AI Trading Advisor” under it — the public site's navbar brand (`src/admin/BrandMark.jsx`, `public/vinay-avatar-sm.*`) |
-| Favicon (private area) | the public site's own icons (`favicon.ico`, `favicon-512.png`, `logo192.png`, `apple-touch-icon.png`) |
-| Link previews (private area) | `public/img/og/<page>.png`, Vinay's portrait beside the page name, drawn by `scripts/og-images.js` |
+| Logo | An eye (drishti = sight) whose pupil is a rising price line, on its own dark-blue round badge: `public/drishti-logo.svg` — ONE drawing, used everywhere in the trading area through `src/admin/DrishtiLogo.jsx`. Since 20 Nov 2026 it replaces the owner's photo there |
+| Brand in a header | the logo, **DrishtiAI** (the “AI” in the accent colour) and under it the small spaced line **AI Trading Advisor** (`src/admin/BrandMark.jsx`, the line is `BRAND.line`); on a phone the logo alone |
+| Where the logo appears | the header of every private page, the terminal's top bar, the dashboard's side column, TradeAI's mark and avatar, the tab icon, the link previews |
+| Favicon (private area) | `drishti-logo.svg` with PNG copies `drishti-192.png`, `drishti-512.png`, `drishti-apple-touch.png` (and `drishti-32.png`); set in `src/admin/AdminApp.jsx` and `scripts/prerender.js` |
+| Link previews (private area) | `public/img/og/<page>.png`, the logo beside the page name, drawn by `scripts/og-images.js` from `drishti-512.png` |
+| After changing the logo | redraw the PNG copies from the SVG (any browser or image tool; 32, 192, 512 px round, and 180 px on a square of `#0c1c3e` for Apple), then run `node scripts/og-images.js` |
 | Browser tab | `DrishtiAI` |
 | Files it names | `DrishtiAI-complete-guide.docx`, `DrishtiAI-AI-Engine.docx` |
 
@@ -26,7 +29,7 @@ Where the name comes from in code — change it there, and only there:
 Feature names stay as they are: **TradeAI** (the chat), **Social Media**, **AI Engine**, **AI brains**, **Stock Report**
 (the trading terminal), **Trade Analysis**, **Journal**, **WhatsApp Trading**, **Mandir**.
 
-The public website at `/` (vinaytiwari.org) is the owner's personal site and keeps its own name.
+The public website at `/` (vinaytiwari.org) is the owner's personal site and keeps its own name, photo and icons.
 
 ## Buttons — one system, in `src/admin/buttons.css`
 

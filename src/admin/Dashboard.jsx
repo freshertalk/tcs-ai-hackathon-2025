@@ -25,6 +25,7 @@ import { mayOpen } from "./workspaces";
 import PageJumps from "./stock/terminal/PageJumps";
 import CustomizeCard from "./CustomizeCard";
 import ZerodhaAccounts from "./ZerodhaAccounts";
+import DrishtiLogo from "./DrishtiLogo";
 
 const WORKSPACES = [
   { view: "", label: "Desk", text: "Chart, live call, order book, 5- and 15-minute forecast" },
@@ -522,7 +523,7 @@ export default function Dashboard() {
       <div className="hm hm--panel">
         <aside className="hm-side" aria-label="You, the way in, and this page's sections">
           <section className="hm-me" aria-labelledby="hm-hero-h">
-            <img className="hm-me__art" src="/vinay-avatar.jpg" alt="" width="72" height="72" />
+            <DrishtiLogo className="hm-me__art" size={72} />
             <p className="hm-hero__k">
               {greeting()} · {today}
             </p>

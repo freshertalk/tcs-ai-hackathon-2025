@@ -72,6 +72,19 @@
 .tm .an.dk .fc-chip.is-down b {
   color: var(--down);
 }
+/* the early call's chip: a reversal warning (amber), momentum building (accent) or fading (quiet) */
+.tm .an.dk .fc-chip.is-warn {
+  border-color: color-mix(in srgb, var(--warn-ink, #b7791f) 60%, var(--line));
+}
+.tm .an.dk .fc-chip.is-warn b {
+  color: var(--warn-ink, #b7791f);
+}
+.tm .an.dk .fc-chip.is-accent {
+  border-color: color-mix(in srgb, var(--accent) 60%, var(--line));
+}
+.tm .an.dk .fc-chip.is-accent b {
+  color: var(--accent);
+}
 .tm .an.dk .sv__fc:hover .fc-chip,
 .tm .an.dk .sv__fc:focus-visible .fc-chip {
   background: var(--surface);
@@ -118,6 +131,8 @@
 
 /* the forecast card and the detail tabs are jumped to: they must land under the head, not behind it */
 .tm .an.dk .sv__fcwrap {
+  display: grid;
+  gap: 10px;
   min-width: 0;
 }
 

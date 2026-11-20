@@ -367,7 +367,7 @@ html.tai-lock body {
   content: "";
   position: absolute;
   inset: -8px;
-  border-radius: 24px;
+  border-radius: 50%;
   background: conic-gradient(from 0deg, var(--tai-gold), var(--tai-saffron), var(--tai-violet), var(--tai-gold));
   filter: blur(14px);
   opacity: 0.55;
@@ -377,9 +377,9 @@ html.tai-lock body {
   position: relative;
   width: 64px;
   height: 64px;
-  border-radius: 18px;
+  border-radius: 50%;
   object-fit: contain;
-  background: #1a1005;
+  background: transparent;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
 }
 @keyframes tai-spin {
@@ -684,9 +684,9 @@ html.tai-lock body {
 .tai-avatar {
   width: 30px;
   height: 30px;
-  border-radius: 9px;
+  border-radius: 50%;
   object-fit: contain;
-  background: #1a1005;
+  background: transparent;
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--tai-gold) 40%, transparent);
 }
 .tai-avatar.is-spin {

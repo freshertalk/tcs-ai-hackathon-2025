@@ -19,6 +19,7 @@ import { LiveScanner } from "./LiveScanner";
 import { SetupLab } from "./SetupLab";
 import AutopilotPanel from "../autopilot/AutopilotPanel";
 import HorizonCard, { HorizonBoard } from "../analyzer/HorizonCard";
+import AheadCard, { AheadBoard } from "../analyzer/AheadCard";
 import { inr, isNum, num, pct, when } from "../analyzer/format";
 import "./trade.css";
 
@@ -76,8 +77,9 @@ function ResearchHorizon({ symbol, first }) {
   const [open, setOpen] = useState(Boolean(first));
   return (
     <details className="rs-ai" open={Boolean(first)} onToggle={(e) => setOpen(e.currentTarget.open)}>
-      <summary>Next 5 and 15 minutes — price, high, low, levels and the check for {symbol}</summary>
+      <summary>Next 5 and 15 minutes — price, high, low, levels, the early calls (trend, reversal, momentum) and the check for {symbol}</summary>
       {open && <HorizonCard symbol={symbol} compact />}
+      {open && <AheadCard symbol={symbol} compact />}
     </details>
   );
 }
@@ -393,6 +395,10 @@ export default function Research({ onOpen = null }) {
         <details className="rs-ai rs-hzboard">
           <summary>15-minute forecaster — what it has learned and how it has done</summary>
           <HorizonBoard />
+        </details>
+        <details className="rs-ai rs-hzboard">
+          <summary>Early calls (reversal, carry-on, momentum) — what they have learned and how they have done</summary>
+          <AheadBoard />
         </details>
         <div ref={setSlot} className="rs-slot" data-jump="Intraday plans" />
         {!report && !hasPlans && (

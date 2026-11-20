@@ -108,11 +108,11 @@ function stripConflicting(template) {
 // to /me would flash the public homepage's markup (and wear
 // its title and search-engine tags) before the admin app mounted.
 function writeAdminShell(template) {
-  // the private area wears the same icon as the public site (Vinay's photo)
-  const ICONS = `  <link rel="icon" href="/favicon.ico" sizes="any" data-private="1" />
-    <link rel="icon" type="image/png" sizes="192x192" href="/logo192.png" data-private="1" />
-    <link rel="icon" type="image/png" sizes="512x512" href="/favicon-512.png" data-private="1" />
-    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" data-private="1" />`;
+  // the private area wears the DrishtiAI logo (public/drishti-logo.svg and its PNG copies)
+  const ICONS = `  <link rel="icon" type="image/svg+xml" href="/drishti-logo.svg" sizes="any" data-private="1" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/drishti-192.png" data-private="1" />
+    <link rel="icon" type="image/png" sizes="512x512" href="/drishti-512.png" data-private="1" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/drishti-apple-touch.png" data-private="1" />`;
   // the link preview (title, description, Open Graph, the X card) of the dashboard, between markers:
   // the server swaps the block for each page's own (server/previews.js), so a shared address previews
   // as that page; the private area stays noindex

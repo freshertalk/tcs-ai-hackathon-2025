@@ -1,18 +1,21 @@
-// The brand of the private area, the same as the public site's navbar (src/components/site/Nav.jsx): Vinay's photo in a
-// circle, his name in the display face, and a small spaced kicker under it — here the product's name.
+// The brand of the trading area: the DrishtiAI logo, the name "DrishtiAI" in the display face, and a small spaced line
+// under it ("AI Trading Advisor"). Shown in the header of every private page (Shell.jsx) and in the terminal's top bar
+// (TopBar.jsx). The public website keeps its own brand (the owner's photo and name).
 import React from "react";
-import Picture from "../components/ui/Picture";
 import { BRAND } from "./brand";
+import DrishtiLogo from "./DrishtiLogo";
 import "./brandmark.css";
 
-export default function BrandMark({ kicker = `${BRAND.name} · AI Trading Advisor`, size = "" }) {
+export default function BrandMark({ kicker = BRAND.line, size = "" }) {
   return (
     <span className={`vk-brand ${size ? `vk-brand--${size}` : ""}`}>
       <span className="vk-brand__mark">
-        <Picture name="vinay-avatar-sm" alt="" width="200" height="200" loading="eager" aria-hidden="true" />
+        <DrishtiLogo size={size === "sm" ? 34 : 38} aria-hidden="true" />
       </span>
       <span className="vk-brand__name">
-        Vinay Kumar Tiwari
+        <span className="vk-brand__word">
+          Drishti<b>AI</b>
+        </span>
         {kicker && <small>{kicker}</small>}
       </span>
     </span>

@@ -142,6 +142,7 @@ class Horizon {
     this._stats = new WeakMap(); // a list of sessions → what each one leaves behind (worked out once)
     this._prior = new Map(); // symbol → { date, ctx }: what the sessions before today say (for the live forecast)
     this._tally = null; // the check's totals over every stock, kept until the record changes
+    this._last = new Map(); // symbol → { at, r }: the last reading of a stock, lent to the early calls for fifteen seconds
     this.lastError = "";
   }
 
@@ -636,8 +637,10 @@ class Horizon {
    * Every stock's rows on the given stored sessions, each with the present model's own call beside it (row.p, in the
    * stock's units, for every target). `each(symbol, date, rows)` is called once per stock per session. Nothing is learned
    * or saved here: the recorder uses it to set what the forecaster missed against what it recorded. @returns rows seen
+   * `needAll: false` also gives the session's last bars, whose own targets the session does not hold (the early calls,
+   * server/ahead.js, work out their own outcomes from the rows' prices).
    */
-  async replay(dates, each) {
+  async replay(dates, each, { needAll = true } = {}) {
     const m = this._usable();
     if (!m) return 0;
     const want = new Set(dates);
@@ -674,7 +677,7 @@ class Horizon {
           if (!want.has(date)) continue;
           const ctx = this._ctxFor(prof, days, d, mkt);
           if (!ctx.prevClose) continue;
-          const rows = H.dayRows(days[d][1], ctx, { targets: true, stride: 1 });
+          const rows = H.dayRows(days[d][1], ctx, { targets: true, stride: 1, needAll });
           if (!rows.length) continue;
           const mult = scales ? H.stockScaleOf(scales[s]) : 1;
           for (const row of rows) row.p = H.predictRow(m.W, row.x, m.slope, H.segFor(m.seg, row.s), mult);
@@ -685,6 +688,55 @@ class Horizon {
       await tick();
     }
     return seen;
+  }
+
+  /** How many stocks the stored history holds. */
+  storedStocks() {
+    return this._stocks().length;
+  }
+
+  /** Every session the stored history holds, oldest first (the early calls learn from the same sessions). */
+  storedDates() {
+    const set = new Set();
+    for (const s of this._stocks()) for (const [date] of this._days(s)) set.add(date);
+    return [...set].sort();
+  }
+
+  /**
+   * What the forecaster sees for a stock right now, for the early calls (server/ahead.js): today's rows bar by bar and
+   * the forecast made from them — or { reason }. Shared with view() for fifteen seconds, so the Desk asking for both
+   * reads the market once.
+   */
+  async inputs(symbol) {
+    const now = this.now();
+    this._opened.set(symbol, now);
+    const hit = this._last.get(symbol);
+    if (hit && now - hit.at < 15000) return hit.r;
+    const r = await this._compute(symbol);
+    this._remember(symbol, r, now);
+    return r;
+  }
+
+  _remember(symbol, r, now) {
+    if (this._last.size > 120) this._last.clear();
+    this._last.set(symbol, { at: now, r });
+  }
+
+  /** A session's bars for a stock: today's from the market (when connected), an earlier day's from the stored history. */
+  async barsFor(symbol, date) {
+    if (date === istDate(this.now()) && this._connected()) return (await this._todayBars(symbol)).today;
+    const h = this._historyStore();
+    return (h ? sessions(h.bars(symbol)).get(date) : null) || null;
+  }
+
+  /** The check's totals over every stock followed: { 1: { n, ok }, 3: { n, ok } } (5 and 15 minutes). */
+  checkTotals() {
+    return this._tallyAll();
+  }
+
+  /** The stocks followed live: the watchlist and the ones looked at in the last three hours. */
+  watching() {
+    return this._watch();
   }
 
   /* --------------------------------------------------------------------------- the forecast for now */
@@ -809,7 +861,9 @@ class Horizon {
     const probe = H.forecastFrom(done, ctx, m, { bias: biasK, tilt, tilts, levels: [], stockScale });
     if (!probe) return { reason: "The forecast could not be made from today's bars." };
     const fc = H.forecastFrom(done, ctx, m, { bias: biasK, tilt, tilts, levels: this._levels(probe, prevClose), stockScale });
-    return { fc, evidence, tilt, bias, bias1, prevClose, now, flow, flowTilt: tilts ? tilts[H.HORIZONS.indexOf(3)] || 0 : 0, flowTilt1: tilts ? tilts[H.HORIZONS.indexOf(1)] || 0 : 0 };
+    // today's rows bar by bar, for the early calls (they read the same inputs, turned to face the move)
+    const rows = H.dayRows(done, ctx, { targets: false, stride: 1 });
+    return { fc, rows, evidence, tilt, bias, bias1, prevClose, now, flow, flowTilt: tilts ? tilts[H.HORIZONS.indexOf(3)] || 0 : 0, flowTilt1: tilts ? tilts[H.HORIZONS.indexOf(1)] || 0 : 0 };
   }
 
   _flowFor(symbol, endMs) {
@@ -854,6 +908,7 @@ class Horizon {
     let part;
     try {
       const r = await this._compute(symbol);
+      this._remember(symbol, r, now);
       if (!r.fc) part = { available: false, reason: r.reason, closed: Boolean(r.closed) };
       else {
         const head = H.headline(r.fc, now);

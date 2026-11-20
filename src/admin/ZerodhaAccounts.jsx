@@ -78,8 +78,11 @@ function People({ flash }) {
     setBusy("");
   };
   if (!d) return err ? <p className="adm-alert adm-alert--info">{err}</p> : <p className="za-dim">Reading the accounts…</p>;
-  const by = new Map(d.people.map((p) => [p.email, p]));
-  const rows = [...new Set([...d.admins, ...d.people.map((p) => p.email)])].sort();
+  // an answer without the lists (an odd reply from a proxy, an older server) shows nobody rather than breaking the page
+  const people = Array.isArray(d.people) ? d.people : [];
+  const admins = Array.isArray(d.admins) ? d.admins : [];
+  const by = new Map(people.map((p) => [p.email, p]));
+  const rows = [...new Set([...admins, ...people.map((p) => p.email)])].sort();
   return (
     <>
       {flash}

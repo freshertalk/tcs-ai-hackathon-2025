@@ -23,6 +23,7 @@ import ProChart from "../chart/ProChart";
 import AiBrain from "./AiBrain";
 import SessionHistory from "./SessionHistory";
 import HorizonCard, { ForecastChips, useHorizon } from "./HorizonCard";
+import AheadCard, { useAhead } from "./AheadCard";
 import { callLabel as oddsLabel } from "../advisor/advisorMath";
 import { everyVisible } from "../../visible";
 
@@ -260,6 +261,8 @@ export default function StockView({ symbol, quote, status, streaming = false, in
   const verdict = useVerdict(symbol, status);
   // the forecast is read once here: the price bar shows its two calls, the card below shows all of it
   const horizon = useHorizon(symbol, true);
+  // the early calls (reversal, carry-on, momentum — 5 and 15 minutes ahead): read once here too, for the head's chip and the card
+  const ahead = useAhead(symbol, true);
   const fcRef = useRef(null);
   const cockpit = useCockpit(useWide(FIT));
   // every tick is checked against the call's levels the instant it arrives; a break re-reads the call at once
@@ -402,7 +405,7 @@ export default function StockView({ symbol, quote, status, streaming = false, in
       {/* the head: the price bar and the day's figures in one block that stays on screen */}
       <div className="sv__head" ref={cockpit.head}>
       <Ticker
-        forecast={<ForecastChips state={horizon} onOpen={() => fcRef.current && fcRef.current.scrollIntoView && fcRef.current.scrollIntoView({ block: "center", behavior: "smooth" })} />}
+        forecast={<ForecastChips state={horizon} ahead={ahead} onOpen={() => fcRef.current && fcRef.current.scrollIntoView && fcRef.current.scrollIntoView({ block: "center", behavior: "smooth" })} />}
         symbol={symbol}
         px={px}
         chg={pxChg}
@@ -543,6 +546,7 @@ export default function StockView({ symbol, quote, status, streaming = false, in
         </section>
         <div ref={fcRef} className="sv__fcwrap">
           <HorizonCard symbol={symbol} state={horizon} />
+          <AheadCard symbol={symbol} state={ahead} />
         </div>
         <AiBrain symbol={symbol} live={live} marketHours={Boolean(status.marketHours)} foldable />
       </div>

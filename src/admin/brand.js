@@ -7,6 +7,7 @@ export const BRAND = {
   full: "DrishtiAI — the AI Trading Advisor for NSE",
   mid: "DrishtiAI — AI Trading Advisor",
   short: "DrishtiAI",
+  line: "AI Trading Advisor", // the small line under the name in the header (BrandMark.jsx)
   meaning: "Drishti (दृष्टि) means “sight”",
 };
 

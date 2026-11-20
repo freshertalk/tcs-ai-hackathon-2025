@@ -48,13 +48,14 @@ import "./signin.css";
 import "./smooth.css";
 // the finish: one family of surfaces, headers and type over every page (loaded last of all)
 import "./polish.css";
-// The private area wears the same icon as the public site (Vinay's photo). The public site's own link tags are
-// put aside while this area is open and put back when it is left. (A page loaded straight from
-// /me already carries these in its own head: see scripts/prerender.js.)
+// The private area wears the DrishtiAI logo as its icon (public/drishti-logo.svg and its PNG copies). The public
+// site's own link tags are put aside while this area is open and put back when it is left. (A page loaded straight
+// from /me already carries these in its own head: see scripts/prerender.js.)
 const PRIVATE_ICONS = [
-  ["icon", "192x192", "/logo192.png"],
-  ["icon", "512x512", "/favicon-512.png"],
-  ["apple-touch-icon", "180x180", "/apple-touch-icon.png"],
+  ["icon", "any", "/drishti-logo.svg", "image/svg+xml"],
+  ["icon", "192x192", "/drishti-192.png"],
+  ["icon", "512x512", "/drishti-512.png"],
+  ["apple-touch-icon", "180x180", "/drishti-apple-touch.png"],
 ];
 function usePrivateFavicon() {
   useEffect(() => {
@@ -64,11 +65,11 @@ function usePrivateFavicon() {
     put.forEach((l) => l.remove());
     // a page that came straight from /me already carries them in its own head
     const have = Boolean(head.querySelector("link[data-private]"));
-    const added = (have ? [] : PRIVATE_ICONS).map(([rel, sizes, href]) => {
+    const added = (have ? [] : PRIVATE_ICONS).map(([rel, sizes, href, type = "image/png"]) => {
       const l = document.createElement("link");
       l.rel = rel;
       l.sizes = sizes;
-      l.type = "image/png";
+      l.type = type;
       l.href = href;
       l.dataset.private = "1";
       head.appendChild(l);
