@@ -50,6 +50,15 @@
 .an.dk .sv__top > * {
   margin: 0;
 }
+/* the chart and the forecast cards, under the analysis tabs */
+.an.dk .sv__low {
+  display: grid;
+  gap: var(--dk-gap);
+  min-width: 0;
+}
+.an.dk .sv__low > * {
+  margin: 0;
+}
 
 /* ---- the ticker: the one raised card that stays on screen */
 .an.dk .sv__ticker {

@@ -190,8 +190,8 @@
 /* ======================================================================== the cockpit */
 @media (min-width: 1280px) {
   .tm .an.dk .sv--cockpit {
-    grid-template-areas: "head head" "top rail" "body rail";
-    grid-template-rows: auto auto 1fr;
+    grid-template-areas: "head head" "top rail" "body rail" "low rail";
+    grid-template-rows: auto auto auto 1fr;
     gap: 8px 10px;
   }
 
@@ -318,6 +318,12 @@
   .tm .an.dk .sv--cockpit > .sv__top {
     grid-area: top;
     gap: 8px;
+  }
+  .tm .an.dk .sv--cockpit > .sv__low {
+    grid-area: low;
+    display: grid;
+    gap: 8px;
+    min-width: 0;
   }
   .tm .an.dk .sv--cockpit > .sv__body {
     grid-area: body;

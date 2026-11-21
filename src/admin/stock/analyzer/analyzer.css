@@ -1474,8 +1474,8 @@
 @media (min-width: 1280px) {
   .sv--desk {
     grid-template-columns: minmax(0, 1fr) clamp(390px, 25vw, 480px);
-    grid-template-areas: "top rail" "body rail";
-    grid-template-rows: auto 1fr;
+    grid-template-areas: "top rail" "body rail" "low rail";
+    grid-template-rows: auto auto 1fr;
     column-gap: 16px;
   }
   .sv--desk .sv__top {
@@ -1483,6 +1483,9 @@
   }
   .sv--desk .sv__body {
     grid-area: body;
+  }
+  .sv--desk .sv__low {
+    grid-area: low;
   }
   .sv--desk .sv__rail {
     grid-area: rail;
@@ -2483,8 +2486,8 @@
 }
 @media (min-width: 1280px) {
   .sv--desk {
-    grid-template-areas: "tick rail" "top rail" "body rail";
-    grid-template-rows: auto auto 1fr;
+    grid-template-areas: "tick rail" "top rail" "body rail" "low rail";
+    grid-template-rows: auto auto auto 1fr;
   }
   .sv--desk .sv__ticker {
     grid-area: tick;
