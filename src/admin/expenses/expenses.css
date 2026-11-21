@@ -2,7 +2,8 @@
    Expenses (src/admin/expenses/Expenses.jsx). Surfaces, ink and the accent are the private area's tokens, so the page
    follows dark and light. The eight GROUP colours are the page's own: one fixed colour a group, in the order the
    groups are stacked, checked for colour-blind separation between neighbours on this area's light card (#ffffff) and
-   dark card (#131a23). "Other" is grey. Rules that keep the page honest:
+   dark card (#181818, Kite's). "Other" is grey. The page is laid out like a Google Analytics report: scorecards with a
+   change and a sparkline, a line with the period before dashed beside it, a donut with its legend, ranked bars. Rules that keep the page honest:
      · a colour is a group's, never a rank's — filtering never repaints what is left
      · names and figures are written in ink; a swatch beside them carries the colour
      · touching marks are parted by 2px of the surface, never by a drawn border
@@ -33,22 +34,24 @@
   --ex-8: #e66767;
   --ex-0: #6f7b8a;
 }
-.ex-g--home {
+/* the groups, in the order their colours were checked (Stock Market first, since 21 Nov 2026; Health is part of
+   "Health & lifestyle", so eight colours still do) */
+.ex-g--stock {
   --g: var(--ex-1);
 }
-.ex-g--dharma {
+.ex-g--home {
   --g: var(--ex-2);
 }
-.ex-g--food {
+.ex-g--dharma {
   --g: var(--ex-3);
 }
-.ex-g--family {
+.ex-g--food {
   --g: var(--ex-4);
 }
-.ex-g--life {
+.ex-g--family {
   --g: var(--ex-5);
 }
-.ex-g--health {
+.ex-g--life {
   --g: var(--ex-6);
 }
 .ex-g--travel {
@@ -723,4 +726,632 @@
   .ex-head .adm-btn {
     display: none !important;
   }
+}
+
+/* ==========================================================================
+   The Google Analytics layout (21 Nov 2026)
+   ========================================================================== */
+.ex .ex-card {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: none;
+}
+.ex .ex-card__head h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+.ex-head__acts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+}
+.ex-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink-2);
+  font-size: var(--t-small);
+  cursor: pointer;
+}
+.ex-switch input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+}
+.ex-grid {
+  display: grid;
+  gap: 16px;
+  align-items: start;
+  min-width: 0;
+}
+.ex-grid--main {
+  grid-template-columns: minmax(0, 1.75fr) minmax(0, 1fr);
+}
+.ex-grid--two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.ex-grid > * {
+  min-width: 0;
+}
+.ex-tabs {
+  display: inline-flex;
+  border: 1px solid var(--line-2);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.ex-tabs button {
+  padding: 6px 14px;
+  border: 0;
+  background: transparent;
+  color: var(--ink-2);
+  font: inherit;
+  font-size: var(--t-small);
+  font-weight: 600;
+  cursor: pointer;
+}
+.ex-tabs button + button {
+  border-left: 1px solid var(--line-2);
+}
+.ex-tabs button[aria-selected="true"] {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.ex-tabs button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* scorecards */
+.ex-scores {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  overflow: hidden;
+}
+.ex-score {
+  position: relative;
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  min-width: 0;
+  padding: 16px 18px 14px;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  margin: 0 -1px -1px 0;
+}
+.ex-score--lead {
+  box-shadow: inset 0 3px 0 var(--accent);
+}
+.ex-score__k {
+  overflow: hidden;
+  color: var(--ink-2);
+  font-size: var(--t-small);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ex-score__v {
+  font-size: clamp(1.45rem, 2vw, 1.85rem);
+  font-weight: 400;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+.ex-score--lead .ex-score__v {
+  font-size: clamp(1.7rem, 2.6vw, 2.3rem);
+}
+.ex-score__sub {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  min-width: 0;
+}
+.ex-score__sub small {
+  min-width: 0;
+  color: var(--ink-3);
+  font-size: var(--t-small);
+  overflow-wrap: anywhere;
+}
+.ex-delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--ink-2);
+  font-size: var(--t-small);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.ex-delta.is-more {
+  background: var(--down-bg);
+  color: var(--down-ink);
+}
+.ex-delta.is-less {
+  background: var(--up-bg);
+  color: var(--up-ink);
+}
+.ex-spark {
+  position: relative;
+  display: block;
+  height: 32px;
+  margin-top: 6px;
+}
+.ex-spark svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.ex-spark__line {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.ex-spark__area {
+  fill: var(--accent);
+  opacity: 0.1;
+}
+.ex-spark__dot {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  background: var(--accent);
+  transform: translate(-50%, -50%);
+}
+.ex-spark--empty {
+  height: 32px;
+}
+
+/* the line */
+.ex-line,
+.ex-chart {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.ex-line__body,
+.ex-chart__body {
+  display: grid;
+  grid-template-columns: 3.4em minmax(0, 1fr);
+  gap: 8px;
+  padding-top: 12px;
+}
+.ex-axis-y {
+  position: relative;
+}
+.ex-axis-y span {
+  position: absolute;
+  right: 0;
+  transform: translateY(50%);
+  color: var(--ink-3);
+  font-size: var(--t-tag);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  white-space: nowrap;
+}
+/* a gridline */
+i.ex-gl {
+  position: absolute;
+  left: 0;
+  right: 0;
+  display: block;
+  height: 1px;
+  background: var(--line);
+}
+.ex-line__plot {
+  position: relative;
+  border-bottom: 1px solid var(--line-2);
+}
+.ex-line__plot svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.ex-line__cur {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.ex-line__area {
+  fill: var(--accent);
+  opacity: 0.1;
+}
+.ex-line__prev {
+  fill: none;
+  stroke: var(--ink-3);
+  stroke-width: 2;
+  stroke-dasharray: 5 5;
+  stroke-linejoin: round;
+}
+.ex-line__cross {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--line-2);
+  pointer-events: none;
+}
+.ex-line__dot {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  background: var(--accent);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+.ex-line__dot--prev {
+  background: var(--ink-3);
+}
+.ex-line__hits {
+  position: absolute;
+  inset: 0;
+  display: flex;
+}
+.ex-line__hits button {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.ex-line__hits button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.ex-axis-x {
+  position: relative;
+  height: 1.4em;
+  margin-left: calc(3.4em + 8px);
+}
+.ex-axis-x span {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  color: var(--ink-3);
+  font-size: var(--t-tag);
+  white-space: nowrap;
+}
+.ex-axis-x span:first-child {
+  transform: none;
+}
+.ex-axis-x span:last-child {
+  transform: translateX(-100%);
+}
+.ex-key--cur {
+  background: var(--accent);
+}
+.ex-key--prev {
+  background: repeating-linear-gradient(90deg, var(--ink-3) 0 4px, transparent 4px 7px);
+}
+.ex-tip__big {
+  color: var(--ink);
+  font-size: var(--t-title);
+}
+
+/* the donut */
+.ex-donut {
+  display: grid;
+  grid-template-columns: minmax(150px, 200px) minmax(0, 1fr);
+  gap: 18px;
+  align-items: center;
+}
+.ex-donut__ring {
+  position: relative;
+  width: 100%;
+  max-width: 200px;
+  aspect-ratio: 1;
+}
+.ex-donut__ring svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.ex-donut__track {
+  fill: none;
+  stroke: var(--surface-2);
+  stroke-width: 28;
+}
+.ex .ex-donut__arc {
+  fill: none;
+  background: none;
+  stroke: var(--g, var(--ex-0));
+  stroke-width: 28;
+  cursor: pointer;
+  transition: opacity 0.2s ease, stroke-width 0.2s ease;
+}
+.ex .ex-donut__arc.is-hover {
+  stroke-width: 32;
+}
+.ex .ex-donut__arc.is-dim {
+  opacity: 0.25;
+}
+.ex-donut__mid {
+  position: absolute;
+  inset: 22%;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  pointer-events: none;
+}
+.ex-donut__mid span {
+  overflow: hidden;
+  color: var(--ink-3);
+  font-size: var(--t-tag);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ex-donut__mid b {
+  font-size: 1.35rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+.ex-donut__mid small {
+  color: var(--ink-3);
+  font-size: var(--t-tag);
+}
+.ex-donut__legend {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ex-donut__legend button {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) auto 2.8em;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--t-small);
+  text-align: left;
+  cursor: pointer;
+}
+.ex-donut__legend button:hover,
+.ex-donut__legend li.is-on button {
+  background: var(--surface-2);
+}
+.ex-donut__legend button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.ex-donut__legend li.is-dim {
+  opacity: 0.55;
+}
+.ex-donut__name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.ex-donut__legend b {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.ex-donut__legend small {
+  color: var(--ink-3);
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* ranked bars */
+.ex-rank {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ex-rank__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(48px, 1fr) auto 3.4em;
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--t-small);
+  text-align: left;
+}
+button.ex-rank__row {
+  cursor: pointer;
+}
+button.ex-rank__row:hover {
+  background: var(--surface-2);
+}
+button.ex-rank__row:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.ex-rank__name {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+.ex-rank__name span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.ex-rank__bar {
+  display: block;
+  height: 10px;
+  border-radius: 0 4px 4px 0;
+  background: var(--surface-2);
+}
+.ex-rank__bar i {
+  display: block;
+  height: 100%;
+  border-radius: 0 4px 4px 0;
+  background: var(--accent);
+}
+.ex-rank b {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.ex-rank small {
+  color: var(--ink-3);
+  text-align: right;
+  white-space: nowrap;
+}
+.ex-rank__more {
+  padding: 4px 8px;
+  color: var(--ink-3);
+  font-size: var(--t-small);
+}
+.ex-card--stock .ex-rank__bar i {
+  background: var(--ex-1);
+}
+.ex-mini {
+  display: grid;
+  justify-items: end;
+  text-align: right;
+}
+.ex-mini b {
+  font-size: 1.3rem;
+  font-weight: 400;
+}
+.ex-mini small {
+  color: var(--ink-3);
+  font-size: var(--t-small);
+}
+
+/* columns: the days of the week */
+.ex-colset {
+  display: grid;
+  gap: 6px;
+}
+.ex-colset__plot {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  align-items: end;
+  gap: 8px;
+  border-bottom: 1px solid var(--line-2);
+}
+.ex-colset__c {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 0;
+  height: 100%;
+  border-radius: 6px 6px 0 0;
+  outline: none;
+}
+.ex-colset__c.is-on {
+  background: color-mix(in srgb, var(--ink) 5%, transparent);
+}
+.ex-colset__c:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+.ex-colset__c i {
+  display: block;
+  width: min(24px, 70%);
+  border-radius: 4px 4px 0 0;
+  background: var(--accent);
+}
+.ex-colset__v {
+  margin-bottom: 4px;
+  color: var(--ink-2);
+  font-size: var(--t-tag);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.ex-colset__x {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8px;
+  color: var(--ink-3);
+  font-size: var(--t-tag);
+  text-align: center;
+}
+
+@media (max-width: 1180px) {
+  .ex-grid--main {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 860px) {
+  .ex-grid--two {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 520px) {
+  .ex-donut {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
+  }
+  .ex-donut__legend {
+    width: 100%;
+  }
+  .ex-rank__row {
+    grid-template-columns: minmax(0, 1fr) auto 3em;
+  }
+  .ex-rank__bar {
+    display: none;
+  }
+}
+
+/* "Where it went" on a laptop, where its card is narrow: a smaller ring, and each
+   legend row gives the group's name the whole line with its figures under it,
+   so no name is squeezed into a ragged column (21 Nov 2026) */
+.ex-card--split {
+  container: ex-split / inline-size;
+}
+@container ex-split (min-width: 380px) and (max-width: 560px) {
+  .ex-donut {
+    grid-template-columns: minmax(120px, 170px) minmax(0, 1fr);
+    gap: 14px;
+  }
+  .ex-donut__legend button {
+    grid-template-columns: 10px minmax(0, 1fr) auto;
+    row-gap: 1px;
+  }
+  .ex-donut__name {
+    grid-column: 2 / -1;
+  }
+  .ex-donut__legend b {
+    grid-column: 2;
+    justify-self: start;
+  }
+  .ex-donut__legend small {
+    grid-column: 3;
+  }
+}
+/* the name in the ring's middle wraps rather than ending in "…" */
+.ex-donut__mid span {
+  overflow: visible;
+  line-height: 1.25;
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }

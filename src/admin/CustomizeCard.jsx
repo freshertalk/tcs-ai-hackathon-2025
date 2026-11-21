@@ -14,7 +14,7 @@ import { workspacesFor } from "./workspaces";
 import { useDialog } from "./dialog/DialogProvider";
 
 const ACCENTS = [
-  ["blue", "Blue", "#6aaeee"],
+  ["blue", "Zerodha blue", "#4987ee"],
   ["teal", "Teal", "#45c7c0"],
   ["green", "Green", "#8fd16a"],
   ["amber", "Amber", "#e7b24a"],

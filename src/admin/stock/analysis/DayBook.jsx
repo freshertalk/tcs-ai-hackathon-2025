@@ -74,7 +74,7 @@ function Dashboard({ an, days, onOpen, settings }) {
   }
   const s = d.series;
   const xs = s.map((r) => r.date);
-  const curve = metric === "gross" ? [{ label: "Gross (before charges)", values: s.map((r) => r.cumGross), c: "b", area: false }] : metric === "both" ? [{ label: "Net (after charges & taxes)", values: s.map((r) => r.cumNet), c: "a", area: true }, { label: "Gross (before charges)", values: s.map((r) => r.cumGross), c: "b", dashed: true }] : [{ label: "Net (after charges & taxes)", values: s.map((r) => r.cumNet), c: "a", area: true }];
+  const curve = metric === "gross" ? [{ label: "Realised P&L (before charges & taxes)", values: s.map((r) => r.cumGross), c: "b", area: false }] : metric === "both" ? [{ label: "Net realised P&L (after charges & taxes)", values: s.map((r) => r.cumNet), c: "a", area: true }, { label: "Realised P&L (before charges & taxes)", values: s.map((r) => r.cumGross), c: "b", dashed: true }] : [{ label: "Net realised P&L (after charges & taxes)", values: s.map((r) => r.cumNet), c: "a", area: true }];
   const c = t.charges;
   const donut = [
     { label: "Government taxes & statutory (STT, GST, stamp duty, SEBI)", value: c.statutory, c: "warn" },
@@ -84,7 +84,7 @@ function Dashboard({ an, days, onOpen, settings }) {
   return (
     <>
       <div className="ta-kpis">
-        <Kpi label="Net profit / loss" value={rsSigned(t.net)} cls={tone(t.net)} sub={`${t.days} trading day${t.days === 1 ? "" : "s"}`} change={p ? delta(t.net, p.net) : null} spark={s.map((r) => r.cumNet)} tip="Total profit − total loss − charges and taxes, for the days shown." />
+        <Kpi label="Net realised P&L" value={rsSigned(t.net)} cls={tone(t.net)} sub={`${t.days} trading day${t.days === 1 ? "" : "s"}`} change={p ? delta(t.net, p.net) : null} spark={s.map((r) => r.cumNet)} tip="Total profit − total loss − charges and taxes, for the days shown." />
         <Kpi label="Total profit" value={rs(t.grossProfit)} cls="is-up" sub={`${t.wins} winning trades`} change={p ? delta(t.grossProfit, p.grossProfit) : null} spark={s.map((r) => r.grossProfit)} c="up" tip="The sum of every trade that closed above zero, before charges." />
         <Kpi label="Total loss" value={rs(-t.grossLoss)} cls="is-down" sub={`${t.losses} losing trades`} change={p ? delta(t.grossLoss, p.grossLoss, { good: "down" }) : null} spark={s.map((r) => -r.grossLoss)} c="down" tip="The sum of every trade that closed below zero, before charges." />
         <Kpi label="Charges & taxes" value={rs(-c.total)} cls="is-warn" sub={t.chargesPctOfGross !== null ? `${pct1(t.chargesPctOfGross)} of gross profit` : `${rs(c.statutory)} government taxes`} change={p ? delta(c.total, p.charges.total, { good: "down" }) : null} spark={s.map((r) => -r.charges)} c="warn" tip="Brokerage, STT, exchange fees, SEBI fee, GST, stamp duty and DP charges. An estimate from Zerodha's published rates; the contract note is the truth." />
@@ -103,7 +103,7 @@ function Dashboard({ an, days, onOpen, settings }) {
         <header className="ta-card__h">
           <h3>Cumulative profit & loss</h3>
           <div className="ta-seg" role="group" aria-label="Which curve">
-            {[["net", "Net"], ["gross", "Gross"], ["both", "Both"]].map(([id, l]) => (
+            {[["net", "Net realised P&L"], ["gross", "Realised P&L"], ["both", "Both"]].map(([id, l]) => (
               <button key={id} type="button" aria-pressed={metric === id} onClick={() => setMetric(id)}>
                 {l}
               </button>
@@ -279,7 +279,7 @@ const COLS = [
   { id: "profit", label: "Profit", num: true, get: (d) => d.summary.grossProfit },
   { id: "loss", label: "Loss", num: true, get: (d) => d.summary.grossLoss },
   { id: "charges", label: "Charges & taxes", num: true, get: (d) => d.summary.charges.total },
-  { id: "net", label: "Net", num: true, get: (d) => d.summary.net },
+  { id: "net", label: "Net realised P&L", num: true, get: (d) => d.summary.net },
   { id: "netpct", label: "Net % of margin", num: true, get: (d) => d.summary.netPctOfMargin },
   { id: "margin", label: "Margin left", num: true, get: (d) => (d.margin ? d.margin.available : null) },
   { id: "score", label: "Process", num: true, get: (d) => d.score },
@@ -540,7 +540,7 @@ function DayBody({ d, onSaved }) {
   return (
     <>
       <div className="ta-kpis ta-kpis--day">
-        <Kpi label="Net profit / loss" value={rsSigned(s.net)} cls={tone(s.net)} sub={s.netPctOfMargin !== null ? `${s.netPctOfMargin > 0 ? "+" : ""}${s.netPctOfMargin}% of opening margin` : null} />
+        <Kpi label="Net realised P&L" value={rsSigned(s.net)} cls={tone(s.net)} sub={s.netPctOfMargin !== null ? `${s.netPctOfMargin > 0 ? "+" : ""}${s.netPctOfMargin}% of opening margin` : null} />
         <Kpi label="Total profit" value={rs(s.grossProfit)} cls="is-up" sub={`${s.wins} winning trade${s.wins === 1 ? "" : "s"}`} />
         <Kpi label="Total loss" value={rs(-s.grossLoss)} cls="is-down" sub={`${s.losses} losing trade${s.losses === 1 ? "" : "s"}`} />
         <Kpi label="Charges & taxes" value={rs(-c.total)} cls="is-warn" sub={s.chargesPctOfGross !== null ? `${pct1(s.chargesPctOfGross)} of gross profit` : "estimate"} />
@@ -756,9 +756,9 @@ function DayBody({ d, onSaved }) {
                   <th scope="col" className="is-num">Held</th>
                   <th scope="col" className="is-num">Entry</th>
                   <th scope="col" className="is-num">Exit</th>
-                  <th scope="col" className="is-num">Profit / loss</th>
-                  <th scope="col" className="is-num">Charges</th>
-                  <th scope="col" className="is-num">Net</th>
+                  <th scope="col" className="is-num">Realised P&amp;L</th>
+                  <th scope="col" className="is-num">Charges &amp; taxes</th>
+                  <th scope="col" className="is-num">Net realised P&amp;L</th>
                 </tr>
               </thead>
               <tbody>

@@ -18,6 +18,8 @@ import { CommandBar, PrintReport, ReturnsTab, TABS, downloadJson } from "./Journ
 import { LineChart } from "../analysis/charts";
 import { everyVisible } from "../../visible";
 import DayBook from "../analysis/DayBook";
+import { PnlBySymbol, PnlSummary, unrealisedOf } from "./PnlReport";
+import { useLiveBook } from "./liveBook";
 import "./trade.css";
 const IST = 5.5 * 3600 * 1000;
 const day = (ms) => new Date(ms + IST).toISOString().slice(0, 10);
@@ -50,7 +52,7 @@ function DayFigures({ k, d }) {
         <b>{longDay(k)}</b>
         {d ? (
           <span>
-            {d.trades} trade{d.trades === 1 ? "" : "s"} · net <b className={tone(d.net)}>{sMoney(d.net)}</b>
+            {d.trades} trade{d.trades === 1 ? "" : "s"} · net realised P&amp;L <b className={tone(d.net)}>{sMoney(d.net)}</b>
           </span>
         ) : (
           <span>no trades</span>
@@ -58,8 +60,8 @@ function DayFigures({ k, d }) {
       </p>
       {d && (
         <dl>
-          <div data-tip="Profit or loss of the day's closed trades, before any charges.">
-            <dt>Profit / loss</dt>
+          <div data-tip="Profit or loss of the day's closed trades, before charges & taxes (Zerodha's Realised P&L).">
+            <dt>Realised P&amp;L</dt>
             <dd className={tone(d.gross)}>{sMoney(d.gross)}</dd>
           </div>
           <div data-tip="STT, exchange fee, SEBI fee, GST, stamp duty and DP charge: the taxes and statutory fees (an estimate).">
@@ -67,7 +69,7 @@ function DayFigures({ k, d }) {
             <dd>{sMoney(-d.taxes)}</dd>
           </div>
           <div data-tip="Brokerage plus all the taxes above: everything the day cost (an estimate).">
-            <dt>Brokerage + taxes</dt>
+            <dt>Charges &amp; taxes</dt>
             <dd>{sMoney(-d.charges)}</dd>
           </div>
         </dl>
@@ -170,8 +172,8 @@ function Breakdown({ title, rows, tip, limit = 12 }) {
             <th scope="col" className="is-num">
               Win %
             </th>
-            <th scope="col" className="is-num">
-              Net
+            <th scope="col" className="is-num" data-tip="Net realised P&L: after charges & taxes.">
+              Net P&amp;L
             </th>
             <th scope="col">
               <span className="adm-sr">Bar</span>
@@ -348,7 +350,7 @@ function ReviewPanel({ sel, label }) {
 }
 
 /* ---------------------------------------------------------------- view */
-const TRIP_HEAD = ["Entry", "Exit", "Symbol", "Exchange", "Side", "Product", "Qty", "Entry avg", "Exit avg", "Hold (min)", "Gross P&L", "Brokerage", "Charges", "Net P&L", "Setup", "Mistakes", "Note", "Rating"];
+const TRIP_HEAD = ["Entry", "Exit", "Symbol", "Exchange", "Side", "Product", "Qty", "Entry avg", "Exit avg", "Hold (min)", "Realised P&L", "Brokerage", "Charges & taxes", "Net realised P&L", "Setup", "Mistakes", "Note", "Rating"];
 const stamp = (ms) => (ms ? new Date(ms + IST).toISOString().slice(0, 16).replace("T", " ") : "");
 
 const PART_KEY = "vpt.journal.part";
@@ -494,6 +496,15 @@ function TradesJournal() {
   const period = d && d.period;
   const label = period ? period.label : "";
   const fileTag = period ? `${period.fromDay || "start"}_${period.toDay}` : "journal";
+  // Zerodha's P&L report, figure for figure: the open positions come from the live book when the period reaches today
+  const book = useLiveBook();
+  const unreal = useMemo(() => unrealisedOf({ s, period, book }), [s, period, book]);
+  const symbolCsv = (rows) =>
+    downloadCsv(
+      `pnl-by-symbol-${fileTag}.csv`,
+      ["Symbol", "Qty.", "Buy avg.", "Buy value", "Sell avg.", "Sell value", "Realised P&L", "Unrealised P&L"],
+      rows.map((r) => [r.key, r.qty, r.buyAvg ?? "", r.buyValue ?? "", r.sellAvg ?? "", r.sellValue ?? "", r.gross, isNum(r.unrealised) ? r.unrealised : ""])
+    );
   const bySym = useMemo(() => (s && s.by && s.by.symbol ? [...s.by.symbol.slice(0, 8), ...s.by.symbol.slice(-4).filter((x) => !s.by.symbol.slice(0, 8).includes(x))] : []), [s]);
   const monthRows = useMemo(() => {
     if (!a) return null;
@@ -613,6 +624,7 @@ function TradesJournal() {
           <Hero s={s} a={a} rt={rt} label={label} period={period} onRetro={retro.run} busy={retro.busy} onCapital={() => goTab("returns")} />
           <Alert>{retro.err}</Alert>
           {retro.r && <Retro r={retro.r} list={retro.list} onOpen={retro.open} onClose={retro.close} />}
+          <PnlSummary s={s} unrealised={unreal} />
           <dl className="jp2-tiles jr-glance">
             <div className="jp2-tile">
               <dt>Expectancy</dt>
@@ -632,9 +644,9 @@ function TradesJournal() {
               <small>payoff {s.payoff === null ? "—" : num(s.payoff)}</small>
             </div>
             <div className="jp2-tile">
-              <dt>Charges</dt>
+              <dt>Charges &amp; taxes</dt>
               <dd>{sMoney(-s.charges)}</dd>
-              <small>{a && a.summary.chargesPct !== null ? `${num(a.summary.chargesPct, 0)}% of the gross profit` : "brokerage and taxes"}</small>
+              <small>{a && a.summary.chargesPct !== null ? `${num(a.summary.chargesPct, 0)}% of the realised profit` : "brokerage, taxes and fees"}</small>
             </div>
             <div className="jp2-tile">
               <dt>Deepest fall</dt>
@@ -665,6 +677,7 @@ function TradesJournal() {
             <p className="jc-info">Green days made money, red days lost money; the deeper the colour, the bigger the amount. Point at a day for its figures.</p>
             <Calendar days={s.calendar} fromDay={period && period.fromDay} toDay={period && period.toDay} />
           </section>
+          <PnlBySymbol rows={s.by.symbol} unrealised={unreal} onCsv={symbolCsv} updated={updatedAt ? new Date(updatedAt).toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }) : ""} />
 
         </>
       )}
@@ -680,11 +693,11 @@ function TradesJournal() {
               <b>All the numbers</b> <small>— every figure of this period, group by group, for a closer look</small>
             </summary>
             <dl className="tr-tiles jr-tiles">
-              <div className={tone(s.net)} data-tip="Profit after estimated charges on trades closed in this period.">
-                <dt>Net P&amp;L</dt>
+              <div className={tone(s.net)} data-tip="Realised P&L minus the estimated charges & taxes, on trades closed in this period (Zerodha's Net realised P&L).">
+                <dt>Net realised P&amp;L</dt>
                 <dd>{sMoney(s.net)}</dd>
                 <small>
-                  gross {sMoney(s.gross)} · charges {sMoney(-s.charges)}
+                  realised P&amp;L {sMoney(s.gross)} · charges &amp; taxes {sMoney(-s.charges)}
                 </small>
               </div>
               <div className={tone(s.netPct)} data-tip="Net profit or loss as a share of the money put into the trades: each trade's size at its entry price, added up. A trade done many times counts each time, so this is the return on the money traded, not on your account.">
@@ -742,7 +755,7 @@ function TradesJournal() {
                     </small>
                   </div>
                   <div className={a.summary.chargesPct !== null && a.summary.chargesPct > 30 ? "is-down" : ""} data-tip="Brokerage and taxes as a share of the gross profit: how much of what you made the costs took.">
-                    <dt>Charges vs gross</dt>
+                    <dt>Charges &amp; taxes vs realised P&amp;L</dt>
                     <dd>{a.summary.chargesPct === null ? "—" : `${num(a.summary.chargesPct, 1)}%`}</dd>
                     <small>
                       brokerage {sMoney(-a.summary.brokerage)} · taxes {sMoney(-a.summary.taxes)}
@@ -765,7 +778,7 @@ function TradesJournal() {
             </dl>
             <p className="vd-note">Groups with fewer than 8 trades are greyed: too few to trust.</p>
             <div className="jr-bds">
-              <Breakdown title="By stock" rows={bySym} tip="Net after charges per stock: best first, the worst at the end." />
+              <Breakdown title="By stock" rows={bySym} tip="Net realised P&L (after charges & taxes) per stock: best first, the worst at the end." />
               <Breakdown title="By hour of entry" rows={s.by.hour} tip="When you enter, and how it has turned out." />
               <Breakdown title="By weekday" rows={s.by.weekday} tip="Day of the week of the entry." />
               <Breakdown title="Long or short" rows={s.by.side} />
@@ -804,7 +817,7 @@ function TradesJournal() {
               ))}
             </select>
             <span className="jr-tools__sum">
-              {shown.length} of {d.trips.length} trades · net <b className={tone(shownNet)}>{sMoney(shownNet)}</b>
+              {shown.length} of {d.trips.length} trades · net realised P&amp;L <b className={tone(shownNet)}>{sMoney(shownNet)}</b>
             </span>
           </div>
           <div className="bt__scroll tr">
@@ -823,8 +836,8 @@ function TradesJournal() {
                   <th scope="col" className="is-num">
                     Hold
                   </th>
-                  <th scope="col" className="is-num">
-                    Net
+                  <th scope="col" className="is-num" data-tip="Realised P&L minus the estimated charges & taxes.">
+                    Net realised P&amp;L
                   </th>
                   <th scope="col" className="is-num" data-tip="MAE: how far the trade went against you. MFE: how far it went your way. Captured: the share of that best move you kept.">
                     MAE / MFE
@@ -855,7 +868,7 @@ function TradesJournal() {
                         {num(t.entryAvg)} → {t.exitAvg === null ? "—" : num(t.exitAvg)}
                       </td>
                       <td className="is-num">{hold(t.holdMin)}</td>
-                      <td className={`is-num ${tone(t.net)}`} title={`gross ${sMoney(t.pnl)} · charges ${sMoney(-t.charges)}`}>
+                      <td className={`is-num ${tone(t.net)}`} title={`realised P&L ${sMoney(t.pnl)} · charges & taxes ${sMoney(-t.charges)}`}>
                         {t.open ? "open" : sMoney(t.net)}
                       </td>
                       <td className="is-num">
@@ -923,7 +936,7 @@ function TradesJournal() {
               </label>
             </div>
           )}
-          <p className="vd-note">Charges are estimated from Zerodha’s published equity rates (brokerage, STT, exchange and SEBI fees, GST, stamp duty, DP charge); your contract note is the truth. F&amp;O charges are not estimated.</p>
+          <p className="vd-note">Charges &amp; taxes are estimated from Zerodha’s published equity rates (brokerage, STT, exchange and SEBI fees, GST, stamp duty, DP charge); your contract note is the truth. F&amp;O charges are not estimated.</p>
         </section>
       )}
 

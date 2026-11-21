@@ -43,7 +43,7 @@ buttons again in a page's own CSS — only place them (margins, width, row heigh
 | Ghost | `adm-btn adm-btn--ghost` | quiet actions in a header or toolbar |
 | Danger | `adm-btn adm-btn--danger` | anything that cannot be undone |
 | Small | add `adm-btn--sm` | inside cards, tables and tool rows |
-| Trading | `tr-btn tr-btn--buy` / `--sell` / `--exit` | Buy (deep blue), Sell (deep orange), Exit (ink) |
+| Trading | `tr-btn tr-btn--buy` / `--sell` / `--exit` | Buy (Zerodha blue `#0059c1`), Sell (Kite orange, darkened to `#cf4113` so white text reads), Exit (ink) |
 | Chips | `.jp-chips`, `.sv__ranges`, `.sv__tabs`, `.sr-views`, `.pc__toggles` rows | periods, kinds, tabs inside a page |
 
 Heights: 40 px (small 34 px, terminal small 32 px) with a mouse; **44 px (small 40 px) on a touch
@@ -58,7 +58,7 @@ page on 15 November 2026. Rules that keep it so:
 - Take text colours from the tokens (`--ink`, `--ink-2`, `--ink-3`, `--up-ink`, `--down-ink`,
   `--warn-ink`, `--accent`), never from a chart or series colour. Light-theme tokens live in
   `.adm {}` in `src/admin/stock/analyzer/analyzer.css`; dark ones in `.adm[data-desk="dark"]`.
-- Text on a filled accent uses `--on-accent` (white on the light theme's navy, near-black on the dark
+- Text on a filled accent uses `--on-accent` (white on the light theme's Zerodha blue, near-black on the dark
   theme's light blue). Never hard-code white text on `--accent`.
 - Gold (Mandir) is `#8a6100` / `#7a5600` on light and `#d9a93a` / `#e8b84a` on dark.
 - Numbers drawn on a coloured cell (calendar days, heatmap values) sit on a small surface-coloured
@@ -84,9 +84,45 @@ the reasoning are on his private Kundali page (`/me/kundali`, superadmins only) 
 | Gold | `#c8962e` | `--gold`: rules and glows only, never small text |
 | Deeper sandalwood + saffron copper | `#f3e7d2`, `#8a3c08` | the writer's band (`[data-theme="write"]`) |
 
-**The private area (/me and every page under it) keeps the colours it always had** — the owner tried the same family
-there on 20 November 2026 and chose to go back the same day. So: light porcelain `#f4f5f7` with navy `#1e4b7a`, dark
-`#0b0f14` with light blue `#6aaeee`, the logo on its dark-blue badge, blue as the built-in accent.
+**The private area (/me and every page under it) wears Zerodha's theme** (the owner's choice, 21 November 2026:
+"same color, same text, same theme"). On 20 November he had tried the Kundali family there and gone back to navy the
+same day; a day later he asked for Zerodha's look instead. The values are **Zerodha Kite's own**, read from Kite's
+published stylesheet (`:root` and `[data-theme=dark]`), plus Zerodha Console's primary blue `#0059c1`; Kite's font,
+Open Sans, was already the private area's.
+
+| Role | Light | Dark | Kite's own value, and why it differs (if it does) |
+|---|---|---|---|
+| Page / panel | `#ffffff` / `#ffffff`, band `#fafafb` | `#111111` / `#181818`, band `#242424` | the same |
+| Text | `#444444` | `#bbbbbb` | the same |
+| Second text | `#555555` | `#9e9e9e` | Kite has none between its two greys |
+| Muted text | `#6b6b6b` | `#8f8f8f` | Kite's `#9b9b9b` / `#666` are too faint to read (2.8:1, 3.1:1) |
+| Lines | `#eeeeee`, `#dddddd` | `#232325`, `#363636` | the same |
+| Accent (links, selected, Buy) | `#0059c1` | `#4f8cf0` | Kite's `#4184f3` reads at 3.6:1 on white, so Console's own blue; dark `#4987ee` a touch lighter |
+| Orange (active tab, eyebrows, Sell) | `#c73a0e` text, `#ff5722` underline | `#dc6a45` | Kite's `#ff5722` is 3.2:1 as text; it is used exact for the underline |
+| Green — up, profit | `#2c7f32` text, `#4caf50` fills | `#62a464` | Kite's `#4caf50` is 2.8:1 as text; exact for bars and candles |
+| Red — down, loss | `#c53f3a` text, `#df514c` fills | `#e66a66` | Kite's `#df514c` is 3.9:1 as text; exact for fills |
+| Amber — caution | `#ff8f00` fills, `#7a4f00` text | `#ff8f00`, `#ffb547` text | Kite's amber |
+
+Every text shade above is Kite's own colour made just dark (or, in dark, light) enough to read at 4.5:1 or better —
+the owner asked on 15 November 2026 that every text be readable in both themes. A page-by-page audit after the change
+(Desk, Journal, /me, Expenses, Kundali, Advisor, Research, Admin users; light and dark) found nothing below that.
+
+The look — flat white panels, hairline borders, 3–4px corners, no glows or glass, headings in Open Sans, the selected tab
+in orange with an orange underline as in Kite's top bar — is one stylesheet loaded last, `src/admin/kite.css`. Delete it
+to bring back the softer shapes; the colours stay with the tokens in `src/admin/stock/analyzer/analyzer.css`. Built-in
+accent "blue" is now Zerodha blue; the other accents under Customize still override it.
+
+**No text overflows (2026-11-21).** Text wraps rather than spilling out of its box, being cut off, or ending in "…";
+no page scrolls sideways on a phone. The rules that guarantee it sit in `src/admin/fit.css`, loaded after `kite.css`.
+A new label that must stay on one line goes in a box that scrolls, never behind `text-overflow: ellipsis`.
+
+**Zerodha's words.** Every profit-and-loss figure uses the terms of Zerodha's own reports: **Realised P&L** (before costs),
+**Charges & taxes**, **Other credits & debits**, **Net realised P&L** (after costs), **Unrealised P&L** (open positions),
+and on the Positions page Kite's **Total P&L**, **Day's P&L**, **Margin available**, **Margins used**. The Journal opens
+with Zerodha's five-figure P&L strip and ends with its per-symbol table (Qty., Buy avg., Buy value, Sell avg., Sell value,
+Realised P&L, Unrealised P&L). "Other credits & debits" shows "—": Zerodha's API does not give them.
+
+DrishtiAI keeps its own name and logo; nothing of Zerodha's brand (name, logo) is copied into the private area.
 
 - The public theme sits on the private area's own root element (`<div data-theme="tech" class="adm">`), so the
   private area states its light colours in full in `.adm[data-theme="tech"]`

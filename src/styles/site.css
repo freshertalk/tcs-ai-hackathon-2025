@@ -2101,6 +2101,16 @@ h4 {
 .ct__v a {
   transition: color 0.35s var(--ease);
 }
+/* the email address never spills out of its column: the cell takes two
+   columns where the row has several, and a long address may still break */
+.ct__v {
+  overflow-wrap: anywhere;
+}
+@media (min-width: 641px) {
+  .ct__row > .ct__wide {
+    grid-column: span 2;
+  }
+}
 .ct__v a:hover {
   color: var(--accent);
 }

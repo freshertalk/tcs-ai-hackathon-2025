@@ -143,3 +143,22 @@ test("the file to keep: one row an entry, oldest first, safe to open in a spread
   expect(lines[5]).toBe('2026-11-19,50.00,Other,Other,"\'=HYPERLINK(""http://x"",""click"")",Cash,"said ""hello"", twice"');
   expect(lines.length).toBe(6);
 });
+
+test("for the analytics: by category, by weekday, by way of paying, one group's total, and the period before laid alongside", async () => {
+  const { byCategory, byWeekday, byMethod, groupTotal, alignPrev } = await import("./ledger");
+  const nov = within(ITEMS, periodRange({ kind: "month", ym: "2026-11" }, TODAY));
+  const c = byCategory(nov, CATS);
+  expect(c.map((r) => [r.label, r.total, r.count, r.group])).toEqual([["Rent", 25000, 1, "home"], ["Puja & temple", 2100, 1, "dharma"], ["Groceries", 1250.5, 1, "food"], ["Eating out", 640, 1, "food"]]);
+  expect(c.reduce((a, r) => a + r.share, 0)).toBeCloseTo(1, 6);
+  // 1 Nov 2026 was a Sunday, 3 Nov a Tuesday, 18 Nov a Wednesday
+  const w = byWeekday(nov);
+  expect(w.map((r) => r.short)).toEqual(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]);
+  expect(w.map((r) => r.total)).toEqual([0, 1890.5, 2100, 0, 0, 0, 25000]);
+  expect(w[1].count).toBe(2);
+  const m = byMethod(nov, METHODS);
+  expect(m.map((r) => [r.label, r.total])).toEqual([["netbanking", 25000], ["UPI", 2100], ["Cash", 1250.5], ["Card", 640]]);
+  expect(groupTotal(nov, CATS, "food")).toBe(1890.5);
+  expect(groupTotal(nov, CATS, "money")).toBe(0);
+  expect(alignPrev([{ total: 1 }, { total: 2 }, { total: 3 }], [{ total: 9 }, { total: 8 }])).toEqual([9, 8, null]);
+  expect(alignPrev([{ total: 1 }], null)).toEqual([null]);
+});

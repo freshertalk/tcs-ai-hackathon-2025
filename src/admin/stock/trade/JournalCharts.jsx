@@ -234,7 +234,7 @@ export function Hero({ s, a, rt = null, label, period, onRetro, busy, onCapital 
         </li>
         <li>
           <span aria-hidden="true">💸</span>
-          <b>{rs(s.charges)}</b> paid in brokerage and taxes
+          <b>{rs(s.charges)}</b> paid in charges &amp; taxes
         </li>
         {a && a.summary.bestDay && (
           <li>

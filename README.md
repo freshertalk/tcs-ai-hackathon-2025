@@ -77,22 +77,41 @@ works the Vimshottari dasha out for today (`jyotish.js`, checked against the pri
 adds and removes the papers. A chart is carried to another server with Export / Import on the page.
 
 **Expenses (2026-11-20; `server/expenses.js`, `src/admin/expenses/`).** The owner's expense tracker, under Personal on
-/me, superadmins only (one shared ledger). An entry is a day, an amount, one of 31 categories in 8 groups, a few words,
+/me, superadmins only (one shared ledger). An entry is a day, an amount, one of 52 categories in 8 groups, a few words,
 a way of paying and a note; routes `GET|POST /api/admin/expenses`, `PUT|DELETE /api/admin/expenses/:id`; one record per
 entry in collection `expenses`. The page filters by period, words, group and way of paying, and everything under the
 filter row — figures, the stacked chart (a bar a day, month or year), the split by group and category, the sortable list
 — describes the same entries; the whole ledger is also tabled month by month and year by year, and what is shown can be
 exported as CSV. The arithmetic is `ledger.js` (pure, tested); the group colours were validated for colour-blind
 separation on the private area's surfaces.
+**Since 2026-11-21:** a **Stock Market** group of trading-desk costs (Kite API, ChatGPT, Claude, AI API tokens, charting
+data, broadband, mobile, IT hardware, office rent and setup, Demat AMC, courses, CA and more), Health merged into
+"Health & lifestyle" so the groups stay eight colours; category ids never change, so old entries keep theirs. The page
+was redesigned as an analytics dashboard — scorecards with change and sparkline, a trend line against the period before,
+a ring chart with a figure legend, top categories, Stock Market costs, weekdays and ways of paying — drawn in plain SVG
+and HTML by `src/admin/expenses/charts.jsx` (no chart library).
+
+**No text spills or is cut off (2026-11-21).** `src/admin/fit.css`, loaded last in the private area, keeps long words
+wrapping, pins screen-reader-only labels so they cannot widen a phone page, and turns the few "…"-shortened labels into
+wrapping ones. Every page (/me, all Stock Report views, Expenses, Kundali, TradeAI, Social, settings pages, the chart and
+the public site) was checked at 390, 768, 1024 and 1440 px for sideways scroll, spilled, cut or "…"-shortened text.
 
 **The main page's path (2026-11-20).** `JOURNEY` in `src/data/profile.js` is one stop per city with its years —
 Ghazipur, Indore, Pune, Bengaluru, Noida (the owner's own list); the hero line, the portrait tag, the scrolling strip,
 the author's bio and the search-engine text name the same cities.
 
-**Two palettes (2026-11-20).** The public site wears the owner's own colours — sandal ivory, ruby maroon, copper and a
-line of gold — chosen from his chart. The private area (/me and everything under it) keeps the navy and blue it always
-had: the owner tried the new family there and went back the same day. The private area states its light colours itself
-(`.adm[data-theme="tech"]` in `analyzer.css`) because the public theme sits on the same element. Details in `BRAND.md`.
+**Two palettes.** The public site wears the owner's own colours — sandal ivory, ruby maroon, copper and a line of gold —
+chosen from his chart (2026-11-20). The private area (/me and everything under it) wears **Zerodha's theme** since
+2026-11-21: Kite's own light and dark values (from Kite's published stylesheet) and Console's primary blue, with text
+shades darkened just enough to read; the flat Kite look is `src/admin/kite.css`, loaded last. The private area states
+its light colours itself (`.adm[data-theme="tech"]` in `analyzer.css`) because the public theme sits on the same
+element. Details in `BRAND.md`.
+
+**Zerodha's P&L words (2026-11-21).** Realised P&L, Charges & taxes, Other credits & debits, Net realised P&L and
+Unrealised P&L everywhere a profit or loss is shown (Journal, its period tables and report, the Day book, the Positions
+page's funds); the Journal opens with Zerodha's five-figure strip and lists P&L by symbol in Console's columns
+(`src/admin/stock/trade/PnlReport.jsx`; the per-symbol quantities and buy/sell values come from `group()` in
+`server/trading/journal.js`).
 
 Having a Google account is not enough: only these addresses can sign in, and removing an
 admin ends their session immediately.

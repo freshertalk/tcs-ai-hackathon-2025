@@ -49,8 +49,12 @@ import "./buttons.css";
 // motion and softness: loaded last of all, it changes how things move and how their edges feel, nothing else
 import "./signin.css";
 import "./smooth.css";
-// the finish: one family of surfaces, headers and type over every page (loaded last of all)
+// the finish: one family of surfaces, headers and type over every page
 import "./polish.css";
+// the Zerodha look (the owner's choice, 21 Nov 2026): flat, hairlines, small corners, Kite's orange tab — loaded last
+import "./kite.css";
+// no text spilling, cut off or pushing a page sideways, on any screen: loaded last of all
+import "./fit.css";
 // The private area wears the DrishtiAI logo as its icon (public/drishti-logo.svg and its PNG copies). The public
 // site's own link tags are put aside while this area is open and put back when it is left. (A page loaded straight
 // from /me already carries these in its own head: see scripts/prerender.js.)

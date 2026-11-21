@@ -488,7 +488,14 @@ const ENTRIES = [
   [["Modify"], "Change an open order’s quantity, price, trigger or type. Greyed out while trading is off.", ".tr"],
   [["Exit all positions"], "Emergency square-off: an opposite market order (with protection) for every open position, after cancelling pending orders if you tick that. You type EXIT ALL to confirm."],
   [["Open orders", "Executed orders", "Trades"], "Orders still waiting at the exchange, orders that finished (filled, rejected or cancelled), and the individual fills.", ".tr"],
-  [["Available margin"], "What Zerodha says you can use for new trades right now."],
+  [["Available margin", "Margin available"], "What Zerodha says you can use for new trades right now."],
+  [["Margins used"], "Margin blocked by your open positions and orders, as Zerodha reports it."],
+  [["Realised P&L"], "Zerodha's term: what the closed trades made or lost before any cost (sell value − buy value). Charges & taxes are taken off in Net realised P&L."],
+  [["Net realised P&L"], "Zerodha's term: Realised P&L − Charges & taxes. The Journal's charges are an estimate from Zerodha's published rates; your contract note is the truth."],
+  [["Unrealised P&L"], "Zerodha's term: profit or loss on positions not yet closed, at today's price."],
+  [["Other credits & debits"], "Zerodha's term: ledger entries that are not trades (interest, separately billed DP charges and the like). Zerodha's API does not give them, so DrishtiAI shows “—”; see Console's P&L report."],
+  [["Total P&L"], "Zerodha's term: the whole profit or loss of the positions (today's) or the holdings (since you bought them)."],
+  [["Day's P&L"], "Zerodha's term: how much your holdings moved today, against yesterday's close."],
   [["Used margin"], "Margin blocked by open positions and pending orders."],
   [["Ask the coach"], `The AI reads your positions and holdings beside the desk’s live call and levels, and says what it would do with each. It advises only; it cannot place orders. ${TOKENS}`],
   [["Open exit form"], "Opens the exit form for this position, prefilled. You still choose the quantity and confirm."],
@@ -576,7 +583,7 @@ const ENTRIES = [
 
   /* ---- Journal: periods and analytics */
   [["Profit and loss by period"], "Every period at once — today, yesterday, this week, month and quarter, the last 6, 9 and 12 months, this financial year, each past one and all time — each trade on the day it was closed, after estimated charges. Click a row to open it.", ".jr"],
-  [["Net P&L by financial year"], "One bar per financial year (1 April to 31 March); the current one so far. Point at a year for its figures, click to open it.", ".jr"],
+  [["Net realised P&L by financial year", "Net P&L by financial year"], "One bar per financial year (1 April to 31 March); the current one so far. Point at a year for its figures, click to open it.", ".jr"],
   [["Every month since the start"], "Each month's net profit or loss, financial years down and April to March across, with the year's total. Deeper colour, larger result.", ".jr"],
   [["Where the history comes from"], "Kite's API gives only today's trades, so the server reads them every 5 minutes on weekdays while Zerodha is connected; earlier years come from Zerodha Console tradebook files, imported once.", ".jr"],
   [["Retrospective analysis"], "What went well, what went wrong, what to keep doing, what to stop and what to try next — worked out from your own trades in the period shown, and saved.", ".jr"],
@@ -586,7 +593,7 @@ const ENTRIES = [
   [["Delete copy"], "Delete the kept copy of an uploaded file. Its trades stay in the journal.", ".jr"],
   [["Read today’s trades now"], "Read today's trades from Kite at once instead of waiting for the next automatic read (every 5 minutes).", ".jr"],
   [["☆ Save this view"], "Save this period (or custom range) and the filters under a name, in the database, to open again in one click.", ".jr"],
-  [["Charges vs gross"], "Brokerage and taxes as a share of the gross profit: how much of what the trades made the costs took.", ".jr"],
+  [["Charges & taxes vs realised P&L", "Charges vs gross"], "Charges & taxes as a share of the realised profit: how much of what the trades made the costs took.", ".jr"],
   [["Month by month", "Day by day"], "The open period split into months or days, each with trades, win rate, gross, charges and net. ⤓ CSV downloads it.", ".jr"],
 
   /* ---- Trade Analysis */

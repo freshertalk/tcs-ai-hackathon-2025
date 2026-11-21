@@ -72,7 +72,7 @@ export function CommandBar({ label, s, rt, tab, setTab, counts = {}, updatedAt, 
         </button>
         <dl className="jr-cmd__kpis">
           <div className={toneOf(s && s.net)}>
-            <dt>Net P&amp;L</dt>
+            <dt>Net realised P&amp;L</dt>
             <dd>{s ? sMoney(s.net) : "—"}</dd>
           </div>
           <div className={cap ? toneOf(rt.totalPct) : ""}>
@@ -303,7 +303,7 @@ export function ReturnsTab({ rt, capital, label, onChanged }) {
               <button
                 type="button"
                 className="adm-btn adm-btn--ghost adm-btn--sm"
-                onClick={() => downloadCsv(`returns-${label || "journal"}.csv`, ["Month", "Principal on first trading day", "Additions", "Base used", "Net P&L", "Return %", "Cumulative %", "Trades"], rt.months.map((m) => [m.month, m.startPrincipal, m.additions.map((a) => `${a.date}: ${a.amount}`).join("; "), m.base, m.net, m.pct, m.cumPct, m.trades]))}
+                onClick={() => downloadCsv(`returns-${label || "journal"}.csv`, ["Month", "Principal on first trading day", "Additions", "Base used", "Net realised P&L", "Return %", "Cumulative %", "Trades"], rt.months.map((m) => [m.month, m.startPrincipal, m.additions.map((a) => `${a.date}: ${a.amount}`).join("; "), m.base, m.net, m.pct, m.cumPct, m.trades]))}
               >
                 ⤓ CSV
               </button>
@@ -323,7 +323,7 @@ export function ReturnsTab({ rt, capital, label, onChanged }) {
                       Base
                     </th>
                     <th scope="col" className="is-num">
-                      Net P&amp;L
+                      Net realised P&amp;L
                     </th>
                     <th scope="col" className="is-num">
                       Return
@@ -371,19 +371,19 @@ export function PrintReport({ label, period, s, rt, a, trips, filters }) {
           <b>{label}</b>
           {period && period.fromDay ? ` · ${dayName(period.fromDay)} – ${dayName(period.toDay)}` : ""} · {filters || "all trades"}
         </p>
-        <p className="jr-report__at">Generated {now.toLocaleString("en-IN", { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit" })} from Zerodha&rsquo;s fills. Charges are an estimate; your contract note is the truth.</p>
+        <p className="jr-report__at">Generated {now.toLocaleString("en-IN", { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit" })} from Zerodha&rsquo;s fills. Charges &amp; taxes are an estimate; your contract note is the truth.</p>
       </header>
       <h3>Summary</h3>
       <table>
         <tbody>
           <tr>
-            <th>Net profit / loss (after charges)</th>
+            <th>Net realised P&amp;L (after charges &amp; taxes)</th>
             <td>{sMoney(s.net)}</td>
             <th>Return on principal</th>
             <td>{rt && rt.hasCapital ? pctText(rt.totalPct) : "capital not recorded"}</td>
           </tr>
           <tr>
-            <th>Gross / charges</th>
+            <th>Realised P&amp;L / charges &amp; taxes</th>
             <td>
               {sMoney(s.gross)} / {sMoney(-s.charges)}
             </td>

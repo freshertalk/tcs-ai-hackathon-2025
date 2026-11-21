@@ -139,11 +139,21 @@
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
+/* Buy blue and Sell orange, as in Kite: Kite's own #4184f3 and #ff5722 are too light for white text, so these are
+   Zerodha Console's blue and Kite's orange darkened until the label reads (4.5:1 or better) */
 .adm .tr-btn--buy {
-  background: #1f5bb5;
+  background: #0059c1;
 }
 .adm .tr-btn--sell {
-  background: #b4440a;
+  background: #cf4113;
+}
+.adm[data-desk="dark"] .tr-btn--buy {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+.adm[data-desk="dark"] .tr-btn--sell {
+  background: var(--accent-2);
+  color: var(--on-accent);
 }
 .adm .tr-btn--exit {
   background: var(--ink);

@@ -822,9 +822,7 @@
   min-width: 0;
 }
 .kd-papers__id b {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere; /* a long name wraps, whole, rather than ending in "…" */
 }
 .kd-papers__id small {
   color: var(--ink-2);

@@ -226,3 +226,55 @@ export function toCsv(items, cats, groups, methods) {
     });
   return ["Date,Amount (INR),Group,Category,What,Paid by,Note", ...rows].join("\r\n") + "\r\n";
 }
+
+/* ------------------------------------------------------------------ for the analytics (21 Nov 2026) */
+/** Every category that has an entry, largest first: [{ id, label, group, total, count, share }]. */
+export function byCategory(items, cats) {
+  const all = total(items);
+  const m = new Map();
+  for (const x of items) {
+    const c = cats.get(x.category) || { id: x.category, label: x.category, group: "other" };
+    const row = m.get(c.id) || { id: c.id, label: c.label, group: c.group, total: 0, count: 0 };
+    row.total += x.amount;
+    row.count += 1;
+    m.set(c.id, row);
+  }
+  return [...m.values()].map((r) => ({ ...r, total: Math.round(r.total * 100) / 100, share: all ? r.total / all : 0 })).sort((a, b) => b.total - a.total || a.label.localeCompare(b.label));
+}
+
+const WEEK = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+/** Spending by day of the week, Monday first: [{ key, label, short, total, count }]. */
+export function byWeekday(items) {
+  const rows = WEEK.map((w) => ({ key: w, label: w, short: w.slice(0, 3), total: 0, count: 0 }));
+  for (const x of items) {
+    const d = (utc(x.date).getUTCDay() + 6) % 7; // Monday = 0
+    rows[d].total += x.amount;
+    rows[d].count += 1;
+  }
+  return rows.map((r) => ({ ...r, total: Math.round(r.total * 100) / 100 }));
+}
+
+/** Spending by the way it was paid, largest first: [{ id, label, total, count, share }]. */
+export function byMethod(items, methods) {
+  const all = total(items);
+  const name = new Map((methods || []).map((m) => [m.id, m.label]));
+  const m = new Map();
+  for (const x of items) {
+    const row = m.get(x.method) || { id: x.method, label: name.get(x.method) || x.method, total: 0, count: 0 };
+    row.total += x.amount;
+    row.count += 1;
+    m.set(x.method, row);
+  }
+  return [...m.values()].map((r) => ({ ...r, total: Math.round(r.total * 100) / 100, share: all ? r.total / all : 0 })).sort((a, b) => b.total - a.total);
+}
+
+/** What one group of categories cost. */
+export const groupTotal = (items, cats, group) => total(items.filter((x) => (cats.get(x.category) || { group: "other" }).group === group));
+
+/**
+ * The period before, laid beside this one bar for bar (the 1st day beside the 1st day, the 1st month beside the 1st
+ * month): a list as long as `rows`, null where the period before is shorter.
+ */
+export function alignPrev(rows, prevRows) {
+  return rows.map((_, i) => (prevRows && prevRows[i] ? prevRows[i].total : null));
+}

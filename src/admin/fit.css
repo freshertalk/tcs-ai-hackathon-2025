@@ -1,0 +1,58 @@
+/* ==========================================================================
+   Fit — no text spills out of its box, is cut off or pushes a page sideways (the owner's ask, 21 Nov 2026: "Make sure
+   no text overflow in any screen"). Loaded last of all (AdminApp.jsx). Checked by a sweep of every private screen at
+   1440, 1024, 768 and 390 px wide.
+   ========================================================================== */
+
+/* Screen-reader-only labels are 1px boxes positioned absolutely. Left where they fall, one inside a wide table that
+   scrolls in its card escapes the card's scroll box and stretches the whole page sideways on a phone. Pinned to their
+   container's corner they can never do that; they stay invisible and are still read out. */
+.adm :is(.adm-sr, .ex-vh, .soc-vh, .fb-sr, .doc-sr, .ix-sr, .shr-sr) {
+  left: 0;
+  top: 0;
+}
+
+/* A long word with nowhere to break — an email address, a link, a long stock name — wraps instead of running out of
+   its box. (break-word, not anywhere: it does not change how wide a table's columns want to be.) */
+.adm :where(p, li, dd, dt, h1, h2, h3, h4, small, label, figcaption, blockquote, legend) {
+  overflow-wrap: break-word;
+}
+
+/* The Journal: its one column may be as narrow as the screen; what is inside wraps, or scrolls in its own box */
+.adm .jr {
+  grid-template-columns: minmax(0, 1fr);
+}
+.adm .jr > * {
+  min-width: 0;
+}
+
+/* No "…" either: a label is shown whole. */
+/* the Desk's head: the day's reading wraps rather than being cut short */
+.adm .tm .an.dk .sv__head > .sv__stats dd,
+.adm .an.dk .sv__stats dd {
+  max-width: none;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+/* the bottom bar on a tablet or a phone: each tab keeps its whole name; with more tabs than fit, the bar slides
+   sideways instead of squeezing the names */
+.adm .tm-bnav {
+  justify-content: flex-start;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.adm .tm-bnav::-webkit-scrollbar {
+  display: none;
+}
+.adm .tm-bnav button {
+  flex: 1 0 auto;
+  min-width: 58px;
+  max-width: none;
+  padding: 0 8px;
+}
+.adm .tm-bnav button span {
+  overflow: visible;
+  text-overflow: clip;
+}

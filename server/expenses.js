@@ -4,9 +4,12 @@
 //
 //   AN ENTRY      a day, an amount in rupees, a category, a few words on what it was, how it was paid, and a note.
 //                 Everything is checked on the way in: a real date, an amount above zero, a category from the list.
-//   CLASSIFIED    thirty-odd categories in eight groups (Home, Dharma & giving, Food, Family & education, Lifestyle,
-//                 Health, Transport & travel, Money matters) and "Other". The list lives here, so the page, the
-//                 totals and a file exported years from now all mean the same thing by a category's name.
+//   CLASSIFIED    fifty-odd categories in eight groups (Stock Market, Home, Dharma & giving, Food, Family & education,
+//                 Health & lifestyle, Transport & travel, Money matters) and "Other". The list lives here, so the page,
+//                 the totals and a file exported years from now all mean the same thing by a category's name.
+//                 Eight groups, because a chart can keep eight colours apart (for colour-blind readers too) and no
+//                 more: Health joined Lifestyle when Stock Market was added (21 Nov 2026). A category's id never
+//                 changes, so an entry keeps its category whatever group that category is shown under.
 //   KEPT          one record per entry in the record store (collection "expenses"), so it is in the daily backup.
 //
 // Searching, sorting and the month / year / category totals are the page's work (src/admin/expenses/): the whole ledger
@@ -22,17 +25,39 @@ const IST = 5.5 * 3600 * 1000;
 
 /** The groups, in the order they are listed and stacked on the page (the order their colours were checked in). */
 const GROUPS = [
+  { id: "stock", label: "Stock Market" },
   { id: "home", label: "Home" },
   { id: "dharma", label: "Dharma & giving" },
   { id: "food", label: "Food" },
   { id: "family", label: "Family & education" },
-  { id: "life", label: "Lifestyle" },
-  { id: "health", label: "Health" },
+  { id: "life", label: "Health & lifestyle" },
   { id: "travel", label: "Transport & travel" },
   { id: "money", label: "Money matters" },
   { id: "other", label: "Other" },
 ];
 const CATEGORIES = [
+  // what running the trading desk costs (the owner's list, 21 Nov 2026, and the usual others)
+  { id: "kiteapi", label: "Zerodha Kite API subscription", group: "stock" },
+  { id: "chatgpt", label: "ChatGPT subscription", group: "stock" },
+  { id: "claude", label: "Claude subscription", group: "stock" },
+  { id: "aitools", label: "Other AI tools", group: "stock" },
+  { id: "aiapi", label: "AI API token cost", group: "stock" },
+  { id: "charting", label: "Charting & market data", group: "stock" },
+  { id: "tradetools", label: "Trading tools & software", group: "stock" },
+  { id: "research", label: "Research, news & advisory", group: "stock" },
+  { id: "youtube", label: "YouTube Premium", group: "stock" },
+  { id: "netflix", label: "Netflix", group: "stock" },
+  { id: "broadband", label: "Internet broadband", group: "stock" },
+  { id: "mobile", label: "Mobile recharge", group: "stock" },
+  { id: "ithw", label: "IT hardware", group: "stock" },
+  { id: "cloud", label: "Cloud server, domain & hosting", group: "stock" },
+  { id: "officerent", label: "Office rent", group: "stock" },
+  { id: "officesetup", label: "Office setup & furniture", group: "stock" },
+  { id: "ups", label: "Power backup (UPS, inverter)", group: "stock" },
+  { id: "demat", label: "Demat AMC & DP charges", group: "stock" },
+  { id: "courses", label: "Trading courses & books", group: "stock" },
+  { id: "ca", label: "CA & tax filing", group: "stock" },
+  { id: "tradeother", label: "Other trading expense", group: "stock" },
   { id: "rent", label: "Rent", group: "home" },
   { id: "upkeep", label: "Home upkeep & repairs", group: "home" },
   { id: "help", label: "Household help", group: "home" },
@@ -52,9 +77,9 @@ const CATEGORIES = [
   { id: "gadgets", label: "Electronics", group: "life" },
   { id: "fun", label: "Entertainment & subscriptions", group: "life" },
   { id: "care", label: "Personal care", group: "life" },
-  { id: "doctor", label: "Doctor & tests", group: "health" },
-  { id: "medicine", label: "Medicines", group: "health" },
-  { id: "fitness", label: "Fitness", group: "health" },
+  { id: "doctor", label: "Doctor & tests", group: "life" },
+  { id: "medicine", label: "Medicines", group: "life" },
+  { id: "fitness", label: "Fitness", group: "life" },
   { id: "fuel", label: "Fuel", group: "travel" },
   { id: "ride", label: "Cab, auto & metro", group: "travel" },
   { id: "trip", label: "Trips & tickets", group: "travel" },

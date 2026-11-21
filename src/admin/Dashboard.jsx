@@ -184,7 +184,7 @@ function Pulse({ isSuper }) {
       {isSuper && (
         <Pc tone={trade && trade.enabled ? "live" : "off"} k="Trading switch" v={trade ? (trade.enabled ? "ON" : "OFF") : "…"} sub={trade && trade.enabled ? "orders can be sent" : "no orders can be sent"} href={terminal("account")} tip="The master switch for orders from this site. It is changed on the Positions page." />
       )}
-      {isSuper && pnl !== undefined && <Pc tone="off" k="Today’s P&L" v={money(pnl)} valueTone={pnl > 0 ? "is-up" : pnl < 0 ? "is-down" : ""} sub="all positions, open and closed" href={terminal("account")} tip="Today’s P&L on all positions, as Zerodha reports it." />}
+      {isSuper && pnl !== undefined && <Pc tone="off" k="Positions · Total P&L" v={money(pnl)} valueTone={pnl > 0 ? "is-up" : pnl < 0 ? "is-down" : ""} sub="all positions, open and closed" href={terminal("account")} tip="Today’s P&L on all positions, as Zerodha reports it." />}
       {board && <Pc tone="off" k="Advisor odds" v={`A ${counts.A} · B ${counts.B}`} sub="favourable today, forward-tested" href={terminal("advisor")} tip="Watchlist stocks whose measured odds are favourable today and backed by the forward test (grade A or B)." />}
       {horizon && (
         <Pc

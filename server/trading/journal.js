@@ -447,8 +447,12 @@ function group(trips, keyOf) {
   for (const t of trips) {
     const k = keyOf(t);
     if (k === null || k === undefined || k === "") continue;
-    const g = m.get(k) || { key: k, trades: 0, wins: 0, net: 0, gross: 0, charges: 0, brokerage: 0, invested: 0 };
+    const g = m.get(k) || { key: k, trades: 0, wins: 0, net: 0, gross: 0, charges: 0, brokerage: 0, invested: 0, qty: 0, buyValue: 0, sellValue: 0 };
     g.trades += 1;
+    // what Zerodha's P&L report shows per symbol: the quantity, and what was bought and sold for
+    g.qty += num(t.qty) ? t.qty : 0;
+    g.buyValue += num(t.turnoverBuy) ? t.turnoverBuy : 0;
+    g.sellValue += num(t.turnoverSell) ? t.turnoverSell : 0;
     g.invested += entryValue(t);
     if (t.net > 0) g.wins += 1;
     g.net += t.net;
@@ -457,7 +461,7 @@ function group(trips, keyOf) {
     g.brokerage += t.brokerage || 0;
     m.set(k, g);
   }
-  return [...m.values()].map((g) => ({ ...g, invested: r2(g.invested), netPct: pctOf(g.net, g.invested), net: r2(g.net), gross: r2(g.gross), charges: r2(g.charges), brokerage: r2(g.brokerage), taxes: r2(g.charges - g.brokerage), winRate: g.trades ? r2((g.wins / g.trades) * 100) : 0, avg: g.trades ? r2(g.net / g.trades) : 0 }));
+  return [...m.values()].map((g) => ({ ...g, buyValue: r2(g.buyValue), sellValue: r2(g.sellValue), buyAvg: g.qty ? r2(g.buyValue / g.qty) : null, sellAvg: g.qty ? r2(g.sellValue / g.qty) : null, invested: r2(g.invested), netPct: pctOf(g.net, g.invested), net: r2(g.net), gross: r2(g.gross), charges: r2(g.charges), brokerage: r2(g.brokerage), taxes: r2(g.charges - g.brokerage), winRate: g.trades ? r2((g.wins / g.trades) * 100) : 0, avg: g.trades ? r2(g.net / g.trades) : 0 }));
 }
 
 /**

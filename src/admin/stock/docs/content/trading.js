@@ -273,7 +273,7 @@ export const TRADING = [
       { p: "A closed trade counts on the **day it was closed** (as in Zerodha’s own P&L), an open one by its entry. The period buttons: **Today; Yesterday** (the previous weekday — on Monday it is Friday; holidays are not known); **This week** (from Monday); **This month; This quarter** (Apr–Jun, Jul–Sep, Oct–Dec, Jan–Mar); **6, 9 and 12 months** (from the same date that many months ago); **This FY** (from 1 April); **Past FYs** (each financial year since the account opened); **All time**; **Custom…** (any two dates, never past today); and **your saved views**. Clicking a row of the period table, a year bar or a month of the heatmap opens it too." },
       { ul: [
         "**Profit and loss by period:** every period and every financial year at once — trades, win %, gross, charges, net, the **return** (net as a share of your **principal** — see below), profit factor, drawdown, best and worst day. The headline above the charts shows the same percentage beside the amount, and the month and day tables have a Return column. The open one is highlighted.",
-        "**Net P&L by financial year:** a bar per year (the current one “so far”); point at a year for its figures.",
+        "**Net realised P&L by financial year:** a bar per year (the current one “so far”); point at a year for its figures.",
         "**Every month since the start:** a heatmap, financial years down and April to March across, each month’s net written in it, with the year’s total.",
         "**For the open period:** the figures (net, win rate, profit factor, expectancy, drawdown, green days, best and worst day, charges as a share of gross, best and worst month), the equity curve, the P&L calendar (its months, from the first with a trade, up to twelve), **month by month** and **day by day** tables, the breakdowns and the round trips.",
       ] },
@@ -324,7 +324,8 @@ export const TRADING = [
         ["GST", "18% of (brokerage + exchange + SEBI)", "same"],
         ["Stamp duty", "0.003% of buy turnover", "0.015% of buy turnover"],
       ] } },
-      { p: "**Net = gross P&L − charges**, to the paisa. The ₹20 brokerage cap is applied per round trip (the real cap is per executed order), so trips with many orders are slightly under-estimated; a same-day delivery buy and sell is charged as intraday; rates change. **The contract note is the truth.**" },
+      { p: "**The words are Zerodha's** (as in Console's P&L report): **Realised P&L** is what the closed trades made before any cost; **Charges & taxes** are the costs below; **Net realised P&L = Realised P&L − Charges & taxes**, to the paisa; **Unrealised P&L** is the open positions at today's price (from the live position book when the period reaches today); **Other credits & debits** (interest and other ledger entries) are not given by Zerodha's API and show “—”. The Journal opens with these five figures, as Zerodha's report does, and ends with the P&L by symbol in Zerodha's columns (Qty., Buy avg., Buy value, Sell avg., Sell value, Realised P&L, Unrealised P&L), searchable, sortable and downloadable." },
+      { p: "**Net realised P&L = Realised P&L − Charges & taxes**, to the paisa. The ₹20 brokerage cap is applied per round trip (the real cap is per executed order), so trips with many orders are slightly under-estimated; a same-day delivery buy and sell is charged as intraday; rates change. **The contract note is the truth.**" },
       { h: "Statistics (closed trips in the chosen period)" },
       { ul: [
         "**Win = net above zero after charges**; everything at or below zero counts as a loss. Win rate, gross, charges, net.",

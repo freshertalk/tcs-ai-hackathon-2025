@@ -1,30 +1,30 @@
-// Expenses — the owner's expense tracker (/me → Personal → Expenses), for superadmins only.
+// Expenses — the owner's expense tracker (/me → Personal → Expenses), for superadmins only, laid out like a Google
+// Analytics report.
 //
-// One row of filters scopes everything under it — the figures, the chart, the split and the list always describe the
-// same entries:
+// One row of filters scopes everything under it — every figure, chart and list describes the same entries:
 //   the period    this month · last month · this year · last 12 months · all time · any month (‹ ›) · picked dates
-//   and           words to search for, a group, a way of paying
+//   and           words to search for, a group, a way of paying; "compare with the period before" on or off
 // Under it:
-//   the figures   spent, entries, per day, the biggest group, and the change from the period before
-//   day by day / month by month / year by year   one bar a day, month or year, stacked by group; a bar can be pressed
-//   where it went the groups, largest first, each opening to its categories
-//   add / change  one entry: the day, the amount, the category, what it was, how it was paid, a note
-//   the entries   searched, sorted by any column, with a subtotal for each month; change or remove one
-//   every month and year   the whole ledger month by month or year by year (the chart's table view; a row can be pressed)
+//   scorecards    spent, per day, entries, Stock Market costs, the biggest expense — each with its change from the
+//                 period before and a sparkline
+//   the trend     a line (with the period before, dashed) or bars stacked by group; a point or bar opens its day/month
+//   the split     a donut of the groups with every figure in its legend; pressing a group shows only that group
+//   top categories · Stock Market costs · by day of the week · paid by
+//   add / change, the entries (searched, sorted, subtotalled by month), and every month or year of the whole ledger
 //
-// The arithmetic is in ledger.js. The eight groups wear eight colours that were checked for colour-blind separation on
-// this area's light and dark surfaces; "Other" is grey. A colour belongs to its group, never to its rank, and a name
-// or a figure is never written in a group's colour — a swatch beside it carries the identity.
+// The arithmetic is in ledger.js, the charts in charts.jsx. The eight groups wear eight colours checked for colour-blind
+// separation on this area's light and dark surfaces; "Other" is grey. A colour belongs to its group, never to its rank,
+// and a name or a figure is never written in a group's colour — a swatch beside it carries the identity.
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api";
 import Shell from "../Shell";
 import { Alert, Loading } from "../ui";
 import { DateField, DateRangeField } from "../DatePicker";
 import { useDialog } from "../dialog/DialogProvider";
-import { addMonths, applyFilters, breakdown, bucketsFor, compact, dayName, daysSoFar, money, monthName, niceScale, periodRange, sortItems, splitByGroup, stack, toCsv, total, weekday, ymOf } from "./ledger";
+import { addMonths, alignPrev, applyFilters, breakdown, bucketsFor, byCategory, byMethod, byWeekday, dayName, daysSoFar, groupTotal, money, monthName, periodRange, sortItems, splitByGroup, stack, toCsv, total, weekday, ymOf } from "./ledger";
+import { Columns, Donut, RankBars, Sparkline, StackBars, TrendLine } from "./charts";
 import "./expenses.css";
 
-const PLOT_H = 220;
 const BLANK = { id: "", date: "", amount: "", category: "grocery", title: "", method: "upi", note: "" };
 const pct = (x) => `${Math.round(x * 100)}%`;
 /** A change from the period before, in words a glance can take in: "+4%", "−12%", "under 1%", "more than 10 times". */
@@ -35,144 +35,26 @@ function Swatch({ group }) {
   return <i className={`ex-sw ex-g--${group}`} aria-hidden="true" />;
 }
 
-/* ------------------------------------------------------------------ the chart: one bar a day, month or year */
-function Trend({ rows, unit, groups, onPick }) {
-  const [at, setAt] = useState(-1);
-  const scale = useMemo(() => niceScale(Math.max(0, ...rows.map((r) => r.total))), [rows]);
-  const present = groups.filter((g) => rows.some((r) => r.parts[g.id]));
-  const tallest = rows.reduce((best, r, i) => (r.total > (best < 0 ? 0 : rows[best].total) ? i : best), -1);
-  const every = unit === "day" ? 5 : rows.length > 24 ? 3 : rows.length > 14 ? 2 : 1;
-  const showLabel = (r, i) => (unit === "day" ? i === 0 || Number(r.label) % every === 0 : i % every === 0);
-  const hover = at >= 0 ? rows[at] : null;
+/**
+ * A scorecard, as on a Google Analytics report: the name, the figure, the change from the period before (spending
+ * more is the red way, spending less the green — with an arrow and the word, never colour alone) and a sparkline.
+ */
+function Scorecard({ label, value, sub, now, before, spark, sparkLabel, lead = false, prevLabel }) {
+  const change = Number.isFinite(before) && before > 0 && Number.isFinite(now) ? (now - before) / before : null;
   return (
-    <div className="ex-chart" onPointerLeave={() => setAt(-1)}>
-      <div className="ex-chart__body">
-        <div className="ex-chart__y" style={{ height: PLOT_H }} aria-hidden="true">
-          {scale.ticks.map((t) => (
-            <span key={t} style={{ bottom: `${(t / scale.max) * 100}%` }}>
-              {compact(t)}
-            </span>
-          ))}
-        </div>
-        <div className="ex-chart__plot" style={{ height: PLOT_H }}>
-          {scale.ticks.map((t) => (
-            <i key={t} className="ex-chart__grid" style={{ bottom: `${(t / scale.max) * 100}%` }} aria-hidden="true" />
-          ))}
-          <div className="ex-chart__cols">
-            {rows.map((r, i) => {
-              const segs = groups.filter((g) => r.parts[g.id] > 0);
-              const gap = segs.length > 1 ? (2 * (segs.length - 1)) / segs.length : 0;
-              return (
-                <button
-                  type="button"
-                  key={r.key}
-                  className={`ex-col${i === at ? " is-on" : ""}`}
-                  onPointerEnter={() => setAt(i)}
-                  onFocus={() => setAt(i)}
-                  onBlur={() => setAt(-1)}
-                  onClick={() => onPick(r)}
-                  aria-label={`${r.long}: ${money(r.total)}${r.count ? ` in ${r.count} ${r.count === 1 ? "entry" : "entries"}` : ""}. Press to open it.`}
-                >
-                  {i === tallest && r.total > 0 && <span className="ex-col__cap">{compact(r.total)}</span>}
-                  <span className="ex-col__bar">
-                    {segs.map((g, k) => (
-                      <i key={g.id} className={`ex-g--${g.id}${k === segs.length - 1 ? " is-top" : ""}`} style={{ height: Math.max(1, (r.parts[g.id] / scale.max) * PLOT_H - gap) }} />
-                    ))}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-          {hover && (
-            <div className={`ex-tip${at > rows.length / 2 ? " is-left" : ""}`} style={{ left: `${((at + 0.5) / rows.length) * 100}%` }} role="status">
-              <b>{money(hover.total)}</b>
-              <span>{hover.long}</span>
-              {groups
-                .filter((g) => hover.parts[g.id] > 0)
-                .map((g) => (
-                  <span className="ex-tip__row" key={g.id}>
-                    <i className={`ex-key ex-g--${g.id}`} aria-hidden="true" />
-                    <b>{money(hover.parts[g.id])}</b> {g.label}
-                  </span>
-                ))}
-              {!hover.count && <span>Nothing spent</span>}
-            </div>
-          )}
-        </div>
-      </div>
-      <div className="ex-chart__x" aria-hidden="true">
-        {rows.map((r, i) => (
-          <span key={r.key}>{showLabel(r, i) ? r.label : ""}</span>
-        ))}
-      </div>
-      {present.length > 1 && (
-        <ul className="ex-legend" aria-label="Groups">
-          {present.map((g) => (
-            <li key={g.id}>
-              <Swatch group={g.id} />
-              {g.label}
-            </li>
-          ))}
-        </ul>
-      )}
+    <div className={`ex-score${lead ? " ex-score--lead" : ""}`}>
+      <span className="ex-score__k">{label}</span>
+      <b className="ex-score__v">{value}</b>
+      <span className="ex-score__sub">
+        {change !== null ? (
+          <span className={`ex-delta ${change > 0.005 ? "is-more" : change < -0.005 ? "is-less" : ""}`} title={prevLabel ? `against ${prevLabel}` : undefined}>
+            {change > 0.005 ? "▲" : change < -0.005 ? "▼" : "•"} {changeText(change)}
+          </span>
+        ) : null}
+        {sub && <small>{sub}</small>}
+      </span>
+      {spark && <Sparkline values={spark} label={sparkLabel} />}
     </div>
-  );
-}
-
-/* ------------------------------------------------------------------ where it went */
-function Split({ split, whole, onOnly }) {
-  const [open, setOpen] = useState("");
-  if (!split.length) return <p className="ex-empty">Nothing was spent in this period.</p>;
-  const top = split[0].total || 1;
-  return (
-    <>
-      <div className="ex-seg" role="img" aria-label={`The split: ${split.map((g) => `${g.label} ${pct(g.share)}`).join(", ")}`}>
-        {split.map((g) => (
-          <i key={g.id} className={`ex-g--${g.id}`} style={{ flexGrow: g.total }} />
-        ))}
-      </div>
-      <ul className="ex-split">
-        {split.map((g) => (
-          <li key={g.id} className={open === g.id ? "is-open" : ""}>
-            <button type="button" className="ex-split__row" onClick={() => setOpen(open === g.id ? "" : g.id)} aria-expanded={open === g.id}>
-              <span className="ex-split__name">
-                <Swatch group={g.id} />
-                {g.label}
-              </span>
-              <span className="ex-split__bar" aria-hidden="true">
-                <i style={{ width: `${(g.total / top) * 100}%` }} />
-              </span>
-              <b>{money(g.total)}</b>
-              <small>{pct(g.share)}</small>
-            </button>
-            {open === g.id && (
-              <div className="ex-split__cats">
-                <ul>
-                  {g.cats.map((c) => (
-                    <li key={c.id}>
-                      <span>{c.label}</span>
-                      <span className="ex-split__bar ex-split__bar--thin" aria-hidden="true">
-                        <i style={{ width: `${c.share * 100}%` }} />
-                      </span>
-                      <b>{money(c.total)}</b>
-                      <small>
-                        {c.count} {c.count === 1 ? "entry" : "entries"}
-                      </small>
-                    </li>
-                  ))}
-                </ul>
-                <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm" onClick={() => onOnly(g.id)}>
-                  Show only {g.label}
-                </button>
-              </div>
-            )}
-          </li>
-        ))}
-      </ul>
-      <p className="ex-small">
-        {money(whole)} in all. Press a group to see its categories.
-      </p>
-    </>
   );
 }
 
@@ -264,6 +146,8 @@ export default function Expenses() {
   const [form, setForm] = useState(BLANK);
   const [shown, setShown] = useState(100);
   const [unit, setUnit] = useState("month");
+  const [view, setView] = useState("line"); // the trend: a line, or bars stacked by group
+  const [compare, setCompare] = useState(true);
   const amountRef = useRef(null);
   const formRef = useRef(null);
 
@@ -291,13 +175,27 @@ export default function Expenses() {
   const range = useMemo(() => (data ? periodRange(period, today, items) : null), [data, period, today, items]);
   const slice = useMemo(() => (range ? applyFilters(items, { range, q, group, method }, cats) : []), [items, range, q, group, method, cats]);
   const before = useMemo(() => (range && range.prev ? applyFilters(items, { range: range.prev, q, group, method }, cats) : null), [items, range, q, group, method, cats]);
+  // the donut and the Stock Market card keep every group in view (a group chosen above is shown by emphasis instead)
+  const sliceAllGroups = useMemo(() => (range ? applyFilters(items, { range, q, group: "", method }, cats) : []), [items, range, q, method, cats]);
+  const beforeAllGroups = useMemo(() => (range && range.prev ? applyFilters(items, { range: range.prev, q, group: "", method }, cats) : null), [items, range, q, method, cats]);
   const spent = useMemo(() => total(slice), [slice]);
-  const split = useMemo(() => splitByGroup(slice, groups, cats), [slice, groups, cats]);
+  const split = useMemo(() => splitByGroup(sliceAllGroups, groups, cats), [sliceAllGroups, groups, cats]);
   const trend = useMemo(() => {
-    if (!range) return { unit: "day", rows: [] };
+    if (!range) return { unit: "day", rows: [], prev: null };
     const b = bucketsFor(range);
-    return { unit: b.unit, rows: stack(slice, b.buckets, cats) };
-  }, [range, slice, cats]);
+    const rows = stack(slice, b.buckets, cats);
+    const prevRows = range.prev && before ? stack(before, bucketsFor(range.prev).buckets, cats) : null;
+    return { unit: b.unit, rows, prev: prevRows ? alignPrev(rows, prevRows) : null };
+  }, [range, slice, before, cats]);
+  const catsTop = useMemo(() => byCategory(slice, cats), [slice, cats]);
+  // the Stock Market card: each cost as a share of what the trading desk cost, not of all spending
+  const stockRows = useMemo(() => {
+    const rows = byCategory(sliceAllGroups, cats).filter((r) => r.group === "stock");
+    const all = rows.reduce((t, r) => t + r.total, 0);
+    return rows.map((r) => ({ ...r, share: all ? r.total / all : 0 }));
+  }, [sliceAllGroups, cats]);
+  const weekdays = useMemo(() => byWeekday(slice), [slice]);
+  const paid = useMemo(() => byMethod(slice, (data && data.methods) || []), [slice, data]);
   const sorted = useMemo(() => sortItems(slice, sort.key, sort.dir, cats), [slice, sort, cats]);
   // the whole ledger by month or year (the words, group and way of paying still apply; the period does not)
   const everything = useMemo(() => (data ? applyFilters(items, { range: null, q, group, method }, cats) : []), [data, items, q, group, method, cats]);
@@ -400,13 +298,20 @@ export default function Expenses() {
   const isLastMonth = kind === "month" && range.ym === addMonths(ymOf(today), -1);
   const isThisYear = kind === "year" && range.label === today.slice(0, 4);
   const days = daysSoFar(range, today);
-  const prevSpent = before ? total(before) : 0;
-  const change = before && prevSpent > 0 ? (spent - prevSpent) / prevSpent : null;
+  const prevSpent = before ? total(before) : null;
+  const prevDays = range.prev ? daysSoFar(range.prev, today) : null;
+  const stockNow = groupTotal(sliceAllGroups, cats, "stock");
+  const stockBefore = beforeAllGroups ? groupTotal(beforeAllGroups, cats, "stock") : null;
+  const allNow = total(sliceAllGroups);
+  const months = Math.max(1, Math.round(days / 30.4));
   const filtered = Boolean(q || group || method);
-  const chartTitle = trend.unit === "day" ? "Day by day" : trend.unit === "month" ? "Month by month" : "Year by year";
+  const biggest = slice.length ? slice.reduce((a, x) => (x.amount > a.amount ? x : a)) : null;
   const byMonth = sort.key === "date" && new Set(slice.map((x) => ymOf(x.date))).size > 1;
   const visible = sorted.slice(0, shown);
   const monthTotals = byMonth ? slice.reduce((m, x) => m.set(ymOf(x.date), (m.get(ymOf(x.date)) || 0) + x.amount), new Map()) : null;
+  const unitWord = trend.unit === "day" ? "day" : trend.unit === "month" ? "month" : "year";
+  const spark = (pick) => trend.rows.map(pick);
+  const groupName = group ? (groups.find((g) => g.id === group) || {}).label : "";
 
   return (
     <Shell crumb="Expenses" wide>
@@ -416,9 +321,15 @@ export default function Expenses() {
             <h1 className="adm-h1">Expenses</h1>
             <p className="adm-lead">What was spent, on which day, on what. Everything below follows the period and the filters chosen here.</p>
           </div>
-          <button type="button" className="adm-btn adm-btn--ghost" onClick={exportCsv} disabled={!slice.length} data-tip="Save the entries shown below as a spreadsheet file (CSV).">
-            Export {slice.length ? `${slice.length} ` : ""}to a file
-          </button>
+          <div className="ex-head__acts">
+            <label className="ex-switch">
+              <input type="checkbox" checked={compare} onChange={(e) => setCompare(e.target.checked)} />
+              <span>Compare with {range.prev ? range.prev.label : "the period before"}</span>
+            </label>
+            <button type="button" className="adm-btn adm-btn--ghost" onClick={exportCsv} disabled={!slice.length} data-tip="Save the entries shown below as a spreadsheet file (CSV).">
+              Export {slice.length ? `${slice.length} ` : ""}to a file
+            </button>
+          </div>
         </header>
 
         {/* one row of filters, above everything it scopes */}
@@ -493,73 +404,96 @@ export default function Expenses() {
           </div>
         </section>
 
-        {/* the figures */}
-        <section className="ex-tiles" aria-label={`The figures for ${range.label}`}>
-          <div className="ex-tile ex-tile--hero">
-            <span>
-              Spent · {range.label}
-              {filtered ? " · filtered" : ""}
-            </span>
-            <b>{money(spent)}</b>
-            <small>
-              {slice.length} {slice.length === 1 ? "entry" : "entries"}
-            </small>
-          </div>
-          <div className="ex-tile">
-            <span>Per day</span>
-            <b>{money(Math.round(spent / days))}</b>
-            <small>
-              over {days} {days === 1 ? "day" : "days"}
-            </small>
-          </div>
-          <div className="ex-tile">
-            <span>Biggest group</span>
-            <b>
-              {split.length ? (
-                <>
-                  <Swatch group={split[0].id} />
-                  {split[0].label}
-                </>
-              ) : (
-                "—"
-              )}
-            </b>
-            <small>{split.length ? `${money(split[0].total)} · ${pct(split[0].share)} of the period` : "nothing spent"}</small>
-          </div>
-          <div className="ex-tile">
-            <span>Biggest single expense</span>
-            <b>{slice.length ? money(Math.max(...slice.map((x) => x.amount))) : "—"}</b>
-            <small>{slice.length ? slice.reduce((a, x) => (x.amount > a.amount ? x : a)).title : "nothing spent"}</small>
-          </div>
-          <div className="ex-tile">
-            <span>{range.prev ? `Against ${range.prev.label}` : "Against the period before"}</span>
-            <b>{change === null ? "—" : `${change > 0 ? "▲" : change < 0 ? "▼" : ""} ${money(Math.abs(Math.round(spent - prevSpent)))} ${change > 0 ? "more" : change < 0 ? "less" : "the same"}`}</b>
-            <small>{change === null ? (range.prev ? `nothing was entered for ${range.prev.label}` : "a period of its own: nothing to compare") : `${money(prevSpent)} then · ${changeText(change)}`}</small>
-          </div>
+        {/* the scorecards */}
+        <section className="ex-scores" aria-label={`The figures for ${range.label}`}>
+          <Scorecard lead label={`Spent · ${range.label}${filtered ? " · filtered" : ""}`} value={money(spent)} now={spent} before={compare ? prevSpent : null} prevLabel={range.prev && range.prev.label} sub={range.prev && compare && prevSpent > 0 ? `${money(prevSpent)} in ${range.prev.label}` : `${slice.length} ${slice.length === 1 ? "entry" : "entries"}`} spark={spark((r) => r.total)} sparkLabel={`Spending ${unitWord} by ${unitWord}`} />
+          <Scorecard label="Per day" value={money(Math.round(spent / days))} now={spent / days} before={compare && prevSpent !== null && prevDays ? prevSpent / prevDays : null} prevLabel={range.prev && range.prev.label} sub={`over ${days} ${days === 1 ? "day" : "days"}`} />
+          <Scorecard label="Entries" value={String(slice.length)} now={slice.length} before={compare && before ? before.length : null} prevLabel={range.prev && range.prev.label} sub={slice.length ? `${money(Math.round(spent / slice.length))} each, on average` : "nothing entered"} spark={spark((r) => r.count)} sparkLabel={`Entries ${unitWord} by ${unitWord}`} />
+          <Scorecard label="Stock Market costs" value={money(stockNow)} now={stockNow} before={compare ? stockBefore : null} prevLabel={range.prev && range.prev.label} sub={allNow ? `${pct(stockNow / allNow)} of all spending` : "nothing spent"} spark={spark((r) => r.parts.stock || 0)} sparkLabel={`Stock Market costs ${unitWord} by ${unitWord}`} />
+          <Scorecard label="Biggest expense" value={biggest ? money(biggest.amount) : "—"} sub={biggest ? `${biggest.title} · ${dayName(biggest.date)}` : "nothing spent"} />
         </section>
 
-        <div className="ex-two">
+        {/* the trend and the split */}
+        <div className="ex-grid ex-grid--main">
           <section className="adm-card ex-card" aria-labelledby="ex-trend-h">
-            <header className="ex-card__head">
-              <h2 id="ex-trend-h">{chartTitle}</h2>
-              <p>
-                {range.label} · stacked by group. Press a bar to open that {trend.unit}.
-              </p>
+            <header className="ex-card__head ex-card__head--row">
+              <div>
+                <h2 id="ex-trend-h">Spending over time</h2>
+                <p>
+                  {range.label} · {unitWord} by {unitWord}
+                  {groupName ? ` · ${groupName}` : ""}. Press a {view === "line" ? "point" : "bar"} to open that {unitWord}.
+                </p>
+              </div>
+              <div className="ex-tabs" role="tablist" aria-label="How to show it">
+                <button type="button" role="tab" aria-selected={view === "line"} onClick={() => setView("line")}>
+                  Total
+                </button>
+                <button type="button" role="tab" aria-selected={view === "bars"} onClick={() => setView("bars")}>
+                  By group
+                </button>
+              </div>
             </header>
-            {spent > 0 ? <Trend rows={trend.rows} unit={trend.unit} groups={groups} onPick={pickBar} /> : <p className="ex-empty">Nothing was spent in this period.</p>}
+            {spent > 0 || (compare && trend.prev && trend.prev.some((v) => v > 0)) ? (
+              view === "line" ? (
+                <TrendLine rows={trend.rows} prev={compare ? trend.prev : null} prevLabel={range.prev ? range.prev.label : "Previous period"} onPick={pickBar} upTo={today} />
+              ) : (
+                <StackBars rows={trend.rows} unit={trend.unit} groups={groups} onPick={pickBar} />
+              )
+            ) : (
+              <p className="ex-empty">Nothing was spent in this period.</p>
+            )}
           </section>
-          <section className="adm-card ex-card" aria-labelledby="ex-split-h">
+          <section className="adm-card ex-card ex-card--split" aria-labelledby="ex-split-h">
             <header className="ex-card__head">
               <h2 id="ex-split-h">Where it went</h2>
-              <p>{range.label} · by group, largest first.</p>
+              <p>{range.label} · by group. Press a group to see only that group; press it again for all.</p>
             </header>
-            <Split
-              split={split}
-              whole={spent}
-              onOnly={(id) => {
-                setGroup(id);
-              }}
-            />
+            {split.length ? <Donut parts={split} whole={allNow} selected={group} onPick={(id) => setGroup(group === id ? "" : id)} /> : <p className="ex-empty">Nothing was spent in this period.</p>}
+          </section>
+        </div>
+
+        <div className="ex-grid ex-grid--two">
+          <section className="adm-card ex-card" aria-labelledby="ex-cats-h">
+            <header className="ex-card__head">
+              <h2 id="ex-cats-h">Top categories</h2>
+              <p>
+                {range.label}
+                {groupName ? ` · ${groupName}` : ""} · largest first. Press one to search for it.
+              </p>
+            </header>
+            <RankBars rows={catsTop} limit={10} onPick={(r) => setQ(r.label)} empty="Nothing was spent in this period." />
+          </section>
+          <section className="adm-card ex-card ex-card--stock" aria-labelledby="ex-stock-h">
+            <header className="ex-card__head ex-card__head--row">
+              <div>
+                <h2 id="ex-stock-h">
+                  <Swatch group="stock" /> Stock Market costs
+                </h2>
+                <p>What running the trading desk cost in {range.label}: subscriptions, data, AI, the office.</p>
+              </div>
+              <div className="ex-mini">
+                <b>{money(stockNow)}</b>
+                <small>{stockNow ? `about ${money(Math.round(stockNow / months))} a month` : "nothing yet"}</small>
+              </div>
+            </header>
+            <RankBars rows={stockRows} limit={8} empty="No Stock Market cost in this period. Add one with the category set to anything under Stock Market — ChatGPT, Claude, the Kite API, broadband, the office." />
+          </section>
+        </div>
+
+        <div className="ex-grid ex-grid--two">
+          <section className="adm-card ex-card" aria-labelledby="ex-week-h">
+            <header className="ex-card__head">
+              <h2 id="ex-week-h">By day of the week</h2>
+              <p>{range.label} · which days the money goes out.</p>
+            </header>
+            {spent > 0 ? <Columns rows={weekdays} /> : <p className="ex-empty">Nothing was spent in this period.</p>}
+          </section>
+          <section className="adm-card ex-card" aria-labelledby="ex-paid-h">
+            <header className="ex-card__head">
+              <h2 id="ex-paid-h">Paid by</h2>
+              <p>{range.label} · how it was paid.</p>
+            </header>
+            <RankBars rows={paid} limit={6} empty="Nothing was spent in this period." />
           </section>
         </div>
 

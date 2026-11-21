@@ -671,7 +671,7 @@
 @media (max-width: 640px) {
   .sx-row {
     /* the name keeps room for its badge: the lean shows as its arrow alone */
-    grid-template-columns: minmax(0, 1fr) 78px 58px 22px 40px;
+    grid-template-columns: minmax(0, 1fr) 78px 58px 32px 40px; /* 32px: room for the head's word "Next" */
     gap: 6px;
     padding: 6px 10px;
   }

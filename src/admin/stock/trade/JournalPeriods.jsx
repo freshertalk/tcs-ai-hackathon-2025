@@ -47,7 +47,7 @@ export function downloadCsv(name, head, rows) {
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
-export const PERIOD_HEAD = ["Period", "From", "To", "Trades", "Won", "Win rate %", "Gross P&L", "Brokerage", "Taxes", "Charges", "Net P&L", "Profit factor", "Expectancy", "Avg win", "Avg loss", "Max drawdown", "Days traded", "Green days", "Best day", "Best day net", "Worst day", "Worst day net", "Charges % of gross"];
+export const PERIOD_HEAD = ["Period", "From", "To", "Trades", "Won", "Win rate %", "Realised P&L", "Brokerage", "Taxes", "Charges & taxes", "Net realised P&L", "Profit factor", "Expectancy", "Avg win", "Avg loss", "Max drawdown", "Days traded", "Green days", "Best day", "Best day net", "Worst day", "Worst day net", "Charges & taxes % of realised P&L"];
 export const periodCsvRow = (r) => [r.label, r.fromDay || "", r.toDay, r.trades, r.wins, r.winRate, r.gross, r.brokerage, r.taxes, r.charges, r.net, r.profitFactor === null ? "inf" : r.profitFactor, r.expectancy, r.avgWin, r.avgLoss, r.maxDrawdown, r.days, r.greenDays, r.bestDay ? r.bestDay.day : "", r.bestDay ? r.bestDay.net : "", r.worstDay ? r.worstDay.day : "", r.worstDay ? r.worstDay.net : "", r.chargesPct === null ? "" : r.chargesPct];
 
 /* ------------------------------------------------------------------------------ the picker */
@@ -205,7 +205,7 @@ export function PeriodTable({ per, sel, onPick }) {
       <header className="jp-head">
         <div>
           <h3 className="jr-h">Profit and loss by period</h3>
-          <p className="vd-note">Every period at once, each trade on the day it was closed, after estimated charges. Click a row to open it below.</p>
+          <p className="vd-note">Every period at once, each trade on the day it was closed, after estimated charges &amp; taxes. Click a row to open it below.</p>
         </div>
         <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm" onClick={() => downloadCsv(`pnl-by-period-${per.today}.csv`, PERIOD_HEAD, rows.map(periodCsvRow))} data-tip="Every period and financial year with all its figures, as a CSV for Excel or Sheets.">
           ⤓ CSV
@@ -222,14 +222,14 @@ export function PeriodTable({ per, sel, onPick }) {
               <th scope="col" className="is-num">
                 Win %
               </th>
-              <th scope="col" className="is-num">
-                Gross
+              <th scope="col" className="is-num" data-tip="Profit or loss of the trades closed, before charges & taxes.">
+                Realised P&amp;L
               </th>
-              <th scope="col" className="is-num" data-tip="Brokerage and taxes (an estimate from Zerodha's published rates).">
-                Charges
+              <th scope="col" className="is-num" data-tip="Brokerage, taxes and fees (an estimate from Zerodha's published rates).">
+                Charges &amp; taxes
               </th>
               <th scope="col" className="is-num">
-                Net P&amp;L
+                Net realised P&amp;L
               </th>
               <th scope="col" className="is-num" data-tip="The period's net as a share of your principal (the capital you put in, month by month). Add your capital under Returns.">
                 Return
@@ -299,7 +299,7 @@ export function FyChart({ per, onPick }) {
   const h = hover !== null ? bars[hover] : null;
   return (
     <section className="an-card jp-card">
-      <h3 className="jr-h">Net P&amp;L by financial year</h3>
+      <h3 className="jr-h">Net realised P&amp;L by financial year</h3>
       <svg className="jp-fy" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Net profit and loss for ${bars.length} financial years`}>
         {[lo0, hi0].filter((v, i, a) => a.indexOf(v) === i && v !== 0).map((t) => (
           <g key={t}>
@@ -336,7 +336,7 @@ export function FyChart({ per, onPick }) {
       <p className="jp-cap" aria-live="polite">
         {h ? (
           <>
-            <b>{h.label}</b> · {h.trades} trades · win {num(h.winRate, 0)}% · gross {sMoney(h.gross)} · charges {sMoney(-h.charges)} · net <b className={tone(h.net)}>{sMoney(h.net)}</b>
+            <b>{h.label}</b> · {h.trades} trades · win {num(h.winRate, 0)}% · realised P&amp;L {sMoney(h.gross)} · charges &amp; taxes {sMoney(-h.charges)} · net realised P&amp;L <b className={tone(h.net)}>{sMoney(h.net)}</b>
           </>
         ) : (
           "Point at a year for its figures; click to open it."
@@ -368,9 +368,9 @@ export function MonthHeatmap({ per, onMonth }) {
       <header className="jp-head">
         <div>
           <h3 className="jr-h">Every month since the start</h3>
-          <p className="vd-note">Net P&amp;L of each month (by the day trades were closed). Deeper colour, larger result. Click a month to open it.</p>
+          <p className="vd-note">Net realised P&amp;L of each month (by the day trades were closed). Deeper colour, larger result. Click a month to open it.</p>
         </div>
-        <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm" onClick={() => downloadCsv(`pnl-by-month-${per.today}.csv`, ["Month", "Financial year", "Trades", "Win rate %", "Gross P&L", "Charges", "Net P&L", "Profit factor"], [...per.months].reverse().map((m) => [m.month, `FY ${m.fy}-${String((m.fy + 1) % 100).padStart(2, "0")}`, m.trades, m.winRate, m.gross, m.charges, m.net, m.profitFactor === null ? "inf" : m.profitFactor]))}>
+        <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm" onClick={() => downloadCsv(`pnl-by-month-${per.today}.csv`, ["Month", "Financial year", "Trades", "Win rate %", "Realised P&L", "Charges & taxes", "Net realised P&L", "Profit factor"], [...per.months].reverse().map((m) => [m.month, `FY ${m.fy}-${String((m.fy + 1) % 100).padStart(2, "0")}`, m.trades, m.winRate, m.gross, m.charges, m.net, m.profitFactor === null ? "inf" : m.profitFactor]))}>
           ⤓ CSV
         </button>
       </header>
@@ -433,7 +433,7 @@ export function MonthTable({ months, label }) {
     <section className="an-card jp-card">
       <header className="jp-head">
         <h3 className="jr-h">Month by month</h3>
-        <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm" onClick={() => downloadCsv(`months-${label}.csv`, ["Month", "Trades", "Won", "Win rate %", "Gross P&L", "Brokerage", "Taxes", "Charges", "Net P&L", "Profit factor", "Expectancy", "Max drawdown", "Days traded", "Green days"], months.map((m) => [m.month, m.trades, m.wins, m.winRate, m.gross, m.brokerage, m.taxes, m.charges, m.net, m.profitFactor === null ? "inf" : m.profitFactor, m.expectancy, m.maxDrawdown, m.days, m.greenDays]))}>
+        <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm" onClick={() => downloadCsv(`months-${label}.csv`, ["Month", "Trades", "Won", "Win rate %", "Realised P&L", "Brokerage", "Taxes", "Charges & taxes", "Net realised P&L", "Profit factor", "Expectancy", "Max drawdown", "Days traded", "Green days"], months.map((m) => [m.month, m.trades, m.wins, m.winRate, m.gross, m.brokerage, m.taxes, m.charges, m.net, m.profitFactor === null ? "inf" : m.profitFactor, m.expectancy, m.maxDrawdown, m.days, m.greenDays]))}>
           ⤓ CSV
         </button>
       </header>
@@ -449,13 +449,13 @@ export function MonthTable({ months, label }) {
                 Win %
               </th>
               <th scope="col" className="is-num">
-                Gross
+                Realised P&amp;L
               </th>
               <th scope="col" className="is-num">
-                Charges
+                Charges &amp; taxes
               </th>
               <th scope="col" className="is-num">
-                Net
+                Net realised P&amp;L
               </th>
               <th scope="col" className="is-num" data-tip="Net as a share of your principal in that month (the principal on its first trading day; additions count from their day).">
                 Return
@@ -507,7 +507,7 @@ export function DayTable({ days, label }) {
     <section className="an-card jp-card">
       <header className="jp-head">
         <h3 className="jr-h">Day by day ({list.length} trading day{list.length === 1 ? "" : "s"})</h3>
-        <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm" onClick={() => downloadCsv(`days-${label}.csv`, ["Date", "Trades", "Won", "Win rate %", "Gross P&L", "Brokerage", "Taxes", "Charges", "Net P&L"], list.map((d) => [d.key, d.trades, d.wins, d.winRate, d.gross, d.brokerage, d.taxes, d.charges, d.net]))}>
+        <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm" onClick={() => downloadCsv(`days-${label}.csv`, ["Date", "Trades", "Won", "Win rate %", "Realised P&L", "Brokerage", "Taxes", "Charges & taxes", "Net realised P&L"], list.map((d) => [d.key, d.trades, d.wins, d.winRate, d.gross, d.brokerage, d.taxes, d.charges, d.net]))}>
           ⤓ CSV
         </button>
       </header>

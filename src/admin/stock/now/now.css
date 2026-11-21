@@ -462,10 +462,8 @@
   background: var(--warn);
 }
 .nw-sys b {
-  overflow: hidden;
   font-size: var(--t-mid);
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: break-word; /* a long system name wraps, whole, rather than ending in "…" */
 }
 .nw-sys__state {
   color: var(--ink-2);

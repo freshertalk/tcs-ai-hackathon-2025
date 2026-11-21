@@ -566,9 +566,9 @@ html.tai-lock body {
 .tai-comp__hint {
   flex: 1;
   min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+  /* the hint wraps onto a second line rather than ending in "…" (no text cut off, 21 Nov 2026) */
+  overflow-wrap: break-word;
+  line-height: 1.35;
   font-size: var(--t-tag);
   color: var(--ink-3);
   text-align: left;

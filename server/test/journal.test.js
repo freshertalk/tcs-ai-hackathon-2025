@@ -424,3 +424,16 @@ test("the total profit or loss as a percentage: of the money put into the trades
   assert.equal(byMonth(trips)[0].netPct, s.netPct);
   assert.equal(stats([]).netPct, null, "nothing put in, no percentage");
 });
+
+test("per stock, the figures of Zerodha's P&L report: quantity, buy and sell average and value, realised P&L", () => {
+  // the screenshot's HINDCOPPER row, rebuilt from two fills: 5,634 bought at 427.59, sold at 428.34 (rounded)
+  const trips = roundTrips([fill("2026-11-18T09:20:00", "BUY", 5634, 427.59, "HINDCOPPER"), fill("2026-11-18T10:05:00", "SELL", 5634, 428.34, "HINDCOPPER"), fill("2026-11-19T09:40:00", "SELL", 100, 50, "IDEA"), fill("2026-11-19T10:10:00", "BUY", 100, 49, "IDEA")]).map((t) => ({ ...t, charges: 0, net: t.pnl }));
+  const s = stats(trips);
+  const hc = s.by.symbol.find((g) => g.key === "HINDCOPPER");
+  assert.deepEqual([hc.qty, hc.buyAvg, hc.buyValue, hc.sellAvg, hc.sellValue, hc.gross], [5634, 427.59, 2409042.06, 428.34, 2413267.56, 4225.5]);
+  // a short sells first: its buy value is the cover, its sell value the entry
+  const idea = s.by.symbol.find((g) => g.key === "IDEA");
+  assert.deepEqual([idea.qty, idea.buyAvg, idea.buyValue, idea.sellAvg, idea.sellValue, idea.gross], [100, 49, 4900, 50, 5000, 100]);
+  // the realised P&L is the sell value less the buy value, as in Zerodha's report
+  assert.equal(Math.round((hc.sellValue - hc.buyValue) * 100) / 100, hc.gross);
+});

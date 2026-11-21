@@ -539,7 +539,7 @@ export default function Account({ compact = false }) {
             {!compact && (
             <dl className="tr-tiles">
               <div className={`is-${tone(dayPnl)}`} data-tip="Today’s profit or loss on all positions, open and closed (the day’s M2M, by Zerodha’s own formula) — the same figure as the top bar and the dock, live with every streamed price.">
-                <dt>Positions P&amp;L</dt>
+                <dt>Positions · Total P&amp;L</dt>
                 <dd>{signedMoney(dayPnl)}</dd>
                 <small>
                   {tot.open} open · {positions.length - tot.open} closed today
@@ -547,21 +547,21 @@ export default function Account({ compact = false }) {
                 </small>
               </div>
               <div className={`is-${tone(tot.holdPnl)}`} data-tip="Profit or loss on your delivery holdings against what you paid for them.">
-                <dt>Holdings P&amp;L</dt>
+                <dt>Holdings · Total P&amp;L</dt>
                 <dd>{signedMoney(tot.holdPnl)}</dd>
                 <small>
                   {pct(tot.holdPnlPct)} on {money(tot.invested)}
                 </small>
               </div>
               <div className={`is-${tone(tot.holdDay)}`} data-tip="How much your holdings have moved since yesterday’s close.">
-                <dt>Holdings today</dt>
+                <dt>Holdings · Day&rsquo;s P&amp;L</dt>
                 <dd>{signedMoney(tot.holdDay)}</dd>
                 <small>current value {money(tot.current)}</small>
               </div>
               <div data-tip="Equity margin available for new trades, as Zerodha reports it.">
-                <dt>Available margin</dt>
+                <dt>Margin available</dt>
                 <dd>{d.funds && d.funds.equity ? money(d.funds.equity.net) : "—"}</dd>
-                <small>{d.funds && d.funds.equity ? `used ${money(d.funds.equity.used.debits)}` : d.errors.funds || ""}</small>
+                <small>{d.funds && d.funds.equity ? `Margins used ${money(d.funds.equity.used.debits)}` : d.errors.funds || ""}</small>
               </div>
             </dl>
             )}
@@ -883,9 +883,9 @@ export default function Account({ compact = false }) {
                     ["Delivery margin", f.used.delivery, "Margin for delivery trades."],
                     ["Exposure", f.used.exposure, "Additional F&O margin."],
                     ["Options premium", f.used.optionPremium, "Premium paid for options bought today."],
-                    ["Collateral (stocks)", f.available.collateral, "Margin from pledged holdings."],
-                    ["Realised M2M", f.used.m2mRealised, "Profit or loss booked today."],
-                    ["Unrealised M2M", f.used.m2mUnrealised, "Profit or loss on open positions."],
+                    ["Total collateral", f.available.collateral, "Margin from pledged holdings."],
+                    ["Realised P&L", f.used.m2mRealised, "Profit or loss booked today (the day's realised M2M)."],
+                    ["Unrealised P&L", f.used.m2mUnrealised, "Profit or loss on open positions (the day's unrealised M2M)."],
                   ];
                   return (
                     <div key={seg} className="an-card tr-card">

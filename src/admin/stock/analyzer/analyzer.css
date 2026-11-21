@@ -6,80 +6,93 @@
 
 /* Colour tokens for the trading desk. Every green, red and amber below comes from
    here, so the dark theme only has to redefine this list. */
-/* The private area keeps its own colours (the owner's choice, 20 Nov 2026): the public page changed its palette, and
-   its theme sits on this same element ([data-theme="tech"], src/styles/site.css), so the light values the private
-   area has always had are stated here in full. Dark has its own block below, and a person's accent (prefs.css) is
+/* THE ZERODHA PALETTE (the owner's choice, 21 Nov 2026: "keep same theme as same as zerodha. same color, same text,
+   same theme"). The values are Zerodha Kite's own, read from Kite's published stylesheet (its :root and
+   [data-theme=dark] blocks), and Zerodha Console's primary blue (#0059c1, from its stylesheet and the owner's
+   screenshot). Fills — chart bars, candles, heat squares, the Buy/Sell colours' family — use Kite's exact colours.
+   Where Kite's own colour is too faint to read as small text (its #9b9b9b grey, #4caf50 green, #df514c red and
+   #ff5722 orange on white; its #666 grey on black), text uses the nearest darker shade of the same colour, because
+   the owner asked on 15 Nov 2026 that every text be readable in both themes (4.5:1 or better). Listed in BRAND.md.
+   The public page's theme sits on this same element ([data-theme="tech"], src/styles/site.css), so the private
+   area's light values are stated here in full; dark has its own block below, and a person's accent (prefs.css) is
    more specific than both. Do not take a private colour from the public theme. */
 .adm[data-theme="tech"] {
-  --paper: #f4f5f7;
+  --paper: #ffffff; /* Kite: the page is white */
   --paper-2: #ffffff;
   --surface: #ffffff;
-  --surface-2: #eceff3;
-  --ink: #101620;
-  --ink-2: #4a5462;
-  --line: rgba(16, 22, 32, 0.1);
-  --line-2: rgba(16, 22, 32, 0.19);
-  --accent: #1e4b7a;
-  --accent-soft: #e4ecf4;
+  --surface-2: #fafafb; /* Kite bg-10: the light grey of a summary band or a table head */
+  --ink: #444444; /* Kite text */
+  --ink-2: #555555;
+  --line: #eeeeee; /* Kite border */
+  --line-2: #dddddd;
+  --accent: #0059c1; /* Zerodha Console's primary blue (Kite's #4184f3 is too light to read as text) */
+  --accent-soft: #eef4fc;
   --on-accent: #ffffff;
-  --shadow: 0 30px 70px -44px rgba(16, 22, 32, 0.5);
-  --shadow-lg: 0 50px 110px -56px rgba(16, 22, 32, 0.55);
+  --shadow: none; /* Zerodha is flat: hairlines, not shadows */
+  --shadow-lg: 0 6px 24px rgba(0, 0, 0, 0.08);
 }
 .adm {
   /* readable text on every light surface (WCAG AA: 4.5:1 for small text) */
-  --ink-3: #5f6977;
-  --accent-2: #a8532a;
-  --up: #12663e;
-  --up-ink: #14613d;
-  --up-bright: #2fa36b;
-  --up-bg: #eef9f3;
-  --up-line: #9fd3b6;
-  --down: #b3321f;
-  --down-ink: #8a2418;
-  --down-candle: #c0392b;
-  --down-bg: #fdf0ee;
-  --down-line: #efb1a8;
-  --warn: #d08a00;
-  --warn-ink: #5d4300;
-  --warn-bg: #fff6e3;
-  --warn-line: #efd9a0;
-  --neutral-bar: #e3e6ea;
-  --c-ema20: #1e4b7a;
-  --c-ema200: #7d5ba6;
+  --ink-3: #6b6b6b; /* Kite's muted #9b9b9b, darkened to read (on white and on a tinted row) */
+  --accent-2: #c73a0e; /* Kite's orange #ff5722, darkened to read: the active tab, eyebrows, the focus ring */
+  --kite-orange: #ff5722; /* the exact orange, for marks: the active tab's underline */
+  --kite-blue: #4184f3; /* the exact Kite blue, for marks */
+  --up: #2c7f32; /* Kite's green #4caf50, darkened to read */
+  --up-ink: #256b2a;
+  --up-bright: #4caf50; /* Kite's green, exact: fills */
+  --up-bg: #e8f5e9;
+  --up-line: #a5d6a7;
+  --down: #c53f3a; /* Kite's red #df514c, darkened to read */
+  --down-ink: #a8332f;
+  --down-candle: #df514c; /* Kite's red, exact: fills */
+  --down-bg: #fdecea;
+  --down-line: #f2b8b5;
+  --warn: #ff8f00; /* Kite amber */
+  --warn-ink: #7a4f00;
+  --warn-bg: #fff4e0;
+  --warn-line: #ffd699;
+  --neutral-bar: #eeeeee;
+  --c-ema20: #4184f3;
+  --c-ema200: #844aeb; /* Kite indigo */
   --on-solid: #ffffff;
 }
 .adm[data-desk="dark"] {
   color-scheme: dark;
-  --paper: #0b0f14;
-  --surface: #131a23;
-  --surface-2: #1b2430;
-  --ink: #e8edf3;
-  --ink-2: #b3bdc9;
-  --ink-3: #97a3b2;
-  --line: rgba(255, 255, 255, 0.09);
-  --line-2: rgba(255, 255, 255, 0.2);
-  --accent: #6aaeee;
-  --accent-2: #e58a5c;
-  --accent-soft: rgba(106, 174, 238, 0.14);
-  --on-accent: #06101a;
-  --up: #2ebd85;
-  --up-ink: #58d9a4;
-  --up-bright: #2ebd85;
-  --up-bg: rgba(46, 189, 133, 0.12);
-  --up-line: rgba(46, 189, 133, 0.45);
-  --down: #ff6b7e;
-  --down-ink: #ff8795;
-  --down-candle: #f6465d;
-  --down-bg: rgba(246, 70, 93, 0.12);
-  --down-line: rgba(246, 70, 93, 0.45);
-  --warn: #f0b90b;
-  --warn-ink: #f3cf6b;
-  --warn-bg: rgba(240, 185, 11, 0.1);
-  --warn-line: rgba(240, 185, 11, 0.38);
-  --neutral-bar: #2a3441;
-  --c-ema20: #6aaeee;
-  --c-ema200: #b897e6;
-  --on-solid: #06101a;
+  --paper: #111111; /* Kite dark: the body */
+  --paper-2: #181818;
+  --surface: #181818; /* Kite dark: a panel */
+  --surface-2: #242424;
+  --ink: #bbbbbb; /* Kite dark text */
+  --ink-2: #9e9e9e;
+  --ink-3: #8f8f8f; /* Kite's #666, lifted to read */
+  --line: #232325; /* Kite dark border */
+  --line-2: #363636;
+  --accent: #4f8cf0; /* Kite dark blue #4987ee, a touch lighter so it reads on #242424 too */
+  --accent-2: #dc6a45; /* Kite dark orange #d4603b, likewise */
+  --kite-orange: #d4603b;
+  --kite-blue: #4987ee;
+  --accent-soft: rgba(73, 135, 238, 0.14);
+  --on-accent: #121212; /* Kite dark: text on a coloured fill is near-black */
+  --up: #62a464; /* Kite dark green #5b9a5d, a touch lighter so it reads on a highlighted row */
+  --up-ink: #6aaa6c;
+  --up-bright: #5b9a5d;
+  --up-bg: rgba(91, 154, 93, 0.12);
+  --up-line: rgba(91, 154, 93, 0.42);
+  --down: #e66a66; /* Kite dark red #e25f5b, a touch lighter */
+  --down-ink: #ec7c78;
+  --down-candle: #e25f5b;
+  --down-bg: rgba(226, 95, 91, 0.12);
+  --down-line: rgba(226, 95, 91, 0.42);
+  --warn: #ff8f00;
+  --warn-ink: #ffb547;
+  --warn-bg: rgba(255, 143, 0, 0.1);
+  --warn-line: rgba(255, 143, 0, 0.38);
+  --neutral-bar: #242424;
+  --c-ema20: #4987ee;
+  --c-ema200: #9575cd;
+  --on-solid: #121212;
+  --shadow: none;
+  --shadow-lg: 0 6px 24px rgba(0, 0, 0, 0.5);
 }
 /* the few shared admin rules that carry their own light colours */
 .adm[data-desk="dark"] .adm-alert--error {

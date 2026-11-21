@@ -78,8 +78,15 @@ test("the classification: every category belongs to one of the groups, ids are u
   assert.equal(groups.size, GROUPS.length);
   assert.equal(new Set(CATEGORIES.map((c) => c.id)).size, CATEGORIES.length);
   for (const c of CATEGORIES) assert.ok(groups.has(c.group), c.id);
-  // eight groups that carry a colour of their own on the page, and "Other" last
-  assert.deepEqual(GROUPS.map((g) => g.id), ["home", "dharma", "food", "family", "life", "health", "travel", "money", "other"]);
+  // eight groups that carry a colour of their own on the page — Stock Market first — and "Other" last
+  assert.deepEqual(GROUPS.map((g) => g.id), ["stock", "home", "dharma", "food", "family", "life", "travel", "money", "other"]);
+  // the owner's list for the trading desk is all there, under Stock Market
+  const stock = CATEGORIES.filter((c) => c.group === "stock").map((c) => c.label);
+  for (const want of ["ChatGPT subscription", "Claude subscription", "AI API token cost", "YouTube Premium", "Netflix", "Zerodha Kite API subscription", "Internet broadband", "Mobile recharge", "IT hardware", "Office rent"]) assert.ok(stock.includes(want), want);
+  assert.ok(stock.some((l) => /^Office setup/.test(l)));
+  // Health is now part of "Health & lifestyle": its categories keep their ids, so old entries keep their category
+  assert.equal(GROUPS.find((g) => g.id === "life").label, "Health & lifestyle");
+  for (const id of ["doctor", "medicine", "fitness"]) assert.equal(CATEGORIES.find((c) => c.id === id).group, "life");
   for (const g of GROUPS) assert.ok(CATEGORIES.some((c) => c.group === g.id), `${g.id} has a category`);
   assert.ok(METHODS.some((m) => m.id === "upi") && METHODS.some((m) => m.id === "cash"));
   assert.ok(COLLECTIONS.includes(NAME), "kept one record per entry, and in the backup");

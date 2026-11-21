@@ -1,0 +1,162 @@
+/* ==========================================================================
+   The Zerodha look — loaded last of all (AdminApp.jsx), over every private page. The owner's choice, 21 Nov 2026:
+   "keep same theme as same as zerodha. same color, same text, same theme".
+
+   The colours are tokens (the Zerodha palette in src/admin/stock/analyzer/analyzer.css); the type was already Kite's
+   (Open Sans, admin.css). This file changes only how surfaces sit and how corners and tabs look, the way Kite does:
+     1. flat     a plain page, white panels, hairline borders, no glows, no glass, no card shadows
+     2. corners  3–4px, not pills or rounded slabs
+     3. tabs     the selected tab is orange with an orange underline, as in Kite's top bar
+     4. /me      the welcome block and its main button in the same plain style
+   It moves nothing and hides nothing. Delete this file (and its import) to bring back the softer look; the colours
+   stay with the tokens.
+   ========================================================================== */
+
+/* ------------------------------------------------------------------ 1. flat */
+.adm {
+  --r: 3px;
+  --r-lg: 4px;
+}
+.adm,
+.adm .tm {
+  background: var(--paper);
+  background-attachment: scroll;
+}
+.adm .tm {
+  background: transparent;
+}
+.adm .adm-head,
+.adm .tm .tm-top {
+  background: var(--surface);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  border-bottom: 1px solid var(--line);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+.adm :where(.an-card, .adm-card, .ta-card, .eng-card, .ais-card, .soc-card, .sr-card, .apx-card, .av-card, .cx-card, .dkb-card, .hm-card, .hm-pc, .hm-feat, .hm-set, .hm-sys__tile, .mk, .wl, .ab, .hz, .sv__stats, .sv__ticker, .jp2-tile, .ip-tile) {
+  border-color: var(--line);
+  background-image: none;
+  box-shadow: none;
+}
+.adm :where(a, button):where(.hm-tile, .hm-set, .hm-pc > a, .jp2-tile):hover {
+  box-shadow: none;
+  border-color: var(--line-2);
+}
+.adm :where(.an-card__head, .sr-card__head) :where(h2, h3)::before {
+  display: none; /* Kite's headings carry no coloured bar */
+}
+.adm :where(.an-table, .tr-table, .hz-table, .dh-table, .ta-table, .ix-table) thead th {
+  font-weight: 400; /* Kite's table heads: quiet, not shouted */
+  letter-spacing: 0;
+  text-transform: none;
+  font-size: var(--t-small);
+}
+.adm :where(.an-table, .tr-table, .ta-table, .ix-table) tbody tr:hover {
+  background: var(--surface-2);
+}
+.adm :where(input[type="text"], input[type="search"], input[type="number"], input[type="email"], input[type="password"], select, textarea):focus {
+  box-shadow: none;
+}
+.adm :where(.sv__tabs, .sv__ranges) button[aria-selected="true"],
+.adm :where(.sv__tabs, .sv__ranges) button[aria-pressed="true"] {
+  box-shadow: none;
+}
+
+/* headings in Kite's own face (Open Sans), large ones light — "Hi, Vinay" — not a display face. Low specificity on
+   purpose: a page that sets its own face for a reason (the Hindi Kundali page) keeps it */
+.adm :where(h1, h2, h3, h4) {
+  font-family: var(--f-ui);
+  letter-spacing: 0;
+}
+.adm :where(.an-card__head, .ta-card__h, .eng-card__h, .ix-card__h, .sr-card__head, .tr-card__head) :where(h2, h3) {
+  font-family: var(--f-ui);
+  font-weight: 600;
+  letter-spacing: 0;
+}
+.adm :where(h1) {
+  font-weight: 300;
+}
+
+/* ------------------------------------------------------------------ 2. corners */
+.adm :where(.an-card, .adm-card, .ta-card, .eng-card, .ais-card, .soc-card, .sr-card, .apx-card, .av-card, .cx-card, .hm-card, .hm-pc, .hm-feat, .hm-set, .hm-sys__tile, .jp2-tile, .ip-tile, .hm-me, .hm-about, .hm-kundali) {
+  border-radius: 4px;
+}
+.adm .adm-btn,
+.adm .adm-user .adm-btn--ghost,
+.adm .hm .hm-btn {
+  border-radius: 3px;
+}
+.adm .sv__ranges button,
+.adm .pc__toggles button,
+.adm .jp-chips > button,
+.adm .jp-chips > select {
+  border-radius: 3px;
+}
+.adm :where(input, select, textarea):not([type="checkbox"]):not([type="radio"]):not([type="range"]) {
+  border-radius: 3px;
+}
+
+/* ------------------------------------------------------------------ 3. tabs: Kite's orange underline */
+.adm .tm .tm-tabs button::after {
+  background: var(--kite-orange, var(--accent-2));
+  border-radius: 0;
+}
+.adm .tm .tm-tabs button[aria-selected="true"] {
+  color: var(--accent-2);
+  font-weight: 600;
+}
+/* the tabs inside a page (Positions · Holdings · Orders · Funds, the views of a screen): words with a line under the
+   one you are on, as in Kite — not filled pills */
+.adm .sv__tabs button,
+.adm .sr-views button {
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink-2);
+}
+.adm .sv__tabs button:hover,
+.adm .sr-views button:hover {
+  border-color: transparent;
+  border-bottom-color: var(--line-2);
+  color: var(--ink);
+}
+.adm .sv__tabs button[aria-selected="true"],
+.adm .sr-views button[aria-selected="true"] {
+  border-bottom-color: var(--kite-orange, var(--accent-2));
+  background: transparent;
+  color: var(--accent-2);
+  font-weight: 600;
+}
+
+/* ------------------------------------------------------------------ 4. /me */
+.adm .hm-me {
+  background: var(--surface);
+  border-color: var(--line);
+}
+.adm .hm .hm-btn--go,
+.adm .hm .hm-btn--go:hover {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--on-accent);
+  filter: none;
+}
+.adm .hm-kundali {
+  background: var(--surface);
+  border-color: var(--line);
+}
+/* the tools' links on /me: Kite's links are blue (their own saffron and violet are too light on white) */
+.adm:not([data-desk="dark"]) .hm-feat__go {
+  color: var(--accent);
+}
+/* the Journal's retrospective button: one Zerodha blue, not a blue-violet blend */
+.adm .jc-retro-btn {
+  border-radius: 4px;
+  background: var(--accent);
+  color: var(--on-accent);
+}
+.adm .hm-kundali:hover {
+  transform: none;
+  box-shadow: none;
+  border-color: var(--line-2);
+}
