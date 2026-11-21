@@ -153,6 +153,17 @@
   gap: 14px;
   scroll-margin-top: 118px;
 }
+/* a grid grows to its widest child: an opened table (the vargas, the dasha's) would widen every section on a phone.
+   Items may shrink instead — the tables scroll inside their own box (21 Nov 2026) */
+.kd-main > *,
+.kd-sec > *,
+.kd-dasha > *,
+.kd-yogas > *,
+.kd-grid3 > *,
+.kd-houses > *,
+.kd-cautions > * {
+  min-width: 0;
+}
 .kd-hero {
   scroll-margin-top: 118px;
 }
@@ -729,6 +740,113 @@
   color: var(--warn-ink);
 }
 
+/* ------------------------------------------------------------------ the fuller reading (21 Nov 2026) */
+/* "read more" inside a yoga or a remedy card */
+.kd-fold {
+  margin-top: 8px;
+  border-top: 1px dashed var(--line-2);
+}
+.kd-fold summary {
+  padding: 8px 0 2px;
+  color: var(--accent);
+  cursor: pointer;
+  font-family: var(--f-hi, serif);
+  font-weight: 700;
+  list-style-position: inside;
+}
+.kd-fold summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.kd-fold__body {
+  display: grid;
+  gap: 8px;
+  padding-top: 6px;
+}
+.kd-fold__body h4,
+.kd-dasha-read h4 {
+  margin: 6px 0 0;
+  font-size: 0.98rem;
+}
+.kd-fold__k {
+  margin-top: 4px !important;
+  color: var(--ink-2);
+}
+.kd-fold__k b {
+  color: var(--ink);
+}
+/* doshas: a line on the left says at a glance whether it is there */
+.kd-dosh {
+  border-left: 4px solid var(--line-2);
+}
+.kd-dosh--ok {
+  border-left-color: var(--up-line);
+}
+.kd-dosh--warn {
+  border-left-color: var(--warn);
+}
+/* the dasha's own reading under the three lists */
+.kd-dasha-read {
+  margin-top: 14px;
+}
+.kd-adread {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.kd-adread li {
+  display: grid;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.kd-adread li small {
+  color: var(--ink-3);
+  font-size: 0.86rem;
+}
+.kd-adread li p {
+  margin: 4px 0 0;
+}
+.kd-adread li.is-now {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--line));
+  background: color-mix(in srgb, var(--accent) 6%, var(--surface));
+}
+.kd-ad__say {
+  display: block;
+  padding: 0 10px 6px;
+  color: var(--ink-2);
+  font-size: 0.84rem;
+  line-height: 1.5;
+}
+/* transits: the one running today is marked */
+.kd-gochar.is-now {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--line));
+  background: color-mix(in srgb, var(--accent) 5%, var(--surface));
+}
+.kd-sadhana {
+  margin-top: 14px;
+}
+/* a short card beside the tall weekly one keeps its lines at the top instead of spreading them out */
+.kd-sadhana .kd-card,
+.kd-sadhana ol,
+.kd-sadhana ul {
+  align-content: start;
+}
+.kd-week dt small {
+  display: block;
+  color: var(--ink-3);
+  font-weight: 500;
+}
+.kd-steps {
+  display: grid;
+  gap: 6px;
+  margin: 4px 0 0;
+  padding-left: 22px;
+}
+
 /* ------------------------------------------------------------------ the palette */
 .kd-sw {
   display: inline-flex;
@@ -950,5 +1068,14 @@
   }
   .kd-sec {
     break-inside: auto;
+  }
+  /* long readings flow over pages; the "read more" lines themselves are not needed on paper */
+  .kd-dasha-read,
+  .kd-sadhana .kd-card,
+  .kd-prose {
+    break-inside: auto;
+  }
+  .kd-fold summary {
+    display: none;
   }
 }

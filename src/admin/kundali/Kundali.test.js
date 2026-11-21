@@ -137,6 +137,90 @@ test("the dasha can be opened: a great period shows its sub-periods, a sub-perio
   expect(sec.querySelectorAll(".kd-ad--pd li").length).toBe(9);
 });
 
+// The fuller reading (21 Nov 2026): each part is shown only when the chart carries it.
+const fuller = () => {
+  const c = chart();
+  c.yogas[0] = { ...c.yogas[0], strength: "पूर्ण।", detail: ["रुचक का पहला विस्तार।", "रुचक का दूसरा विस्तार।"], when: "मंगल की दशा में।", do: "मंगलवार को व्यायाम।" };
+  c.doshasNote = "दोष का अर्थ डर नहीं।";
+  c.doshas = [
+    { name: "मांगलिक दोष", status: "है", tone: "warn", basis: "मंगल लग्न में।", detail: ["परीक्षण का विस्तार।"], remedy: "हनुमान चालीसा।" },
+    { name: "कालसर्प दोष", status: "नहीं", tone: "ok", basis: "ग्रह दोनों ओर।", detail: "एक ही अनुच्छेद।" },
+  ];
+  c.dasha.detail = { ra: { md: ["राहु महादशा का विस्तृत फल।"], ad: { su: "राहु में सूर्य का फल।", mo: "राहु में चंद्र का फल।" } } };
+  c.dasha.pd = { mo: "मन और यात्रा।" };
+  c.gochar = {
+    intro: "धीमे ग्रहों का गोचर।",
+    rows: [
+      { graha: "शनि", sign: "मकर", house: "दशम", when: "2010 – 2014", spans: [["2010-01-01", "2014-01-01"]], effect: ["परिश्रम का समय।"] },
+      { graha: "गुरु", sign: "वृष", house: "द्वितीय", when: "2020 – 2021", spans: [["2020-01-01", "2021-01-01"]], effect: "धन का समय।" },
+    ],
+    notes: ["तिथियाँ गणना से।"],
+  };
+  c.remedies[0] = { ...c.remedies[0], japa: "10,000 जप।", vedic: "ॐ अग्निर्मूर्धा।", day: "मंगलवार।", kashi: "संकट मोचन।", aacharan: ["क्रोध से बचें।"] };
+  c.sadhana = { week: [["मंगलवार", "मंगल", "हनुमान चालीसा।"]], daily: ["सूर्योदय से पहले उठना।"], rules: ["सब उपाय एक साथ नहीं।"] };
+  return c;
+};
+
+test("the fuller reading: yogas open to their detail, doshas, each dasha's own reading, the transits marked for today, the whole method of a remedy", async () => {
+  mockApi.mockResolvedValue(view({ chart: fuller() }));
+  const { container } = render(<Kundali />);
+  await waitFor(() => expect(container.querySelector("#kd-dosh")).toBeTruthy());
+  expect([...container.querySelectorAll(".kd-jump a")].map((a) => a.textContent)).toEqual(["सार", "जन्म विवरण", "कुंडलियाँ", "ग्रह", "भाव", "योग", "दोष", "दशा", "गोचर", "विश्लेषण", "शुभ रंग", "उपाय", "जाँचें", "दस्तावेज़"]);
+
+  // a yoga: its strength in view, the rest behind "read more"
+  const yoga = container.querySelector("#kd-yog .kd-yoga");
+  expect(yoga.textContent).toMatch(/बल: पूर्ण।/);
+  const fold = yoga.querySelector("details.kd-fold");
+  expect(fold.querySelector("summary").textContent).toBe("विस्तार से पढ़ें");
+  expect(fold.textContent).toMatch(/रुचक का पहला विस्तार।रुचक का दूसरा विस्तार।कब फलित: मंगल की दशा में।क्या करें: मंगलवार को व्यायाम।/);
+
+  // doshas: present or absent at a glance
+  const dosh = [...container.querySelectorAll("#kd-dosh .kd-dosh")];
+  expect(container.querySelector("#kd-dosh").textContent).toMatch(/दोष का अर्थ डर नहीं।/);
+  expect(dosh[0].className).toMatch(/kd-dosh--warn/);
+  expect(dosh[0].querySelector(".kd-chip--warn").textContent).toBe("है");
+  expect(dosh[0].textContent).toMatch(/मंगल लग्न में।परीक्षण का विस्तार।उपाय: हनुमान चालीसा।/);
+  expect(dosh[1].querySelector(".kd-chip--ok").textContent).toBe("नहीं");
+  expect(dosh[1].textContent).toMatch(/एक ही अनुच्छेद।/);
+
+  // the running great period's own reading, each sub-period's, the running one marked; a part's line beside it
+  const read = container.querySelector("#kd-dasha .kd-dasha-read");
+  expect(read.textContent).toMatch(/राहु महादशा का फलराहु महादशा का विस्तृत फल।अंतर्दशाओं का फल/);
+  const ads = [...read.querySelectorAll(".kd-adread li")];
+  expect(ads.map((li) => li.querySelector("b").textContent)).toEqual(["राहु–सूर्य", "राहु–चंद्र"]);
+  expect(ads[0].className).toMatch(/is-now/);
+  expect(ads[0].textContent).toMatch(/12 जनवरी 2013 – 6 दिसंबर 2013 · अभी चल रही हैराहु में सूर्य का फल।/);
+  expect(container.querySelector("#kd-dasha .kd-ad--pd li.is-now .kd-ad__say").textContent).toBe("मन और यात्रा।");
+  // a great period with no reading written shows none
+  fireEvent.click([...container.querySelectorAll("#kd-dasha .kd-md li")][3].querySelector("button"));
+  expect(container.querySelector("#kd-dasha .kd-dasha-read")).toBeNull();
+
+  // transits: the one running on 1 February 2013 is marked
+  const go = [...container.querySelectorAll("#kd-gochar .kd-gochar")];
+  expect(go[0].className).toMatch(/is-now/);
+  expect(go[0].textContent).toMatch(/शनि · मकरअभी2010 – 2014 · दशमपरिश्रम का समय।/);
+  expect(go[1].className).not.toMatch(/is-now/);
+  expect(go[1].textContent).toMatch(/गुरु · वृषद्वितीय2020 – 2021धन का समय।/);
+  expect(container.querySelector("#kd-gochar").textContent).toMatch(/तिथियाँ गणना से।/);
+
+  // a remedy's whole method, and the weekly practice
+  const up = container.querySelector("#kd-upay .kd-upay details.kd-fold");
+  expect(up.querySelector("summary").textContent).toBe("पूरी विधि");
+  expect(up.textContent).toMatch(/जप10,000 जप।वैदिक मंत्रॐ अग्निर्मूर्धा।दिन और समयमंगलवार।काशी मेंसंकट मोचन।आचरणक्रोध से बचें।/);
+  expect(container.querySelector(".kd-sadhana").textContent).toMatch(/साप्ताहिक साधनामंगलवारमंगलहनुमान चालीसा।दैनिक क्रमसूर्योदय से पहले उठना।उपाय के नियमसब उपाय एक साथ नहीं।/);
+
+  // printing opens every fold, and closes again the ones that were closed
+  const folds = () => [...container.querySelectorAll(".kd details.kd-fold")];
+  expect(folds().every((d) => !d.open)).toBe(true);
+  window.dispatchEvent(new Event("beforeprint"));
+  expect(folds().every((d) => d.open)).toBe(true);
+  window.dispatchEvent(new Event("afterprint"));
+  expect(folds().every((d) => !d.open)).toBe(true);
+
+  const words = container.querySelector(".kd-main").textContent.replace(/PDF|MB|KB|D1|#[0-9a-f]{6}/gi, "");
+  expect(words).not.toMatch(/[A-Za-z]{3,}/);
+});
+
 test("the stored paper can be read on the page, opened in a tab, downloaded, renamed and removed (asked first)", async () => {
   mockApi.mockImplementation((url, opts) => {
     if (opts && opts.method === "PUT") return Promise.resolve(view({ documents: [{ ...paper, label: opts.body.label }] }));

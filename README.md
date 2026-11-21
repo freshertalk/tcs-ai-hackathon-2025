@@ -75,6 +75,9 @@ and the papers behind it, for superadmins only. The chart is one private record 
 files under `server/data/media/`; neither is in this repository or in the client bundle. The page draws the charts,
 works the Vimshottari dasha out for today (`jyotish.js`, checked against the printed tables), and reads, downloads,
 adds and removes the papers. A chart is carried to another server with Export / Import on the page.
+Since 2026-11-21 a chart may also carry `doshas`, `gochar` (transit rows with date `spans`; today's is marked),
+`sadhana`, `dasha.detail` / `dasha.pd`, and per-yoga `strength` / `detail` / `when` / `do` and per-remedy method fields
+— the page shows each only when present, behind "read more" folds that open for printing.
 
 **Expenses (2026-11-20; `server/expenses.js`, `src/admin/expenses/`).** The owner's expense tracker, under Personal on
 /me, superadmins only (one shared ledger). An entry is a day, an amount, one of 52 categories in 8 groups, a few words,

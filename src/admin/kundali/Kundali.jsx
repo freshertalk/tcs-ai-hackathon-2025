@@ -9,6 +9,8 @@
 //   ग्रह · भाव · योग · बल
 //   दशा            Vimshottari, worked out for today — every period can be opened
 //   विश्लेषण · रंग · उपाय
+//   दोष · गोचर · विस्तृत फल (21 Nov 2026): a chart may also carry doshas, the coming transits, a fuller reading of each
+//                  yoga, of each dasha and antardasha, and the whole method of each remedy — each shown only when present
 //   दस्तावेज़        the stored papers: read here, open in a tab, download, add, rename, remove; the chart file itself
 //                  can be exported and imported (that is how it is carried to another server)
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -47,7 +49,9 @@ const SECTIONS = [
   ["grah", "ग्रह"],
   ["bhav", "भाव"],
   ["yog", "योग"],
+  ["dosh", "दोष"],
   ["dasha", "दशा"],
+  ["gochar", "गोचर"],
   ["vishleshan", "विश्लेषण"],
   ["rang", "शुभ रंग"],
   ["upay", "उपाय"],
@@ -65,6 +69,20 @@ function Rows({ rows }) {
         </div>
       ))}
     </dl>
+  );
+}
+
+/** A reading may be one paragraph or several. */
+const paras = (x) => (Array.isArray(x) ? x.filter(Boolean) : x ? [x] : []);
+const isoOf = (ymd) => `${ymd[0]}-${String(ymd[1]).padStart(2, "0")}-${String(ymd[2]).padStart(2, "0")}`;
+
+/** "Read more": a fold that opens by itself when the page is printed (see the page's beforeprint handler). */
+function Fold({ label = "विस्तार से पढ़ें", children }) {
+  return (
+    <details className="kd-fold">
+      <summary>{label}</summary>
+      <div className="kd-fold__body">{children}</div>
+    </details>
   );
 }
 
@@ -108,6 +126,7 @@ function Dasha({ dasha, brief = false }) {
   const ads = antardashas(md);
   const ad = ads.find((r) => r.lord === openAd) || (md === on.maha ? on.antar : null);
   const pds = pratyantars(ad);
+  const det = dasha.detail && dasha.detail[md.lord]; // the fuller reading of this mahadasha and its antardashas, when written
   const isNow = (row, running) => Boolean(running && row.lord === running.lord && row.from.join() === running.from.join());
   const birthYear = dasha.birth[0];
   const now = on.maha && (
@@ -176,11 +195,41 @@ function Dasha({ dasha, brief = false }) {
                     {hindiDate(r.from)} – {hindiDate(r.to)}
                   </span>
                 </span>
+                {dasha.pd && dasha.pd[r.lord] && <small className="kd-ad__say">{dasha.pd[r.lord]}</small>}
               </li>
             ))}
           </ul>
         </div>
       </div>
+      {det && (
+        <div className="kd-card kd-prose kd-dasha-read">
+          <h3>{planetName(md.lord)} महादशा का फल</h3>
+          {paras(det.md).map((t) => (
+            <p key={t}>{t}</p>
+          ))}
+          {det.ad && (
+            <>
+              <h4>अंतर्दशाओं का फल</h4>
+              <ol className="kd-adread">
+                {ads
+                  .filter((r) => det.ad[r.lord])
+                  .map((r) => (
+                    <li key={r.lord} className={`${isNow(r, on.antar) && md === on.maha ? "is-now" : ""}${ad && r.lord === ad.lord ? " is-open" : ""}`}>
+                      <b>
+                        {planetName(md.lord)}–{planetName(r.lord)}
+                      </b>
+                      <small>
+                        {hindiDate(r.from)} – {hindiDate(r.to)}
+                        {isNow(r, on.antar) && md === on.maha ? " · अभी चल रही है" : ""}
+                      </small>
+                      <p>{det.ad[r.lord]}</p>
+                    </li>
+                  ))}
+              </ol>
+            </>
+          )}
+        </div>
+      )}
     </>
   );
 }
@@ -431,7 +480,27 @@ export default function Kundali() {
     }
     return m;
   }, [c]);
-  const sections = c ? SECTIONS : SECTIONS.filter(([id]) => id === "dastavez");
+  // a section that has nothing to show in this chart is left out of the jump bar too
+  const sections = c ? SECTIONS.filter(([id]) => (id !== "dosh" || Array.isArray(c.doshas)) && (id !== "gochar" || Boolean(c.gochar))) : SECTIONS.filter(([id]) => id === "dastavez");
+  // printing opens every "read more", and closes again the ones that were closed
+  useEffect(() => {
+    let opened = [];
+    const before = () => {
+      opened = [...document.querySelectorAll(".kd details:not([open])")];
+      opened.forEach((d) => d.setAttribute("open", ""));
+    };
+    const after = () => {
+      opened.forEach((d) => d.removeAttribute("open"));
+      opened = [];
+    };
+    window.addEventListener("beforeprint", before);
+    window.addEventListener("afterprint", after);
+    return () => {
+      window.removeEventListener("beforeprint", before);
+      window.removeEventListener("afterprint", after);
+    };
+  }, []);
+  const today = useMemo(() => isoOf(todayYmd()), []);
 
   return (
     <div className="kd" lang="hi">
@@ -669,10 +738,56 @@ export default function Kundali() {
                     </header>
                     <p className="kd-yoga__basis">{y.basis}</p>
                     {y.effect && <p>{y.effect}</p>}
+                    {y.strength && (
+                      <p className="kd-fold__k">
+                        <b>बल:</b> {y.strength}
+                      </p>
+                    )}
+                    {(paras(y.detail).length > 0 || y.when || y.do) && (
+                      <Fold>
+                        {paras(y.detail).map((t) => (
+                          <p key={t}>{t}</p>
+                        ))}
+                        {y.when && (
+                          <p className="kd-fold__k">
+                            <b>कब फलित:</b> {y.when}
+                          </p>
+                        )}
+                        {y.do && (
+                          <p className="kd-fold__k">
+                            <b>क्या करें:</b> {y.do}
+                          </p>
+                        )}
+                      </Fold>
+                    )}
                   </article>
                 ))}
               </div>
             </Section>
+
+            {Array.isArray(c.doshas) && (
+              <Section id="dosh" title="दोष विचार" lead={c.doshasNote}>
+                <div className="kd-yogas">
+                  {c.doshas.map((d) => (
+                    <article className={`kd-card kd-yoga kd-dosh kd-dosh--${d.tone === "ok" ? "ok" : d.tone === "warn" ? "warn" : "info"}`} key={d.name}>
+                      <header>
+                        <h3>{d.name}</h3>
+                        <span className={`kd-chip${d.tone === "ok" ? " kd-chip--ok" : d.tone === "warn" ? " kd-chip--warn" : ""}`}>{d.status}</span>
+                      </header>
+                      {d.basis && <p className="kd-yoga__basis">{d.basis}</p>}
+                      {paras(d.detail).map((t) => (
+                        <p key={t}>{t}</p>
+                      ))}
+                      {d.remedy && (
+                        <p className="kd-fold__k">
+                          <b>उपाय:</b> {d.remedy}
+                        </p>
+                      )}
+                    </article>
+                  ))}
+                </div>
+              </Section>
+            )}
 
             <Section id="dasha" title="विंशोत्तरी दशा" lead="किसी महादशा को चुनें तो उसकी अंतर्दशाएँ, और अंतर्दशा चुनें तो उसके प्रत्यंतर दिखते हैं। जो अभी चल रहा है वह चिह्नित है।">
               {c.dasha && <Dasha dasha={c.dasha} />}
@@ -703,6 +818,42 @@ export default function Kundali() {
                 </div>
               )}
             </Section>
+
+            {c.gochar && (
+              <Section id="gochar" title="गोचर — आने वाले वर्ष" lead={c.gochar.intro}>
+                <div className="kd-yogas">
+                  {(c.gochar.rows || []).map((r) => {
+                    const now = (r.spans || []).some(([a, b]) => a <= today && today < b);
+                    // the chip holds the house alone ("द्वादश"); what follows a dash goes on the line below
+                    const [house, more] = String(r.house || "").split(" — ");
+                    return (
+                      <article className={`kd-card kd-yoga kd-gochar${now ? " is-now" : ""}`} key={`${r.graha}${r.sign}`}>
+                        <header>
+                          <h3>
+                            {r.graha} · {r.sign}
+                          </h3>
+                          <span className={`kd-chip${now ? " kd-chip--ok" : ""}`}>{now ? "अभी" : house}</span>
+                        </header>
+                        <p className="kd-yoga__basis">
+                          {r.when}
+                          {now && r.house ? ` · ${r.house}` : more ? ` · ${more}` : ""}
+                        </p>
+                        {paras(r.effect).map((t) => (
+                          <p key={t}>{t}</p>
+                        ))}
+                      </article>
+                    );
+                  })}
+                </div>
+                {paras(c.gochar.notes).length > 0 && (
+                  <div className="kd-card kd-prose">
+                    {paras(c.gochar.notes).map((t) => (
+                      <p key={t}>{t}</p>
+                    ))}
+                  </div>
+                )}
+              </Section>
+            )}
 
             <Section id="vishleshan" title="विश्लेषण">
               {(c.analysis || []).map((a) => (
@@ -795,9 +946,77 @@ export default function Kundali() {
                     </ul>
                     <p className="kd-mantra">{r.mantra}</p>
                     {r.ratna && <p className="kd-note">रत्न: {r.ratna}</p>}
+                    {(r.japa || r.vedic || r.daan || r.kashi || Array.isArray(r.aacharan)) && (
+                      <Fold label="पूरी विधि">
+                        <Rows
+                          rows={[
+                            ["जप", r.japa],
+                            ["वैदिक मंत्र", r.vedic],
+                            ["गायत्री", r.gayatri],
+                            ["स्तोत्र", r.stotra],
+                            ["दिन और समय", r.day],
+                            ["दान", r.daan],
+                            ["व्रत", r.vrat],
+                            ["उपरत्न", r.uparatna],
+                            ["रुद्राक्ष", r.rudraksha],
+                            ["काशी में", r.kashi],
+                          ].filter(([, v]) => v)}
+                        />
+                        {Array.isArray(r.aacharan) && (
+                          <>
+                            <h4>आचरण</h4>
+                            <ul>
+                              {r.aacharan.map((t) => (
+                                <li key={t}>{t}</li>
+                              ))}
+                            </ul>
+                          </>
+                        )}
+                      </Fold>
+                    )}
                   </article>
                 ))}
               </div>
+              {c.sadhana && (
+                <div className="kd-grid3 kd-sadhana">
+                  {Array.isArray(c.sadhana.week) && (
+                    <div className="kd-card">
+                      <h3>साप्ताहिक साधना</h3>
+                      <dl className="kd-dl kd-week">
+                        {c.sadhana.week.map(([day, graha, what]) => (
+                          <div key={day}>
+                            <dt>
+                              {day}
+                              <small>{graha}</small>
+                            </dt>
+                            <dd>{what}</dd>
+                          </div>
+                        ))}
+                      </dl>
+                    </div>
+                  )}
+                  {Array.isArray(c.sadhana.daily) && (
+                    <div className="kd-card kd-prose">
+                      <h3>दैनिक क्रम</h3>
+                      <ol className="kd-steps">
+                        {c.sadhana.daily.map((t) => (
+                          <li key={t}>{t}</li>
+                        ))}
+                      </ol>
+                    </div>
+                  )}
+                  {Array.isArray(c.sadhana.rules) && (
+                    <div className="kd-card kd-prose">
+                      <h3>उपाय के नियम</h3>
+                      <ul>
+                        {c.sadhana.rules.map((t) => (
+                          <li key={t}>{t}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
               <div className="kd-grid3">
                 <div className="kd-card">
                   <h3>शुभ</h3>
