@@ -40,9 +40,25 @@ async function buildHealth(ctx, { secure = false, host = "" } = {}) {
     const m = process.memoryUsage();
     const up = process.uptime();
     const rss = Math.round(m.rss / 1048576);
-    const parts = [`Up ${up > 86400 ? `${Math.floor(up / 86400)} d ` : ""}${Math.floor((up % 86400) / 3600)} h ${Math.floor((up % 3600) / 60)} min`, `memory ${rss} MB${rss > 550 ? " (pm2 restarts it at 600 MB)" : ""}`, `Node ${process.versions.node}`];
-    let status = rss > 550 ? "warn" : "ok";
+    // pm2's own limit when it passes one (deploy/ecosystem.config.cjs: 1 GB since 21 Nov 2026; 600 MB before)
+    const limit = lifecycle.memoryLimitMB() || 1024;
+    const near = rss > limit * 0.9;
+    const parts = [`Up ${up > 86400 ? `${Math.floor(up / 86400)} d ` : ""}${Math.floor((up % 86400) / 3600)} h ${Math.floor((up % 3600) / 60)} min`, `memory ${rss} MB${near ? ` (pm2 restarts it at ${limit} MB)` : ""}`, `Node ${process.versions.node}`];
+    let status = near ? "warn" : "ok";
     let hint;
+    // how the process before this one left: a stop asked for by pm2 while it was near the memory limit is a restart for memory
+    const stop = ctx.dataDir ? lifecycle.lastStop(path.join(ctx.dataDir, "last-stop.json")) : null;
+    if (stop && stop.at && now - Date.parse(stop.at) < 86400000 && /SIGINT|SIGTERM|shutdown/.test(String(stop.signal)) && stop.rssMB >= limit * 0.85) {
+      status = "warn";
+      parts.push(`the last restart (${ago(stop.at, now)}) came when it used ${stop.rssMB} MB after ${stop.upS} s — pm2's memory limit`);
+      hint = "See how often:  pm2 describe vinaytiwari   ·   grep -c max-memory-restart ~/.pm2/pm2.log";
+    }
+    // automatic training the server did not live through (server/train-guard.js): now paused rather than looping
+    const stuck = ctx.trainGuard && typeof ctx.trainGuard.troubles === "function" ? ctx.trainGuard.troubles() : [];
+    for (const t of stuck) {
+      status = "warn";
+      parts.push(`automatic ${t.id.replace("-", " ")} did not finish ${t.died === 1 ? "once" : `${t.died} times in a row`} (the server stopped during it)${t.waiting && t.until ? `; tried again in about ${Math.max(1, Math.round((Date.parse(t.until) - now) / 60000))} min` : "; it may run again now"}`);
+    }
     // pm2 passes its own facts in the environment: how often it has restarted this app
     const pm2 = lifecycle.pm2Facts();
     parts.push(pm2 ? `pm2 restarts so far: ${pm2.restarts ?? "?"}` : "not run by pm2");

@@ -217,7 +217,7 @@ anything; `stock-deploy --force` reinstalls, rebuilds and restarts regardless. I
 | Trouble | What notices | What happens |
 |---|---|---|
 | A crash (an exception nothing caught; a burst of 20+ unhandled promise rejections in a minute) | the process itself (`server/lifecycle.js`) | logged, written to `server/data/last-crash.json`, the database flushed (≤ 1.5 s), the process exits — pm2 starts a clean one at once |
-| The process exits, or grows past 600 MB | pm2 (`deploy/ecosystem.config.cjs`) | restarted; a crash loop backs off (200 ms → 15 s) and after 15 starts that die within 30 s pm2 stops trying |
+| The process exits, or grows past 1 GB (600 MB until 2026-11-21; the heap is capped at 800 MB so Node collects garbage first) | pm2 (`deploy/ecosystem.config.cjs`) | restarted; a crash loop backs off (200 ms → 15 s) and after 15 starts that die within 30 s pm2 stops trying |
 | A hang: the process is up but no longer answers | the watchdog (`deploy/watchdog.sh`, every minute) | 3 failed `GET /api/live` in a row → `pm2 restart`; pm2 gave up (errored) → restart; pm2 lost the app → `pm2 resurrect`. Never during a `stock-deploy`, never when the app was stopped on purpose |
 | The machine reboots | systemd (`pm2 startup`) | pm2 starts again with the saved process list (`pm2 save`) |
 
@@ -231,6 +231,22 @@ any crash in the last 24 hours with its message, event-loop stalls today and rej
 One process only (`instances: 1`): the trading guard rails and the live price stream live in its memory,
 so a restart briefly drops open streams (pages reconnect by themselves) — there is no zero-downtime
 reload with one process, and that is the deliberate trade.
+
+**The 502 loop of 2026-11-21, and why it cannot come back.** The site answered 502 once a minute: `/api/live`'s
+uptime climbed to ~58 s, then started again from 0. The 20 Nov change of the forecaster's model version (3 → 4) made
+it retrain itself 30 s after every start; training on the stored year inside the web process (~210 MB on top of the
+app, measured on a production-sized synthetic history) took it past pm2's 600 MB limit, pm2 restarted it at its next
+30-second memory check, the training never finished — and "tried a moment ago" lived only in memory, so the new
+process trained again. Now: (1) `server/train-guard.js` keeps in the record store when each automatic training or
+evening learning (forecaster, early calls, evidence desk) began and whether it ended; nothing automatic runs in the
+first 5 minutes after a start, and a run the server did not live through waits 30 min, then 1 h, 2 h … up to a day
+(the owner's own click is never held back); (2) the supervisor marks a duty as running in its record and, after a
+restart, counts one still marked as failed and pauses it, and it too waits 5 minutes after a start; (3) pm2's limit
+is 1 GB with an 800 MB heap; (4) every stop is written to `server/data/last-stop.json` (signal, memory, uptime) and
+**Site health → Server** says when the last restart was pm2's memory limit and which training is paused;
+`stock-deploy --doctor` shows uptime, memory, pm2's restart count, how many of those were for memory, and the
+machine's free memory. To see it from outside: `curl -s https://vinaytiwari.org/api/live` a few times a minute —
+`up` should keep growing.
 
 One-time setup on the VPS, after the next `stock-deploy` (which applies the new process file by itself).
 Check what is already in place — it prints any command still needed:

@@ -116,7 +116,10 @@ class Evidence {
    * @param ask       ({ system, user, schema, … }) → { data, by } — the AI Engine (optional: no AI reads without it)
    * @param holding   () → [{ symbol, side: "long"|"short", qty, avg }] — the open positions (optional)
    */
-  constructor({ horizon, market = null, docs, ahead = null, ask = null, aiReady = null, holding = null, now = () => Date.now(), log = console }) {
+  constructor({ horizon, market = null, docs, ahead = null, ask = null, aiReady = null, holding = null, guard = null, now = () => Date.now(), log = console }) {
+    // automatic training / learning never right after a start, nor again at once after a run the server did not live through
+    // (server/train-guard.js); optional: without it, nothing changes
+    this.guard = guard;
     this.horizon = horizon;
     this.market = market;
     this.docs = docs;
@@ -214,8 +217,11 @@ class Evidence {
   train({ trigger = "manual" } = {}) {
     if (this._busy()) return Promise.resolve({ busy: true });
     if (!this.horizon.ready()) return Promise.reject(new EvidenceError("The evidence desk learns through the 15-minute forecaster, which is not ready yet (it needs the stored NIFTY 100 history, and is trained first).", "not_ready", 409));
+    const wait = this.guard ? this.guard.wait("evidence-train", trigger) : "";
+    if (wait) return Promise.reject(new EvidenceError(`Training waits: ${wait}.`, "deferred", 409));
     this._job = { kind: "train", trigger, phase: "reading the stored sessions", rows: 0, startedAt: iso(this.now()), finishedAt: null, error: "" };
-    return this._run(() => this._train());
+    const run = this._run(() => this._train());
+    return this.guard ? this.guard.track("evidence-train", trigger, run) : run;
   }
   _run(fn) {
     return fn()
@@ -353,8 +359,11 @@ class Evidence {
     const m = this._usable();
     if (!m) return Promise.resolve({ skipped: "untrained" });
     if (!this.horizon.ready()) return Promise.resolve({ skipped: "forecaster busy" });
+    const wait = this.guard ? this.guard.wait("evidence-learn", trigger) : "";
+    if (wait) return Promise.reject(new EvidenceError(`Learning waits: ${wait}.`, "deferred", 409));
     this._job = { kind: "learn", trigger, phase: "reading the new sessions", rows: 0, startedAt: iso(this.now()), finishedAt: null, error: "" };
-    return this._run(() => this._learnDays(m));
+    const run = this._run(() => this._learnDays(m));
+    return this.guard ? this.guard.track("evidence-learn", trigger, run) : run;
   }
 
   async _learnDays(m) {
@@ -1184,7 +1193,7 @@ class Evidence {
     }
     if (this._busy()) return;
     const p = this.pending();
-    if (p.learn && weekday(today) && min >= LEARN_FROM && this._dailyAt !== today) {
+    if (p.learn && weekday(today) && min >= LEARN_FROM && this._dailyAt !== today && !(this.guard && this.guard.wait("evidence-learn", "itself"))) {
       this._dailyAt = today;
       try {
         await this.learnDays({ trigger: "itself" });
@@ -1192,7 +1201,7 @@ class Evidence {
         this._dailyAt = "";
       }
     }
-    if (p.train && now - this._tryAt >= 30 * 60000) {
+    if (p.train && now - this._tryAt >= 30 * 60000 && !(this.guard && this.guard.wait("evidence-train", "itself"))) {
       this._tryAt = now;
       this.train({ trigger: "itself" }).catch(() => {});
     }

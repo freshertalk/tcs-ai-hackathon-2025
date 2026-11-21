@@ -128,8 +128,11 @@ class Horizon {
    * @param flow      the market recorder (or () => it), optional: tiltFor(symbol, barEndMs) → the order book and open
    *                  interest recorded at that minute and the correction they have earned (server/recorder.js)
    */
-  constructor({ market, docs, history, universe, ai = null, playbook = null, flow = null, now = () => Date.now(), log = console }) {
+  constructor({ market, docs, history, universe, ai = null, playbook = null, flow = null, guard = null, now = () => Date.now(), log = console }) {
     this.flow = flow;
+    // automatic training / learning never right after a start, and never again at once after a run the server did not live
+    // through (server/train-guard.js — the 502 loop of 21 Nov 2026); optional: without it, nothing changes
+    this.guard = guard;
     this.playbook = playbook; // the trading-skills file every AI feature reads: the forecaster writes its findings into it
     this.market = market;
     this.docs = docs;
@@ -274,8 +277,10 @@ class Horizon {
     if (this._job && !this._job.finishedAt) return Promise.resolve({ busy: true });
     const stocks = this._stocks();
     if (!stocks.length) return Promise.reject(new HorizonError("There is no stored history to learn from yet: the NIFTY 100's 5-minute history is downloaded under Paper trading. It needs Zerodha connected.", "no_history", 409));
+    const wait = this.guard ? this.guard.wait("horizon-train", trigger) : "";
+    if (wait) return Promise.reject(new HorizonError(`Training waits: ${wait}.`, "deferred", 409));
     this._job = { kind: "train", trigger, phase: "reading the market", total: stocks.length, done: 0, rows: 0, startedAt: iso(this.now()), finishedAt: null, error: "" };
-    return this._train(stocks)
+    const run = this._train(stocks)
       .catch((err) => {
         this._job.error = err.message || String(err);
         this.lastError = this._job.error;
@@ -285,6 +290,7 @@ class Horizon {
       .finally(() => {
         this._job.finishedAt = iso(this.now());
       });
+    return this.guard ? this.guard.track("horizon-train", trigger, run) : run;
   }
 
   async _train(stocks) {
@@ -449,9 +455,11 @@ class Horizon {
     if (this._job && !this._job.finishedAt) return Promise.resolve({ busy: true });
     const m = this._usable();
     if (!m) return Promise.resolve({ skipped: "untrained" });
+    const wait = this.guard ? this.guard.wait("horizon-learn", trigger) : "";
+    if (wait) return Promise.reject(new HorizonError(`Learning waits: ${wait}.`, "deferred", 409));
     const stocks = this._stocks();
     this._job = { kind: "learn", trigger, phase: "reading the new sessions", total: stocks.length, done: 0, rows: 0, startedAt: iso(this.now()), finishedAt: null, error: "" };
-    return this._learnDays(m, stocks)
+    const run = this._learnDays(m, stocks)
       .catch((err) => {
         this._job.error = err.message || String(err);
         this.lastError = this._job.error;
@@ -461,6 +469,7 @@ class Horizon {
       .finally(() => {
         this._job.finishedAt = iso(this.now());
       });
+    return this.guard ? this.guard.track("horizon-learn", trigger, run) : run;
   }
 
   async _learnDays(m, stocks) {
@@ -1442,7 +1451,7 @@ class Horizon {
       await this.score();
     }
     // the evening: the day's bars are in the history → forecast it with the morning's model, score that, learn it
-    if (weekday(today) && min >= LEARN_FROM && this._dailyAt !== today && this._usable() && !(this._job && !this._job.finishedAt)) {
+    if (weekday(today) && min >= LEARN_FROM && this._dailyAt !== today && this._usable() && !(this._job && !this._job.finishedAt) && !(this.guard && this.guard.wait("horizon-learn", "itself"))) {
       const h = this._historyStore();
       if (h) {
         this._dailyAt = today;
@@ -1456,7 +1465,7 @@ class Horizon {
       }
     }
     // never trained: do it as soon as the history is there (and again every five weeks)
-    if (now - this._tryAt >= 30 * 60000 && !(this._job && !this._job.finishedAt)) {
+    if (now - this._tryAt >= 30 * 60000 && !(this._job && !this._job.finishedAt) && !(this.guard && this.guard.wait("horizon-train", "itself"))) {
       const m = this.model();
       const old = m && m.trainedAt && now - Date.parse(m.trainedAt) > RETRAIN_DAYS * 86400000;
       const h = this._historyStore();

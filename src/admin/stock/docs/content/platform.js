@@ -296,7 +296,7 @@ export const PLATFORM = [
     blocks: [
       { p: "The card shows what needs a look (or “Everything that is switched on is working”), with **Check now** and **Show all**. It re-checks every minute while the page is open. Each check is independent: a check that fails is reported, never a broken page." },
       { table: { label: "Health checks", head: ["Group", "What is checked"], rows: [
-        ["Platform", "Server uptime and memory (pm2 restarts at 600 MB); the database (a record is written and read back); disk space where the data is kept; whether the app sees HTTPS (secure cookies, HSTS); Google sign-in"],
+        ["Platform", "Server uptime and memory (pm2 restarts at 1 GB; 600 MB until 21 Nov 2026), whether the last restart was for memory, and any automatic training paused because the server stopped during it; the database (a record is written and read back); disk space where the data is kept; whether the app sees HTTPS (secure cookies, HSTS); Google sign-in"],
         ["Market data", "The Zerodha connection and its expiry; the live price stream; the screener’s Nifty 500 history; the server’s price-alert watcher; the holiday calendars"],
         ["AI", "The default model and its last key test; the default model & fallbacks (which company answers if the default fails); the AI brains; automatic research"],
         ["Trading", "The trading switch and the risk guard (and a lock today); Trade Analysis auto-save; paper trading auto mode"],
@@ -570,7 +570,7 @@ export const PLATFORM = [
     intro: "How the site is built and put live, what each setting does, and how the code is tested.",
     blocks: [
       { h: "How production runs" },
-      { p: "One Node process (pm2 app **vinaytiwari**, one instance, restarted if it exceeds 600 MB) serves the API, the built site and `/me` on port **5100**, bound to `127.0.0.1`. **nginx** terminates HTTPS and forwards. On the VPS the code is in `~/tcs-ai-hackathon-2025` as user `freshertalk`; the Mongo address and keys are in `server/.env`." },
+      { p: "One Node process (pm2 app **vinaytiwari**, one instance, restarted if it exceeds 1 GB — 600 MB until 21 Nov 2026, when the forecaster's training at every start crossed it and the site answered 502 once a minute; automatic training now waits 5 minutes after a start and is paused, not repeated, after a run the server did not live through) serves the API, the built site and `/me` on port **5100**, bound to `127.0.0.1`. **nginx** terminates HTTPS and forwards. On the VPS the code is in `~/tcs-ai-hackathon-2025` as user `freshertalk`; the Mongo address and keys are in `server/.env`." },
       { logic: {
         title: "The one-command update: stock-deploy",
         who: "You, on the VPS (install once with `bash deploy/stock-deploy.sh --install`).",

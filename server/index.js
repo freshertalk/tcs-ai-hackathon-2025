@@ -23,6 +23,7 @@ const PORT = Number(process.env.PORT) || 5000;
 const HOST = process.env.HOST || undefined;
 const DATA_DIR = path.join(__dirname, "data");
 const CRASH_FILE = path.join(DATA_DIR, "last-crash.json"); // shown by the site health check after the restart
+const STOP_FILE = path.join(DATA_DIR, "last-stop.json"); // how the last process left (a restart for memory shows there)
 
 // from the very first line: a crash is logged, written down, the database flushed (at most 1.5 s),
 // and the process exits — pm2 starts a clean one instead of letting it run on in an unknown state
@@ -80,7 +81,7 @@ async function main() {
   // short grace, the last writes reach the database — and after 8 s it leaves regardless (pm2's
   // kill_timeout is 10 s), so a restart can never hang on a stuck connection
   // the market recorder first: the minutes read since its last save go to the database before it closes
-  const shutdown = makeShutdown({ server, closers: [() => recorder.stop(), () => docs.close()] });
+  const shutdown = makeShutdown({ server, closers: [() => recorder.stop(), () => docs.close()], stopFile: STOP_FILE });
   process.on("SIGINT", () => shutdown("SIGINT"));
   process.on("SIGTERM", () => shutdown("SIGTERM"));
   // pm2 on Windows sends a message instead of a signal

@@ -19,7 +19,12 @@ module.exports = {
 
       // restarts
       autorestart: true,
-      max_memory_restart: "600M", // a leak cannot take the machine down: restart at 600 MB
+      // a leak cannot take the machine down: restart past 1 GB. It was 600 MB until 21 Nov 2026, when the app's normal
+      // working set (the records, the live desk) plus the forecaster's training on the stored year crossed it: pm2
+      // restarted the app every minute and nginx answered 502 meanwhile. The heap cap below makes Node collect garbage
+      // before it nears the line, so only a real leak reaches it.
+      max_memory_restart: "1G",
+      node_args: "--max-old-space-size=800",
       exp_backoff_restart_delay: 200, // a crash loop backs off: 200 ms, 300, 450 … up to 15 s, reset after 30 s up
       min_uptime: "30s", // a start that dies within 30 s counts as unstable…
       max_restarts: 15, // …and after 15 unstable starts in a row pm2 gives up (the watchdog then tries again)

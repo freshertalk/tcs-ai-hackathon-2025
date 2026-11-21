@@ -98,17 +98,48 @@ function installCrashHandlers({ log = console, exit = (c) => process.exit(c), cr
 }
 
 /**
+ * Write down how this process is leaving — the signal, its memory and how long it ran — so the next one can tell a
+ * restart for memory (pm2's max_memory_restart sends SIGINT) from a deploy (best effort, synchronous).
+ */
+function recordStop(file, signal, proc = process) {
+  if (!file) return;
+  try {
+    const m = proc.memoryUsage();
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, JSON.stringify({ at: new Date().toISOString(), signal: String(signal), rssMB: Math.round(m.rss / 1048576), heapMB: Math.round(m.heapUsed / 1048576), upS: Math.round(proc.uptime()), pid: proc.pid }, null, 2));
+  } catch (_) {
+    /* nothing to do: it is only a note */
+  }
+}
+
+/** The last stop written down, or null. */
+function lastStop(file) {
+  try {
+    return JSON.parse(fs.readFileSync(file, "utf8"));
+  } catch (_) {
+    return null;
+  }
+}
+
+/** pm2's memory limit for this app in MB (pm2 passes max_memory_restart in bytes), or null when not run by pm2 with one. */
+function memoryLimitMB(env = process.env) {
+  const n = Number(env.max_memory_restart);
+  return Number.isFinite(n) && n > 0 ? Math.round(n / 1048576) : null;
+}
+
+/**
  * Leave properly: stop accepting connections, let requests in flight finish, close the long-lived
  * streams after a short grace, run the closers (the database), then exit. A hard deadline makes sure
  * a restart never hangs on a stuck connection (pm2's kill_timeout is a little longer).
- * @param opts { server, closers: [async fn], log, exit, graceMs = 3000, deadlineMs = 8000 }
+ * @param opts { server, closers: [async fn], log, exit, graceMs = 3000, deadlineMs = 8000, stopFile }
  * @returns a function (signal) → Promise
  */
-function makeShutdown({ server = null, closers = [], log = console, exit = (c) => process.exit(c), graceMs = 3000, deadlineMs = 8000 } = {}) {
+function makeShutdown({ server = null, closers = [], log = console, exit = (c) => process.exit(c), graceMs = 3000, deadlineMs = 8000, stopFile = null } = {}) {
   let closing = null;
   return (signal = "shutdown") => {
     if (closing) return closing;
     stats.shuttingDown = true;
+    recordStop(stopFile, signal);
     log.log(`[lifecycle] ${signal}: closing — new connections refused, requests in flight finishing…`);
     const hard = setTimeout(() => {
       log.error(`[lifecycle] still closing after ${deadlineMs / 1000} s: leaving anyway`);
@@ -172,4 +203,4 @@ function pm2Facts(env = process.env) {
   return { id: env.pm_id, name: env.name || null, restarts: Number.isFinite(n) ? n : null };
 }
 
-module.exports = { stats, installCrashHandlers, makeShutdown, watchStalls, recordCrash, lastCrash, pm2Facts };
+module.exports = { stats, installCrashHandlers, makeShutdown, watchStalls, recordCrash, lastCrash, pm2Facts, recordStop, lastStop, memoryLimitMB };

@@ -75,7 +75,10 @@ class Ahead {
    *                 pending(), watching(), checkTotals(), barsFor()
    * @param docs     the record store
    */
-  constructor({ horizon, docs, now = () => Date.now(), log = console }) {
+  constructor({ horizon, docs, guard = null, now = () => Date.now(), log = console }) {
+    // automatic training / learning never right after a start, nor again at once after a run the server did not live through
+    // (server/train-guard.js); optional: without it, nothing changes
+    this.guard = guard;
     this.horizon = horizon;
     this.docs = docs;
     this.now = now;
@@ -153,8 +156,10 @@ class Ahead {
   train({ trigger = "manual" } = {}) {
     if (this._busy()) return Promise.resolve({ busy: true });
     if (!this.horizon.ready()) return Promise.reject(new AheadError("The early calls learn through the 15-minute forecaster, which is not ready yet (it needs the stored NIFTY 100 history, and is trained first).", "not_ready", 409));
+    const wait = this.guard ? this.guard.wait("ahead-train", trigger) : "";
+    if (wait) return Promise.reject(new AheadError(`Training waits: ${wait}.`, "deferred", 409));
     this._job = { kind: "train", trigger, phase: "reading the stored sessions", rows: 0, startedAt: iso(this.now()), finishedAt: null, error: "" };
-    return this._train()
+    const run = this._train()
       .catch((err) => {
         this._job.error = err.message || String(err);
         this.lastError = this._job.error;
@@ -165,6 +170,7 @@ class Ahead {
         this._job.finishedAt = iso(this.now());
         this._rev += 1;
       });
+    return this.guard ? this.guard.track("ahead-train", trigger, run) : run;
   }
 
   async _train() {
@@ -253,8 +259,10 @@ class Ahead {
     const m = this._usable();
     if (!m) return Promise.resolve({ skipped: "untrained" });
     if (!this.horizon.ready()) return Promise.resolve({ skipped: "forecaster busy" });
+    const wait = this.guard ? this.guard.wait("ahead-learn", trigger) : "";
+    if (wait) return Promise.reject(new AheadError(`Learning waits: ${wait}.`, "deferred", 409));
     this._job = { kind: "learn", trigger, phase: "reading the new sessions", rows: 0, startedAt: iso(this.now()), finishedAt: null, error: "" };
-    return this._learnDays(m)
+    const run = this._learnDays(m)
       .catch((err) => {
         this._job.error = err.message || String(err);
         this.lastError = this._job.error;
@@ -265,6 +273,7 @@ class Ahead {
         this._job.finishedAt = iso(this.now());
         this._rev += 1;
       });
+    return this.guard ? this.guard.track("ahead-learn", trigger, run) : run;
   }
 
   async _learnDays(m) {
@@ -767,7 +776,7 @@ class Ahead {
     if (this._busy()) return;
     const p = this.pending();
     // the evening: once the forecaster has learned the day, the day is called, checked and learned here too
-    if (p.learn && weekday(today) && min >= LEARN_FROM && this._dailyAt !== today) {
+    if (p.learn && weekday(today) && min >= LEARN_FROM && this._dailyAt !== today && !(this.guard && this.guard.wait("ahead-learn", "itself"))) {
       this._dailyAt = today;
       try {
         await this.learnDays({ trigger: "itself" });
@@ -776,7 +785,7 @@ class Ahead {
       }
     }
     // never trained (or its inputs changed): as soon as the forecaster is ready
-    if (p.train && now - this._tryAt >= 30 * 60000) {
+    if (p.train && now - this._tryAt >= 30 * 60000 && !(this.guard && this.guard.wait("ahead-train", "itself"))) {
       this._tryAt = now;
       this.train({ trigger: "itself" }).catch(() => {});
     }

@@ -462,6 +462,39 @@ NGINX
           ;;
       esac
     fi
+    # 4. does it stay up? (21 Nov 2026: pm2's memory limit restarted it every minute and nginx answered 502 meanwhile)
+    if command -v pm2 > /dev/null && pm2 describe "$app" > /dev/null 2>&1; then
+      local facts=""
+      facts="$(pm2 jlist 2> /dev/null | node -e '
+        let s = "";
+        process.stdin.on("data", (d) => (s += d)).on("end", () => {
+          try {
+            const a = JSON.parse(s.slice(Math.max(0, s.search(/\[\s*[{\]]/)))).find((p) => p.name === process.argv[1]);
+            if (!a) return;
+            const e = a.pm2_env || {};
+            const up = e.pm_uptime ? Math.round((Date.now() - e.pm_uptime) / 1000) : -1;
+            const mem = a.monit ? Math.round(a.monit.memory / 1048576) : -1;
+            const lim = e.max_memory_restart ? Math.round(e.max_memory_restart / 1048576) : 0;
+            console.log([e.restart_time || 0, up, mem, lim].join(" "));
+          } catch (_) {}
+        });' "$app" 2> /dev/null || true)"
+      if [ -n "$facts" ]; then
+        local restarts up mem lim memrs=0 pm2log="${PM2_HOME:-$HOME/.pm2}/pm2.log"
+        read -r restarts up mem lim <<< "$facts"
+        if [ -f "$pm2log" ]; then memrs="$(tail -n 20000 "$pm2log" | grep -c "max-memory-restart" || true)"; fi
+        note "4. It stays up ......................... up ${up} s, using ${mem} MB (limit ${lim} MB), pm2 restarts so far: ${restarts}"
+        if [ "${memrs:-0}" -gt 0 ]; then
+          note "   ${Y}pm2 restarted it for memory ${memrs} time(s)${N} (counted in ${pm2log})"
+        fi
+        if [ "$up" -ge 0 ] && [ "$up" -lt 120 ] && [ "$restarts" -gt 5 ]; then
+          note "   ${R}it restarted less than 2 minutes ago${N} — see why:  pm2 logs $app --err --lines 80 --nostream"
+          bad=1
+        fi
+      fi
+    fi
+    if command -v free > /dev/null; then
+      note "   This machine's memory: $(free -m | awk '/^Mem:/ {print $2 " MB in all, " $7 " MB available"}')"
+    fi
     if [ "$bad" = 0 ]; then
       printf '\n%s    Everything is wired up.%s\n' "$G" "$N"
       return 0

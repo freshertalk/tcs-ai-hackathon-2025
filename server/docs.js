@@ -40,7 +40,7 @@ const COLD = ["market_tape"];
 const LOG_KEEP = 2000; // entries of a log kept in memory (the database keeps them all)
 const COLD_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,60}$/;
 /** In the file store: what is a cache (downloaded again when missing), a key or a working file — never part of a backup. */
-const NOT_RECORDS = [/^backups\//, /^media\//, /^cold\//, /^collections\//, /^market\/candles\//, /^market\/indices\//, /^market\/screener/, /^health\//, /\.key$/, /\.tmp$/, /\.corrupt-\d+$/, /^market\/instruments\.json$/, /^market\/universe\.json$/, /^nfo\.json$/, /^holidays\.json$/, /^last-crash\.json$/];
+const NOT_RECORDS = [/^backups\//, /^media\//, /^cold\//, /^collections\//, /^market\/candles\//, /^market\/indices\//, /^market\/screener/, /^health\//, /\.key$/, /\.tmp$/, /\.corrupt-\d+$/, /^market\/instruments\.json$/, /^market\/universe\.json$/, /^nfo\.json$/, /^holidays\.json$/, /^last-crash\.json$/, /^last-stop\.json$/];
 
 const isText = (name) => name.endsWith(".md");
 const clone = (v) => (v === undefined ? v : JSON.parse(JSON.stringify(v)));

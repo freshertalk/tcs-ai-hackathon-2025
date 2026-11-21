@@ -74,6 +74,7 @@ const { ExpiryCalendar } = require("./expiry");
 const { askDefault, team: aiTeam } = require("./ai/mixture");
 const { LiveHub } = require("./live");
 const { Supervisor } = require("./supervisor");
+const { TrainGuard } = require("./train-guard");
 const { Recorder } = require("./recorder");
 const { Accounts, AccountError } = require("./accounts");
 const { Prefs, DEFAULTS: PREF_DEFAULTS, OPTIONS: PREF_OPTIONS } = require("./prefs");
@@ -1521,9 +1522,13 @@ ${e.text}
   // The 15-minute forecast (server/horizon.js): learns from the stored NIFTY 100 history the robot keeps, forecasts the
   // price, the high and the low for the stock on the Desk, scores itself and learns again each evening. Reads the market;
   // never trades, never asks an AI model.
+  // Automatic training and evening learning (forecaster, early calls, evidence desk) wait 5 minutes after a start and are never
+  // started again at once after a run the server did not live through (server/train-guard.js: the once-a-minute 502 loop of
+  // 21 Nov 2026). Under the test runner there is none unless a test passes one, so the tests' timing is as before.
+  const trainGuard = opts.trainGuard !== undefined ? opts.trainGuard : process.env.NODE_TEST_CONTEXT ? null : new TrainGuard({ docs: store.docs, now: opts.now, log: opts.log || console });
   const horizon =
     opts.horizon ||
-    new Horizon({ market, docs: store.docs, history: () => robot.history, universe: () => robot.universe(), ai, playbook: ai.playbook, now: opts.now, log: opts.log || console });
+    new Horizon({ market, docs: store.docs, history: () => robot.history, universe: () => robot.universe(), ai, playbook: ai.playbook, guard: trainGuard, now: opts.now, log: opts.log || console });
   if (market.ticker && opts.horizonWatch !== false && opts.alertWatch !== false) horizon.start();
   const hWrap = (fn) => async (req, res) => {
     try {
@@ -1551,7 +1556,7 @@ ${e.text}
   // is a large move or a quiet stretch coming — beside the forecaster's trend call. Learns from the same stored
   // sessions through the forecaster, keeps and checks every call, learns again each evening. Reads the market; never
   // trades, never asks an AI model.
-  const ahead = opts.ahead || new Ahead({ horizon, docs: store.docs, now: opts.now, log: opts.log || console });
+  const ahead = opts.ahead || new Ahead({ horizon, docs: store.docs, guard: trainGuard, now: opts.now, log: opts.log || console });
   if (market.ticker && opts.horizonWatch !== false && opts.alertWatch !== false) ahead.start();
   const startAhead = async (run) => {
     const p = run();
@@ -1579,6 +1584,7 @@ ${e.text}
       ahead,
       ask: opts.evidenceAsk || ((req) => askDefault(ai, req)),
       aiReady: opts.evidenceAsk ? () => true : () => aiTeam(ai).models.length > 0,
+      guard: trainGuard,
       holding: () => {
         const p = liveBook.positions();
         return ((p && p.net) || []).filter((x) => x.quantity !== 0 && x.exchange === "NSE").map((x) => ({ symbol: x.symbol, side: x.quantity > 0 ? "long" : "short", quantity: Math.abs(x.quantity), average: x.average }));
@@ -1885,6 +1891,8 @@ ${e.text}
       docs: store.docs,
       now: opts.now,
       log: opts.log || console,
+      // nothing in the first 5 minutes after a start (none under the test runner unless a test asks)
+      graceMs: opts.supervisorGraceMs !== undefined ? opts.supervisorGraceMs : process.env.NODE_TEST_CONTEXT ? 0 : 5 * 60000,
       isTradingDay: (d) => nseCalendar.isTradingDay(d),
       duties: [
         {
@@ -2195,7 +2203,7 @@ ${e.text}
 
   app.get("/api/admin/health", requireAdmin, limiter(60, 60 * 1000), async (req, res) => {
     try {
-      res.json(await buildHealth({ now: opts.now, docs, dataDir, supervisor, recorder, vault, horizon, openForecast, autopilot, robot, market, ai, trading, analysis, paper, researchAuto, notifier, alertWatch, whatsapp, temple, holidays, googleConfigured: () => credentials().source !== "none" }, { secure: isSecure(req), host: req.get("host") || "" }));
+      res.json(await buildHealth({ now: opts.now, docs, dataDir, trainGuard, supervisor, recorder, vault, horizon, openForecast, autopilot, robot, market, ai, trading, analysis, paper, researchAuto, notifier, alertWatch, whatsapp, temple, holidays, googleConfigured: () => credentials().source !== "none" }, { secure: isSecure(req), host: req.get("host") || "" }));
     } catch (err) {
       res.status(500).json({ error: "health_failed", message: err.message });
     }
