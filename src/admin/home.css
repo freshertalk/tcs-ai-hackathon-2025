@@ -1166,7 +1166,7 @@
 .hm-kundali__text small {
   color: var(--ink-2);
   font-family: var(--f-hi-body, "Tiro Devanagari Hindi", serif);
-  font-size: 0.86rem;
+  font-size: var(--t-mid);
   line-height: 1.7;
 }
 .hm-kundali > svg {

@@ -355,7 +355,7 @@
   vector-effect: non-scaling-stroke;
 }
 .fb-l text {
-  font-size: 10px;
+  font-size: var(--t-tag);
   fill: var(--ink-3);
 }
 .fb-l--entry line {
@@ -586,7 +586,7 @@
 }
 .fb-lv__t thead th {
   border-top: 0;
-  font-size: 11px;
+  font-size: var(--t-tag);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -645,7 +645,7 @@
   border: 1px solid var(--line-2);
   border-radius: 6px;
   background: var(--surface);
-  font-size: 11px;
+  font-size: var(--t-tag);
   font-weight: 800;
   letter-spacing: 0.04em;
   text-align: center;
@@ -682,7 +682,7 @@
   position: relative;
   display: block;
   padding: 0 5px;
-  font-size: 11px;
+  font-size: var(--t-tag);
   font-style: normal;
   font-weight: 700;
   line-height: 16px;
@@ -843,7 +843,7 @@
   vector-effect: non-scaling-stroke;
 }
 .lx-mark text {
-  font-size: 10px;
+  font-size: var(--t-tag);
   font-weight: 700;
 }
 .lx-mark--in line {

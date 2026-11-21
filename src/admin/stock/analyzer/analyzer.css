@@ -695,7 +695,7 @@
   stroke-width: 1;
 }
 .pc__axis {
-  font-size: 11px;
+  font-size: var(--t-tag);
   fill: var(--ink-3);
 }
 .pc__up line,
@@ -765,7 +765,7 @@
   fill: var(--ink);
 }
 .pc__lastTxt {
-  font-size: 11px;
+  font-size: var(--t-tag);
   fill: var(--paper);
 }
 .pc__vol--up {
@@ -2593,7 +2593,7 @@
   stroke-dasharray: 1 4;
 }
 .ic__tag text {
-  font-size: 11px;
+  font-size: var(--t-tag);
   fill: var(--on-solid);
 }
 .ic__tag rect {
@@ -2620,7 +2620,7 @@
   fill: var(--paper);
 }
 .ic__tag--last text {
-  font-size: 11px;
+  font-size: var(--t-tag);
   font-weight: 600;
 }
 .ic__axis--y {
@@ -4003,7 +4003,7 @@
   stroke-width: 1;
 }
 .db-axis {
-  font-size: 11px;
+  font-size: var(--t-tag);
   fill: var(--ink-3);
   font-variant-numeric: tabular-nums;
 }
@@ -4042,7 +4042,7 @@
   stroke-width: 1;
 }
 .db-end {
-  font-size: 12px;
+  font-size: var(--t-tag);
   font-weight: 600;
   fill: var(--ink);
 }

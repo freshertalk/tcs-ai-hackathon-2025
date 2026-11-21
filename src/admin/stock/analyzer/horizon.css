@@ -179,7 +179,7 @@
 }
 .hz-path__t {
   fill: var(--ink-3);
-  font-size: 9px;
+  font-size: var(--t-tag);
 }
 
 /* levels, why */

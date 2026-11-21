@@ -56,3 +56,10 @@
   overflow: visible;
   text-overflow: clip;
 }
+
+/* the Desk's key-number labels are capitals at 12px now: they wrap rather than spill out of their cell on a phone */
+.adm .an.dk .sv__stats dt {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  letter-spacing: 0.02em;
+}

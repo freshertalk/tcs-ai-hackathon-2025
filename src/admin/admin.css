@@ -12,14 +12,14 @@
      changing a step changes every screen. */
   --f-ui: "Open Sans", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
   --f-code: var(--f-mono); /* real code only: a redirect address, the skills file */
-  --t-tag: 0.64rem; /* 10.2px  tags, chips, badges */
-  --t-small: 0.705rem; /* 11.3px  labels, column heads, captions */
-  --t-mid: 0.765rem; /* 12.2px  secondary text, dense rows */
-  --t-base: 0.825rem; /* 13.2px  everything else */
-  --t-lead: 0.935rem; /* 15px  figures and names that should stand out a little */
-  --t-title: 1.045rem; /* 16.7px  section titles */
-  --t-large: 1.4rem; /* 22.4px  page titles, the price, key figures */
-  --t-xlarge: 2rem; /* 32px  the clocks, the number of shares */
+  --t-tag: 0.75rem; /* 12px    tags, chips, badges (Kite's smallest label) */
+  --t-small: 0.8125rem; /* 13px    labels, column heads, captions */
+  --t-mid: 0.875rem; /* 14px    secondary text, dense rows, table cells */
+  --t-base: 0.9375rem; /* 15px    body text */
+  --t-lead: 1.0625rem; /* 17px    figures and names that should stand out a little */
+  --t-title: 1.1875rem; /* 19px    section titles */
+  --t-large: 1.5rem; /* 24px    page titles, the price, key figures */
+  --t-xlarge: 2rem; /* 32px    the clocks, the number of shares */
   --t-xxlarge: 2.625rem; /* 42px  the one big number on a card */
 
   min-height: 100vh;

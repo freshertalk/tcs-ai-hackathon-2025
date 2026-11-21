@@ -96,7 +96,7 @@
 .snp-hour text,
 .snp-pk text,
 .snp-lo text {
-  font-size: 11px;
+  font-size: var(--t-tag);
   fill: var(--ink-2);
 }
 .snp-line {

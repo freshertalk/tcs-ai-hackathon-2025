@@ -299,7 +299,7 @@
   background: var(--surface-2);
   color: var(--ink);
   font-family: var(--f-code, ui-monospace, monospace);
-  font-size: 0.82rem;
+  font-size: var(--t-mid);
   line-height: 1.5;
   white-space: pre-wrap;
   overflow-wrap: anywhere;

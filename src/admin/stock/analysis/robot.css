@@ -103,7 +103,7 @@
 }
 .rbt-ln text,
 .rbt-peak text {
-  font-size: 11px;
+  font-size: var(--t-tag);
   fill: var(--ink-2);
 }
 .rbt-ln--in line {

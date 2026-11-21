@@ -502,7 +502,7 @@
   fill: var(--bad);
 }
 .jc-gauge__ax {
-  font-size: 11px;
+  font-size: var(--t-tag);
   fill: var(--ink-3);
 }
 .jc-parts {
@@ -577,7 +577,7 @@
   fill: var(--ink);
 }
 .jc-ring__s {
-  font-size: 11px;
+  font-size: var(--t-tag);
   fill: var(--ink-3);
 }
 .jc-win {
@@ -646,7 +646,7 @@
   fill: var(--ink);
 }
 .jc-pie__s {
-  font-size: 11px;
+  font-size: var(--t-tag);
   fill: var(--ink-3);
 }
 .jc-c1 {

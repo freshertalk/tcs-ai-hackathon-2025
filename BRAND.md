@@ -112,6 +112,12 @@ in orange with an orange underline as in Kite's top bar — is one stylesheet lo
 to bring back the softer shapes; the colours stay with the tokens in `src/admin/stock/analyzer/analyzer.css`. Built-in
 accent "blue" is now Zerodha blue; the other accents under Customize still override it.
 
+**Type sizes (2026-11-21).** The private area's text steps are Kite's own ladder, raised from the earlier 10–13px set
+that was too small to read comfortably: 12px tags, 13px labels and column heads, 14px dense rows and table cells,
+15px body, 17px emphasis, 19px section titles, 24px page titles (`--t-*` in `src/admin/admin.css`; every size in the
+private area takes one of them — no hard-coded sizes under 12px). Open Sans, weight 400/600. The Customize text size
+(small … larger) still scales all of it.
+
 **No text overflows (2026-11-21).** Text wraps rather than spilling out of its box, being cut off, or ending in "…";
 no page scrolls sideways on a phone. The rules that guarantee it sit in `src/admin/fit.css`, loaded after `kite.css`.
 A new label that must stay on one line goes in a box that scrolls, never behind `text-overflow: ellipsis`.

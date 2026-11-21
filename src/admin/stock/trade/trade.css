@@ -1160,7 +1160,7 @@
 }
 .jr-eq__axis {
   fill: var(--ink-3);
-  font-size: 11px;
+  font-size: var(--t-tag);
 }
 .jr-cal {
   display: grid;
@@ -1189,7 +1189,7 @@
   place-items: center;
   aspect-ratio: 1;
   border-radius: 3px;
-  font-size: 10px;
+  font-size: var(--t-tag);
   color: var(--ink-3);
 }
 .jr-cal__h {
@@ -1205,7 +1205,7 @@
   padding: 0;
   border: 1px solid transparent;
   font: inherit;
-  font-size: 11px;
+  font-size: var(--t-tag);
   font-weight: 600;
   line-height: 1;
   background: var(--surface-2);
@@ -2091,7 +2091,7 @@
   fill: color-mix(in srgb, var(--accent) 7%, transparent);
 }
 .jp-fy__val {
-  font-size: 12px;
+  font-size: var(--t-tag);
   font-weight: 600;
   fill: var(--ink);
 }

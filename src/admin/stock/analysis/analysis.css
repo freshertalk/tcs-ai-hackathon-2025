@@ -246,7 +246,7 @@
 }
 .ta-axis {
   fill: var(--ink-3);
-  font-size: 10.5px;
+  font-size: var(--t-tag);
   font-variant-numeric: tabular-nums;
 }
 .ta-cross {
@@ -522,7 +522,7 @@
 }
 .ta-donut__s {
   fill: var(--ink-3);
-  font-size: 10px;
+  font-size: var(--t-tag);
 }
 .ta-ch {
   display: grid;
