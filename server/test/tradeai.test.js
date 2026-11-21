@@ -520,3 +520,42 @@ test("what one feature paid for, every feature reads: an answer becomes a findin
   assert.ok(act.items[4].read.includes("SBIN"));
   assert.equal(ai.tradeai.status().today.questions, 5);
 });
+
+test("deep research (21 Nov 2026): a stock asked to be researched or forecast brings the consensus forecast, delivery and the whole dossier", async () => {
+  const { ai, calls } = boot();
+  const fc = { symbol: "SBIN", asOf: "2026-11-19T04:40:00.000Z", available: true, anchor: { at: "2026-11-19T04:35:00.000Z", price: 806 }, headline: "SBIN in 14 min: about ₹808.5", horizons: [{ key: "5", minutesAhead: 4, at: "x", price: 806.9, low: 805.2, high: 808.4, pct: 0.11, pUp: 0.61, lean: "up", tier: "clear", leads: "forecaster", forecaster: {}, blend: {}, parts: { evidence: { pUp: 0.6, pDown: 0.3 }, early: { read: "steady" }, book: { buyShare: 0.6 } }, record: { checks: 0 } }, { key: "15", minutesAhead: 14, at: "y", price: 808.5, low: 804.9, high: 811.6, pct: 0.31, pUp: 0.64, lean: "up", tier: "clear", leads: "forecaster", forecaster: {}, blend: {}, parts: {}, record: { checks: 0 } }], firstUp: { name: "Day high", price: 810 }, firstDown: { name: "VWAP", price: 803.2 } };
+  const seen = [];
+  ai.deskConsensus = async (s) => (seen.push(`consensus ${s}`), fc);
+  ai.deskDelivery = (s) => (seen.push(`delivery ${s}`), { available: true, asOf: "2026-11-18", last: { delivPct: 64 }, avgDelivPct: 48.5, avgVolume: 9000000, trend: "rising", upDayShare: 0.62, reading: { word: "accumulation", text: "Buyers took the shares home." }, sessions: [{ date: "2026-11-18", changePct: 1.2, volume: 1, delivPct: 64 }], note: "never today's" });
+  ai.deskDossier = async (s) => (seen.push(`dossier ${s}`), { symbol: s, consensus: fc, delivery: {}, session: { x: 1 }, daily: { y: 1 }, evidence: { bookNse: { bids: [{ price: 805.9, qty: 1200, orders: 9 }], offers: [{ price: 806.1, qty: 800, orders: 5 }], pendingBuy: 210000, pendingSell: 150000, imbalance: 0.17 }, live: [{ name: "GIFT NIFTY", says: "up", proven: "works" }] }, missing: ["the option chain took too long"] });
+
+  const p = await ai.tradeai.plan("Research SBIN in depth — where will it be in the next 15 minutes?", { owner: false });
+  assert.ok(p.tools.includes("research") && p.tools.includes("snapshot"));
+  const p2 = await ai.tradeai.plan("what is the price of sbin", { owner: false });
+  assert.ok(!p2.tools.includes("research"), "a plain price question does not run the full research");
+
+  ai.setSettings({ provider: "anthropic", apiKey: KEYS.anthropic });
+  const r = await ai.tradeai.answer("Research SBIN in depth — where will it be in the next 15 minutes?", { owner: false });
+  assert.ok(seen.includes("consensus SBIN") && seen.includes("delivery SBIN") && seen.includes("dossier SBIN"));
+  assert.ok(r.meta.used.includes("forecast SBIN") && r.meta.used.includes("delivery SBIN") && r.meta.used.includes("deep research SBIN"));
+  const user = calls[calls.length - 1].user;
+  assert.match(user, /"forecast_SBIN":\{"symbol":"SBIN"/);
+  assert.match(user, /"research_SBIN":\{"symbol":"SBIN"/);
+  assert.match(user, /"pendingBuy":210000/);
+  assert.match(user, /"delivery_SBIN":\{"asOf":"2026-11-18"/);
+  // the research does not repeat what the stock's own snapshot carries
+  const data = JSON.parse(user.slice(user.indexOf("DATA (gathered now):\n") + 21, user.indexOf("\n\nThe trader asks:")));
+  assert.equal(data.research_SBIN.session, undefined);
+  assert.equal(data.research_SBIN.consensus, undefined);
+  assert.deepEqual(data.research_SBIN.missing, ["the option chain took too long"]);
+  // the forecast comes before the rest of the data, so a long answer never cuts it
+  assert.ok(Object.keys(data).indexOf("forecast_SBIN") < Object.keys(data).indexOf("stock_SBIN"));
+  // the instructions say how to write the research note
+  const { SYSTEM } = require("../ai/tradeai");
+  assert.match(SYSTEM, /The consensus forecast \(DATA\.forecast_SYMBOL\)/);
+  assert.match(SYSTEM, /\*\*Buyers and sellers\*\*/);
+
+  // with no model, the desk's own answer still gives the forecast's numbers
+  const fb = ai.tradeai.fallbackAnswer("forecast sbin", { forecast_SBIN: { symbol: "SBIN", horizons: fc.horizons } });
+  assert.match(fb.answer, /SBIN in about 14 min: ₹808\.5 \(likely ₹804\.9–₹811\.6\), chance of a rise 64% — led by the forecaster\./);
+});

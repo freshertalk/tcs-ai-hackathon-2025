@@ -57,6 +57,9 @@ const READERS = [
   { id: "snapshot", needs: "symbol", via: ["snapshot"], about: "The desk's engines on the stock: the live intraday call, the multi-timeframe verdict, the ladder of levels, daily indicators, candlestick patterns, the stock's habits and the measured odds of today's set-ups." },
   { id: "outlook", needs: "symbol", via: ["snapshot", "outlook"], about: "The next-session outlook for the stock: lean, range, pivots and scenarios (with the snapshot)." },
   { id: "plan", needs: "symbol", via: ["plan"], about: "The desk's intraday plan for the stock with its measured record." },
+  { id: "forecast", needs: "symbol", via: ["forecast"], about: "The desk's consensus level forecast for about 5 and 15 minutes ahead: the price, the likely band, the chance of a rise and its strength, the level likely touched first above and below, the parts it was blended from (the 15-minute forecaster, the evidence desk, the early calls, the order book) and its checked record against the forecaster alone. Free." },
+  { id: "delivery", needs: "symbol", via: ["delivery"], about: "NSE's delivery data for the last sessions (published after each close, never today's): the share of traded quantity taken for delivery, its 20-session average and trend, volume against usual, and what the last session's price move with its delivery says (accumulation, distribution, speculative churn). Free." },
+  { id: "research", needs: "symbol", via: ["research", "forecast", "delivery"], about: "Deep research on one stock in a single read — every data point the desk has: the order book price by price on NSE and BSE (five bids and offers with quantities, pending totals, imbalance, walls), the consensus forecast, the 15-minute forecaster's path to 30 minutes, the evidence desk's calls with the techniques speaking and their records, futures open interest, the option chain, NIFTY and SENSEX, the sector, India VIX, GIFT NIFTY, Wall Street and Asia, the early calls, the live call and verdict, daily indicators, habits, delivery, the world and the news. Use it when the trader asks to research, analyse or forecast a stock. Free (no model)." },
   { id: "options", needs: "symbol", via: ["options"], about: "The option chain: open interest by strike and its change, PCR, call and put walls, max pain, ATM IV. Symbol may be NIFTY or BANKNIFTY." },
   { id: "market", via: ["market"], about: "The market now: Nifty, Bank Nifty, India VIX, sector moves, breadth and the market's tide." },
   { id: "global", via: ["global"], about: "The NSE forecast from the world: GIFT Nifty, the US, Europe, Asia, the rupee, crude, FII flows." },
@@ -117,6 +120,10 @@ class DeskAgent {
       if (r.id === "shared") return Boolean(this.ai.shared);
       if (["position", "tape", "levels", "lab", "learned", "indices", "picks", "scanner", "playbook"].includes(r.id)) return typeof desk[r.id === "position" ? "reading" : r.id] === "function";
       if (r.id === "web" || r.id === "news") return Boolean(this.ai._searchProvider && this.ai._searchProvider());
+      // the consensus forecast, delivery and the deep research: offered where app.js handed them in
+      if (r.id === "forecast") return typeof this.ai.deskConsensus === "function";
+      if (r.id === "delivery") return typeof this.ai.deskDelivery === "function";
+      if (r.id === "research") return typeof this.ai.deskDossier === "function";
       return true;
     });
   }

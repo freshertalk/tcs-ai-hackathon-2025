@@ -235,6 +235,19 @@ One process only (`instances: 1`): the trading guard rails and the live price st
 so a restart briefly drops open streams (pages reconnect by themselves) — there is no zero-downtime
 reload with one process, and that is the deliberate trade.
 
+**The consensus forecast, delivery and deep research (2026-11-21).** `server/consensus.js` (arithmetic in
+`server/market/consensus.js`) blends the 15-minute forecaster, the evidence desk, the early calls and the live order
+book into ONE level forecast for about 5 and 15 minutes (price, band, chance of a rise, the level touched first), by a
+ridge regression that starts as the forecaster alone and moves weight only as far as its checked forecasts justify. It
+sweeps the stocks followed live every 5-minute bar, keeps every forecast (`consensus_calls`, 10 days), checks it 5 and
+15 minutes later, scores the blend and the forecaster alone on the same forecast, and leads only after 150 checks over
+5 sessions that show it missing 2% less; after each close it writes its rules and record into the trading-skills file.
+`server/market/delivery.js` reads NSE's public `sec_bhavdata_full` file each evening (no login) and keeps 20 sessions of
+traded and delivered quantity as cache files. `server/dossier.js` assembles everything on one stock in one read
+(`GET /api/admin/market/dossier/:symbol`); TradeAI reads it for research/forecast questions (readers `research`,
+`forecast`, `delivery`) and writes a sectioned research note. Card: `ConsensusCard.jsx` on the Desk and in Research. No
+AI is asked by any of these; no order can be placed.
+
 **The 502 loop of 2026-11-21, and why it cannot come back.** The site answered 502 once a minute: `/api/live`'s
 uptime climbed to ~58 s, then started again from 0. The 20 Nov change of the forecaster's model version (3 → 4) made
 it retrain itself 30 s after every start; training on the stored year inside the web process (~210 MB on top of the

@@ -1,0 +1,422 @@
+"use strict";
+// The consensus forecast, as a service: one level forecast for the next 5 and 15 minutes for any stock — the price, the
+// band, the chance of a rise and the level likely to be touched first — made from the desk's three forecasters (the
+// 15-minute forecaster, the evidence desk, the early calls) and the live order book, by a blend that learns from its own
+// checked forecasts how much each deserves. The arithmetic is in market/consensus.js.
+//
+//   NOW        for a stock (the Desk, Research, TradeAI ask): the three are read (each keeps its own short cache), the
+//              blend's forecast is worked out, and the forecast is KEPT (one per stock per 5-minute bar).
+//   SWEEP      every 5-minute bar in the session, the stocks followed live (the watchlist and those looked at in the last
+//              three hours — the forecaster's own list) are forecast the same way, so the blend has enough checks to
+//              learn from. It reads only the desk's arithmetic: no AI model is ever asked (the evidence desk's AI read
+//              happens only when a stock is opened, and never from here).
+//   CHECKING   every forecast is checked 5 and 15 minutes after its bar against the 5-minute bars, the blend learns, and
+//              the blend AND the forecaster alone are scored on the same forecast. The blend leads only once its record
+//              proves it misses less (market/consensus.js PROOF); until then the forecaster's own numbers lead.
+//
+// Nothing here can place, change or cancel an order.
+
+const C = require("./market/consensus");
+const H = require("./market/horizon");
+
+const IST = 5.5 * 3600 * 1000;
+const MODEL = "market/consensus-model.json";
+const CALLS = "consensus_calls";
+const SYMBOL_RE = /^[A-Z0-9][A-Z0-9&._ -]{0,24}$/;
+const BAR = 5 * 60000;
+const OPEN_FROM = 9 * 60 + 20;
+const OPEN_TO = 15 * 60 + 15;
+const KEEP_DAYS = 10; // forecasts kept (they sit in memory with the record store; the model itself learns as it goes)
+const SWEEP_MAX = 30;
+const SECTION = "## The consensus forecast (5 and 15 minutes)";
+
+const num = (x) => typeof x === "number" && Number.isFinite(x);
+const r2 = (x) => (num(x) ? Math.round(x * 100) / 100 : null);
+const r4 = (x) => (num(x) ? Math.round(x * 10000) / 10000 : null);
+const iso = (ms) => new Date(ms).toISOString();
+const istDate = (ms) => new Date(ms + IST).toISOString().slice(0, 10);
+const minuteOfDay = (ms) => {
+  const d = new Date(ms + IST);
+  return d.getUTCHours() * 60 + d.getUTCMinutes();
+};
+const weekday = (date) => {
+  const d = new Date(`${date}T00:00:00Z`).getUTCDay();
+  return d !== 0 && d !== 6;
+};
+const pc = (p) => `${Math.round(p * 100)}%`;
+const tick = () => new Promise((r) => setImmediate(r));
+
+const RULE =
+  "The consensus forecast blends the desk's three forecasters — the 15-minute forecaster's expected move, the evidence desk's chance of a rise against a fall, and the early calls' carry-on and turn chances — with the live order book's buy and sell quantities. The blend starts as the forecaster alone and moves weight to the others only as far as its own checked forecasts justify (ridge regression, old checks fading slowly). The band is the forecaster's, scaled by how the blend misses against it and by the momentum reading.";
+const CHECK_RULE = "Every forecast is checked 5 and 15 minutes after its bar against the bar's close: the miss (in the stock's usual moves) and whether the direction was right, for the blend and for the forecaster alone on the same forecast. The blend's numbers lead only after 150 checks over 5 sessions that show it missing at least 2% less without calling the direction worse.";
+
+class ConsensusError extends Error {
+  constructor(message, code = "consensus", status = 400) {
+    super(message);
+    this.code = code;
+    this.status = status;
+  }
+}
+
+class Consensus {
+  /**
+   * @param horizon   the 15-minute forecaster (view, barsFor, watching)
+   * @param evidence  the evidence desk (view) — optional
+   * @param ahead     the early calls (view) — optional
+   * @param market    the MarketService (quotes, mode) — reads only
+   */
+  constructor({ horizon, evidence = null, ahead = null, market, docs, playbook = null, now = () => Date.now(), log = console, isTradingDay = weekday }) {
+    this.playbook = playbook; // the trading-skills file every AI feature reads: the blend writes its rules and record into it
+    this.horizon = horizon;
+    this.evidence = evidence;
+    this.ahead = ahead;
+    this.market = market;
+    this.docs = docs;
+    this.now = now;
+    this.log = log;
+    this.isTradingDay = isTradingDay;
+    this._model = null;
+    this._map = null;
+    this._pending = [];
+    this._cache = new Map();
+    this._slot = "";
+    this._busy = null;
+    this.timer = null;
+    this.lastError = "";
+  }
+
+  /* --------------------------------------------------------------------------- the records */
+  model() {
+    if (!this._model) {
+      const m = this.docs.read(MODEL, null);
+      this._model = m && m.version === 1 && m.h ? m : C.emptyModel();
+    }
+    return this._model;
+  }
+  _saveModel() {
+    this.docs.write(MODEL, this.model());
+  }
+  _recs() {
+    if (!this._map) this._map = new Map((typeof this.docs.items === "function" ? this.docs.items(CALLS) : []).map((r) => [r.id, r]));
+    return this._map;
+  }
+  _flush() {
+    if (!this._pending.length) return;
+    const list = this._pending.splice(0);
+    if (typeof this.docs.putItems === "function") this.docs.putItems(CALLS, list);
+  }
+  _connected() {
+    return typeof this.market.mode === "function" ? this.market.mode() === "kite" : true;
+  }
+
+  /* --------------------------------------------------------------------------- one stock now */
+  async _read(symbol) {
+    const safe = async (fn) => {
+      try {
+        return await fn();
+      } catch (_) {
+        return null;
+      }
+    };
+    const hv = await safe(() => this.horizon.view(symbol));
+    if (!hv || !hv.available) return { hv, reason: (hv && hv.reason) || "The 15-minute forecaster has no reading for this stock now." };
+    const [ev, av, q] = await Promise.all([
+      this.evidence ? safe(() => this.evidence.view(symbol, { full: false })) : null,
+      this.ahead ? safe(() => this.ahead.view(symbol)) : null,
+      safe(async () => {
+        const r = await this.market.quotes([symbol]);
+        return (r && r.quotes && r.quotes[symbol]) || null;
+      }),
+    ]);
+    return { hv, ev: ev && ev.available ? ev : null, av: av && av.available ? av : null, q };
+  }
+
+  /** The forecast for one stock now (and keep it). */
+  async view(symbol) {
+    if (!SYMBOL_RE.test(symbol)) throw new ConsensusError("That is not a valid symbol.", "invalid");
+    const now = this.now();
+    const hit = this._cache.get(symbol);
+    if (hit && now - hit.at < 10000) return hit.view;
+    const base = { symbol, rule: RULE, checkRule: CHECK_RULE, record: this.record(), asOf: iso(now) };
+    let out;
+    try {
+      const r = await this._read(symbol);
+      out = r.hv && r.hv.available ? { ...base, ...this._build(symbol, r, now) } : { ...base, available: false, reason: r.reason, closed: Boolean(r.hv && r.hv.closed) };
+    } catch (err) {
+      out = { ...base, available: false, reason: err.message || "The consensus forecast could not be made." };
+    }
+    this._cache.set(symbol, { at: now, view: out });
+    if (this._cache.size > 80) this._cache.clear();
+    return out;
+  }
+
+  _build(symbol, { hv, ev, av, q }, now) {
+    const model = this.model();
+    const anchorEnd = Date.parse(hv.anchor.at);
+    const price = hv.anchor.price;
+    const sigmaPct = hv.sigmaPct;
+    const byMin = new Map((hv.horizons || []).map((x) => [x.minutes, x]));
+    const evCall = (minutes) => (ev && Array.isArray(ev.calls) ? ev.calls.find((c) => c.minutes === minutes) || ev.calls.find((c) => c.minutes === (minutes <= 5 ? 5 : 15)) || null : null);
+    const earlyFor = (key) => {
+      if (!av || !Array.isArray(av.horizons)) return null;
+      const x = av.horizons.find((y) => y.key === key);
+      if (!x) return null;
+      return { run: Boolean(av.move && av.move.on), dir: av.move ? (av.move.dir === "up" ? 1 : -1) : 0, follow: x.follow, reversal: x.reversal, momentum: x.momentum, read: x.read, tone: x.tone };
+    };
+    const book = q && num(q.buyQty) && num(q.sellQty) ? { buyQty: q.buyQty, sellQty: q.sellQty } : null;
+    const horizons = [];
+    const keepX = {};
+    const keepZ = {};
+    for (const [key, lead] of [["5", 2.5], ["15", 15]]) {
+      // the same choice of bar as the forecaster's own headline: the first bar end at least `lead` minutes from now
+      const pick = (hv.horizons || []).find((x) => Date.parse(x.at) >= now + lead * 60000 - 1000);
+      if (!pick) continue;
+      const h = Math.round(pick.minutes / 5);
+      const evc = evCall(pick.minutes);
+      const early = earlyFor(key);
+      const x = C.inputsOf({ hz: pick, sigmaPct, h, ev: evc, early, book });
+      if (!x) continue;
+      const mh = model.h[h] ? h : h <= 2 ? 1 : 3; // horizons between are read with the nearer model
+      const f = C.forecastOf(model, mh, x, { price, sigmaPct, hz: pick, volMult: C.volMultOf(early) });
+      const lead_ = f.proven ? f.blend : f.solo;
+      const pUp = lead_.pUp;
+      const side = pUp >= 0.5 ? "up" : "down";
+      const p = Math.max(pUp, 1 - pUp);
+      const tier = p >= 0.7 ? "strong" : p >= 0.6 ? "clear" : p >= 0.54 ? "slight" : "none";
+      horizons.push({
+        key,
+        minutes: pick.minutes,
+        minutesAhead: Math.max(1, Math.round((Date.parse(pick.at) - now) / 60000)),
+        at: pick.at,
+        h,
+        price: lead_.price,
+        low: lead_.low,
+        high: lead_.high,
+        pct: lead_.pct,
+        pUp,
+        lean: tier === "none" ? "none" : side,
+        tier,
+        leads: f.proven ? "blend" : "forecaster",
+        blend: f.blend,
+        forecaster: f.solo,
+        parts: {
+          evidence: evc ? { lean: evc.lean, tier: evc.tier, pUp: evc.pUp, pDown: evc.pDown } : null,
+          early: early ? { read: early.read, tone: early.tone } : null,
+          book: book ? { buyQty: book.buyQty, sellQty: book.sellQty, buyShare: r4(book.buyQty / (book.buyQty + book.sellQty)) } : null,
+        },
+        contributions: f.contributions,
+        record: C.summaryOf(model.h[mh].stats),
+      });
+      keepX[h] = x;
+      keepZ[h] = [f.blend.z, f.solo.z];
+    }
+    if (!horizons.length) return { available: false, reason: "The session is too close to its end for a forecast." };
+    this._keep(symbol, { anchorEnd, price, sigmaPct, x: keepX, z: keepZ });
+    // the levels: the forecaster's chances of touching each within 15 and 30 minutes; the likeliest above and below
+    const levels = (hv.levels || []).filter((l) => num(l.price)).map((l) => ({ name: l.name, price: l.price, side: l.side, distPct: l.distPct, p15: l.p15 ?? null, p30: l.p30 ?? null }));
+    const firstOf = (side) => levels.filter((l) => l.side === side && num(l.p15)).sort((a, b) => b.p15 - a.p15)[0] || null;
+    const h15 = horizons.find((x) => x.key === "15") || horizons[horizons.length - 1];
+    return {
+      available: true,
+      anchor: hv.anchor,
+      sigmaPct,
+      horizons,
+      levels: levels.slice(0, 12),
+      firstUp: firstOf("above"),
+      firstDown: firstOf("below"),
+      headline: this._headline(symbol, h15, price),
+      parts: {
+        forecaster: { trained: hv.trained !== false, live: hv.live || null },
+        evidence: ev ? { trained: ev.trained !== false } : null,
+        early: av ? { move: av.move || null } : null,
+      },
+    };
+  }
+
+  _headline(symbol, x, price) {
+    if (!x) return "";
+    const who = x.leads === "blend" ? "the consensus" : "the forecaster (the blend is still proving itself)";
+    const dir = x.lean === "none" ? `no clear lean (rise ${pc(x.pUp)})` : `${x.lean === "up" ? "a rise" : "a fall"} more likely (${pc(x.lean === "up" ? x.pUp : 1 - x.pUp)}, ${x.tier})`;
+    return `${symbol} in ${x.minutesAhead} min: about ₹${x.price} (likely between ₹${x.low} and ₹${x.high}) from ₹${price} — ${dir}; led by ${who}.`;
+  }
+
+  _keep(symbol, { anchorEnd, price, sigmaPct, x, z }) {
+    const id = `${symbol}|${anchorEnd}`;
+    const recs = this._recs();
+    if (recs.has(id)) return;
+    const r = { id, symbol, date: istDate(anchorEnd), anchorEnd, price, sigma: sigmaPct, x, z, settled: false, at: iso(this.now()) };
+    recs.set(id, r);
+    this._pending.push(r);
+  }
+
+  /* --------------------------------------------------------------------------- checking */
+  async score() {
+    const now = this.now();
+    const due = [...this._recs().values()].filter((r) => !r.settled && !r.void && now >= r.anchorEnd + Math.max(...Object.keys(r.x || {}).map(Number), 0) * BAR + 20000);
+    if (!due.length) return 0;
+    const today = istDate(now);
+    const barsOf = new Map();
+    const model = this.model();
+    let done = 0;
+    for (const r of due) {
+      const key = `${r.symbol}|${r.date}`;
+      if (!barsOf.has(key)) {
+        let b = null;
+        try {
+          b = await this.horizon.barsFor(r.symbol, r.date);
+        } catch (_) {
+          b = null;
+        }
+        barsOf.set(key, b ? H.cleanBars(b) : null);
+      }
+      const bars = barsOf.get(key);
+      const at = H.slotOf(r.anchorEnd - BAR);
+      const actual = {};
+      for (const hs of Object.keys(r.x || {})) {
+        const h = Number(hs);
+        const b = bars && bars.find((y) => y.s === at + h);
+        if (b && num(r.price) && r.price > 0 && num(r.sigma) && r.sigma > 0) actual[h] = r4(((b.c - r.price) / r.price) * 100 / (r.sigma * Math.sqrt(h)));
+      }
+      if (!Object.keys(actual).length) {
+        if (r.date < today && (bars || now - r.anchorEnd > 3 * 86400000)) {
+          r.void = true;
+          this._pending.push(r);
+        }
+        continue;
+      }
+      for (const [hs, y] of Object.entries(actual)) {
+        const h = Number(hs);
+        const mh = model.h[h] ? h : h <= 2 ? 1 : 3;
+        const [zb, zs] = (r.z && r.z[h]) || [null, null];
+        C.learn(model, mh, r.x[h], y, { zb, zs, date: r.date });
+      }
+      r.actual = actual;
+      r.settled = true;
+      this._pending.push(r);
+      done += 1;
+      if (done % 25 === 0) await tick();
+    }
+    if (done) {
+      this._saveModel();
+      this._cache.clear();
+    }
+    this._flush();
+    return done;
+  }
+
+  _prune() {
+    const cut = istDate(this.now() - KEEP_DAYS * 86400000);
+    const old = [...this._recs().values()].filter((r) => r.date < cut).map((r) => r.id);
+    if (!old.length) return;
+    for (const id of old) this._recs().delete(id);
+    if (typeof this.docs.removeItems === "function") this.docs.removeItems(CALLS, old);
+  }
+
+  /* --------------------------------------------------------------------------- the sweep */
+  async sweep() {
+    const list = typeof this.horizon.watching === "function" ? this.horizon.watching() : [];
+    let n = 0;
+    for (const s of (list || []).slice(0, SWEEP_MAX)) {
+      try {
+        const v = await this.view(s);
+        if (v.available) n += 1;
+      } catch (_) {
+        /* the next one */
+      }
+      await tick();
+    }
+    this._flush();
+    return n;
+  }
+
+  async tickOnce() {
+    if (this._busy) return null;
+    this._busy = (async () => {
+      const now = this.now();
+      const today = istDate(now);
+      const min = minuteOfDay(now);
+      if (this.isTradingDay(today) && this._connected() && min >= OPEN_FROM && min <= OPEN_TO) {
+        const slot = `${today}|${Math.floor(min / 5)}`;
+        // a little after each bar closes, so the forecaster has the new bar
+        if (slot !== this._slot && now % BAR >= 45000) {
+          this._slot = slot;
+          await this.sweep();
+        }
+      }
+      await this.score();
+      if (min === 16 * 60 || !this._prunedOn || this._prunedOn !== today) {
+        this._prunedOn = today;
+        this._prune();
+      }
+      // after the close, once a day: the rules and the measured record go into the trading-skills file
+      if (min >= 15 * 60 + 40 && this._taughtOn !== today) {
+        this._taughtOn = today;
+        this.teach();
+      }
+      this._flush();
+    })()
+      .catch((err) => {
+        this.lastError = err.message || String(err);
+        this.log.error(`[consensus] ${this.lastError}`);
+      })
+      .finally(() => {
+        this._busy = null;
+      });
+    return this._busy;
+  }
+
+  /** Write the blend's rules and its record into the trading-skills file (every AI feature reads it). */
+  teach() {
+    if (!this.playbook || typeof this.playbook.setSection !== "function") return false;
+    const r = this.record();
+    const line = (key) => {
+      const x = r[key];
+      if (!x || !x.checks) return `- ${key} minutes: no forecast checked yet.`;
+      const pct = (v) => (num(v) ? `${Math.round(v * 100)}%` : "—");
+      return `- ${key} minutes: ${x.checks} checks over ${x.days} sessions — direction right ${pct(x.blend.dirAcc)} for the blend, ${pct(x.forecaster.dirAcc)} for the forecaster alone; average miss ${x.blend.missAvg} against ${x.forecaster.missAvg} usual moves; ${x.proven ? "the blend LEADS (proven better)" : "the forecaster leads while the blend proves itself"}. Weights now: forecaster ${x.weights.forecaster}, evidence desk ${x.weights.evidence}, early calls ${x.weights.early}, order book ${x.weights.book}.`;
+    };
+    const lines = [
+      "- One level forecast per stock for about 5 and 15 minutes blends the 15-minute forecaster, the evidence desk, the early calls and the live order book; it leads only when its checked record beats the forecaster alone. Quote its price, band and chance of a rise WITH its record; a band edge is not a target and no forecast is a certainty.",
+      "- Weigh every reading by its measured record on this desk: a proven technique or live reading counts; an unproven one is context only.",
+      "- The order book leans the next minutes: pending buy against sell, the imbalance at the best five prices; a wall is a level until it is pulled.",
+      "- Delivery (published by NSE after the close): a rise on delivery above its 20-session average reads as accumulation, a fall on it as distribution; a big move on low delivery is speculative churn that fades more easily.",
+      "- GIFT NIFTY, Wall Street and Asia matter most at the open; during the session NIFTY, SENSEX, the sector and India VIX set the tide for a single stock.",
+      line("5"),
+      line("15"),
+    ];
+    try {
+      this.playbook.setSection(SECTION, lines.join("\n"));
+      return true;
+    } catch (err) {
+      this.log.error(`[consensus] the skills file could not be written: ${err.message}`);
+      return false;
+    }
+  }
+
+  /* --------------------------------------------------------------------------- for the screen */
+  record() {
+    const m = this.model();
+    return Object.fromEntries(C.HZ.map((h) => [C.KEYS[h], { ...C.summaryOf(m.h[h].stats), weights: Object.fromEntries(C.FEATURES.map((f, i) => [f, m.h[h].w[i]])) }]));
+  }
+
+  board() {
+    const recs = [...this._recs().values()];
+    const today = istDate(this.now());
+    return { record: this.record(), kept: recs.length, today: recs.filter((r) => r.date === today).length, checked: recs.filter((r) => r.settled).length, rule: RULE, checkRule: CHECK_RULE, error: this.lastError };
+  }
+
+  start() {
+    if (this.timer) return;
+    this.timer = setInterval(() => {
+      this.tickOnce();
+    }, 30000);
+    if (this.timer.unref) this.timer.unref();
+  }
+
+  stop() {
+    if (this.timer) clearInterval(this.timer);
+    this.timer = null;
+  }
+}
+
+module.exports = { Consensus, ConsensusError, MODEL, CALLS, RULE, CHECK_RULE, SECTION };

@@ -78,7 +78,11 @@ How to answer:
 - Shared research (DATA.shared_SYMBOL): what the desk's other AI features already found on the stock, with their time and the price they were made at. Build on them instead of repeating the work; say where you agree or disagree, and discount a finding marked moved.
 - What the desk has measured (DATA.learned…): counts from its own history. They are evidence with a sample size, not a promise.
 - The agent's web findings (DATA.web_…): facts from outside the desk with their sources; say they come from the web.
-- If the question is not about trading, answer briefly and steer back.`;
+- If the question is not about trading, answer briefly and steer back.
+- The consensus forecast (DATA.forecast_SYMBOL): the desk's ONE level forecast for about 5 and 15 minutes ahead — the price, the likely band (low–high), the chance of a rise and its strength (tier), the level likely touched first above and below, and which engine leads: "blend" (the forecaster, the evidence desk, the early calls and the order book weighed together, leading because its checked record beats the forecaster alone) or "forecaster" (the blend is still proving itself). Quote its numbers with its record (checks, how often the direction was right, the average miss) — never present a band edge as a target or a forecast as a certainty.
+- Delivery (DATA.delivery_SYMBOL): NSE's published share of traded quantity taken for delivery on the last sessions (never today's — it is published after the close), its 20-session average, the trend and the reading of the last session (accumulation, distribution, speculative churn). Use it for the days' picture, not for the next five minutes.
+- Deep research (DATA.research_SYMBOL): every data point the desk has on the stock in one read — the order book price by price on NSE and BSE (five bids and offers with quantities, pending buy and sell totals, the imbalance and any wall), the 15-minute forecaster's path to 30 minutes with its accuracy, the evidence desk's calls with the techniques speaking and their records, its live readings (futures open interest, the option chain, NIFTY and SENSEX, the sector, India VIX, GIFT NIFTY, Wall Street and Asia, each with whether it has proven itself), the early calls (reversal, carry-on, momentum), delivery, the world and the news. "missing" lists what could not be read — say so instead of guessing.
+- When the trader asks you to research, analyse or forecast a stock (or DATA.research_SYMBOL is present), write a full research note with these "### " sections, each with the actual numbers: **Verdict** (one line: lean, strength, horizon); **Next 5 and 15 minutes** (the consensus forecast: price, band, chance of a rise, the level likely touched first, which engine leads and its record); **Buyers and sellers** (the order book on NSE and BSE: best bids and offers with quantities, pending totals, imbalance, walls; the quote's buy and sell quantity); **Price, volume and delivery** (VWAP and the distance from it, volume against usual, the recent delivery and what it says); **Indicators** (RSI on 5 minutes and daily, MACD, ADX, Supertrend, Bollinger, EMAs — what they agree on and where they conflict); **Levels and how it behaved there** (the level map with each level's measured record and touch odds); **Market and the world** (NIFTY and SENSEX trend, the sector, India VIX, GIFT NIFTY, Wall Street and Asia — only those that are open or fresh, and whether each has proven itself here); **Options and open interest**; **Risks and what would change the view** (the level that cancels it); **Plan** (entry zone, stop, targets as levels, size by risk — never an instruction to trade). Weigh a reading by its measured record: a proven technique or live reading counts more; an unproven one is context.`;
 
 const SCHEMA = {
   type: "object",
@@ -102,6 +106,33 @@ const SCHEMA = {
 
 const STOP = new Set("A I IN ON AT OF TO THE AND OR IS IT MY ME WE BE DO GO NO YES NOT FOR WITH WHAT WHY HOW WHEN WHERE WHO SHOULD COULD WOULD CAN WILL TODAY NOW BUY SELL LONG SHORT HOLD EXIT STOP LOSS PROFIT RSI VWAP NSE BSE MIS CNC ALL ANY OPEN CLOSE HIGH LOW UP DOWN TELL GIVE SHOW NEXT WEEK DAY MONTH YEAR PNL P&L SL TP ATR EMA SMA MACD ADX OI F&O FNO NIFTY BANK INDEX MARKET STOCK STOCKS SHARE SHARES TRADE TRADES POSITION POSITIONS PORTFOLIO PLEASE THANKS HI HELLO ABOUT ARE AM WAS HAS HAVE HAD THIS THAT THESE THOSE ITS OUR YOUR THEIR VS FROM BY AN AS IF SO THEN THAN ALSO JUST VERY MORE LESS MUCH MANY SOME AFTER BEFORE BETWEEN SUPPORT RESISTANCE TARGET LEVEL LEVELS TREND VOLUME PRICE NEWS RESULT RESULTS".split(" "));
 const has = (q, words) => words.some((w) => q.includes(w));
+// words that ask for the full research on a stock (21 Nov 2026)
+const DEEP_WORDS = ["research", "analys", "analyz", "deep", "in depth", "in-depth", "everything about", "full picture", "all data", "detailed", "predict", "forecast", "next 5", "next 15", "5 min", "15 min", "5-min", "15-min", "five minutes", "fifteen minutes", "where will", "buy or sell", "should i buy", "should i sell", "good to buy", "entry", "levels for"];
+
+/** The consensus forecast, trimmed for the model. */
+function consensusBrief(v) {
+  return {
+    symbol: v.symbol,
+    asOf: v.asOf,
+    anchor: v.anchor,
+    headline: v.headline,
+    horizons: (v.horizons || []).map((x) => ({ key: x.key, minutesAhead: x.minutesAhead, at: x.at, price: x.price, low: x.low, high: x.high, pct: x.pct, pUp: x.pUp, lean: x.lean, tier: x.tier, leads: x.leads, forecaster: x.forecaster, blend: x.blend, evidence: x.parts && x.parts.evidence, early: x.parts && x.parts.early && x.parts.early.read, book: x.parts && x.parts.book, record: x.record })),
+    firstUp: v.firstUp,
+    firstDown: v.firstDown,
+  };
+}
+
+/** The research dossier, without what the stock's snapshot and the forecast already carry. */
+function researchBrief(d, withSnapshot) {
+  const { consensus, delivery, ...rest } = d;
+  if (withSnapshot) {
+    delete rest.session;
+    delete rest.daily;
+    delete rest.habits;
+    delete rest.market;
+  }
+  return rest;
+}
 const short = (x, n = 600) => {
   const s = JSON.stringify(x);
   return s.length > n ? `${s.slice(0, n)}…` : s;
@@ -200,6 +231,8 @@ class TradeAI {
     if (has(q, ["option", "pcr", "put call", "put-call", "max pain", "open interest", " oi ", "call wall", "put wall", "expiry"]) || (symbols.length === 1 && tools.has("outlook"))) tools.add("options");
     // the intraday plan for the next session
     if (symbols.length && has(q, ["intraday", "plan", "tomorrow", "next session", "levels for", "trade plan", "setup"])) tools.add("plan");
+    // deep research (21 Nov 2026): a stock asked to be researched, analysed or forecast — every data point in one read (server/dossier.js)
+    if (symbols.length && (has(q, DEEP_WORDS) || tools.has("outlook"))) tools.add("research");
     // the NSE forecast from the world: GIFT Nifty, the US, Europe, Japan, Singapore and the rest
     if (has(q, ["gift", "sgx", "global", "world", "overseas", "us market", "wall street", "nasdaq", "s&p", "dow", "nikkei", "japan", "singapore", "straits", "hang seng", "asia", "europe", "dax", "ftse", "open tomorrow", "pre-open", "preopen", "premarket", "pre-market", "market open", "will the market", "will nifty", "next week"]) || (tools.has("market") && tools.has("outlook"))) tools.add("global");
     // the Social Media page's organised news and posts (news sites, X, Reddit, NSE announcements)
@@ -371,6 +404,49 @@ class TradeAI {
         );
       }
     }
+    // the consensus forecast for about 5 and 15 minutes and NSE's delivery, for every stock read (the desk's own arithmetic; free)
+    if ((want("snapshot") || want("forecast")) && typeof this.ai.deskConsensus === "function") {
+      for (const s of syms) {
+        jobs.push(
+          this._within(this.ai.deskConsensus(s), 9000)
+            .then((v) => {
+              if (v && !v.__timeout && v.available) {
+                data[`forecast_${s}`] = consensusBrief(v);
+                used.push(`forecast ${s}`);
+              }
+            })
+            .catch(() => {}),
+        );
+      }
+    }
+    if ((want("snapshot") || want("delivery") || want("research")) && typeof this.ai.deskDelivery === "function") {
+      for (const s of syms) {
+        try {
+          const d = this.ai.deskDelivery(s);
+          if (d && d.available) {
+            data[`delivery_${s}`] = { asOf: d.asOf, last: d.last, avgDelivPct: d.avgDelivPct, avgVolume: d.avgVolume, trend: d.trend, upDayShare: d.upDayShare, reading: d.reading, sessions: d.sessions.slice(0, 6).map((x) => ({ date: x.date, changePct: x.changePct, volume: x.volume, delivPct: x.delivPct })), note: d.note };
+            used.push(`delivery ${s}`);
+          }
+        } catch (_) {
+          /* the answer stands without it */
+        }
+      }
+    }
+    if (want("research") && typeof this.ai.deskDossier === "function") {
+      for (const s of syms.slice(0, 2)) {
+        onStep(`Deep research on ${s}: the order book on NSE and BSE, the forecasters, techniques, open interest, options, NIFTY and SENSEX, GIFT NIFTY and the world, delivery`);
+        jobs.push(
+          this._within(this.ai.deskDossier(s), 22000)
+            .then((d) => {
+              if (d && !d.__timeout) {
+                data[`research_${s}`] = researchBrief(d, Boolean(want("snapshot")));
+                used.push(`deep research ${s}`);
+              }
+            })
+            .catch(() => {}),
+        );
+      }
+    }
     if (want("options") && m.optionChain) {
       const u = syms[0] || "NIFTY 50";
       onStep(`Reading the option chain of ${u}: OI, PCR, max pain, IV`);
@@ -466,6 +542,11 @@ class TradeAI {
       const lc = s.liveCall && s.liveCall.headline ? `live call: ${s.liveCall.headline} (score ${s.liveCall.score})` : "no live call now";
       const d = s.daily && s.daily.score ? `daily score ${s.daily.score.value} (${s.daily.score.label}), RSI ${r2(s.daily.rsi14)}` : "";
       lines.push(`- ${s.symbol}: ₹${s.live ? s.live.last : "?"}; ${lc}${d ? `; ${d}` : ""}${s.outlook ? `; next session leans ${s.outlook.lean}` : ""}.`);
+    }
+    // the consensus forecast, when it was read: the desk's own numbers for about 5 and 15 minutes
+    for (const k of Object.keys(data).filter((x) => x.startsWith("forecast_"))) {
+      const f = data[k];
+      for (const h of f.horizons || []) lines.push(`- ${f.symbol} in about ${h.minutesAhead} min: ₹${h.price} (likely ₹${h.low}–₹${h.high}), chance of a rise ${Math.round((h.pUp || 0) * 100)}% — led by the ${h.leads}.`);
     }
     if (data.market && data.market.tide) lines.push(`Market: ${data.market.tide.summary || data.market.tide.label}.`);
     if (data.pnl && data.pnl.last30) lines.push(`Last 30 days: net ₹${Math.round(data.pnl.last30.net || 0)} over ${data.pnl.last30.days || 0} saved days.`);
@@ -728,7 +809,7 @@ class TradeAI {
     // the agent: the model names what else it needs and the desk reads it, as many steps as the level gives
     const ag = await this.agent.run(q, { data, used, models, level, owner, history, onStep, fresh }).catch(() => ({ steps: [], usage: { input: 0, output: 0 }, tried: [] }));
     // the position, the tape, the levels and the shared research go first: a long answer is cut from the end
-    const first = Object.keys(data).filter((k) => /^(position|tape|levels|shared)_/.test(k));
+    const first = Object.keys(data).filter((k) => /^(position|forecast|tape|levels|shared|research)_/.test(k));
     const ordered = { asOf: data.asOf, plan: data.plan };
     for (const k of first) ordered[k] = data[k];
     for (const k of Object.keys(data)) if (ordered[k] === undefined) ordered[k] = data[k];

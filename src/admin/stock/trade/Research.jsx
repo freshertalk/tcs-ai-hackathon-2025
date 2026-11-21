@@ -19,6 +19,7 @@ import { LiveScanner } from "./LiveScanner";
 import { SetupLab } from "./SetupLab";
 import AutopilotPanel from "../autopilot/AutopilotPanel";
 import HorizonCard, { HorizonBoard } from "../analyzer/HorizonCard";
+import ConsensusCard from "../analyzer/ConsensusCard";
 import AheadCard, { AheadBoard } from "../analyzer/AheadCard";
 import EvidenceCard, { EvidenceBoard } from "../analyzer/EvidenceCard";
 import { inr, isNum, num, pct, when } from "../analyzer/format";
@@ -78,7 +79,8 @@ function ResearchHorizon({ symbol, first }) {
   const [open, setOpen] = useState(Boolean(first));
   return (
     <details className="rs-ai" open={Boolean(first)} onToggle={(e) => setOpen(e.currentTarget.open)}>
-      <summary>Next 5 and 15 minutes — price, high, low, levels, the early calls (trend, reversal, momentum) and the check for {symbol}</summary>
+      <summary>Next 5 and 15 minutes — the consensus forecast, price, high, low, levels, the early calls (trend, reversal, momentum) and the check for {symbol}</summary>
+      {open && <ConsensusCard symbol={symbol} compact />}
       {open && <HorizonCard symbol={symbol} compact />}
       {open && <AheadCard symbol={symbol} compact />}
       {open && <EvidenceCard symbol={symbol} compact />}

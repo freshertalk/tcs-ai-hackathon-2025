@@ -75,6 +75,9 @@ const { askDefault, team: aiTeam } = require("./ai/mixture");
 const { LiveHub } = require("./live");
 const { Supervisor } = require("./supervisor");
 const { TrainGuard } = require("./train-guard");
+const { Consensus } = require("./consensus");
+const { DeliveryStore } = require("./market/delivery");
+const { dossier } = require("./dossier");
 const { Recorder } = require("./recorder");
 const { Accounts, AccountError } = require("./accounts");
 const { Prefs, DEFAULTS: PREF_DEFAULTS, OPTIONS: PREF_OPTIONS } = require("./prefs");
@@ -1597,6 +1600,31 @@ ${e.text}
   ai.deskEvidence = (symbol) => Promise.race([evidence.brief(symbol, { full: true }), new Promise((r) => setTimeout(() => r(null), 6000))]).catch(() => null);
   flight.evidence = evidence;
   if (market.ticker && opts.horizonWatch !== false && opts.alertWatch !== false) evidence.start();
+
+  // The consensus forecast (server/consensus.js, 21 Nov 2026): ONE level forecast for the next 5 and 15 minutes — price, band,
+  // chance of a rise, the level likely touched first — from the 15-minute forecaster, the evidence desk, the early calls and the
+  // live order book, by a blend that learns from its own checked forecasts how much each deserves, and leads only once its record
+  // beats the forecaster alone. It sweeps the stocks followed live every 5-minute bar. Arithmetic only: no AI, no order.
+  const consensus = opts.consensus || new Consensus({ horizon, evidence, ahead, market, docs: store.docs, playbook: ai.playbook, now: opts.now, log: opts.log || console, isTradingDay: (d) => nseCalendar.isTradingDay(d) });
+  if (market.ticker && opts.horizonWatch !== false && opts.alertWatch !== false) consensus.start();
+  // Delivery (server/market/delivery.js): NSE's public daily file of traded and delivered quantity for every stock — the one
+  // daily reading the broker does not give. No login, no AI; under test it touches no network unless a fetch is handed to it.
+  const delivery =
+    opts.delivery ||
+    new DeliveryStore({ dir: dataDir, fetchImpl: opts.deliveryFetch !== undefined ? opts.deliveryFetch : underTest || opts.marketFetch ? null : globalThis.fetch, now: opts.now, log: opts.log || console, isTradingDay: (d) => nseCalendar.isTradingDay(d) });
+  if (!underTest && opts.deliveryWatch !== false) delivery.start();
+  // The research dossier (server/dossier.js): everything the desk knows about one stock in one read — for TradeAI's deep research
+  const researchOf = (symbol) => dossier(symbol, { market, horizon, evidence, ahead, consensus, delivery, ensemble: ai.ensemble, now: opts.now });
+  ai.deskConsensus = (symbol) => consensus.view(symbol);
+  ai.deskDelivery = (symbol) => delivery.forSymbol(symbol);
+  ai.deskDossier = researchOf;
+  const csSym = (req) => String(req.params.symbol || "").trim().toUpperCase().slice(0, 25);
+  app.get("/api/admin/market/consensus", requireAdmin, hWrap(async () => consensus.board()));
+  app.get("/api/admin/market/consensus/:symbol", requireAdmin, limiter(240, 60 * 1000), hWrap(async (req) => consensus.view(csSym(req))));
+  app.get("/api/admin/market/delivery/:symbol", requireAdmin, limiter(240, 60 * 1000), hWrap(async (req) => delivery.forSymbol(csSym(req))));
+  // "Read now": the delivery files that are missing (a few hundred KB of public data each; no AI, no login)
+  app.post("/api/admin/market/delivery/refresh", requireAdmin, limiter(6, 60 * 60 * 1000), hWrap(async () => ({ read: await delivery.refresh({ trigger: "you asked" }), ...delivery.status() })));
+  app.get("/api/admin/market/dossier/:symbol", requireAdmin, limiter(60, 60 * 1000), hWrap(async (req) => researchOf(csSym(req))));
   const startEvidence = async (run) => {
     const p = run();
     const early = await Promise.race([p.then(() => null, (e) => e), new Promise((r) => setTimeout(() => r(null), 120))]);
@@ -2076,6 +2104,15 @@ ${e.text}
         const b = evidence.board();
         const working = b.techniques.filter((t) => t.record[15].verdict === "works").length;
         return needs(b.trained ? "on" : "learning", b.trained ? `learned to ${b.learning.lastDate}; ${working} of ${b.techniques.length} techniques have a proven record here; AI reads today ${b.ai.usedToday} of ${b.ai.perDay}` : "no usable model yet (it trains after the forecaster)");
+      }),
+      sys("consensus", "Consensus forecast (5 and 15 minutes)", "On every finished 5-minute bar, for the stocks followed live: the forecaster, the evidence desk, the early calls and the order book blended into one level forecast; every forecast is checked 5 and 15 minutes later and the blend learns from it, leading only once its record beats the forecaster alone (no AI)", () => {
+        const r = consensus.record();
+        const f = r["15"] || {};
+        return needs(f.checks ? "on" : "learning", f.checks ? `${f.checks} checks at 15 minutes over ${f.days} sessions; ${f.proven ? "the blend leads (it misses less than the forecaster alone)" : "the forecaster's numbers lead while the blend proves itself"}` : "no forecast checked yet: it learns from the first session it sees");
+      }),
+      sys("delivery", "Delivery data (NSE)", "Every evening after NSE publishes it: the day's traded and delivered quantity for every stock, from NSE's own public file (no login, no AI); the last 20 sessions are kept for the research and TradeAI", () => {
+        const s = delivery.status();
+        return { state: s.error && !s.days ? "attention" : s.days ? "on" : "learning", detail: s.days ? `${s.days} sessions kept, newest ${s.newest}${s.error ? ` · the last read failed (${s.error})` : ""}` : s.error ? `not read yet (${s.error})` : "the first read is under way" };
       }),
       sys("expiry", "Expiry calendar (weekly and monthly expiries)", "Every morning before the open and every twelve hours: the exchanges' own contract lists are read (a public file, no login, no AI), the calendar is worked out again, and any expiry date that changed is kept and shown on the Calendar", () => {
         const s = expiryCal.status();

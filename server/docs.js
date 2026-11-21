@@ -34,13 +34,13 @@ const path = require("path");
 const RECORDS = ["db.json", "ai/world.json", "ai/news.json", "ai/live.json", "ai/journal.json", "ai/debriefs.json", "ai/coach.json", "ai/research.json", "ai/trading-skills.md", "trading/journal.json", "ai/reviews.json", "market/behaviour.json", "ai/decisions.json", "market/edge.json", "market/signals.json", "market/alerts.json", "research/auto.json", "kundali/record.json"];
 const LOGS = { "trading/audit": "trading/audit.jsonl" };
 /** Lists kept one record per item (a collection of its own in MongoDB, one file otherwise). */
-const COLLECTIONS = ["journal_fills", "analysis_snapshots", "analysis_outcomes", "analysis_learnings", "robot_trades", "robot_days", "robot_study", "robot_history", "open_forecasts", "autopilot_proposals", "horizon_forecasts", "horizon_days", "horizon_learning", "tape_learning", "ahead_calls", "ahead_days", "evidence_calls", "evidence_days", "expenses"];
+const COLLECTIONS = ["journal_fills", "analysis_snapshots", "analysis_outcomes", "analysis_learnings", "robot_trades", "robot_days", "robot_study", "robot_history", "open_forecasts", "autopilot_proposals", "horizon_forecasts", "horizon_days", "horizon_learning", "tape_learning", "ahead_calls", "ahead_days", "evidence_calls", "evidence_days", "expenses", "consensus_calls"];
 /** Big records read one at a time, never held in memory (a collection "cold_<name>" in MongoDB, a folder of files otherwise). */
 const COLD = ["market_tape"];
 const LOG_KEEP = 2000; // entries of a log kept in memory (the database keeps them all)
 const COLD_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,60}$/;
 /** In the file store: what is a cache (downloaded again when missing), a key or a working file — never part of a backup. */
-const NOT_RECORDS = [/^backups\//, /^media\//, /^cold\//, /^collections\//, /^market\/candles\//, /^market\/indices\//, /^market\/screener/, /^health\//, /\.key$/, /\.tmp$/, /\.corrupt-\d+$/, /^market\/instruments\.json$/, /^market\/universe\.json$/, /^nfo\.json$/, /^holidays\.json$/, /^last-crash\.json$/, /^last-stop\.json$/];
+const NOT_RECORDS = [/^backups\//, /^media\//, /^cold\//, /^collections\//, /^market\/candles\//, /^market\/indices\//, /^market\/screener/, /^market\/delivery\//, /^health\//, /\.key$/, /\.tmp$/, /\.corrupt-\d+$/, /^market\/instruments\.json$/, /^market\/universe\.json$/, /^nfo\.json$/, /^holidays\.json$/, /^last-crash\.json$/, /^last-stop\.json$/];
 
 const isText = (name) => name.endsWith(".md");
 const clone = (v) => (v === undefined ? v : JSON.parse(JSON.stringify(v)));

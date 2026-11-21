@@ -23,6 +23,7 @@ import ProChart from "../chart/ProChart";
 import AiBrain from "./AiBrain";
 import SessionHistory from "./SessionHistory";
 import HorizonCard, { ForecastChips, useHorizon } from "./HorizonCard";
+import ConsensusCard from "./ConsensusCard";
 import AheadCard, { useAhead } from "./AheadCard";
 import EvidenceCard from "./EvidenceCard";
 import { callLabel as oddsLabel } from "../advisor/advisorMath";
@@ -546,6 +547,8 @@ export default function StockView({ symbol, quote, status, streaming = false, in
           )}
         </section>
         <div ref={fcRef} className="sv__fcwrap">
+          {/* the consensus: ONE level forecast for 5 and 15 minutes from the three forecasters and the order book, with who leads */}
+          <ConsensusCard symbol={symbol} />
           <HorizonCard symbol={symbol} state={horizon} />
           <AheadCard symbol={symbol} state={ahead} />
           {/* everything weighed: the techniques, the order book, open interest, the market and the world; opening the stock tells the

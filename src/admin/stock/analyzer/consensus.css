@@ -1,0 +1,244 @@
+/* ==========================================================================
+   The consensus forecast card (ConsensusCard.jsx). Desk tokens only: both themes follow.
+   Everything wraps: nothing scrolls sideways, nothing is shortened with "…".
+   ========================================================================== */
+
+.cs {
+  container-type: inline-size;
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-left-width: 3px;
+  border-radius: 12px;
+  background: var(--surface);
+}
+.cs--up {
+  border-left-color: var(--up);
+}
+.cs--down {
+  border-left-color: var(--down);
+}
+.cs--wait {
+  border-left-width: 1px;
+}
+.cs-dim {
+  margin: 0;
+  color: var(--ink-3);
+  font-size: var(--t-small);
+}
+.cs-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+}
+.cs-head h3 {
+  margin: 0;
+  font-size: var(--t-base);
+  font-weight: 700;
+}
+.cs-lead {
+  padding: 2px 10px;
+  border: 1px solid var(--line-2, var(--line));
+  border-radius: 99px;
+  background: var(--surface-2);
+  color: var(--ink-2);
+  font-size: var(--t-small);
+  font-weight: 700;
+}
+.cs-lead.is-blend {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.cs-when {
+  flex: 1 1 200px;
+  min-width: 0;
+  color: var(--ink-3);
+  font-size: var(--t-small);
+}
+
+/* the two horizons */
+.cs-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
+  gap: 8px;
+}
+.cs-tile {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+.cs-tile__top {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 2px 8px;
+}
+.cs-tile__k {
+  font-size: var(--t-small);
+  font-weight: 700;
+}
+.cs-tile__top small,
+.cs-tile__band,
+.cs-tile__p {
+  color: var(--ink-2);
+  font-size: var(--t-small);
+}
+.cs-tile__price {
+  font-size: 1.35rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+.cs-tile__move {
+  font-size: var(--t-small);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.cs-tile__move--up {
+  color: var(--up);
+}
+.cs-tile__move--down {
+  color: var(--down);
+}
+.cs-band {
+  position: relative;
+  height: 10px;
+  margin: 4px 0 2px;
+  border-radius: 99px;
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+.cs-band__fill {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  border-radius: 99px;
+  background: color-mix(in srgb, var(--accent) 30%, transparent);
+}
+.cs-band__now,
+.cs-band__mid {
+  position: absolute;
+  top: -2px;
+  width: 2px;
+  height: 14px;
+  margin-left: -1px;
+  background: var(--ink-3);
+}
+.cs-band__mid {
+  width: 3px;
+  margin-left: -1.5px;
+  background: var(--accent);
+}
+.cs-band__mid--up {
+  background: var(--up);
+}
+.cs-band__mid--down {
+  background: var(--down);
+}
+
+.cs-first {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: var(--t-small);
+  overflow-wrap: break-word;
+}
+
+/* what it was blended from */
+.cs-parts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr));
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.cs-parts li {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.cs-parts span {
+  color: var(--ink-3);
+  font-size: var(--t-tag, var(--t-small));
+}
+.cs-parts b {
+  font-size: var(--t-small);
+  text-transform: capitalize;
+}
+.cs-parts small {
+  color: var(--ink-2);
+  font-size: var(--t-tag, var(--t-small));
+  overflow-wrap: break-word;
+}
+
+.cs-record {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding-left: 18px;
+  color: var(--ink-2);
+  font-size: var(--t-small);
+}
+.cs-proof {
+  display: inline-block;
+  padding: 0 8px;
+  border: 1px solid var(--line-2, var(--line));
+  border-radius: 99px;
+  color: var(--ink-3);
+  font-size: var(--t-tag, var(--t-small));
+  font-weight: 700;
+  white-space: nowrap;
+}
+.cs-proof.is-on {
+  border-color: var(--up);
+  color: var(--up);
+}
+.cs-more {
+  justify-self: start;
+}
+.cs-how {
+  display: grid;
+  gap: 8px;
+  color: var(--ink-2);
+  font-size: var(--t-small);
+}
+.cs-how p {
+  margin: 0;
+}
+.cs-weights {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.cs-weights li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 10px;
+  align-items: baseline;
+}
+.cs-weights small {
+  color: var(--ink-3);
+}
+.cs-weights b {
+  font-variant-numeric: tabular-nums;
+}
+.cs-weights .is-up {
+  color: var(--up);
+}
+.cs-weights .is-down {
+  color: var(--down);
+}
+.cs--compact .cs-tile__price {
+  font-size: 1.15rem;
+}
