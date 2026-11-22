@@ -263,3 +263,6 @@
   font-size: var(--t-small);
   overflow-wrap: break-word;
 }
+.cs-refine__outlook {
+  color: var(--ink-2);
+}

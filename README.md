@@ -266,6 +266,16 @@ The pass is signed, tied to the visitor's address, lasts 15 minutes and carries 
 the anonymous budget still apply. Switch off only for tests (`createApp({ captcha: false })`). A flood of 600 login requests was
 answered in 0.65 s, 20 of them reaching the gate and the rest turned away by the limiter.
 
+**Volatility from several days of history (2026-11-22; `server/market/volmodel.js`).** Each evening after 15:45 the consensus
+service fits a pooled log HAR-RV model (Corsi 2009) on the stored 5-minute history, one stock at a time (yesterday's, the last
+week's and the last month's realized variance against the stock's usual, plus the whole market's yesterday), judged on the
+newest quarter of sessions against "the usual" and "same as yesterday", and measures the intraday pattern of volatility per
+5-minute slot (Andersen & Bollerslev 1997). Saved as `market/vol-model.json`. During the session the stock's forecast for today
+is the prior and today's finished bars (with the slot pattern taken out) update it, 12 bars' worth of prior; times the coming
+slots' share it gives a second scale for the refiner's conformal band. That multi-day band keeps its own record and takes over
+only with a better interval score (Gneiting & Raftery 2007) than the today-only band. The card shows "Last days: N× expected"
+and the multi-day band's coverage; TradeAI gets `volatility.expected` and `volatility.outlook`.
+
 **Decision trees (2026-11-22; `server/market/boost.js`).** The 15-minute forecaster's nonlinear stage: gradient-boosted trees
 (LightGBM-style histograms, depth 3, learning rate 0.05, half the rows and ~70% of the inputs per tree) learn what the ridge
 model as used still misses, for all 11 targets (moves at 5–30 min, highs and lows), from its inputs plus the time of day and

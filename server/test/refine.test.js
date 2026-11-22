@@ -49,7 +49,7 @@ test("with no record the refiner changes nothing: the consensus's centre and ban
   assert.equal(f.zShown, 0.4);
   assert.equal(f.half, 1.1);
   assert.equal(f.halfConformal, null, "too few misses for a conformal band");
-  assert.deepEqual(f.leads, { mean: false, band: false });
+  assert.deepEqual(f.leads, { mean: false, band: false, bandBy: null });
   assert.equal(f.offForm, false);
   assert.equal(R.forecastOf(m, 3, { x: [1, 2], zl: 0.4 }), null);
 });

@@ -18,7 +18,9 @@
 
 const C = require("./market/consensus");
 const H = require("./market/horizon");
-const R = require("./market/refine"); // the refiner (22 Nov 2026): the top of the book, today's volatility, conformal bands, the off-form alarm
+const R = require("./market/refine");
+const V = require("./market/volmodel"); // volatility from several days of history (22 Nov 2026)
+const VOL_MODEL = "market/vol-model.json"; // the refiner (22 Nov 2026): the top of the book, today's volatility, conformal bands, the off-form alarm
 
 const IST = 5.5 * 3600 * 1000;
 const MODEL = "market/consensus-model.json";
@@ -77,6 +79,7 @@ class Consensus {
     this.log = log;
     this.isTradingDay = isTradingDay;
     this._model = null;
+    this._vol = undefined;
     this._map = null;
     this._pending = [];
     this._cache = new Map();
@@ -97,6 +100,38 @@ class Consensus {
   }
   _saveModel() {
     this.docs.write(MODEL, this.model());
+  }
+  /** The multi-day volatility model (refitted every evening from the stored history), or null. */
+  volModel() {
+    if (this._vol === undefined) {
+      const v = this.docs.read(VOL_MODEL, null);
+      this._vol = v && v.version === 1 && v.forecasts ? v : null;
+    }
+    return this._vol;
+  }
+  /** Fit the multi-day volatility model from the stored 5-minute history, one stock at a time. */
+  async refreshVol() {
+    const h = this.horizon;
+    if (typeof h.storedSymbols !== "function" || typeof h.storedSessions !== "function") return null;
+    const sums = {};
+    for (const sym of h.storedSymbols() || []) {
+      try {
+        const days = (h.storedSessions(sym) || []).slice(-260).map(([date, raw]) => [date, H.cleanBars(raw)]);
+        if (days.length >= 30) sums[sym] = V.summarizeStock(days);
+      } catch (_) {
+        /* the next stock */
+      }
+      await tick();
+    }
+    const m = V.fitVolModel(sums);
+    if (!m) return null;
+    m.fittedAt = iso(this.now());
+    m.fittedOn = istDate(this.now());
+    this.docs.write(VOL_MODEL, m);
+    this._vol = m;
+    this._cache.clear();
+    this.log.log(`[consensus] multi-day volatility: ${m.stocks} stocks, ${m.sessions} sessions; on unseen sessions it misses ${m.judge.har} against ${m.judge.usual} for "the usual" and ${m.judge.yesterday} for "same as yesterday" (log variance)`);
+    return m;
   }
   _recs() {
     if (!this._map) this._map = new Map((typeof this.docs.items === "function" ? this.docs.items(CALLS) : []).map((r) => [r.id, r]));
@@ -177,6 +212,12 @@ class Consensus {
     const doneBars = Array.isArray(bars) ? bars.filter((b) => num(b.t) && b.t < anchorEnd) : null;
     const ratio = R.volRatio(doneBars, sigmaPct);
     const scale = R.scaleOf(ratio);
+    // …and from several days of history: the stock's forecast volatility for today, updated by today's bars (market/volmodel.js)
+    const vm = this.volModel();
+    const prior = vm ? V.priorFor(vm, symbol, today) : null;
+    const anchorSlot = H.slotOf(anchorEnd - BAR);
+    const multiFor = (h) => (vm && prior !== null ? V.scaleFor({ prior, season: vm.season, bars: doneBars || [], sigmaPct, slot: anchorSlot, h }) : null);
+    let multiNow = null;
     const round05 = (p) => Math.round(p * 20) / 20;
     let topOfBook = null;
     for (const [key, lead] of [["5", 2.5], ["15", 15]]) {
@@ -196,7 +237,10 @@ class Consensus {
       const zl = num(f.proven ? f.blend.z : f.solo.z) ? (f.proven ? f.blend.z : f.solo.z) : num(lead_.pct) ? lead_.pct / sH : 0;
       const ho = num(lead_.high) && num(lead_.low) && price > 0 ? ((lead_.high - lead_.low) / 2 / price) * 100 / sH : null;
       const ri = R.inputsOf({ q, price, s: sH, zl, ratio });
-      const rf = ri ? R.forecastOf(model.refine, mh, { x: ri.x, zl, ho, scale, date: today }) : null;
+      const mv = multiFor(h);
+      if (mv && h === 3) multiNow = mv;
+      if (mv && !multiNow) multiNow = mv;
+      const rf = ri ? R.forecastOf(model.refine, mh, { x: ri.x, zl, ho, scale, scale2: mv ? mv.scale : null, date: today }) : null;
       if (ri && ri.top) topOfBook = ri.top;
       let shown = { price: lead_.price, low: lead_.low, high: lead_.high, pct: lead_.pct, pUp: lead_.pUp };
       if (rf && (rf.leads.mean || rf.leads.band)) {
@@ -239,7 +283,10 @@ class Consensus {
               offForm: rf.offForm,
               price: round05(price * (1 + (rf.zr * sH) / 100)),
               pct: r4(rf.zr * sH),
-              conformal: num(rf.halfConformal) ? { low: round05(price * (1 + ((rf.zShown - rf.halfConformal) * sH) / 100)), high: round05(price * (1 + ((rf.zShown + rf.halfConformal) * sH) / 100)) } : null,
+              conformal: (() => {
+                const hc = rf.leads.band ? rf.half : num(rf.halfMulti) ? rf.halfMulti : rf.halfConformal;
+                return num(hc) ? { low: round05(price * (1 + ((rf.zShown - hc) * sH) / 100)), high: round05(price * (1 + ((rf.zShown + hc) * sH) / 100)), by: rf.leads.bandBy || (num(rf.halfMulti) ? "multi" : "today") } : null;
+              })(),
               contributions: rf.contributions.map((c) => ({ ...c, adds: r4(c.adds * sH) })), // `adds`: percent of price
               record: R.summaryOf(R.horizonOf(model.refine, mh), today),
             }
@@ -247,7 +294,7 @@ class Consensus {
       });
       keepX[h] = x;
       keepZ[h] = [f.blend.z, f.solo.z];
-      if (ri && rf) keepR[h] = { x: ri.x, zl: r4(zl), zr: rf.zr, zs: rf.zShown, scale: r4(scale), hc: rf.halfConformal, ho: r4(ho) };
+      if (ri && rf) keepR[h] = { x: ri.x, zl: r4(zl), zr: rf.zr, zs: rf.zShown, scale: r4(scale), hc: rf.halfConformal, ho: r4(ho), ...(mv ? { scale2: mv.scale, hc2: rf.halfMulti } : {}) };
     }
     if (!horizons.length) return { available: false, reason: "The session is too close to its end for a forecast." };
     this._keep(symbol, { anchorEnd, price, sigmaPct, x: keepX, z: keepZ, rf: keepR });
@@ -265,7 +312,19 @@ class Consensus {
       firstDown: firstOf("below"),
       headline: this._headline(symbol, h15, price),
       // the refiner's readings of now: today's volatility against the usual, and the top of the order book (microprice)
-      volatility: ratio === null ? null : { ratio, scale: r4(scale), read: ratio >= 1.8 ? "a wild session: moves about " + Math.round(Math.sqrt(ratio) * 10) / 10 + "× the usual" : ratio <= 0.55 ? "a quiet session: moves well below the usual" : "an ordinary session" },
+      volatility:
+        ratio === null && prior === null
+          ? null
+          : {
+              ratio,
+              scale: r4(scale),
+              read: ratio === null ? "too few bars yet today" : ratio >= 1.8 ? "a wild session: moves about " + Math.round(Math.sqrt(ratio) * 10) / 10 + "× the usual" : ratio <= 0.55 ? "a quiet session: moves well below the usual" : "an ordinary session",
+              // from several days of history: what the last days forecast for today, and that updated by today's bars
+              expected: prior,
+              day: multiNow ? multiNow.day : null,
+              share: multiNow ? multiNow.share : null,
+              outlook: prior === null ? null : prior >= 1.4 ? `the last days point to a wilder session than usual (about ${Math.round(Math.sqrt(prior) * 10) / 10}× the usual move)` : prior <= 0.7 ? "the last days point to a calmer session than usual" : "the last days point to an ordinary session",
+            },
       topOfBook,
       offForm: horizons.some((x) => x.refine && x.refine.offForm),
       parts: {
@@ -398,6 +457,13 @@ class Consensus {
         this._taughtOn = today;
         this.teach();
       }
+      // the multi-day volatility model: refitted after the close each day (and at once, outside the session, if there is none)
+      const vm = this.volModel();
+      const outside = min >= 15 * 60 + 45 || min < 9 * 60 + 5 || !this.isTradingDay(today);
+      if (outside && this._volTried !== today && (!vm || (vm.fittedOn !== today && min >= 15 * 60 + 45))) {
+        this._volTried = today;
+        await this.refreshVol();
+      }
       this._flush();
     })()
       .catch((err) => {
@@ -424,7 +490,7 @@ class Consensus {
       const x = r[key] && r[key].refine;
       if (!x || !x.checks) return `- Refiner, ${key} minutes: nothing checked yet.`;
       const pct = (v) => (num(v) ? `${Math.round(v * 100)}%` : "—");
-      return `- Refiner, ${key} minutes: ${x.checks} checks over ${x.days} sessions — centre ${x.mean.proven ? "LEADS" : "in trial"} (miss ${x.mean.missRefined} against ${x.mean.missLead}); conformal band ${x.band.proven ? "LEADS" : "in trial"}, held ${pct(x.band.coverage)} against the old band's ${pct(x.band.oldCoverage)} (stated 70%)${x.offForm ? "; TODAY IS OFF-FORM: the forecasts are missing clearly more than usual" : ""}.`;
+      return `- Refiner, ${key} minutes: ${x.checks} checks over ${x.days} sessions — centre ${x.mean.proven ? "LEADS" : "in trial"} (miss ${x.mean.missRefined} against ${x.mean.missLead}); conformal band ${x.band.proven ? "LEADS" : "in trial"}, held ${pct(x.band.coverage)} against the old band's ${pct(x.band.oldCoverage)} (stated 70%)${x.band2 && x.band2.checks ? `; the multi-day band (misses scaled by the volatility the last days forecast) held ${pct(x.band2.coverage)}, ${x.bandBy === "multi" ? "and LEADS" : "in trial"}` : ""}${x.offForm ? "; TODAY IS OFF-FORM: the forecasts are missing clearly more than usual" : ""}.`;
     };
     const lines = [
       "- One level forecast per stock for about 5 and 15 minutes blends the 15-minute forecaster, the evidence desk, the early calls and the live order book; it leads only when its checked record beats the forecaster alone. Quote its price, band and chance of a rise WITH its record; a band edge is not a target and no forecast is a certainty.",
@@ -434,7 +500,7 @@ class Consensus {
       "- GIFT NIFTY, Wall Street and Asia matter most at the open; during the session NIFTY, SENSEX, the sector and India VIX set the tide for a single stock.",
       line("5"),
       line("15"),
-      "- The refiner, a second stage on the consensus: the microprice and the queue imbalance at the best bid and offer (Stoikov 2018), the spread, and today's realized volatility against the usual (Corsi's HAR idea) correct the forecast's centre; the band comes from the forecast's own recent misses (adaptive conformal prediction, Gibbs & Candès 2021) so a 70% band holds about 70%; a Page-Hinkley alarm flags a session on which the forecasts miss clearly more than usual. Each part leads only once its checks prove it; on an off-form session no lean is stronger than slight.",
+      "- The refiner, a second stage on the consensus: the microprice and the queue imbalance at the best bid and offer (Stoikov 2018), the spread, and today's realized volatility against the usual (Corsi's HAR idea) correct the forecast's centre; the band comes from the forecast's own recent misses (adaptive conformal prediction, Gibbs & Candès 2021) so a 70% band holds about 70%; a second band scales those misses by the volatility forecast from the last days (HAR-RV, Corsi 2009, with the busy open and close taken out) and leads only with a better interval score; volatility.expected and volatility.outlook say how wild the last days make today; a Page-Hinkley alarm flags a session on which the forecasts miss clearly more than usual. Each part leads only once its checks prove it; on an off-form session no lean is stronger than slight.",
       refineLine("5"),
       refineLine("15"),
     ];

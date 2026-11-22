@@ -66,7 +66,7 @@ test("once proven, the blend leads and its record says so; compact hides the par
 test("the refiner: the microprice, today's volatility, the conformal band and its record; an off-form session says so", async () => {
   const v = view();
   v.topOfBook = { bid: 805.9, ask: 806.1, bidQty: 4200, askQty: 1400, microprice: 806.05 };
-  v.volatility = { ratio: 2.3, scale: 1.52, read: "a wild session: moves about 1.5× the usual" };
+  v.volatility = { ratio: 2.3, scale: 1.52, read: "a wild session: moves about 1.5× the usual", expected: 1.6, outlook: "the last days point to a wilder session than usual (about 1.3× the usual move)" };
   v.offForm = true;
   v.horizons[1].refined = true;
   v.horizons[1].refine = {
@@ -74,7 +74,7 @@ test("the refiner: the microprice, today's volatility, the conformal band and it
     offForm: true,
     conformal: { low: 803.6, high: 812.9 },
     contributions: [],
-    record: { checks: 640, days: 6, mean: { proven: false }, band: { proven: true, checks: 600, coverage: 0.71, oldCoverage: 0.52 } },
+    record: { checks: 640, days: 6, mean: { proven: false }, band: { proven: true, checks: 600, coverage: 0.71, oldCoverage: 0.52 }, band2: { proven: true, checks: 600, coverage: 0.69 }, bandBy: "multi" },
   };
   api.mockResolvedValue(v);
   const { container } = render(<ConsensusCard symbol="SBIN" />);
@@ -86,4 +86,6 @@ test("the refiner: the microprice, today's volatility, the conformal band and it
   expect(t).toMatch(/Today's volatility2\.3× usuala wild session/);
   expect(t).toMatch(/Conformal band.*803\.6.*812\.9.*held 71% \(old band 52%\) · stated 70%/);
   expect(t).toMatch(/Refinerin use640 checks · centre in trial · band proven/);
+  expect(t).toMatch(/Last days: 1\.6× expected — the last days point to a wilder session than usual/);
+  expect(t).toMatch(/multi-day band held 69% · in use/);
 });

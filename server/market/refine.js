@@ -19,6 +19,9 @@
 //                            misses scaled by today's volatility) with adaptive conformal inference (Gibbs & Candès 2021):
 //                            after every check the miss level is nudged, so the band keeps its stated 70% even when the
 //                            market changes character. Its coverage is MEASURED beside the old band's.
+//   4b THE MULTI-DAY BAND    the same conformal band, a second time, with the misses scaled by the volatility the stock's last
+//                            days forecast for now (market/volmodel.js: HAR-RV + the intraday pattern, updated by today's
+//                            bars). It takes over from the today-only band only when it is as honest and clearly narrower.
 //   5  THE OFF-FORM ALARM    the Page-Hinkley test (Page 1954; Gama et al. 2014, concept drift) on today's misses across
 //                            every stock: a session on which the forecasts miss clearly more than usual (an event day, a
 //                            regime break) is flagged, and the leans are capped at "slight" until the next session.
@@ -74,6 +77,12 @@ function solve(A, b) {
   return M.map((row, i) => row[n] / row[i]);
 }
 
+const emptyConf = () => ({ scores: [], alpha: 1 - TARGET, n: 0, inC: 0, inO: 0, nC: 0, wC: 0, wO: 0, sC: 0 });
+/**
+ * The interval score of a central band of half-width `half` for a miss `miss` (Gneiting & Raftery 2007, a proper scoring
+ * rule): its width, plus 2/α times how far the outcome fell outside it. Lower is better: narrow, but not by missing.
+ */
+const intervalScore = (half, miss) => 2 * half + (2 / (1 - TARGET)) * Math.max(0, miss - half);
 function emptyHorizon() {
   return {
     A: Array.from({ length: DIM }, (_, i) => Array.from({ length: DIM }, (__, j) => (i === j ? LAMBDA : 0))),
@@ -83,13 +92,18 @@ function emptyHorizon() {
     days: [],
     mean: { lead: { abs: 0, dirN: 0, dirOk: 0 }, refined: { abs: 0, dirN: 0, dirOk: 0 } },
     conf: { scores: [], alpha: 1 - TARGET, n: 0, inC: 0, inO: 0, nC: 0, wC: 0, wO: 0 },
+    conf2: emptyConf(),
     drift: { usual: null, date: "", S: 0, M: 0, n: 0, sum: 0, alarm: false, at: null },
   };
 }
 function emptyModel() {
   return { version: 1, h: { 1: emptyHorizon(), 3: emptyHorizon() } };
 }
-const horizonOf = (model, h) => (model && model.h ? model.h[h] || model.h[h <= 2 ? 1 : 3] : null);
+function horizonOf(model, h) {
+  const m = model && model.h ? model.h[h] || model.h[h <= 2 ? 1 : 3] : null;
+  if (m && !m.conf2) m.conf2 = emptyConf(); // a model saved before the multi-day band
+  return m;
+}
 
 /**
  * Today's realized volatility against the usual: the exponentially weighted mean of the squared 5-minute returns, over the
@@ -160,15 +174,38 @@ function meanProven(m) {
   return R.abs <= L.abs * (1 - MIN_GAIN) && dirR >= dirL - 0.01;
 }
 
-/** Has the conformal band earned the lead: closer to its stated 70% than the old band, or as honest and narrower? */
-function bandProven(m) {
-  const c = m && m.conf;
+/** Has a conformal band (`c`) earned the lead: closer to its stated 70% than the old band, or as honest and narrower? */
+function confProven(m, c) {
   if (!c || c.nC < MIN_CHECKS || (m.days || []).length < MIN_DAYS) return false;
   const covC = c.inC / c.nC;
   const covO = c.inO / c.nC;
   const errC = Math.abs(covC - TARGET);
   const errO = Math.abs(covO - TARGET);
-  return errC + 0.02 <= errO || (errC <= 0.03 && errO <= 0.05 && c.wC < c.wO * 0.97);
+  // …or as honest, with a clearly better interval score than the old band (an adaptive band can be better without being narrower on average)
+  const scoreBetter = c.sO > 0 && errC <= 0.03 && (c.sC || 0) <= c.sO * 0.98;
+  return errC + 0.02 <= errO || (errC <= 0.03 && errO <= 0.05 && c.wC < c.wO * 0.97) || scoreBetter;
+}
+/** The today-only conformal band. */
+const bandProven = (m) => Boolean(m && confProven(m, m.conf));
+/**
+ * Which band leads: "multi" (misses scaled by the multi-day volatility) when proven and, if the today-only band is proven
+ * too, at least 2% narrower without holding worse; "today"; or null (the consensus's own band).
+ */
+function bandChoice(m) {
+  if (!m) return null;
+  const a = confProven(m, m.conf);
+  const c2 = m.conf2;
+  const b = c2 && confProven(m, c2);
+  if (b) {
+    if (!a) return "multi";
+    // compared by the interval score (a band that adapts may be wider on average yet better: narrow where calm, wide where wild)
+    const s1 = (m.conf.sC || 0) / m.conf.nC;
+    const s2 = (c2.sC || 0) / c2.nC;
+    const e1 = Math.abs(m.conf.inC / m.conf.nC - TARGET);
+    const e2 = Math.abs(c2.inC / c2.nC - TARGET);
+    if (s1 > 0 && s2 <= s1 * 0.98 && e2 <= e1 + 0.01) return "multi";
+  }
+  return a ? "today" : null;
 }
 
 /** Is today flagged off-form at this horizon? */
@@ -181,7 +218,7 @@ const offFormOf = (m, date) => Boolean(m && m.drift && m.drift.alarm && m.drift.
  * @param scale today's volatility scale (scaleOf)
  * @returns { zr, zShown, half, halfConformal, pUp, leads: { mean, band }, offForm, adds }
  */
-function forecastOf(model, h, { x, zl, ho, scale = 1, date = "" }) {
+function forecastOf(model, h, { x, zl, ho, scale = 1, scale2 = null, date = "" }) {
   const m = horizonOf(model, h);
   if (!m || !Array.isArray(x) || x.length !== DIM || !num(zl)) return null;
   const adds = clip(dot(m.w, x), 1.5);
@@ -190,16 +227,22 @@ function forecastOf(model, h, { x, zl, ho, scale = 1, date = "" }) {
   const zShown = lm ? zr : zl;
   const q = m.conf.scores.length >= MIN_SCORES ? conformalQuantile(m.conf.scores, clamp(1 - m.conf.alpha, 0.3, 0.97)) : null;
   const halfConformal = num(q) ? r4(q * scale) : null;
-  const lb = bandProven(m) && num(halfConformal);
-  const half = lb ? halfConformal : num(ho) ? ho : Z70;
+  const c2 = m.conf2;
+  const q2 = num(scale2) && c2.scores.length >= MIN_SCORES ? conformalQuantile(c2.scores, clamp(1 - c2.alpha, 0.3, 0.97)) : null;
+  const halfMulti = num(q2) ? r4(q2 * scale2) : null;
+  const choice = bandChoice(m);
+  const bandBy = choice === "multi" && num(halfMulti) ? "multi" : choice && num(halfConformal) ? "today" : null;
+  const lb = Boolean(bandBy);
+  const half = bandBy === "multi" ? halfMulti : bandBy === "today" ? halfConformal : num(ho) ? ho : Z70;
   const sd = Math.max(half / Z70, 0.2);
   return {
     zr: r4(zr),
     zShown: r4(zShown),
     half: r4(half),
     halfConformal,
+    halfMulti,
     pUp: r4(phi(zShown / sd)),
-    leads: { mean: lm, band: lb },
+    leads: { mean: lm, band: lb, bandBy },
     offForm: offFormOf(m, date),
     adds: r4(adds),
     contributions: FEATURES.map((f, i) => ({ input: f, value: x[i], weight: r4(m.w[i]), adds: r4(m.w[i] * x[i]) })),
@@ -251,6 +294,26 @@ function learn(model, h, kept, y, { date = "" } = {}) {
     if (Math.abs(yy - kept.zl) <= kept.ho) c.inO += 1;
     c.wC += kept.hc;
     c.wO += kept.ho;
+    c.sC = (c.sC || 0) + intervalScore(kept.hc, miss);
+    c.sO = (c.sO || 0) + intervalScore(kept.ho, Math.abs(yy - kept.zl));
+  }
+  // 4b the multi-day band: the same, with the misses scaled by the multi-day volatility forecast
+  if (num(kept.scale2) && kept.scale2 > 0) {
+    const c2 = m.conf2 || (m.conf2 = emptyConf());
+    c2.scores.push(r4(miss / kept.scale2));
+    if (c2.scores.length > KEEP_SCORES) c2.scores.splice(0, c2.scores.length - KEEP_SCORES);
+    c2.n += 1;
+    if (num(kept.hc2) && kept.hc2 > 0 && num(kept.ho) && kept.ho > 0) {
+      const out2 = miss > kept.hc2;
+      c2.alpha = clamp(c2.alpha + GAMMA * ((1 - TARGET) - (out2 ? 1 : 0)), 0.03, 0.7);
+      c2.nC += 1;
+      if (!out2) c2.inC += 1;
+      if (Math.abs(yy - kept.zl) <= kept.ho) c2.inO += 1;
+      c2.wC += kept.hc2;
+      c2.wO += kept.ho;
+      c2.sC = (c2.sC || 0) + intervalScore(kept.hc2, miss);
+      c2.sO = (c2.sO || 0) + intervalScore(kept.ho, Math.abs(yy - kept.zl));
+    }
   }
   // 5 the off-form alarm: Page-Hinkley on today's misses against the usual miss
   const d = m.drift;
@@ -280,11 +343,13 @@ function summaryOf(m, date = "") {
     checks: m.n,
     days: (m.days || []).length,
     mean: { proven: meanProven(m), missLead: r4(L.abs / m.n), missRefined: r4(R.abs / m.n), dirLead: L.dirN ? r4(L.dirOk / L.dirN) : null, dirRefined: R.dirN ? r4(R.dirOk / R.dirN) : null, gain: L.abs > 0 ? r4(1 - R.abs / L.abs) : null },
-    band: { proven: bandProven(m), stated: TARGET, checks: c.nC, coverage: c.nC ? r4(c.inC / c.nC) : null, oldCoverage: c.nC ? r4(c.inO / c.nC) : null, width: c.nC ? r4(c.wC / c.nC) : null, oldWidth: c.nC ? r4(c.wO / c.nC) : null, level: r4(1 - c.alpha) },
+    band: { proven: bandProven(m), stated: TARGET, checks: c.nC, coverage: c.nC ? r4(c.inC / c.nC) : null, oldCoverage: c.nC ? r4(c.inO / c.nC) : null, width: c.nC ? r4(c.wC / c.nC) : null, score: c.nC ? r4((c.sC || 0) / c.nC) : null, oldWidth: c.nC ? r4(c.wO / c.nC) : null, level: r4(1 - c.alpha) },
+    band2: m.conf2 && m.conf2.nC ? { proven: confProven(m, m.conf2), checks: m.conf2.nC, coverage: r4(m.conf2.inC / m.conf2.nC), width: r4(m.conf2.wC / m.conf2.nC), score: r4((m.conf2.sC || 0) / m.conf2.nC), level: r4(1 - m.conf2.alpha) } : { proven: false, checks: 0 },
+    bandBy: bandChoice(m),
     offForm: offFormOf(m, date),
     today: m.drift && m.drift.date === date && m.drift.n ? { checks: m.drift.n, missAvg: r4(m.drift.sum / m.drift.n), usual: m.drift.usual } : null,
     weights: Object.fromEntries(FEATURES.map((f, i) => [f, m.w[i]])),
   };
 }
 
-module.exports = { DIM, FEATURES, LAMBDA, FADE, MIN_CHECKS, MIN_DAYS, MIN_SCORES, TARGET, GAMMA, KEEP_SCORES, PH_MIN, emptyModel, emptyHorizon, horizonOf, volRatio, scaleOf, inputsOf, conformalQuantile, forecastOf, learn, meanProven, bandProven, offFormOf, summaryOf, phi };
+module.exports = { DIM, FEATURES, LAMBDA, FADE, MIN_CHECKS, MIN_DAYS, MIN_SCORES, TARGET, GAMMA, KEEP_SCORES, PH_MIN, emptyModel, emptyHorizon, horizonOf, volRatio, scaleOf, inputsOf, intervalScore, conformalQuantile, forecastOf, learn, meanProven, bandProven, confProven, bandChoice, offFormOf, summaryOf, phi };

@@ -189,7 +189,7 @@ test("the refiner rides on every forecast: the top of the book, today's volatili
   const h15 = v.horizons[1];
   assert.equal(h15.refined, false, "in trial: nothing changed");
   assert.equal(h15.price, h15.forecaster.price);
-  assert.deepEqual(h15.refine.leads, { mean: false, band: false });
+  assert.deepEqual(h15.refine.leads, { mean: false, band: false, bandBy: null });
   assert.ok(h15.refine.record.checks > 0, "it learned from the checks");
   assert.equal(h15.refine.contributions.length, 5);
   cs._flush();
@@ -199,4 +199,49 @@ test("the refiner rides on every forecast: the top of the book, today's volatili
   cs.teach();
   assert.match(written[SECTION], /The refiner, a second stage/);
   assert.match(written[SECTION], /Refiner, 15 minutes: \d+ checks/);
+});
+
+test("the multi-day volatility: fitted from the stored sessions, read as today's prior, kept with each forecast for the second band", async () => {
+  const w = world();
+  // a stored history for the model to learn from: 12 stocks, 80 sessions of 5-minute bars whose volatility persists
+  const hist = {};
+  for (let i = 0; i < 12; i += 1) {
+    let lv = 0;
+    let c = 100;
+    hist[`H${i}`] = Array.from({ length: 80 }, (_, d) => {
+      lv = 0.85 * lv + 0.35 * gauss();
+      const day = new Date(Date.UTC(2026, 7, 1) + d * 86400000).toISOString().slice(0, 10);
+      const start = Date.parse(`${day}T03:45:00Z`);
+      return [day, Array.from({ length: 75 }, (__, s) => {
+        const o = c;
+        c = o * Math.exp(0.002 * Math.exp(lv) * gauss());
+        return { t: start + s * BAR, o, h: Math.max(o, c), l: Math.min(o, c), c, v: 1 };
+      })];
+    });
+  }
+  w.horizon.storedSymbols = () => Object.keys(hist);
+  w.horizon.storedSessions = (s) => hist[s] || [];
+  const docs = mkdocs();
+  const cs = new Consensus({ horizon: w.horizon, evidence: w.evidence, ahead: w.ahead, market: w.market, now: () => w.now, docs, log: quiet, isTradingDay: () => true });
+  w.setNow(at("2026-11-19", "16:00"));
+  const m = await cs.refreshVol();
+  assert.ok(m && m.stocks === 12 && m.season.length === 75 && m.judge.n > 0, JSON.stringify(m && m.judge));
+  assert.equal(docs.read("market/vol-model.json", null).fittedOn, "2026-11-19");
+  // a forecast for S1 the next session, with the model's forecast for it
+  cs._vol = { ...m, forecasts: { S1: { ratio: 1.8, after: "2026-11-19" } } };
+  w.setNow(at("2026-11-20", "10:05"));
+  cs._cache.clear();
+  const v = await cs.view("S1");
+  assert.equal(v.volatility.expected, 1.8);
+  assert.match(v.volatility.outlook, /wilder session than usual/);
+  assert.ok(v.volatility.day > 0);
+  cs._flush();
+  const kept = docs.items(CALLS).find((r) => r.symbol === "S1" && r.date === "2026-11-20");
+  assert.ok(kept && kept.rf[3] && kept.rf[3].scale2 > 0, "the multi-day scale is kept with the forecast, for its band's record");
+  // the evening refit runs by itself after the close
+  cs._vol = undefined;
+  docs.write("market/vol-model.json", null);
+  w.setNow(at("2026-11-20", "15:50"));
+  await cs.tickOnce();
+  assert.equal(cs.volModel().fittedOn, "2026-11-20");
 });

@@ -106,13 +106,23 @@ function Refiner({ d, h }) {
         </li>
         <li>
           <span>Today's volatility</span>
-          <b>{d.volatility ? `${d.volatility.ratio}× usual` : "—"}</b>
+          <b>{d.volatility && d.volatility.ratio != null ? `${d.volatility.ratio}× usual` : "—"}</b>
           <small>{d.volatility ? d.volatility.read : "too few bars yet"}</small>
+          {d.volatility && d.volatility.expected != null && (
+            <small className="cs-refine__outlook">
+              Last days: {d.volatility.expected}× expected — {d.volatility.outlook}
+            </small>
+          )}
         </li>
         <li>
           <span>Conformal band</span>
           <b>{rf.conformal ? `${inr(rf.conformal.low)} – ${inr(rf.conformal.high)}` : "learning"}</b>
           <small>{band.checks ? `held ${pc(band.coverage)} (old band ${pc(band.oldCoverage)}) · stated 70%` : "from the forecast's own misses, once there are enough"}</small>
+          {r.band2 && r.band2.checks > 0 && (
+            <small>
+              multi-day band held {pc(r.band2.coverage)} · {r.bandBy === "multi" ? "in use" : "in trial"}
+            </small>
+          )}
         </li>
         <li>
           <span>Refiner</span>

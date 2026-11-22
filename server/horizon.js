@@ -764,6 +764,16 @@ class Horizon {
   }
 
   /** A session's bars for a stock: today's from the market (when connected), an earlier day's from the stored history. */
+  /** The stocks the stored history holds (their symbols). */
+  storedSymbols() {
+    return this._stocks();
+  }
+
+  /** One stock's stored sessions, [[date, bars]] oldest first (for the multi-day volatility model). */
+  storedSessions(symbol) {
+    return this._days(symbol);
+  }
+
   async barsFor(symbol, date) {
     if (date === istDate(this.now()) && this._connected()) return (await this._todayBars(symbol)).today;
     const h = this._historyStore();
