@@ -10,6 +10,9 @@ import { useAuth } from "../../auth";
 import { inr, isNum, num } from "./format";
 import "./horizon.css";
 
+/** The forecaster's targets, in words (the decision trees' line). */
+const TREE_NAME = { r1: "5 min", r2: "10 min", r3: "15 min", r4: "20 min", r6: "30 min", u3: "15-min high", u4: "20-min high", u6: "30-min high", d3: "15-min low", d4: "20-min low", d6: "30-min low" };
+
 const enc = encodeURIComponent;
 const clock = (iso) => (iso ? new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "");
 const day = (iso) => (iso ? new Date(`${String(iso).slice(0, 10)}T00:00:00`).toLocaleDateString(undefined, { day: "numeric", month: "short" }) : "—");
@@ -669,6 +672,18 @@ export function HorizonBoard() {
                   .map((c) => `${c.name} ${c.moreErrorPct >= 0 ? "+" : ""}${c.moreErrorPct}% error`)
                   .join(", ")}`}
               .{d.learning.stockScales ? ` Each stock's own scale: ${d.learning.stockScales.on ? `in use for ${d.learning.stockScales.stocks} stocks` : "not in use (it did not make the forecasts miss less)"}.` : ""}
+            </p>
+          )}
+          {d.learning.trees && (
+            <p className="hz-why hz-trees" data-tip="Gradient-boosted decision trees learn what the straight-line model still misses (a threshold, an interaction, the time of day). For each forecast they are used only where they cut the miss on sessions they had not seen, confirmed on a second set that chose nothing.">
+              <b>Decision trees:</b>{" "}
+              {d.learning.trees.inUse
+                ? `in use for ${d.learning.trees.inUse} of ${d.learning.trees.targets.length} forecasts — ${d.learning.trees.targets
+                    .filter((t) => t.on)
+                    .map((t) => `${TREE_NAME[t.target] || t.target} −${t.cutPct}% error`)
+                    .join(", ")}`
+                : "grown, but not in use: on unseen sessions they did not cut the miss"}
+              .
             </p>
           )}
           {d.learning.lessons && d.learning.lessons.length > 0 && (

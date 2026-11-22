@@ -266,6 +266,26 @@ The pass is signed, tied to the visitor's address, lasts 15 minutes and carries 
 the anonymous budget still apply. Switch off only for tests (`createApp({ captcha: false })`). A flood of 600 login requests was
 answered in 0.65 s, 20 of them reaching the gate and the rest turned away by the limiter.
 
+**Decision trees (2026-11-22; `server/market/boost.js`).** The 15-minute forecaster's nonlinear stage: gradient-boosted trees
+(LightGBM-style histograms, depth 3, learning rate 0.05, half the rows and ~70% of the inputs per tree) learn what the ridge
+model as used still misses, for all 11 targets (moves at 5–30 min, highs and lows), from its inputs plus the time of day and
+the volatility regime. Grown in every full training on a fair sample of 30,000 training rows; the number of trees per target
+is chosen by early stopping on the choosing half of the unseen sessions, and a target uses its trees only if they cut the miss
+there by 1% AND the half that chose nothing confirms it. Stored as `boost` in the forecaster's model and added in
+`forecastFrom`; a model trained before the trees existed retrains once by itself (TrainGuard permitting) to get them. About 40 s
+at full size. The forecaster board and the skills file show which targets use them and by how much.
+
+**The refiner (2026-11-22; `server/market/refine.js`).** A second stage on the consensus forecast, adding what the desk's
+forecasters did not use: the microprice and queue imbalance at the best bid and offer (Stoikov 2018; Gould & Bonart 2016) and
+the spread; today's realized volatility of 5-minute returns against the usual (EWMA; Corsi's HAR idea); a ridge model of what
+the leading forecast missed, pulled to zero; a band from the forecast's own recent misses, scaled by today's volatility, whose
+level is nudged after every check so a 70% band holds ~70% (locally adaptive split-conformal, Lei et al. 2018; adaptive
+conformal inference, Gibbs & Candès 2021); and a Page-Hinkley alarm on today's misses across all stocks that flags an off-form
+session and caps the leans at "slight". It is kept with each forecast (`rf` in `consensus_calls`), learned when the forecast is
+checked, saved beside the blend (`refine` in `market/consensus-model.json`), and its centre or band replaces the consensus's
+only once its own record proves it (150 checks over 5 sessions: misses 2% less without a worse direction; or coverage closer to
+70% than the old band). The Desk card shows it under the parts; TradeAI and the skills file are told its record.
+
 **The consensus forecast, delivery and deep research (2026-11-21).** `server/consensus.js` (arithmetic in
 `server/market/consensus.js`) blends the 15-minute forecaster, the evidence desk, the early calls and the live order
 book into ONE level forecast for about 5 and 15 minutes (price, band, chance of a rise, the level touched first), by a

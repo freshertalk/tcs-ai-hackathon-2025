@@ -828,6 +828,8 @@ function forecastFrom(rawBars, ctx, model, { bias = 0, tilt = 0, tilts = null, l
   const slope = model.slope || null;
   const scale = model.bandScale || 1;
   const p = predictRow(model.W, row.x, slope, segFor(model.seg, row.s), stockScale);
+  // the decision trees' correction (market/boost.js), for the targets where they proved they cut the miss
+  if (model.boost) require("./boost").addTo(p, model.boost, row);
   const sg = row.sigma;
   const price = row.price;
   const left = closeOf(ctx) - 1 - row.s; // bars of continuous trading after this one that the session still has

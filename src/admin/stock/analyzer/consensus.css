@@ -242,3 +242,24 @@
 .cs--compact .cs-tile__price {
   font-size: 1.15rem;
 }
+
+/* the refiner (a second stage): the top of the book, today's volatility, the conformal band, the off-form alarm */
+.cs-refine {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.cs-refine .cs-parts b {
+  text-transform: none;
+  overflow-wrap: break-word;
+}
+.cs-refine__alarm {
+  margin: 0;
+  padding: 6px 10px;
+  border: 1px solid var(--warn-line, var(--line));
+  border-radius: 8px;
+  background: var(--warn-bg, transparent);
+  color: var(--warn-ink, var(--ink));
+  font-size: var(--t-small);
+  overflow-wrap: break-word;
+}

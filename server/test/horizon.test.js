@@ -193,6 +193,10 @@ test("the service trains on the stored history, forecasts 15+ minutes ahead, sco
   assert.ok(view.levels.some((l) => l.name === "VWAP") && view.levels.every((l) => l.p15 === undefined || (l.p15 >= 0 && l.p15 <= 1)));
   assert.ok(view.why.length > 0 && view.why.every((x) => x.text));
   assert.ok(view.learning.trained && view.learning.examples > 20000);
+  // the decision trees were grown on what the model still misses, and are reported per target (used only where proven)
+  const trees = view.learning.trees;
+  assert.ok(trees && trees.rows > 1000 && trees.targets.length === 11, JSON.stringify(trees && { rows: trees.rows, n: trees.targets.length }));
+  assert.ok(trees.targets.every((x) => typeof x.on === "boolean" && x.trees >= 0 && (x.on ? x.cutPct > 0 : true)));
   // the 5-minute call beside it: for a bar end 2½ to 7½ minutes away, with its own band and chance
   assert.ok(view.headline5 && view.headline5.minutesAhead >= 2 && view.headline5.minutesAhead <= 8, `the 5-minute call is ${view.headline5 && view.headline5.minutesAhead} minutes ahead`);
   assert.ok(view.headline5.h <= 2 && view.headline5.low < view.headline5.price && view.headline5.price < view.headline5.high);

@@ -165,6 +165,7 @@ test("the board lists the out-of-sample test and each evening's result, and lets
       daysLearned: 4,
       contest: { name: "all 27 inputs", inUse: "full", examples: 80000, candidates: [{ id: "base", name: "the original 18 inputs", inUse: false, moreErrorPct: 0.41 }, { id: "full", name: "all 27 inputs", inUse: true, moreErrorPct: 0 }] },
       stockScales: { on: false, stocks: 100, gainPct: 0 },
+      trees: { rows: 30000, inUse: 2, targets: [{ target: "r1", on: true, trees: 44, cutPct: 1.8 }, { target: "u3", on: true, trees: 61, cutPct: 3.2 }, { target: "r3", on: false, trees: 0, cutPct: -0.1 }] },
       lessons: ["Tested on 80,000 examples from sessions it had not seen.", "Model in use: all 27 inputs."],
     },
     validation: { from: "2026-09-01", to: "2026-11-16", examples: 110000, stocks: 100, horizons: [{ h: 3, minutes: 15, n: 100, dirAcc: 0.541, skill: 0.01, missPct: 0.12, naivePct: 0.13, coverage: 0.7, bins: [{ lo: 0.7, hi: 0.8, calls: 1000, right: 640, acc: 0.64 }] }] },
@@ -181,6 +182,7 @@ test("the board lists the out-of-sample test and each evening's result, and lets
   expect(screen.getByText(/Each evening/)).toBeTruthy();
   expect(screen.getByText("Model in use:").parentElement.textContent).toContain("all 27 inputs — the others on the same unseen examples: the original 18 inputs +0.41% error");
   expect(screen.getByText("Model in use:").parentElement.textContent).toContain("Each stock's own scale: not in use");
+  expect(screen.getByText("Decision trees:").parentElement.textContent).toContain("in use for 2 of 3 forecasts — 5 min −1.8% error, 15-min high −3.2% error");
   expect(screen.getByText((t) => t.startsWith("What it has learned so far (2 findings"))).toBeTruthy();
   expect(screen.getByText("Tested on 80,000 examples from sessions it had not seen.")).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Learn new sessions" }));

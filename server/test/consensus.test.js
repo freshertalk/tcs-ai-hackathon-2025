@@ -167,3 +167,36 @@ test("the sweep forecasts the stocks followed live; outside the session it does 
   await cs2.tickOnce();
   assert.equal(cs2.board().kept, 0);
 });
+
+test("the refiner rides on every forecast: the top of the book, today's volatility, its own record — kept, checked and learned, and leading nothing until proven", async () => {
+  const w = world();
+  w.market.quotes = async (list) => ({ quotes: Object.fromEntries(list.map((s) => [s, { buyQty: 5000, sellQty: 5000, bid: 99.95, ask: 100.05, bidQty: 3000, askQty: 1000 }])) });
+  const docs = mkdocs();
+  const written = {};
+  const cs = new Consensus({ horizon: w.horizon, evidence: w.evidence, ahead: w.ahead, market: w.market, now: () => w.now, docs, playbook: { setSection: (h, b) => (written[h] = b) }, log: quiet, isTradingDay: () => true });
+  for (const hhmm of ["10:00", "10:30", "11:00", "11:30"]) {
+    w.setNow(at("2026-11-19", hhmm));
+    cs._cache.clear();
+    for (const s of ["S1", "S2", "S3"]) await cs.view(s);
+    w.setNow(at("2026-11-19", hhmm) + 3 * BAR + 30000);
+    await cs.score();
+  }
+  w.setNow(at("2026-11-19", "12:05"));
+  cs._cache.clear();
+  const v = await cs.view("S1");
+  assert.equal(v.topOfBook.microprice, 100.03, "the heavy bid queue pulls the fair price up");
+  assert.ok(v.volatility && v.volatility.ratio > 0 && /session/.test(v.volatility.read), JSON.stringify(v.volatility));
+  const h15 = v.horizons[1];
+  assert.equal(h15.refined, false, "in trial: nothing changed");
+  assert.equal(h15.price, h15.forecaster.price);
+  assert.deepEqual(h15.refine.leads, { mean: false, band: false });
+  assert.ok(h15.refine.record.checks > 0, "it learned from the checks");
+  assert.equal(h15.refine.contributions.length, 5);
+  cs._flush();
+  assert.ok(docs.items(CALLS).some((r) => r.rf && r.rf[3] && Array.isArray(r.rf[3].x)), "kept with the forecast");
+  assert.ok(docs.read("market/consensus-model.json", null).refine.h[3].n > 0, "saved with the blend");
+  assert.ok(cs.record()["15"].refine.checks > 0);
+  cs.teach();
+  assert.match(written[SECTION], /The refiner, a second stage/);
+  assert.match(written[SECTION], /Refiner, 15 minutes: \d+ checks/);
+});

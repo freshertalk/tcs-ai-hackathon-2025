@@ -84,6 +84,46 @@ function Record({ r, label }) {
   );
 }
 
+/** The refiner (a second stage): the top of the book, today's volatility, the conformal band and the off-form alarm. */
+function Refiner({ d, h }) {
+  const rf = h && h.refine;
+  if (!rf) return null;
+  const r = rf.record || {};
+  const band = r.band || {};
+  const mean = r.mean || {};
+  return (
+    <div className={`cs-refine ${d.offForm ? "is-off" : ""}`} aria-label="The refiner">
+      {d.offForm && (
+        <p className="cs-refine__alarm" role="status">
+          Off-form session: the forecasts are missing clearly more than usual today, so no lean is shown stronger than slight.
+        </p>
+      )}
+      <ul className="cs-parts">
+        <li>
+          <span>Microprice</span>
+          <b>{d.topOfBook ? inr(d.topOfBook.microprice) : "—"}</b>
+          <small>{d.topOfBook ? `bid ${inr(d.topOfBook.bid)} × ${d.topOfBook.bidQty.toLocaleString("en-IN")} · offer ${inr(d.topOfBook.ask)} × ${d.topOfBook.askQty.toLocaleString("en-IN")}` : "no best bid and offer"}</small>
+        </li>
+        <li>
+          <span>Today's volatility</span>
+          <b>{d.volatility ? `${d.volatility.ratio}× usual` : "—"}</b>
+          <small>{d.volatility ? d.volatility.read : "too few bars yet"}</small>
+        </li>
+        <li>
+          <span>Conformal band</span>
+          <b>{rf.conformal ? `${inr(rf.conformal.low)} – ${inr(rf.conformal.high)}` : "learning"}</b>
+          <small>{band.checks ? `held ${pc(band.coverage)} (old band ${pc(band.oldCoverage)}) · stated 70%` : "from the forecast's own misses, once there are enough"}</small>
+        </li>
+        <li>
+          <span>Refiner</span>
+          <b>{h.refined ? "in use" : "in trial"}</b>
+          <small>{r.checks ? `${r.checks} checks · centre ${mean.proven ? "proven" : "in trial"} · band ${band.proven ? "proven" : "in trial"}` : "no check yet"}</small>
+        </li>
+      </ul>
+    </div>
+  );
+}
+
 export default function ConsensusCard({ symbol, enabled = true, compact = false, state = null }) {
   const own = useConsensus(symbol, enabled && !state);
   const s = state || own;
@@ -115,6 +155,7 @@ export default function ConsensusCard({ symbol, enabled = true, compact = false,
         <h3>Consensus forecast</h3>
         <span className={`cs-lead ${leads === "blend" ? "is-blend" : ""}`} data-tip="Who leads: the blend of the three forecasters and the order book once its checked record beats the forecaster alone; the 15-minute forecaster until then.">
           led by the {leads === "blend" ? "blend" : "forecaster"}
+          {h15 && h15.refined ? " + refiner" : ""}
         </span>
         <small className="cs-when">from the bar that closed at {clock(d.anchor.at)} · now {inr(d.anchor.price)}</small>
       </header>
@@ -163,6 +204,8 @@ export default function ConsensusCard({ symbol, enabled = true, compact = false,
           </li>
         </ul>
       )}
+      {!compact && <Refiner d={d} h={h15} />}
+      {compact && d.offForm && <p className="cs-refine__alarm" role="status">Off-form session: leans capped at slight.</p>}
       <ul className="cs-record">
         <Record r={rec["5"]} label="5 min" />
         <Record r={rec["15"]} label="15 min" />

@@ -62,3 +62,28 @@ test("once proven, the blend leads and its record says so; compact hides the par
   render(<ConsensusCard symbol="SBIN" />);
   await waitFor(() => expect(screen.getByText("The session is over.")).toBeTruthy());
 });
+
+test("the refiner: the microprice, today's volatility, the conformal band and its record; an off-form session says so", async () => {
+  const v = view();
+  v.topOfBook = { bid: 805.9, ask: 806.1, bidQty: 4200, askQty: 1400, microprice: 806.05 };
+  v.volatility = { ratio: 2.3, scale: 1.52, read: "a wild session: moves about 1.5× the usual" };
+  v.offForm = true;
+  v.horizons[1].refined = true;
+  v.horizons[1].refine = {
+    leads: { mean: false, band: true },
+    offForm: true,
+    conformal: { low: 803.6, high: 812.9 },
+    contributions: [],
+    record: { checks: 640, days: 6, mean: { proven: false }, band: { proven: true, checks: 600, coverage: 0.71, oldCoverage: 0.52 } },
+  };
+  api.mockResolvedValue(v);
+  const { container } = render(<ConsensusCard symbol="SBIN" />);
+  await waitFor(() => expect(container.querySelector(".cs-refine")).toBeTruthy());
+  expect(screen.getByText("led by the forecaster + refiner")).toBeTruthy();
+  const t = container.querySelector(".cs-refine").textContent;
+  expect(t).toMatch(/Off-form session: the forecasts are missing clearly more than usual today/);
+  expect(t).toMatch(/Microprice.*806\.05.*bid .*805\.9.* × 4,200 · offer .*806\.1.* × 1,400/);
+  expect(t).toMatch(/Today's volatility2\.3× usuala wild session/);
+  expect(t).toMatch(/Conformal band.*803\.6.*812\.9.*held 71% \(old band 52%\) · stated 70%/);
+  expect(t).toMatch(/Refinerin use640 checks · centre in trial · band proven/);
+});

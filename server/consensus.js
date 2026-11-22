@@ -18,6 +18,7 @@
 
 const C = require("./market/consensus");
 const H = require("./market/horizon");
+const R = require("./market/refine"); // the refiner (22 Nov 2026): the top of the book, today's volatility, conformal bands, the off-form alarm
 
 const IST = 5.5 * 3600 * 1000;
 const MODEL = "market/consensus-model.json";
@@ -91,6 +92,7 @@ class Consensus {
       const m = this.docs.read(MODEL, null);
       this._model = m && m.version === 1 && m.h ? m : C.emptyModel();
     }
+    if (!this._model.refine || !this._model.refine.h) this._model.refine = R.emptyModel(); // added beside the blend, in the same file
     return this._model;
   }
   _saveModel() {
@@ -120,15 +122,17 @@ class Consensus {
     };
     const hv = await safe(() => this.horizon.view(symbol));
     if (!hv || !hv.available) return { hv, reason: (hv && hv.reason) || "The 15-minute forecaster has no reading for this stock now." };
-    const [ev, av, q] = await Promise.all([
+    const [ev, av, q, bars] = await Promise.all([
       this.evidence ? safe(() => this.evidence.view(symbol, { full: false })) : null,
       this.ahead ? safe(() => this.ahead.view(symbol)) : null,
       safe(async () => {
         const r = await this.market.quotes([symbol]);
         return (r && r.quotes && r.quotes[symbol]) || null;
       }),
+      // today's finished 5-minute bars (the forecaster keeps them): the refiner's measure of today's volatility
+      typeof this.horizon.barsFor === "function" ? safe(async () => H.cleanBars(await this.horizon.barsFor(symbol, istDate(this.now())))) : null,
     ]);
-    return { hv, ev: ev && ev.available ? ev : null, av: av && av.available ? av : null, q };
+    return { hv, ev: ev && ev.available ? ev : null, av: av && av.available ? av : null, q, bars };
   }
 
   /** The forecast for one stock now (and keep it). */
@@ -150,8 +154,9 @@ class Consensus {
     return out;
   }
 
-  _build(symbol, { hv, ev, av, q }, now) {
+  _build(symbol, { hv, ev, av, q, bars = null }, now) {
     const model = this.model();
+    const today = istDate(now);
     const anchorEnd = Date.parse(hv.anchor.at);
     const price = hv.anchor.price;
     const sigmaPct = hv.sigmaPct;
@@ -167,6 +172,13 @@ class Consensus {
     const horizons = [];
     const keepX = {};
     const keepZ = {};
+    const keepR = {};
+    // the refiner's view of today: realized volatility against the usual (from bars finished before the forecast's own bar)
+    const doneBars = Array.isArray(bars) ? bars.filter((b) => num(b.t) && b.t < anchorEnd) : null;
+    const ratio = R.volRatio(doneBars, sigmaPct);
+    const scale = R.scaleOf(ratio);
+    const round05 = (p) => Math.round(p * 20) / 20;
+    let topOfBook = null;
     for (const [key, lead] of [["5", 2.5], ["15", 15]]) {
       // the same choice of bar as the forecaster's own headline: the first bar end at least `lead` minutes from now
       const pick = (hv.horizons || []).find((x) => Date.parse(x.at) >= now + lead * 60000 - 1000);
@@ -179,20 +191,34 @@ class Consensus {
       const mh = model.h[h] ? h : h <= 2 ? 1 : 3; // horizons between are read with the nearer model
       const f = C.forecastOf(model, mh, x, { price, sigmaPct, hz: pick, volMult: C.volMultOf(early) });
       const lead_ = f.proven ? f.blend : f.solo;
-      const pUp = lead_.pUp;
+      // THE REFINER: a second stage on the leading forecast; its centre or its band replaces the consensus's only once proven
+      const sH = sigmaPct * Math.sqrt(h);
+      const zl = num(f.proven ? f.blend.z : f.solo.z) ? (f.proven ? f.blend.z : f.solo.z) : num(lead_.pct) ? lead_.pct / sH : 0;
+      const ho = num(lead_.high) && num(lead_.low) && price > 0 ? ((lead_.high - lead_.low) / 2 / price) * 100 / sH : null;
+      const ri = R.inputsOf({ q, price, s: sH, zl, ratio });
+      const rf = ri ? R.forecastOf(model.refine, mh, { x: ri.x, zl, ho, scale, date: today }) : null;
+      if (ri && ri.top) topOfBook = ri.top;
+      let shown = { price: lead_.price, low: lead_.low, high: lead_.high, pct: lead_.pct, pUp: lead_.pUp };
+      if (rf && (rf.leads.mean || rf.leads.band)) {
+        const pc_ = rf.zShown * sH;
+        const half = rf.half * sH;
+        shown = { price: round05(price * (1 + pc_ / 100)), low: round05(price * (1 + (pc_ - half) / 100)), high: round05(price * (1 + (pc_ + half) / 100)), pct: r4(pc_), pUp: rf.pUp };
+      }
+      const pUp = shown.pUp;
       const side = pUp >= 0.5 ? "up" : "down";
       const p = Math.max(pUp, 1 - pUp);
-      const tier = p >= 0.7 ? "strong" : p >= 0.6 ? "clear" : p >= 0.54 ? "slight" : "none";
+      let tier = p >= 0.7 ? "strong" : p >= 0.6 ? "clear" : p >= 0.54 ? "slight" : "none";
+      if (rf && rf.offForm && (tier === "strong" || tier === "clear")) tier = "slight"; // an off-form session: no confident leans
       horizons.push({
         key,
         minutes: pick.minutes,
         minutesAhead: Math.max(1, Math.round((Date.parse(pick.at) - now) / 60000)),
         at: pick.at,
         h,
-        price: lead_.price,
-        low: lead_.low,
-        high: lead_.high,
-        pct: lead_.pct,
+        price: shown.price,
+        low: shown.low,
+        high: shown.high,
+        pct: shown.pct,
         pUp,
         lean: tier === "none" ? "none" : side,
         tier,
@@ -206,12 +232,25 @@ class Consensus {
         },
         contributions: f.contributions,
         record: C.summaryOf(model.h[mh].stats),
+        refined: Boolean(rf && (rf.leads.mean || rf.leads.band)),
+        refine: rf
+          ? {
+              leads: rf.leads,
+              offForm: rf.offForm,
+              price: round05(price * (1 + (rf.zr * sH) / 100)),
+              pct: r4(rf.zr * sH),
+              conformal: num(rf.halfConformal) ? { low: round05(price * (1 + ((rf.zShown - rf.halfConformal) * sH) / 100)), high: round05(price * (1 + ((rf.zShown + rf.halfConformal) * sH) / 100)) } : null,
+              contributions: rf.contributions.map((c) => ({ ...c, adds: r4(c.adds * sH) })), // `adds`: percent of price
+              record: R.summaryOf(R.horizonOf(model.refine, mh), today),
+            }
+          : null,
       });
       keepX[h] = x;
       keepZ[h] = [f.blend.z, f.solo.z];
+      if (ri && rf) keepR[h] = { x: ri.x, zl: r4(zl), zr: rf.zr, zs: rf.zShown, scale: r4(scale), hc: rf.halfConformal, ho: r4(ho) };
     }
     if (!horizons.length) return { available: false, reason: "The session is too close to its end for a forecast." };
-    this._keep(symbol, { anchorEnd, price, sigmaPct, x: keepX, z: keepZ });
+    this._keep(symbol, { anchorEnd, price, sigmaPct, x: keepX, z: keepZ, rf: keepR });
     // the levels: the forecaster's chances of touching each within 15 and 30 minutes; the likeliest above and below
     const levels = (hv.levels || []).filter((l) => num(l.price)).map((l) => ({ name: l.name, price: l.price, side: l.side, distPct: l.distPct, p15: l.p15 ?? null, p30: l.p30 ?? null }));
     const firstOf = (side) => levels.filter((l) => l.side === side && num(l.p15)).sort((a, b) => b.p15 - a.p15)[0] || null;
@@ -225,6 +264,10 @@ class Consensus {
       firstUp: firstOf("above"),
       firstDown: firstOf("below"),
       headline: this._headline(symbol, h15, price),
+      // the refiner's readings of now: today's volatility against the usual, and the top of the order book (microprice)
+      volatility: ratio === null ? null : { ratio, scale: r4(scale), read: ratio >= 1.8 ? "a wild session: moves about " + Math.round(Math.sqrt(ratio) * 10) / 10 + "× the usual" : ratio <= 0.55 ? "a quiet session: moves well below the usual" : "an ordinary session" },
+      topOfBook,
+      offForm: horizons.some((x) => x.refine && x.refine.offForm),
       parts: {
         forecaster: { trained: hv.trained !== false, live: hv.live || null },
         evidence: ev ? { trained: ev.trained !== false } : null,
@@ -240,11 +283,12 @@ class Consensus {
     return `${symbol} in ${x.minutesAhead} min: about ₹${x.price} (likely between ₹${x.low} and ₹${x.high}) from ₹${price} — ${dir}; led by ${who}.`;
   }
 
-  _keep(symbol, { anchorEnd, price, sigmaPct, x, z }) {
+  _keep(symbol, { anchorEnd, price, sigmaPct, x, z, rf = null }) {
     const id = `${symbol}|${anchorEnd}`;
     const recs = this._recs();
     if (recs.has(id)) return;
     const r = { id, symbol, date: istDate(anchorEnd), anchorEnd, price, sigma: sigmaPct, x, z, settled: false, at: iso(this.now()) };
+    if (rf && Object.keys(rf).length) r.rf = rf;
     recs.set(id, r);
     this._pending.push(r);
   }
@@ -289,6 +333,7 @@ class Consensus {
         const mh = model.h[h] ? h : h <= 2 ? 1 : 3;
         const [zb, zs] = (r.z && r.z[h]) || [null, null];
         C.learn(model, mh, r.x[h], y, { zb, zs, date: r.date });
+        if (r.rf && r.rf[h]) R.learn(model.refine, mh, r.rf[h], y, { date: r.date });
       }
       r.actual = actual;
       r.settled = true;
@@ -375,6 +420,12 @@ class Consensus {
       const pct = (v) => (num(v) ? `${Math.round(v * 100)}%` : "—");
       return `- ${key} minutes: ${x.checks} checks over ${x.days} sessions — direction right ${pct(x.blend.dirAcc)} for the blend, ${pct(x.forecaster.dirAcc)} for the forecaster alone; average miss ${x.blend.missAvg} against ${x.forecaster.missAvg} usual moves; ${x.proven ? "the blend LEADS (proven better)" : "the forecaster leads while the blend proves itself"}. Weights now: forecaster ${x.weights.forecaster}, evidence desk ${x.weights.evidence}, early calls ${x.weights.early}, order book ${x.weights.book}.`;
     };
+    const refineLine = (key) => {
+      const x = r[key] && r[key].refine;
+      if (!x || !x.checks) return `- Refiner, ${key} minutes: nothing checked yet.`;
+      const pct = (v) => (num(v) ? `${Math.round(v * 100)}%` : "—");
+      return `- Refiner, ${key} minutes: ${x.checks} checks over ${x.days} sessions — centre ${x.mean.proven ? "LEADS" : "in trial"} (miss ${x.mean.missRefined} against ${x.mean.missLead}); conformal band ${x.band.proven ? "LEADS" : "in trial"}, held ${pct(x.band.coverage)} against the old band's ${pct(x.band.oldCoverage)} (stated 70%)${x.offForm ? "; TODAY IS OFF-FORM: the forecasts are missing clearly more than usual" : ""}.`;
+    };
     const lines = [
       "- One level forecast per stock for about 5 and 15 minutes blends the 15-minute forecaster, the evidence desk, the early calls and the live order book; it leads only when its checked record beats the forecaster alone. Quote its price, band and chance of a rise WITH its record; a band edge is not a target and no forecast is a certainty.",
       "- Weigh every reading by its measured record on this desk: a proven technique or live reading counts; an unproven one is context only.",
@@ -383,6 +434,9 @@ class Consensus {
       "- GIFT NIFTY, Wall Street and Asia matter most at the open; during the session NIFTY, SENSEX, the sector and India VIX set the tide for a single stock.",
       line("5"),
       line("15"),
+      "- The refiner, a second stage on the consensus: the microprice and the queue imbalance at the best bid and offer (Stoikov 2018), the spread, and today's realized volatility against the usual (Corsi's HAR idea) correct the forecast's centre; the band comes from the forecast's own recent misses (adaptive conformal prediction, Gibbs & Candès 2021) so a 70% band holds about 70%; a Page-Hinkley alarm flags a session on which the forecasts miss clearly more than usual. Each part leads only once its checks prove it; on an off-form session no lean is stronger than slight.",
+      refineLine("5"),
+      refineLine("15"),
     ];
     try {
       this.playbook.setSection(SECTION, lines.join("\n"));
@@ -396,7 +450,8 @@ class Consensus {
   /* --------------------------------------------------------------------------- for the screen */
   record() {
     const m = this.model();
-    return Object.fromEntries(C.HZ.map((h) => [C.KEYS[h], { ...C.summaryOf(m.h[h].stats), weights: Object.fromEntries(C.FEATURES.map((f, i) => [f, m.h[h].w[i]])) }]));
+    const today = istDate(this.now());
+    return Object.fromEntries(C.HZ.map((h) => [C.KEYS[h], { ...C.summaryOf(m.h[h].stats), weights: Object.fromEntries(C.FEATURES.map((f, i) => [f, m.h[h].w[i]])), refine: R.summaryOf(R.horizonOf(m.refine, h), today) }]));
   }
 
   board() {

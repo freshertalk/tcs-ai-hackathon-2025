@@ -22,6 +22,7 @@
 // one). A forecast is a probability and a range: it is measured, never promised.
 
 const H = require("./market/horizon");
+const B = require("./market/boost"); // the decision trees: the forecaster's nonlinear stage (22 Nov 2026)
 const { unpack, sessions, msOf } = require("./robot/history");
 
 const IST = 5.5 * 3600 * 1000;
@@ -331,6 +332,7 @@ class Horizon {
     const trainSeg = H.SEGMENTS.map(() => new H.Stats());
     const valSeg = H.SEGMENTS.map(() => new H.Stats());
     const valRows = [];
+    const treeRows = new B.Reservoir(B.SAMPLE); // a fair sample of the training rows, for the decision trees
     const profiles = {};
     for (const s of stocks) {
       const days = this._days(s);
@@ -349,6 +351,7 @@ class Horizon {
             if (date <= cut) {
               train.add(row.x, row.y, w);
               trainSeg[sg].add(row.x, row.y, w);
+              if ((row.s & 1) === 0) treeRows.add({ x: row.x, y: row.y, s: row.s, bucket: row.bucket, sym: s });
             } else {
               val.add(row.x, row.y, w);
               valSeg[sg].add(row.x, row.y, w);
@@ -409,6 +412,20 @@ class Horizon {
     // 6. the numbers shown: the model as it will be used, and the original model alone, both on the half that chose nothing
     const used = H.scoreRows(H.emptyEval(), Wtrain, judge, { resSd, z70, slope, keepZ: false, segs: segsTrain, scales });
     const pooledOnly = H.summariseEval(H.scoreRows(H.emptyEval(), Ws[0], judge, { keepZ: false }));
+    // 7. the decision trees: what the model as used still misses, learned nonlinearly; per target, used only where they cut the
+    //    miss on the choosing half AND the half that chose nothing confirms it (market/boost.js)
+    job.phase = "growing decision trees on what it still misses";
+    let boost = null;
+    try {
+      const usedP = (row) => H.predictRow(Wtrain, row.x, slope, H.segFor(segsTrain, row.s), scales && row.sym ? scales[row.sym] || 1 : 1);
+      const thin = (rows, cap) => (rows.length <= cap ? rows : rows.filter((_, i) => i % Math.ceil(rows.length / cap) === 0));
+      boost = await B.trainBooster({ trainRows: treeRows.items, pickRows: thin(pick, 20000), judgeRows: thin(judge, 20000), predict: usedP, targets: H.TARGETS.length, pause: tick });
+      boost.trainedAt = iso(this.now());
+      this.log.log(`[horizon] decision trees: in use for ${boost.on.filter(Boolean).length} of ${H.TARGETS.length} targets`);
+    } catch (err) {
+      boost = { on: [], trees: [], record: null, error: err.message };
+      this.log.error(`[horizon] the decision trees could not be grown: ${err.message}`);
+    }
     train.merge(val);
     const Wall = H.fitCandidates(train);
     const W = Wall[ci] || Wtrain;
@@ -436,6 +453,7 @@ class Horizon {
       validation: { from: dates.find((d) => d > cut) || null, to: newest, trainTo: cut, sessions: dates.length, stocks: Object.keys(profiles).length, examples: valRows.length, horizons: H.summariseEval(used), pooled: pooledOnly.map((x) => ({ h: x.h, skill: x.skill, dirAcc: x.dirAcc })) },
       learned: { days: 0, lastAt: null },
       rows: train.n,
+      boost,
     };
     this._saveModel(model);
     this._cache.clear();
@@ -1021,6 +1039,7 @@ class Horizon {
       bandScale: m.bandScale,
       experts: this._experts(m),
       contest: this._contest(m),
+      trees: B.summaryOf(m.boost, H.TARGETS),
       stockScales: m.stockCal ? { on: Boolean(m.stockCal.on), stocks: Object.keys(m.stockCal.recs || {}).length, gainPct: m.stockCal.se && m.stockCal.se[0] > 0 ? r2(((m.stockCal.se[0] - m.stockCal.se[1]) / m.stockCal.se[0]) * 100) : 0 } : null,
       lessons: this._lessons(m),
       live: m.live ? { n: m.live.n || 0, tilt: m.live.tilt || {} } : null,
@@ -1079,6 +1098,8 @@ class Horizon {
       const on = ex.horizons.filter((x) => x.weight > 0);
       lines.push(on.length ? `Time-of-day experts are blended in: ${on.map((x) => `${x.minutes} min at ${Math.round(x.weight * 100)}% (error cut ${x.gainPct}%)`).join(", ")}.` : "Time-of-day experts (opening hour, midday, from 2:00 PM) did not beat the single model on unseen sessions, so they are not used.");
     }
+    const tr = B.summaryOf(m.boost, H.TARGETS);
+    if (tr) lines.push(tr.inUse ? `Decision trees (gradient boosting on what the straight-line model still misses: thresholds, interactions, the time of day) are in use for ${tr.inUse} of ${tr.targets.length} forecasts: ${tr.targets.filter((t) => t.on).map((t) => `${t.target} error cut ${t.cutPct}%`).join(", ")} — measured on sessions they had not seen.` : "Decision trees were grown on what the model still misses, but on unseen sessions they did not cut the miss, so they are not used.");
     if (m.stockCal) lines.push(m.stockCal.on ? `Each stock's own scale is in use (${Object.keys(m.stockCal.recs || {}).length} stocks): forecasts made with them missed less on unseen sessions.` : "Per-stock scales did not make the forecasts miss less on unseen sessions, so every stock is read with the pooled model alone.");
     const words = {
       r1: "the last 5 minutes rose", r3: "the last 15 minutes rose", r6: "the last half hour rose", r12: "the last hour rose", fromOpen: "the price is above the open", gap: "it opened above yesterday's close", vwap: "the price is above VWAP", pos: "the price is high in the day's range", rsi: "RSI is high", vol: "volume is heavier than usual for the time", volDir: "heavy volume is behind a rise", vnow: "recent bars are wider than usual", tOpen: "it is the opening hour", tClose: "it is the closing hour", m3: "the market rose in the last 15 minutes", m6: "the market rose in the last half hour", prevDay: "yesterday was an up day", trend: "the last ten days drifted up",
@@ -1469,7 +1490,8 @@ class Horizon {
       const m = this.model();
       const old = m && m.trainedAt && now - Date.parse(m.trainedAt) > RETRAIN_DAYS * 86400000;
       const h = this._historyStore();
-      if ((!m || !m.W || m.version !== H.MODEL_VERSION || old) && h) {
+      // `m.boost === undefined`: a model trained before the decision trees existed — trained again once, so it gets them
+      if ((!m || !m.W || m.version !== H.MODEL_VERSION || old || m.boost === undefined) && h) {
         const st = h.status();
         if (st.stocks >= 30 && st.sessions >= 60) {
           this._tryAt = now;
