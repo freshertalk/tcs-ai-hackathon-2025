@@ -24,9 +24,10 @@ import Contact from "../sections/Contact";
 import { PROFILE } from "../data/profile";
 
 const LINKS = [
-  // "About" returns to the very top of the page, not to the #about block —
-  // the intro pills and headline are part of the introduction.
-  { id: "top", label: "About" },
+  // "Home" returns to the very top of the page (21 Nov 2026) — the intro pills and
+  // headline are part of the introduction; "About" is the #about block under it.
+  { id: "top", label: "Home" },
+  { id: "about", label: "About" },
   { id: "stack", label: "Stack" },
   { id: "work", label: "Experience" },
   { id: "projects", label: "Projects" },

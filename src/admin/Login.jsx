@@ -1,12 +1,16 @@
 // The door to the private area. It says plainly, and politely, that this is a personal space; no address or name
 // of an account is shown, and having a Google account or an email address is not enough on its own: the owner
 // must have added it. Ways in: Google, email + password, or a code sent by email.
+//
+// Redesigned 21 Nov 2026: the door shows ONE button for each way in — "Sign in with Google" and "Sign in with Email". Everything
+// to do with email (password, a code by email, the link for a forgotten password, asking for an account) is folded behind the
+// second button and opens only when it is pressed; nothing about how email sign-in works has changed.
 
 import React, { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { api } from "./api";
 import { useAuth } from "./auth";
-import { IconGoogle, IconShield } from "./icons";
+import { IconGoogle, IconMail, IconShield } from "./icons";
 import "./signin.css";
 
 const ERRORS = {
@@ -69,6 +73,7 @@ export default function Login() {
   const [note, setNote] = useState("");
 
   const emailOpen = methods.password || methods.code;
+  const [emailShown, setEmailShown] = useState(false); // the email forms are folded away until "Sign in with Email" is pressed
   const canLink = Boolean(auth.emailReady);
   const go = (m) => {
     setMode(m);
@@ -141,20 +146,22 @@ export default function Login() {
   return (
     <main className="gate">
       <section className="gate__panel" aria-labelledby="gate-title">
+        <a className="gate__top-home" href="/">
+          <span aria-hidden="true">←</span> Home
+        </a>
         <span className="gate__badge" aria-hidden="true">
           <IconShield />
         </span>
         <p className="gate__kicker">Private area</p>
-        <h1 id="gate-title">Vinay&rsquo;s control room</h1>
+        <h1 id="gate-title">
+          Vinay&rsquo;s Private Room
+          <small>(not for public use)</small>
+        </h1>
 
         <div className="gate__notice" role="note">
           <p>
-            Namaste, and thank you for visiting. This area is a personal workspace of <b>Vinay Kumar Tiwari</b>. It is
-            not a public service and is not intended for visitors.
-          </p>
-          <p>
-            If you have reached this page by chance, we kindly request that you do not attempt to enter. You are most
-            welcome on the public website instead.
+            Namaste, and thank you for visiting. This is a personal workspace of <b>Vinay Kumar Tiwari</b>, not a public service.
+            If you have reached it by chance, please do not try to enter — you are most welcome on the public website instead.
           </p>
         </div>
 
@@ -190,30 +197,40 @@ export default function Login() {
           </p>
         )}
 
-        {emailOpen && canLink && (
-          <div className="sg-tabs" role="tablist" aria-label="Sign in or create an account">
-            <button type="button" role="tab" aria-selected={mode !== "signup"} className={mode !== "signup" ? "is-on" : ""} onClick={() => go("password")}>
-              Sign in
-            </button>
-            <button type="button" role="tab" aria-selected={mode === "signup"} className={mode === "signup" ? "is-on" : ""} onClick={() => go("signup")}>
-              Create account
-            </button>
-          </div>
-        )}
-
         {/* a normal link, not fetch(): the browser has to follow Google's redirects */}
-        {methods.google && mode !== "signup" && (
+        {methods.google && !(emailShown && mode === "signup") && (
           <a className="gate__google" href="/api/auth/google/start">
             <IconGoogle />
             <span>Sign in with Google</span>
           </a>
         )}
 
-        {methods.google && emailOpen && mode !== "signup" && (
+        {methods.google && emailOpen && !emailShown && (
           <p className="sg-or" aria-hidden="true">
-            <span>or with your email</span>
+            <span>or</span>
           </p>
         )}
+
+        {emailOpen && (
+          <button type="button" className={`gate__email ${emailShown ? "is-open" : ""}`} aria-expanded={emailShown} aria-controls="gate-email" onClick={() => setEmailShown(!emailShown)}>
+            <IconMail />
+            <span>Sign in with Email</span>
+            <i className="gate__chev" aria-hidden="true" />
+          </button>
+        )}
+
+        {emailOpen && emailShown && (
+          <div className="gate__email-panel" id="gate-email">
+            {canLink && (
+              <div className="sg-tabs" role="tablist" aria-label="Sign in or create an account">
+                <button type="button" role="tab" aria-selected={mode !== "signup"} className={mode !== "signup" ? "is-on" : ""} onClick={() => go("password")}>
+                  Sign in
+                </button>
+                <button type="button" role="tab" aria-selected={mode === "signup"} className={mode === "signup" ? "is-on" : ""} onClick={() => go("signup")}>
+                  Create account
+                </button>
+              </div>
+            )}
 
         {emailOpen && mode === "password" && methods.password && (
           <form className="sg-form" onSubmit={signInPassword} aria-label="Sign in with email and password">
@@ -221,7 +238,7 @@ export default function Login() {
             <PasswordInput id="sg-pass" value={password} onChange={setPassword} />
             {remembered}
             <button className="sg-btn" disabled={busy}>
-              {busy ? "Signing in…" : "Sign in with email"}
+              {busy ? "Signing in…" : "Sign in"}
             </button>
             <div className="sg-links">
               {canLink && (
@@ -322,6 +339,9 @@ export default function Login() {
               </div>
             )}
           </form>
+        )}
+
+          </div>
         )}
 
         <p className="gate__fine">Only accounts authorised by the owner can sign in, however they arrive. Every attempt is checked by the server.</p>

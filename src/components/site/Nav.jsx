@@ -123,15 +123,30 @@ export default function Nav({
             )}
           </nav>
 
-          <button
-            className={`nav__burger ${open ? "is-open" : ""}`}
-            onClick={() => setOpen((v) => !v)}
-            aria-label={open ? "Close menu" : "Open menu"}
-            aria-expanded={open}
-          >
-            <span />
-            <span />
-          </button>
+          <div className="nav__end">
+            {/* the personal door: a plain link, so it works before anything has loaded; the page it opens says plainly that it is private */}
+            <a
+              className="nav__me"
+              href="/me"
+              aria-label="Sign in — Vinay's private room"
+              title="Private room — sign in"
+              rel="nofollow"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <circle cx="12" cy="8.2" r="3.6" />
+                <path d="M4.6 20c.6-3.8 3.6-6 7.4-6s6.8 2.2 7.4 6" />
+              </svg>
+            </a>
+            <button
+              className={`nav__burger ${open ? "is-open" : ""}`}
+              onClick={() => setOpen((v) => !v)}
+              aria-label={open ? "Close menu" : "Open menu"}
+              aria-expanded={open}
+            >
+              <span />
+              <span />
+            </button>
+          </div>
         </div>
       </header>
 

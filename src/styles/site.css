@@ -781,6 +781,40 @@ h4 {
   color: var(--paper);
 }
 
+/* the right-hand end of the bar: the personal sign-in icon, then (on a phone) the menu button */
+.nav__end {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+}
+.nav__me {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border: 1px solid var(--line-2);
+  border-radius: 50%;
+  color: var(--ink);
+  transition: background 0.4s var(--ease), color 0.4s var(--ease), border-color 0.4s var(--ease);
+}
+.nav__me svg {
+  width: 21px;
+  height: 21px;
+}
+.nav__me:hover,
+.nav__me:focus-visible {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
+}
+@media (pointer: coarse) {
+  .nav__me {
+    width: 48px;
+    height: 48px;
+  }
+}
+
 .nav__burger {
   display: none;
   width: 46px;
