@@ -69,7 +69,7 @@
   line-height: 1.6;
   color: var(--ink-2);
   text-align: justify;
-  hyphens: auto;
+  hyphens: none;
 }
 .gate__notice b {
   color: var(--ink);
@@ -213,11 +213,6 @@
   border-radius: 6px;
   font-size: var(--t-small);
   line-height: 1.6;
-  text-align: left;
-  hyphens: manual;
-}
-.gate__error {
-  text-align: left;
 }
 .gate__google,
 .gate__email {
@@ -336,4 +331,290 @@
 .gate__top-home:hover,
 .gate__top-home:focus-visible {
   color: var(--accent);
+}
+
+/* the door's running text is justified (21 Nov 2026) */
+.gate__notice,
+.gate__error,
+.gate__fine,
+.gate__email-panel .sg-help,
+.gate__email-panel .sg-note {
+  text-align: justify;
+  text-justify: inter-word;
+  hyphens: none;
+}
+.gate__notice p,
+.gate__error p {
+  text-align: justify;
+}
+
+/* ---------------------------------------------------------------- the refusal (an address that is not on the owner's list)
+   A red warning that drops in, shakes once, and keeps a ring pulsing round its shield: unmistakable, never a surprise. */
+.gate__denied {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--down) 55%, var(--line));
+  border-left: 5px solid var(--down);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--down) 11%, var(--surface));
+  color: var(--down-ink, var(--down));
+  animation: gate-denied 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) both, gate-denied-glow 2.2s ease-in-out 0.55s 3;
+}
+.gate__denied b {
+  display: block;
+  margin-bottom: 2px;
+  font-size: var(--t-base);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.gate__denied p {
+  margin: 0;
+  font-size: var(--t-small);
+  line-height: 1.6;
+  text-align: justify;
+  hyphens: none;
+}
+.gate__denied-ico {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--down);
+  color: #fff;
+}
+.gate__denied-ico svg {
+  width: 20px;
+  height: 20px;
+}
+.gate__denied-ico::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border: 2px solid var(--down);
+  border-radius: 50%;
+  opacity: 0;
+  animation: gate-ring 1.6s ease-out 0.4s 3;
+}
+@keyframes gate-denied {
+  0% {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.98);
+  }
+  35% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateX(-7px);
+  }
+  62% {
+    transform: translateX(6px);
+  }
+  74% {
+    transform: translateX(-4px);
+  }
+  86% {
+    transform: translateX(3px);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+@keyframes gate-denied-glow {
+  50% {
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--down) 18%, transparent);
+  }
+}
+@keyframes gate-ring {
+  0% {
+    opacity: 0.8;
+    transform: scale(0.8);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.5);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .gate__denied {
+    animation: none;
+  }
+  .gate__denied-ico::after {
+    animation: none;
+  }
+}
+/* "Signing in as …" once the address is known to be on the list */
+.sg-who {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 10px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink-2);
+  font-size: var(--t-small);
+  overflow-wrap: anywhere;
+}
+.sg-who b {
+  color: var(--ink);
+}
+.sg-who button {
+  padding: 2px 4px;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* ---------------------------------------------------------------- no word is ever broken across two lines (22 Nov 2026)
+   The door's text is justified but never hyphenated: a word moves to the next line whole. Only an address too long for the
+   screen may break, and only where it would otherwise spill. */
+.gate,
+.gate__notice,
+.gate__error,
+.gate__fine,
+.gate__denied,
+.gate__denied p,
+.gate__email-panel .sg-help,
+.gate__email-panel .sg-note {
+  hyphens: none;
+  -webkit-hyphens: none;
+  word-break: normal;
+  overflow-wrap: break-word;
+}
+.gate__denied p {
+  text-wrap: pretty;
+}
+/* the pause: a clock and a bar that drains */
+.gate__pause {
+  position: relative;
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed color-mix(in srgb, var(--down) 40%, transparent);
+  font-size: var(--t-small);
+  font-variant-numeric: tabular-nums;
+}
+.gate__pause i {
+  display: block;
+  height: 4px;
+  border-radius: 99px;
+  background: var(--down);
+  transition: width 1s linear;
+}
+/* Caps Lock hint under the password */
+.sg-caps {
+  margin: 4px 0 0;
+  color: var(--warn-ink, var(--down-ink));
+  font-size: var(--t-small);
+  font-weight: 600;
+}
+.sg-caps::before {
+  content: "⇪ ";
+}
+
+/* ---------------------------------------------------------------- the security check (Captcha.jsx) */
+.sg-cap {
+  display: grid;
+  gap: 10px;
+  padding: 10px;
+  border: 1px dashed var(--line-2, var(--line));
+  border-radius: 8px;
+  background: var(--surface);
+}
+.sg-cap__pic {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 84px;
+  overflow: hidden;
+  border-radius: 6px;
+  background: #f4f6fa;
+  user-select: none;
+}
+.sg-cap__pic img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+}
+.sg-cap__wait {
+  color: #555;
+  font-size: var(--t-small);
+}
+.sg-cap__new {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.9);
+  color: #1d3557;
+  font-size: 17px;
+  line-height: 1;
+  cursor: pointer;
+}
+.sg-cap__new:hover {
+  background: #fff;
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.sg-cap__state {
+  margin: 0;
+  color: var(--ink-3);
+  font-size: var(--t-small);
+}
+.sg-cap__state--ready {
+  color: var(--up-ink, var(--up));
+}
+.sg-cap__state--error {
+  color: var(--down-ink, var(--down));
+}
+.sg-cap__state--working::before {
+  content: "";
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 7px;
+  border: 2px solid var(--line-2, var(--line));
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  vertical-align: -1px;
+  animation: sg-spin 0.7s linear infinite;
+}
+@keyframes sg-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.sg-cap__ok {
+  margin: 0;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--up) 10%, var(--surface));
+  color: var(--up-ink, var(--up));
+  font-size: var(--t-small);
+  font-weight: 600;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sg-cap__state--working::before {
+    animation: none;
+  }
 }

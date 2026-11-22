@@ -20,7 +20,7 @@ const IMG_H = 630;
  * characters), `card` (one or two short lines drawn on the picture) and `image` (its file name).
  */
 const PAGES = {
-  dashboard: { name: SITE, title: `${SITE} — ${LINE}`, description: "A private workspace for intraday trading on NSE: the live desk, TradeAI, Social Media, the Journal, measured odds and plans — with the Mandir beside it.", card: ["Your private intraday desk for NSE:", "live calls, TradeAI, news, Journal"], image: "drishtiai" },
+  dashboard: { name: SITE, title: SITE, description: "A private workspace for intraday trading on NSE: the live desk, TradeAI, Social Media, the Journal, measured odds and plans — with the Mandir beside it.", card: ["Your private intraday desk for NSE:", "live calls, TradeAI, news, Journal"], image: "drishtiai" },
   stockReport: { name: "Stock Report", description: "The trading terminal: the watchlist, the full chart, the live intraday call, order book and co-pilot for one stock, with positions docked below.", card: ["The trading terminal for NSE:", "chart, live call, book, co-pilot"], image: "stock-report" },
   desk: { name: "Desk", description: "One stock, live: the watchlist, the chart, the desk's intraday call with its plan, the order book, AI Live and the co-pilot.", card: ["One stock, live: chart and call,", "the plan, the order book, AI Live"], image: "desk" },
   advisor: { name: "Advisor", description: "The watchlist read by measured odds: what followed the days most like today, whether such calls held up when tested forward, and a plan sized to your risk.", card: ["The watchlist read by measured odds,", "with plans sized to your risk"], image: "advisor" },

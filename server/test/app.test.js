@@ -746,3 +746,93 @@ test("the capital ledger over HTTP: the superadmin records the money put in, the
   r = await s.request("DELETE", `/api/admin/trading/journal/capital/${id}`, { cookie: boss });
   assert.deepEqual(r.json.capital, []);
 });
+
+test("the login icon on the public site: the owner's switch, in the public config; superadmins only; /me opens either way", async (t) => {
+  const s = await boot();
+  t.after(s.close);
+  await s.configure();
+  const boss = (await s.login(SUPERADMIN_EMAIL)).session;
+  const live = { headers: { host: "www.vinaytiwari.org" } };
+
+  // on by default, for everyone who asks (the public site does, signed in or not)
+  assert.equal((await s.request("GET", "/api/public-config", live)).json.loginIcon, true);
+  assert.deepEqual((await s.request("GET", "/api/admin/settings/login-icon", { cookie: boss })).json, { on: true });
+
+  // nobody who is not signed in can change it, and it must be a yes or a no
+  assert.equal((await s.request("PUT", "/api/admin/settings/login-icon", { body: { on: false } })).status, 401);
+  assert.equal((await s.request("GET", "/api/admin/settings/login-icon")).status, 401);
+  assert.equal((await s.request("PUT", "/api/admin/settings/login-icon", { cookie: boss, body: { on: "no" } })).status, 400);
+  assert.equal((await s.request("PUT", "/api/admin/settings/login-icon", { cookie: boss, body: {} })).status, 400);
+
+  // a plain admin is not a superadmin: refused
+  await s.request("POST", "/api/admin/admins", { cookie: boss, body: { email: "plain@example.com", invite: false } });
+  const plain = (await s.login("plain@example.com")).session;
+  assert.equal((await s.request("PUT", "/api/admin/settings/login-icon", { cookie: plain, body: { on: false } })).status, 403);
+  assert.equal((await s.request("GET", "/api/public-config", live)).json.loginIcon, true, "unchanged");
+
+  // off: the public config says so — and the door itself is untouched
+  assert.deepEqual((await s.request("PUT", "/api/admin/settings/login-icon", { cookie: boss, body: { on: false } })).json, { on: false });
+  assert.equal((await s.request("GET", "/api/public-config", live)).json.loginIcon, false);
+  assert.equal((await s.request("GET", "/api/auth/status")).status, 200, "sign-in keeps working with the icon hidden");
+  assert.equal((await s.request("GET", "/api/auth/google/start")).status, 302, "Google sign-in keeps working too");
+  assert.deepEqual((await s.request("GET", "/api/admin/settings/login-icon", { cookie: boss })).json, { on: false });
+
+  // on again
+  await s.request("PUT", "/api/admin/settings/login-icon", { cookie: boss, body: { on: true } });
+  assert.equal((await s.request("GET", "/api/public-config", live)).json.loginIcon, true);
+  // the change is on the audit trail
+  const trail = (await s.request("GET", "/api/admin/auth/audit", { cookie: boss })).json.entries.filter((e) => e.type === "login_icon");
+  assert.deepEqual(trail.map((e) => e.on).reverse(), [false, true]);
+});
+
+test("the public site hears the icon switch at once over its own small stream: told the state on connecting, then every change; capped per visitor; nothing else travels on it", async (t) => {
+  const s = await boot();
+  t.after(s.close);
+  await s.configure();
+  const boss = (await s.login(SUPERADMIN_EMAIL)).session;
+  const events = [];
+  const open = () =>
+    new Promise((resolve) => {
+      const req = http.request({ host: "127.0.0.1", port: s.port, method: "GET", path: "/api/public-stream" }, (res) => {
+        if (res.statusCode !== 200) {
+          res.resume();
+          return resolve({ status: res.statusCode, req });
+        }
+        res.setEncoding("utf8");
+        res.on("data", (c) => events.push(c));
+        resolve({ status: 200, res, req });
+      });
+      req.on("error", () => {});
+      req.end();
+    });
+  const wait = async (ms = 150) => new Promise((r) => setTimeout(r, ms));
+
+  const a = await open(); // no sign-in: it is the PUBLIC site's stream
+  assert.equal(a.status, 200);
+  assert.match(a.res.headers["content-type"], /text\/event-stream/);
+  await wait();
+  const text = () => events.join("");
+  assert.match(text(), /event: icon\ndata: {"loginIcon":true}\n\n/, "told the state on connecting");
+
+  await s.request("PUT", "/api/admin/settings/login-icon", { cookie: boss, body: { on: false } });
+  await wait();
+  assert.match(text(), /event: icon\ndata: {"loginIcon":false}\n\n/, "pushed the moment it was switched off");
+  await s.request("PUT", "/api/admin/settings/login-icon", { cookie: boss, body: { on: true } });
+  await wait();
+  assert.ok(text().lastIndexOf('{"loginIcon":true}') > text().lastIndexOf('{"loginIcon":false}'), "and on again");
+  assert.doesNotMatch(text(), /email|admin|token/i, "nothing private travels on it");
+
+  // a page that connects later is told the current state, not the past
+  await s.request("PUT", "/api/admin/settings/login-icon", { cookie: boss, body: { on: false } });
+  events.length = 0;
+  const b = await open();
+  await wait();
+  assert.match(text(), /{"loginIcon":false}/);
+
+  // three streams per visitor; the fourth is turned away
+  const c = await open();
+  const d = await open();
+  assert.equal(c.status, 200);
+  assert.equal(d.status, 429);
+  for (const x of [a, b, c]) x.req.destroy();
+});

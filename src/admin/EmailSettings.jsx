@@ -18,6 +18,7 @@ const PRESETS = [
 const TYPES = {
   signin: "Signed in",
   signin_failed: "Failed sign-in",
+  unauthorized_attempt: "Refused: not on the list",
   signout: "Signed out",
   signout_everywhere: "Signed out everywhere",
   signout_forced: "Signed out by the owner",

@@ -63,6 +63,7 @@ async function boot(opts = {}) {
     },
     ...(mailer ? { mailer } : {}),
     authNow: () => clock.t,
+    captcha: opts.captcha === undefined ? false : opts.captcha, // false unless a test asks for the security gate
     ...(opts.app || {}),
   });
   const server = await new Promise((res) => {
@@ -266,32 +267,86 @@ test("duplicates are refused: same mailbox in another spelling, and the superadm
   assert.equal(s.mailer.outbox.length, 0, "invite:false sends nothing");
 });
 
-test("a person who is not on the list cannot get in by any email route, and nobody can tell why", async (t) => {
+test("a person who is not on the list is refused on every email route with one plain message; nothing is sent or made for them", async (t) => {
   const s = await boot();
   t.after(s.close);
   await s.person("listed@corp.org");
   await s.request("POST", "/api/admin/admins", { cookie: s.boss, body: { email: "nopassword@corp.org", invite: false } });
 
+  // a listed person with a wrong password, or none yet, is told that; an unlisted address is told it is not authorized
   const wrong = await s.login("listed@corp.org", "Wrong-Password-1x");
-  const unknown = await s.login("stranger@corp.org", STRONG);
   const noPass = await s.login("nopassword@corp.org", STRONG);
-  for (const r of [wrong, unknown, noPass]) {
+  for (const r of [wrong, noPass]) {
     assert.equal(r.status, 401);
     assert.equal(r.json.error, "bad_login");
-    assert.equal(r.json.message, wrong.json.message, "the same words every time");
     assert.equal(r.jar, "", "no session");
   }
+  const unknown = await s.login("stranger@corp.org", STRONG);
+  assert.equal(unknown.status, 403);
+  assert.equal(unknown.json.error, "not_authorized");
+  assert.match(unknown.json.message, /not authorized to enter this space.*personal space of Vinay Kumar Tiwari, open only to the email addresses he has allowed/);
+  assert.equal(unknown.jar, "", "no session");
 
-  // a link or a code for a stranger: the same answer, and no mail
+  // a link, a code, a check: the same refusal; no mail, no code, no link is made
   const link = await s.request("POST", "/api/auth/email/link", { body: { email: "stranger@corp.org" } });
-  const real = await s.request("POST", "/api/auth/email/link", { body: { email: "listed@corp.org" } });
-  assert.equal(link.status, 200);
-  assert.deepEqual(link.json, real.json);
   const c1 = await s.request("POST", "/api/auth/email/code", { body: { email: "stranger@corp.org" } });
-  const c2 = await s.request("POST", "/api/auth/email/code", { body: { email: "nopassword@corp.org" } });
-  assert.deepEqual(c1.json, c2.json);
+  const chk = await s.request("POST", "/api/auth/email/check", { body: { email: "stranger@corp.org" } });
+  const ver = await s.request("POST", "/api/auth/email/code/verify", { body: { email: "stranger@corp.org", code: "123456" } });
+  for (const r of [link, c1, chk, ver]) {
+    assert.equal(r.status, 403);
+    assert.equal(r.json.error, "not_authorized");
+    assert.equal(r.json.message, unknown.json.message);
+  }
+  assert.equal(s.mailer.outbox.filter((m) => m.to === "stranger@corp.org").length, 0);
+  assert.equal(Object.keys(s.made.store.data.users).includes("stranger@corp.org"), false, "no record was made for them");
+
+  // the listed person: the check says what they can use; the same routes work for them
+  const ok = await s.request("POST", "/api/auth/email/check", { body: { email: "Listed@Corp.org" } });
+  assert.equal(ok.status, 200);
+  assert.deepEqual(ok.json, { ok: true, email: "listed@corp.org", hasPassword: true, can: { password: true, code: true, link: true } });
+  assert.equal((await s.request("POST", "/api/auth/email/check", { body: { email: "nopassword@corp.org" } })).json.hasPassword, false);
+  assert.equal((await s.request("POST", "/api/auth/email/link", { body: { email: "listed@corp.org" } })).status, 200);
+  assert.equal((await s.request("POST", "/api/auth/email/code", { body: { email: "nopassword@corp.org" } })).status, 200);
   await s.flush();
   assert.deepEqual(s.mailer.outbox.map((m) => m.to).sort(), ["listed@corp.org", "nopassword@corp.org"].sort(), "only people on the list were mailed");
+
+  // every refusal is in the audit trail, with its route
+  const trail = (await s.request("GET", "/api/admin/auth/audit", { cookie: s.boss })).json.entries.filter((e) => e.type === "unauthorized_attempt");
+  assert.deepEqual(trail.map((e) => e.method).sort(), ["check", "code", "code", "link", "password"]);
+});
+
+test("six refusals pause a visitor for thirty minutes — for addresses that are not on the list only; a listed address is never held up", async (t) => {
+  const s = await boot();
+  t.after(s.close);
+  await s.person("listed@corp.org");
+  for (let i = 0; i < 5; i += 1) assert.equal((await s.login(`ghost${i}@corp.org`, STRONG)).status, 403);
+  const sixth = await s.login("ghost5@corp.org", STRONG);
+  assert.equal(sixth.status, 403);
+  assert.equal(sixth.json.blocked, true);
+  assert.equal(sixth.json.retryAfter, 1800, "the page counts the pause down from this");
+  await s.flush();
+  const alert = s.mailer.outbox.find((m) => m.to === SUPERADMIN_EMAIL && /shut out/.test(m.subject));
+  assert.ok(alert, "the owner is told once, by email");
+  assert.match(alert.text, /ghost0@corp\.org.*ghost5@corp\.org/);
+  assert.match(alert.text, /Nothing was sent to those addresses/);
+  for (const [url, body] of [["/api/auth/email/check", { email: "stranger@corp.org" }], ["/api/auth/email/code", { email: "stranger@corp.org" }], ["/api/auth/email/link", { email: "stranger@corp.org" }]]) {
+    const r = await s.request("POST", url, { body });
+    assert.equal(r.status, 429, url);
+    assert.equal(r.json.error, "not_authorized");
+    assert.match(r.json.message, /paused for 30 minutes/);
+    assert.ok(r.json.retryAfter > 1700 && r.json.retryAfter <= 1800);
+    assert.ok(r.headers["retry-after"] > 0);
+  }
+  assert.equal((await s.login("stranger@corp.org", STRONG)).status, 429);
+  // …while the listed address, from the very same paused visitor, is not held up at all
+  assert.equal((await s.request("POST", "/api/auth/email/check", { body: { email: "listed@corp.org" } })).status, 200);
+  const ok = await s.login("listed@corp.org", STRONG);
+  assert.equal(ok.status, 200);
+  assert.ok(ok.jar, "signed in");
+  assert.equal((await s.request("POST", "/api/auth/email/code", { body: { email: "listed@corp.org" } })).status, 200);
+  assert.equal((await s.request("POST", "/api/auth/email/link", { body: { email: "listed@corp.org" } })).status, 200);
+  await s.flush();
+  assert.equal(s.mailer.outbox.filter((m) => m.to === "stranger@corp.org").length, 0, "nothing was mailed to the stranger");
 });
 
 test("five wrong passwords lock the address for 15 minutes, a right one is refused meanwhile, and the owner can unlock", async (t) => {
@@ -315,15 +370,6 @@ test("five wrong passwords lock the address for 15 minutes, a right one is refus
   assert.equal((await s.login("lock.me@corp.org", STRONG)).status, 429);
   assert.equal((await s.request("POST", "/api/admin/admins/lock.me%40corp.org/unlock", { cookie: s.boss })).status, 200);
   assert.equal((await s.login("lock.me@corp.org", STRONG)).status, 200);
-});
-
-test("an address that does not exist is locked the same way, so the lock tells nothing either", async (t) => {
-  const s = await boot();
-  t.after(s.close);
-  for (let i = 0; i < 4; i += 1) assert.equal((await s.login("ghost@corp.org", "Wrong-Password-" + i)).status, 401);
-  assert.equal((await s.login("ghost@corp.org", "Wrong-Password-4")).status, 429);
-  assert.equal((await s.login("ghost@corp.org", STRONG)).status, 429);
-  assert.equal((await s.login("ghost@corp.org", STRONG)).headers["retry-after"] > 0, true);
 });
 
 test("a code by email: sent to people on the list, single use, five tries, ten minutes", async (t) => {
@@ -472,7 +518,7 @@ test("signing out is recorded, 'don't keep me signed in' gives a session cookie,
   await s.request("POST", "/api/auth/logout", { cookie: long.jar });
   await s.request("DELETE", "/api/admin/admins/short%40corp.org", { cookie: s.boss });
   assert.equal((await s.request("GET", "/api/auth/status", { cookie: keep.jar })).json.user, null);
-  assert.equal((await s.login("short@corp.org", STRONG)).status, 401, "their password went with their access");
+  assert.equal((await s.login("short@corp.org", STRONG)).status, 403, "they are no longer on the list, so they are refused");
   await s.request("POST", "/api/admin/admins", { cookie: s.boss, body: { email: "short@corp.org", invite: false } });
   assert.equal((await s.request("GET", "/api/auth/status", { cookie: keep.jar })).json.user, null, "an old session does not come back when they are added again");
 
@@ -631,8 +677,8 @@ test("sign up: an address already on the list gets its link; a stranger becomes 
 
   // the stranger is only a request: no access
   assert.equal(s.made.store.data.admins.length, 1);
-  assert.equal((await s.login("stranger@elsewhere.org", STRONG)).status, 401);
-  assert.equal((await s.request("POST", "/api/auth/email/link", { body: { email: "stranger@elsewhere.org" } })).status, 200);
+  assert.equal((await s.login("stranger@elsewhere.org", STRONG)).status, 403);
+  assert.equal((await s.request("POST", "/api/auth/email/link", { body: { email: "stranger@elsewhere.org" } })).status, 403);
   await s.flush();
   assert.equal(s.mailer.outbox.filter((m) => m.to === "stranger@elsewhere.org").length, 0);
 
@@ -703,4 +749,101 @@ test("sign up needs a name, an address and a working mail server, and cannot be 
   const off = await s.request("POST", "/api/auth/email/signup", { body: { name: "A", email: "a@b.org" } });
   assert.equal(off.status, 503);
   assert.equal(off.json.error, "email_off");
+});
+
+/* ------------------------------------------------------------- the security gate (server/captcha.js) */
+
+const { Captcha, powOk } = require("../captcha");
+const solvePow = (pow) => {
+  for (let n = 0; ; n += 1) if (powOk(pow.salt, String(n), pow.bits)) return String(n);
+};
+const gated = () => new Captcha({ key: Buffer.alloc(32, 7), text: () => ({ kind: "text", show: "K7QMR", answer: "K7QMR" }) });
+
+test("with the gate on, every email sign-in route refuses without a pass — before it does anything", async (t) => {
+  const s = await boot({ captcha: gated() });
+  t.after(s.close);
+  await s.request("POST", "/api/admin/admins", { cookie: s.boss, body: { email: "listed@corp.org", invite: false } });
+  for (const [url, body] of [
+    ["/api/auth/email/check", { email: "listed@corp.org" }],
+    ["/api/auth/email/login", { email: "listed@corp.org", password: STRONG }],
+    ["/api/auth/email/link", { email: "listed@corp.org" }],
+    ["/api/auth/email/code", { email: "listed@corp.org" }],
+    ["/api/auth/email/code/verify", { email: "listed@corp.org", code: "123456" }],
+    ["/api/auth/email/signup", { name: "A B", email: "x@y.org" }],
+  ]) {
+    const none = await s.request("POST", url, { body });
+    assert.equal(none.status, 403, url);
+    assert.equal(none.json.error, "gate_required");
+    const fake = await s.request("POST", url, { body: { ...body, gate: "not.a-pass" } });
+    assert.equal(fake.status, 403, url);
+  }
+  assert.equal(s.mailer.outbox.length, 0, "nothing was mailed");
+  // refusals before the gate are not even counted as refused addresses
+  assert.equal((s.made.store.data.audit || []).filter((e) => e.type === "unauthorized_attempt").length, 0);
+});
+
+test("the picture, the work and the pass: a real run from asking for a picture to signing in", async (t) => {
+  const s = await boot({ captcha: gated() });
+  t.after(s.close);
+  await s.person("listed@corp.org");
+  const ch = await s.request("GET", "/api/auth/captcha");
+  assert.equal(ch.status, 200);
+  assert.match(ch.json.image, /^data:image\/svg\+xml;base64,/);
+  assert.equal(ch.headers["cache-control"], "no-store");
+
+  // a wrong answer: refused, and a new picture comes back at once
+  const wrong = await s.request("POST", "/api/auth/gate", { body: { token: ch.json.token, answer: "AAAAA", nonce: solvePow(ch.json.pow) } });
+  assert.equal(wrong.status, 400);
+  assert.equal(wrong.json.error, "captcha_wrong");
+  assert.match(wrong.json.challenge.image, /^data:image/);
+  // the right answer without the work
+  const nowork = await s.request("POST", "/api/auth/gate", { body: { token: wrong.json.challenge.token, answer: "K7QMR", nonce: "nope" } });
+  assert.equal(nowork.json.error, "captcha_work");
+
+  const c = nowork.json.challenge;
+  const ok = await s.request("POST", "/api/auth/gate", { body: { token: c.token, answer: "k7qmr", nonce: solvePow(c.pow) } });
+  assert.equal(ok.status, 200);
+  const gate = ok.json.gate;
+  // the pass opens every route
+  const chk = await s.request("POST", "/api/auth/email/check", { body: { email: "listed@corp.org", gate } });
+  assert.equal(chk.status, 200);
+  const login = await s.login("listed@corp.org", STRONG, { gate });
+  assert.equal(login.status, 200);
+  assert.ok(login.jar);
+  // the picture cannot be answered twice
+  const again = await s.request("POST", "/api/auth/gate", { body: { token: c.token, answer: "K7QMR", nonce: solvePow(c.pow) } });
+  assert.equal(again.json.error, "captcha_used");
+  // failures are on the audit trail
+  assert.ok((s.made.store.data.audit || []).filter((e) => e.type === "captcha_failed").length >= 3);
+});
+
+test("a visitor who has been refused is given harder work; an unlisted address still gets the plain refusal once through the gate", async (t) => {
+  const s = await boot({ captcha: gated() });
+  t.after(s.close);
+  const pass = async () => {
+    const ch = await s.request("GET", "/api/auth/captcha");
+    const r = await s.request("POST", "/api/auth/gate", { body: { token: ch.json.token, answer: "K7QMR", nonce: solvePow(ch.json.pow) } });
+    return { bits: ch.json.pow.bits, gate: r.json.gate };
+  };
+  const first = await pass();
+  assert.equal(first.bits, 12);
+  const refused = await s.request("POST", "/api/auth/email/check", { body: { email: "stranger@corp.org", gate: first.gate } });
+  assert.equal(refused.status, 403);
+  assert.equal(refused.json.error, "not_authorized");
+  assert.ok((await pass()).bits > 12, "harder after a refusal");
+});
+
+test("the ceiling over all sign-in traffic answers 'busy' at almost no cost, and the picture route is limited per visitor", async (t) => {
+  const cap = gated();
+  const s = await boot({ captcha: cap });
+  t.after(s.close);
+  const { FLOOD_MAX } = require("../captcha");
+  // fill the window directly, then the next request of any kind is turned away
+  for (let i = 0; i < FLOOD_MAX; i += 1) cap.crowded();
+  const busy = await s.request("GET", "/api/auth/captcha");
+  assert.equal(busy.status, 503);
+  assert.equal(busy.json.error, "busy");
+  assert.ok(busy.headers["retry-after"] >= 1);
+  const login = await s.request("POST", "/api/auth/email/login", { body: { email: "a@b.org", password: STRONG } });
+  assert.equal(login.status, 503, "turned away before any password hashing");
 });

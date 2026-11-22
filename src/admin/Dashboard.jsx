@@ -24,6 +24,7 @@ import { usePrefs } from "./prefs";
 import { mayOpen } from "./workspaces";
 import PageJumps from "./stock/terminal/PageJumps";
 import CustomizeCard from "./CustomizeCard";
+import LoginIconTile from "./LoginIconTile";
 import ZerodhaAccounts from "./ZerodhaAccounts";
 import DrishtiLogo from "./DrishtiLogo";
 
@@ -582,6 +583,8 @@ export default function Dashboard() {
                 </span>
                 <IconArrow />
               </a>
+              {/* the switch for the person icon in the public website's navbar (it hides the icon only; /me always opens) */}
+              <LoginIconTile />
             </section>
           )}
           <PageJumps side within=".hm" select="[data-jump]" min={2} label="The sections of this page" />

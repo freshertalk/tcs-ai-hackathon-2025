@@ -651,7 +651,54 @@ function createApp(opts = {}) {
   app.get("/api/public-config", (req, res) => {
     const id = store.data.settings.gaMeasurementId;
     const skip = isLocalHost(req.get("host")) || Boolean(currentUser(req));
-    res.json({ ga: id && !skip ? id : null });
+    // loginIcon: whether the public site's navbar shows the small person icon that leads to /me (the owner's switch under
+    // /me → Personal). Only the icon: /me itself always opens, whatever this says.
+    res.json({ ga: id && !skip ? id : null, loginIcon: store.data.settings.loginIcon !== false });
+  });
+
+  // The public site's own tiny live channel: one Server-Sent Events stream that carries ONLY the icon's on/off, so a switch pressed
+  // under /me reaches every open page of the public site at once, with no refresh. Capped (400 open, 3 per visitor) and quiet
+  // (a heartbeat every 25 s); it sends nothing private, and a page that connects is told the current state first.
+  const siteStreams = new Map(); // response -> visitor address
+  const sendIcon = (res) => res.write(`event: icon\ndata: ${JSON.stringify({ loginIcon: store.data.settings.loginIcon !== false })}\n\n`);
+  const siteBeat = setInterval(() => {
+    for (const res of siteStreams.keys()) {
+      try {
+        res.write(": beat\n\n");
+      } catch (_) {
+        siteStreams.delete(res);
+      }
+    }
+  }, 25000);
+  if (siteBeat.unref) siteBeat.unref();
+  app.get("/api/public-stream", (req, res) => {
+    const ip = req.ip || "?";
+    if (siteStreams.size >= 400 || [...siteStreams.values()].filter((x) => x === ip).length >= 3) return res.status(429).json({ error: "busy", message: "Too many open streams." });
+    res.set({ "Content-Type": "text/event-stream; charset=utf-8", "Cache-Control": "no-cache, no-transform", Connection: "keep-alive", "X-Accel-Buffering": "no" });
+    res.flushHeaders();
+    res.write("retry: 4000\n\n");
+    siteStreams.set(res, ip);
+    req.on("close", () => siteStreams.delete(res));
+    sendIcon(res);
+  });
+
+  // The switch for that icon: superadmins only, like the Personal block it sits in
+  app.get("/api/admin/settings/login-icon", requireSuper, (req, res) => res.json({ on: store.data.settings.loginIcon !== false }));
+  app.put("/api/admin/settings/login-icon", requireSuper, (req, res) => {
+    const on = (req.body || {}).on;
+    if (typeof on !== "boolean") return res.status(400).json({ error: "invalid", message: "Say whether the icon is on or off." });
+    store.update((d) => {
+      d.settings.loginIcon = on;
+    });
+    audit(req, "login_icon", req.user.email, { on });
+    for (const s of siteStreams.keys()) {
+      try {
+        sendIcon(s); // every open page of the public site changes now
+      } catch (_) {
+        siteStreams.delete(s);
+      }
+    }
+    res.json({ on });
   });
 
   app.get("/api/auth/status", (req, res) => {
@@ -664,6 +711,7 @@ function createApp(opts = {}) {
       // trader: this person may use their OWN Zerodha account here (the owner uses the site's own connection)
       user: u ? { ...u, hasPassword: Boolean((store.data.users[u.email] || {}).passwordHash), trader: u.role !== "superadmin" && accounts.allowed(u.email) } : null,
       methods: emailAuth.methods(),
+      captcha: emailAuth.captchaOn(), // the email sign-in asks for a security check (a picture and a proof of work)
       emailReady: mailer.configured(), // links by email can be sent (to choose or reset a password)
     });
   });
@@ -744,6 +792,7 @@ function createApp(opts = {}) {
   // Sign in with an email address (password or emailed code), account security, and the admin panel's
   // "Email & sign-in" settings: server/email-auth.js
   const emailAuth = mountEmailAuth(app, {
+    captcha: opts.captcha, // false: off (tests of the email routes); otherwise the security gate is always on
     store,
     mailer,
     sessionKey,

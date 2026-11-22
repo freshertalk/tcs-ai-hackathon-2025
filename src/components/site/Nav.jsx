@@ -8,6 +8,68 @@ import { EASE } from "../ui/motion";
 import { scrollToId } from "../../hooks/useSmoothScroll";
 import Picture from "../ui/Picture";
 
+const ICON_KEY = "vpt.loginIcon";
+
+/**
+ * Whether the personal sign-in icon is shown. The owner switches it under /me → Personal; the server tells the public site through
+ * /api/public-config. The last answer is remembered in this browser so the icon does not flicker on the next visit. Hiding the icon
+ * hides only the icon: /me itself always opens.
+ */
+function useLoginIcon() {
+  const [show, setShow] = useState(() => {
+    try {
+      return window.localStorage.getItem(ICON_KEY) !== "off";
+    } catch (_) {
+      return true;
+    }
+  });
+  useEffect(() => {
+    let alive = true;
+    const apply = (on) => {
+      if (!alive || typeof on !== "boolean") return;
+      setShow(on);
+      try {
+        window.localStorage.setItem(ICON_KEY, on ? "on" : "off");
+      } catch (_) {
+        /* private window: no memory */
+      }
+    };
+    const read = () =>
+      fetch("/api/public-config", { credentials: "same-origin", headers: { Accept: "application/json" } })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => d && apply(d.loginIcon))
+        .catch(() => {});
+    read();
+    // INSTANT: the server pushes the owner's switch over one small stream (it carries only this on/off), so an open page changes
+    // the moment it is pressed. A slow re-read every minute (and when the tab comes back into view) is the safety net.
+    let es = null;
+    if (typeof window.EventSource === "function") {
+      try {
+        es = new window.EventSource("/api/public-stream");
+        es.addEventListener("icon", (e) => {
+          try {
+            apply(JSON.parse(e.data).loginIcon);
+          } catch (_) {
+            /* a bad message changes nothing */
+          }
+        });
+      } catch (_) {
+        es = null;
+      }
+    }
+    const timer = setInterval(() => document.visibilityState !== "hidden" && read(), 60000);
+    const onVisible = () => document.visibilityState === "visible" && read();
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      alive = false;
+      if (es) es.close();
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, []);
+  return show;
+}
+
 export default function Nav({
   links = [],
   kicker = "",
@@ -18,6 +80,7 @@ export default function Nav({
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState("");
   const ctaId = cta?.id;
+  const loginIcon = useLoginIcon();
 
   const { scrollYProgress } = useScroll();
   const bar = useSpring(scrollYProgress, {
@@ -125,6 +188,7 @@ export default function Nav({
 
           <div className="nav__end">
             {/* the personal door: a plain link, so it works before anything has loaded; the page it opens says plainly that it is private */}
+            {loginIcon && (
             <a
               className="nav__me"
               href="/me"
@@ -137,6 +201,7 @@ export default function Nav({
                 <path d="M4.6 20c.6-3.8 3.6-6 7.4-6s6.8 2.2 7.4 6" />
               </svg>
             </a>
+            )}
             <button
               className={`nav__burger ${open ? "is-open" : ""}`}
               onClick={() => setOpen((v) => !v)}

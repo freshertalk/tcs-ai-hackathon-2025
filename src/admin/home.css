@@ -1616,3 +1616,61 @@
   font-size: var(--t-small);
   font-weight: 600;
 }
+
+/* the Login icon tile: a switch instead of an arrow */
+.hm-kundali--switch {
+  cursor: default;
+}
+.hm-kundali--switch:hover {
+  transform: none;
+}
+.hm-kundali--switch .hm-kundali__mark {
+  font-size: inherit;
+}
+.hm-switch {
+  position: relative;
+  flex: none;
+  width: 48px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--line-2, var(--line));
+  border-radius: 99px;
+  background: var(--surface-2, var(--paper));
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+.hm-switch i {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--ink-3);
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+.hm-switch.is-on {
+  border-color: var(--up);
+  background: color-mix(in srgb, var(--up) 22%, var(--surface));
+}
+.hm-switch.is-on i {
+  background: var(--up);
+  transform: translateX(20px);
+}
+.hm-switch:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.hm-switch:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.hm-switch__err {
+  color: var(--down-ink, var(--down));
+}
+@media (prefers-reduced-motion: reduce) {
+  .hm-switch,
+  .hm-switch i {
+    transition: none;
+  }
+}

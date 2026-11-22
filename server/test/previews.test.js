@@ -114,7 +114,7 @@ test("served: each /me address carries its own preview with the private headers;
   assert.match(tag(r.body, "property", "og:image"), /^http:\/\/127\.0\.0\.1:\d+\/img\/og\/social\.png$/, "a development machine keeps http");
 
   r = await get("/me/somewhere/else");
-  assert.equal(tag(r.body, "property", "og:title"), "DrishtiAI — the AI Trading Advisor for NSE");
+  assert.equal(tag(r.body, "property", "og:title"), "DrishtiAI");
 
   r = await get('/me/stock-report?view="><script>x</script>', { host: 'evil"><script>.example' });
   assert.ok(!r.body.includes("<script>x") && !r.body.includes('evil"'), "neither the query nor the Host header can write into the page");

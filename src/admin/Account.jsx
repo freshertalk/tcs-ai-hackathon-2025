@@ -14,6 +14,7 @@ const when = (iso) => (iso ? new Date(iso).toLocaleString(undefined, { dateStyle
 const WHAT = {
   signin: "Signed in",
   signin_failed: "A failed sign-in",
+  unauthorized_attempt: "A refused attempt (not on the list)",
   signout: "Signed out",
   signout_everywhere: "Signed out of every device",
   signout_forced: "Signed out by the owner",

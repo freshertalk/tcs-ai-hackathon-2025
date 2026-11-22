@@ -117,6 +117,7 @@ export async function api(path, { method = "GET", body } = {}) {
     );
     err.status = res.status;
     err.code = (data && data.error) || (res.status === 429 ? "rate_limited" : undefined);
+    err.data = data; // the rest of the server's answer (a pause's seconds, for one)
     throw err;
   }
   if (method === "GET" && data && keeps(path)) {

@@ -10,8 +10,15 @@
 //   code       a 6-digit code emailed to them, valid 10 minutes, five tries, used once. No password needed.
 //
 // What protects it
-//   · the same polite answer whether the address is unknown, not allowed, or has no password: nobody can use these
-//     pages to find out who has access; wrong-address and wrong-password take the same time too
+//   · ONLY the people the owner has listed can use any of it (21 Nov 2026, the owner's instruction). An address that is not on the
+//     list is refused at once, on EVERY route (password, code, link, check) with one plain message — "you are not authorized to
+//     enter this space" — nothing is sent to it, no code or link is made, and the sign-in page shows no reset or code option for it.
+//     The owner chose that clear refusal over hiding who is on the list; so every refusal is audited (unauthorized_attempt) and counted
+//     against the visitor: six in 15 minutes shut that visitor out for 30 minutes — but ONLY for addresses that are not on the list: a listed address is never blocked.
+//     (An address that IS listed but types a wrong password still gets the usual answer and lock below.)
+//   · a SECURITY GATE in front of all of it (22 Nov 2026, server/captcha.js): a fresh random picture drawn here, a proof of work that
+//     gets harder as traffic rises, a pass good for 15 minutes tied to the visitor, and one ceiling over all sign-in traffic
+//     ("busy, wait a few seconds"). A script cannot ask for sign-ins by the thousand; every email route refuses without the pass.
 //   · five wrong tries lock that address for 15 minutes (per address, kept across restarts for people on the list),
 //     and every route has a limit per visitor address as well
 //   · passwords: scrypt, a policy (see passwords.js), never logged or returned
@@ -31,6 +38,7 @@ const { BRAND } = require("./brand");
 const pw = require("./passwords");
 const { MailError } = require("./mailer");
 const { randomToken, sign, verify, safeEqual } = require("./crypto");
+const { Captcha } = require("./captcha");
 
 const LINK_TTL = 60 * 60; // seconds
 const INVITE_TTL = 3 * 24 * 60 * 60;
@@ -42,6 +50,10 @@ const LOCK_MS = 15 * 60 * 1000;
 const RESEND_MS = 60 * 1000;
 const PER_HOUR = 5;
 const MAX_REQUESTS = 50; // open requests kept; a flood cannot grow the record
+const STRIKES = 6; // refusals of unlisted addresses, from one visitor, within STRIKE_WINDOW_MS, shut that visitor out…
+const STRIKE_WINDOW_MS = 15 * 60 * 1000;
+const STRIKE_BLOCK_MS = 30 * 60 * 1000; // …for this long
+const NOT_AUTHORIZED = "You are not authorized to enter this space. Please do not try to sign in: this is the personal space of Vinay Kumar Tiwari, open only to the email addresses he has allowed.";
 
 const sha = (x) => crypto.createHash("sha256").update(String(x)).digest("hex");
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -127,6 +139,55 @@ function mountEmailAuth(app, ctx) {
     return bad(res, 429, "locked", `Too many wrong attempts. Try again in ${Math.max(1, Math.ceil(ms / 60000))} minute${Math.ceil(ms / 60000) === 1 ? "" : "s"}.`);
   };
 
+  /* ------------------------------------------------ unlisted addresses: refused, counted, shut out */
+  const strikes = new Map(); // visitor address -> { n, first, until }
+  const visitor = (req) => String((req && req.ip) || "unknown");
+  /** Is this visitor shut out for too many refusals? Answers at once, with the same warning, and says for how long. */
+  const shutOut = (req, res) => {
+    const f = strikes.get(visitor(req));
+    if (!f || !f.until || f.until <= now()) return false;
+    const mins = Math.max(1, Math.ceil((f.until - now()) / 60000));
+    res.set("Retry-After", String(Math.ceil((f.until - now()) / 1000)));
+    bad(res, 429, "not_authorized", `${NOT_AUTHORIZED} Too many attempts: this device is paused for ${mins} minute${mins === 1 ? "" : "s"}.`, { blocked: true, retryAfter: Math.ceil((f.until - now()) / 1000) });
+    return true;
+  };
+  // an unlisted address: refused, or — once its visitor has been shut out — turned away at once. A listed address is NEVER held up by this:
+  // the pause is only for addresses that are not on the list (the owner's instruction, 22 Nov 2026)
+  const deny = (req, res, canon, method) => (shutOut(req, res) ? undefined : refuse(req, res, canon, method));
+  /** The one refusal for an address that is not on the list. Nothing is sent to it and nothing is made for it. */
+  const refuse = (req, res, canon, method) => {
+    const t = now();
+    const key = visitor(req);
+    let f = strikes.get(key) || { n: 0, first: t, until: 0, tried: [] };
+    if (t - f.first > STRIKE_WINDOW_MS || (f.until && f.until <= t)) f = { n: 0, first: t, until: 0, tried: [] };
+    const tried = f.tried.includes(canon) ? f.tried : [...f.tried, canon].slice(-6);
+    f = { n: f.n + 1, first: f.first, until: f.n + 1 >= STRIKES ? t + STRIKE_BLOCK_MS : 0, tried };
+    strikes.set(key, f);
+    if (strikes.size > 5000) strikes.delete(strikes.keys().next().value);
+    audit(req, "unauthorized_attempt", canon, { method, strikes: f.n });
+    if (f.until) {
+      audit(req, "visitor_shut_out", canon, { minutes: STRIKE_BLOCK_MS / 60000 });
+      alertOwner(req, f);
+    }
+    return bad(res, 403, "not_authorized", NOT_AUTHORIZED, f.until ? { blocked: true, retryAfter: Math.ceil(STRIKE_BLOCK_MS / 1000) } : undefined);
+  };
+  // the owner is told, once per shut-out, when a visitor keeps trying addresses that are not on the list (only when mail is set up)
+  function alertOwner(req, f) {
+    if (!mailer.configured() || !mayMail("owner-alert")) return;
+    const m = message({
+      title: "Someone keeps trying to get into your private room",
+      lines: [
+        `A visitor tried ${f.n} addresses that are not on your list and was shut out for ${STRIKE_BLOCK_MINUTES()} minutes.`,
+        `Addresses tried: ${f.tried.join(", ")}`,
+        `From: ${visitor(req)} · ${String((req.get && req.get("user-agent")) || "").slice(0, 90)}`,
+        "Nothing was sent to those addresses and nobody was let in.",
+      ],
+      fine: "You can see every refused attempt under Email & sign-in → Recent sign-in activity.",
+    });
+    fire(mailer.send({ to: SUPERADMIN_EMAIL, subject: `${BRAND.name}: a visitor was shut out of your private room`, ...m }), "owner alert");
+  }
+  const STRIKE_BLOCK_MINUTES = () => STRIKE_BLOCK_MS / 60000;
+
   /* ------------------------------------------------ sending links and codes */
   const sent = new Map(); // canonical address -> [timestamps]
   function mayMail(canon) {
@@ -172,17 +233,75 @@ function mountEmailAuth(app, ctx) {
   const fire = (promise, what) =>
     promise.catch((err) => log.warn(`[auth] ${what} not sent: ${String((err && err.message) || err).slice(0, 160)}`));
 
-  /* ------------------------------------------------ routes: public */
+  /* ------------------------------------------------ the security gate: a picture, a proof of work, a flood guard (server/captcha.js) */
+  // ctx.captcha === false switches it off (the tests of the routes below); otherwise it is always on
+  const cap = ctx.captcha === false ? null : ctx.captcha instanceof Captcha ? ctx.captcha : new Captcha({ key: sessionKey });
   const perVisitor = (max, mins) => limiter(max, mins * 60 * 1000);
+  // ONE ceiling over every visitor together: past it, a sign-in request is turned away for almost nothing (before any password
+  // hashing, any mail, any record) with "wait a few seconds", so a flood cannot take the server down
+  app.use(["/api/auth/email", "/api/auth/captcha", "/api/auth/gate"], (req, res, next) => {
+    const wait = cap ? cap.crowded() : 0;
+    if (!wait) return next();
+    res.set("Retry-After", String(wait));
+    return bad(res, 503, "busy", "The sign-in is very busy just now. Please wait a few seconds and try again.", { retryAfter: wait });
+  });
+  /** Every email sign-in route asks for the pass first. True when it has answered (no pass): the caller returns. */
+  const needGate = (req, res) => {
+    if (!cap || cap.checkGate((req.body || {}).gate, visitor(req))) return false;
+    bad(res, 403, "gate_required", "Please complete the security check first.");
+    return true;
+  };
+  const challengeFor = (req) => {
+    const f = strikes.get(visitor(req));
+    return cap.issue(visitor(req), { extra: f && f.n ? Math.min(4, f.n) : 0 }); // a visitor who has been refused works a little harder
+  };
+  const WHY = {
+    wrong: "That is not what the picture shows. Here is a new one — please try again.",
+    work: "The check could not be finished. Here is a new picture — please try again.",
+    used: "That picture was already used. Here is a new one.",
+    expired: "That picture timed out. Here is a new one.",
+    invalid: "That picture was not meant for this device. Here is a new one.",
+  };
+  app.get("/api/auth/captcha", perVisitor(20, 10), (req, res) => {
+    res.set("Cache-Control", "no-store");
+    if (!cap) return res.json({ off: true });
+    res.json(challengeFor(req));
+  });
+  app.post("/api/auth/gate", perVisitor(30, 10), (req, res) => {
+    res.set("Cache-Control", "no-store");
+    if (!cap) return res.json({ ok: true, off: true });
+    const b = req.body || {};
+    const r = cap.solve({ token: b.token, answer: b.answer, nonce: b.nonce }, visitor(req));
+    if (r.ok) return res.json({ ok: true, gate: r.gate, expiresIn: r.expiresIn });
+    audit(req, "captcha_failed", "", { why: r.reason });
+    return bad(res, 400, `captcha_${r.reason}`, WHY[r.reason] || WHY.invalid, { challenge: challengeFor(req) });
+  });
+
+  /* ------------------------------------------------ routes: public */
+
+  // The first step of signing in by email: is this address one the owner has allowed? Only then does the page show the password
+  // field and the reset / code options. An unlisted address gets the refusal and nothing else.
+  app.post("/api/auth/email/check", perVisitor(12, 15), (req, res) => {
+    if (needGate(req, res)) return;
+    const email = typed((req.body || {}).email);
+    if (!EMAIL_RE.test(email)) return bad(res, 400, "invalid", "Enter a valid email address.");
+    const canon = canonicalEmail(email);
+    const id = identify(email);
+    if (!id) return deny(req, res, canon, "check");
+    const m = methods();
+    res.json({ ok: true, email: id.email, hasPassword: Boolean((record(id) || {}).passwordHash), can: { password: m.password, code: m.code, link: mailer.configured() } });
+  });
 
   app.post("/api/auth/email/login", perVisitor(20, 15), async (req, res) => {
+    if (needGate(req, res)) return;
     const b = req.body || {};
     const email = typed(b.email);
     const password = typeof b.password === "string" ? b.password.slice(0, 256) : "";
-    if (!methods().password) return bad(res, 403, "disabled", "Signing in with a password is turned off.");
     if (!EMAIL_RE.test(email) || !password) return bad(res, 400, "invalid", "Enter your email address and password.");
     const canon = canonicalEmail(email);
     const id = identify(email);
+    if (!id) return deny(req, res, canon, "password");
+    if (!methods().password) return bad(res, 403, "disabled", "Signing in with a password is turned off.");
     if (lockLeft(canon, id)) return lockedReply(res, canon, id, req, "password");
 
     const rec = record(id);
@@ -205,20 +324,23 @@ function mountEmailAuth(app, ctx) {
 
   // "Email me a link" — to choose a password the first time, or to reset a forgotten one
   app.post("/api/auth/email/link", perVisitor(10, 15), async (req, res) => {
+    if (needGate(req, res)) return;
     const email = typed((req.body || {}).email);
     if (!EMAIL_RE.test(email)) return bad(res, 400, "invalid", "Enter a valid email address.");
-    if (!mailer.configured()) return bad(res, 503, "email_off", "Email is not set up yet, so a link cannot be sent. Ask the owner.");
     const canon = canonicalEmail(email);
     const id = identify(email);
-    if (id && mayMail(canon)) {
+    if (!id) return deny(req, res, canon, "link"); // no link is made, nothing is mailed
+    if (!mailer.configured()) return bad(res, 503, "email_off", "Email is not set up yet, so a link cannot be sent. Ask the owner.");
+    if (mayMail(canon)) {
       audit(req, "link_requested", id.email, {});
       fire(sendLink(req, id), "sign-in link");
     }
-    res.json({ ok: true, message: "If that address can sign in here, a link is on its way. It works for an hour." });
+    res.json({ ok: true, message: "A link to choose a new password is on its way to your inbox. It works for an hour." });
   });
 
   // Sign up: ask for access (or, if already allowed, get the link to choose a password)
   app.post("/api/auth/email/signup", perVisitor(8, 60), async (req, res) => {
+    if (needGate(req, res)) return;
     const b = req.body || {};
     const email = typed(b.email);
     const name = String(b.name == null ? "" : b.name).replace(/[\u0000-\u001f\u007f<>]/g, " ").replace(/\s+/g, " ").trim().slice(0, 80);
@@ -314,12 +436,14 @@ function mountEmailAuth(app, ctx) {
   const codeMac = (id, code) => crypto.createHmac("sha256", linkKey).update(`${id.email}:${code}`).digest("hex");
 
   app.post("/api/auth/email/code", perVisitor(10, 15), async (req, res) => {
+    if (needGate(req, res)) return;
     const email = typed((req.body || {}).email);
-    if (!methods().code) return bad(res, 403, "disabled", mailer.configured() ? "Signing in with an emailed code is turned off." : "Email is not set up yet, so a code cannot be sent.");
     if (!EMAIL_RE.test(email)) return bad(res, 400, "invalid", "Enter a valid email address.");
     const canon = canonicalEmail(email);
     const id = identify(email);
-    if (id && mayMail(canon)) {
+    if (!id) return deny(req, res, canon, "code"); // no code is made, nothing is mailed
+    if (!methods().code) return bad(res, 403, "disabled", mailer.configured() ? "Signing in with an emailed code is turned off." : "Email is not set up yet, so a code cannot be sent.");
+    if (mayMail(canon)) {
       const code = String(crypto.randomInt(0, 1000000)).padStart(6, "0");
       touch(id, (u) => (u.code = { h: codeMac(id, code), exp: now() + CODE_TTL_MS, tries: 0 }));
       audit(req, "code_sent", id.email, {});
@@ -330,17 +454,19 @@ function mountEmailAuth(app, ctx) {
       });
       fire(mailer.send({ to: id.email, subject: `${code} is your ${BRAND.name} sign-in code`, ...m }), "sign-in code");
     }
-    res.json({ ok: true, message: "If that address can sign in here, a 6-digit code is on its way. It works for 10 minutes." });
+    res.json({ ok: true, message: "A 6-digit code is on its way to your inbox. It works for 10 minutes." });
   });
 
   app.post("/api/auth/email/code/verify", perVisitor(30, 15), async (req, res) => {
+    if (needGate(req, res)) return;
     const b = req.body || {};
     const email = typed(b.email);
     const code = String(b.code == null ? "" : b.code).replace(/\s+/g, "");
-    if (!methods().code) return bad(res, 403, "disabled", "Signing in with an emailed code is turned off.");
     if (!EMAIL_RE.test(email) || !/^\d{6}$/.test(code)) return bad(res, 400, "invalid", "Enter the email address and the 6-digit code.");
     const canon = canonicalEmail(email);
     const id = identify(email);
+    if (!id) return deny(req, res, canon, "code");
+    if (!methods().code) return bad(res, 403, "disabled", "Signing in with an emailed code is turned off.");
     if (lockLeft(canon, id)) return lockedReply(res, canon, id, req, "code");
     const rec = record(id);
     const c = rec && rec.code;
@@ -623,6 +749,7 @@ function mountEmailAuth(app, ctx) {
 
   return {
     methods,
+    captchaOn: () => Boolean(cap), // the sign-in page shows the security check only when this is on
     toggles: () => toggles(store),
     sendInvite: (req, id, by) => sendLink(req, id, { invite: true, by }),
     isLocked: (id) => lockLeft(canonicalEmail(id.email), id) > 0,
