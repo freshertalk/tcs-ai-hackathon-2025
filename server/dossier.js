@@ -105,6 +105,14 @@ async function dossier(symbol, deps) {
     out.daily = { score: analysis.score && { value: analysis.score.value, label: analysis.score.label }, rsi14: ind.rsi14, macdHist: ind.macdHist, adx: ind.adx, plusDI: ind.plusDI, minusDI: ind.minusDI, stochK: ind.stochK, bbPctB: ind.bbPctB, supertrendDir: ind.supertrendDir, relVolume: ind.relVolume, atrPct: ind.atrPct, patterns: (analysis.patterns || []).map((x) => `${x.name} (${x.bias})`).slice(0, 6), setupsOn: (analysis.setups || []).filter((x) => x.triggered).map((x) => x.name), week52: analysis.levels && analysis.levels.week52, movingAverages: analysis.levels && analysis.levels.movingAverages, supports: analysis.levels && (analysis.levels.supports || []).slice(0, 3), resistances: analysis.levels && (analysis.levels.resistances || []).slice(0, 3), returns: analysis.returns, relative: analysis.relative };
   } else miss("the daily indicators", analysis);
 
+  // the trade setup's tags for this stock: its futures build-up now and in the last session, the F&O ban, high delivery
+  if (deps.setup && typeof deps.setup.forStock === "function") {
+    try {
+      out.setup = deps.setup.forStock(symbol);
+    } catch (_) {
+      /* the dossier stands without it */
+    }
+  }
   if (delivery) {
     const d = delivery.forSymbol(symbol, { days: 10 });
     if (d && d.available) out.delivery = d;

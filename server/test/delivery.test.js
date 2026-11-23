@@ -87,3 +87,20 @@ test("with no network the store reads nothing and says so", async () => {
   assert.equal(await st.refresh(), 0);
   assert.equal(st.status().days, 0);
 });
+
+test("high delivery for the trade setup: the newest session's delivered share against each stock's own average, F&O names only, thin days left out", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "vpt-deliv-hi-"));
+  const store = new DeliveryStore({ dir, log: quiet });
+  // rows: [prev, close, volume, delivQty, delivPct, turnoverLacs, trades]
+  const days = ["2026-11-12", "2026-11-13", "2026-11-14", "2026-11-17", "2026-11-18", "2026-11-19", "2026-11-20"];
+  days.forEach((date, i) => {
+    const last = i === days.length - 1;
+    store.put({ date, rows: { AAA: [100, last ? 103 : 100, 1e6, 7e5, last ? 70 : 35, 1000, 5000], BBB: [50, 50, 1e6, 3e5, 31, 800, 4000], CCC: [10, 10, 1e4, 9e3, last ? 90 : 30, 1, 10], DDD: [20, last ? 19 : 20, 1e6, 6e5, last ? 60 : 30, 900, 3000] } });
+  });
+  const hi = store.highDelivery({ symbols: ["AAA", "BBB", "CCC"] });
+  assert.equal(hi.asOf, "2026-11-20");
+  assert.deepEqual(hi.list.map((x) => x.symbol), ["AAA"], "BBB is at its usual; CCC is too thin (₹0.01 cr); DDD is not F&O");
+  assert.equal(hi.list[0].vsAvg, 2);
+  assert.equal(hi.list[0].changePct, 3);
+  assert.deepEqual(store.highDelivery({}).list.map((x) => x.symbol), ["AAA", "DDD"], "without a list, every stock");
+});

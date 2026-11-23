@@ -187,8 +187,9 @@ class KiteClient {
    * Historical candles. `interval`: "day", "5minute", …
    * Daily bars are keyed by date ("YYYY-MM-DD"); intraday bars keep the full timestamp.
    */
-  async historical(token, interval, from, to) {
+  async historical(token, interval, from, to, { oi = false } = {}) {
     const q = new URLSearchParams({ from: stamp(from), to: stamp(to) });
+    if (oi) q.set("oi", "1"); // futures and options: each candle's open interest (the 7th column)
     const data = await parse(await this._get("historical", `/instruments/historical/${encodeURIComponent(token)}/${interval}?${q}`, { timeout: 25000 }));
     const rows = (data && data.candles) || [];
     return rows
@@ -200,6 +201,7 @@ class KiteClient {
         l: r[3],
         c: r[4],
         v: Number.isFinite(r[5]) ? r[5] : 0,
+        ...(oi && Number.isFinite(r[6]) ? { oi: r[6] } : {}),
       }));
   }
 

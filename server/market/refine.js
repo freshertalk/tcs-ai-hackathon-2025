@@ -29,8 +29,14 @@
 // Units: every move is in the stock's usual move for the horizon (σ·√h), as in market/consensus.js.
 // Pure: no clock, no network, no records.
 
-const DIM = 5;
-const FEATURES = ["bias", "micro", "queue", "spreadXcall", "volXcall"];
+// The last two were added on 23 Nov 2026 from the trade setup (server/setup.js): the stock's futures build-up now (long build-up
+// and short covering +, short build-up and long unwinding −, scaled by the OI change) and the market's setup lean. Like the others
+// they start at zero weight and move only as far as the checks show they explain what the forecast missed.
+const DIM = 7;
+const OLD_DIM = 5;
+const FEATURES = ["bias", "micro", "queue", "spreadXcall", "volXcall", "buildup", "setupLean"];
+/** A list of inputs from before the setup inputs: padded with zeros (they said nothing then). */
+const padX = (x) => (Array.isArray(x) && x.length === OLD_DIM ? [...x, 0, 0] : x);
 const LAMBDA = 80; // the pull towards "add nothing", in checks' worth
 const FADE = 0.9995;
 const MIN_CHECKS = 150;
@@ -102,6 +108,13 @@ function emptyModel() {
 function horizonOf(model, h) {
   const m = model && model.h ? model.h[h] || model.h[h <= 2 ? 1 : 3] : null;
   if (m && !m.conf2) m.conf2 = emptyConf(); // a model saved before the multi-day band
+  if (m && Array.isArray(m.A) && m.A.length < DIM) {
+    // a model saved before the setup inputs: the new inputs join at the prior (zero weight, the usual pull)
+    const n0 = m.A.length;
+    m.A = Array.from({ length: DIM }, (_, i) => Array.from({ length: DIM }, (__, j) => (i < n0 && j < n0 ? m.A[i][j] : i === j ? LAMBDA : 0)));
+    m.b = [...m.b, ...new Array(DIM - n0).fill(0)];
+    m.w = [...m.w, ...new Array(DIM - n0).fill(0)];
+  }
   return m;
 }
 
@@ -136,7 +149,7 @@ const scaleOf = (ratio) => (num(ratio) ? clamp(Math.sqrt(ratio), 0.6, 2.5) : 1);
  * @param zl     the leading forecast's move, in usual moves
  * @param ratio  today's volatility ratio (volRatio)
  */
-function inputsOf({ q = null, price, s, zl, ratio = null }) {
+function inputsOf({ q = null, price, s, zl, ratio = null, buildup = 0, setupLean = 0 }) {
   if (!num(price) || price <= 0 || !num(s) || s <= 0 || !num(zl)) return null;
   let micro = 0;
   let queue = 0;
@@ -151,7 +164,7 @@ function inputsOf({ q = null, price, s, zl, ratio = null }) {
   }
   const lv = num(ratio) ? clip(Math.log(ratio), 1.5) : 0;
   return {
-    x: [1, r4(micro), r4(queue), r4(clip(zl, 4) * spread), r4(clip(zl, 4) * lv)],
+    x: [1, r4(micro), r4(queue), r4(clip(zl, 4) * spread), r4(clip(zl, 4) * lv), r4(num(buildup) ? clip(buildup, 1) : 0), r4(num(setupLean) ? clip(setupLean, 1) : 0)],
     top: top ? { bid: q.bid, ask: q.ask, bidQty: q.bidQty, askQty: q.askQty, microprice: Math.round(((q.bid * q.askQty + q.ask * q.bidQty) / (q.bidQty + q.askQty)) * 100) / 100 } : null,
   };
 }
@@ -220,6 +233,7 @@ const offFormOf = (m, date) => Boolean(m && m.drift && m.drift.alarm && m.drift.
  */
 function forecastOf(model, h, { x, zl, ho, scale = 1, scale2 = null, date = "" }) {
   const m = horizonOf(model, h);
+  x = padX(x);
   if (!m || !Array.isArray(x) || x.length !== DIM || !num(zl)) return null;
   const adds = clip(dot(m.w, x), 1.5);
   const zr = clip(zl + adds, 4);
@@ -255,6 +269,7 @@ function forecastOf(model, h, { x, zl, ho, scale = 1, scale2 = null, date = "" }
  */
 function learn(model, h, kept, y, { date = "" } = {}) {
   const m = horizonOf(model, h);
+  if (kept && Array.isArray(kept.x)) kept = { ...kept, x: padX(kept.x) };
   if (!m || !kept || !Array.isArray(kept.x) || kept.x.length !== DIM || !num(y) || !num(kept.zl)) return;
   const yy = clip(y, 8);
   const x = kept.x;
@@ -352,4 +367,4 @@ function summaryOf(m, date = "") {
   };
 }
 
-module.exports = { DIM, FEATURES, LAMBDA, FADE, MIN_CHECKS, MIN_DAYS, MIN_SCORES, TARGET, GAMMA, KEEP_SCORES, PH_MIN, emptyModel, emptyHorizon, horizonOf, volRatio, scaleOf, inputsOf, intervalScore, conformalQuantile, forecastOf, learn, meanProven, bandProven, confProven, bandChoice, offFormOf, summaryOf, phi };
+module.exports = { DIM, OLD_DIM, padX, FEATURES, LAMBDA, FADE, MIN_CHECKS, MIN_DAYS, MIN_SCORES, TARGET, GAMMA, KEEP_SCORES, PH_MIN, emptyModel, emptyHorizon, horizonOf, volRatio, scaleOf, inputsOf, intervalScore, conformalQuantile, forecastOf, learn, meanProven, bandProven, confProven, bandChoice, offFormOf, summaryOf, phi };

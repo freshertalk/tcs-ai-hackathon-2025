@@ -191,7 +191,7 @@ test("the refiner rides on every forecast: the top of the book, today's volatili
   assert.equal(h15.price, h15.forecaster.price);
   assert.deepEqual(h15.refine.leads, { mean: false, band: false, bandBy: null });
   assert.ok(h15.refine.record.checks > 0, "it learned from the checks");
-  assert.equal(h15.refine.contributions.length, 5);
+  assert.equal(h15.refine.contributions.length, 7);
   cs._flush();
   assert.ok(docs.items(CALLS).some((r) => r.rf && r.rf[3] && Array.isArray(r.rf[3].x)), "kept with the forecast");
   assert.ok(docs.read("market/consensus-model.json", null).refine.h[3].n > 0, "saved with the blend");

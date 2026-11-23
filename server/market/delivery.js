@@ -271,6 +271,33 @@ class DeliveryStore {
     };
   }
 
+  /**
+   * The trade setup's "high delivery trades": in the newest session, the stocks (of `symbols`, e.g. the F&O list) whose delivered
+   * share of the volume was at least 1.3× their own average over the stored sessions — with a turnover above ₹5 crore, so a thin
+   * day does not count. Strongest first.
+   */
+  highDelivery({ symbols = null, limit = 15, minRatio = 1.3, minTurnoverCr = 5 } = {}) {
+    const dates = this.have().slice(0, KEEP);
+    if (!dates.length) return null;
+    const newest = this._rows(dates[0]);
+    if (!newest) return null;
+    const want = Array.isArray(symbols) && symbols.length ? new Set(symbols.map((s) => String(s).toUpperCase())) : null;
+    const older = dates.slice(1).map((d) => this._rows(d)).filter(Boolean);
+    const list = [];
+    for (const [sym, x] of Object.entries(newest)) {
+      if (want && !want.has(sym)) continue;
+      const [prev, close, volume, , delivPct, turnoverLacs] = x;
+      if (!num(delivPct) || !num(turnoverLacs) || turnoverLacs / 100 < minTurnoverCr) continue;
+      const past = older.map((r) => r[sym] && r[sym][4]).filter(num);
+      if (past.length < 5) continue;
+      const avg = past.reduce((a, b) => a + b, 0) / past.length;
+      if (!(avg > 0) || delivPct / avg < minRatio) continue;
+      list.push({ symbol: sym, delivPct: r2(delivPct), avgDelivPct: r2(avg), vsAvg: r2(delivPct / avg), changePct: num(prev) && prev > 0 && num(close) ? r2(((close - prev) / prev) * 100) : null, close, volume, turnoverCr: r2(turnoverLacs / 100) });
+    }
+    list.sort((a, b) => b.vsAvg - a.vsAvg);
+    return { asOf: dates[0], list: list.slice(0, limit), rule: `Delivered share of the session's volume at least ${minRatio}× the stock's average over the stored sessions, turnover above ₹${minTurnoverCr} crore.` };
+  }
+
   status() {
     const have = this.have();
     return { days: have.length, newest: have[0] || null, oldest: have[have.length - 1] || null, checkedAt: this.checkedAt, error: this.lastError, running: Boolean(this._busy) };

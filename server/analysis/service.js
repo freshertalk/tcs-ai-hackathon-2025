@@ -21,6 +21,7 @@ const { buildDay, analytics } = require("./day");
 const { labDay, labRange } = require("./lab");
 const { compareDay } = require("./compare");
 const SNAP = require("./snapshot");
+const { wantAi } = require("../ai/spend"); // an automatic AI wish becomes an ask the owner can allow (23 Nov 2026)
 
 const NAME = "analysis/days";
 // three tables of their own (a collection each in MongoDB, one file each otherwise), apart from the day reports
@@ -173,7 +174,8 @@ class DayAnalysis {
       readNotes: notes,
     };
     if (!trips.length && !old && by === "auto") return { skipped: "no trades", date, notes };
-    if (withAi || (by === "auto" && this.settings().withAi)) await this._writeAi(rec);
+    if (withAi) await this._writeAi(rec);
+    else if (by === "auto" && this.settings().withAi) await wantAi(this.ai, { key: "analysis-ai", feature: `Trade Analysis — the AI's write-up of ${date}`, why: "The day was saved after the close; the AI would write its review of the trades.", page: "analysis" }, () => this._writeAi(rec), () => this.writeAi(date));
     const doc = this._doc();
     doc.days[date] = rec;
     this._save(doc);

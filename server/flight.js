@@ -38,6 +38,7 @@ const { nseOpen } = require("./alert-watch");
 const { squareOffAt } = require("./market/session");
 const { BRAND } = require("./brand");
 const KC = require("./market/situation");
+const { wantAi } = require("./ai/spend"); // an automatic AI wish becomes an ask the owner can allow (23 Nov 2026)
 
 const IST = 5.5 * 3600 * 1000;
 const SETTINGS = "flight/settings.json";
@@ -529,7 +530,9 @@ class FlightDeck extends EventEmitter {
         .catch(() => {});
       this._event(slot, "alert", { text: "Sent to your phone: EXIT NOW." });
     }
-    if (st.aiMode === "change" && (a.state === "exit-now" || a.state === "book-part")) this.askAi(slot.key, { auto: true }).catch(() => {});
+    if (st.aiMode === "change" && (a.state === "exit-now" || a.state === "book-part")) {
+      Promise.resolve(wantAi(this.ai, { key: `flight-exit:${slot.key}`, feature: `Live board — the AI's exit read for ${slot.key}`, why: `The exit coach says ${a.state === "exit-now" ? "EXIT NOW" : "book part"}: the AI would weigh it.`, page: "account" }, () => this.askAi(slot.key, { auto: true }))).catch(() => {});
+    }
   }
 
   /* -------------------------------------------------------------------- the AI's opinion */
@@ -857,7 +860,7 @@ class FlightDeck extends EventEmitter {
       if (now - slot.ctx.at >= CTX_MS) await this._context(slot).catch(() => {});
       // the AI's levels, only when they are needed: at the start, when a level was reached, when they went stale
       const need = this._levelsNeed(slot, now);
-      if (need) this.researchLevels(slot.key, { auto: true, why: need }).catch(() => {});
+      if (need) Promise.resolve(wantAi(this.ai, { key: `flight-levels:${slot.key}`, feature: `Live board — the AI's exit levels for ${slot.key}`, why: need, page: "account" }, () => this.researchLevels(slot.key, { auto: true, why: need }))).catch(() => {});
       // no streamed tick lately (the stream is down, or the stock is quiet): look with a quote
       if (!live || now - slot.lookAt > 4000) {
         try {

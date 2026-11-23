@@ -266,6 +266,27 @@ The pass is signed, tied to the visitor's address, lasts 15 minutes and carries 
 the anonymous budget still apply. Switch off only for tests (`createApp({ captcha: false })`). A flood of 600 login requests was
 answered in 0.65 s, 20 of them reaching the gate and the rest turned away by the limiter.
 
+**The trade setup (2026-11-23; `server/setup.js`, `server/market/setup.js`, Trade setup workspace).** The fifteen readings of the
+morning "trade setup", gathered by the desk itself with no AI and no button: NIFTY 50 / NIFTY BANK floor-trader pivots from the last
+finished session (beside the option walls and max pain); NIFTY and BANKNIFTY calls and puts — most OI, most OI added, most OI
+shed (option chains from Kite, 41 strikes); FII/DII cash flows (NSE's public `api/fiidiiTradeReact`); PCR; India VIX; every F&O
+stock's near-month future in one Kite quote request, its build-up (long build-up, short build-up, short covering, long unwinding)
+now against the last close's OI and for the last session, from Kite's daily candles with `oi=1` read once a day
+(`MarketService.futuresBoard`, `futureDaily`); high delivery (`DeliveryStore.highDelivery`); the F&O ban (nsearchives
+`fo_secban.csv`). Schedule (every 30 s it checks what is due): in the session board and chains every 2 min, VIX every minute;
+outside it hourly; ban from 8 AM; flows every 30 min outside the session. A setup lean (pivot 1.2, option chain 1.5, build-up
+breadth 1.3, flows 0.9, VIX 0.8, BANKNIFTY 0.6) is written down at 9:14 and scored after the close against NIFTY
+(`market/setup-ledger.json`). It feeds: the consensus refiner (two new inputs, the stock's build-up and the lean, zero weight
+until proven; old refiner models are padded), TradeAI (`DATA.setup`, `DATA.setup_SYMBOL`), the dossier, the skills file, and
+the live channel (topic `setup`).
+
+**AI asks (2026-11-23; `server/ai/spend.js`, `src/admin/AiAsks.jsx`).** An automatic feature that would like the AI calls
+`guard.wants({ key, feature, why }, run)` (or `wantAi(ai, …)`): it runs at once only when the rule allows; otherwise it becomes an
+ask shown as a popup on every private page for the superadmin — "Allow once" runs it inside that POST (the owner's click),
+"Not now" snoozes it for two hours; deduplicated, at most 12, expire after 3 h, live topic `ai-ask`. Wired for the Live board's
+exit read and exit levels, the Top 10 review, the index projections, the after-close Trade Analysis write-up and the live
+scanner's review. Routes: `GET /api/admin/ai/asks`, `POST /api/admin/ai/asks/:key/allow|dismiss` (superadmin).
+
 **Volatility from several days of history (2026-11-22; `server/market/volmodel.js`).** Each evening after 15:45 the consensus
 service fits a pooled log HAR-RV model (Corsi 2009) on the stored 5-minute history, one stock at a time (yesterday's, the last
 week's and the last month's realized variance against the stock's usual, plus the whole market's yesterday), judged on the

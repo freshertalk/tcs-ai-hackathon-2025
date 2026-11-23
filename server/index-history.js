@@ -22,6 +22,7 @@
 
 const { analyze, compare, scoreRows, MODEL } = require("./market/indices");
 const demo = require("./market/demo");
+const { wantAi } = require("./ai/spend"); // an automatic AI wish becomes an ask the owner can allow (23 Nov 2026)
 
 const IST = 5.5 * 3600 * 1000;
 const INDICES = {
@@ -501,7 +502,7 @@ class IndexHistory {
         if (horizon === "month" && day > 7) continue; // the first week only: later it would know too much of the month
         if (horizon === "year" && (today.slice(5, 7) !== "01" || day > 10)) continue;
         try {
-          const made = await this.askAi(id, horizon, { auto: true });
+          const made = await wantAi(this.ai, { key: `index-ai:${id}:${horizon}`, feature: `Indices — the AI's ${horizon} projection for ${id}`, why: `The ${horizon}'s projection is due (made in the first days of the ${horizon}, then scored).`, page: "indices" }, () => this.askAi(id, horizon, { auto: true }));
           if (made) {
             this.log.log(`[indices] the AI's ${horizon} projection for ${id}: ${made.mid} (${made.status})`);
             return; // one a round

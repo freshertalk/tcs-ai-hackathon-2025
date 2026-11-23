@@ -41,6 +41,7 @@ import TradeAI from "./tradeai/TradeAI";
 import Social from "./social/Social";
 import Kundali from "./kundali/Kundali";
 import Expenses from "./expenses/Expenses";
+import AiAsks from "./AiAsks";
 
 import "./admin.css";
 import "./hub.css";
@@ -207,6 +208,8 @@ export default function AdminApp() {
         <DialogProvider>
         {/* the Mandir: devotional audio on every private page, once signed in */}
         <TempleProvider>
+        {/* what an automatic feature would like the AI for: a popup for the superadmin, "Allow once" or "Not now" */}
+        {value.user && value.user.role === "superadmin" && <AiAsks />}
         <Routes>
           <Route path={ADMIN_BASE} element={<Gate><Dashboard /></Gate>} />
           <Route path={`${ADMIN_BASE}/google`} element={<Gate><GoogleSettings /></Gate>} />

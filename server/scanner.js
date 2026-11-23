@@ -31,6 +31,7 @@ const S = require("./market/scan");
 const SNAP = require("./market/index-snapshots.json");
 const KB = require("./market/knowledge");
 const KC = require("./market/situation");
+const { wantAi } = require("./ai/spend"); // an automatic AI wish becomes an ask the owner can allow (23 Nov 2026)
 
 const NIFTY = { symbol: "NIFTY 50", token: 256265 };
 const LOOP_MS = 1000;
@@ -397,7 +398,7 @@ class Scanner extends EventEmitter {
     const { picks } = this._ranked();
     this._share(picks.slice(0, 5));
     const why = this._aiNeed(picks);
-    if (why) this.review(why).catch(() => {});
+    if (why) Promise.resolve(wantAi(this.ai, { key: "scanner-review", feature: "Live scanner — the AI's review", why: String(why), page: "screener" }, () => this.review(why))).catch(() => {});
   }
 
   /* -------------------------------------------------------------------------- AI */

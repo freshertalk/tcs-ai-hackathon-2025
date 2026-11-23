@@ -1,0 +1,124 @@
+/* The AI asks popup (AiAsks.jsx): floats at the bottom-right of every private page; tokens only, so both themes follow. */
+.aiask {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 900;
+  display: grid;
+  gap: 8px;
+  width: min(380px, calc(100vw - 32px));
+  max-height: min(70vh, 560px);
+  overflow-y: auto;
+  padding: 12px 14px;
+  border: 1px solid var(--accent, var(--line));
+  border-radius: 12px;
+  background: var(--surface, #fff);
+  color: var(--ink, #111);
+  box-shadow: var(--shadow-lg, 0 18px 40px -18px rgba(0, 0, 0, 0.45));
+  animation: aiask-in 0.25s ease-out;
+}
+.aiask.is-folded {
+  max-height: none;
+}
+.aiask--note {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+.aiask--note p {
+  margin: 0;
+  font-size: var(--t-small, 13px);
+}
+.aiask__head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+.aiask__head h2 {
+  margin: 0;
+  font-size: var(--t-body, 14px);
+  font-weight: 700;
+  overflow-wrap: break-word;
+}
+.aiask__mark {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--surface-2, transparent);
+  color: var(--ink, inherit);
+  box-shadow: inset 0 0 0 1px var(--accent, var(--line));
+  font-size: var(--t-tag, 11px);
+  font-weight: 800;
+}
+.aiask__fold {
+  padding: 2px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink-2, var(--ink));
+  cursor: pointer;
+}
+.aiask__lead,
+.aiask__note {
+  margin: 0;
+  color: var(--ink-2, var(--ink));
+  font-size: var(--t-small, 13px);
+  overflow-wrap: break-word;
+}
+.aiask__list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.aiask__list li {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-2, transparent);
+}
+.aiask__list b {
+  font-size: var(--t-small, 13px);
+  overflow-wrap: break-word;
+}
+.aiask__list span {
+  color: var(--ink-2, var(--ink));
+  font-size: var(--t-small, 13px);
+  overflow-wrap: break-word;
+}
+.aiask__list small {
+  color: var(--ink-3, var(--ink-2));
+  font-size: var(--t-tag, 11px);
+}
+.aiask__acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+@keyframes aiask-in {
+  from {
+    transform: translateY(12px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .aiask {
+    animation: none;
+  }
+}
+/* the terminal's bottom navigation on a phone (54 px): the popup sits above it, never over it */
+.adm:has(.tm--bnav) .aiask {
+  bottom: 70px;
+  max-height: min(60vh, 480px);
+}

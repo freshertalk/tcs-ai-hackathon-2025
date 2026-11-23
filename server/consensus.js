@@ -218,6 +218,17 @@ class Consensus {
     const anchorSlot = H.slotOf(anchorEnd - BAR);
     const multiFor = (h) => (vm && prior !== null ? V.scaleFor({ prior, season: vm.season, bars: doneBars || [], sigmaPct, slot: anchorSlot, h }) : null);
     let multiNow = null;
+    // the trade setup (server/setup.js): this stock's futures build-up now and the market's setup lean — refiner inputs
+    let tags = null;
+    let leanNow = 0;
+    if (this.setup) {
+      try {
+        tags = this.setup.forStock(symbol);
+        leanNow = this.setup.leanNow();
+      } catch (_) {
+        tags = null;
+      }
+    }
     const round05 = (p) => Math.round(p * 20) / 20;
     let topOfBook = null;
     for (const [key, lead] of [["5", 2.5], ["15", 15]]) {
@@ -236,7 +247,7 @@ class Consensus {
       const sH = sigmaPct * Math.sqrt(h);
       const zl = num(f.proven ? f.blend.z : f.solo.z) ? (f.proven ? f.blend.z : f.solo.z) : num(lead_.pct) ? lead_.pct / sH : 0;
       const ho = num(lead_.high) && num(lead_.low) && price > 0 ? ((lead_.high - lead_.low) / 2 / price) * 100 / sH : null;
-      const ri = R.inputsOf({ q, price, s: sH, zl, ratio });
+      const ri = R.inputsOf({ q, price, s: sH, zl, ratio, buildup: tags ? tags.score : 0, setupLean: leanNow });
       const mv = multiFor(h);
       if (mv && h === 3) multiNow = mv;
       if (mv && !multiNow) multiNow = mv;
@@ -326,6 +337,7 @@ class Consensus {
               outlook: prior === null ? null : prior >= 1.4 ? `the last days point to a wilder session than usual (about ${Math.round(Math.sqrt(prior) * 10) / 10}× the usual move)` : prior <= 0.7 ? "the last days point to a calmer session than usual" : "the last days point to an ordinary session",
             },
       topOfBook,
+      setup: tags ? { buildupNow: tags.live, buildupLastSession: tags.prev, banned: tags.banned, highDelivery: tags.highDelivery, marketLean: leanNow } : null,
       offForm: horizons.some((x) => x.refine && x.refine.offForm),
       parts: {
         forecaster: { trained: hv.trained !== false, live: hv.live || null },

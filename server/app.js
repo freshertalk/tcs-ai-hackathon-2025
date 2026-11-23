@@ -76,6 +76,7 @@ const { LiveHub } = require("./live");
 const { Supervisor } = require("./supervisor");
 const { TrainGuard } = require("./train-guard");
 const { Consensus } = require("./consensus");
+const { TradeSetup } = require("./setup");
 const { DeliveryStore } = require("./market/delivery");
 const { dossier } = require("./dossier");
 const { Recorder } = require("./recorder");
@@ -1314,6 +1315,21 @@ ${e.text}
   // AI credit protection on the AI page: the rule, what it has held back today, what the AI has used
   app.get("/api/admin/ai/spend", requireAdmin, aWrap(() => ({ ...ai.guard.status(), today: ai.engine.status().today, saved: ai.engine.status().saved, open: evidence.aiStatus() })));
   app.put("/api/admin/ai/spend", requireSuper, limiter(20, 15 * 60 * 1000), aWrap((req) => ai.guard.setAuto(Boolean((req.body || {}).auto), req.user.email)));
+  // The AI asks (23 Nov 2026): what an automatic feature would like the AI for — shown as a popup on every private page for the
+  // superadmin. "Allow once" runs it inside this request's click (credit is spent only now, by the owner's press); "Not now" snoozes it.
+  ai.guard.onAsk = () => live.publish("ai-ask", "ask");
+  app.get("/api/admin/ai/asks", requireSuper, (req, res) => res.json({ asks: ai.guard.asks(), auto: ai.guard.status().auto, enforced: ai.guard.enforce }));
+  app.post("/api/admin/ai/asks/:key/allow", requireSuper, limiter(30, 15 * 60 * 1000), (req, res) => {
+    const key = String(req.params.key || "").slice(0, 80);
+    const job = ai.guard.allowAsk(key);
+    if (!job) return res.status(404).json({ error: "gone", message: "That request is no longer waiting (it was answered or it expired)." });
+    job.catch((err) => (opts.log || console).error(`[ai] the allowed request "${key}" failed: ${err.message}`));
+    res.json({ started: true, asks: ai.guard.asks() });
+  });
+  app.post("/api/admin/ai/asks/:key/dismiss", requireSuper, (req, res) => {
+    ai.guard.dismissAsk(String(req.params.key || "").slice(0, 80));
+    res.json({ ok: true, asks: ai.guard.asks() });
+  });
   const symOf = (req) => String(req.params.symbol || "").trim().toUpperCase().slice(0, 25);
   app.get("/api/admin/autopilot", requireAdmin, aWrap((req) => autopilot.board({ withAccount: req.user.role === "superadmin" })));
   app.get("/api/admin/autopilot/playbook/:symbol", requireAdmin, limiter(120, 60 * 1000), aWrap((req) => autopilot.playbook(symOf(req), { withAccount: req.user.role === "superadmin" })));
@@ -1662,8 +1678,22 @@ ${e.text}
     opts.delivery ||
     new DeliveryStore({ dir: dataDir, fetchImpl: opts.deliveryFetch !== undefined ? opts.deliveryFetch : underTest || opts.marketFetch ? null : globalThis.fetch, now: opts.now, log: opts.log || console, isTradingDay: (d) => nseCalendar.isTradingDay(d) });
   if (!underTest && opts.deliveryWatch !== false) delivery.start();
+  // The trade setup (server/setup.js, 23 Nov 2026): the fifteen morning readings — NIFTY and BANKNIFTY levels, their option
+  // writing, PCR, VIX, FII/DII flows, every F&O stock's build-up, high delivery and the F&O ban — kept fresh BY ITSELF from Zerodha
+  // and NSE's public files, with a market lean that is recorded and scored. No AI, no button. It feeds the consensus refiner,
+  // TradeAI and the dossier.
+  const setup =
+    opts.setup ||
+    new TradeSetup({ market, delivery, docs: store.docs, playbook: ai.playbook, fetchImpl: opts.setupFetch !== undefined ? opts.setupFetch : underTest || opts.marketFetch ? async () => ({ ok: false, status: 0 }) : null, now: opts.now, log: opts.log || console, isTradingDay: (d) => nseCalendar.isTradingDay(d) });
+  if (market.ticker && opts.horizonWatch !== false && opts.alertWatch !== false && opts.setupWatch !== false) setup.start();
+  consensus.setup = setup;
+  ai.deskSetup = () => setup.brief();
+  ai.deskSetupFor = (symbol) => setup.forStock(symbol);
+  live.watch("setup", () => setup.fingerprint());
+  app.get("/api/admin/market/setup", requireAdmin, limiter(240, 60 * 1000), hWrap(async () => setup.view()));
+  app.get("/api/admin/market/setup/stock/:symbol", requireAdmin, limiter(240, 60 * 1000), hWrap(async (req) => setup.forStock(csSym(req))));
   // The research dossier (server/dossier.js): everything the desk knows about one stock in one read — for TradeAI's deep research
-  const researchOf = (symbol) => dossier(symbol, { market, horizon, evidence, ahead, consensus, delivery, ensemble: ai.ensemble, now: opts.now });
+  const researchOf = (symbol) => dossier(symbol, { market, horizon, evidence, ahead, consensus, delivery, setup, ensemble: ai.ensemble, now: opts.now });
   ai.deskConsensus = (symbol) => consensus.view(symbol);
   ai.deskDelivery = (symbol) => delivery.forSymbol(symbol);
   ai.deskDossier = researchOf;
@@ -2367,6 +2397,7 @@ ${e.text}
     holidays,
     market,
     ai,
+    tradeSetup: setup,
     trading,
     scanner,
     setupLab,

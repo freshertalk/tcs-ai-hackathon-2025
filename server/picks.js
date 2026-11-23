@@ -29,6 +29,7 @@
 // It reads the market. It never trades. It lives outside server/ai (which holds no timers).
 
 const P = require("./market/picks");
+const { wantAi } = require("./ai/spend"); // an automatic AI wish becomes an ask the owner can allow (23 Nov 2026)
 
 const IST = 5.5 * 3600 * 1000;
 const SETTINGS = "picks/settings.json";
@@ -371,12 +372,13 @@ class TopPicks {
     // the AI's review: before the open and after the close, and in the session only on need
     const need = this._aiNeed(snap, prev, changes);
     if (need) {
+      const desc = { key: "picks-review", feature: "Research Top 10 — the AI's review", why: typeof need === "string" ? need : "The Top 10 changed enough to need a fresh AI review.", page: "research" };
       if (live) {
         this._save(snap);
-        this._review(snap, need).catch(() => {});
+        Promise.resolve(wantAi(this.ai, desc, () => this._review(snap, need))).catch(() => {});
         return this._view(snap);
       }
-      await this._review(snap, need).catch(() => {});
+      await Promise.resolve(wantAi(this.ai, desc, () => this._review(snap, need))).catch(() => {});
     }
     if (phase === "post") await this._settle().catch((err) => this.log.error(`[picks] scoring: ${err.message}`));
     this._save(snap);

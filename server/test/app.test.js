@@ -836,3 +836,38 @@ test("the public site hears the icon switch at once over its own small stream: t
   assert.equal(d.status, 429);
   for (const x of [a, b, c]) x.req.destroy();
 });
+
+test("the trade setup and the AI asks over HTTP: the setup for admins; the asks, Allow once (as the owner's click) and Not now for the superadmin", async (t) => {
+  const s = await boot();
+  t.after(s.close);
+  await s.configure();
+  const boss = (await s.login(SUPERADMIN_EMAIL)).session;
+  let r = await s.request("GET", "/api/admin/market/setup", { cookie: boss });
+  assert.equal(r.status, 200);
+  assert.ok("lean" in r.json && "record" in r.json && "options" in r.json, Object.keys(r.json).join(","));
+  assert.equal((await s.request("GET", "/api/admin/market/setup")).status, 401);
+  assert.equal((await s.request("GET", "/api/admin/market/setup/stock/SBIN", { cookie: boss })).json.symbol, "SBIN");
+
+  // an automatic feature wishes for the AI (no click): it becomes an ask
+  const g = s.made.ai.guard;
+  g.enforce = true;
+  let ran = null;
+  await g.wants({ key: "picks-review", feature: "Research Top 10 — the AI's review", why: "the Top 10 changed", page: "research" }, async () => {
+    ran = g.clicked() ? "click" : "no click";
+  });
+  assert.equal(ran, null);
+  r = await s.request("GET", "/api/admin/ai/asks", { cookie: boss });
+  assert.deepEqual(r.json.asks.map((a) => [a.key, a.feature, a.why]), [["picks-review", "Research Top 10 — the AI's review", "the Top 10 changed"]]);
+  r = await s.request("POST", "/api/admin/ai/asks/picks-review/allow", { cookie: boss });
+  assert.equal(r.json.started, true);
+  await new Promise((res) => setTimeout(res, 50));
+  assert.equal(ran, "click", "it ran inside the owner's press");
+  assert.equal((await s.request("POST", "/api/admin/ai/asks/picks-review/allow", { cookie: boss })).status, 404, "answered already");
+  await g.wants({ key: "scanner-review", feature: "Live scanner — the AI's review" }, async () => {});
+  r = await s.request("POST", "/api/admin/ai/asks/scanner-review/dismiss", { cookie: boss });
+  assert.deepEqual(r.json.asks, []);
+  // a plain admin does not see or answer them
+  await s.request("POST", "/api/admin/admins", { cookie: boss, body: { email: "plain2@example.com", invite: false } });
+  const plain = (await s.login("plain2@example.com")).session;
+  assert.equal((await s.request("GET", "/api/admin/ai/asks", { cookie: plain })).status, 403);
+});

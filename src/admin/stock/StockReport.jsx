@@ -30,6 +30,7 @@ import Research from "./trade/Research";
 import Journal from "./trade/Journal";
 import Advisor from "./advisor/Advisor";
 import NowView from "./now/NowView";
+import TradeSetup from "./setup/TradeSetup";
 import ExpiryCalendar from "./ExpiryCalendar";
 import { TradeProvider, useTrade } from "./trade/TradeContext";
 import { GoalBanner } from "./trade/DailyGoal";
@@ -51,6 +52,7 @@ import "./terminal/pages.css";
 const VIEWS = [
   { id: "analyzer", label: "Desk", tip: "Watchlist, chart, the live call, order book and co-pilot for one stock, with your positions docked below." },
   { id: "now", label: "Now", tip: "The command screen: every followed stock with its price as it ticks and its calls for 5 and 15 minutes, your positions with the evidence for or against them, the market, the checks so far and what every automatic system is doing — all live, on one page." },
+  { id: "setup", label: "Trade setup", tip: "The morning's fifteen readings, kept current by the desk itself: NIFTY and BANKNIFTY key levels, their call and put writing, FII/DII flows, PCR, India VIX, every F&O stock's futures build-up (long build-up, short build-up, short covering, long unwinding), high delivery and the F&O ban — with the setup lean and its record. No AI, no refresh." },
   { id: "research", label: "Research", tip: "Pre-market and post-market research for your watchlist." },
   { id: "advisor", label: "Advisor", tip: "Your watchlist read by measured odds: what followed the days most like today, whether such calls held up when tested forward, and a plan sized for your risk." },
   { id: "screener", label: "Screener", tip: "Any NSE index — NIFTY 50, BANK, NEXT 50, broad and sector indices: top gainers and losers, RSI, VWAP, volume and the 52-week range, live; RSI search over the Nifty 500." },
@@ -299,6 +301,8 @@ function Terminal() {
               <NowView onOpen={openStock} />
             ) : view === "advisor" ? (
               <Advisor onOpen={openStock} />
+            ) : view === "setup" ? (
+              <TradeSetup onOpen={openStock} />
             ) : view === "account" ? (
               <Account />
             ) : view === "journal" ? (

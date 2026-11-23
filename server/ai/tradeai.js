@@ -81,6 +81,7 @@ How to answer:
 - If the question is not about trading, answer briefly and steer back.
 - The consensus forecast (DATA.forecast_SYMBOL): the desk's ONE level forecast for about 5 and 15 minutes ahead — the price, the likely band (low–high), the chance of a rise and its strength (tier), the level likely touched first above and below, and which engine leads: "blend" (the forecaster, the evidence desk, the early calls and the order book weighed together, leading because its checked record beats the forecaster alone) or "forecaster" (the blend is still proving itself). Quote its numbers with its record (checks, how often the direction was right, the average miss) — never present a band edge as a target or a forecast as a certainty.
 - The refiner inside the forecast (refiner, volatility, topOfBook, offForm): the microprice (the mid-price weighted by the best bid and offer queues — where the next trades are likelier to happen than the last price), today's realized volatility against the usual and what the last days forecast for today (volatility.expected, volatility.outlook — a wild week makes a wild morning likelier), a band made from the forecast's own recent misses that keeps its stated 70% (its measured coverage beside the old band's), and an off-form alarm. Quote the refiner only as far as its record says it leads; when offForm is true, say the desk's forecasts are missing more than usual today and lower your confidence.
+- The trade setup (DATA.setup): the morning's fifteen readings, measured by the desk itself and kept current — NIFTY and BANKNIFTY pivots, supports and resistances; the option chain's most OI, writing (OI added) and unwinding (OI shed) for calls and puts; PCR; max pain; India VIX; FII/DII cash flows (₹ crore); every F&O stock's futures build-up now and in the last session (long build-up, short build-up, short covering, long unwinding, with counts and the strongest names); high-delivery stocks; the F&O ban list; and a setup lean with its reasons and its measured record. DATA.setup_SYMBOL carries one stock's own build-up, ban and delivery. Use them for the market's picture and for each stock's context; a stock in the F&O ban takes no new derivative positions; quote the lean's record when you lean on it.
 - Delivery (DATA.delivery_SYMBOL): NSE's published share of traded quantity taken for delivery on the last sessions (never today's — it is published after the close), its 20-session average, the trend and the reading of the last session (accumulation, distribution, speculative churn). Use it for the days' picture, not for the next five minutes.
 - Deep research (DATA.research_SYMBOL): every data point the desk has on the stock in one read — the order book price by price on NSE and BSE (five bids and offers with quantities, pending buy and sell totals, the imbalance and any wall), the 15-minute forecaster's path to 30 minutes with its accuracy, the evidence desk's calls with the techniques speaking and their records, its live readings (futures open interest, the option chain, NIFTY and SENSEX, the sector, India VIX, GIFT NIFTY, Wall Street and Asia, each with whether it has proven itself), the early calls (reversal, carry-on, momentum), delivery, the world and the news. "missing" lists what could not be read — say so instead of guessing.
 - When the trader asks you to research, analyse or forecast a stock (or DATA.research_SYMBOL is present), write a full research note with these "### " sections, each with the actual numbers: **Verdict** (one line: lean, strength, horizon); **Next 5 and 15 minutes** (the consensus forecast: price, band, chance of a rise, the level likely touched first, which engine leads and its record); **Buyers and sellers** (the order book on NSE and BSE: best bids and offers with quantities, pending totals, imbalance, walls; the quote's buy and sell quantity); **Price, volume and delivery** (VWAP and the distance from it, volume against usual, the recent delivery and what it says); **Indicators** (RSI on 5 minutes and daily, MACD, ADX, Supertrend, Bollinger, EMAs — what they agree on and where they conflict); **Levels and how it behaved there** (the level map with each level's measured record and touch odds); **Market and the world** (NIFTY and SENSEX trend, the sector, India VIX, GIFT NIFTY, Wall Street and Asia — only those that are open or fresh, and whether each has proven itself here); **Options and open interest**; **Risks and what would change the view** (the level that cancels it); **Plan** (entry zone, stop, targets as levels, size by risk — never an instruction to trade). Weigh a reading by its measured record: a proven technique or live reading counts more; an unproven one is context.`;
@@ -421,6 +422,25 @@ class TradeAI {
             })
             .catch(() => {}),
         );
+      }
+    }
+    // the trade setup (server/setup.js): the morning's fifteen readings, kept fresh by the desk itself — free data
+    if ((want("market") || want("options") || want("research") || want("plan")) && typeof this.ai.deskSetup === "function") {
+      try {
+        data.setup = this.ai.deskSetup();
+        used.push("trade setup");
+      } catch (_) {
+        /* the answer stands without it */
+      }
+    }
+    if ((want("snapshot") || want("research") || want("forecast")) && typeof this.ai.deskSetupFor === "function") {
+      for (const s of syms) {
+        try {
+          const t = this.ai.deskSetupFor(s);
+          if (t && (t.live || t.prev || t.banned || t.highDelivery)) data[`setup_${s}`] = { buildupNow: t.live, buildupLastSession: t.prev, inFnoBan: t.banned, highDelivery: t.highDelivery };
+        } catch (_) {
+          /* the answer stands without it */
+        }
       }
     }
     if ((want("snapshot") || want("delivery") || want("research")) && typeof this.ai.deskDelivery === "function") {

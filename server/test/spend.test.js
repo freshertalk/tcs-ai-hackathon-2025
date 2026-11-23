@@ -151,3 +151,52 @@ test("the morning research writes no AI notes on its own while the protection is
   assert.equal(started[1].useAi, true);
   assert.equal(started[1].world, true);
 });
+
+test("asking instead of failing: an automatic wish becomes an ask; Allow runs it as a click; Not now snoozes it", async () => {
+  const { SpendGuard, wantAi } = require("../ai/spend");
+  let t = Date.parse("2026-11-23T05:00:00Z");
+  const g = new SpendGuard({ now: () => t, log: { log() {}, error() {} }, enforce: true });
+  let told = 0;
+  g.onAsk = () => (told += 1);
+  let ran = 0;
+  const run = async () => {
+    ran += 1;
+    return g.clicked() ? "ran as a click" : "ran";
+  };
+  // a timer (no click): it does not run, it asks
+  assert.equal(await g.wants({ key: "picks-review", feature: "Research Top 10 — the AI's review", why: "the Top 10 changed" }, run), null);
+  assert.equal(ran, 0);
+  assert.equal(told, 1);
+  await g.wants({ key: "picks-review", feature: "Research Top 10 — the AI's review", why: "the Top 10 changed" }, run);
+  assert.equal(g.asks().length, 1, "the same wish is one ask");
+  assert.equal(g.asks()[0].n, 2);
+  assert.equal(told, 1, "a repeat does not tell the pages again");
+  assert.equal(g.asks()[0].run, undefined, "the function is not listed");
+  // Allow, inside a click: it runs now and leaves the list
+  const out = await g.run({ click: true, by: "owner" }, () => g.allowAsk("picks-review"));
+  assert.equal(out, "ran as a click");
+  assert.equal(ran, 1);
+  assert.equal(g.asks().length, 0);
+  assert.equal(g.allowAsk("picks-review"), null, "gone");
+  // Not now: quiet for two hours, then it may ask again
+  await g.wants({ key: "index-ai:nifty:month", feature: "Indices — the month's projection" }, run);
+  assert.equal(g.dismissAsk("index-ai:nifty:month"), true);
+  await g.wants({ key: "index-ai:nifty:month", feature: "Indices — the month's projection" }, run);
+  assert.equal(g.asks().length, 0, "snoozed");
+  t += 2 * 3600000 + 1;
+  await g.wants({ key: "index-ai:nifty:month", feature: "Indices — the month's projection" }, run);
+  assert.equal(g.asks().length, 1, "it may ask again later");
+  // an ask expires after three hours
+  t += 3 * 3600000 + 1;
+  assert.equal(g.asks().length, 0);
+  // when the rule allows it (a click, or the owner lifted the protection) it simply runs
+  assert.equal(await g.run({ click: true }, () => g.wants({ key: "x", feature: "x" }, run)), "ran as a click");
+  g.setAuto(true, "owner");
+  assert.equal(await g.wants({ key: "y", feature: "y" }, run), "ran");
+  // a feature without the guard runs as before
+  assert.equal(await wantAi(null, { key: "z" }, async () => "plain"), "plain");
+  // never more than twelve asks
+  g.setAuto(false, "owner");
+  for (let i = 0; i < 20; i += 1) await g.wants({ key: `k${i}`, feature: `f${i}` }, run);
+  assert.equal(g.asks().length, 12);
+});

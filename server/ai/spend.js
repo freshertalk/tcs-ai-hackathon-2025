@@ -23,6 +23,12 @@
 // its own daily limit and its own gap per stock, and only while its switch on the AI page is on. Such a request runs in an
 // "opened" context; nothing on a timer can create one.
 //
+// ASKING INSTEAD OF FAILING (23 Nov 2026, the owner's request: "whenever you need AI … display a popup requesting"): an automatic
+// feature that would like the AI calls wants({ key, feature, why }, run). When the rule allows it, run() goes at once; otherwise
+// the wish is kept as an ASK — the private area shows it in a popup ("DrishtiAI would like to use the AI for …: Allow once / Not
+// now"). Allow runs it as a click (the owner's own press, so it spends credit only then); Not now snoozes that ask for two hours.
+// Asks are deduplicated by key, at most twelve are kept, and each expires after three hours.
+//
 // The owner can lift the rule (AI page → AI credit protection → "Let the AI run on its own"): off by default, and when it is on
 // each automatic feature still obeys its own switch and daily limit. Tests and tools that call the AI service directly are not
 // guarded (enforce is false until the app turns it on).
@@ -42,6 +48,60 @@ class SpendGuard {
     this.als = new AsyncLocalStorage();
     this._rec = null;
     this.openAllowed = null; // () => boolean: is the AI read on opening a stock switched on? (set by the app, server/evidence.js)
+    this._asks = new Map(); // key → { key, feature, why, page, first, last, n, run }
+    this._snooze = new Map(); // key → until (ms)
+    this.onAsk = null; // () => void: a new or changed ask (the app tells every open page)
+  }
+
+  /* ------------------------------------------------------------------------------------- asking */
+  /**
+   * An automatic feature would like the AI. Runs `run` now when allowed; otherwise keeps an ask that the owner may allow (then
+   * `later` — by default `run` — is called as a click). @returns run()'s result, or null when it became an ask
+   */
+  async wants({ key, feature, why = "", page = "" }, run, later = run) {
+    if (this.allowed().ok) return run();
+    this.ask({ key, feature, why, page, run: later });
+    return null;
+  }
+  ask({ key, feature, why = "", page = "", run }) {
+    if (!key || typeof run !== "function") return false;
+    const now = this.now();
+    const until = this._snooze.get(key);
+    if (until && until > now) return false;
+    const old = this._asks.get(key);
+    const at = new Date(now).toISOString();
+    this._asks.set(key, { key: String(key).slice(0, 80), feature: String(feature || key).slice(0, 120), why: String(why || "").slice(0, 300), page: String(page || "").slice(0, 40), first: old ? old.first : at, last: at, n: old ? old.n + 1 : 1, run });
+    while (this._asks.size > 12) this._asks.delete(this._asks.keys().next().value);
+    if (!old && typeof this.onAsk === "function") {
+      try {
+        this.onAsk();
+      } catch (_) {
+        /* telling the pages is best effort */
+      }
+    }
+    return true;
+  }
+  /** The open asks (oldest first), without their functions. */
+  asks() {
+    const now = this.now();
+    for (const [k, a] of this._asks) if (now - Date.parse(a.last) > 3 * 3600000) this._asks.delete(k);
+    return [...this._asks.values()].map(({ run, ...rest }) => rest);
+  }
+  /** The owner allowed one: it leaves the list and its work starts (inside the caller's click). @returns the promise, or null */
+  allowAsk(key) {
+    const a = this._asks.get(key);
+    if (!a) return null;
+    this._asks.delete(key);
+    if (typeof this.onAsk === "function") this.onAsk();
+    return Promise.resolve().then(() => a.run());
+  }
+  /** Not now: the ask leaves and the same one is not shown again for `ms`. */
+  dismissAsk(key, ms = 2 * 3600000) {
+    const had = this._asks.delete(key);
+    this._snooze.set(key, this.now() + ms);
+    if (this._snooze.size > 100) this._snooze.delete(this._snooze.keys().next().value);
+    if (had && typeof this.onAsk === "function") this.onAsk();
+    return had;
   }
 
   /* ----------------------------------------------------------------------------------- the context */
@@ -140,4 +200,11 @@ class SpendGuard {
   }
 }
 
-module.exports = { SpendGuard };
+/** For a feature that holds the AI service: ask through its guard when there is one, otherwise just run. */
+function wantAi(ai, desc, run, later = run) {
+  const g = ai && ai.guard;
+  if (g && typeof g.wants === "function") return g.wants(desc, run, later);
+  return run();
+}
+
+module.exports = { SpendGuard, wantAi };

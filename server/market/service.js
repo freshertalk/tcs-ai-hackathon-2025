@@ -1417,6 +1417,40 @@ class MarketService {
   }
 
   /**
+   * Every F&O stock's near-month future, quoted in ONE request (the trade setup's build-ups, 23 Nov 2026): the underlying, the
+   * contract, its last price, the previous close and the open interest now. Indices are left out. Read-only.
+   */
+  async futuresBoard() {
+    if (this.mode() !== "kite") return { available: false, reason: "The futures board needs the Zerodha connection.", rows: [] };
+    const now = this.now();
+    const today = istDate(now);
+    const list = await this.derivatives();
+    const near = new Map();
+    for (const x of list) {
+      if (x.y !== "FUT" || x.e < today || SPOT_OF[x.n]) continue;
+      const cur = near.get(x.n);
+      if (!cur || x.e < cur.e) near.set(x.n, x);
+    }
+    const futs = [...near.values()].sort((a, b) => (a.n < b.n ? -1 : 1));
+    if (!futs.length) return { available: false, reason: "No stock futures were found in the NFO list.", rows: [] };
+    const raw = {};
+    for (let i = 0; i < futs.length; i += 450) Object.assign(raw, await this._call((k) => k.quotes(futs.slice(i, i + 450).map((x) => `NFO:${x.s}`))));
+    const rows = futs.map((x) => {
+      const q = raw[`NFO:${x.s}`] || {};
+      return { symbol: x.n, future: x.s, token: x.t, expiry: x.e, lot: x.l, last: q.last ?? null, prevClose: q.prevClose ?? null, oi: q.oi ?? null, volume: q.volume ?? null };
+    });
+    return { available: true, at: new Date(now).toISOString(), expiry: futs[0].e, rows };
+  }
+
+  /** One contract's daily candles WITH open interest (futures), the last `days` calendar days. Read-only. */
+  async futureDaily(token, { days = 10 } = {}) {
+    if (this.mode() !== "kite") return [];
+    const to = new Date(this.now());
+    const from = new Date(this.now() - days * 86400000);
+    return this._call((k) => k.historical(token, "day", from, to, { oi: true }));
+  }
+
+  /**
    * The NSE forecast from the world (premarket.js): before the open, the expected Nifty gap and the
    * day's lean from GIFT Nifty, the US, Europe, Japan, Singapore, Hong Kong, Korea, China, the rupee,
    * crude, both VIXes, FII flows, the Nifty's option chain and the world brief; in the session, the lean

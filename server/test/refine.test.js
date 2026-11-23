@@ -38,7 +38,7 @@ test("the top of the book: the microprice leans towards the thin side, the queue
   assert.ok(i.x[3] > 0, "the spread times the call");
   assert.equal(i.x[4], 0, "an ordinary session leaves the call alone");
   const none = R.inputsOf({ q: { buyQty: 5, sellQty: 5 }, price: 100, s: 0.2, zl: 0.5, ratio: null });
-  assert.deepEqual(none.x, [1, 0, 0, 0, 0], "no top of the book: nothing added");
+  assert.deepEqual(none.x, [1, 0, 0, 0, 0, 0, 0], "no top of the book: nothing added");
   assert.equal(none.top, null);
   assert.equal(R.inputsOf({ q: null, price: 0, s: 0.2, zl: 0 }), null);
 });
