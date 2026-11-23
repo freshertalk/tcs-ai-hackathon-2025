@@ -12,15 +12,19 @@
      changing a step changes every screen. */
   --f-ui: "Open Sans", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
   --f-code: var(--f-mono); /* real code only: a redirect address, the skills file */
-  --t-tag: 0.75rem; /* 12px    tags, chips, badges (Kite's smallest label) */
-  --t-small: 0.8125rem; /* 13px    labels, column heads, captions */
-  --t-mid: 0.875rem; /* 14px    secondary text, dense rows, table cells */
-  --t-base: 0.9375rem; /* 15px    body text */
-  --t-lead: 1.0625rem; /* 17px    figures and names that should stand out a little */
-  --t-title: 1.1875rem; /* 19px    section titles */
-  --t-large: 1.5rem; /* 24px    page titles, the price, key figures */
-  --t-xlarge: 2rem; /* 32px    the clocks, the number of shares */
-  --t-xxlarge: 2.625rem; /* 42px  the one big number on a card */
+  /* Kite's own ladder (24 Nov 2026, read again from kite.zerodha.com's stylesheet: Open Sans, body 14px at line-height
+     1.6, labels .75rem, small tags .675rem). The steps used to run a pixel larger than Kite's (15px body): now they are
+     Kite's, so a screen here reads like the terminal it sits beside. */
+  --t-tag: 0.71875rem; /* 11.5px  tags, chips, badges (Kite's small tag, kept readable) */
+  --t-small: 0.75rem; /* 12px    labels, column heads, captions (Kite's label) */
+  --t-mid: 0.8125rem; /* 13px    data: table cells, dense rows, secondary text */
+  --t-base: 0.875rem; /* 14px    body text (Kite's body) */
+  --t-lead: 1rem; /* 16px    figures and names that should stand out a little */
+  --t-title: 1.0625rem; /* 17px    section titles of a big card */
+  --t-page: 1.125rem; /* 18px    a workspace's title (Kite's light large heading) */
+  --t-large: 1.375rem; /* 22px    the price, key figures */
+  --t-xlarge: 1.75rem; /* 28px    the clocks, the number of shares */
+  --t-xxlarge: 2.25rem; /* 36px  the one big number on a card */
 
   min-height: 100vh;
   background: var(--paper);

@@ -20,7 +20,7 @@ export const DEFAULT_PREFS = Object.freeze({
   theme: "dark",
   accent: "blue",
   text: "normal",
-  density: "comfortable",
+  density: "compact", // compact by default (24 Nov 2026); Customize → Comfortable gives room back
   motion: true,
   nav: { order: [], hidden: [] },
   start: "analyzer",

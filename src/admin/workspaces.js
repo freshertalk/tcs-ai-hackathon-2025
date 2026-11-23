@@ -17,6 +17,7 @@ export const WORKSPACE_LIST = [
   { id: "journal", label: "Journal", superOnly: true },
   { id: "paper", label: "Paper" },
   { id: "debrief", label: "Debrief" },
+  { id: "learning", label: "Vinaypedia" },
   { id: "engine", label: "AI Engine" },
   { id: "document", label: "Document" },
 ];

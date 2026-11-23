@@ -300,6 +300,25 @@ Tab bars and segmented buttons across the private area centre their labels verti
   `POST /api/admin/learning/refresh`, `POST /api/admin/learning/lessons {area}`, `POST /api/admin/learning/digest`.
 - Records and updates: `vinaypedia/{notes,updates,lessons,digest}.json`, live topic `learning`.
 
+**Trading-terminal standard (2026-11-24; `src/admin/ux/kite-standard.css`, `src/admin/admin.css` tokens,
+`server/prefs.js`).** I audited every workspace and /me (fonts, size ladder, heading order, card padding, row height,
+clamps), then set one standard over all of them by their existing class names:
+- *Type*: the steps are now Kite's own, read again from kite.zerodha.com's stylesheet: Open Sans, 14 px body, 13 px
+  data, 12 px labels, 11.5 px tags. They used to run 1 px larger. Headings, the Desk's symbol and its price, which had
+  taken the display face, are set in Open Sans. Only the logo keeps its lettering, and the Hindi pages keep Devanagari.
+- *Hierarchy*: a workspace's title is 18 px regular (Kite's light large heading). Sections are 15 px semibold,
+  sub-sections 13 px semibold, labels 12 px. A page's title is the largest heading on every page. Before, several pages
+  had a 15 px title over 19 px sections; the guides' chapters were 25.6 px and are now 17 px.
+- *Compact by default*: `density` defaults to `compact` (server and client). A record saved before the change moves to
+  compact once (marked `v: 2`); a later choice of Comfortable stands. Compact means cards 10/12 px inside, 8 px between,
+  table cells 6 px top and bottom, and the Journal's Console band and hero figure kept but slimmer.
+- *Corners*: terminal panels are 6 px (were 14 px), close to Kite's 4 px.
+- *Phone watchlist*: one row per stock as in Kite (it was a two-column card grid that broke names mid-word). About six
+  rows show and the rest scroll inside the list.
+- *Nothing ends in "…"*: card descriptions, the Desk's ticker line and notes that the older compaction cut to one or two
+  lines are shown whole, at 12 px. Code text is never under 12 px.
+- Customize can now hide and order Trade setup and Vinaypedia (both were missing from `VIEWS` and `workspaces.js`).
+
 **Security and robustness review (2026-11-23).** Two independent read-only reviews; what they found and what changed:
 - *Access*: the mail server, site address and sign-in switches are **owner-only** (whoever controls them receives everyone's
   sign-in codes, the owner's too); only a superadmin may log the site's Zerodha account in, and a login for a *different*

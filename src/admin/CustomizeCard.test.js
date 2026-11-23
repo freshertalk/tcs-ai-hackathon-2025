@@ -37,8 +37,10 @@ test("the look: each choice is saved the moment it is made, and the one that is 
   expect(mockSave).toHaveBeenLastCalledWith({ accent: "violet" });
   fireEvent.click(screen.getByRole("button", { name: "Teal" }));
   expect(mockSave).toHaveBeenCalledTimes(2); // choosing what is already on saves nothing
-  fireEvent.click(screen.getByRole("button", { name: "Compact" }));
-  expect(mockSave).toHaveBeenLastCalledWith({ density: "compact" });
+  // compact is the default since 24 Nov 2026: it is already on, and Comfortable gives the room back
+  expect(screen.getByRole("button", { name: "Compact" }).getAttribute("aria-pressed")).toBe("true");
+  fireEvent.click(screen.getByRole("button", { name: "Comfortable" }));
+  expect(mockSave).toHaveBeenLastCalledWith({ density: "comfortable" });
   fireEvent.click(screen.getByRole("checkbox", { name: "Pages and cards ease into place" }));
   expect(mockSave).toHaveBeenLastCalledWith({ motion: false });
 });
@@ -48,7 +50,7 @@ test("the workspaces: yours to order and to hide — the Desk always stays, and 
   render(<CustomizeCard />);
   // (Now, the command screen, is the first workspace nobody has ranked yet)
   expect(names().slice(0, 5)).toEqual(["Research", "Desk", "Now", "Trade setup", "Advisor"]); // Trade setup joined on 23 Nov 2026
-  expect(screen.getByText(/14 of 15 shown/)).toBeTruthy();
+  expect(screen.getByText(/15 of 16 shown/)).toBeTruthy(); // Vinaypedia joined on 23 Nov 2026
   expect(screen.getByRole("checkbox", { name: "Desk" }).disabled).toBe(true);
   expect(screen.getByRole("checkbox", { name: "Paper" }).checked).toBe(false);
   // hiding the workspace the terminal opens on sends it back to the Desk
@@ -74,7 +76,8 @@ test("a person sees only the workspaces their role allows; their own Zerodha acc
   expect(names()).not.toContain("Positions");
   expect(names()).not.toContain("Journal");
   expect(names()).not.toContain("Trade Analysis");
-  expect(screen.getByText(/12 of 12 shown/)).toBeTruthy();
+  expect(screen.getByText(/13 of 13 shown/)).toBeTruthy();
+  expect(names()).toContain("Vinaypedia");
   first.unmount();
   mockUser = { role: "admin", trader: true };
   render(<CustomizeCard />);

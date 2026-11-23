@@ -1,0 +1,215 @@
+/* ============================================================================================================
+   The trading-terminal standard for every workspace (24 Nov 2026) — the owner: "take care of best high standards of
+   stock market trading advisor setup screen … use compact view by default … use Zerodha Kite's text fonts".
+
+   Measured first, page by page (scratchpad look audit): every page already used Open Sans, but the ladder of sizes
+   had drifted — section titles ran from 13 to 19 px, several pages' own title was SMALLER than their section titles
+   (15 px against 19 px), body text was 15 px (Kite's is 14), and cards, rows and gaps were spaced for reading, not
+   for watching a market. This sheet sets one order for all of them, by their existing class names, without touching
+   a page's markup:
+
+     TYPE        Kite's ladder (admin.css tokens): 14 px text, 13 px data, 12 px labels, Open Sans, regular weight with
+                 600 for emphasis, no letter-spacing.
+     HIERARCHY   a workspace's title 18 px regular (Kite's light large heading) → a section 15 px semibold → a
+                 sub-section 13 px semibold → labels 12 px. A page's title is always the largest heading on it.
+     DENSITY     compact by default (prefs): cards 10–12 px inside, 8 px between, table rows ~32 px, so a screen holds a
+                 market's worth of rows the way Kite's does.
+     FIGURES     every number in tabular figures, right-aligned in tables, never larger than the page's title except the
+                 one hero figure a card is about.
+
+   Colours stay the theme's tokens (the Zerodha palette), so both themes follow. Every rule is prefixed with .adm and
+   .tm-page (the terminal's workspaces) or a page's own root, so it wins over each page's sheet at the same depth.
+   ============================================================================================================ */
+
+/* ------------------------------------------------------------------ 1. section titles: 15 px semibold */
+.adm .tm-page :is(.an-card__head h3, .an-card > h2, .an-card > header h2, .an-card > h3, .jr-h, .wk-sec__t, .pg__title h3, .vp-sec__head h3, .vp-area h3, .sr-card__head h2, .ta-card > h3, .ta-card__head h3, .jp-head h3, .zp-card h3, .nw-bar h3, .nw-card h3, .rg__head h3, .jl-cal__nav h3) {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: 0;
+}
+/* section titles written as a bare h2 in a section (Calendar, Trade setup, Indices) */
+.adm .tm-page section > :is(h2, header > h2, div > h2:first-child) {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+/* ------------------------------------------------------------------ 2. a workspace's title: 18 px regular */
+.adm .tm-page :is(.wk-head__titles :is(h1, h2, h3), .nw-head h2, .vp-head h2, .av-head h2, .ta-head h2, .kb-head h2, .jr-head .an-card__head h3, .doc-hero h1) {
+  font-size: var(--t-page, 1.125rem);
+  font-weight: 400;
+  line-height: 1.25;
+  letter-spacing: 0;
+}
+/* the words beside or under a title: quiet 12–13 px */
+.adm .tm-page :is(.wk-head__titles p, .nw-head p, .vp-head p, .ta-head p) {
+  font-size: var(--t-mid);
+  line-height: 1.5;
+  color: var(--ink-3);
+}
+.adm .tm-page .wk-head__titles :is(h1, h2, h3) small,
+.adm .tm-page .vp-head h2 small {
+  font-size: var(--t-small);
+}
+
+/* the guides (Document, and the AI Engine's chapters): a reading page keeps a little more air, but its chapters stay
+   under the page's title — chapter 17 px semibold, a part of a chapter 15 px semibold, a logic box's title 14 px */
+.adm .tm-page .doc-chapter__head h2 {
+  font-size: var(--t-title);
+  font-weight: 600;
+  line-height: 1.3;
+}
+.adm .tm-page :is(.doc-h3, .doc-logic h4) {
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+.adm .tm-page .doc-hero h1 {
+  font-size: var(--t-large);
+}
+
+/* ------------------------------------------------------------------ 3. sub-sections and labels */
+.adm .tm-page .an-card h4 {
+  font-size: var(--t-small);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+/* the small capitals Kite uses over a figure (MARGIN AVAILABLE, OPEN POSITIONS) */
+.adm .tm-page :is(.jr-cmd dt, .wk-cmd dt, .nw-bar dt) {
+  font-size: var(--t-tag);
+  letter-spacing: 0.04em;
+}
+
+/* ------------------------------------------------------------------ 4. figures */
+.adm .tm-page :is(table, dd, output, [class*="price"], [class*="__num"], [class*="-num"], .is-num) {
+  font-variant-numeric: tabular-nums;
+}
+.adm .tm-page :is(th, td).is-num {
+  text-align: right;
+}
+
+/* ------------------------------------------------------------------ 5. data tables: 13 px, quiet heads, hairline rows */
+.adm .tm-page table:not(.vd-ladder, .ix-mini, .t10-mini, .ev-led, .ssn__t, .sx-readings) :is(td) {
+  font-size: var(--t-mid);
+}
+.adm .tm-page table:not(.vd-ladder, .ix-mini, .t10-mini, .ev-led, .ssn__t, .sx-readings) thead th {
+  font-size: var(--t-small);
+  color: var(--ink-3);
+}
+
+/* ------------------------------------------------------------------ 6. compact by default (prefs: density) */
+.adm:not([data-density="comfortable"]) .tm-page :is(.an-card, .ta-card, .zp-card, .wk-card) {
+  padding: 10px 12px;
+}
+.adm:not([data-density="comfortable"]) .tm-page :is(.an-card, .ta-card, .zp-card, .wk-card) + :is(.an-card, .ta-card, .zp-card, .wk-card) {
+  margin-top: 8px;
+}
+.adm:not([data-density="comfortable"]) .tm-page .an-card__head {
+  margin-bottom: 8px;
+  gap: 6px 14px;
+}
+.adm:not([data-density="comfortable"]) .tm-page table:not(.vd-ladder, .ix-mini, .t10-mini, .ev-led, .ssn__t, .sx-readings) :is(th, td) {
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+/* the Console band (Journal's five figures) and the big hero number keep their place but not their bulk */
+.adm:not([data-density="comfortable"]) .tm-page .zp-sum {
+  padding: 16px clamp(14px, 2.4vw, 32px);
+}
+.adm:not([data-density="comfortable"]) .tm-page .zp-fig dd {
+  font-size: clamp(1.35rem, 2vw, 1.75rem);
+}
+.adm:not([data-density="comfortable"]) .tm-page .wk-head {
+  gap: 8px;
+}
+
+/* ------------------------------------------------------------------ 7. the home page (/me) follows the same ladder */
+.adm .hm .hm-h {
+  font-size: var(--t-lead);
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+/* ------------------------------------------------------------------ 8. Kite's face everywhere text is read */
+/* An earlier polish gave section titles, the Desk's symbol and its price the site's display face (Bricolage); Kite sets
+   all of them in Open Sans. The logo keeps its own lettering, and the Hindi pages keep their Devanagari faces. */
+.adm :is(h1, h2, h3, h4, h5, h6):not(.kd *, .hm-kundali *, [lang="hi"], [lang="hi"] *) {
+  font-family: var(--f-ui);
+  letter-spacing: 0;
+}
+.adm .an.dk :is(.sv__sym, .sv__px b) {
+  font-family: var(--f-ui);
+  letter-spacing: 0;
+}
+.adm .an.dk .sv__sym {
+  font-size: clamp(1.125rem, 1.4vw, 1.375rem);
+}
+.adm .an.dk .sv__px b {
+  font-size: clamp(1.25rem, 1.7vw, 1.625rem);
+  font-weight: 600;
+}
+.adm .an-card__head :is(h2, h3)::before,
+.adm .sr-card__head :is(h2, h3)::before {
+  display: none; /* the accent tick before every title: Kite's titles stand alone */
+}
+
+/* ------------------------------------------------------------------ 9. corners: a trading screen's small radius */
+.adm .tm {
+  --dk-r: 6px;
+}
+.adm .tm :is(.an-card, .ta-card, .zp-card, .wk-card, .sr-card, .eng-card, .av-card, .apx-card) {
+  border-radius: 6px;
+}
+
+/* code inside a caption shrank to 10.8 px (0.9 of 12 px): never under the 12 px label step */
+.adm code {
+  font-size: max(0.9em, 0.75rem);
+}
+
+/* ------------------------------------------------------------------ 10. nothing ends in "…" (the owner's rule, 21 Nov) */
+/* An older compaction (terminal/compact.css) cut card descriptions, the Desk's ticker line and a few notes to one or two
+   lines ending in "…", opened by a click. The owner's rule is that nothing on a screen is cut off: they are shown whole,
+   in the quiet 12 px caption step, so they cost little room. */
+.adm .tm :is(.an-card__head p, .rg__head p, .av-head p, .tr-switchbar__main > p, .an__disc, .tr-foot, .vd__foot, .apx-panel .apx-intro, .sv__tk-id .sv__meta, .nw-sys small) {
+  display: block;
+  -webkit-line-clamp: unset;
+  overflow: visible;
+}
+.adm .tm-page :is(.an-card__head p, .rg__head p, .av-head p) {
+  font-size: var(--t-small);
+}
+.adm .jc-retro-btn__t {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+}
+
+/* ------------------------------------------------------------------ 11. the phone watchlist: Kite's rows */
+/* On a phone the watchlist was a two-column grid of cards, so a name like "BAJAJ-AUTO" broke in the middle of the word.
+   Kite's phone watchlist is one row per stock — name and the day's reading on the left, price and change on the right —
+   and so is this one: about six rows show, the rest scroll inside the list, so the chosen stock stays close below. */
+@media (max-width: 640px) {
+  .adm .tm .wl__list {
+    display: block;
+    max-height: 272px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+  }
+  .adm .tm .wl__list > li {
+    border: 0;
+    border-bottom: 1px solid var(--line);
+    border-radius: 0;
+  }
+  .adm .tm .wl__list > li:last-child {
+    border-bottom: 0;
+  }
+  .adm .tm .wl__list > li.is-sel {
+    box-shadow: inset 3px 0 0 var(--accent);
+  }
+  .adm .tm .wl__sym b {
+    overflow-wrap: normal;
+    word-break: normal;
+  }
+}

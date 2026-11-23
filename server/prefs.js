@@ -12,7 +12,9 @@
 
 const crypto = require("crypto");
 
-const VIEWS = ["analyzer", "now", "research", "advisor", "screener", "account", "indices", "analysis", "calendar", "journal", "paper", "debrief", "engine", "document"];
+// every workspace a person may show, hide, order or open on (Trade setup and Vinaypedia were missing until 24 Nov 2026:
+// hiding or moving them was not kept)
+const VIEWS = ["analyzer", "now", "setup", "research", "advisor", "screener", "account", "indices", "analysis", "calendar", "journal", "paper", "debrief", "learning", "engine", "document"];
 const OPTIONS = {
   theme: ["dark", "light"],
   accent: ["blue", "teal", "green", "amber", "rose", "violet"],
@@ -26,13 +28,15 @@ const DEFAULTS = Object.freeze({
   theme: "dark",
   accent: "blue",
   text: "normal",
-  density: "comfortable",
+  density: "compact", // the owner's choice, 24 Nov 2026: a trading screen is compact unless a person asks for room
   motion: true, // gentle movement when pages and cards open
   nav: { order: [], hidden: [] }, // [] = the built-in order, nothing hidden
   start: "analyzer", // the workspace the terminal opens on
   desk: { board: true, dock: "auto", chart: "pro" },
   home: { status: true, today: true, workspaces: true }, // the blocks of /me
 });
+
+const DENSITY_V = 2; // records from before compact became the default have no "v" (see Prefs.get)
 
 const slugOf = (email) => {
   const e = String(email || "").toLowerCase();
@@ -84,7 +88,15 @@ class Prefs {
     return `prefs/${slugOf(email)}.json`;
   }
   get(email) {
-    return clean(this.docs.read(this._name(email), null));
+    const raw = this.docs.read(this._name(email), null);
+    // once: compact became the default on 24 Nov 2026, and a record saved before then carries the old default
+    // ("comfortable") rather than a choice — it moves to compact one time; whatever is chosen afterwards stands
+    if (raw && typeof raw === "object" && !(raw.v >= DENSITY_V)) {
+      const next = { ...clean({ ...raw, density: "compact" }), v: DENSITY_V };
+      this.docs.write(this._name(email), next);
+      return clean(next);
+    }
+    return clean(raw);
   }
   /** Has this person ever saved a preference? (If not, the page starts from what their device already shows.) */
   stored(email) {
@@ -92,7 +104,7 @@ class Prefs {
   }
   set(email, patch) {
     const next = merge(this.get(email), patch);
-    this.docs.write(this._name(email), next);
+    this.docs.write(this._name(email), { ...next, v: DENSITY_V });
     this._rev += 1;
     return next;
   }
