@@ -1,0 +1,12 @@
+/* The Debrief in the Journal's anatomy (Debrief.jsx, ux/PageKit.jsx, 23 Nov 2026): only this page's measures for the
+   kit's frames. Colours are the theme's tokens. */
+
+/* a tab's cards keep the page's own spacing (each card's top margin), as on the one long page */
+.db > .wk-part {
+  gap: 0;
+}
+
+/* the cost filter in the head card: the card's gap plus this is the old 14px under it */
+.db .wk-head > .db-filters {
+  margin-bottom: 4px;
+}

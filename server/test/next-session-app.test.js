@@ -142,3 +142,19 @@ test("check-now reads NSE's list once; the calendar, the rules and next-session 
     if (!r.json.next.date.startsWith("2027")) assert.equal(r.json.verify.status, "match");
   }
 });
+
+test("the exchange clock route: signed-in only, never cached, receive and send stamps", async (t) => {
+  const s = await boot();
+  t.after(s.close);
+  assert.equal((await s.request("GET", "/api/admin/clock")).status, 401);
+  const boss = await s.login(SUPERADMIN_EMAIL);
+  const before = Date.now();
+  const r = await s.request("GET", "/api/admin/clock", { cookie: boss });
+  assert.equal(r.status, 200);
+  assert.equal(r.headers["cache-control"], "no-store");
+  assert.ok(Number.isFinite(r.json.t1) && Number.isFinite(r.json.t2));
+  assert.ok(r.json.t2 >= r.json.t1, "sent after it arrived");
+  assert.ok(Math.abs(r.json.t1 - before) < 5000, "the server's clock (no time server asked in tests)");
+  assert.equal(r.json.source, "system");
+  assert.match(r.json.zone, /Asia\/Kolkata/);
+});

@@ -42,21 +42,15 @@
   margin-top: 4px;
 }
 
-/* ---- the header */
-.ix-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px 18px;
+/* ---- the head card and the sticky bar (ux/PageKit.jsx, 23 Nov 2026): the page's own gap spaces the bar, and a
+   section behind a tab sits flush like the cards did on one long page */
+.ix > .wk-bar {
+  margin-bottom: 0;
 }
-.ix-head__t {
-  flex: 1 1 380px;
-  min-width: 0;
+.tm .ix .wk-part > .an-card {
+  margin-top: 0;
 }
-.ix-head__t h2 {
-  margin: 0 0 2px;
-  font-size: var(--t-title);
-}
+/* the index and the unit: the head card's filters */
 .ix-head__c {
   display: flex;
   flex-wrap: wrap;

@@ -9,7 +9,10 @@
 //
 // A failed or nonsensical fetch NEVER overwrites good data: the last good copy stays (on disk, so it survives a restart)
 // and the failure is recorded so the pages can say so. With no copy at all, the rules fall back to the built-in table.
-// The first check runs at start-up and then every six hours; a change at NSE is logged and noticed by itself.
+// WHEN (the owner's rule, 23 Nov 2026): ONCE a day, after the 3:30 PM close, Monday to Friday — never on Saturday or
+// Sunday, never again that day once it has succeeded (a failed check is retried at most twice, an hour apart). At
+// start-up it reads NSE only when there is no copy at all. "Check now" on the Calendar page still asks at once. A change
+// at NSE is logged and noticed by itself.
 //
 // NSE's edge answers ordinary browsers only (a request that names itself as a bot is left hanging), so the request
 // looks like a browser's. It asks for one public URL, at most once a minute and normally four times a day.
@@ -24,6 +27,16 @@ const NSE_PAGE_URL = "https://www.nseindia.com/resources/exchange-communication-
 const BROWSER_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36";
 const MAX_BYTES = 2 * 1024 * 1024;
 const MIN_GAP_MS = 60 * 1000;
+const IST_MS = 5.5 * 3600 * 1000;
+const AFTER_MIN = 15 * 60 + 30; // the daily check: after the 3:30 PM close (IST)
+const RETRY_MS = 60 * 60 * 1000; // a failed daily check: again an hour later…
+const MAX_TRIES = 3; // …at most three tries a day
+const istDay = (ms) => new Date(ms + IST_MS).toISOString().slice(0, 10);
+const istMin = (ms) => {
+  const d = new Date(ms + IST_MS);
+  return d.getUTCHours() * 60 + d.getUTCMinutes();
+};
+const istDow = (ms) => new Date(ms + IST_MS).getUTCDay();
 
 const empty = () => ({
   sourceName: "NSE",
@@ -118,6 +131,8 @@ class NseHolidayService {
       lastSuccessAt: s.lastSuccessAt,
       lastError: s.lastError,
       changes: s.changes.slice(0, 10),
+      schedule: "Once a day after the 3:30 PM close, Monday to Friday (and Check now)",
+      daily: s.daily || null,
       verify: this.verify(),
     };
   }
@@ -189,10 +204,54 @@ class NseHolidayService {
     return this.snapshot();
   }
 
-  /** Check now, then every `everyMs`. The timer never keeps the process alive. */
-  start(everyMs = 6 * 60 * 60 * 1000) {
-    this.refresh({ force: true }).catch(() => {});
-    this._timer = setInterval(() => this.refresh({ force: true }).catch(() => {}), everyMs);
+  /**
+   * Is the daily check due at `ms`? Monday–Friday (IST), after 3:30 PM, not yet done that day (a success ends the day;
+   * a failure allows another try an hour later, three tries at most).
+   */
+  dailyDue(ms = this.now()) {
+    const dow = istDow(ms);
+    if (dow === 0 || dow === 6 || istMin(ms) < AFTER_MIN) return false;
+    const day = istDay(ms);
+    const d = this.state.daily && this.state.daily.day === day ? this.state.daily : { day, tries: 0, done: false, lastTry: 0 };
+    if (d.done || d.tries >= MAX_TRIES) return false;
+    return !d.lastTry || ms - d.lastTry >= RETRY_MS;
+  }
+
+  /** One look at the clock: run the daily check when it is due. @returns the refresh promise, or null */
+  tickDaily(ms = this.now()) {
+    if (!this.dailyDue(ms)) return null;
+    const day = istDay(ms);
+    const d = this.state.daily && this.state.daily.day === day ? this.state.daily : { day, tries: 0, done: false, lastTry: 0 };
+    d.tries += 1;
+    d.lastTry = ms;
+    this.state.daily = d;
+    return this.refresh({ force: true }).then((snap) => {
+      if (!snap.lastError) d.done = true;
+      this._save();
+      return snap;
+    });
+  }
+
+  /**
+   * Start the schedule: the daily check after the close on weekdays (looked at once a minute), and a first read at
+   * start-up only when there is no copy at all. `{ everyMs }` keeps the old plain interval (a check now and every
+   * `everyMs`), for a caller that wants it. The timer never keeps the process alive.
+   */
+  start(opts = {}) {
+    const everyMs = typeof opts === "number" ? opts : opts && opts.everyMs;
+    if (everyMs) {
+      this.refresh({ force: true }).catch(() => {});
+      this._timer = setInterval(() => this.refresh({ force: true }).catch(() => {}), everyMs);
+      if (this._timer.unref) this._timer.unref();
+      return;
+    }
+    if (!Object.keys(this.state.years || {}).length) this.refresh({ force: true }).catch(() => {});
+    const look = () => {
+      const p = this.tickDaily();
+      if (p) p.catch(() => {});
+    };
+    look();
+    this._timer = setInterval(look, 60 * 1000);
     if (this._timer.unref) this._timer.unref();
   }
 

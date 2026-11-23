@@ -16,8 +16,13 @@ import { useLiveTicks } from "../analyzer/liveTicks";
 import { useLiveBook } from "../trade/liveBook";
 import { PositionEvidence, usePositionEvidence } from "../analyzer/EvidenceCard";
 import { isNum } from "../analyzer/format";
+import { PageBar, PageHead } from "../../ux/PageKit";
 import "../analyzer/evidence.css";
 import "./now.css";
+
+// The Journal's anatomy (23 Nov 2026): a head card (the live connection on its right) and the sticky bar with the
+// headline figures. No tabs: this page is everything the desk is watching on one screen, read at a glance.
+const INTRO = "Everything the desk is watching, on one page. Prices tick; the calls, the checks and the systems refresh the moment they change.";
 
 const URL = "/api/admin/market/now";
 const TOPICS = ["evidence", "horizon", "ahead", "market", "automation", "trading", "health"];
@@ -119,9 +124,7 @@ export default function NowView({ onOpen }) {
   if (!d)
     return (
       <section className="nw" aria-label="Now">
-        <header className="nw-head">
-          <h2>Now</h2>
-        </header>
+        <PageHead title="Now" text={INTRO} />
         {s.error ? <p className="adm-alert adm-alert--info">{s.error}</p> : <p className="nw-dim">Reading the market, the followed stocks and the systems…</p>}
       </section>
     );
@@ -144,19 +147,34 @@ export default function NowView({ onOpen }) {
     return t && isNum(t.last) && isNum(t.prevClose) && t.prevClose > 0 ? ((t.last - t.prevClose) / t.prevClose) * 100 : r.changePct;
   };
   const working = (d.systems || []).filter((x) => x.state === "on").length;
+  // the bar's figures, from what the page already holds: the market, the board's count, your positions, the checks
+  const heldPnl = held.reduce((sum, p) => sum + (isNum(p.pnl) ? p.pnl : 0), 0);
+  const tideTone = m.tide && m.tide.label === "Rising" ? "up" : m.tide && m.tide.label === "Falling" ? "down" : "";
 
   return (
     <section className="nw" aria-label="Now: everything the desk is watching">
-      <header className="nw-head">
-        <div>
-          <h2>Now</h2>
-          <p className="nw-dim">Everything the desk is watching, on one page. Prices tick; the calls, the checks and the systems refresh the moment they change.</p>
-        </div>
-        <span className={`nw-conn is-${conn.status}`} role="status">
-          <i aria-hidden="true" /> {LIVE_WORD[conn.status] || conn.status}
-          {d.at ? <small> · read {clock(d.at)}</small> : null}
-        </span>
-      </header>
+      <PageHead
+        title="Now"
+        text={INTRO}
+        actions={
+          <span className={`nw-conn is-${conn.status}`} role="status">
+            <i aria-hidden="true" /> {LIVE_WORD[conn.status] || conn.status}
+            {d.at ? <small> · read {clock(d.at)}</small> : null}
+          </span>
+        }
+      />
+      <PageBar
+        label="Watchlist"
+        kpis={[
+          { label: "NIFTY tide", value: m.available ? `${m.tide ? m.tide.label : "—"} · ${sgn(m.nifty && m.nifty.changePct)}` : "not read", tone: m.available ? tideTone : "", tip: m.available ? (m.tide ? m.tide.summary : "") : m.reason || "Connect Zerodha to read NIFTY, the sectors, India VIX and GIFT NIFTY." },
+          { label: "Next 15 min", value: `▲ ${count.up} · ▽ ${count.down}`, tip: "Of the stocks on the board, how many the evidence leans up and down over the next 15 minutes." },
+          { label: "Open positions", value: held.length ? `${held.length} · ${money(heldPnl)}` : "none", tone: held.length ? (heldPnl >= 0 ? "up" : "down") : "", tip: "Your open NSE cash positions and their P&L at the streamed price." },
+          { label: "Checked, 15 min", value: t15 && t15.n ? `${pc(t15.ok / t15.n)} of ${t15.n.toLocaleString("en-IN")}` : "none yet", more: true, tip: "Every call is kept and checked 15 minutes later: the share that ended on the side it named." },
+          { label: "Systems on", value: `${working} of ${(d.systems || []).length}`, more: true, tip: "The automatic systems that are running right now (the list is at the foot of the page)." },
+        ]}
+        updatedAt={d.at || null}
+        ariaLabel="Now at a glance"
+      />
       {s.error && <p className="adm-alert adm-alert--info">{s.error}</p>}
 
       <div className="nw-tiles" aria-label="The market now">

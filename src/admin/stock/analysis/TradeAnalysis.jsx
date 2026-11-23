@@ -27,6 +27,7 @@ import LiveBoard from "./LiveBoard";
 import { CoachView, ExitTiming, TradeChart, aiLevelsOf, flightOf, useFlightDay } from "./LabExtras";
 import { DaySnapshot, Learnings, Outcomes } from "./Snapshots";
 import Robot from "./Robot";
+import { PageBar, PageHead } from "../../ux/PageKit";
 import "./analysis.css";
 
 const IST = 5.5 * 3600 * 1000;
@@ -49,6 +50,8 @@ const lastWeekday = () => {
   return d;
 };
 const pc = (x) => (typeof x === "number" ? `${x > 0 ? "+" : ""}${x.toFixed(2)}%` : "—");
+/** "Fri, 13 Nov" — a day in the page bar. */
+const dayShort = (d) => new Date(`${d}T12:00:00Z`).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" });
 const read = (k, d) => {
   try {
     return window.localStorage.getItem(k) || d;
@@ -449,6 +452,8 @@ export default function TradeAnalysis() {
     return PARTS.some((p) => p.id === m) ? m : "live";
   });
   const [date, setDate] = useState(null);
+  // the last 60 days as read on opening (to find the day to open on): also the page bar's headline figures
+  const [recent, setRecent] = useState(null);
   // open on the latest day with trades: the newest replayed day or the Day book's newest day, else the last weekday
   useEffect(() => {
     let on = true;
@@ -458,6 +463,7 @@ export default function TradeAnalysis() {
       const a = lab && lab.trend && lab.trend.length ? lab.trend[lab.trend.length - 1].date : "";
       const b = days && days.days && days.days[0] ? days.days[0].date : "";
       setDate([a, b].filter(Boolean).sort().pop() || lastWeekday());
+      if (lab && typeof lab.days === "number") setRecent({ at: Date.now(), lab });
     });
     return () => {
       on = false;
@@ -467,50 +473,62 @@ export default function TradeAnalysis() {
     setMode(m);
     keep(MODE_KEY, m);
   };
-  // the head stays on screen; the part's own bar (its day, its filters) stays right under it, so the head's height
-  // is written where the layout can read it (--ta-head-h) — on opening, on a new part, a resize, and a press on the
-  // head (its description opens and closes)
-  const head = useRef(null);
+  // the page bar (the eight parts of the lab and the headline figures) stays on screen; the part's own bar (its day,
+  // its filters) stays right under it, so the bar's height is written where the layout can read it (--ta-head-h) —
+  // on opening, on a new part, when the figures arrive and on a resize
+  const root = useRef(null);
   useEffect(() => {
     const set = () => {
-      const el = head.current;
-      if (el && el.parentElement) el.parentElement.style.setProperty("--ta-head-h", `${Math.round(el.offsetHeight)}px`);
+      const el = root.current;
+      const bar = el ? Array.from(el.children).find((c) => c.classList.contains("wk-bar")) : null;
+      if (bar) el.style.setProperty("--ta-head-h", `${Math.round(bar.offsetHeight)}px`);
     };
-    const soon = () => setTimeout(set, 60);
     set();
     const t = setTimeout(set, 400);
-    const el = head.current;
     window.addEventListener("resize", set);
-    if (el) el.addEventListener("click", soon);
     return () => {
       clearTimeout(t);
       window.removeEventListener("resize", set);
-      if (el) el.removeEventListener("click", soon);
     };
-  }, [mode]);
+  }, [mode, recent]);
   // a trade or a learning opens its day's snapshot
   const openDay = (d) => {
     setDate(d);
     pick("snap");
   };
+  const shown = PARTS.find((p) => p.id === mode) || PARTS[0];
+  const r60 = recent ? recent.lab : null;
+  const s60 = r60 && r60.days > 0 && r60.summary ? r60.summary : null;
+  const score = s60 && typeof s60.score === "number" ? s60.score : null;
   return (
-    <div className="ta lab">
-      <section className="ta-card ta-head" ref={head}>
-        <div>
-          <h2>Trade Analysis — Execution Lab</h2>
-          <p className="ta-dim">
+    <div className="ta lab" ref={root}>
+      {/* the head keeps its ta-head name so the row of jumps still leaves it out (StockReport's PAGE_JUMPS) */}
+      <PageHead
+        className="ta-head"
+        title="Trade Analysis — Execution Lab"
+        text={
+          <>
             Your trading&rsquo;s flight recorder. While you are in a trade the <b>Live board</b> says when to leave, tick by tick; after the close every trade is replayed on Zerodha&rsquo;s 1-minute bars — the best moment to have left with its time, where you came in, the habits that cost money — and
             the <b>Coach</b> sets the day against your own history. <b>Snapshots</b> keep each day as a timeline with a timestamp on every moment, <b>Outcomes</b> tabulate what became of every best moment, and <b>Don&rsquo;t repeat</b> counts the habits that cost you. Daily profit-and-loss reports are in the Journal&rsquo;s <b>Day book</b>.
-          </p>
-        </div>
-        <div className="ta-seg" role="group" aria-label="Execution Lab">
-          {PARTS.map((p) => (
-            <button key={p.id} type="button" aria-pressed={mode === p.id} onClick={() => pick(p.id)} data-tip={p.tip}>
-              {p.label}
-            </button>
-          ))}
-        </div>
-      </section>
+          </>
+        }
+      />
+      <PageBar
+        label={shown.label}
+        labelTitle="Part"
+        kpis={[
+          { label: "Lab day", value: date ? dayShort(date) : "—", tip: "The day A day, Snapshots and the Coach open on: the newest day with trades (pick another in the part)." },
+          { label: "Score · 60 days", value: score !== null ? `${score}/100` : "—", tone: score === null ? "" : score >= 75 ? "up" : score >= 50 ? "warn" : "down", tip: r60 ? `The average execution score of the ${r60.days} day${r60.days === 1 ? "" : "s"} replayed in the last 60 days (A period → 60 days).` : "No day of the last 60 has been replayed yet." },
+          { label: "Net · 60 days", value: s60 ? rsSigned(s60.net) : "—", tone: s60 ? (s60.net > 0 ? "up" : s60.net < 0 ? "down" : "") : "", tip: s60 ? `${s60.trades} trade${s60.trades === 1 ? "" : "s"}, after ${rs(s60.charges)} of charges.` : undefined },
+          { label: "Exit efficiency", value: s60 && typeof s60.efficiency === "number" ? `${s60.efficiency}%` : "—", more: true, tip: "Your profit as a share of the most that was on offer while you were in each trade, over the last 60 days." },
+          { label: "Days replayed", value: r60 ? String(r60.days) : "—", more: true, tip: "Days with trades in the last 60 that the server has replayed on 1-minute bars (it does so by itself within the hour)." },
+        ]}
+        tabs={PARTS}
+        tab={mode}
+        onTab={pick}
+        updatedAt={recent ? recent.at : null}
+        tabsLabel="Execution Lab"
+      />
       {mode === "live" && <LiveBoard onReplay={() => pick("day")} />}
       {mode === "day" && (date ? <DayLab key={date} date={date} setDate={setDate} /> : <Loading label="Opening the lab…" />)}
       {mode === "snap" && (date ? <DaySnapshot key={date} date={date} setDate={setDate} /> : <Loading label="Opening the snapshots…" />)}

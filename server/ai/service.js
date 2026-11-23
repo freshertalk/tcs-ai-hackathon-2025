@@ -46,6 +46,7 @@ const { Review } = require("./review");
 const { Decision } = require("./decision");
 const { Ensemble } = require("./ensemble");
 const { DayReview } = require("./dayreview");
+const { LearnWriter } = require("./learnai");
 const { barStart } = require("../market/intraday");
 
 const IST = 5.5 * 3600 * 1000;
@@ -334,6 +335,7 @@ class AiService {
     this.picksAi = new PicksReviewer(this); // the AI's review of the Research tab's Top 10 (checked outside this folder) // the AI's projection for NIFTY 50 / SENSEX (checked and scored outside this folder) // the Execution Lab's second opinion on an open position (asked sparingly by server/flight.js)
     this.robotCoach = new RobotCoach(this); // the paper robot's after-close review (Trade Analysis → Robot)
     this.scanAi = new ScanReviewer(this); // the AI's review of the live NIFTY 100 scanner (checked outside this folder)
+    this.learnAi = new LearnWriter(this); // Vinaypedia: an area's lesson and the digest of official updates (server/learning/service.js)
     this.whatsappAi = whatsappAi; // the default model's advice for the WhatsApp updates
     this._moveToDefaultModel();
   }

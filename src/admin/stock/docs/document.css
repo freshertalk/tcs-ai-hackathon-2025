@@ -101,6 +101,17 @@
   font-size: var(--t-small);
   color: var(--ink-2);
 }
+/* the manual as a whole page (DocView kit, 23 Nov 2026): the Journal's head card and page bar (ux/PageKit) in the
+   document's own rhythm; the search keeps its full width under the head's title */
+.tm .doc > .an-card.wk-head {
+  margin-top: 0;
+}
+.doc > .wk-bar {
+  margin-bottom: 0;
+}
+.doc > .wk-head .wk-head__titles h3 {
+  overflow-wrap: anywhere;
+}
 
 /* ── contents + text ─────────────────────────────────────────────────────────────── */
 .doc-body {
@@ -125,11 +136,12 @@
   background: var(--surface);
   font-size: var(--t-small);
 }
+/* the contents and a chapter jumped to sit under the page bar too, when there is one (--wk-bar-h, ux/PageKit) */
 @media (min-width: 1000px) {
   .doc-toc {
     position: sticky;
-    top: calc(var(--tm-top, 56px) + 10px);
-    max-height: calc(100vh - var(--tm-top, 56px) - 28px);
+    top: calc(var(--tm-top, 56px) + var(--wk-bar-h, 0px) + 10px);
+    max-height: calc(100vh - var(--tm-top, 56px) - var(--wk-bar-h, 0px) - 28px);
     overflow: auto;
     overscroll-behavior: contain;
   }
@@ -144,7 +156,7 @@
   .doc-toc.is-open {
     display: grid;
     position: sticky;
-    top: calc(var(--tm-top, 56px) + 6px);
+    top: calc(var(--tm-top, 56px) + var(--wk-bar-h, 0px) + 6px);
     z-index: 5;
     max-height: 62vh;
     overflow: auto;
@@ -209,7 +221,7 @@
   border: 1px solid var(--line);
   border-radius: 16px;
   background: var(--surface);
-  scroll-margin-top: calc(var(--tm-top, 56px) + 10px);
+  scroll-margin-top: calc(var(--tm-top, 56px) + var(--wk-bar-h, 0px) + 10px);
 }
 @media (min-width: 700px) {
   .doc-chapter {
@@ -537,14 +549,17 @@
   .doc-tools,
   .doc-toc,
   .doc-top,
-  .doc-hits {
+  .doc-hits,
+  .doc > .wk-bar,
+  .doc > .wk-head .wk-head__act {
     display: none !important;
   }
   .doc-body {
     grid-template-columns: 1fr;
   }
   .doc-chapter,
-  .doc-hero {
+  .doc-hero,
+  .doc > .wk-head {
     break-inside: auto;
     border-color: #999;
     background: #fff;

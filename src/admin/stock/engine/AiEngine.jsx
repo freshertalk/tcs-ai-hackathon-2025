@@ -22,6 +22,7 @@ import { ENGINE } from "../docs/content/engine";
 import "../docs/document.css";
 import "./engine.css";
 import { everyVisible } from "../../visible";
+import { PageBar, PageHead } from "../../ux/PageKit";
 import { KnowledgeBase } from "./KnowledgeBase";
 
 const PARTS = [
@@ -623,21 +624,41 @@ export default function AiEngine() {
       : []),
   ];
 
+  // the Journal's anatomy (23 Nov 2026): the head card, and the sticky bar with the page's sections as its tabs and the
+  // headline figures from what is already read (nothing new is asked of the server, and no AI)
+  const shown = tabs.find((t) => t.id === tab) || tabs[0];
+  const brainsOn = brains ? brains.brains.filter((b) => b.enabled !== false).length : 0;
+  const lead = brains && brains.team ? brains.team.lead : null;
+  const kpis = [
+    { label: "Chapters", value: String(CHAPTERS.length), tip: "The chapters of How the AI works — all of them in the Word file." },
+    ...(isSuper
+      ? [
+          { label: "Brains on", value: brains ? `${brainsOn} of ${brains.brains.length}` : "—", tip: "Brains switched on reach the features they belong to from the next request; a switched-off brain is kept but sent nowhere." },
+          { label: "Default model", value: brains ? lead || "no AI key" : "—", tone: brains && !lead ? "warn" : "", tip: brains && brains.team && brains.team.fallbacks && brains.team.fallbacks.length ? `If it fails: ${brains.team.fallbacks.join(", ")}` : "The model that writes the brains and answers every AI feature." },
+          { label: "AI features", value: engine ? String(engine.features.length) : "—", more: true, tip: "Each feature's real instructions, word for word, are under Real instructions." },
+          { label: "Skills file", value: engine ? `${engine.skills.lessons} lessons` : "—", more: true, tip: engine ? `${engine.skills.text.length.toLocaleString("en-IN")} of 24,000 characters` : undefined },
+        ]
+      : [
+          { label: "Orders by the AI", value: "never", tip: "The AI is a second opinion and a writer: it can never place an order and it never promises a profit." },
+          { label: "Brains & instructions", value: "superadmin only", tip: "The brains, the real instructions and the skills file are shown to the superadmin only." },
+        ]),
+  ];
+
   return (
     <div className="eng">
-      <nav className="eng-tabs" aria-label="AI Engine">
-        {tabs.map((t) => (
-          <button key={t.id} type="button" aria-pressed={tab === t.id} onClick={() => setTab(t.id)}>
-            {t.label}
+      <PageHead
+        title="AI Engine"
+        text="Everything about the AI in one place: every AI feature, rule and condition, the live engine and the knowledge base — and, for the superadmin, the brains (standing instructions every AI feature follows), the real instructions and the skills file."
+        actions={
+          <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm" onClick={word} data-tip={isSuper ? "The whole AI Engine as a Word file, with the brains, every feature's real instructions and the skills file." : "The AI Engine explanation as a Word file."}>
+            Download Word ⤓
           </button>
-        ))}
-        <span className="eng-grow" />
-        <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm" onClick={word} data-tip={isSuper ? "The whole AI Engine as a Word file, with the brains, every feature's real instructions and the skills file." : "The AI Engine explanation as a Word file."}>
-          Download Word ⤓
-        </button>
-      </nav>
+        }
+      >
+        {!isSuper && <p className="eng-dim eng-note">The brains, the real instructions and the skills file are shown to the superadmin only.</p>}
+      </PageHead>
+      <PageBar label={shown.label} kpis={kpis} tabs={tabs} tab={tab} onTab={setTab} onRefresh={isSuper ? load : undefined} tabsLabel="AI Engine" />
       <Alert>{err}</Alert>
-      {!isSuper && <p className="eng-dim eng-note">The brains, the real instructions and the skills file are shown to the superadmin only.</p>}
       {tab === "doc" && (
         <DocView
           parts={PARTS}

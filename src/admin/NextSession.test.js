@@ -110,9 +110,24 @@ test("the status row's NSE card reads the same answer (a holiday tomorrow names 
   expect(sessionCard({ data: answer(), skew: 0 }, now)).toEqual({ id: "closed", label: "Closed", sub: "opens Wed 25 Nov at 9:15 AM IST" });
   const open = answer({ today: { ...answer().today, status: "open" } });
   expect(sessionCard({ data: open, skew: 0 }, ist("2026-11-23T13:00")).sub).toBe("closes in 2 h 30 min · 3:30 PM IST");
-  const hol = answer({ today: { ...answer().today, status: "holiday" }, next: { ...answer().next, daysAway: 1 } });
+  const hol = answer({ today: { date: "2026-11-24", short: "Tue 24 Nov", trading: false, status: "holiday", holiday: "Prakash Gurpurb Sri Guru Nanak Dev", text: "Market holiday · Prakash Gurpurb Sri Guru Nanak Dev" }, next: { ...answer().next, daysAway: 1 } });
   expect(sessionCard({ data: hol, skew: 0 }, now)).toEqual({ id: "closed", label: "Holiday", sub: "opens tomorrow at 9:15 AM IST" });
   expect(sessionCard({ data: null }, now)).toBeNull();
+});
+
+test("today's state flips on the clock without asking the server again", () => {
+  const morning = answer({ today: { ...answer().today, preOpenAt: ist("2026-11-23T09:00"), preOpenClock: "9:00 AM" } });
+  jest.setSystemTime(ist("2026-11-23T08:59") + 58000);
+  render(<NextSession ns={{ status: "ready", data: morning, skew: 0 }} />);
+  expect(screen.getByText(/Opens today at 9:15 AM/)).toBeTruthy();
+  act(() => {
+    jest.advanceTimersByTime(3000); // 9:00:01
+  });
+  expect(screen.getByText(/Pre-open now/)).toBeTruthy();
+  act(() => {
+    jest.advanceTimersByTime(15 * 60000); // 9:15:01
+  });
+  expect(screen.getByText(/Market open · closes at 3:30 PM/)).toBeTruthy();
 });
 
 test("countdown wording", () => {

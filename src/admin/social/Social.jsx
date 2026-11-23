@@ -24,6 +24,7 @@ import { useDialog } from "../dialog/DialogProvider";
 import Shell from "../Shell";
 import { Alert, GearButton } from "../ui";
 import "./social.css";
+import { PageBar, PageHead } from "../ux/PageKit";
 
 const FEED_EVERY = 20000;
 const DIGEST_EVERY = 60000;
@@ -688,20 +689,35 @@ export default function Social() {
   return (
     <Shell crumb="Social Media" wide>
       <div className="soc">
-        <header className="soc-head">
-          <div>
-            <h1 className="adm-h1">Social Media</h1>
-            <p className="soc-lead">Live news and posts that can move NSE and BSE stocks — read from your sources, organised for trading by the desk’s rules and the AI model, and passed to the forecast, the Intraday plans and TradeAI.</p>
-          </div>
-          <div className="soc-head__act">
-            <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm" onClick={refresh} disabled={Boolean(busy)} data-tip="Read every source now (they are read by themselves every few minutes).">
-              {busy === "refresh" ? "Reading…" : "↻ Read now"}
-            </button>
-            {isOwner && (
-              <GearButton solid label="Sources & settings" tip="Sources and settings: which accounts, feeds and keywords are read, and how." open={showSet} onClick={() => setShowSet((x) => !x)} />
-            )}
-          </div>
-        </header>
+        {/* the Journal's anatomy (23 Nov 2026): the head card, and the sticky bar with the feed's figures */}
+        <PageHead
+          as="h1"
+          title="Social Media"
+          text="Live news and posts that can move NSE and BSE stocks — read from your sources, organised for trading by the desk’s rules and the AI model, and passed to the forecast, the Intraday plans and TradeAI."
+          actions={
+            <>
+              <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm" onClick={refresh} disabled={Boolean(busy)} data-tip="Read every source now (they are read by themselves every few minutes).">
+                {busy === "refresh" ? "Reading…" : "↻ Read now"}
+              </button>
+              {isOwner && (
+                <GearButton solid label="Sources & settings" tip="Sources and settings: which accounts, feeds and keywords are read, and how." open={showSet} onClick={() => setShowSet((x) => !x)} />
+              )}
+            </>
+          }
+        />
+        <PageBar
+          label={onlyMarket ? "Market news" : "Everything"}
+          labelTitle="Feed"
+          kpis={[
+            { label: "News mood · 24 h", value: digest && digest.mood ? `${digest.mood.label} ${digest.mood.score > 0 ? "+" : ""}${digest.mood.score}` : null, tone: digest && digest.mood ? (digest.mood.score >= 20 ? "up" : digest.mood.score <= -20 ? "down" : "") : "" },
+            { label: "Items · 24 h", value: digest ? String(digest.items) : null },
+            { label: "Shown", value: feed ? String(items.length) : null },
+            { label: "Sources on", value: st ? `${st.on}${st.failing ? ` (${st.failing} down)` : ""}` : null, tone: st && st.failing ? "warn" : "", more: true },
+            { label: "Stream", value: live ? "live" : "every 20 s", tone: live ? "up" : "", more: true },
+          ]}
+          updatedAt={st && st.polledAt ? st.polledAt : null}
+          ariaLabel="The feed at a glance"
+        />
 
         {st && (
           <p className="soc-status" role="status">

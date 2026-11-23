@@ -10,6 +10,7 @@ import { useTopics } from "../../live";
 import { useAuth } from "../../auth";
 import { Alert, Loading } from "../../ui";
 import { Fan, MonthBars, PairBars, SeasonalPath, YearBars, dayLabel, lvl, pct, pts } from "./IndexCharts";
+import { PageBar, PageHead, PagePart, usePageTab } from "../../ux/PageKit";
 import "./indices.css";
 
 const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -18,6 +19,14 @@ const TABS = [
   { id: "SENSEX", label: "SENSEX" },
   { id: "compare", label: "Side by side" },
 ];
+// The Journal's anatomy (23 Nov 2026): a head card, the sticky bar with the headline figures, and one index's
+// sections as tabs. Every section stays mounted behind its tab (PagePart); "Side by side" is one section of its own.
+const PARTS = [
+  { id: "now", label: "Now & projections", tip: "The numbers now, where this month and this year may close — the desk's projection and the AI's — and the backtest that scores both." },
+  { id: "history", label: "History", tip: "Every year and every month in one table, the average month and year, each calendar month over the years, and every year." },
+  { id: "patterns", label: "Patterns", tip: "Day of the week, the turn of the month, what followed a month, streaks, falls from the high and election years." },
+];
+const PART_IDS = PARTS.map((p) => p.id);
 const LEAN = { up: { word: "Leans up", icon: "▲", cls: "is-up" }, down: { word: "Leans down", icon: "▼", cls: "is-down" }, none: { word: "No firm lean", icon: "●", cls: "" } };
 const num = (x) => typeof x === "number" && Number.isFinite(x);
 const read = (k, d) => {
@@ -41,6 +50,7 @@ const heatBg = (x, cap) => {
   return `color-mix(in srgb, var(${x > 0 ? "--up" : "--down"}) ${k}%, var(--surface))`;
 };
 const tone = (x) => (num(x) ? (x > 0 ? "is-up" : x < 0 ? "is-down" : "") : "");
+const barTone = (x) => (num(x) ? (x > 0 ? "up" : x < 0 ? "down" : "") : "");
 const yes = (b) => (b === true ? "✓" : b === false ? "✗" : "—");
 
 function Kpi({ k, v, sub, cls = "", tip }) {
@@ -786,50 +796,57 @@ function Patterns({ v }) {
 }
 
 /* ------------------------------------------------------------------------ one index */
-function IndexView({ v, unit, isOwner, onAsk, asking, onSettings }) {
+function IndexView({ v, unit, isOwner, onAsk, asking, onSettings, part }) {
   const tm = v.thisMonth || {};
   const deskM = v.projections.month.live;
   const aiM = (v.ledger.items || []).find((x) => x.kind === "ai" && x.horizon === "month" && deskM && x.period === deskM.period && x.status !== "refused");
   const dd = v.patterns.drawdowns;
   return (
     <>
-      <section className="ix-kpis" aria-label="Now">
-        <Kpi k={`Last close · ${dayLabel(v.last.d)}`} v={lvl(v.last.close)} sub={`${pts(v.last.chg, 2)} (${pct(v.last.pct)}) on the day`} cls={tone(v.last.chg)} />
-        <Kpi k={`Month to date · ${v.mtd ? v.mtd.label : ""}`} v={v.mtd ? pct(v.mtd.pct) : "—"} sub={v.mtd ? `${pts(v.mtd.chg, 2)} points · range ${pct(v.mtd.downExcPct, 1)} to ${pct(v.mtd.upExcPct, 1)}` : ""} cls={v.mtd ? tone(v.mtd.pct) : ""} />
-        <Kpi k={`Year to date · ${v.ytd ? v.ytd.y : ""}`} v={v.ytd ? pct(v.ytd.pct) : "—"} sub={v.ytd ? `${pts(v.ytd.chg, 2)} points · deepest fall ${pct(v.ytd.maxDdPct, 1)}` : ""} cls={v.ytd ? tone(v.ytd.pct) : ""} />
-        <Kpi k="From the all-time high" v={dd ? pct(dd.now.pct) : "—"} sub={dd ? `high ${lvl(dd.ath.close, 0)} on ${dayLabel(dd.ath.d)}` : ""} cls={dd && dd.now.pct < 0 ? "is-down" : ""} />
-        <Kpi k={`${tm.name || "This month"} in history`} v={tm.n ? `rose ${tm.up} of ${tm.n}` : "—"} sub={tm.n ? `average ${pct(tm.avgPct)} · median ${pct(tm.medianPct)}` : ""} tip="How this calendar month has done in every year on record." />
-        <Kpi k="Desk: month-end" v={deskM && deskM.available ? lvl(deskM.mid, 0) : "—"} sub={deskM && deskM.available ? `68%: ${lvl(deskM.low68, 0)}–${lvl(deskM.high68, 0)} · ${deskM.probUp}% up` : ""} />
-        <Kpi k="AI: month-end" v={aiM ? lvl(aiM.mid, 0) : "—"} sub={aiM ? `${aiM.by} · ${dayLabel(aiM.madeAt.slice(0, 10))}` : "not asked yet"} />
-      </section>
-
-      <div className="ix-two">
-        <ProjectionCard v={v} horizon="month" isOwner={isOwner} onAsk={onAsk} asking={asking === "month"} />
-        <ProjectionCard v={v} horizon="year" isOwner={isOwner} onAsk={onAsk} asking={asking === "year"} />
-      </div>
-
-      <Backtest v={v} isOwner={isOwner} onSettings={onSettings} />
-
-      <Heat v={v} unit={unit} />
-
-      <div className="ix-two">
-        <section className="an-card">
-          <header className="ix-card__h">
-            <h3>The average month</h3>
-          </header>
-          <MonthBars stats={v.monthStats} unit={unit} current={Number(v.to.slice(5, 7))} />
+      <PagePart id="now" tab={part}>
+        <section className="ix-kpis" aria-label="Now">
+          <Kpi k={`Last close · ${dayLabel(v.last.d)}`} v={lvl(v.last.close)} sub={`${pts(v.last.chg, 2)} (${pct(v.last.pct)}) on the day`} cls={tone(v.last.chg)} />
+          <Kpi k={`Month to date · ${v.mtd ? v.mtd.label : ""}`} v={v.mtd ? pct(v.mtd.pct) : "—"} sub={v.mtd ? `${pts(v.mtd.chg, 2)} points · range ${pct(v.mtd.downExcPct, 1)} to ${pct(v.mtd.upExcPct, 1)}` : ""} cls={v.mtd ? tone(v.mtd.pct) : ""} />
+          <Kpi k={`Year to date · ${v.ytd ? v.ytd.y : ""}`} v={v.ytd ? pct(v.ytd.pct) : "—"} sub={v.ytd ? `${pts(v.ytd.chg, 2)} points · deepest fall ${pct(v.ytd.maxDdPct, 1)}` : ""} cls={v.ytd ? tone(v.ytd.pct) : ""} />
+          <Kpi k="From the all-time high" v={dd ? pct(dd.now.pct) : "—"} sub={dd ? `high ${lvl(dd.ath.close, 0)} on ${dayLabel(dd.ath.d)}` : ""} cls={dd && dd.now.pct < 0 ? "is-down" : ""} />
+          <Kpi k={`${tm.name || "This month"} in history`} v={tm.n ? `rose ${tm.up} of ${tm.n}` : "—"} sub={tm.n ? `average ${pct(tm.avgPct)} · median ${pct(tm.medianPct)}` : ""} tip="How this calendar month has done in every year on record." />
+          <Kpi k="Desk: month-end" v={deskM && deskM.available ? lvl(deskM.mid, 0) : "—"} sub={deskM && deskM.available ? `68%: ${lvl(deskM.low68, 0)}–${lvl(deskM.high68, 0)} · ${deskM.probUp}% up` : ""} />
+          <Kpi k="AI: month-end" v={aiM ? lvl(aiM.mid, 0) : "—"} sub={aiM ? `${aiM.by} · ${dayLabel(aiM.madeAt.slice(0, 10))}` : "not asked yet"} />
         </section>
-        <section className="an-card">
-          <header className="ix-card__h">
-            <h3>The average year, and this one</h3>
-          </header>
-          <SeasonalPath seasonal={v.seasonal} />
-        </section>
-      </div>
 
-      <MonthTable v={v} unit={unit} />
-      <YearTable v={v} unit={unit} />
-      <Patterns v={v} />
+        <div className="ix-two">
+          <ProjectionCard v={v} horizon="month" isOwner={isOwner} onAsk={onAsk} asking={asking === "month"} />
+          <ProjectionCard v={v} horizon="year" isOwner={isOwner} onAsk={onAsk} asking={asking === "year"} />
+        </div>
+
+        <Backtest v={v} isOwner={isOwner} onSettings={onSettings} />
+      </PagePart>
+
+      <PagePart id="history" tab={part}>
+        <Heat v={v} unit={unit} />
+
+        <div className="ix-two">
+          <section className="an-card">
+            <header className="ix-card__h">
+              <h3>The average month</h3>
+            </header>
+            <MonthBars stats={v.monthStats} unit={unit} current={Number(v.to.slice(5, 7))} />
+          </section>
+          <section className="an-card">
+            <header className="ix-card__h">
+              <h3>The average year, and this one</h3>
+            </header>
+            <SeasonalPath seasonal={v.seasonal} />
+          </section>
+        </div>
+
+        <MonthTable v={v} unit={unit} />
+        <YearTable v={v} unit={unit} />
+      </PagePart>
+
+      <PagePart id="patterns" tab={part}>
+        <Patterns v={v} />
+      </PagePart>
     </>
   );
 }
@@ -1027,6 +1044,7 @@ export default function Indices() {
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
   const [asking, setAsking] = useState("");
+  const [part, setPart] = usePageTab("indices", PART_IDS);
   const setTab = (t) => {
     setTabState(t);
     setMsg("");
@@ -1087,13 +1105,43 @@ export default function Indices() {
     return v && v.available ? `Daily history from ${v.demo ? "a demo generator" : "Zerodha"}: ${dayLabel(v.from)} to ${dayLabel(v.to)} · ${v.yearsCovered} complete years · ${v.sessions.toLocaleString("en-IN")} sessions` : "";
   }, [tab, v, cmp]);
 
+  // the bar's headline figures: the index now, or how closely the two move — read from what is already loaded
+  const shown = TABS.find((t) => t.id === tab) || TABS[0];
+  const ready = tab !== "compare" && v && v.available ? v : null;
+  const both = tab === "compare" && cmp && cmp.available ? cmp : null;
+  const barDd = ready ? ready.patterns.drawdowns : null;
+  const barDesk = ready ? ready.projections.month.live : null;
+  const kpis = ready
+    ? [
+        { label: "Last close", value: lvl(ready.last.close), tone: barTone(ready.last.chg), tip: `${dayLabel(ready.last.d)}: ${pts(ready.last.chg, 2)} (${pct(ready.last.pct)}) on the day` },
+        { label: "Month to date", value: ready.mtd ? pct(ready.mtd.pct) : "—", tone: ready.mtd ? barTone(ready.mtd.pct) : "", tip: ready.mtd ? `${ready.mtd.label}: ${pts(ready.mtd.chg, 2)} points` : undefined },
+        { label: "Year to date", value: ready.ytd ? pct(ready.ytd.pct) : "—", tone: ready.ytd ? barTone(ready.ytd.pct) : "", tip: ready.ytd ? `${ready.ytd.y}: ${pts(ready.ytd.chg, 2)} points` : undefined },
+        { label: "From the high", value: barDd ? pct(barDd.now.pct) : "—", tone: barDd && barDd.now.pct < 0 ? "down" : "", more: true, tip: barDd ? `High ${lvl(barDd.ath.close, 0)} on ${dayLabel(barDd.ath.d)}` : undefined },
+        { label: "Desk: month-end", value: barDesk && barDesk.available ? lvl(barDesk.mid, 0) : "—", more: true, tip: barDesk && barDesk.available ? `68%: ${lvl(barDesk.low68, 0)}–${lvl(barDesk.high68, 0)} · ${barDesk.probUp}% chance up` : undefined },
+      ]
+    : both
+    ? [
+        { label: "Correlation", value: num(both.months.corr) ? both.months.corr.toFixed(2) : "—", tip: `Of the monthly moves, over ${both.months.n} months in common. 1.00 = they move exactly together; 0 = unrelated.` },
+        { label: "Same direction", value: `${both.months.sameDirPct}%`, tip: "Of the months both rose or both fell." },
+        { label: `${both.a.name} ahead`, value: `${both.years.aBetter} of ${both.years.n} years`, more: true },
+        { label: `${both.b.name} ahead`, value: `${both.years.bBetter} of ${both.years.n} years`, more: true },
+      ]
+    : [];
+  const readAt = ready ? ready.fetchedAt : both ? both.fetchedAt : null;
+
   return (
     <div className="ix">
-      <header className="an-card ix-head">
-        <div className="ix-head__t">
-          <h2>Indices — NIFTY 50 and SENSEX, month by month</h2>
-          <p className="ix-dim">{head || "Every month and every year: the move in points and percent, how each calendar month behaves, the patterns traders watch, and projections for this month and this year — kept beside what actually happened."}</p>
-        </div>
+      <PageHead
+        title="Indices — NIFTY 50 and SENSEX, month by month"
+        text={head || "Every month and every year: the move in points and percent, how each calendar month behaves, the patterns traders watch, and projections for this month and this year — kept beside what actually happened."}
+        actions={
+          tab !== "compare" && (
+            <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm" onClick={refresh} disabled={busy} data-tip="Read the latest daily candles from Zerodha now (they are also topped up by themselves).">
+              {busy ? "Reading…" : "↻ Refresh"}
+            </button>
+          )
+        }
+      >
         <div className="ix-head__c">
           <Seg value={tab} onChange={setTab} options={TABS} label="Index" />
           <Seg
@@ -1105,13 +1153,20 @@ export default function Indices() {
             ]}
             label="Show moves in"
           />
-          {tab !== "compare" && (
-            <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm" onClick={refresh} disabled={busy} data-tip="Read the latest daily candles from Zerodha now (they are also topped up by themselves).">
-              {busy ? "Reading…" : "↻ Refresh"}
-            </button>
-          )}
         </div>
-      </header>
+      </PageHead>
+      <PageBar
+        label={shown.label}
+        labelTitle="Index"
+        kpis={kpis}
+        tabs={ready ? PARTS : null}
+        tab={part}
+        onTab={setPart}
+        updatedAt={readAt || null}
+        onRefresh={tab === "compare" ? () => load("compare") : refresh}
+        loading={busy}
+        tabsLabel="Sections of the index"
+      />
       {err && <Alert>{err}</Alert>}
       {msg && <p className="adm-alert adm-alert--info">{msg}</p>}
       {tab === "compare" ? (
@@ -1133,7 +1188,7 @@ export default function Indices() {
         <>
           {v.demo && <p className="adm-alert adm-alert--info">Demo data: “{v.index.name}” is a synthetic series standing in for {tab === "SENSEX" ? "SENSEX" : "NIFTY 50"} — not the real index. Connect Zerodha for the real history; demo projections are not recorded in the ledger.</p>}
           {v.stale && <p className="adm-alert adm-alert--info">{v.staleReason}</p>}
-          <IndexView v={v} unit={unit} isOwner={isOwner} onAsk={ask} asking={asking} onSettings={saveSettings} />
+          <IndexView v={v} unit={unit} isOwner={isOwner} onAsk={ask} asking={asking} onSettings={saveSettings} part={part} />
         </>
       )}
       <p className="ix-dim ix-foot">History and statistics describe what happened; projections are readings of that history with a measured record, never a promise. No method wins every month.</p>

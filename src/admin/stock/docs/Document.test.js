@@ -90,7 +90,8 @@ describe("Document page", () => {
 
   test("shows the title and one contents link per chapter", () => {
     render(<Document />);
-    expect(screen.getByRole("heading", { level: 1 }).textContent).toMatch(/DrishtiAI/);
+    // the page's head card (the Journal's anatomy) carries the title
+    expect(screen.getByRole("heading", { name: /complete guide/ }).textContent).toMatch(/DrishtiAI/);
     const nav = screen.getByRole("navigation", { name: "Contents" });
     expect(within(nav).getAllByRole("link")).toHaveLength(CHAPTERS.length);
   });

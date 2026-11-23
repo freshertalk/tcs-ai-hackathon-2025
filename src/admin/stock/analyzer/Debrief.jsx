@@ -16,8 +16,20 @@ import { day as dayText, inr, isNum, num, pct, tone, when } from "./format";
 import { fmtR, WHY } from "./debriefMath";
 import { NetBar, ReplayStrip, RunningTotal } from "./DebriefCharts";
 import "./analyzer.css";
+import "./debrief-page.css";
 import DebriefGuide from "./DebriefGuide";
 import { useTopics } from "../../live";
+import { PageBar, PageHead, PagePart, SectionHead, usePageTab } from "../../ux/PageKit";
+
+// The Journal's anatomy (23 Nov 2026): the head card (the scorecard and its cost filter), the sticky bar with the
+// day's headline figures, and the page's sections as tabs. Every section stays mounted behind its tab (PagePart).
+// The AI review is still written only when its button is pressed.
+const PARTS = [
+  { id: "day", label: "The day", tip: "The running total after costs, and each stock's replayed calls." },
+  { id: "ai", label: "AI review", tip: "The model's written reading of the day, with lessons you can add. It runs only when you press its button." },
+  { id: "about", label: "How to read", tip: "How a call is replayed, and what the debrief cannot tell you." },
+];
+const PART_IDS = PARTS.map((p) => p.id);
 
 const COSTS = [
   { v: "0", label: "None" },
@@ -281,6 +293,7 @@ export default function Debrief({ onOpen = null }) {
   const [open, setOpen] = useState(null); // { SYMBOL: true }; null until the first answer decides
   const [picked, setPicked] = useState(null);
   const cols = useCols();
+  const [part, setPart] = usePageTab("debrief", PART_IDS);
 
   const load = useCallback(() => {
     let alive = true;
@@ -350,21 +363,19 @@ export default function Debrief({ onOpen = null }) {
   const t = ok ? data.totals : null;
   const shown = ai.debriefs.find((d) => d.id === picked) || (ok ? ai.debriefs.find((d) => d.day === data.date) : null) || ai.debriefs[0] || null;
   const forThisDay = ok && shown && shown.day === data.date;
+  const costLabel = (COSTS.find((c) => c.v === cost) || {}).label;
 
   return (
     <div className="db">
-      <DebriefGuide />
-      <section className="an-card">
-        <header className="an-card__head">
-          <div>
-            <h3>Day debrief{ok ? ` · ${dayText(data.date)}` : ""}</h3>
-            <p>
-              What the desk’s live call would have done on every stock of your watchlist, replayed over the session’s 5-minute bars and scored by arithmetic. It is{" "}
-              <b>not a record of trades you took</b> — it shows what following each “in play” call mechanically would have added up to, before and after costs.
-            </p>
-          </div>
-        </header>
-
+      <PageHead
+        title={`Day debrief${ok ? ` · ${dayText(data.date)}` : ""}`}
+        text={
+          <>
+            What the desk’s live call would have done on every stock of your watchlist, replayed over the session’s 5-minute bars and scored by arithmetic. It is{" "}
+            <b>not a record of trades you took</b> — it shows what following each “in play” call mechanically would have added up to, before and after costs.
+          </>
+        }
+      >
         <div className="db-filters">
           <span className="db-filters__k" id="db-cost">
             Assumed cost of a round trip
@@ -415,8 +426,28 @@ export default function Debrief({ onOpen = null }) {
             </p>
           </div>
         )}
-      </section>
+      </PageHead>
+      <PageBar
+        label={ok ? dayText(data.date) : "—"}
+        labelTitle="Session"
+        kpis={[
+          { label: "Calls", value: t ? t.calls : null, tip: t ? `Calls made on ${t.stocks} stock${t.stocks === 1 ? "" : "s"}${t.open ? ` · ${t.open} still open` : ""}` : undefined },
+          { label: "After costs", value: t ? fmtR(t.netR) : null, tone: t ? rTone(t.netR) : "", tip: "All finished calls together, after the assumed cost." },
+          { label: "Target · stop", value: t ? `✓ ${t.target} · ✕ ${t.stop}` : null, tip: "Calls that reached their target (+1 R), and calls stopped out (−1 R or worse)." },
+          { label: "Assumed cost", value: ok ? `${data.costPct}%` : costLabel, more: true, tip: "Of the position’s value, a round trip. Change it with the cost buttons." },
+          { label: "AI review", value: !ai.configured ? "no AI key" : forThisDay ? "written" : "not written", more: true, tip: "Written only when you press its button on the AI review tab." },
+        ]}
+        tabs={PARTS}
+        tab={part}
+        onTab={setPart}
+        updatedAt={ok ? data.at : null}
+        onRefresh={load}
+        loading={card.loading}
+        tabsLabel="Debrief sections"
+      />
+      <DebriefGuide />
 
+      <PagePart id="day" tab={part}>
       {ok && (
         <section className={`an-card ${card.loading ? "db-stale" : ""}`}>
           <header className="an-card__head">
@@ -479,7 +510,9 @@ export default function Debrief({ onOpen = null }) {
           </div>
         </section>
       )}
+      </PagePart>
 
+      <PagePart id="ai" tab={part}>
       <section className="an-card">
         <header className="an-card__head">
           <div>
@@ -524,9 +557,11 @@ export default function Debrief({ onOpen = null }) {
         )}
         {busy !== "write" && !shown && ai.configured && <p className="vd-note">No debrief has been written yet.</p>}
       </section>
+      </PagePart>
 
+      <PagePart id="about" tab={part}>
       <section className="an-card db-about">
-        <h3>How to read this — and what it cannot tell you</h3>
+        <SectionHead title="How to read this — and what it cannot tell you" />
         <ul className="ai-list">
           <li>
             <b>How a call is replayed.</b> At each 5-minute close the engine is asked for its call with only what was known then. A change to “in play” opens one imaginary trade at
@@ -547,6 +582,7 @@ export default function Debrief({ onOpen = null }) {
           </li>
         </ul>
       </section>
+      </PagePart>
     </div>
   );
 }

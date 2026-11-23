@@ -84,6 +84,8 @@ test("one index: the numbers now, the month's and the year's projection with the
 test("the year × month table, each calendar month, every year — in percent or in points", async () => {
   render(<Indices />);
   await settle();
+  // the history is the page's second section (a tab of the page bar)
+  fireEvent.click(screen.getByRole("tab", { name: "History" }));
   const heat = screen.getByRole("region", { name: "Every year, every month" });
   expect(within(heat).getByText("2026")).toBeTruthy();
   expect(within(heat).getByText("Average")).toBeTruthy();
@@ -107,8 +109,10 @@ test("side by side: how closely they move, month by month in a chosen year, and 
   fireEvent.click(screen.getByRole("button", { name: "Side by side" }));
   await settle();
   expect(mockCalls).toContain("/api/admin/indices/compare");
-  expect(screen.getByText("0.98")).toBeTruthy();
-  expect(screen.getByText("94%")).toBeTruthy();
+  // the page bar repeats the headline figures; the row of figures has them all
+  const close = screen.getByRole("region", { name: "How closely they move" });
+  expect(within(close).getByText("0.98")).toBeTruthy();
+  expect(within(close).getByText("94%")).toBeTruthy();
   expect(screen.getByText("NIFTY 50 did better")).toBeTruthy();
   expect(screen.getByText("Mar 2025")).toBeTruthy();
   expect(screen.getByRole("img", { name: "NIFTY 50 and SENSEX year by year" })).toBeTruthy();

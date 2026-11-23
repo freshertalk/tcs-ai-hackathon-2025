@@ -11,10 +11,22 @@ import { useDialog } from "../../dialog/DialogProvider";
 import "./paper.css";
 import { everyVisible } from "../../visible";
 import { Flash, useLivePrices } from "../../live/prices";
+import { PageBar, PageHead, PagePart, SectionHead, usePageTab } from "../../ux/PageKit";
+
+// The Journal's anatomy (23 Nov 2026): the head card, the sticky bar with the headline figures, and the page's
+// sections as tabs. Every section stays mounted behind its tab (PagePart); the activity log stays under them all.
+const PARTS = [
+  { id: "live", label: "Live market", tip: "Today’s paper trades in the live market, the paper account’s settings and the earlier live-market paper trades." },
+  { id: "history", label: "On history", tip: "The setup replayed on past sessions: session by session, stock by stock, and the latest paper trades." },
+  { id: "findings", label: "What they show", tip: "What the finished paper trades show, split a few fixed ways — the findings written into the trading-skills file." },
+];
+const PART_IDS = PARTS.map((p) => p.id);
 
 const rText = (r) => (isNum(r) ? `${r > 0 ? "+" : ""}${num(r, 2)}R` : "—");
 const rs = (x) => (isNum(x) ? `${x < 0 ? "−" : x > 0 ? "+" : ""}₹${Math.abs(Math.round(x)).toLocaleString("en-IN")}` : "—");
 const tone = (x) => (isNum(x) ? (x > 0 ? "is-up" : x < 0 ? "is-down" : "") : "");
+// the same, as the page bar's tone
+const dir = (x) => (isNum(x) ? (x > 0 ? "up" : x < 0 ? "down" : "") : "");
 const WHY = { target: "Target", stop: "Stop", "square-off": "square-off", flip: "Opposite call", open: "Open" };
 
 function Tiles({ items }) {
@@ -141,6 +153,7 @@ export default function Paper() {
   const [msg, setMsg] = useState({ kind: "", text: "" });
   const [busy, setBusy] = useState("");
   const [form, setForm] = useState(null);
+  const [part, setPart] = usePageTab("paper", PART_IDS);
 
   const load = useCallback(
     () =>
@@ -183,25 +196,30 @@ export default function Paper() {
     act("save", "/api/admin/paper/settings", { method: "PUT", body: { ...form, symbols: form.symbols } }, "Saved. The next paper trades use these settings.");
   };
   const t = s.tested;
+  const today = s.today.summary;
 
   return (
     <div className="pp">
-      <section className="an-card pp-head">
-        <header className="an-card__head">
-          <div>
-            <h3>
-              Paper trading <span className="pp-badge">Play money only</span>
-            </h3>
-            <p>
-              The desk’s own live call, followed with paper money: a fresh <b>Long / Short — in play</b> call at a 5-minute close is entered at that close, with the call’s stop and first target,
-              and closed on the opposite call or at the square-off — the same engine and rules as the Desk and the Debrief. <b>No order is ever sent.</b>
-            </p>
-          </div>
+      <PageHead
+        className="pp-head"
+        title={
+          <>
+            Paper trading <span className="pp-badge">Play money only</span>
+          </>
+        }
+        text={
+          <>
+            The desk’s own live call, followed with paper money: a fresh <b>Long / Short — in play</b> call at a 5-minute close is entered at that close, with the call’s stop and first target,
+            and closed on the opposite call or at the square-off — the same engine and rules as the Desk and the Debrief. <b>No order is ever sent.</b>
+          </>
+        }
+        actions={
           <label className={`pp-switch ${s.auto ? "is-on" : ""}`} data-tip="Auto mode: paper-trades today’s market every five minutes while it is open, and after the close tests the setup on past sessions — by itself. It never places an order and has no effect on real trading.">
             <input type="checkbox" checked={s.auto} disabled={Boolean(busy)} onChange={(e) => act("auto", "/api/admin/paper/auto", { method: "PUT", body: { on: e.target.checked } }, (d) => (d.auto ? "Auto mode ON: paper trades in market hours, a history test after each close." : "Auto mode OFF."))} />
             <span>Auto mode {s.auto ? "ON" : "OFF"}</span>
           </label>
-        </header>
+        }
+      >
         <div className="pp-flags">
           <span className="pp-flag is-safe" data-tip="Paper trading is separate from real trading: no order can be sent from here, and the real trading switch is not read or changed.">No real orders · separate from real trading</span>
           <span className="pp-flag">Setup {s.setup}</span>
@@ -252,8 +270,29 @@ export default function Paper() {
         </div>
         <Alert kind={msg.kind === "ok" ? "ok" : "error"}>{msg.text}</Alert>
         {s.job && s.job.error && <Alert>{s.job.error}</Alert>}
-      </section>
+      </PageHead>
+      <PageBar
+        label="Play money only"
+        labelTitle="Paper account"
+        kpis={[
+          { label: "Auto mode", value: s.auto ? "ON" : "OFF", tone: s.auto ? "up" : "", tip: "Paper-trades the live market every five minutes and tests the setup on history after each close, by itself. It never places an order." },
+          { label: "Today · net", value: rs(today.pnl), tone: dir(today.pnl), tip: "Today’s finished paper trades, in paper rupees after the assumed costs." },
+          { label: "Today · trades", value: `${today.trades}${today.open ? ` · ${today.open} open` : ""}` },
+          { label: "History net R", value: rText(t.history.netR), tone: dir(t.history.netR), more: true, tip: "Paper trades from past sessions replayed through the same engine, in multiples of the risk taken." },
+          { label: "All · won", value: t.all.finished ? `${t.all.winPct}%` : "—", more: true, tip: "Share of every finished paper trade on this setup that ended above zero after costs." },
+        ]}
+        tabs={PARTS.map((p) => {
+          const count = p.id === "live" ? s.today.trades.length : p.id === "history" ? (s.history ? s.history.summary.trades : 0) : s.findings ? s.findings.findings.length : 0;
+          return count ? { ...p, count } : p;
+        })}
+        tab={part}
+        onTab={setPart}
+        onRefresh={() => load()}
+        loading={Boolean(busy)}
+        tabsLabel="Paper trading sections"
+      />
 
+      <PagePart id="live" tab={part}>
       <div className="pp-grid">
         <section className="an-card">
           <header className="an-card__head">
@@ -267,7 +306,7 @@ export default function Paper() {
         </section>
 
         <form className="an-card pp-set" onSubmit={save}>
-          <h3>Paper account</h3>
+          <SectionHead title="Paper account" />
           <label>
             <span>Paper capital (₹)</span>
             <input type="number" min="10000" step="1000" value={form.capital} onChange={(e) => setForm({ ...form, capital: e.target.value })} />
@@ -295,6 +334,15 @@ export default function Paper() {
         </form>
       </div>
 
+      {s.recentLive.length > 0 && (
+        <section className="an-card">
+          <SectionHead title="Earlier live-market paper trades" />
+          <TradeTable rows={s.recentLive} showDate />
+        </section>
+      )}
+      </PagePart>
+
+      <PagePart id="history" tab={part}>
       <section className="an-card">
         <header className="an-card__head">
           <div>
@@ -348,7 +396,9 @@ export default function Paper() {
           </>
         )}
       </section>
+      </PagePart>
 
+      <PagePart id="findings" tab={part}>
       <section className="an-card">
         <header className="an-card__head">
           <div>
@@ -409,13 +459,7 @@ export default function Paper() {
           Paper results leave out slippage, partial fills and the pressure of real money, so real trading usually does worse. A good paper record is evidence, not a promise.
         </p>
       </section>
-
-      {s.recentLive.length > 0 && (
-        <section className="an-card">
-          <h3>Earlier live-market paper trades</h3>
-          <TradeTable rows={s.recentLive} showDate />
-        </section>
-      )}
+      </PagePart>
 
       {s.log.length > 0 && (
         <details className="an-card pp-more">

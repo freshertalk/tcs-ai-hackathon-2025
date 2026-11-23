@@ -162,6 +162,14 @@ async function buildHealth(ctx, { secure = false, host = "" } = {}) {
     return { status: "ok", detail: `NASDAQ checked ${ago(n.lastSuccessAt, now)}. ${india}; add 2027 in December.` };
   });
 
+  // exchange time (23 Nov 2026): how far this server's clock is from true time, as the time servers say
+  await check("clock", "Market data", "Exchange time (IST)", () => {
+    const c = ctx.exchangeClock ? ctx.exchangeClock.status() : null;
+    if (!c) return { status: "off", detail: "Not running on this server." };
+    if (c.source !== "ntp") return { status: "warn", detail: `Pages use this server's own clock: no time server has answered yet${c.lastError ? ` (${c.lastError})` : ""}.` };
+    return { status: Math.abs(c.offsetMs) > 2000 ? "warn" : "ok", detail: `This server's clock is ${Math.round(Math.abs(c.offsetMs))} ms ${c.offsetMs >= 0 ? "behind" : "ahead of"} true time (±${c.accuracyMs} ms); every page is corrected by it · checked ${ago(c.syncedAt, now)}.` };
+  });
+
   /* ---------------------------------------------------------------- AI */
   const ai = ctx.ai;
   await check("ai", "AI", "AI company in use", () => {

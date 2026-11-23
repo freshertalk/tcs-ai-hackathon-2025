@@ -6,24 +6,27 @@
 // rules every service uses — which reads NSE's official holiday list (holidays/nse-service.js, checked every six hours).
 // The Calendar page's "BSE / NSE holidays" shows that same list. Nothing here keeps its own holiday table.
 //
-// Re-read every two minutes while the tab is in front, at once when NSE's list changes (live topic "holidays"), and at
-// the next boundary (pre-open, open, close, midnight) so the state flips on time. The countdown ticks on the client,
-// corrected for the difference between this computer's clock and the server's.
+// Asked ONCE (the owner's rule, 23 Nov 2026: "don't check multiple times"): when the page opens, then only when the day
+// changes (midnight IST) or the server says NSE's list changed (live topic "holidays"). The server itself reads NSE once
+// a weekday after the 3:30 PM close. Today's state (before the open, pre-open, open, closed for the day) is worked out
+// here from the times in the answer and NSE's clock (clock/exchangeClock.js), so it flips on the second without asking.
 
 import "./next-session.css";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "./api";
-import { everyVisible } from "./visible";
+import { onTopics } from "./live";
 import { adminPath } from "./paths";
+import { exchangeNow, istParts, startExchangeClock, useExchangeNow } from "./clock/exchangeClock";
 
-const MAX_TIMER = 6 * 3600 * 1000;
 
-/** The next-session answer, kept fresh. Returns { data, status: "loading" | "ready" | "error", skew, reload }. */
+/**
+ * The next-session answer. Returns { data, status: "loading" | "ready" | "error", skew, reload }. `skew` stays 0: every
+ * time here is NSE's (exchangeNow), so there is nothing to correct.
+ */
 export function useNextSession() {
   const [state, setState] = useState({ status: "loading", data: null, skew: 0 });
   const alive = useRef(true);
   const load = useCallback(() => {
-    const sent = Date.now();
     return api("/api/admin/market/next-session")
       .then((d) => {
         if (!alive.current) return;
@@ -31,32 +34,50 @@ export function useNextSession() {
           setState((s) => ({ ...s, status: s.data ? "ready" : "error" }));
           return;
         }
-        const got = Date.now();
-        const server = Date.parse(d.at);
-        // the server's clock minus ours, measured at the middle of the round trip (0 when the answer has no time)
-        const skew = Number.isFinite(server) ? server - (sent + got) / 2 : 0;
-        setState({ status: "ready", data: d, skew: Math.abs(skew) > 2000 ? skew : 0 });
+        setState({ status: "ready", data: d, skew: 0 });
       })
       .catch(() => alive.current && setState((s) => ({ ...s, status: s.data ? "ready" : "error" })));
   }, []);
   useEffect(() => {
     alive.current = true;
+    startExchangeClock();
     load();
-    const stop = everyVisible(load, 120000, { topics: ["holidays", "market"] });
+    // NSE's list changed at the source (the server's daily check, or Check now): ask again
+    const unlive = onTopics(["holidays"], () => load());
     return () => {
       alive.current = false;
-      stop();
+      unlive();
     };
   }, [load]);
-  // re-read at the next boundary (the server says when), so "open" becomes "closed" on the minute
-  const refreshAt = state.data ? state.data.refreshAt : null;
+  // a new day (midnight IST): ask again, once — and when the tab comes back after midnight
+  const today = state.data ? state.data.today.date : null;
   useEffect(() => {
-    if (!refreshAt) return undefined;
-    const wait = Math.min(MAX_TIMER, Math.max(1000, refreshAt - (Date.now() + state.skew) + 1500));
-    const id = setTimeout(load, wait);
-    return () => clearTimeout(id);
-  }, [refreshAt, state.skew, load]);
+    if (!today) return undefined;
+    const p = istParts(exchangeNow());
+    const toMidnight = ((24 * 60 - p.minute) * 60 - p.ss) * 1000 + 1500;
+    const id = setTimeout(load, Math.max(1000, toMidnight)); // at most a day: within what a timer can wait
+    const back = () => {
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+      if (istParts(exchangeNow()).date !== today) load();
+    };
+    if (typeof document !== "undefined") document.addEventListener("visibilitychange", back);
+    if (typeof window !== "undefined") window.addEventListener("focus", back);
+    return () => {
+      clearTimeout(id);
+      if (typeof document !== "undefined") document.removeEventListener("visibilitychange", back);
+      if (typeof window !== "undefined") window.removeEventListener("focus", back);
+    };
+  }, [today, load]);
   return { ...state, reload: load };
+}
+
+/** Today's state from the answer's times and NSE's clock — the same rules as the server, worked out to the second. */
+export function todayNow(today, now) {
+  if (!today || !today.trading || !Number.isFinite(today.opensAt)) return today;
+  if (now < today.preOpenAt) return { ...today, status: "before-open", text: `Opens today at ${today.openClock} (pre-open ${today.preOpenClock})` };
+  if (now < today.opensAt) return { ...today, status: "pre-open", text: `Pre-open now · opens at ${today.openClock}` };
+  if (now < today.closesAt) return { ...today, status: "open", text: `Market open · closes at ${today.closeClock}` };
+  return { ...today, status: "closed-for-day", text: `Closed for the day (closed at ${today.closeClock})` };
 }
 
 /** "1 d 14 h", "2 h 5 min", "4 min", "under a minute" */
@@ -72,17 +93,9 @@ export function countdown(ms) {
   return `${d} d${h % 24 ? ` ${h % 24} h` : ""}`;
 }
 
-/** The clock now, corrected for the server, ticking every second near a boundary and every 20 s otherwise. */
-function useNow(skew, target) {
-  const [now, setNow] = useState(() => Date.now() + skew);
-  // within the hour before the target the clock ticks every second (re-checked as time passes, not only on a new answer)
-  const near = Number.isFinite(target) && target - now < 3600000 && target - now > -60000;
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now() + skew), near ? 1000 : 20000);
-    setNow(Date.now() + skew);
-    return () => clearInterval(id);
-  }, [skew, near]);
-  return now;
+/** NSE's time now (clock/exchangeClock.js), turning over on the edge of each exchange second. */
+function useNow() {
+  return useExchangeNow(1000);
 }
 
 const istClock = (ms) => new Date(ms).toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata", hour: "numeric", minute: "2-digit", hour12: true }).replace(/\s?(am|pm)$/i, (m) => ` ${m.trim().toUpperCase()}`);
@@ -116,8 +129,7 @@ const STATUS_TONE = { open: "ok", "pre-open": "warn", "before-open": "idle", "cl
  */
 export default function NextSession({ ns, place = "main", calendarHref }) {
   const d = ns && ns.data;
-  const target = d ? d.next.opensAt : NaN;
-  const now = useNow(ns ? ns.skew : 0, target);
+  const now = useNow();
   const id = `ns-h-${place}`;
   const cal = calendarHref || `${adminPath("/stock-report")}?view=calendar`;
   if (!ns || ns.status === "error") return null;
@@ -129,7 +141,8 @@ export default function NextSession({ ns, place = "main", calendarHref }) {
       </section>
     );
   }
-  const { today, next, verify, calendar } = d;
+  const { next, verify, calendar } = d;
+  const today = todayNow(d.today, now);
   const lines = skippedLines(d.skipped);
   const later = (d.upcoming || []).find((u) => !(d.skipped || []).some((s) => s.date === u.date));
   const todayTone = STATUS_TONE[today.status] || "idle";
@@ -239,11 +252,12 @@ export default function NextSession({ ns, place = "main", calendarHref }) {
  * The status row's "NSE session" card from the same answer: the state now and when it opens next by NSE's calendar.
  * Returns null without an answer (the row keeps its clock-only reading then).
  */
-export function sessionCard(ns, now = Date.now()) {
+export function sessionCard(ns, now = exchangeNow()) {
   const d = ns && ns.data;
   if (!d) return null;
   const t = now + (ns.skew || 0);
-  const { today, next } = d;
+  const today = todayNow(d.today, t);
+  const { next } = d;
   if (today.status === "open") return { id: "open", label: "Open", sub: `closes in ${countdown(today.closesAt - t)} · ${today.closeClock} IST` };
   if (today.status === "pre-open") return { id: "pre", label: "Pre-open", sub: `opens in ${countdown(today.opensAt - t)} · ${today.openClock} IST` };
   if (today.status === "before-open") return { id: "closed", label: "Closed", sub: `opens today at ${today.openClock} IST` };

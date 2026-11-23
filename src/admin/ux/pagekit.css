@@ -1,0 +1,388 @@
+/* The Journal's page anatomy for every workspace (PageKit.jsx, 23 Nov 2026). The same measures as the Journal's own
+   command bar (stock/trade/journal-pro.css .jr-cmd / .jr-tabs), its section heads (trade.css .jp-head / .jr-h) and the
+   Console band (pnl-report.css .zp-sum), under wk- names so a page outside the terminal wears them too.
+   Colours are the theme's tokens: both themes, Zerodha's palette. Nothing here fades in from nothing (a hidden tab
+   does not run animations); the bar's entrance is a transform only. */
+
+/* ------------------------------------------------------------------ the head card */
+.wk-head {
+  display: grid;
+  gap: 10px;
+}
+.wk-head .an-card__head {
+  margin: 0;
+}
+/* what sits in the head card (chips, notes, alerts) is spaced by the card's gap, not by its own margins as well */
+.adm .wk-head > * {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+.wk-head__titles {
+  min-width: 0;
+  flex: 1 1 320px;
+}
+.wk-head__titles :is(h1, h3) {
+  margin: 0;
+}
+/* a page of its own: the title at the section-title step, like the terminal's (Kite's light large headings) */
+.wk-head__titles .wk-head__h1 {
+  font-size: var(--t-large);
+  font-weight: 400;
+  line-height: 1.2;
+  color: var(--ink);
+}
+.wk-head__act {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+/* ------------------------------------------------------------------ the sticky strip */
+.wk-bar {
+  position: sticky;
+  /* under the top bar and under whatever else sticks at its edge — the terminal's row of section jumps (--pj-h) and the
+     daily-goal strip (--dg-h) both stick there, one over the other, so the bar goes below the taller — never over them */
+  top: calc(var(--tm-top, 65px) + max(var(--pj-h, 0px), var(--dg-h, 0px))); /* 65px: the private pages' header with its line */
+  z-index: 39;
+  display: grid;
+  gap: 0;
+  margin: 0 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: linear-gradient(var(--surface), var(--surface)), var(--paper, #fff);
+  box-shadow: 0 10px 22px -16px rgba(0, 0, 0, 0.65);
+  transition: top 0.22s ease;
+  animation: wk-in 0.36s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.wk-bar__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 18px;
+  padding: 8px 14px;
+}
+.wk-bar__label {
+  display: grid;
+  gap: 0;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+}
+button.wk-bar__label {
+  cursor: pointer;
+}
+.wk-bar__label small,
+.wk-bar__kpis dt {
+  font-size: var(--t-tag);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-3);
+}
+.wk-bar__label b {
+  font-size: var(--t-base);
+  overflow-wrap: anywhere;
+}
+.wk-bar__kpis {
+  display: flex;
+  flex-wrap: wrap;
+  flex: 1 1 360px;
+  gap: 4px 22px;
+  margin: 0;
+}
+.wk-bar__kpis > div {
+  display: grid;
+  min-width: 0;
+}
+.wk-bar__kpis dd {
+  margin: 0;
+  font-size: var(--t-mid, 1rem);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+.wk-bar__kpis .is-up dd {
+  color: var(--up);
+}
+.wk-bar__kpis .is-down dd {
+  color: var(--down);
+}
+.wk-bar__kpis .is-warn dd {
+  color: var(--warn-ink);
+}
+.wk-bar__tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+.wk-bar__at {
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+/* the tabs: the Journal's underline tabs (ux/look.css slides the bar in) */
+.wk-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 0 8px;
+  border-top: 1px solid var(--line);
+}
+.wk-tabs button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 14px;
+  border: 0;
+  background: none;
+  color: var(--ink-2);
+  font: inherit;
+  font-size: var(--t-small);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.wk-tabs button small {
+  padding: 0 6px;
+  border-radius: 99px;
+  background: var(--surface-2);
+  color: var(--ink-3);
+  font-size: var(--t-tag);
+}
+.wk-tabs button:hover {
+  color: var(--ink);
+}
+.wk-tabs button[aria-selected="true"] {
+  color: var(--ink);
+  font-weight: 700;
+}
+.wk-tabs button[aria-selected="true"]::after {
+  content: "";
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 0;
+  height: 3px;
+  border-radius: 3px 3px 0 0;
+  background: var(--accent);
+  transform-origin: center;
+  animation: wk-bar 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.wk-tabs button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* the head card and the bar: the same gap as between the Journal's cards */
+.wk-head + .wk-bar {
+  margin-top: 8px;
+}
+
+/* ------------------------------------------------------------------ a section behind a tab */
+.wk-part {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  animation: wk-part-in 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.wk-part[hidden] {
+  display: none !important;
+}
+/* inside a section the part's own gap spaces the cards: their outer margins would double it */
+.adm .wk-part > *,
+.adm .tm-work .wk-part > * {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+@keyframes wk-part-in {
+  from {
+    transform: translateY(6px);
+  }
+  to {
+    transform: none;
+  }
+}
+
+/* ------------------------------------------------------------------ a section's head */
+.wk-sec {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.wk-sec > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.wk-sec__t {
+  margin: 0;
+  font-size: var(--t-base);
+  font-weight: 600;
+  color: var(--ink);
+}
+.wk-sec__s {
+  color: var(--ink-3);
+  font-size: var(--t-small);
+  line-height: 1.4;
+}
+.wk-sec__act {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* ------------------------------------------------------------------ Console's band of figures */
+.wk-band {
+  margin: 0 0 12px;
+  padding: 22px clamp(16px, 3vw, 40px);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--surface-2);
+}
+.wk-band__row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px clamp(16px, 3vw, 44px);
+  margin: 0;
+}
+.wk-fig {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.wk-fig dt {
+  color: var(--ink);
+  font-size: var(--t-base, 1rem);
+  font-weight: 400;
+}
+.wk-fig dd {
+  margin: 0;
+  color: var(--ink);
+  font-size: clamp(1.4rem, 2.2vw, 1.9rem);
+  font-weight: 400;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.wk-fig.is-up dd {
+  color: var(--up);
+}
+.wk-fig.is-down dd {
+  color: var(--down);
+}
+.wk-fig small {
+  color: var(--ink-3);
+  font-size: var(--t-small);
+}
+
+/* ------------------------------------------------------------------ a phone */
+@media (max-width: 720px) {
+  /* one slim row of figures above the tabs, as the Journal does, so the bar does not eat the screen */
+  .wk-bar__more,
+  .wk-bar__label,
+  .wk-bar__at {
+    display: none !important;
+  }
+  .wk-bar__row {
+    flex-wrap: nowrap;
+    gap: 8px;
+    padding: 5px 10px;
+  }
+  .wk-bar__kpis {
+    flex: 1 1 auto;
+    gap: 4px 14px; /* wraps rather than cutting a figure off (the owner's no-overflow rule) */
+  }
+  .wk-bar__kpis > div {
+    flex: 0 1 auto;
+  }
+  .wk-tabs button {
+    padding: 0 10px;
+  }
+}
+
+@keyframes wk-in {
+  from {
+    transform: translateY(-4px);
+  }
+  to {
+    transform: none;
+  }
+}
+@keyframes wk-bar {
+  from {
+    transform: scaleX(0.2);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wk-part,
+  .wk-bar,
+  .wk-tabs button[aria-selected="true"]::after {
+    animation: none;
+    transition: none;
+  }
+}
+@media print {
+  .wk-bar {
+    position: static;
+    box-shadow: none;
+  }
+}
+
+/* ------------------------------------------------------------------ what stays on screen under the bar */
+/* Research's side rail (trade.css .rs-side) is sticky under the top bar: with the page bar it sits under that too */
+@media (min-width: 1180px) {
+  .adm .rs--panes .rs-side {
+    top: calc(var(--tm-top, 52px) + max(var(--pj-h, 0px), var(--dg-h, 0px)) + var(--wk-bar-h, 0px) + 10px);
+    max-height: calc(100vh - var(--tm-top, 52px) - max(var(--pj-h, 0px), var(--dg-h, 0px)) - var(--wk-bar-h, 0px) - var(--tm-dock, 0px) - 24px);
+  }
+}
+/* a section reached from the jump menu lands under the bar, not behind it */
+.adm .tm-work :is(.wk-part, .wk-part > *) {
+  scroll-margin-top: calc(var(--tm-top, 52px) + max(var(--pj-h, 0px), var(--dg-h, 0px)) + var(--wk-bar-h, 0px) + 8px);
+}
+
+/* the head card's one plain sentence is shown whole (the owner's rule: nothing ends in "…"); the terminal's compact
+   clamp (compact.css: card descriptions in two lines, one on a phone, the rest on a click) stays for every other card */
+.adm .tm .wk-head .an-card__head p,
+.adm .wk-head .an-card__head p {
+  display: block;
+  -webkit-line-clamp: unset;
+  overflow: visible;
+  cursor: auto;
+}
+
+/* smooth.css fades every direct child of a terminal page in from opacity 0; where animations do not run (a tab that is
+   not being drawn, some power-saving modes) that leaves the element invisible. The bar and the tab sections are direct
+   children, so they take the kit's own entrance instead: movement only, never a fade from nothing. */
+.adm .tm-page > .wk-bar,
+.adm .adm-main .wk-bar {
+  animation: wk-in 0.36s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.adm .tm-page > .wk-part,
+.adm .adm-main .wk-part {
+  animation: wk-part-in 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.adm .tm-page > .wk-head,
+.adm .adm-main .wk-head {
+  animation: wk-part-in 0.36s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .adm .tm-page > :is(.wk-bar, .wk-part, .wk-head),
+  .adm .adm-main :is(.wk-bar, .wk-part, .wk-head) {
+    animation: none;
+  }
+}

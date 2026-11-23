@@ -554,7 +554,7 @@ export const PLATFORM = [
       { logic: {
         title: "BSE / NSE — NSE's own list, synced and verified (since 23 Nov 2026)",
         who: "The server reads NSE's official trading-holiday list (the JSON behind nseindia.com → Holidays, equity segment).",
-        when: "At start-up and then every 6 hours; **Check now** on the BSE / NSE card (any admin; 6 per 10 minutes) refreshes on demand.",
+        when: "**Once a day after the 3:30 PM close, Monday to Friday** — never on Saturday or Sunday, never twice a day (a failed check is retried at most twice, an hour apart); at start-up only when the server has no copy at all. **Check now** on the BSE / NSE card (any admin; 6 per 10 minutes) asks at once.",
         steps: [
           "NSE's answer is parsed **strictly** (`server/holidays/nse.js`): dates in NSE's own form (24-Nov-2026), the weekday NSE gives must match the date, dates ascending, 5–40 holidays a year; NSE's asterisk marks the Diwali Muhurat day. A web page, a mismatch or a short list is refused with the reason. NSE's edge answers browsers only, so the request looks like a browser's — one public URL, normally four times a day.",
           "The last good copy is kept in `server/data/nse-holidays.json`; a failed check **never overwrites it**, and a change at NSE is logged and pushed to every open page at once (live topic “holidays”).",
@@ -566,11 +566,34 @@ export const PLATFORM = [
       { logic: {
         title: "Next trading day on /me",
         who: "`GET /api/admin/market/next-session` (`server/market/next-session.js`), from the same trading-day rules.",
-        when: "Read on opening /me, every 2 minutes while the tab is in front, at once when NSE's list changes, and at each boundary (pre-open, open, close, midnight).",
+        when: "Asked **once**: when /me opens, then only at midnight IST or when the server says NSE's list changed. Today's state (before the open, pre-open, open, closed) is worked out on the page from the answer's times and NSE's clock, so it flips on the second without asking again.",
         steps: [
           "The next trading day **after today**: when tomorrow is a holiday or a weekend it is the day after, and so on — with its pre-open (9:00 AM), open (9:15 AM) and close (3:30 PM IST), and the closing auction for F&O stocks from the session table.",
           "The days skipped and why (“Tue 24 Nov: market holiday · Prakash Gurpurb Sri Guru Nanak Dev”), today's state (before the open, pre-open, open, closed for the day, holiday, weekend), the next holiday, a live countdown and whether the calendar is NSE's own list.",
         ],
+      } },
+      { logic: {
+        title: "One page anatomy, the Journal's, on every workspace (23 Nov 2026)",
+        who: "`src/admin/ux/PageKit.jsx` + `pagekit.css` (the frames) and `ux/look.css` (the tabs and chips everywhere).",
+        when: "Every workspace and the data pages of /me (Expenses, Social Media).",
+        steps: [
+          "**The head card**: the page's name, one plain line on what it is for and how it updates, its actions on the right.",
+          "**The sticky bar** under the top bar: what is shown, the page's headline figures in small capitals (secondary ones hidden on a phone), refresh and when it was read (IST) — the Journal's command bar.",
+          "**The sections as underline tabs** where a page has three or more: each section stays mounted behind its tab (live lists, the autopilot, running jobs carry on), the tab is remembered for the visit and `?part=` in the address opens one. A checklist page (Trade setup, the Calendar) has an “everything” tab first.",
+          "Chips (periods, kinds, filters) and in-page tabs everywhere wear the Journal's look; cards rise in gently when a workspace opens (transform only, so nothing is ever left invisible).",
+        ],
+        limits: "The Desk keeps its cockpit layout (a chart screen, not a report page), TradeAI its chat, and the settings pages their forms.",
+      } },
+      { logic: {
+        title: "Exchange time on every page (23 Nov 2026)",
+        who: "`server/clock.js` (the server) and `src/admin/clock/exchangeClock.js` (every page).",
+        when: "The server asks the time servers every 15 minutes; a page measures itself on opening, every 5 minutes, when shown again, on regaining the network, and the moment this computer's clock jumps.",
+        steps: [
+          "NSE runs on IST as kept by India's national time (NPL). The server asks India's NIC time servers (samay1/samay2.nic.in) and public ones (Google, Cloudflare, pool.ntp.org) over SNTP, takes the **median** offset of the good answers and corrects its own clock by it (shown on the health page: e.g. “92 ms behind true time, ±31 ms”).",
+          "A page asks `GET /api/admin/clock` a few times, NTP-style (the server stamps when the request arrived and when the answer left, so its own handling time drops out), keeps the sample with the shortest round trip, and from then on every clock reads `exchangeNow()` — this computer's clock plus that offset.",
+          "Clocks turn over **on the edge of each exchange second** (not on a free-running timer that lags): the terminal's NSE pill, the bottom sheet, the world clock, the time converter's Now, the stock panel's IST clock, the day board, /me's greeting, status row and Next trading day countdown.",
+        ],
+        limits: "Accuracy is about half the network round trip (tens of milliseconds); if the server cannot be reached the last offset is kept, and with none the computer's own clock is used — the clock's tooltip says which.",
       } },
     ],
   },
@@ -625,6 +648,27 @@ export const PLATFORM = [
         "`npm start` (site on port 3000), `npm run build` (site build plus the prerender step that writes the public page’s static HTML, the bare `/me` shell and the sitemap), `npm run server`, `npm run dev` (API with auto-restart on 5000 and the site on 3000 together), `npm run db:check`, `npm run server:test`.",
         "**Tests:** 23 server test files cover sign-in and roles, sessions, secrets, holidays, the document store, the market engines, candles, the intraday call, verdict, odds, replay, screener, streaming, trading, journal, paper, AI providers, ensemble, analysis, research and order flow; 21 front-end test files cover help, chart studies, holidays, shortcuts and more. Tests also enforce that the AI folder and the market folder cannot place orders and that the AI folder holds no timer.",
       ] },
+    ],
+  },
+  {
+    id: "vinaypedia",
+    part: "platform",
+    title: "Vinaypedia — Vinay’s own learning",
+    intro: "One place for everything about intraday trading: the desk’s library, official updates read by the desk itself, lessons the AI writes when you ask, and what you learnt yourself.",
+    blocks: [
+      { p: "**Vinaypedia** is the workspace after Debrief in the top bar (and a tile at the top of **/me → Learning**). It has four layers, and one search covers them all." },
+      { logic: {
+        title: "The four layers",
+        who: "Every admin can read it and add learnings; each person changes their own; a superadmin can tidy any.",
+        when: "Always; the official updates refresh by themselves every six hours, and the page updates itself the moment anything changes.",
+        steps: [
+          "**Library** — the desk’s knowledge base (the same pages every AI feature reads), grouped by area: the Indian market and its rules, orders, costs and taxes, indicators, price action, volume and open interest, strategies, risk, psychology, options and more. Each area lists its **official reading** (Zerodha Varsity modules, Zerodha’s charges and margin pages, NSE, SEBI, RBI) — every address checked to exist.",
+          "**Official updates** — the server reads the publishers’ own RSS feeds: NSE circulars, SEBI, Zerodha Z-Connect, Zerodha Varsity and RBI press releases. Plain keyword rules (no AI) file each one under the areas it touches; personal-finance items are tucked away. Only the headline, a short excerpt, the date and the link are kept.",
+          "**AI lessons** — **Write with AI** on an area: the model writes a lesson (summary, key points, rules for the day, mistakes to avoid, a worked example, a checklist) from that area’s library pages, its newest official updates and your notes, and may cite only the official reading list. **What do they mean? (AI)** reads the newest updates and says which matter and why.",
+          "**My learnings** — **+ Add my learning**: a title, the kind (Lesson, Rule I follow, Mistake to avoid, Idea to test), the area, your words, tags, an optional link, and a pin to keep it on top.",
+        ],
+        limits: "AI credit is spent only when someone presses an AI button. When new NSE/SEBI circulars that matter arrive, the desk asks once a day with an **Allow once / Not now** popup instead of running by itself. The sources are re-read by the automation supervisor when they have not been read for 12 hours.",
+      } },
     ],
   },
 ];

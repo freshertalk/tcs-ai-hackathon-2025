@@ -268,3 +268,49 @@ test("a year with no list says so instead of guessing", () => {
   assert.equal(r.next.date, "2027-01-01", "weekdays are assumed open in an unpublished year");
   assert.equal(r.calendar.known, false);
 });
+
+/* ------------------------------------------- the daily check (owner's rule, 23 Nov 2026) */
+
+test("NSE is read once a weekday after the 3:30 PM close — never on Saturday or Sunday, never twice a day", async () => {
+  const r = rig([{ body: BODY }]);
+  const at = (s) => ist(s);
+  assert.equal(r.svc.dailyDue(at("2026-11-23T15:29")), false, "before the close");
+  assert.equal(r.svc.dailyDue(at("2026-11-23T15:30")), true, "Monday after the close");
+  await r.svc.tickDaily(at("2026-11-23T15:30"));
+  assert.equal(r.calls(), 1);
+  assert.equal(r.svc.dailyDue(at("2026-11-23T19:54")), false, "done for the day");
+  assert.equal(r.svc.tickDaily(at("2026-11-23T23:59")), null);
+  assert.equal(r.svc.dailyDue(at("2026-11-28T16:00")), false, "Saturday");
+  assert.equal(r.svc.dailyDue(at("2026-11-29T16:00")), false, "Sunday");
+  assert.equal(r.svc.dailyDue(at("2026-11-24T16:00")), true, "the next weekday (even a holiday) checks once");
+  assert.equal(r.calls(), 1);
+  // the day's record survives a restart: no second read that day
+  const again = r.make();
+  assert.equal(again.dailyDue(at("2026-11-23T20:30")), false);
+});
+
+test("a failed daily check is tried again an hour later, three times at most", async () => {
+  const r = rig([new Error("NSE did not answer")]);
+  await r.svc.tickDaily(ist("2026-11-25T15:31"));
+  assert.equal(r.svc.dailyDue(ist("2026-11-25T16:00")), false, "not before an hour");
+  assert.equal(r.svc.dailyDue(ist("2026-11-25T16:31")), true);
+  await r.svc.tickDaily(ist("2026-11-25T16:31"));
+  await r.svc.tickDaily(ist("2026-11-25T17:31"));
+  assert.equal(r.calls(), 3);
+  assert.equal(r.svc.dailyDue(ist("2026-11-25T18:31")), false, "three tries a day at most");
+});
+
+test("start(): no read at start-up when a copy exists; one read when there is none", async () => {
+  const r = rig([{ body: BODY }]);
+  r.svc.start(); // no copy yet: reads once
+  await new Promise((res) => setImmediate(res));
+  r.svc.stop();
+  assert.ok(r.calls() >= 1);
+  const before = r.calls();
+  const second = r.make(); // the copy is on disk now
+  second.start();
+  await new Promise((res) => setImmediate(res));
+  second.stop();
+  // only the daily rule may read now (and the test clock is Monday 3:30 PM IST: once at most)
+  assert.ok(r.calls() - before <= 1);
+});

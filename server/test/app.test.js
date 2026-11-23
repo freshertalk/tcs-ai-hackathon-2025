@@ -949,3 +949,44 @@ test("the P&L grid's days over HTTP: the last 12 months by default, a chosen ran
   assert.match(r.json.message, /three years/);
   assert.equal((await s.request("GET", "/api/admin/trading/journal/days")).status, 401);
 });
+
+test("Vinaypedia over HTTP: the library by area, an admin's own learnings (theirs to change), AI only on a click, sign-in needed", async (t) => {
+  const s = await boot();
+  t.after(s.close);
+  await s.configure();
+  const boss = (await s.login(SUPERADMIN_EMAIL)).session;
+  await s.request("POST", "/api/admin/admins", { cookie: boss, body: { email: "learner@example.com", invite: false } });
+  const plain = (await s.login("learner@example.com")).session;
+  let r = await s.request("GET", "/api/admin/learning", { cookie: plain });
+  assert.equal(r.status, 200, JSON.stringify(r.json));
+  assert.ok(r.json.library.length > 100, "the whole knowledge base");
+  assert.ok(r.json.areas.some((a) => a.name === "Indicators" && a.pages > 5));
+  assert.ok(r.json.reading.length > 10);
+  assert.equal(r.json.sources.length, 5);
+  // an admin adds a learning; another person cannot change it; the superadmin can tidy it
+  r = await s.request("POST", "/api/admin/learning/notes", { cookie: plain, body: { title: "Stop after two losses", area: "Psychology", kind: "rule", body: "Revenge trades cost me most." } });
+  assert.equal(r.status, 200, JSON.stringify(r.json));
+  const id = r.json.note.id;
+  assert.equal(r.json.note.by, "learner@example.com");
+  r = await s.request("PUT", `/api/admin/learning/notes/${id}`, { cookie: plain, body: { pinned: true } });
+  assert.equal(r.json.note.pinned, true);
+  r = await s.request("PUT", `/api/admin/learning/notes/${id}`, { cookie: boss, body: { title: "Stop after two losing trades" } });
+  assert.equal(r.status, 200);
+  r = await s.request("POST", "/api/admin/learning/notes", { cookie: boss, body: { title: "" } });
+  assert.equal(r.status, 400);
+  assert.match(r.json.message, /title/);
+  r = await s.request("GET", "/api/admin/learning", { cookie: plain });
+  assert.equal(r.json.notes.find((n) => n.id === id).mine, true);
+  // the AI writes a lesson only on a click, and says plainly when no model is saved
+  r = await s.request("POST", "/api/admin/learning/lessons", { cookie: plain, body: { area: "Indicators" } });
+  assert.equal(r.status, 409);
+  assert.match(r.json.message, /AI model|not available/);
+  // no network under the test runner: the sources are not read, and the page says why
+  r = await s.request("POST", "/api/admin/learning/refresh", { cookie: plain });
+  assert.equal(r.status, 200);
+  assert.match(r.json.sources[0].lastError, /no network/);
+  r = await s.request("DELETE", `/api/admin/learning/notes/${id}`, { cookie: plain });
+  assert.deepEqual(r.json, { removed: true });
+  assert.equal((await s.request("GET", "/api/admin/learning")).status, 401);
+  assert.equal((await s.request("POST", "/api/admin/learning/notes", { body: { title: "x" } })).status, 401);
+});

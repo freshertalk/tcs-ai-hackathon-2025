@@ -3147,6 +3147,14 @@
 .scr > .an-card:first-child {
   margin-top: 0;
 }
+/* the Journal's anatomy (PageKit, 23 Nov 2026): the bar sits a step under the head card, and behind each tab the
+   part's own gap spaces the cards */
+.scr > .wk-head + .wk-bar {
+  margin-top: 8px;
+}
+.scr > .wk-part > .an-card {
+  margin-top: 0;
+}
 .scr__status {
   margin-bottom: 14px;
   padding: 12px 14px;

@@ -8,10 +8,11 @@
 //
 // Fixed rules, applied the same way every time. It never places an order.
 
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { Loading } from "../../ui";
 import { clock, compact, day, inr, isNum, num, pct } from "./format";
 import FastRead from "./FastRead";
+import { useExchangeNow } from "../../clock/exchangeClock";
 
 const ARROW = { up: "▲", down: "▼", sideways: "◆", mixed: "◆" };
 const MARK = { bullish: "▲", bearish: "▼", neutral: "◆" };
@@ -36,11 +37,8 @@ function Row({ k, children, strong }) {
 
 /** A ticking IST clock: the trading day runs on Indian time wherever the browser is. */
 function IstClock() {
-  const [now, setNow] = useState(() => new Date());
-  useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(id);
-  }, []);
+  // NSE's time (clock/exchangeClock.js), turning over on the edge of each second
+  const now = new Date(useExchangeNow(1000));
   return <time className="vd-clock" data-tip="The time in India. The trading day runs on it wherever you are.">{now.toLocaleTimeString("en-GB", { timeZone: "Asia/Kolkata", hour12: false })} IST</time>;
 }
 

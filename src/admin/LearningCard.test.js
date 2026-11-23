@@ -6,7 +6,11 @@ test("three groups of outside resources, each card opening its site in a new tab
   render(<LearningCard />);
   expect(screen.getByRole("heading", { name: "Learning", level: 2 })).toBeTruthy();
   for (const g of ["Learning", "Technical Analysis", "Fundamental Analysis"]) expect(screen.getByRole("group", { name: new RegExp(`^${g}`) })).toBeTruthy();
-  const links = screen.getAllByRole("link");
+  // the owner's own learning comes first and stays inside the site; the outside resources open in a new tab
+  const own = screen.getByRole("link", { name: /Vinaypedia/ });
+  expect(own.getAttribute("href")).toBe("/me/stock-report?view=learning");
+  expect(own.getAttribute("target")).toBeNull();
+  const links = screen.getAllByRole("link").filter((a) => a !== own);
   expect(links).toHaveLength(11);
   expect(LEARNING.flatMap((g) => g.links).map((l) => l.url)).toEqual([
     "https://zerodha.com/varsity/",

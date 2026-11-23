@@ -9,6 +9,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../../api";
 import { everyVisible } from "../../visible";
+import { exchangeNow, useExchangeNow } from "../../clock/exchangeClock";
 import { isNum, num, pct } from "./format";
 import { radarScore } from "./radar";
 import "./dayboard.css";
@@ -16,7 +17,7 @@ import "./dayboard.css";
 const IST = 5.5 * 3600 * 1000;
 
 /** Minutes since midnight in India, the weekday (0 = Sunday), the date, and the clock text. */
-export function istParts(ms = Date.now()) {
+export function istParts(ms = exchangeNow()) {
   const d = new Date(ms + IST);
   return { min: d.getUTCHours() * 60 + d.getUTCMinutes(), sec: d.getUTCSeconds(), dow: d.getUTCDay(), date: d.toISOString().slice(0, 10), text: d.toISOString().slice(11, 16) };
 }
@@ -252,11 +253,8 @@ function ChecklistCard({ now, status, ctx }) {
 /* ------------------------------------------------------------------ the board */
 
 export default function DayBoard({ status, quotes, symbols, onPick }) {
-  const [now, setNow] = useState(() => istParts());
-  useEffect(() => {
-    const id = setInterval(() => setNow(istParts()), 15000);
-    return () => clearInterval(id);
-  }, []);
+  // NSE's time, re-read on the edge of every exchange minute (the board is minute-grained) — no drift, no lag
+  const now = istParts(useExchangeNow(60000));
 
   // the market reading: shared with the strip below it by asking for the same page of the API
   const live = status.mode === "kite";

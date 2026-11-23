@@ -13,9 +13,6 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import WorldClock from "./WorldClock";
-import HolidayCalendar from "./HolidayCalendar";
-import TimeConverter from "./TimeConverter";
 import Analyzer from "./analyzer/Analyzer";
 import Screener from "./analyzer/Screener";
 import Paper from "./paper/Paper";
@@ -24,6 +21,7 @@ import Indices from "./indices/Indices";
 import Document from "./docs/Document";
 import AiEngine from "./engine/AiEngine";
 import Debrief from "./analyzer/Debrief";
+import Vinaypedia from "./learning/Vinaypedia";
 import ErrorBoundary from "./analyzer/ErrorBoundary";
 import Account from "./trade/Account";
 import Research from "./trade/Research";
@@ -31,7 +29,7 @@ import Journal from "./trade/Journal";
 import Advisor from "./advisor/Advisor";
 import NowView from "./now/NowView";
 import TradeSetup from "./setup/TradeSetup";
-import ExpiryCalendar from "./ExpiryCalendar";
+import CalendarView from "./CalendarView";
 import { TradeProvider, useTrade } from "./trade/TradeContext";
 import { GoalBanner } from "./trade/DailyGoal";
 import { pulseOf, useLiveBook } from "./trade/liveBook";
@@ -64,6 +62,7 @@ const VIEWS = [
   { id: "journal", label: "Journal", superOnly: true, tip: "Every round trip you made: win rate, profit factor, expectancy, drawdown, P&L calendar, MAE/MFE, tags and an AI review." },
   { id: "paper", label: "Paper", tip: "Paper trading: the desk’s live call followed with play money — in today’s market, on past sessions, and in an auto mode. No real orders; separate from real trading." },
   { id: "debrief", label: "Debrief", tip: "After the close: if you had followed every live call by fixed rules, what would today have made or lost? A report card for the desk’s signals — no real trades." },
+  { id: "learning", label: "Vinaypedia", tip: "Vinay’s own learning: every intraday topic in one place — the desk’s library by area, the newest NSE, SEBI, Zerodha and RBI updates read by the desk itself, lessons the AI writes when you ask, and your own learnings." },
   { id: "engine", label: "AI Engine", tip: "Everything about the AI: every feature, rule and condition — and, for the superadmin, the AI brains (standing instructions every AI feature follows), the real instructions and the skills file. Word download." },
   { id: "document", label: "Document", tip: "The complete guide to this advisor in plain English: every feature, who does what, and every rule — what it does, how and when." },
 ];
@@ -323,17 +322,11 @@ function Terminal() {
               <Document />
             ) : view === "debrief" ? (
               <Debrief onOpen={openStock} />
+            ) : view === "learning" ? (
+              <Vinaypedia />
             ) : (
-              <>
-                <WorldClock />
-                <TimeConverter />
-                {/* every weekly and monthly derivatives expiry, from the exchanges' own contract lists (server/expiry.js) */}
-                <ExpiryCalendar />
-                <div className="sr-two">
-                  <HolidayCalendar market="india" />
-                  <HolidayCalendar market="nasdaq" />
-                </div>
-              </>
+              /* the Calendar in the Journal's anatomy (CalendarView.jsx): the same clocks, expiries and holiday lists */
+              <CalendarView />
             )}
           </div>
         )}

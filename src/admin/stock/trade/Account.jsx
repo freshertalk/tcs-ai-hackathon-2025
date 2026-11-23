@@ -20,8 +20,14 @@ import { CASH, LIVE_STATUSES, holdingNumbers, newRef, positionDayChange, positio
 import { useLiveBook } from "./liveBook";
 import { everyVisible } from "../../visible";
 import { PositionEvidence, usePositionEvidence } from "../analyzer/EvidenceCard";
+import { FigureBand, PageBar, PageHead, SectionHead } from "../../ux/PageKit";
 import "./trade.css";
+import "./account-page.css";
 
+// The Journal's anatomy (23 Nov 2026): a head card, the sticky bar with the headline figures and this page's own
+// section tabs (the same state, the same remembered tab and the same one-section-at-a-time view as before), and
+// Console's band of figures. The Desk's dock (compact) keeps its own tab row and none of the frames. Layout only:
+// the switch, the limits, every order form and every confirmation are exactly as they were.
 const TABS = [
   { id: "positions", label: "Positions" },
   { id: "holdings", label: "Holdings" },
@@ -519,8 +525,43 @@ export default function Account({ compact = false }) {
 
   if (!trade) return <p className="adm-alert adm-alert--info">Positions and orders are shown to the account owner (the superadmin) only.</p>;
 
+  const tradingOn = Boolean(status && status.enabled);
+  const equity = d && d.funds && d.funds.equity ? d.funds.equity : null;
+  // how the P&L is kept current (the note the tab row carried; the dock's tab row still does)
+  const liveNote = d ? (bookOn ? (book.live && book.streaming ? "P&L live with every price" : `P&L as Zerodha reported at ${clock(book.baseAt)}`) : live.state === "live" ? "prices streaming" : "prices every 10 s") : "";
+
   return (
     <TickContext.Provider value={live.store}>
+      {!compact && (
+        <>
+          <PageHead
+            title="Positions & orders"
+            text="Your Zerodha account on this site: positions with live P&L, holdings, orders and trades, funds and margins. Buy, sell, exit, change or cancel from here only while the trading switch is ON; while it is OFF those buttons are greyed out and the server refuses them."
+          />
+          <PageBar
+            label={status ? (status.connected ? "Connected" : "Not connected") : "—"}
+            labelTitle="Zerodha"
+            kpis={[
+              { label: "Total P&L", value: d ? signedMoney(dayPnl) : null, tone: d ? tone(dayPnl) : "", tip: "Today’s profit or loss on all positions, open and closed (the day’s M2M, by Zerodha’s own formula) — the same figure as the top bar and the dock." },
+              { label: "Open positions", value: d ? tot.open : null },
+              { label: "Margin available", value: equity ? money(equity.net) : null, tip: "Equity margin available for new trades, as Zerodha reports it." },
+              { label: "Trading", value: status ? (tradingOn ? "ON" : "OFF") : null, tone: tradingOn ? "warn" : "", tip: tradingOn ? "The trading switch is ON: Buy, Sell, Exit, Modify and Cancel send real orders to your Zerodha account." : "The trading switch is OFF: Buy, Sell, Exit, Modify and Cancel are greyed out and the server refuses them." },
+              { label: "Open orders", value: d ? openOrders.length : null, more: true },
+            ]}
+            tabs={d ? TABS.map((x) => ({ ...x, count: x.id === "positions" ? tot.open : x.id === "holdings" ? holdings.length : x.id === "orders" ? openOrders.length : 0 })) : null}
+            tab={tab}
+            onTab={setTab}
+            updatedAt={d ? d.at : null}
+              atSeconds
+            onRefresh={() => {
+              load();
+            }}
+            loading={state.loading}
+            tools={liveNote ? <small className="acc-live">{liveNote}</small> : null}
+            tabsLabel="Account sections"
+          />
+        </>
+      )}
       <div className={`tr ${compact ? "tr--compact" : ""}`}>
         {!compact && <SwitchBar trade={trade} status={status} onExitAll={() => setDialog({ kind: "exit-all" })} />}
         {!compact && trade.goal && <DailyGoalCard goal={trade.goal} onSaved={trade.reloadGoal} />}
@@ -537,35 +578,25 @@ export default function Account({ compact = false }) {
         {d && (
           <>
             {!compact && (
-            <dl className="tr-tiles">
-              <div className={`is-${tone(dayPnl)}`} data-tip="Today’s profit or loss on all positions, open and closed (the day’s M2M, by Zerodha’s own formula) — the same figure as the top bar and the dock, live with every streamed price.">
-                <dt>Positions · Total P&amp;L</dt>
-                <dd>{signedMoney(dayPnl)}</dd>
-                <small>
-                  {tot.open} open · {positions.length - tot.open} closed today
-                  {bookOn && Math.abs(book.pnl - book.day) >= 1 ? ` · ${signedMoney(book.pnl)} since entry` : ""}
-                </small>
-              </div>
-              <div className={`is-${tone(tot.holdPnl)}`} data-tip="Profit or loss on your delivery holdings against what you paid for them.">
-                <dt>Holdings · Total P&amp;L</dt>
-                <dd>{signedMoney(tot.holdPnl)}</dd>
-                <small>
-                  {pct(tot.holdPnlPct)} on {money(tot.invested)}
-                </small>
-              </div>
-              <div className={`is-${tone(tot.holdDay)}`} data-tip="How much your holdings have moved since yesterday’s close.">
-                <dt>Holdings · Day&rsquo;s P&amp;L</dt>
-                <dd>{signedMoney(tot.holdDay)}</dd>
-                <small>current value {money(tot.current)}</small>
-              </div>
-              <div data-tip="Equity margin available for new trades, as Zerodha reports it.">
-                <dt>Margin available</dt>
-                <dd>{d.funds && d.funds.equity ? money(d.funds.equity.net) : "—"}</dd>
-                <small>{d.funds && d.funds.equity ? `Margins used ${money(d.funds.equity.used.debits)}` : d.errors.funds || ""}</small>
-              </div>
-            </dl>
+              <FigureBand
+                label="Positions, holdings and margin"
+                items={[
+                  {
+                    label: "Positions · Total P&L",
+                    value: signedMoney(dayPnl),
+                    tone: tone(dayPnl),
+                    tip: "Today’s profit or loss on all positions, open and closed (the day’s M2M, by Zerodha’s own formula) — the same figure as the top bar and the dock, live with every streamed price.",
+                    sub: `${tot.open} open · ${positions.length - tot.open} closed today${bookOn && Math.abs(book.pnl - book.day) >= 1 ? ` · ${signedMoney(book.pnl)} since entry` : ""}`,
+                  },
+                  { label: "Holdings · Total P&L", value: signedMoney(tot.holdPnl), tone: tone(tot.holdPnl), tip: "Profit or loss on your delivery holdings against what you paid for them.", sub: `${pct(tot.holdPnlPct)} on ${money(tot.invested)}` },
+                  { label: "Holdings · Day’s P&L", value: signedMoney(tot.holdDay), tone: tone(tot.holdDay), tip: "How much your holdings have moved since yesterday’s close.", sub: `current value ${money(tot.current)}` },
+                  { label: "Margin available", value: equity ? money(equity.net) : "—", tip: "Equity margin available for new trades, as Zerodha reports it.", sub: equity ? `Margins used ${money(equity.used.debits)}` : d.errors.funds || "" },
+                ]}
+              />
             )}
 
+            {/* the page's sections are the bar's tabs (above); the Desk's dock has no bar, so it keeps this row */}
+            {compact && (
             <div className="sv__tabs tr-tabs" role="tablist" aria-label="Account sections">
               {TABS.map((x) => (
                 <button key={x.id} type="button" role="tab" aria-selected={tab === x.id} onClick={() => setTab(x.id)}>
@@ -576,9 +607,10 @@ export default function Account({ compact = false }) {
                 </button>
               ))}
               <span className="tr-tabs__at">
-                updated {clock(d.at)} · {bookOn ? (book.live && book.streaming ? "P&L live with every price" : `P&L as Zerodha reported at ${clock(book.baseAt)}`) : live.state === "live" ? "prices streaming" : "prices every 10 s"}
+                updated {clock(d.at)} · {liveNote}
               </span>
             </div>
+            )}
 
             {Object.keys(d.errors || {}).length > 0 && <p className="adm-alert">Some parts could not be read: {Object.entries(d.errors).map(([k, v]) => `${k} (${v})`).join("; ")}</p>}
 
@@ -723,10 +755,7 @@ export default function Account({ compact = false }) {
             {tab === "orders" && (
               <>
                 <section className="an-card tr-card">
-                  <header className="tr-card__head">
-                    <h3>Open orders ({openOrders.length})</h3>
-                    <TradeButtons symbol="" exchange="NSE" />
-                  </header>
+                  <SectionHead title={`Open orders (${openOrders.length})`} actions={<TradeButtons symbol="" exchange="NSE" />} />
                   {openOrders.length === 0 ? (
                     <p className="tr-empty">No open orders.</p>
                   ) : (
@@ -783,7 +812,7 @@ export default function Account({ compact = false }) {
                   )}
                 </section>
                 <section className="an-card tr-card">
-                  <h3>Executed orders ({doneOrders.length})</h3>
+                  <SectionHead title={`Executed orders (${doneOrders.length})`} />
                   {doneOrders.length === 0 ? (
                     <p className="tr-empty">None yet today.</p>
                   ) : (
@@ -827,7 +856,7 @@ export default function Account({ compact = false }) {
                   )}
                 </section>
                 <section className="an-card tr-card">
-                  <h3>Trades ({trades.length})</h3>
+                  <SectionHead title={`Trades (${trades.length})`} />
                   {trades.length === 0 ? (
                     <p className="tr-empty">No trades today.</p>
                   ) : (
@@ -889,7 +918,7 @@ export default function Account({ compact = false }) {
                   ];
                   return (
                     <div key={seg} className="an-card tr-card">
-                      <h3>{seg === "equity" ? "Equity" : "Commodity"}</h3>
+                      <SectionHead title={seg === "equity" ? "Equity" : "Commodity"} />
                       <dl className="tr-fundlist">
                         {rows.map(([k, v, tip]) => (
                           <div key={k} data-tip={tip}>

@@ -29,7 +29,8 @@ export function readSections(root, { select = SECTIONS, names = [], skip = "", v
   const seen = new Set();
   if (!root) return out;
   root.querySelectorAll(select).forEach((el) => {
-    if (el.closest(".pj") || (skip && el.matches(skip))) return;
+    // a page's head card and its sticky bar (ux/PageKit.jsx) are the page itself, not one of its sections
+    if (el.closest(".pj") || el.matches(".wk-head, .wk-bar") || (skip && el.matches(skip))) return;
     const up = el.parentElement ? el.parentElement.closest(select) : null;
     if (up && root.contains(up) && up !== root) return;
     if (!visible(el)) return;
@@ -135,7 +136,8 @@ export default function PageJumps({ names = [], select = SECTIONS, skip = "", mi
     rebuild();
     // the page fills in as its data arrives: the row follows (a timer, not a frame — a frame never comes in a background tab)
     const mo = typeof MutationObserver === "undefined" ? null : new MutationObserver(later);
-    if (mo) mo.observe(root, { childList: true, subtree: true });
+    // sections added or removed — and sections shown or hidden behind a page's tabs (PagePart toggles `hidden`)
+    if (mo) mo.observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ["hidden"] });
     const onScroll = () => {
       if (t.spy) return;
       t.spy = setTimeout(() => {

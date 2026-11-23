@@ -42,7 +42,9 @@
 }
 .adm .adm-brand:hover .vk-brand__mark,
 .adm .tm-brand:hover .vk-brand__mark {
-  box-shadow: 0 0 0 1px var(--accent), 0 0 0 4px color-mix(in srgb, var(--accent) 22%, transparent);
+  /* inside the mark's box, like its ring (brandmark.css): an outside ring is clipped by the header link */
+  background: color-mix(in srgb, var(--accent) 26%, transparent);
+  box-shadow: inset 0 0 0 1px var(--accent);
 }
 /* the workspaces: the public site's links — quiet until they are yours, an underline that draws in */
 .adm .tm .tm-tabs button {

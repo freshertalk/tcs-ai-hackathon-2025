@@ -21,6 +21,8 @@ import { GoalPill } from "../trade/DailyGoal";
 import { pulseOf, useLiveBook } from "../trade/liveBook";
 import { useStreamState } from "../analyzer/liveTicks";
 import { everyVisible } from "../../visible";
+import { onTopics } from "../../live";
+import { exchangeNow, startExchangeClock, clockStatus } from "../../clock/exchangeClock";
 
 const IST = 5.5 * 3600 * 1000;
 
@@ -43,7 +45,8 @@ function askCalendar(force = false) {
 }
 
 function istNow() {
-  const d = new Date(Date.now() + IST);
+  // NSE's time, not this computer's (clock/exchangeClock.js: measured against the server's time-server-checked clock)
+  const d = new Date(exchangeNow() + IST);
   const m = d.getUTCHours() * 60 + d.getUTCMinutes();
   const dow = d.getUTCDay();
   const open = dow >= 1 && dow <= 5 && m >= 9 * 60 + 15 && m < 15 * 60 + 30;
@@ -63,20 +66,28 @@ function istNow() {
 export function useClock() {
   const [now, setNow] = useState(istNow);
   useEffect(() => {
-    const id = setInterval(() => {
+    startExchangeClock();
+    let timer = null;
+    let alive = true;
+    // turn over on the exact edge of NSE's second, not on a free-running timer that lags by up to a second
+    const tick = () => {
+      if (!alive) return;
       setNow(istNow());
-      // a new IST day: ask what it is (holiday or not)
-      if (!calToday || calToday.date !== new Date(Date.now() + IST).toISOString().slice(0, 10)) askCalendar();
-    }, 1000);
+      // a new IST day: ask what it is (holiday or not) — once; the server's "holidays" event covers any change
+      if (!calToday || calToday.date !== new Date(exchangeNow() + IST).toISOString().slice(0, 10)) askCalendar();
+      timer = setTimeout(tick, 1000 - (exchangeNow() % 1000) + 2);
+    };
+    tick();
     const onCal = () => setNow(istNow());
     calListeners.add(onCal);
     askCalendar();
-    // NSE's list changing at the source reaches the clock at once
-    const stop = everyVisible(() => askCalendar(true), 30 * 60000, { topics: ["holidays"] });
+    // NSE's list changing at the source reaches the clock at once (no polling: the live channel says when)
+    const unlive = onTopics(["holidays"], () => askCalendar(true));
     return () => {
-      clearInterval(id);
+      alive = false;
+      clearTimeout(timer);
       calListeners.delete(onCal);
-      stop();
+      unlive();
     };
   }, []);
   return now;
@@ -193,7 +204,7 @@ export default function TopBar({ views, view, onView, theme, onTheme, onHelp, on
         <LiveBadge />
         <span
           className={`tm-pill tm-pill--clock tm-pill--${clock.state}`}
-          data-tip={`NSE’s session (9:15 AM – 3:30 PM IST) by NSE’s trading calendar: weekends and NSE’s own holiday list are counted.${clock.holiday ? ` Today is a market holiday: ${clock.holiday}.` : ""}${clock.special ? ` Today: ${clock.special}.` : ""} The full list and the next trading day are on the Calendar and on /me.`}
+          data-tip={`NSE’s session (9:15 AM – 3:30 PM IST) by NSE’s trading calendar: weekends and NSE’s own holiday list are counted.${clock.holiday ? ` Today is a market holiday: ${clock.holiday}.` : ""}${clock.special ? ` Today: ${clock.special}.` : ""} The clock is NSE’s time (IST), kept in step with India’s time servers${clockStatus().synced && clockStatus().accuracy != null ? ` to within ±${clockStatus().accuracy} ms` : ""}, not this computer’s. The full list and the next trading day are on the Calendar and on /me.`}
         >
           <i aria-hidden="true" />
           <span className="tm-x">NSE </span>

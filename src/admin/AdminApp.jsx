@@ -61,6 +61,8 @@ import "./kite.css";
 import "./fit.css";
 // the experience layer (23 Nov 2026): spacing and motion scales, wrapping type, focus ring, tap targets, snackbar, skeletons
 import "./ux/ux.css";
+// the Journal's look on every page: its underline tabs, its chips, its gentle rise (23 Nov 2026)
+import "./ux/look.css";
 // The private area wears the DrishtiAI logo as its icon (public/drishti-logo.svg and its PNG copies). The public
 // site's own link tags are put aside while this area is open and put back when it is left. (A page loaded straight
 // from /me already carries these in its own head: see scripts/prerender.js.)

@@ -23,7 +23,21 @@ import ConsensusCard from "../analyzer/ConsensusCard";
 import AheadCard, { AheadBoard } from "../analyzer/AheadCard";
 import EvidenceCard, { EvidenceBoard } from "../analyzer/EvidenceCard";
 import { inr, isNum, num, pct, when } from "../analyzer/format";
+import { PageBar, PageHead, PagePart, usePageTab } from "../../ux/PageKit";
 import "./trade.css";
+
+// The Journal's anatomy (23 Nov 2026): a head card, the sticky bar with the headline figures, and the page's sections
+// as tabs. Every section stays mounted behind its tab (PagePart), so the live lists, the autopilot and the intraday
+// plans' slot keep working exactly as they did on one long page.
+const PARTS = [
+  { id: "prep", label: "Preparation", tip: "The research you ran for the next session: the summary, a note per stock, and the intraday plans." },
+  { id: "top", label: "Top 10 & RSI watch", tip: "The Top 10 stocks to trade, picked by themselves, and the live RSI extremes of the NIFTY 500." },
+  { id: "scanner", label: "Live scanner", tip: "The NIFTY 100 stocks eligible for intraday right now." },
+  { id: "autopilot", label: "Autopilot", tip: "Playbooks, the event calendar and order proposals (never orders)." },
+  { id: "setups", label: "Set-ups", tip: "The set-ups measured on this desk's own history." },
+  { id: "records", label: "How the forecasts did", tip: "What the 15-minute forecaster, the early calls and the evidence desk have learned, and their measured records." },
+];
+const PART_IDS = PARTS.map((p) => p.id);
 
 const PHASES = [
   { id: "pre", label: "Pre-market", tip: "Before the open: what to expect today, from yesterday’s close, the overnight world brief and the news." },
@@ -247,6 +261,7 @@ export default function Research({ onOpen = null }) {
   const [report, setReport] = useState(null);
   const [shownId, setShownId] = useState("");
   const polling = useRef(null);
+  const [part, setPart] = usePageTab("research", PART_IDS);
 
   const load = useCallback(async () => {
     try {
@@ -312,8 +327,31 @@ export default function Research({ onOpen = null }) {
       return n;
     });
 
+  const latest = st.reports[0] || null;
+  const phaseLabel = (PHASES.find((p) => p.id === phase) || PHASES[0]).label;
   return (
     <>
+    <PageHead
+      title="Research"
+      text="Prepare the next session for your watchlist, and see what the desk found by itself: the Top 10, the live scanner, the autopilot and how each forecaster has done. Research runs by itself at 08:45 and 16:00 IST; AI notes only when you ask."
+    />
+    <PageBar
+      label={phaseLabel}
+      labelTitle="Session"
+      kpis={[
+        { label: "Watchlist", value: `${watch.length} stock${watch.length === 1 ? "" : "s"}` },
+        { label: "Last report", value: latest ? `${when(latest.at)} · ${latest.phase === "pre" ? "pre" : "post"}` : "none yet" },
+        { label: "Researching", value: running ? `${job.done} of ${job.symbols.length}` : "idle", tone: running ? "warn" : "", more: true },
+        { label: "AI notes", value: st.configured ? "on request" : "no key", more: true, tip: "AI credit is used only when you press Research with AI notes ticked." },
+      ]}
+      tabs={PARTS.map((p) => (p.id === "prep" && report ? { ...p, count: report.stocks.length } : p))}
+      tab={part}
+      onTab={setPart}
+      updatedAt={latest ? latest.at : null}
+      onRefresh={() => load()}
+      loading={running}
+      tabsLabel="Research sections"
+    />
     <div className="rs rs--panes">
       {/* on a wide screen: what to prepare stays in view on the left, from the top of the page; what the desk made by
           itself and what was prepared fill the right */}
@@ -391,11 +429,20 @@ export default function Research({ onOpen = null }) {
       <div className="rs-main">
         {/* made by themselves: the live NIFTY 100 scanner (eligible intraday stocks now), the Top 10 to
             trade, and the live RSI extremes of the NIFTY 500 */}
-        <AutopilotPanel />
-        <LiveScanner onOpen={onOpen} />
-        <SetupLab />
-        <TopPicks onOpen={onOpen} />
-        <RsiWatch onOpen={onOpen} />
+        <PagePart id="autopilot" tab={part}>
+          <AutopilotPanel />
+        </PagePart>
+        <PagePart id="scanner" tab={part}>
+          <LiveScanner onOpen={onOpen} />
+        </PagePart>
+        <PagePart id="setups" tab={part}>
+          <SetupLab />
+        </PagePart>
+        <PagePart id="top" tab={part}>
+          <TopPicks onOpen={onOpen} />
+          <RsiWatch onOpen={onOpen} />
+        </PagePart>
+        <PagePart id="records" tab={part}>
         <details className="rs-ai rs-hzboard">
           <summary>15-minute forecaster — what it has learned and how it has done</summary>
           <HorizonBoard />
@@ -408,6 +455,8 @@ export default function Research({ onOpen = null }) {
           <summary>Evidence desk (40 techniques, order book, open interest, the world) — what each has measured</summary>
           <EvidenceBoard />
         </details>
+        </PagePart>
+        <PagePart id="prep" tab={part}>
         <div ref={setSlot} className="rs-slot" data-jump="Intraday plans" />
         {!report && !hasPlans && (
           <section className="an-card rs-empty">
@@ -476,6 +525,7 @@ export default function Research({ onOpen = null }) {
           <p className="vd-note">Research is preparation from the data shown, not a recommendation to trade. Notes never imply a probability or a profit; check the levels yourself at the open.</p>
         </>
       )}
+        </PagePart>
       </div>
     </div>
     </>

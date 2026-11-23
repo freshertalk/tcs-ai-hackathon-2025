@@ -1,0 +1,227 @@
+/* ============================================================================================================
+   The Journal's look on every page (23 Nov 2026) — the owner: "make all pages' UI/UX … the same as the Journal page".
+   Measured first, page by page: the Journal's choices were one family (filled blue chips, underline tabs, a gentle
+   rise), while the other workspaces had grown their own — pale-blue chips with 8 px corners (Trade Analysis), grey
+   pills (Indices), dark chips (Research filters), boxed segmented tabs (AI Engine, Expenses, the share sheet, the
+   market board). This sheet puts them all in the Journal's family, by their existing class names, without touching a
+   page's markup:
+
+     1. TABS BETWEEN PARTS OF A PAGE   → the Journal's underline tabs (jr-tabs): plain labels on one hairline, the
+                                          chosen one in bold with a 3 px accent bar under it that slides in.
+     2. CHIPS (periods, kinds, filters) → the Journal's chips (buttons.css, sv__ranges / jp-chips): round, quiet until
+                                          chosen, then filled with the accent. Compact inside the terminal.
+     3. CARDS AND PANELS                → the Journal's gentle rise when a workspace opens (transform only: where
+                                          animations do not run — a hidden tab — nothing is ever left invisible).
+
+   Colours are the theme's tokens (analyzer.css / kite.css), so both themes follow the switch, and the private area
+   keeps Zerodha's palette. Every rule is prefixed with .adm so it wins over each page's own sheet at the same depth.
+   ============================================================================================================ */
+
+/* ------------------------------------------------------------------ 1. tabs between parts of a page */
+.adm :is(.ta-tabs, .ex-tabs, .eng-tabs, .shr-tabs, .mb-tabs) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 2px;
+  max-width: 100%;
+  padding: 0 4px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  overflow: visible;
+}
+.adm :is(.ta-tabs, .ex-tabs, .eng-tabs, .shr-tabs, .mb-tabs) > button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 36px;
+  height: auto;
+  margin: 0;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  color: var(--ink-2);
+  font: inherit;
+  font-size: var(--t-small);
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+.adm :is(.ta-tabs, .ex-tabs, .eng-tabs, .shr-tabs, .mb-tabs) > button + button {
+  border-left: 0;
+}
+.adm :is(.ta-tabs, .ex-tabs, .eng-tabs, .shr-tabs, .mb-tabs) > button:hover {
+  background: none;
+  color: var(--ink);
+}
+.adm :is(.ta-tabs, .ex-tabs, .eng-tabs, .shr-tabs, .mb-tabs) > button:is([aria-selected="true"], [aria-pressed="true"]) {
+  background: none;
+  border-color: transparent;
+  box-shadow: none;
+  color: var(--ink);
+  font-weight: 700;
+}
+.adm :is(.ta-tabs, .ex-tabs, .eng-tabs, .shr-tabs, .mb-tabs) > button:is([aria-selected="true"], [aria-pressed="true"])::after {
+  content: "";
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: -1px;
+  height: 3px;
+  border-radius: 3px 3px 0 0;
+  background: var(--accent);
+  transform-origin: center;
+  animation: lk-bar 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.adm :is(.ta-tabs, .ex-tabs, .eng-tabs, .shr-tabs, .mb-tabs) > button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+/* the Kite-style page tabs (a stock's sections, Positions · Holdings · Orders · Funds) take the Journal's bar too: one
+   look for every tab inside a page (the workspace bar at the top keeps Kite's orange line, as Zerodha's own nav does) */
+.adm :is(.sv__tabs, .sr-views) button {
+  position: relative;
+  border-bottom: 2px solid transparent;
+}
+.adm :is(.sv__tabs, .sr-views) button:is([aria-selected="true"], [aria-pressed="true"]) {
+  border-bottom-color: transparent;
+  color: var(--ink);
+  font-weight: 700;
+}
+.adm :is(.sv__tabs, .sr-views) button:is([aria-selected="true"], [aria-pressed="true"])::after {
+  content: "";
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: -2px;
+  height: 3px;
+  border-radius: 3px 3px 0 0;
+  background: var(--accent);
+  transform-origin: center;
+  animation: lk-bar 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+/* the Journal's own tabs get the same sliding bar */
+.adm .jr-tabs button[aria-selected="true"]::after {
+  transform-origin: center;
+  animation: lk-bar 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* ------------------------------------------------------------------ 2. chips: periods, kinds, filters */
+.adm :is(.ta-seg, .sr-seg, .ix-seg, .ix-years, .sx-filters, .soc-seg, .snp-sort, .snp-out, .tzc__presets, .tai-modes, .cz-seg, .oc-exp, .mb-view, .vd-log) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+.adm :is(.ta-seg, .sr-seg, .ix-seg, .ix-years, .sx-filters, .soc-seg, .snp-sort, .snp-out, .tzc__presets, .tai-modes, .cz-seg, .oc-exp, .mb-view, .vd-log) > button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 34px;
+  height: auto;
+  margin: 0;
+  padding: 4px 14px;
+  border: 1px solid var(--line-2);
+  border-radius: 3px; /* Kite's corners, as the Journal's chips wear them in this theme (kite.css) */
+  background: var(--surface);
+  box-shadow: none;
+  color: var(--ink-2);
+  font: inherit;
+  font-size: var(--t-mid);
+  font-weight: 500;
+  line-height: 1.2;
+  white-space: nowrap;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, transform 0.12s ease;
+}
+.adm :is(.ta-seg, .sr-seg, .ix-seg, .ix-years, .sx-filters, .soc-seg, .snp-sort, .snp-out, .tzc__presets, .tai-modes, .cz-seg, .oc-exp, .mb-view, .vd-log) > button + button {
+  border-left: 1px solid var(--line-2);
+}
+.adm :is(.ta-seg, .sr-seg, .ix-seg, .ix-years, .sx-filters, .soc-seg, .snp-sort, .snp-out, .tzc__presets, .tai-modes, .cz-seg, .oc-exp, .mb-view, .vd-log) > button:hover {
+  border-color: var(--accent);
+  color: var(--ink);
+}
+.adm :is(.ta-seg, .sr-seg, .ix-seg, .ix-years, .sx-filters, .soc-seg, .snp-sort, .snp-out, .tzc__presets, .tai-modes, .cz-seg, .oc-exp, .mb-view, .vd-log) > button:active {
+  transform: scale(0.97);
+}
+.adm :is(.ta-seg, .sr-seg, .ix-seg, .ix-years, .sx-filters, .soc-seg, .snp-sort, .snp-out, .tzc__presets, .tai-modes, .cz-seg, .oc-exp, .mb-view, .vd-log) > button:is([aria-pressed="true"], [aria-selected="true"]) {
+  background: var(--accent);
+  border-color: var(--accent);
+  box-shadow: none;
+  color: var(--on-accent, #fff);
+  font-weight: 600;
+}
+.adm :is(.ta-seg, .sr-seg, .ix-seg, .ix-years, .sx-filters, .soc-seg, .snp-sort, .snp-out, .tzc__presets, .tai-modes, .cz-seg, .oc-exp, .mb-view, .vd-log) > button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+/* inside the terminal the chips are the compact size the Journal's period chips use there */
+.adm .tm :is(.ta-seg, .sr-seg, .ix-seg, .ix-years, .sx-filters, .soc-seg, .snp-sort, .snp-out, .tzc__presets, .tai-modes, .cz-seg, .oc-exp, .mb-view, .vd-log) > button {
+  min-height: 30px;
+  padding: 2px 12px;
+  font-size: var(--t-small);
+}
+
+/* ------------------------------------------------------------------ 3. the gentle rise when a workspace opens */
+.adm .tm-work :is(.an-card, .sr-card, .ta-card, .hz, .ir-world, .zp-card, .zp-sum) {
+  animation: lk-rise 0.42s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.adm .tm-work :is(.an-card, .sr-card, .ta-card, .hz):nth-of-type(2) {
+  animation-delay: 0.04s;
+}
+.adm .tm-work :is(.an-card, .sr-card, .ta-card, .hz):nth-of-type(3) {
+  animation-delay: 0.08s;
+}
+.adm .tm-work :is(.an-card, .sr-card, .ta-card, .hz):nth-of-type(n + 4) {
+  animation-delay: 0.12s;
+}
+
+@keyframes lk-rise {
+  from {
+    transform: translateY(8px);
+  }
+  to {
+    transform: none;
+  }
+}
+@keyframes lk-bar {
+  from {
+    transform: scaleX(0.2);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+/* a touch screen: chips and tabs at least 40 px tall */
+@media (pointer: coarse) {
+  .adm :is(.ta-tabs, .ex-tabs, .eng-tabs, .shr-tabs, .mb-tabs) > button,
+  .adm :is(.ta-seg, .sr-seg, .ix-seg, .ix-years, .sx-filters, .soc-seg, .snp-sort, .snp-out, .tzc__presets, .tai-modes, .cz-seg, .oc-exp, .mb-view, .vd-log) > button,
+  .adm .tm :is(.ta-seg, .sr-seg, .ix-seg, .ix-years, .sx-filters, .soc-seg, .snp-sort, .snp-out, .tzc__presets, .tai-modes, .cz-seg, .oc-exp, .mb-view, .vd-log) > button {
+    min-height: 40px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .adm .tm-work :is(.an-card, .sr-card, .ta-card, .hz, .ir-world, .zp-card, .zp-sum),
+  .adm :is(.ta-tabs, .ex-tabs, .eng-tabs, .shr-tabs, .mb-tabs, .jr-tabs, .sv__tabs, .sr-views) button::after {
+    animation: none;
+  }
+  .adm :is(.ta-seg, .sr-seg, .ix-seg, .ix-years, .sx-filters, .soc-seg, .snp-sort, .snp-out, .tzc__presets, .tai-modes, .cz-seg, .oc-exp, .mb-view, .vd-log) > button {
+    transition: none;
+  }
+}

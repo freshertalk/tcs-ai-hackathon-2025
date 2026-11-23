@@ -1019,3 +1019,30 @@
 .lab-table th[scope="row"] {
   text-align: left;
 }
+
+/* ---------------------------------------------------------------- the Journal's anatomy (ux/PageKit, 23 Nov 2026) */
+/* The head card is the kit's PageHead now; it keeps the ta-head name only so the row of jumps still leaves it out. It
+   scrolls away like the Journal's: what stays on screen is the page bar (the lab's eight parts and the headline
+   figures), with the open part's own bar (its day, its filters) right under it (TradeAnalysis writes the bar's height
+   to --ta-head-h, which terminal/pages.css uses for that bar and for where a jumped-to section lands). */
+.ta > .wk-head.ta-head {
+  grid-template-columns: minmax(0, 1fr);
+  margin-top: 0;
+}
+.tm .ta.lab > .wk-head.ta-head {
+  position: static;
+  z-index: auto;
+  box-shadow: none;
+}
+.ta > .wk-bar {
+  margin-bottom: 0;
+}
+/* the bar sits under the row of jumps (and the daily-goal strip), never behind them */
+.tm .ta.lab > .wk-bar {
+  top: calc(var(--tm-top, 64px) + max(var(--pj-h, 0px), var(--dg-h, 0px)));
+}
+@media (min-width: 761px) {
+  .tm .ta.lab > .lab-bar {
+    top: calc(var(--tm-top) + max(var(--pj-h, 0px), var(--dg-h, 0px)) + var(--ta-head-h, 66px) + 8px);
+  }
+}

@@ -24,6 +24,7 @@ import { useDialog } from "../dialog/DialogProvider";
 import { addMonths, alignPrev, applyFilters, breakdown, bucketsFor, byCategory, byMethod, byWeekday, dayName, daysSoFar, groupTotal, money, monthName, periodRange, sortItems, splitByGroup, stack, toCsv, total, weekday, ymOf } from "./ledger";
 import { Columns, Donut, RankBars, Sparkline, StackBars, TrendLine } from "./charts";
 import "./expenses.css";
+import { PageBar, PageHead } from "../ux/PageKit";
 import { useTopics } from "../live";
 
 const BLANK = { id: "", date: "", amount: "", category: "grocery", title: "", method: "upi", note: "" };
@@ -323,21 +324,35 @@ export default function Expenses() {
   return (
     <Shell crumb="Expenses" wide>
       <div className="ex">
-        <header className="ex-head">
-          <div>
-            <h1 className="adm-h1">Expenses</h1>
-            <p className="adm-lead">What was spent, on which day, on what. Everything below follows the period and the filters chosen here.</p>
-          </div>
-          <div className="ex-head__acts">
-            <label className="ex-switch">
-              <input type="checkbox" checked={compare} onChange={(e) => setCompare(e.target.checked)} />
-              <span>Compare with {range.prev ? range.prev.label : "the period before"}</span>
-            </label>
-            <button type="button" className="adm-btn adm-btn--ghost" onClick={exportCsv} disabled={!slice.length} data-tip="Save the entries shown below as a spreadsheet file (CSV).">
-              Export {slice.length ? `${slice.length} ` : ""}to a file
-            </button>
-          </div>
-        </header>
+        {/* the Journal's anatomy (23 Nov 2026): the head card and the sticky bar of the period's figures */}
+        <PageHead
+          as="h1"
+          title="Expenses"
+          text="What was spent, on which day, on what. Everything below follows the period and the filters chosen here."
+          actions={
+            <>
+              <label className="ex-switch">
+                <input type="checkbox" checked={compare} onChange={(e) => setCompare(e.target.checked)} />
+                <span>Compare with {range.prev ? range.prev.label : "the period before"}</span>
+              </label>
+              <button type="button" className="adm-btn adm-btn--ghost" onClick={exportCsv} disabled={!slice.length} data-tip="Save the entries shown below as a spreadsheet file (CSV).">
+                Export {slice.length ? `${slice.length} ` : ""}to a file
+              </button>
+            </>
+          }
+        />
+        <PageBar
+          label={`${range.label}${filtered ? " · filtered" : ""}`}
+          labelTitle="Period"
+          kpis={[
+            { label: "Spent", value: money(spent) },
+            { label: "Per day", value: money(Math.round(spent / days)) },
+            { label: "Entries", value: String(slice.length) },
+            { label: "Stock Market costs", value: money(stockNow), more: true },
+            { label: "Biggest", value: biggest ? money(biggest.amount) : null, more: true },
+          ]}
+          ariaLabel="The period at a glance"
+        />
 
         {/* one row of filters, above everything it scopes */}
         <section className="ex-filters" aria-label="Period and filters">

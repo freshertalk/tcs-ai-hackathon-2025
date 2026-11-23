@@ -271,7 +271,7 @@ test("a period: the lessons, the exit rules and the habits added up", async () =
   window.localStorage.setItem("vpt.lab.mode", "day");
   render(<TradeAnalysis />);
   await settle();
-  fireEvent.click(screen.getByRole("button", { name: "A period" }));
+  fireEvent.click(screen.getByRole("tab", { name: "A period" })); // the lab's parts are the page bar's tabs
   await settle();
   expect(mockCalls.some((u) => u.startsWith("/api/admin/analysis/lab?from="))).toBe(true);
   expect(screen.getByText(/would have made ₹660 more/)).toBeTruthy();

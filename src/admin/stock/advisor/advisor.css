@@ -1065,3 +1065,39 @@
     flex: none;
   }
 }
+
+/* ==========================================================================
+   The Journal's anatomy (PageKit, 23 Nov 2026): the head card holds your risk
+   per trade and the filter; the page bar stays on screen under the top bar.
+   ========================================================================== */
+.av-pagehead .av-tools {
+  justify-content: flex-end;
+}
+.av-pagehead + .wk-bar {
+  margin-top: 8px;
+}
+@media (max-width: 760px) {
+  /* a phone: the risk box and the filter take the card's whole width under the title */
+  .av-pagehead .wk-head__act {
+    flex: 1 1 100%;
+    margin-left: 0;
+  }
+  .av-pagehead .av-tools {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
+/* what stays on screen beside the board (the selected stock; the records on a very wide monitor) sits under the row of
+   jumps (or the goal strip, whichever is taller — both stick at the top bar's edge) and the page bar below it */
+@media (min-width: 761px) {
+  .adm .tm .av--split .av-side {
+    top: calc(var(--tm-top, 46px) + max(var(--pj-h, 0px), var(--dg-h, 0px)) + var(--wk-bar-h, 8px));
+    max-height: calc(100vh - var(--tm-top, 46px) - max(var(--pj-h, 0px), var(--dg-h, 0px)) - var(--wk-bar-h, 8px) - 8px);
+  }
+}
+@media (min-width: 2300px) {
+  .adm .tm .av--split .av-recs {
+    top: calc(var(--tm-top, 46px) + max(var(--pj-h, 0px), var(--dg-h, 0px)) + var(--wk-bar-h, 8px));
+    max-height: calc(100vh - var(--tm-top, 46px) - max(var(--pj-h, 0px), var(--dg-h, 0px)) - var(--wk-bar-h, 8px) - 8px);
+  }
+}

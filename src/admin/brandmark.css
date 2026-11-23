@@ -6,19 +6,26 @@
   min-width: 0;
   color: var(--ink);
 }
+/* The ring is drawn INSIDE the mark's own box (a padded, tinted circle with a 1px inner line), not as a shadow outside
+   it: the header link and the name clip what overflows them (for the "…" of a long name), and an outside ring was cut on
+   three sides (23 Nov 2026). */
 .vk-brand__mark {
   flex: none;
-  width: 36px;
-  height: 36px;
+  box-sizing: border-box;
+  width: 40px;
+  height: 40px;
+  padding: 3px;
   border-radius: 50%;
   overflow: hidden;
-  box-shadow: 0 0 0 1px var(--line-2, var(--line)), 0 0 0 4px color-mix(in srgb, var(--accent) 12%, transparent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  box-shadow: inset 0 0 0 1px var(--line-2, var(--line));
 }
 .vk-brand__mark picture,
 .vk-brand__mark img {
   display: block;
   width: 100%;
   height: 100%;
+  border-radius: 50%;
   object-fit: cover;
 }
 .vk-brand__name {
@@ -55,8 +62,9 @@
   text-overflow: ellipsis;
 }
 .vk-brand--sm .vk-brand__mark {
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
+  padding: 2px;
 }
 @media (max-width: 479px) {
   .vk-brand__name small {

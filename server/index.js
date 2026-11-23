@@ -42,14 +42,16 @@ async function main() {
     process.exit(1);
   }
   flushDocs = () => docs.close();
-  const { app, setupToken, holidays, nseHolidays, recorder } = createApp({ docs });
+  const { app, setupToken, holidays, nseHolidays, exchangeClock, recorder } = createApp({ docs });
 
   const server = app.listen(PORT, HOST, () => {
     // fetch the exchanges' official holiday data now, then every 6 hours
     holidays.start();
-    // NSE's own trading-holiday list, now and every 6 hours (the trading-day rules read it). NSE_HOLIDAY_SYNC=off in
+    // NSE's own trading-holiday list, once a weekday after the 3:30 PM close (the trading-day rules read it). NSE_HOLIDAY_SYNC=off in
     // server/.env stops the automatic reads (the last good copy, else the built-in table, stays in use).
     if (nseHolidays && String(process.env.NSE_HOLIDAY_SYNC || "").toLowerCase() !== "off") nseHolidays.start();
+    // exchange time: this server's clock checked against India's NIC time servers (and public ones) every 15 minutes
+    if (exchangeClock) exchangeClock.start();
     console.log(`\nAPI ready on http://localhost:${PORT}`);
     console.log(`Admin area: ${ADMIN_BASE}   (superadmin: ${SUPERADMIN_EMAIL})`);
     if (setupToken) {

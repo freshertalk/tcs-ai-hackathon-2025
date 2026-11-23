@@ -4,6 +4,7 @@
 import React, { useMemo, useState } from "react";
 import { DateField, TimeField } from "../DatePicker";
 import { allZones, currentZoneName, dateToWallTime, formatUtcOffset, tzOffsetMinutes, wallTimeToDate } from "./timezones";
+import { exchangeNow } from "../clock/exchangeClock";
 
 const label = (tz) => tz.replace(/_/g, " ").replace(/\//g, " / ");
 const PRESETS = [
@@ -41,7 +42,7 @@ export default function TimeConverter() {
   }, []);
   const [from, setFrom] = useState(zones.includes(here) ? here : "Asia/Kolkata");
   const [to, setTo] = useState(from === "America/New_York" ? "Asia/Kolkata" : "America/New_York");
-  const [when, setWhen] = useState(() => dateToWallTime(new Date(), from));
+  const [when, setWhen] = useState(() => dateToWallTime(new Date(exchangeNow()), from));
 
   const moment = wallTimeToDate(when, from);
   const result = moment ? dateToWallTime(moment, to) : "";
@@ -92,7 +93,7 @@ export default function TimeConverter() {
             {name}
           </button>
         ))}
-        <button type="button" onClick={() => setWhen(dateToWallTime(new Date(), from))}>
+        <button type="button" onClick={() => setWhen(dateToWallTime(new Date(exchangeNow()), from))}>
           Now
         </button>
       </div>

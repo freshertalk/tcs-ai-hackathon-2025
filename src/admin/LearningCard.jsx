@@ -3,6 +3,7 @@
 // card wears a monogram in the private area's own colours.
 
 import React from "react";
+import { adminPath } from "./paths";
 
 export const LEARNING = [
   {
@@ -64,6 +65,24 @@ export default function LearningCard() {
         </h2>
         <p>Trusted outside resources for learning, technical and fundamental analysis. Each opens in a new tab.</p>
       </div>
+      {/* Vinaypedia (23 Nov 2026): the owner's own learning, inside the site — the library, official updates, AI lessons and notes */}
+      <a className="hm-learn__own" href={adminPath("/stock-report?view=learning")} data-tip="Open Vinaypedia: the desk's intraday library by area, the newest NSE, SEBI, Zerodha and RBI updates, lessons the AI writes when you ask, and your own learnings.">
+        <span className="hm-learn__ownmark" aria-hidden="true">
+          <svg viewBox="0 0 24 24">
+            <path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H11v15H5.5A1.5 1.5 0 0 0 4 20.5zM20 5.5A1.5 1.5 0 0 0 18.5 4H13v15h5.5a1.5 1.5 0 0 1 1.5 1.5z" />
+            <path d="M6.5 8h2.5M15 8h2.5M6.5 11h2.5M15 11h2.5" />
+          </svg>
+        </span>
+        <span className="hm-learn__txt">
+          <b>
+            Vinaypedia <small className="hm-learn__owntag">Vinay’s own learning</small>
+          </b>
+          <small>Every intraday topic in one place, kept up to date by the desk: the library by area, fresh rules from NSE, SEBI and Zerodha, lessons the AI writes when you ask — and what you learnt yourself.</small>
+        </span>
+        <svg className="hm-learn__out hm-learn__go" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M5 12h14M13 6l6 6-6 6" />
+        </svg>
+      </a>
       {LEARNING.map((g) => (
         <div key={g.id} className={`hm-learn__group is-${g.id}`} role="group" aria-labelledby={`hm-learn-${g.id}`}>
           <h3 id={`hm-learn-${g.id}`}>

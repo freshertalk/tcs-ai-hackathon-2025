@@ -24,6 +24,11 @@ import { callLabel, dayStillOpen, headline, planAt, qtyForRisk, rankRows, signed
 import { useRisk } from "./useRisk";
 import "./advisor.css";
 import { useTopics } from "../../live";
+import { PageBar, PageHead, SectionHead } from "../../ux/PageKit";
+
+// The Journal's anatomy (23 Nov 2026): a head card (your risk per trade and the filter on its right), the sticky bar
+// with the headline figures, then the page as it was. No tabs: the board, the selected stock and the two records are
+// laid out to be read together on one screen (three shapes: phone, laptop, wide monitor).
 
 const SHOW = [
   { id: "all", label: "All" },
@@ -323,12 +328,7 @@ function Pooled({ board }) {
   const rows = Object.values(board.pooled || {});
   return (
     <section className="an-card">
-      <header className="an-card__head">
-        <div>
-          <h3>Does the method work on your watchlist?</h3>
-          <p>The forward test of every stock on the board, added together. One stock can look good by luck; a method that holds across many is harder to fake.</p>
-        </div>
-      </header>
+      <SectionHead title="Does the method work on your watchlist?" sub="The forward test of every stock on the board, added together. One stock can look good by luck; a method that holds across many is harder to fake." />
       <table className="an-table av-rec">
         <thead>
           <tr>
@@ -371,12 +371,7 @@ function Forward({ log, proof }) {
   const recent = (log && log.signals ? log.signals : []).slice(0, 12);
   return (
     <section className="an-card">
-      <header className="an-card__head">
-        <div>
-          <h3>Forward record</h3>
-          <p>Every favourable call is written down on the day it is made, before anyone knows how it ends, and scored later against the real bars by the engine’s own rules. Hindsight cannot improve it.</p>
-        </div>
-      </header>
+      <SectionHead title="Forward record" sub="Every favourable call is written down on the day it is made, before anyone knows how it ends, and scored later against the real bars by the engine’s own rules. Hindsight cannot improve it." />
       {!shown.length ? (
         <p className="adm-alert adm-alert--info">No calls yet. The record starts with the first favourable reading and fills in as each call’s outcome becomes known — a day for a day call, up to ten sessions for a swing.</p>
       ) : (
@@ -543,36 +538,50 @@ export default function Advisor({ onOpen }) {
   const picked = split ? visible.find((r) => r.symbol === openRow && r.available) || visible.find((r) => r.available) || null : null;
   const isOpen = (r) => (split ? Boolean(picked) && picked.symbol === r.symbol : openRow === r.symbol);
   const toggle = (r) => setOpenRow((x) => (split ? r.symbol : x === r.symbol ? "" : r.symbol));
+  // the bar's figures, from what the page already holds: the board's tally, your risk, the forward record's total
+  const fwdAll = ((log && log.summary) || []).find((g) => g.key === "all") || null;
 
   return (
     <TickContext.Provider value={live.store}>
+      <PageHead
+        className="av-pagehead"
+        title="Advisor"
+        text={`Your watchlist, read by measured odds: what followed the days most like today, and whether such calls held up when tested forward.${asOf ? ` Readings from completed bars to ${day(asOf.asOf)}.` : ""}`}
+        actions={
+          <div className="av-tools">
+            <label className="av-risk" data-tip="The money you accept losing if a trade hits its stop. The quantity on every row is this amount divided by the distance to the stop. Remembered in this browser.">
+              <span>Risk per trade</span>
+              <span className="av-risk__in">
+                ₹
+                <input type="number" inputMode="numeric" min="0" step="100" value={risk || ""} onChange={(e) => setRisk(e.target.value)} aria-label="Risk per trade in rupees" />
+              </span>
+            </label>
+            <div className="av-seg" role="radiogroup" aria-label="Show">
+              {SHOW.map((s) => (
+                <button key={s.id} type="button" role="radio" aria-checked={show === s.id} onClick={() => setShow(s.id)}>
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        }
+      />
+      <PageBar
+        label={(SHOW.find((s) => s.id === show) || SHOW[0]).label}
+        labelTitle="Showing"
+        kpis={[
+          { label: "Stocks", value: board ? num(rows.length, 0) : null, tip: "Stocks on your watchlist, each read by the measured-odds engine." },
+          { label: "Grade A or B", value: board ? num(t.A + t.B, 0) : null, tone: board && t.A + t.B > 0 ? "up" : "", tip: "Favourable today, with a forward test that is proven (A) or positive but not conclusive (B) on that stock." },
+          { label: "Risk per trade", value: risk > 0 ? inr(risk, 0) : "not set", tip: "The quantity on every row is this amount divided by the distance to the stop." },
+          { label: "Downside warnings", value: board ? num(t.warnings, 0) : null, tone: t.warnings > 0 ? "warn" : "", more: true, tip: TALLY_TIP.warn },
+          { label: "Forward record", value: fwdAll && fwdAll.scored ? `${num(fwdAll.winPct, 0)}% won of ${fwdAll.scored}` : log ? "no scored calls yet" : null, more: true, tip: "Every favourable call, written down the day it was made and scored afterwards: the share that won, of those scored so far." },
+        ]}
+        updatedAt={board ? board.at : null}
+        onRefresh={() => load()}
+        ariaLabel="The Advisor at a glance"
+      />
       <div className={`av ${split ? "av--split" : ""}`}>
         <div className="av-main">
-          <header className="av-head">
-            <div>
-              <h2>Advisor</h2>
-              <p>
-                Your watchlist, read by measured odds: what followed the days most like today, and whether such calls held up when tested forward.
-                {asOf ? ` Readings from completed bars to ${day(asOf.asOf)}.` : ""}
-              </p>
-            </div>
-            <div className="av-tools">
-              <label className="av-risk" data-tip="The money you accept losing if a trade hits its stop. The quantity on every row is this amount divided by the distance to the stop. Remembered in this browser.">
-                <span>Risk per trade</span>
-                <span className="av-risk__in">
-                  ₹
-                  <input type="number" inputMode="numeric" min="0" step="100" value={risk || ""} onChange={(e) => setRisk(e.target.value)} aria-label="Risk per trade in rupees" />
-                </span>
-              </label>
-              <div className="av-seg" role="radiogroup" aria-label="Show">
-                {SHOW.map((s) => (
-                  <button key={s.id} type="button" role="radio" aria-checked={show === s.id} onClick={() => setShow(s.id)}>
-                    {s.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </header>
           <Alert>{error}</Alert>
 
           {board && (

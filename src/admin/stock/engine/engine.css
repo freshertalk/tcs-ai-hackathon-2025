@@ -41,6 +41,17 @@
 .eng-note {
   margin: 0 4px;
 }
+/* the Journal's anatomy (ux/PageKit, 23 Nov 2026): the head card and the page bar (which now holds the tabs above)
+   sit in the page's own rhythm */
+.tm .eng > .an-card.wk-head {
+  margin-top: 0;
+}
+.eng > .wk-bar {
+  margin-bottom: 0;
+}
+.eng > .wk-head .eng-note {
+  margin: 0;
+}
 .eng-dim {
   margin: 0;
   font-size: var(--t-small);

@@ -64,7 +64,10 @@
   font-weight: 600;
 }
 .pp-flag.is-warn {
-  color: var(--warn, #d29922);
+  /* the theme's readable amber on its tint (raw --warn as text was 2.3:1 on white, 23 Nov 2026) */
+  border-color: var(--warn-line, var(--line));
+  background: var(--warn-bg, transparent);
+  color: var(--warn-ink, #7a4f00);
 }
 .pp-tiles {
   display: grid;
@@ -182,6 +185,16 @@
 }
 .pp-log time {
   color: var(--ink-3);
+}
+/* the Journal's anatomy (ux/PageKit.jsx, 23 Nov 2026): the kit's frames inside this page's grid. The head card's
+   gap spaces its flags and figures, the page's gap spaces the bar, and the form's gap spaces its title. */
+.pp-head.wk-head > .pp-flags,
+.pp-head.wk-head > .pp-tiles {
+  margin: 0;
+}
+.pp > .wk-bar,
+.pp-set > .wk-sec {
+  margin-bottom: 0;
 }
 @media (max-width: 900px) {
   .pp-grid {

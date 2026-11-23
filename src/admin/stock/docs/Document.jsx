@@ -9,6 +9,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { BRAND } from "../../brand";
 import { PARTS, CHAPTERS } from "./chapters";
 import { downloadDocx } from "./docx";
+import { PageBar, PageHead } from "../../ux/PageKit";
 import "./document.css";
 
 /* ── inline text: **bold**, `code`, and a highlight for the search words ───────────── */
@@ -170,8 +171,13 @@ function Block({ b, words }) {
 /**
  * A long document with a contents list, search, anchors and a Word download. Used by the Document
  * (the whole manual) and by the AI Engine (everything about the AI).
+ *
+ * `kit`: the document is the whole page, so its top is the Journal's anatomy (ux/PageKit, 23 Nov 2026) — the head
+ * card (title, lead, Word and Print; the search and the contents under them) and the sticky bar (the chapter on
+ * screen, the chapters, the words, what a search found). Without it (inside the AI Engine, under that page's own head
+ * and bar) the document keeps its own cover.
  */
-export function DocView({ parts, chapters, kicker, title, lead, endNote, onWord, extra = null }) {
+export function DocView({ parts, chapters, kicker, title, lead, endNote, onWord, extra = null, kit = false }) {
   const [query, setQuery] = useState("");
   const [tocOpen, setTocOpen] = useState(false);
   const [active, setActive] = useState(chapters[0] ? chapters[0].id : "");
@@ -258,41 +264,91 @@ export function DocView({ parts, chapters, kicker, title, lead, endNote, onWord,
 
   const wordsTotal = useMemo(() => chapters.reduce((n, c) => n + c.blocks.reduce((m, b) => m + blockText(b).split(/\s+/).length, 0), 0), [chapters]);
 
+  // the top's pieces: on the document's own cover, or in the page's head card and bar (kit)
+  const btn = kit ? "adm-btn adm-btn--ghost adm-btn--sm" : "adm-btn";
+  const search = (
+    <label className="doc-search">
+      <span className="doc-sr">Search the document</span>
+      <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search — for example stop-loss, RSI, default model, 3:45" autoComplete="off" spellCheck="false" />
+    </label>
+  );
+  const contentsBtn = (
+    <button type="button" className="adm-btn doc-tocbtn" aria-expanded={tocOpen} onClick={() => setTocOpen((o) => !o)}>
+      Contents
+    </button>
+  );
+  const wordBtn = onWord ? (
+    <button type="button" className={`${btn} doc-printbtn`} onClick={onWord} data-tip="Download this document as a Word file (.docx).">
+      Word ⤓
+    </button>
+  ) : null;
+  const printBtn = (
+    <button type="button" className={`${btn} doc-printbtn`} onClick={() => window.print()}>
+      Print
+    </button>
+  );
+  const found = hits ? `${hits} passage${hits === 1 ? "" : "s"} in ${shown.length} chapter${shown.length === 1 ? "" : "s"}` : "Nothing found — try fewer or simpler words.";
+  const hitsLine = words.length > 0 && (
+    <p className="doc-hits" role="status">
+      {found}
+    </p>
+  );
+  const onScreen = chapters.find((c) => c.id === active) || null;
+
   return (
     <div className="doc" ref={rootRef}>
-      <header className="doc-hero">
-        <p className="doc-hero__kicker">{kicker}</p>
-        <h1>{title}</h1>
-        <p className="doc-hero__lead">{lead}</p>
-        <div className="doc-hero__facts">
-          <span><b>{chapters.length}</b> chapters</span>
-          <span><b>{wordsTotal.toLocaleString("en-IN")}</b> words</span>
-          <span>Written from the code itself</span>
-        </div>
-        <div className="doc-tools">
-          <label className="doc-search">
-            <span className="doc-sr">Search the document</span>
-            <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search — for example stop-loss, RSI, default model, 3:45" autoComplete="off" spellCheck="false" />
-          </label>
-          <button type="button" className="adm-btn doc-tocbtn" aria-expanded={tocOpen} onClick={() => setTocOpen((o) => !o)}>
-            Contents
-          </button>
-          {onWord && (
-            <button type="button" className="adm-btn doc-printbtn" onClick={onWord} data-tip="Download this document as a Word file (.docx).">
-              Word ⤓
-            </button>
-          )}
-          <button type="button" className="adm-btn doc-printbtn" onClick={() => window.print()}>
-            Print
-          </button>
-        </div>
-        {extra}
-        {words.length > 0 && (
-          <p className="doc-hits" role="status">
-            {hits ? `${hits} passage${hits === 1 ? "" : "s"} in ${shown.length} chapter${shown.length === 1 ? "" : "s"}` : "Nothing found — try fewer or simpler words."}
-          </p>
-        )}
-      </header>
+      {kit ? (
+        <>
+          <PageHead
+            title={title}
+            text={lead}
+            actions={
+              <>
+                {wordBtn}
+                {printBtn}
+              </>
+            }
+          >
+            <div className="doc-tools">
+              {search}
+              {contentsBtn}
+            </div>
+            {extra}
+            {hitsLine}
+          </PageHead>
+          <PageBar
+            label={words.length ? `“${query.trim()}”` : onScreen ? `${onScreen.no} · ${onScreen.title}` : ""}
+            labelTitle={words.length ? "Search" : kicker || "Reading"}
+            kpis={[
+              { label: "Chapters", value: String(chapters.length), tip: "Every chapter is in the contents beside the text (Contents on a phone)." },
+              { label: "Words", value: wordsTotal.toLocaleString("en-IN") },
+              { label: "Parts", value: String(parts.length), more: true },
+              { label: "Written from", value: "the code itself", more: true },
+              ...(words.length ? [{ label: "Found", value: hits ? `${hits} passage${hits === 1 ? "" : "s"}` : "nothing", tone: hits ? "" : "warn", tip: found }] : []),
+            ]}
+            ariaLabel="This document at a glance"
+          />
+        </>
+      ) : (
+        <header className="doc-hero">
+          <p className="doc-hero__kicker">{kicker}</p>
+          <h1>{title}</h1>
+          <p className="doc-hero__lead">{lead}</p>
+          <div className="doc-hero__facts">
+            <span><b>{chapters.length}</b> chapters</span>
+            <span><b>{wordsTotal.toLocaleString("en-IN")}</b> words</span>
+            <span>Written from the code itself</span>
+          </div>
+          <div className="doc-tools">
+            {search}
+            {contentsBtn}
+            {wordBtn}
+            {printBtn}
+          </div>
+          {extra}
+          {hitsLine}
+        </header>
+      )}
 
       <div className="doc-body">
         <nav ref={tocRef} className={`doc-toc ${tocOpen ? "is-open" : ""}`} aria-label="Contents">
@@ -355,6 +411,7 @@ export default function Document() {
       lead="This is the one document that explains everything the advisor does: every screen, who does what, and the reasoning behind each number — when it runs, how it is worked out and where it stops. Read it from the top as a story, or search for a word."
       endNote="That is the whole desk. It is a tool to read the market and keep your own discipline — it never promises a profit and it never decides for you. Every call it makes can be wrong; the stop-loss, the daily limit and your own judgement are what protect your money."
       onWord={word}
+      kit
     />
   );
 }

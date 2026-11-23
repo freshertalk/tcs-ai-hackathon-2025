@@ -1,19 +1,17 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { ZONES, clockParts, compareTo, dayRelation, formatUtcOffset, isDst, tzOffsetMinutes } from "./timezones";
+import { useExchangeNow } from "../clock/exchangeClock";
 
 /**
  * Six live clocks. Pick any city as the reference (it starts as India) and every
  * other card shows how far ahead or behind it is right now — daylight saving included.
  */
 export default function WorldClock() {
-  const [now, setNow] = useState(() => new Date());
+  // true time (the exchange's clock, kept in step with India's time servers), turning over on each second's edge
+  const nowMs = useExchangeNow(1000);
+  const now = new Date(nowMs);
   const [refId, setRefId] = useState("in");
   const [twelve, setTwelve] = useState(false);
-
-  useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(id);
-  }, []);
 
   const ref = ZONES.find((z) => z.id === refId);
 

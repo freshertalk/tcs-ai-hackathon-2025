@@ -7,7 +7,21 @@ import React, { useEffect, useState } from "react";
 import { api, peek } from "../../api";
 import { everyVisible } from "../../visible";
 import Skeleton from "../../ux/Skeleton";
+import { PageBar, PageHead, PagePart, usePageTab } from "../../ux/PageKit";
 import "./setup.css";
+
+// The Journal's anatomy (23 Nov 2026): the head card, the sticky bar with the morning's headline readings, and the
+// readings in tabs — with "All 15" first, because this is a checklist read top to bottom before the open. Every part
+// stays mounted behind its tab.
+const PARTS = [
+  { id: "all", label: "All 15", tip: "Every reading on one page, as a checklist." },
+  { id: "levels", label: "Levels", tip: "1–2: pivots from the last session beside the option walls." },
+  { id: "options", label: "Options", tip: "3–6: where call and put writers are building and leaving." },
+  { id: "flows", label: "Flows · PCR · VIX", tip: "7–9: FII/DII cash flows, the put-call ratio and India VIX." },
+  { id: "builds", label: "Build-ups", tip: "10–13: every F&O stock's near-month future." },
+  { id: "delivery", label: "Delivery & ban", tip: "14–15: high delivery and the F&O ban list." },
+];
+const PART_IDS = PARTS.map((p) => p.id);
 
 const URL = "/api/admin/market/setup";
 const inr = (x) => (typeof x === "number" ? x.toLocaleString("en-IN", { maximumFractionDigits: 2 }) : "—");
@@ -107,6 +121,7 @@ function Builds({ b, onOpen }) {
 export default function TradeSetup({ onOpen }) {
   const [s, setS] = useState(() => ({ d: peek(URL, 5 * 60000), error: "" }));
   const [which, setWhich] = useState("now");
+  const [part, setPart] = usePageTab("setup", PART_IDS);
   useEffect(() => {
     let alive = true;
     const read = () =>
@@ -140,13 +155,38 @@ export default function TradeSetup({ onOpen }) {
   const errs = Object.entries(d.errors || {});
   return (
     <>
+      <PageHead
+        title="Trade setup"
+        text={
+          <>
+            Fifteen readings for the session — levels, options, flows, PCR, VIX, build-ups, delivery and the F&amp;O ban — kept current by itself from Zerodha and NSE ({d.sessionOn ? "live: the futures and option chains every two minutes" : "between sessions: the last session's readings"}
+            {!d.connected ? "; Zerodha is not connected, so only NSE's files are fresh" : ""}). No AI.
+          </>
+        }
+      />
+      <PageBar
+        label={lean.label || "—"}
+        labelTitle="Setup lean"
+        kpis={[
+          { label: "Lean score", value: sgn(lean.score, 0), tone: lean.score >= 12 ? "up" : lean.score <= -12 ? "down" : "" },
+          { label: "India VIX", value: d.vix ? inr(d.vix.last) : null, tone: d.vix && d.vix.last >= 20 ? "warn" : "" },
+          { label: "PCR NIFTY", value: d.pcr ? d.pcr.nifty : null },
+          { label: "FII cash", value: d.flows && d.flows.fii ? crore(d.flows.fii.net) : null, tone: d.flows && d.flows.fii ? (d.flows.fii.net > 0 ? "up" : d.flows.fii.net < 0 ? "down" : "") : "", more: true },
+          { label: "F&O ban", value: d.ban ? `${d.ban.symbols.length} stock${d.ban.symbols.length === 1 ? "" : "s"}` : null, more: true },
+        ]}
+        tabs={PARTS}
+        tab={part}
+        onTab={setPart}
+        updatedAt={d.asOf}
+        tabsLabel="Trade setup readings"
+      />
+      <PagePart id="all" tab={part}>
       <section className={`sr-card ts ts-lean ${leanCls}`} aria-labelledby="ts-h" data-jump="Setup lean">
         <div className="sr-card__head">
           <div>
-            <h2 id="ts-h">Trade setup</h2>
+            <h2 id="ts-h">Setup lean</h2>
             <p>
-              Kept current by itself from Zerodha and NSE — {d.sessionOn ? "live: the futures and option chains every two minutes" : "between sessions: the last session's readings"} · updated {stamp(d.asOf)}
-              {!d.connected ? " · Zerodha is not connected, so only NSE's files are fresh" : ""}
+              The six readings weighed into one lean · updated {stamp(d.asOf)}
             </p>
           </div>
         </div>
@@ -171,7 +211,9 @@ export default function TradeSetup({ onOpen }) {
           Record: {rec.called ? `the 9:14 lean was right on ${rec.right} of ${rec.called} called sessions (${Math.round(rec.hitRate * 100)}%)` : "scored from the first session it is written down (9:14, against NIFTY's close)"}. {rec.rule}
         </p>
       </section>
+      </PagePart>
 
+      <PagePart id="levels" tab={part} all="all">
       <section className="sr-card ts" aria-labelledby="ts-lv" data-jump="Key levels">
         <div className="sr-card__head">
           <div>
@@ -190,7 +232,9 @@ export default function TradeSetup({ onOpen }) {
           </div>
         </div>
       </section>
+      </PagePart>
 
+      <PagePart id="options" tab={part} all="all">
       <section className="sr-card ts" aria-labelledby="ts-op" data-jump="Options">
         <div className="sr-card__head">
           <div>
@@ -205,7 +249,9 @@ export default function TradeSetup({ onOpen }) {
           <OptionSide title="BANKNIFTY puts" x={d.options.bankPuts} />
         </div>
       </section>
+      </PagePart>
 
+      <PagePart id="flows" tab={part} all="all">
       <section className="sr-card ts" aria-labelledby="ts-mk" data-jump="Flows, PCR, VIX">
         <div className="sr-card__head">
           <div>
@@ -237,7 +283,9 @@ export default function TradeSetup({ onOpen }) {
           </div>
         </div>
       </section>
+      </PagePart>
 
+      <PagePart id="builds" tab={part} all="all">
       <section className="sr-card ts" aria-labelledby="ts-bu" data-jump="Build-ups">
         <div className="sr-card__head">
           <div>
@@ -255,7 +303,9 @@ export default function TradeSetup({ onOpen }) {
         </div>
         <Builds b={builds} onOpen={onOpen} />
       </section>
+      </PagePart>
 
+      <PagePart id="delivery" tab={part} all="all">
       <div className="ts-two">
         <section className="sr-card ts" aria-labelledby="ts-dl" data-jump="High delivery">
           <div className="sr-card__head">
@@ -322,6 +372,7 @@ export default function TradeSetup({ onOpen }) {
           <p className="ts-dim">A stock in the ban takes no new F&amp;O positions; only positions that reduce open interest are allowed.</p>
         </section>
       </div>
+      </PagePart>
       <p className="hc__foot ts-foot">
         {d.rule}
         {errs.length ? ` Not read at the last try: ${errs.map(([k, v]) => `${k} (${v})`).join("; ")} — the last good reading is shown.` : ""}

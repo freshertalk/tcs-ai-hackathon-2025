@@ -75,6 +75,7 @@ const ROUTE_TOPICS = [
   ["/api/admin/expenses", ["expenses"]],
   ["/api/admin/kundali", ["kundali"]],
   ["/api/admin/tradeai", ["tradeai"]],
+  ["/api/admin/learning", ["learning"]],
 ];
 
 function topicsForRoute(path) {
@@ -248,6 +249,7 @@ const DOC_TOPICS = [
   [/^market\/(trade-setup|setup-)/, ["setup"]],
   [/^expenses$/, ["expenses"]],
   [/^kundali\//, ["kundali"]],
+  [/^vinaypedia\//, ["learning"]],
   [/^robot\/|^robot_/, ["robot"]],
   [/^autopilot\/|^autopilot_/, ["autopilot"]],
   [/^market\/open-|^open_forecasts$/, ["open"]],

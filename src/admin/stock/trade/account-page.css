@@ -1,0 +1,26 @@
+/* Positions & orders in the Journal's anatomy (Account.jsx, ux/PageKit.jsx, 23 Nov 2026): only this page's measures
+   for the kit's frames. Colours are the theme's tokens. */
+
+/* Console's band sits in the page's grid: the grid's gap is its spacing */
+.tr > .wk-band {
+  margin: 0;
+}
+
+/* a card's section head: centred against its buttons, and the card's own gap below it (as the old card heads) */
+.tr-card > .wk-sec {
+  align-items: center;
+  margin-bottom: 0;
+}
+
+/* how the P&L is kept current, at the bar's right end (the note the old tab row carried) */
+.acc-live {
+  color: var(--ink-3);
+  font-size: var(--t-small);
+  overflow-wrap: anywhere;
+}
+/* a tablet or a phone leaves it out, as the tab row's note was left out there */
+@media (max-width: 900px) {
+  .acc-live {
+    display: none;
+  }
+}

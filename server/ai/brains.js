@@ -49,6 +49,7 @@ const FEATURES = [
   { id: "picks", name: "Top 10 review (Research)", trigger: "Before the open and after the close, and in the session only when the list has really changed (three or more names in an hour) or the world's lean or the tide turned — within a daily limit; or Refresh now — only on a click: the automatic part is held back unless AI credit protection is lifted" },
   { id: "robot", name: "Paper robot's coach (Execution Lab)", trigger: "Once after the close, when the paper robot's day is reviewed and its proposed corrections are checked (when an AI model is saved and the robot's AI review is on) — only on a click: the automatic part is held back unless AI credit protection is lifted" },
   { id: "scanner", name: "Live scanner review (Research)", trigger: "The live NIFTY 100 scanner's first eligible list of the day, and then only when new names come to the top (ten minutes apart at least) — within a daily limit; or Ask the AI on the scanner — only on a click: the automatic part is held back unless AI credit protection is lifted" },
+  { id: "vinaypedia", name: "Vinaypedia (learning)", trigger: "Write with AI on a Vinaypedia area, or the digest of new NSE/SEBI/Zerodha/RBI updates — on a click, or Allow once on the popup when new circulars arrive" },
 ];
 const FEATURE_IDS = FEATURES.map((f) => f.id);
 

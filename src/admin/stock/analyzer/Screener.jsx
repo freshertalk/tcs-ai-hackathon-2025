@@ -13,6 +13,17 @@ import MarketBoard from "./MarketBoard";
 import CustomScan from "./CustomScan";
 import { everyVisible } from "../../visible";
 import { Flash, liveRow, useLivePrices } from "../../live/prices";
+import { PageBar, PageHead, PagePart, SectionHead, usePageTab } from "../../ux/PageKit";
+
+// The Journal's anatomy (23 Nov 2026): a head card, the sticky bar with the headline figures, and the page's three
+// tools as tabs. Every tool stays mounted behind its tab (PagePart), so the board keeps refreshing, a download keeps
+// being followed and a search's result is still there when you come back.
+const PARTS = [
+  { id: "board", label: "Market board", tip: "Any NSE index in one table: top gainers and losers, the most traded, RSI, VWAP, volume and the 52-week range, live." },
+  { id: "scan", label: "Custom scanner", tip: "Put conditions together and find every Nifty 500 stock that passes all of them. Presets and your saved scans." },
+  { id: "rsi", label: "RSI search", tip: "Every Nifty 500 stock whose daily RSI, with the live price as the newest bar, is where you ask — and what this RSI is." },
+];
+const PART_IDS = PARTS.map((p) => p.id);
 
 const CONDITIONS = [
   { id: "about", label: "about (± 2)" },
@@ -85,6 +96,7 @@ export default function Screener({ onOpen }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState(null);
+  const [part, setPart] = usePageTab("screener", PART_IDS);
 
   const loadStatus = useCallback(
     () =>
@@ -150,20 +162,55 @@ export default function Screener({ onOpen }) {
   if (sort === "turnover") rows.sort((x, y) => (y.avgTurnoverCr ?? 0) - (x.avgTurnoverCr ?? 0));
   if (sort === "symbol") rows.sort((x, y) => x.symbol.localeCompare(y.symbol));
 
+  // the bar's figures, from what the page already holds: the stock list's state and the last RSI search
+  const listed = status && isNum(status.symbols) ? status.symbols - (isNum(status.funds) ? status.funds : 0) : null;
+  const found = result && result.ready ? result : null;
+
   return (
     <div className="scr">
-      <MarketBoard onOpen={onOpen} />
-      <CustomScan onOpen={onOpen} />
+      <PageHead
+        title="Screener"
+        text="The market board for any NSE index, a custom scanner, and every Nifty 500 stock whose RSI is where you ask, right now. Select a stock to open it on the trading desk."
+      />
+      <PageBar
+        label={status && status.scope && status.scope.index ? status.scope.index : "NIFTY 500"}
+        labelTitle="Universe"
+        kpis={[
+          {
+            label: "Stock list",
+            value: !status ? null : running ? `downloading ${num(status.job.done, 0)} of ${num(status.job.total, 0)}` : status.ready ? `${num(listed, 0)} stocks` : "not downloaded",
+            tone: status && (running || !status.ready) ? "warn" : "",
+            tip: "The stocks whose daily history the server holds for the RSI search and the scanner.",
+          },
+          { label: "Daily closes to", value: status && status.through ? day(status.through) : null, tip: "The newest completed daily close in the stored history; today’s live price is added as the newest bar." },
+          { label: "RSI search", value: found ? `${num(found.matched, 0)} of ${num(found.considered, 0)}` : busy ? "searching…" : "none yet", tip: found ? `RSI(${found.period}) ${found.words}` : "Your last RSI search: how many stocks matched, of those considered." },
+          { label: "Zerodha", value: status ? (status.connected ? "connected" : "not connected") : null, tone: status && !status.connected ? "warn" : "", more: true, tip: "The stock list and every price come from Zerodha." },
+        ]}
+        tabs={PARTS.map((p) => (p.id === "rsi" && found ? { ...p, count: found.matched } : p))}
+        tab={part}
+        onTab={setPart}
+        updatedAt={found ? found.at : null}
+        onRefresh={() => loadStatus()}
+        ariaLabel="The Screener at a glance"
+        tabsLabel="Screener tools"
+      />
+      <PagePart id="board" tab={part}>
+        <MarketBoard onOpen={onOpen} />
+      </PagePart>
+      <PagePart id="scan" tab={part}>
+        <CustomScan onOpen={onOpen} />
+      </PagePart>
+      <PagePart id="rsi" tab={part}>
       <section className="an-card">
-        <header className="an-card__head">
-          <div>
-            <h3>RSI search · NIFTY 500</h3>
-            <p>
+        <SectionHead
+          title="RSI search · NIFTY 500"
+          sub={
+            <>
               Type an RSI value and search: the list is every Nifty 500 stock whose RSI is there <b>right now</b> — the daily RSI, with each stock’s live price as the newest bar. Select a
               stock to open it on the trading desk.
-            </p>
-          </div>
-        </header>
+            </>
+          }
+        />
 
         {!status && !statusError && <Loading label="Checking the stock list…" />}
         <Alert>{statusError}</Alert>
@@ -277,12 +324,14 @@ export default function Screener({ onOpen }) {
 
       {result && result.ready && (
         <section className="an-card">
-          <header className="an-card__head">
-            <div>
-              <h3>
+          <SectionHead
+            title={
+              <>
                 {num(result.matched, 0)} of {num(result.considered, 0)} with RSI({result.period}) {result.words}
-              </h3>
-              <p>
+              </>
+            }
+            sub={
+              <>
                 As of {clock(result.at)} — {result.live ? "today’s live prices" : `prices at the close of ${day(result.session)}`}.
                 {result.skipped.noQuote + result.skipped.outOfDate + result.skipped.tooShort > 0 &&
                   ` Left out: ${[
@@ -293,19 +342,21 @@ export default function Screener({ onOpen }) {
                     .filter(Boolean)
                     .join(", ")}.`}
                 {result.truncated ? " Showing the first 600." : ""}
-              </p>
-            </div>
-            <label className="bt__cost">
-              Order by
-              <select value={sort} onChange={(e) => setSort(e.target.value)}>
-                {SORTS.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </header>
+              </>
+            }
+            actions={
+              <label className="bt__cost">
+                Order by
+                <select value={sort} onChange={(e) => setSort(e.target.value)}>
+                  {SORTS.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            }
+          />
 
           {rows.length === 0 ? (
             <p className="vd-note">No stock matches right now. Widen the range, lower the traded-value filter, or try another period.</p>
@@ -375,7 +426,7 @@ export default function Screener({ onOpen }) {
             <b>Daily RSI, live.</b> Wilder’s RSI on daily closes, with the price at this moment standing in for today’s close. It moves through the day as the price does.
           </li>
           <li>
-            <b>The Nifty 500 and NSE’s indices.</b> The RSI search covers the Nifty 500; the board above shows any index NSE publishes a list for (NIFTY 50, BANK, FINANCIAL SERVICES, MIDCAP SELECT, NEXT 50, the broad and the sector indices). Each list is re-read from NSE’s own file once a week, so the screener follows index changes.
+            <b>The Nifty 500 and NSE’s indices.</b> The RSI search covers the Nifty 500; the Market board shows any index NSE publishes a list for (NIFTY 50, BANK, FINANCIAL SERVICES, MIDCAP SELECT, NEXT 50, the broad and the sector indices). Each list is re-read from NSE’s own file once a week, so the screener follows index changes.
           </li>
           <li>
             <b>Not the 5-minute RSI.</b> An intraday RSI for the whole exchange would need intraday bars for every stock at once, which Zerodha’s API cannot supply at this speed. The
@@ -387,6 +438,7 @@ export default function Screener({ onOpen }) {
           </li>
         </ul>
       </section>
+      </PagePart>
     </div>
   );
 }

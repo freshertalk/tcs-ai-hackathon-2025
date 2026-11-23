@@ -41,6 +41,7 @@ const { mountEmailAuth } = require("./email-auth");
 const { HolidayService } = require("./holidays/service");
 const { NseHolidayService } = require("./holidays/nse-service");
 const { nextSession } = require("./market/next-session");
+const { ExchangeClock } = require("./clock");
 const { MarketService, MarketError } = require("./market/service");
 const { mountMarket } = require("./market/routes");
 const { AiService } = require("./ai/service");
@@ -61,6 +62,7 @@ const { SetupLab, SetupLabError } = require("./setuplab");
 const { PaperRobot } = require("./robot/service");
 const { mountRobot } = require("./robot/routes");
 const knowledge = require("./market/knowledge");
+const { LearningService } = require("./learning/service");
 const { GlobalFeed } = require("./market/global");
 const { SocialService } = require("./social/service");
 const { previewFor, previewTags, injectPreview } = require("./previews");
@@ -502,6 +504,13 @@ function createApp(opts = {}) {
   /* --------------------------------------------------------- express */
   const app = express();
   app.disable("x-powered-by");
+  // Exchange time (23 Nov 2026): this server's clock corrected by time servers (clock.js). The receive moment of a clock
+  // request is stamped HERE, before any other work, so the page's arithmetic can take the server's own handling time out.
+  const exchangeClock = opts.exchangeClock || new ExchangeClock({ log: opts.log || console });
+  app.use("/api/admin/clock", (req, res, next) => {
+    req.clockT1 = exchangeClock.exchangeNow();
+    next();
+  });
   // pm2 and .env give every value as text. Express reads the TEXT "1" as an address list, not
   // as "one proxy hop", so "true" and a plain number are turned into numbers here.
   if (env.TRUST_PROXY) {
@@ -910,10 +919,18 @@ function createApp(opts = {}) {
   // against the built-in table.
   app.get("/api/admin/stock/holidays", requireAdmin, (req, res) => res.json({ ...holidays.snapshot(), nse: nseHolidays.snapshot() }));
 
+  // Exchange time for the pages (23 Nov 2026): t1 = when this request arrived, t2 = when the answer leaves, both on this
+  // server's corrected clock. The page computes its offset NTP-style: ((t1 − t0) + (t2 − t3)) / 2. Never cached.
+  app.get("/api/admin/clock", requireAdmin, (req, res) => {
+    const st = exchangeClock.status();
+    res.set("Cache-Control", "no-store");
+    res.json({ t1: req.clockT1 || exchangeClock.exchangeNow(), source: st.source, accuracyMs: st.accuracyMs, offsetMs: st.offsetMs, syncedAt: st.syncedAt, zone: st.zone, t2: exchangeClock.exchangeNow() });
+  });
+
   // The next trading session by NSE's calendar (23 Nov 2026): today's state, the next trading day after today with its
   // times, the days skipped and why, and whether the calendar is NSE's own list (verified) or the built-in table.
   app.get("/api/admin/market/next-session", requireAdmin, (req, res) => {
-    res.json(nextSession({ now: opts.now ? opts.now() : Date.now(), official: nseHolidays.snapshot() }));
+    res.json(nextSession({ now: opts.now ? opts.now() : exchangeClock.exchangeNow(), official: nseHolidays.snapshot() }));
   });
 
   // "Check now". Limited per client, and the service itself refuses to ask the
@@ -1989,6 +2006,30 @@ ${e.text}
   ai.tradeai.desk = makeDeskReaders({ market, flight, analysis, learn, now: opts.now || (() => Date.now()) });
   // …and the index history: NIFTY 50 and SENSEX month by month, the projections and their record
   ai.tradeai.desk.scanner = () => scanner.brief();
+  /* ---------------------------------------------------------------- Vinaypedia: Vinay's own learning (server/learning/service.js) */
+  // the desk's knowledge base by area, official updates read from NSE/SEBI/Zerodha/RBI's own feeds every six hours (no AI), lessons the
+  // AI writes on a click (or an "Allow once" popup when new circulars that matter arrive), and the admins' own learnings
+  const learningFetch = opts.learningFetch !== undefined ? opts.learningFetch : process.env.NODE_TEST_CONTEXT ? null : globalThis.fetch;
+  const learning = opts.learning || new LearningService({ docs: store.docs, fetchImpl: learningFetch, ai, now: opts.now, log: opts.log || console });
+  if (opts.learningWatch !== false && opts.alertWatch !== false && learningFetch) learning.start();
+  const lWrap = (fn) => async (req, res) => {
+    try {
+      res.json(await fn(req));
+    } catch (err) {
+      const status = err.status || 500;
+      if (status >= 500) console.error("[vinaypedia]", err && err.message ? err.message : err);
+      res.status(status).json({ error: err.code || "learning_failed", message: err.status ? err.message : "Vinaypedia could not do that just now." });
+    }
+  };
+  const noteId = (req) => String(req.params.id || "").replace(/[^a-f0-9]/gi, "").slice(0, 20);
+  app.get("/api/admin/learning", requireAdmin, limiter(240, 60 * 1000), lWrap(async (req) => learning.view(req.user)));
+  app.post("/api/admin/learning/notes", requireAdmin, limiter(120, 10 * 60 * 1000), lWrap(async (req) => ({ note: learning.addNote(req.body || {}, req.user) })));
+  app.put("/api/admin/learning/notes/:id", requireAdmin, limiter(240, 10 * 60 * 1000), lWrap(async (req) => ({ note: learning.updateNote(noteId(req), req.body || {}, req.user) })));
+  app.delete("/api/admin/learning/notes/:id", requireAdmin, limiter(240, 10 * 60 * 1000), lWrap(async (req) => ({ removed: learning.removeNote(noteId(req), req.user) })));
+  app.post("/api/admin/learning/refresh", requireAdmin, limiter(6, 10 * 60 * 1000), lWrap(async () => learning.refresh()));
+  app.post("/api/admin/learning/lessons", requireAdmin, limiter(20, 60 * 60 * 1000), lWrap(async (req) => ({ lesson: await learning.writeLesson(String((req.body || {}).area || "").slice(0, 80), { by: req.user.email }) })));
+  app.post("/api/admin/learning/digest", requireAdmin, limiter(10, 60 * 60 * 1000), lWrap(async (req) => ({ digest: await learning.writeDigest({ by: req.user.email }) })));
+
   // TradeAI's "playbook" reader: the knowledge base searched for the question, the desk's essentials, and
   // what each set-up has measured on this desk
   ai.tradeai.desk.playbook = (query) => ({ found: knowledge.searchText(String(query || ""), { limit: 5, maxChars: 5000 }), essentials: knowledge.relevant({ question: String(query || "") }, 1500), measuredSetups: setupLab.brief() });
@@ -2197,6 +2238,14 @@ ${e.text}
           run: () => recorder.learn({ trigger: "the supervisor" }),
         },
         {
+          id: "vinaypedia",
+          name: "Vinaypedia's official updates",
+          what: "Reads the newest NSE circulars, SEBI, Zerodha Z-Connect and Varsity, and RBI press releases from their own feeds and files them under the learning areas (no AI).",
+          every: 2 * 3600000,
+          due: () => learning.due(),
+          run: () => learning.refresh({ force: true }),
+        },
+        {
           // last on purpose: the day's backup is made after everything else has caught up
           id: "backup",
           name: "Backup of the whole database",
@@ -2274,6 +2323,12 @@ ${e.text}
       sys("analysis", "Trade Analysis day snapshot", "3:45 PM every trading day", () => (analysis.settings().auto ? needs("on") : { state: "off", detail: "auto-save switched off" })),
       sys("alerts", "Price alerts", "Checked every 15 seconds in market hours, with no page open", () => needs(alertWatch.status().running ? "on" : "off")),
       sys("paper", "Paper trading (auto mode)", "Follows the desk's live call with play money by itself", () => ((typeof paper._state === "function" ? paper._state().auto : paper.status().auto) ? needs("on") : { state: "off", detail: "your switch, on the Paper page (play money only)" })),
+      sys("vinaypedia", "Vinaypedia's official updates", "Every six hours: NSE circulars, SEBI, Zerodha Z-Connect and Varsity, RBI press releases — filed under the learning areas with no AI", () => {
+        const st = learning.status();
+        const ok = st.sources.filter((x) => x.lastSuccessAt);
+        if (!learningFetch) return { state: "off", detail: "not read on this server (no network)" };
+        return { state: ok.length ? "on" : "standing-by", detail: ok.length ? `${st.updatesKept} updates kept · ${ok.length} of ${st.sources.length} sources read` : "the first read runs shortly after a start" };
+      }),
       sys("ai", "AI models (paid)", "Only when you press an AI button — your rule; every forecast above is arithmetic and costs nothing", () => ({ state: ai.guard.status().auto ? "on" : "click-only", detail: ai.guard.status().auto ? "allowed to run by itself" : "protected: nothing is spent without a click" })),
     ];
   };
@@ -2365,6 +2420,7 @@ ${e.text}
   live.watch("autopilot", () => autopilot.fingerprint());
   live.watch("ai", () => [ai.guard.status(), ai.status()]);
   live.watch("social", () => (market.social && typeof market.social.status === "function" ? market.social.status() : null));
+  live.watch("learning", () => learning.fingerprint());
   live.watch("system", () => [whatsapp ? whatsapp.status() : null, notifier.status(), temple.settings()]);
   live.watch("holidays", () => nseHolidays.fingerprint());
   live.watch("health", () => [market.mode(), trading.status().enabled, trading.status().riskLock, alertWatch ? alertWatch.status() : null, ai.configured(), horizon.fingerprint()]);
@@ -2372,7 +2428,7 @@ ${e.text}
 
   app.get("/api/admin/health", requireAdmin, limiter(60, 60 * 1000), async (req, res) => {
     try {
-      res.json(await buildHealth({ now: opts.now, docs, dataDir, memory, trainGuard, supervisor, recorder, vault, horizon, openForecast, autopilot, robot, market, ai, trading, analysis, paper, researchAuto, notifier, alertWatch, whatsapp, temple, holidays, nseHolidays, googleConfigured: () => credentials().source !== "none" }, { secure: isSecure(req), host: req.get("host") || "" }));
+      res.json(await buildHealth({ now: opts.now, docs, dataDir, memory, trainGuard, supervisor, recorder, vault, horizon, openForecast, autopilot, robot, market, ai, trading, analysis, paper, researchAuto, notifier, alertWatch, whatsapp, temple, holidays, nseHolidays, exchangeClock, googleConfigured: () => credentials().source !== "none" }, { secure: isSecure(req), host: req.get("host") || "" }));
     } catch (err) {
       res.status(500).json({ error: "health_failed", message: err.message });
     }
@@ -2448,7 +2504,9 @@ ${e.text}
     app,
     store,
     holidays,
+    learning,
     nseHolidays,
+    exchangeClock,
     market,
     ai,
     tradeSetup: setup,

@@ -29,6 +29,7 @@ import LoginIconTile from "./LoginIconTile";
 import ZerodhaAccounts from "./ZerodhaAccounts";
 import DrishtiLogo from "./DrishtiLogo";
 import NextSession, { sessionCard, useNextSession } from "./NextSession";
+import { exchangeNow, useExchangeNow } from "./clock/exchangeClock";
 
 const WORKSPACES = [
   { view: "", label: "Desk", text: "Chart, live call, order book, 5- and 15-minute forecast" },
@@ -83,6 +84,11 @@ function greeting(date = new Date()) {
   if (h < 17) return "Good afternoon";
   if (h < 22) return "Good evening";
   return "Good night";
+}
+/** The greeting by the hour in India (NSE's clock), wherever this computer is. */
+function greetingIst(ms = exchangeNow()) {
+  const h = new Date(ms + 5.5 * 3600000).getUTCHours();
+  return greeting({ getHours: () => h });
 }
 function firstName(user) {
   const raw = (user.name || "").trim().split(/\s+/)[0] || "there";
@@ -168,8 +174,10 @@ function Pulse({ isSuper, ns }) {
     };
   }, [isSuper]);
   const { market, board, horizon, spend, trade, pnl } = d;
-  // by NSE's calendar (holidays included) when the server has answered; by the clock alone until then
-  const nse = sessionCard(ns) || nseState();
+  // by NSE's calendar (holidays included) when the server has answered; by the clock alone until then — NSE's clock
+  // either way (clock/exchangeClock.js), turning over on the exchange's minute
+  const nowMs = useExchangeNow(60000);
+  const nse = sessionCard(ns, nowMs) || nseState(new Date(nowMs));
   const kite = market && market.mode === "kite";
   const counts = { A: 0, B: 0 };
   if (board) for (const r of board.rows || []) if (r.available && r.best && counts[r.best.grade] !== undefined) counts[r.best.grade] += 1;
@@ -518,7 +526,9 @@ export default function Dashboard() {
   }, []);
   const isSuper = user.role === "superadmin";
   const { prefs } = usePrefs();
-  const today = new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  // the date and greeting by NSE's clock (IST), not this computer's
+  const dayNow = new Date(useExchangeNow(60000));
+  const today = dayNow.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", weekday: "long", day: "numeric", month: "long", year: "numeric" });
   // "Open the terminal" goes to the workspace you chose under Customize (the Desk unless you chose another)
   const start = WORKSPACES.find((w) => (w.view || "analyzer") === prefs.start && mayOpen(w, user) && !prefs.nav.hidden.includes(prefs.start));
   const startView = start ? start.view : "";
@@ -532,7 +542,7 @@ export default function Dashboard() {
           <section className="hm-me" aria-labelledby="hm-hero-h">
             <DrishtiLogo className="hm-me__art" size={72} />
             <p className="hm-hero__k">
-              {greeting()} · {today}
+              {greetingIst(dayNow.getTime())} · {today}
             </p>
             <h1 id="hm-hero-h">Namaste, {firstName(user)}</h1>
             <p className="hm-me__role">

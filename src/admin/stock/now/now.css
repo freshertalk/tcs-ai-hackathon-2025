@@ -504,3 +504,18 @@
     display: none;
   }
 }
+
+/* ---- the Journal's anatomy (PageKit, 23 Nov 2026): the head card and the page bar sit in the page's own rhythm ---- */
+.nw > .an-card.wk-head {
+  margin-top: 0;
+}
+.nw > .wk-bar {
+  margin-bottom: 0;
+}
+.nw > .wk-head .wk-head__act {
+  max-width: 100%;
+}
+.nw > .wk-head .nw-conn {
+  flex-wrap: wrap;
+  max-width: 100%;
+}
