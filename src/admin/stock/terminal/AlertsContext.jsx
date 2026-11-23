@@ -135,7 +135,7 @@ export function AlertsProvider({ children }) {
   return (
     <Ctx.Provider value={value}>
       {children}
-      <SoftToast show={Boolean(note)} kind="warn" role="alert" className="tm-alert-note" onClose={() => setNote(null)}>
+      <SoftToast show={Boolean(note)} kind="warn" role="alert" className="tm-alert-note" stamp={note ? note.at : null} onClose={() => setNote(null)}>
         <p>
           <b>Price alert</b>
           <br />

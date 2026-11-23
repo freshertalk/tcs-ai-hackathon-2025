@@ -213,3 +213,12 @@
     word-break: normal;
   }
 }
+
+/* the stock search is a search box (so no browser takes it for a sign-in box): it keeps the terminal's own look */
+.adm .wl__search input[type="search"] {
+  -webkit-appearance: none;
+  appearance: none;
+}
+.adm .wl__search input[type="search"]::-webkit-search-decoration {
+  -webkit-appearance: none;
+}

@@ -1,0 +1,235 @@
+/* My profile (/me/account, Account.jsx): the private area's Kite look — Open Sans at Kite's sizes, flat panels with small
+   corners, hairlines, the Zerodha palette's tokens (both themes) — with a soft accent wash on the profile band, as on the
+   other pages' heads. */
+.acp {
+  display: grid;
+  gap: 12px;
+}
+
+/* the profile band */
+.acp-hero {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 16px 20px;
+  align-items: center;
+  padding: 18px 20px;
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--line));
+  border-radius: 10px;
+  background: linear-gradient(120deg, color-mix(in srgb, var(--accent) 9%, var(--surface)), var(--surface) 65%);
+}
+.acp-hero .acm-av {
+  box-shadow: 0 0 0 3px var(--surface), 0 0 0 5px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+.acp-hero__txt {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.acp-hero__kicker {
+  margin: 0;
+  color: var(--ink-3);
+  font-size: var(--t-small);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.acp-hero__name {
+  margin: 0;
+  color: var(--ink);
+  font-size: var(--t-page, 1.125rem);
+  font-weight: 400;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+.acp-hero__mail {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: var(--t-mid);
+  overflow-wrap: anywhere;
+}
+.acp-hero__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  margin: 6px 0 0;
+  color: var(--ink-3);
+  font-size: var(--t-small);
+}
+.acp-role {
+  padding: 1px 10px;
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--line));
+  border-radius: 999px;
+  color: var(--ink-2);
+  font-size: var(--t-tag);
+}
+.acp-role--owner {
+  border-color: var(--warn-line, #ffd699);
+  background: var(--warn-bg, #fff4e0);
+  color: var(--warn-ink, #7a4f00);
+}
+.acp-hero__act {
+  align-self: start;
+}
+@media (max-width: 560px) {
+  .acp-hero {
+    grid-template-columns: auto minmax(0, 1fr);
+    padding: 14px;
+  }
+  .acp-hero__act {
+    grid-column: 1 / -1;
+  }
+}
+
+/* the cards */
+.acp-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+@media (max-width: 860px) {
+  .acp-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.acp-card {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+}
+.acp-card--wide {
+  grid-column: 1 / -1;
+}
+.acp-card__head h3 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+.acp-card__head p {
+  margin: 4px 0 0;
+  color: var(--ink-3);
+  font-size: var(--t-small);
+  line-height: 1.5;
+}
+.acp-card p {
+  margin: 0;
+}
+.acp-form {
+  max-width: 420px;
+}
+
+/* how you sign in */
+.acp-methods {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.acp-method {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+}
+.acp-method:first-child {
+  border-top: 0;
+  padding-top: 2px;
+}
+.acp-method__dot {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--ink-3);
+  font-size: var(--t-small);
+  font-weight: 700;
+}
+.acp-method.is-on .acp-method__dot {
+  background: color-mix(in srgb, var(--up) 16%, var(--surface));
+  color: var(--up);
+}
+.acp-method__txt {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+.acp-method__txt b {
+  color: var(--ink);
+  font-size: var(--t-base);
+  font-weight: 600;
+}
+.acp-method__txt small {
+  color: var(--ink-3);
+  font-size: var(--t-small);
+  overflow-wrap: anywhere;
+}
+
+/* recent activity: a quiet timeline */
+.acp-timeline {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 24px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+@media (max-width: 860px) {
+  .acp-timeline {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.acp-ev {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  padding: 9px 0;
+  border-top: 1px solid var(--line);
+}
+.acp-ev__dot {
+  width: 10px;
+  height: 10px;
+  margin-top: 5px;
+  border-radius: 50%;
+  background: var(--ink-3);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--ink-3) 14%, transparent);
+}
+.acp-ev--ok .acp-ev__dot {
+  background: var(--up);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--up) 16%, transparent);
+}
+.acp-ev--bad .acp-ev__dot {
+  background: var(--down);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--down) 16%, transparent);
+}
+.acp-ev--info .acp-ev__dot {
+  background: var(--accent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 16%, transparent);
+}
+.acp-ev__txt {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+.acp-ev__txt b {
+  color: var(--ink);
+  font-size: var(--t-mid);
+  font-weight: 600;
+}
+.acp-ev__txt small {
+  color: var(--ink-3);
+  font-size: var(--t-small);
+  overflow-wrap: anywhere;
+}

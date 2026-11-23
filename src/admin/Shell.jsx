@@ -9,6 +9,7 @@ import { useDeskTheme } from "./stock/analyzer/theme";
 import { TempleButton } from "./temple/Temple";
 import LiveBadge from "./LiveBadge";
 import BrandMark from "./BrandMark";
+import AccountMenu from "./AccountMenu";
 
 const HINT_KEY = "vpt.tips.hint";
 
@@ -50,7 +51,7 @@ function TipsHint({ wrap }) {
  * `notice` renders ABOVE the header — the dashboard uses it for the
  * "personal setup" strip.
  */
-export default function Shell({ crumb, notice, children, narrow, wide, fluid }) {
+export default function Shell({ crumb, notice, children, narrow, wide, fluid, legacyUser = false }) {
   // fluid: use the whole window (the trading desk); wide: a roomier column
   const wrap = fluid ? "adm-wrap adm-wrap--fluid" : wide ? "adm-wrap adm-wrap--wide" : "adm-wrap";
   const { user } = useAuth();
@@ -87,29 +88,39 @@ export default function Shell({ crumb, notice, children, narrow, wide, fluid }) 
           </nav>
           {user && (
             <div className="adm-user">
-              {user.picture ? (
-                <img src={user.picture} alt="" referrerPolicy="no-referrer" width="32" height="32" />
-              ) : (
-                <span className="adm-user__ph" aria-hidden="true">
-                  {(user.name || "·").slice(0, 1).toUpperCase()}
-                </span>
+              {/* 24 Nov 2026: no full name and no Sign out button in the header — your photo opens the account menu
+                  (full name, My profile, Sign out), as in the terminal. The old name link and button are kept below,
+                  switched off, for anyone who wants them back (legacyUser). */}
+              {legacyUser && (
+                <>
+                  {user.picture ? (
+                    <img src={user.picture} alt="" referrerPolicy="no-referrer" width="32" height="32" />
+                  ) : (
+                    <span className="adm-user__ph" aria-hidden="true">
+                      {(user.name || "·").slice(0, 1).toUpperCase()}
+                    </span>
+                  )}
+                  <Link to={adminPath("/account")} className="adm-user__id" data-tip="Your account: password, devices and recent activity.">
+                    <b>{user.name || "Signed in"}</b>
+                    <small>
+                      <span className={`adm-role adm-role--${user.role}`}>
+                        {user.role === "superadmin" ? "Superadmin" : "Admin"}
+                      </span>
+                    </small>
+                  </Link>
+                </>
               )}
-              <Link to={adminPath("/account")} className="adm-user__id" data-tip="Your account: password, devices and recent activity.">
-                <b>{user.name || "Signed in"}</b>
-                <small>
-                  <span className={`adm-role adm-role--${user.role}`}>
-                    {user.role === "superadmin" ? "Superadmin" : "Admin"}
-                  </span>
-                </small>
-              </Link>
               <LiveBadge />
               <TempleButton />
               <button type="button" className="tm-icon" onClick={toggleTheme} aria-label={theme === "dark" ? "Light theme" : "Dark theme"} data-tip="Switch between dark and light, here and in the trading terminal.">
                 {theme === "dark" ? "☀" : "☾"}
               </button>
-              <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm" onClick={logout} disabled={busy}>
-                Sign out
-              </button>
+              {legacyUser && (
+                <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm" onClick={logout} disabled={busy}>
+                  Sign out
+                </button>
+              )}
+              <AccountMenu />
             </div>
           )}
         </div>

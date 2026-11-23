@@ -3,6 +3,12 @@
 // one action. They leave by themselves after a few seconds (an error stays longer); hovering, focusing or touching one holds it;
 // a swipe sideways or the × closes it. Screen readers hear them (errors at once, others politely). On a phone they sit above the
 // terminal's bottom bar. The connection is watched too: going offline says so until it is back.
+//
+// ONE SOFT POPUP FOR EVERYTHING (24 Nov 2026, the owner: "a very soft popup … auto close in 5 seconds … each popup softer,
+// smoother, colourful"): the stack sits at the bottom centre, just above the terminal's Positions bar (or the phone's bottom
+// bar), so it never covers the page's top. A note may carry a title and two actions; a thin line under it shows the time left
+// (5 s by default, 7 s for an error) and stops while it is held. The daily goal's alert, price alerts and order notes all come
+// here now.
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { SNACK_CLOSE, SNACK_EVENT, closeSnack, snack } from "./snack";
@@ -19,6 +25,7 @@ let seq = 0;
 
 function Snack({ s, onClose }) {
   const [hold, setHold] = useState(false);
+  const actions = (Array.isArray(s.actions) && s.actions.length ? s.actions : s.action && s.action.label ? [s.action] : []).filter((x) => x && x.label).slice(0, 2);
   const [leaving, setLeaving] = useState(false);
   const left = useRef(s.ms);
   const start = useRef(Date.now());
@@ -58,7 +65,7 @@ function Snack({ s, onClose }) {
   };
   return (
     <div
-      className={`ux-snack ux-snack--${s.tone} ${leaving ? "is-leaving" : ""}`}
+      className={`ux-snack ux-snack--${s.tone} ${s.title ? "has-title" : ""} ${hold ? "is-held" : ""} ${leaving ? "is-leaving" : ""}`}
       role={s.tone === "error" ? "alert" : "status"}
       aria-live={s.tone === "error" ? "assertive" : "polite"}
       style={dx ? { transform: `translateX(${dx}px)`, opacity: Math.max(0.2, 1 - Math.abs(dx) / 200) } : undefined}
@@ -75,30 +82,39 @@ function Snack({ s, onClose }) {
         <circle cx="12" cy="12" r="9.2" />
         {ICON[s.tone] || ICON.info}
       </svg>
-      <p className="ux-snack__text">
-        {s.text}
-        {s.count > 1 && <span className="ux-snack__count"> ×{s.count}</span>}
-      </p>
-      {s.action && s.action.label && (
-        <button
-          type="button"
-          className="ux-snack__act"
-          onClick={() => {
-            try {
-              if (typeof s.action.onClick === "function") s.action.onClick();
-            } finally {
-              close();
-            }
-          }}
-        >
-          {s.action.label}
-        </button>
+      <div className="ux-snack__body">
+        {s.title && <p className="ux-snack__title">{s.title}</p>}
+        <div className="ux-snack__text">
+          {s.text}
+          {s.count > 1 && <span className="ux-snack__count"> ×{s.count}</span>}
+        </div>
+      </div>
+      {actions.length > 0 && (
+        <span className="ux-snack__acts">
+          {actions.map((x, i) => (
+            <button
+              key={x.label}
+              type="button"
+              className={`ux-snack__act ${x.primary || (actions.length > 1 && i === 0) ? "is-primary" : ""}`}
+              onClick={() => {
+                try {
+                  if (typeof x.onClick === "function") x.onClick();
+                } finally {
+                  close();
+                }
+              }}
+            >
+              {x.label}
+            </button>
+          ))}
+        </span>
       )}
       <button type="button" className="ux-snack__x" aria-label="Close this note" onClick={close}>
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <path d="m7 7 10 10M17 7 7 17" />
         </svg>
       </button>
+      {s.ms > 0 && <i key={s.bump} className="ux-snack__time" style={{ animationDuration: `${s.ms}ms` }} aria-hidden="true" />}
     </div>
   );
 }
@@ -109,16 +125,17 @@ export default function SnackHost() {
     const onSnack = (e) => {
       const d = e.detail || {};
       const tone = ["ok", "info", "warn", "error"].includes(d.tone) ? d.tone : "info";
-      const ms = d.ms === 0 ? 0 : Number.isFinite(d.ms) ? d.ms : tone === "error" ? 7000 : 4500;
+      const ms = d.ms === 0 ? 0 : Number.isFinite(d.ms) ? d.ms : tone === "error" ? 7000 : 5000;
+      const extra = { title: d.title || "", actions: Array.isArray(d.actions) ? d.actions : null, onClose: typeof d.onClose === "function" ? d.onClose : null };
       setList((cur) => {
         // the same words again (or the same key): the note on screen is renewed instead of a second one stacking
         const i = cur.findIndex((x) => (d.key && x.key === d.key) || (!d.key && x.text === d.text));
         if (i >= 0) {
           const next = [...cur];
-          next[i] = { ...next[i], text: d.text, tone, ms, action: d.action || null, count: next[i].text === d.text ? next[i].count + 1 : 1, bump: (next[i].bump || 0) + 1 };
+          next[i] = { ...next[i], ...extra, text: d.text, tone, ms, action: d.action || null, count: next[i].text === d.text && !d.key ? next[i].count + 1 : 1, bump: (next[i].bump || 0) + 1 };
           return next;
         }
-        return [...cur, { id: (seq += 1), key: d.key || "", text: d.text, tone, ms, action: d.action || null, count: 1, bump: 0 }];
+        return [...cur, { id: (seq += 1), key: d.key || "", ...extra, text: d.text, tone, ms, action: d.action || null, count: 1, bump: 0 }];
       });
     };
     const onClose = (e) => {
@@ -142,7 +159,17 @@ export default function SnackHost() {
       window.removeEventListener("online", on);
     };
   }, []);
-  const remove = useCallback((id) => setList((cur) => cur.filter((x) => x.id !== id)), []);
+  const remove = useCallback((id) => {
+    setList((cur) => {
+      const gone = cur.find((x) => x.id === id);
+      // tell whoever raised it, once, after this render (a caller may reset its own state)
+      if (gone && gone.onClose && !gone.told) {
+        gone.told = true;
+        setTimeout(() => gone.onClose(), 0);
+      }
+      return cur.filter((x) => x.id !== id);
+    });
+  }, []);
   const shown = list.slice(0, MAX);
   return (
     <section className="ux-snacks" aria-label="Notifications">

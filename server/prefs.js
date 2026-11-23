@@ -30,6 +30,7 @@ const DEFAULTS = Object.freeze({
   text: "normal",
   density: "compact", // the owner's choice, 24 Nov 2026: a trading screen is compact unless a person asks for room
   motion: true, // gentle movement when pages and cards open
+  privacy: false, // hide amounts (P&L, charges, capital, funds) with ***** on every page (24 Nov 2026)
   nav: { order: [], hidden: [] }, // [] = the built-in order, nothing hidden
   start: "analyzer", // the workspace the terminal opens on
   desk: { board: true, dock: "auto", chart: "pro" },
@@ -60,6 +61,7 @@ function clean(input) {
     text: pick(p.text, OPTIONS.text, DEFAULTS.text),
     density: pick(p.density, OPTIONS.density, DEFAULTS.density),
     motion: bool(p.motion, DEFAULTS.motion),
+    privacy: bool(p.privacy, DEFAULTS.privacy),
     nav: { order: uniqViews(nav.order), hidden },
     start: hidden.includes(start) ? DEFAULTS.start : start, // a hidden workspace cannot be where the terminal opens
     desk: { board: bool(desk.board, DEFAULTS.desk.board), dock: pick(desk.dock, OPTIONS.dock, DEFAULTS.desk.dock), chart: pick(desk.chart, OPTIONS.chart, DEFAULTS.desk.chart) },

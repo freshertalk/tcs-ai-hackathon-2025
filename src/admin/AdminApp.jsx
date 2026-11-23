@@ -44,6 +44,8 @@ import Kundali from "./kundali/Kundali";
 import Expenses from "./expenses/Expenses";
 import AiAsks from "./AiAsks";
 import SnackHost from "./ux/SnackHost";
+import { PrivacyMasker } from "./privacy";
+import ButtonIcons from "./ux/ButtonIcons";
 import BackToTop from "./ux/BackToTop";
 
 import "./admin.css";
@@ -64,6 +66,8 @@ import "./ux/ux.css";
 // the Journal's look on every page: its underline tabs, its chips, its gentle rise (23 Nov 2026)
 import "./ux/look.css";
 import "./ux/kite-standard.css"; // the trading-terminal standard: Kite's type ladder, one heading order, compact by default
+import "./ux/soft-popups.css"; // every dialog, menu, help bubble and the AI ask in one soft family (24 Nov 2026)
+import "./ux/soft-buttons.css"; // softer buttons, each with the icon its words call for (ux/ButtonIcons.jsx)
 // The private area wears the DrishtiAI logo as its icon (public/drishti-logo.svg and its PNG copies). The public
 // site's own link tags are put aside while this area is open and put back when it is left. (A page loaded straight
 // from /me already carries these in its own head: see scripts/prerender.js.)
@@ -232,6 +236,8 @@ export default function AdminApp() {
         {value.user && value.user.role === "superadmin" && <AiAsks />}
         {/* the snackbar (short notes at the bottom: saved, copied, offline…) and "back to top" on long pages */}
         {value.user && <SnackHost />}
+        {value.user && <PrivacyMasker />}
+        {value.user && <ButtonIcons />}
         {value.user && <BackToTop />}
         <Routes>
           <Route path={ADMIN_BASE} element={<Gate><Dashboard /></Gate>} />

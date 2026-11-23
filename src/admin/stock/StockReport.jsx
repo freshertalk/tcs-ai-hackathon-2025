@@ -294,7 +294,7 @@ function Terminal() {
         {view === "analyzer" ? (
           <Analyzer />
         ) : (
-          <div className="tm-page">
+          <div className="tm-page" data-view={view}>
             {PAGE_JUMPS[view] && <PageJumps key={view} {...PAGE_JUMPS[view]} />}
             {view === "now" ? (
               <NowView onOpen={openStock} />

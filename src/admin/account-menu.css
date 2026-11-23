@@ -1,0 +1,317 @@
+/* The account menu (AccountMenu.jsx): the photo at the right end of every header, and the small soft card it opens —
+   the same family as the private area's other pop-ups (ux/soft-popups.css): a 14 px card, a wash of the accent at its
+   top, readable ink, one red line for Sign out. Tokens only, so both themes follow. */
+.acm {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+}
+.acm__btn {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  transition: box-shadow 160ms ease, transform 160ms ease;
+}
+.acm__btn:hover,
+.acm.is-open .acm__btn {
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px color-mix(in srgb, var(--accent) 55%, transparent);
+}
+.acm__btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.acm__btn:active {
+  transform: scale(0.96);
+}
+.acm-av {
+  display: block;
+  border-radius: 50%;
+  object-fit: cover;
+  flex: none;
+}
+.acm-av--ph {
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 60%, var(--up)));
+  color: var(--on-accent, #fff);
+  font-weight: 600;
+  line-height: 1;
+}
+
+.acm__menu {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 1300;
+  display: grid;
+  gap: 2px;
+  width: min(300px, calc(100vw - 24px));
+  padding: 8px;
+  border: 1px solid color-mix(in srgb, var(--accent) 20%, var(--line-2));
+  border-radius: 14px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 7%, var(--surface)), var(--surface) 96px);
+  color: var(--ink);
+  box-shadow: 0 22px 50px -20px rgba(0, 0, 0, 0.5), 0 4px 12px -6px rgba(0, 0, 0, 0.22);
+  transform-origin: top right;
+  animation: acm-in 220ms cubic-bezier(0.22, 1.2, 0.36, 1) both;
+}
+/* a small bridge so the pointer can travel from the photo to the card without it closing */
+.acm__menu::before {
+  content: "";
+  position: absolute;
+  top: -12px;
+  right: 0;
+  left: 0;
+  height: 12px;
+}
+.acm__who {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  padding: 8px 8px 12px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--line);
+}
+.acm__whotxt {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.acm__whotxt b {
+  color: var(--ink);
+  font-size: var(--t-base);
+  font-weight: 600;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+.acm__whotxt small {
+  color: var(--ink-3);
+  font-size: var(--t-small);
+  overflow-wrap: anywhere;
+}
+.acm__role {
+  justify-self: start;
+  margin-top: 4px;
+  padding: 1px 8px;
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--line));
+  border-radius: 999px;
+  color: var(--ink-2);
+  font-size: var(--t-tag);
+}
+.acm__role--owner {
+  border-color: var(--warn-line, #ffd699);
+  background: var(--warn-bg, #fff4e0);
+  color: var(--warn-ink, #7a4f00);
+}
+.acm__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--t-base);
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+.acm__item svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  fill: none;
+  stroke: var(--ink-3);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.acm__item:hover,
+.acm__item:focus-visible {
+  outline: none;
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+.acm__item:hover svg,
+.acm__item:focus-visible svg {
+  stroke: var(--accent);
+}
+.acm__item--out {
+  margin-top: 4px;
+  border-top: 1px solid var(--line);
+  border-radius: 0 0 10px 10px;
+  color: var(--down);
+}
+.acm__item--out svg {
+  stroke: var(--down);
+}
+.acm__item--out:hover,
+.acm__item--out:focus-visible {
+  background: color-mix(in srgb, var(--down) 10%, transparent);
+}
+.acm__item--out:hover svg,
+.acm__item--out:focus-visible svg {
+  stroke: var(--down);
+}
+.acm__item:disabled {
+  opacity: 0.7;
+  cursor: progress;
+}
+@keyframes acm-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .acm__menu {
+    animation: none;
+  }
+}
+
+/* ------------------------------------------------------------------ the brand's name beside the logo, on every width */
+/* (It used to be the logo alone on a phone, because the header also carried the full name and a Sign out button; those
+   are inside the menu now, so the name fits.) */
+@media (max-width: 419px) {
+  .adm .adm-head .adm-brand .vk-brand__name {
+    display: block;
+  }
+}
+@media (min-width: 2000px) and (max-width: 2399px) {
+  .adm .tm .tm-brand .vk-brand__name {
+    display: block;
+  }
+}
+@media (max-width: 700px) {
+  .adm .tm .tm-brand .vk-brand__name {
+    display: block;
+    font-size: 0.95rem;
+  }
+}
+/* on a phone the terminal's search becomes its icon, so the name has room beside the logo */
+@media (max-width: 599px) {
+  .adm .tm--bnav .tm-cmd {
+    flex: none;
+    width: 36px;
+    padding: 0;
+    justify-content: center;
+  }
+  .adm .tm--bnav .tm-cmd__text {
+    display: none;
+  }
+  .adm .tm--bnav .tm-status {
+    margin-left: auto;
+  }
+}
+/* a phone's terminal bar holds the logo and name, the search, the live dot, the trading switch, the bells, the Mandir and
+   the photo: measured at 390 px it ran 30 px over, so on narrow phones everything sits a little closer */
+@media (max-width: 420px) {
+  .adm .tm--bnav .tm-top {
+    column-gap: 6px;
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+  .adm .tm--bnav .tm-status {
+    gap: 3px;
+  }
+  .adm .tm .tm-brand .vk-brand__name {
+    font-size: 0.9rem;
+  }
+  .adm .tm .tm-brand .vk-brand__mark svg,
+  .adm .tm .tm-brand .vk-brand__mark img {
+    width: 32px;
+    height: 32px;
+  }
+  .adm .tm--bnav .tm-status .tm-pill--btn {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+  .adm .tm--bnav .acm__btn {
+    width: 34px;
+    height: 34px;
+  }
+  .adm .tm--bnav .acm__btn .acm-av {
+    width: 30px !important;
+    height: 30px !important;
+  }
+}
+
+/* ------------------------------------------------------------------ "AI Trading Advisor" under the name, on every width */
+/* (24 Nov 2026, the owner: "in mobile view as well, display AI Trading Advisor below DrishtiAI … like laptop view") */
+.adm .adm-head .adm-brand .vk-brand__name small,
+.adm .tm .tm-brand .vk-brand__name small {
+  display: block;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: nowrap;
+}
+@media (max-width: 479px) {
+  .adm .adm-head .adm-brand .vk-brand__name small {
+    font-size: 0.71875rem;
+    letter-spacing: 0.08em;
+  }
+}
+/* a phone's terminal bar becomes two rows so the full brand fits: the brand with your status and photo on the first, the
+   search with the trading switch and today's P&L on the second (Kite's phone app keeps its search on a row of its own) */
+@media (max-width: 599px) {
+  .adm .tm.tm--bnav {
+    --tm-top: 96px;
+  }
+  .adm .tm--bnav .tm-top {
+    flex-wrap: wrap;
+    align-content: center;
+    row-gap: 2px;
+    padding-top: 2px;
+    padding-bottom: 6px;
+  }
+  .adm .tm--bnav .tm-top > .tm-status {
+    display: contents;
+  }
+  .adm .tm--bnav .tm-top > .tm-brand {
+    order: 1;
+    flex: 1 1 auto;
+    min-height: 48px;
+    min-width: 0;
+  }
+  .adm .tm--bnav .tm-status > * {
+    order: 2;
+  }
+  .adm .tm--bnav .tm-top::after {
+    content: "";
+    order: 5;
+    flex-basis: 100%;
+    height: 0;
+  }
+  .adm .tm--bnav .tm-top > .tm-cmd {
+    order: 6;
+    flex: 1 1 auto;
+    width: auto;
+    min-width: 0;
+    padding: 0 12px;
+    justify-content: flex-start;
+  }
+  .adm .tm--bnav .tm-top > .tm-cmd .tm-cmd__text {
+    display: block;
+  }
+  .adm .tm--bnav .tm-status > :is(.tm-pill--btn, .tm-pnl, .dg-pill, .tp-btn) {
+    order: 7;
+  }
+  /* the subtitle a little tighter on a phone (same readable size), so the first row keeps the brand, status and photo */
+  .adm .tm--bnav .tm-brand .vk-brand__name small {
+    letter-spacing: 0.06em;
+  }
+}

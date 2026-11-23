@@ -255,7 +255,7 @@ export function TradeProvider({ children }) {
           </span>
         </div>
       )}
-      <SoftToast show={Boolean(value && toast)} kind={toast ? toast.kind : "ok"} onClose={() => setToast(null)}>
+      <SoftToast show={Boolean(value && toast)} kind={toast ? toast.kind : "ok"} stamp={toast ? toast.at : null} onClose={() => setToast(null)}>
         <p>{toast ? toast.text : ""}</p>
       </SoftToast>
     </TradeContext.Provider>

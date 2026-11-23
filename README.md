@@ -319,6 +319,69 @@ clamps), then set one standard over all of them by their existing class names:
   lines are shown whole, at 12 px. Code text is never under 12 px.
 - Customize can now hide and order Trade setup and Vinaypedia (both were missing from `VIEWS` and `workspaces.js`).
 
+**Soft popups (2026-11-24; `src/admin/ux/SnackHost.jsx`, `ux/ux.css` section 5, `ux/soft-popups.css`,
+`stock/trade/DailyGoal.jsx`, `SoftToast.jsx`).**
+- *One popup for every floating note*: the snack stack sits at the bottom centre, 12 px above the terminal's Positions
+  bar (40 px, or the open dock's height) or the phone/tablet bottom bar, so the page's top stays clear.
+  - Each note is a soft card tinted with its tone (green done, blue news, amber caution, red problem), with its icon
+    in a soft disc, an optional bold `title`, up to two pill `actions` and an `onClose` callback.
+  - A thin line runs down the time left: 5 s by default, 7 s for an error. Hovering, focusing or touching pauses it.
+  - It rises in on a gentle spring.
+- *The daily goal's alert* (`GoalBanner`) is now that popup instead of a full-width strip under the top bar. It shows for
+  5 s, then stays quiet for the goal's "repeat a reminder" time and returns if it still holds. It closes at once when
+  the alert stops holding. `variant="strip"` keeps the old strip.
+- *Price alerts and order notes* (`SoftToast`) go to the same popup; the callers are unchanged apart from a `stamp`.
+  Without a popup host on the page (tests), the old floating note is drawn.
+- *Dialogs, the order ticket (Buy washed green, Sell red), form sheets, menus, the help bubble and the AI ask* share
+  one soft family: a blurred, lightly tinted backdrop, 16–18 px corners, a wash of their own colour at the top and a
+  spring entrance. The AI ask sits above the Positions bar too.
+- *Autofill fix*: the World markets card's FMP key field (password type) stood outside any form. The browser therefore
+  took the Desk's stock search for a sign-in "username" and filled it with the saved sign-in email. The key field now
+  has its own form (`autocomplete="new-password"`). The search is `type="search"` with autofill opt-outs, and
+  `notAutofill` drops any one-shot fill containing "@" (a stock name never has one).
+
+**Account menu and My profile (2026-11-24; `src/admin/AccountMenu.jsx`, `account-menu.css`, `Account.jsx`,
+`account-page.css`).**
+- *Headers*: the /me pages (Shell.jsx) and the terminal (TopBar.jsx) no longer show the full name or a Sign out button.
+  Your photo, or your initial on a soft disc, sits at the right end.
+  - Pointing at it (mouse) or tapping it opens a small soft card: full name, email, role (Owner, Superadmin, Admin),
+    **My profile**, the page's own items (the terminal adds Dashboard and Hover help) and **Sign out**.
+  - Keyboard: Enter, Space or ↓ opens it; ↑ ↓ move; Escape closes it and returns to the photo. A press elsewhere closes it.
+  - Shell's `legacyUser` prop keeps the old name link and button.
+- *Brand*: "DrishtiAI" stands beside the logo on every width, phones included (it used to be the logo alone under
+  420 px on /me, and under 700 px in the terminal). On a phone the terminal's search becomes its icon and the bar sits a
+  little closer, so the photo still fits at 390 px.
+- *My profile* (`/me/account`), redesigned in the Kite look:
+  - a profile band: photo, name, email, role, last sign-in and Sign out;
+  - "How you sign in" (Google, Password, Email, each with a status disc);
+  - the password form, and Devices (sign out everywhere);
+  - recent activity as a timeline: green for sign-ins and password changes, red for failed or refused attempts, blue
+    for links and codes sent.
+  - The logic and the API are unchanged.
+
+**Hide amounts, the /me redesign and soft buttons with icons (2026-11-24; `src/admin/privacy.jsx` + `privacy.css`,
+`ux/ButtonIcons.jsx` + `ux/soft-buttons.css`, `Dashboard.jsx`, `account-menu.css`).**
+- *Hide amounts*: one switch, on /me (under the greeting) and in every account menu, kept with your preferences
+  (`privacy`, server and client). It puts `data-privacy="on"` on the private area.
+  - While it is on, a watcher reads the your-money areas: Positions, Journal, Trade Analysis, Paper, the dock, the top
+    bar's P&L and goal pills, /me's glance and status, Expenses.
+  - It marks every amount with an attribute only: rupee figures, signed figures, short figures (k, L, Cr), figures in
+    a table column headed with money words, and figures under a money label.
+  - Marked amounts are drawn as `*****`. Percentages, counts, times, prices and market data stay visible.
+  - The hover help and the daily goal's popup pass through `hideAmounts()`.
+- */me redesign*:
+  - The three ways in are framed actions: icon disc, name, one-line hint and arrow. "Open the terminal" is the filled one.
+  - On phones and tablets the side column dissolves into the page, so Personal (Kundali, Expenses, Login icon) comes
+    last.
+  - "AI Trading Advisor" shows under DrishtiAI on every width. On a phone the terminal bar is two rows: brand, status
+    and photo on the first; search, the trading switch and the Mandir on the second (`--tm-top: 96px`).
+- *Buttons*:
+  - Every `.adm-btn` and /me button has softer corners (9 px), a gentle lift on hover and a press on click; the
+    segmented chips are 8 px.
+  - The icon is chosen from the button's own words (save, refresh, download, delete, add, edit, close, open, sign
+    in/out, AI sparkle, play, print…). It is drawn as a CSS mask in the button's colour; only `data-ico` is written,
+    never the button's content.
+
 **Security and robustness review (2026-11-23).** Two independent read-only reviews; what they found and what changed:
 - *Access*: the mail server, site address and sign-in switches are **owner-only** (whoever controls them receives everyone's
   sign-in codes, the owner's too); only a superadmin may log the site's Zerodha account in, and a login for a *different*

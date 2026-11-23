@@ -11,6 +11,8 @@ import { api } from "../../api";
 import { GearButton } from "../../ui";
 import { everyVisible } from "../../visible";
 import { bookStore, useLiveGoal } from "./liveBook";
+import { closeSnack, snack } from "../../ux/snack";
+import { hideAmounts, usePrivacy } from "../../privacy";
 import "./goal.css";
 
 const rs = (x) => `₹${Math.round(Math.abs(Number(x) || 0)).toLocaleString("en-IN")}`;
@@ -173,29 +175,72 @@ export function GoalPill({ goal: given, onClick }) {
 }
 
 /** The live banner under the top bar while a reminder holds; "Got it" quiets it until it repeats. */
-export function GoalBanner({ goal, onOpen }) {
+/**
+ * The daily goal's alert. Since 24 Nov 2026 it is a soft popup at the bottom of the screen, just above the Positions bar
+ * (the owner's ask: "a very soft popup … auto close in 5 seconds"), in the one popup stack every private page shares
+ * (ux/SnackHost.jsx). It shows for 5 seconds — longer while the pointer rests on it — then stays quiet for the
+ * "repeat a reminder" time and comes back if it still holds. variant="strip" keeps the old full-width strip under the top
+ * bar, for anyone who wants it back.
+ */
+export function GoalBanner({ goal, onOpen, variant = "toast" }) {
   const [snooze, setSnooze] = useState(() => read(SNOOZE_KEY, {}));
   const [compact, setCompact] = useState(false);
   const [leaving, setLeaving] = useState(false);
+  const [, setTick] = useState(0);
   const ref = useRef(null);
+  const openRef = useRef(onOpen);
+  openRef.current = onOpen;
   const pos = (goal && goal.positions) || [];
   const show = Boolean(goal && goal.available && goal.enabled && (ALERTING.has(goal.state) || (goal.state === "target-hit" && goal.open > 0) || goal.state === "near-target" || pos.length > 0));
   const key = goal ? `${goal.day}:${goal.state}:${pos.map((p) => p.key).join(",")}` : "";
   const until = snooze[key];
   const visible = show && !(until && Date.now() < until);
-  // the strip shrinks to one line once the page is scrolled, and tells the page how tall it is (--dg-h) so
-  // anything else that sticks under the top bar can sit below it instead of behind it
+  const dayLevel = Boolean(goal) && goal.state !== "ok" && goal.state !== "protect";
+  const head = !goal ? "" : dayLevel ? goal.title : pos.length === 1 ? `${pos[0].symbol} is giving back its gain` : `${pos.length} positions are giving back their gains`;
+  const body = !goal ? "" : dayLevel ? `${goal.text} ${goal.action}${pos.length ? ` Also: ${pos.map((p) => p.text).join(" ")}` : ""}` : pos.map((p) => p.text).join(" ");
+  const t = dayLevel ? toneOf(goal) : "warning";
+  const repeatMs = ((goal && goal.config && goal.config.repeatMin) || 10) * 60000;
+  const privacy = usePrivacy().on; // amounts hidden: the popup says what happened without the rupees
+
+  // THE POPUP: raised once per alert, then quiet for the repeat time (a check every 30 s brings it back when that ends)
   useEffect(() => {
-    if (!visible) return undefined;
+    if (variant !== "toast") return undefined;
+    const id = setInterval(() => setTick((n) => n + 1), 30000);
+    return () => clearInterval(id);
+  }, [variant]);
+  useEffect(() => {
+    if (variant !== "toast") return;
+    if (!visible) return;
+    const tone = t === "danger" || t === "down" ? "error" : t === "success" || t === "up" ? "ok" : t === "warning" ? "warn" : "info";
+    snack(privacy ? hideAmounts(body) : body, {
+      key: "daily-goal",
+      title: privacy ? hideAmounts(head) : head,
+      tone,
+      ms: 5000,
+      actions: [...(openRef.current ? [{ label: "Open positions", primary: true, onClick: () => openRef.current && openRef.current() }] : []), { label: "Got it" }],
+    });
+    const next = { [key]: Date.now() + repeatMs };
+    setSnooze(next);
+    write(SNOOZE_KEY, next);
+  }, [variant, visible, key, head, body, t, repeatMs, privacy]);
+  // the alert no longer holds (the day recovered, the position closed): its popup goes too
+  useEffect(() => {
+    if (variant === "toast" && !show) closeSnack("daily-goal");
+  }, [variant, show]);
+
+  // THE STRIP (variant="strip"): shrinks to one line once the page is scrolled, and tells the page how tall it is (--dg-h)
+  // so anything else that sticks under the top bar can sit below it instead of behind it
+  useEffect(() => {
+    if (variant !== "strip" || !visible) return undefined;
     const onScroll = () => setCompact(window.scrollY > 24);
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
-  }, [visible]);
+  }, [visible, variant]);
   useEffect(() => {
     const el = ref.current;
     const root = document.documentElement;
-    if (!visible || !el) {
+    if (variant !== "strip" || !visible || !el) {
       root.style.removeProperty("--dg-h");
       return undefined;
     }
@@ -210,10 +255,10 @@ export function GoalBanner({ goal, onOpen }) {
       if (ro) ro.disconnect();
       root.style.removeProperty("--dg-h");
     };
-  }, [visible, compact]);
-  if (!visible) return null;
+  }, [visible, compact, variant]);
+  if (variant !== "strip" || !visible) return null;
   const quiet = () => {
-    const next = { [key]: Date.now() + (goal.config.repeatMin || 10) * 60000 };
+    const next = { [key]: Date.now() + repeatMs };
     setLeaving(true);
     window.setTimeout(() => {
       setSnooze(next);
@@ -221,10 +266,6 @@ export function GoalBanner({ goal, onOpen }) {
       setLeaving(false);
     }, 220);
   };
-  const dayLevel = goal.state !== "ok" && goal.state !== "protect";
-  const head = dayLevel ? goal.title : pos.length === 1 ? `${pos[0].symbol} is giving back its gain` : `${pos.length} positions are giving back their gains`;
-  const body = dayLevel ? `${goal.text} ${goal.action}${pos.length ? ` Also: ${pos.map((p) => p.text).join(" ")}` : ""}` : pos.map((p) => p.text).join(" ");
-  const t = dayLevel ? toneOf(goal) : "warning";
   return (
     <div ref={ref} className={`dg-banner dg-banner--${t} ${compact ? "is-compact" : ""} ${leaving ? "is-leaving" : ""}`} role="alert">
       <div className="dg-banner__main" title={compact ? `${head}. ${body}` : undefined}>

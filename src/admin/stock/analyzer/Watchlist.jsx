@@ -68,15 +68,26 @@ export function SymbolSearch({ onPick, disabled, taken = [], id = "wl-q", label 
       </label>
       <input
         id={id}
+        type="search"
+        name="stock-symbol-search"
+        role="combobox"
+        aria-expanded={results.length > 0}
+        aria-controls={`${id}-pop`}
+        aria-autocomplete="list"
         value={q}
-        onChange={(e) => setQ(e.target.value)}
+        onChange={(e) => setQ(notAutofill(e.target.value, q))}
         onKeyDown={onKey}
         placeholder={disabled ? "Connect Zerodha to search stocks" : placeholder}
         disabled={disabled}
         spellCheck="false"
         autoComplete="off"
+        autoCorrect="off"
+        autoCapitalize="characters"
+        data-lpignore="true"
+        data-1p-ignore="true"
+        data-form-type="other"
       />
-      <div className="wl__pop">
+      <div className="wl__pop" id={`${id}-pop`}>
         {state === "loading" && <p className="adm-small">Searching…</p>}
         {state === "error" && <p className="adm-small is-down">{error}</p>}
         {state === "done" && results.length === 0 && <p className="adm-small">Nothing matches “{q.trim()}”.</p>}
@@ -218,6 +229,15 @@ function Lists({ lists, onAction }) {
       {err && <p className="wl__lists-err">{err}</p>}
     </div>
   );
+}
+
+/**
+ * What the search box should hold after a change. A browser that mistakes it for a sign-in box pours a saved email into it in
+ * one go (seen 24 Nov 2026: "Nothing matches 'name@…'"); a stock name or symbol never has an "@", so such a fill is dropped.
+ */
+export function notAutofill(next, prev = "") {
+  const v = String(next || "");
+  return v.includes("@") && v.length - String(prev || "").length > 3 ? prev : v;
 }
 
 export default function Watchlist({ symbols, quotes, scan, selected, onSelect, onChange, mode, scanning, onRescan, lists = null, onListAction = null }) {

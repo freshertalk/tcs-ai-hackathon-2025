@@ -14,6 +14,7 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { lookup, SELECTOR } from "./glossary";
 import { isInteractive, ownText, place } from "./tips";
+import { hideAmounts, privacyOn } from "../privacy"; // with amounts hidden, a hover help shows none either
 
 const PREF_KEY = "vpt.tips";
 const EVENT = "vpt-tips-changed";
@@ -251,7 +252,7 @@ export default function TipLayer() {
   if (!tip) return null;
   return (
     <div id={TIP_ID} ref={box} className="adm-tip" role="tooltip">
-      {tip.text}
+      {privacyOn() ? hideAmounts(tip.text) : tip.text}
     </div>
   );
 }

@@ -1,0 +1,147 @@
+/* ============================================================================================================
+   Soft popups (24 Nov 2026) — the owner: "each popups, dialogs, etc must be best smoother, softer, colorful and best
+   appropriate". One family for everything that floats over a page, by their existing class names:
+
+     NOTES        ux/ux.css section 5 (the soft popup above the Positions bar; the daily goal, price alerts, orders)
+     DIALOGS      the confirm dialog (vd-*), the order ticket and its dialogs (tr-modal, tr-ticket, tr-dialog), the form
+                  sheets (vp-sheet, jl-panel) — a softly blurred, lightly tinted backdrop; a card with 16–18 px corners whose
+                  top carries a wash of its own colour (blue, green for a good thing, red for a danger); a gentle spring in
+     MENUS        the account menu, the date picker, the watchlist's pop-ups — the same soft card, smaller
+     THE AI ASK   "DrishtiAI would like to use the AI": an accent-washed card that sits above the Positions bar
+     HELP BUBBLE  the hover help (adm-tip) — softer corners and shadow
+
+   Colours are the theme's tokens, so both themes follow; text keeps the readable ink. Motion follows the person's own
+   "movement" switch and the system's reduce-motion setting.
+   ============================================================================================================ */
+
+:root {
+  --soft-spring: cubic-bezier(0.22, 1.2, 0.36, 1);
+  --soft-out: cubic-bezier(0.4, 0, 1, 1);
+}
+
+/* ------------------------------------------------------------------ backdrops: softly blurred, lightly tinted */
+.adm :is(.vd-overlay, .tr-modal, .vp-modal) {
+  background: color-mix(in srgb, #0a0f18 34%, transparent);
+  -webkit-backdrop-filter: blur(8px) saturate(140%);
+  backdrop-filter: blur(8px) saturate(140%);
+  animation: soft-fade 200ms ease-out both;
+}
+
+/* ------------------------------------------------------------------ dialog cards */
+.adm .vd-box {
+  border-radius: 18px;
+  border-color: color-mix(in srgb, var(--vd-tone) 28%, var(--line-2));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--vd-tone) 9%, var(--surface)), var(--surface) 140px);
+  box-shadow:
+    0 1px 0 color-mix(in srgb, #fff 8%, transparent) inset,
+    0 28px 70px -24px color-mix(in srgb, var(--vd-tone) 40%, rgba(0, 0, 0, 0.6)),
+    0 6px 16px -8px rgba(0, 0, 0, 0.3);
+  animation: soft-rise 340ms var(--soft-spring) both;
+}
+.adm .vd-icon {
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--vd-tone) 16%, transparent);
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--vd-tone) 7%, transparent);
+}
+.adm :is(.tr-ticket, .tr-dialog) {
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--line-2));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 7%, var(--surface)), var(--surface) 120px);
+  box-shadow: 0 28px 70px -24px rgba(0, 0, 0, 0.55), 0 6px 16px -8px rgba(0, 0, 0, 0.28);
+  animation: soft-rise 340ms var(--soft-spring) both;
+}
+/* a Buy ticket is washed green, a Sell ticket red (Kite's own habit of colouring the order window by its side) */
+.adm .tr-ticket--buy {
+  border-color: color-mix(in srgb, var(--up) 35%, var(--line-2));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--up) 9%, var(--surface)), var(--surface) 120px);
+}
+.adm .tr-ticket--sell {
+  border-color: color-mix(in srgb, var(--down) 35%, var(--line-2));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--down) 9%, var(--surface)), var(--surface) 120px);
+}
+.adm :is(.vp-sheet, .jl-panel) {
+  border-radius: 16px;
+  box-shadow: 0 28px 70px -24px rgba(0, 0, 0, 0.55), 0 6px 16px -8px rgba(0, 0, 0, 0.28);
+}
+@media (max-width: 640px) {
+  .adm .vp-sheet {
+    border-radius: 18px 18px 0 0;
+  }
+}
+
+/* ------------------------------------------------------------------ menus and small pop-ups */
+.adm :is(.tm-menu, .dp-pop, .wl__pop, .kc__menu, .tai-menu) {
+  border-radius: 12px;
+  border-color: color-mix(in srgb, var(--accent) 18%, var(--line-2));
+  box-shadow: 0 18px 44px -18px rgba(0, 0, 0, 0.45), 0 4px 12px -6px rgba(0, 0, 0, 0.22);
+  animation: soft-drop 220ms var(--soft-spring) both;
+  transform-origin: top right;
+}
+
+/* ------------------------------------------------------------------ the AI ask: above the Positions bar, accent-washed */
+.adm .aiask {
+  border-radius: 16px;
+  border-color: color-mix(in srgb, var(--accent) 38%, var(--line));
+  background: linear-gradient(160deg, color-mix(in srgb, var(--accent) 10%, var(--surface)), var(--surface) 70%);
+  box-shadow: 0 22px 50px -22px color-mix(in srgb, var(--accent) 45%, rgba(0, 0, 0, 0.55)), 0 4px 12px -6px rgba(0, 0, 0, 0.25);
+  animation: soft-rise 380ms var(--soft-spring) both;
+}
+.adm:has(.tm-dock) .aiask {
+  bottom: calc(40px + 12px);
+}
+.adm:has(.tm-dock.is-open) .aiask {
+  bottom: calc(min(290px, 34vh) + 12px);
+}
+.adm:has(.tm--bnav) .aiask {
+  bottom: calc(70px + 10px + env(safe-area-inset-bottom, 0px));
+}
+.adm .aiask__mark {
+  background: color-mix(in srgb, var(--accent) 16%, var(--surface));
+  box-shadow: none;
+}
+
+/* ------------------------------------------------------------------ the help bubble */
+.adm .adm-tip {
+  border-radius: 12px;
+  box-shadow: 0 14px 34px -14px rgba(0, 0, 0, 0.45), 0 3px 10px -4px rgba(0, 0, 0, 0.2);
+  transition: opacity 160ms ease, transform 160ms var(--soft-spring);
+  transform: translateY(2px);
+}
+.adm .adm-tip.is-on {
+  transform: none;
+}
+
+/* ------------------------------------------------------------------ motion */
+@keyframes soft-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes soft-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes soft-drop {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .adm :is(.vd-overlay, .tr-modal, .vp-modal, .vd-box, .tr-ticket, .tr-dialog, .tm-menu, .dp-pop, .wl__pop, .kc__menu, .tai-menu, .aiask) {
+    animation-duration: 1ms;
+  }
+}

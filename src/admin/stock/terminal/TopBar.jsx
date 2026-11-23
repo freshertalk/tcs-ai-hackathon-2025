@@ -3,13 +3,13 @@
 // everywhere (theme, shortcuts, hover help, sign out).
 
 import "./brandmark.css";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../../api";
-import { useAuth } from "../../auth";
 import { adminPath } from "../../paths";
 import LiveBadge from "../../LiveBadge";
 import BrandMark from "../../BrandMark";
+import AccountMenu from "../../AccountMenu";
 import { setTipsEnabled, useTipsEnabled } from "../../help/TipLayer";
 import { useTrade } from "../trade/TradeContext";
 import { num } from "../analyzer/format";
@@ -119,50 +119,30 @@ export function useKite() {
 }
 
 function UserMenu() {
-  const { user } = useAuth();
   const tips = useTipsEnabled();
-  const [open, setOpen] = useState(false);
-  const box = useRef(null);
-  useEffect(() => {
-    if (!open) return undefined;
-    const off = (e) => box.current && !box.current.contains(e.target) && setOpen(false);
-    document.addEventListener("pointerdown", off);
-    return () => document.removeEventListener("pointerdown", off);
-  }, [open]);
-  if (!user) return null;
-  const logout = async () => {
-    try {
-      await api("/api/auth/logout", { method: "POST" });
-    } finally {
-      window.location.assign(adminPath());
-    }
-  };
+  // the account menu every header shares (AccountMenu.jsx): your name, email and role, My profile, then the terminal's
+  // own two — the dashboard and the hover help — and Sign out
   return (
-    <div className="tm-user" ref={box}>
-      <button type="button" className="tm-user__btn" aria-expanded={open} aria-haspopup="menu" onClick={() => setOpen((o) => !o)} data-tip="Your account, hover help and sign out.">
-        {user.picture ? <img src={user.picture} alt="" referrerPolicy="no-referrer" width="28" height="28" /> : <span aria-hidden="true">{(user.name || "·").slice(0, 1).toUpperCase()}</span>}
-        <span className="adm-sr">Account menu</span>
-      </button>
-      {open && (
-        <div className="tm-menu" role="menu">
-          <p className="tm-menu__who">
-            <b>{user.name || "Signed in"}</b>
-            <small>
-              {user.role === "superadmin" ? "Superadmin" : "Admin"}
-            </small>
-          </p>
-          <Link role="menuitem" to={adminPath()} onClick={() => setOpen(false)}>
-            Dashboard
+    <AccountMenu
+      className="tm-user"
+      extra={(close) => (
+        <>
+          <Link role="menuitem" className="acm__item" to={adminPath()} onClick={close}>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 11l8-7 8 7v8a1 1 0 0 1-1 1h-5v-6h-4v6H5a1 1 0 0 1-1-1z" />
+            </svg>
+            <span>Dashboard</span>
           </Link>
-          <button type="button" role="menuitemcheckbox" aria-checked={tips} onClick={() => setTipsEnabled(!tips)}>
-            Hover help: {tips ? "on" : "off"}
+          <button type="button" role="menuitemcheckbox" aria-checked={tips} className="acm__item" onClick={() => setTipsEnabled(!tips)}>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="12" r="9" />
+              <path d="M9.6 9.5a2.5 2.5 0 1 1 3.4 2.3c-.6.3-1 .8-1 1.5v.4M12 16.6v.2" />
+            </svg>
+            <span>Hover help: {tips ? "on" : "off"}</span>
           </button>
-          <button type="button" role="menuitem" onClick={logout}>
-            Sign out
-          </button>
-        </div>
+        </>
       )}
-    </div>
+    />
   );
 }
 

@@ -88,100 +88,167 @@ html:has(.adm) {
   }
 }
 
-/* ------------------------------------------------------------------ 5. the snackbar (ux/SnackHost.jsx) */
+/* ------------------------------------------------------------------ 5. the soft popup (ux/SnackHost.jsx) */
+/* One soft popup for every floating note (24 Nov 2026): bottom centre, just above the terminal's Positions bar (40 px; the
+   open dock's height when it is open; the phone's bottom bar), so the page's top stays clear. Each note is a soft card tinted
+   with its own colour — green for done, blue for news, amber for a caution, red for a problem — with its icon in a soft disc,
+   a bold title when it has one, at most two pill buttons, and a thin line along its foot that runs down the time left. It
+   rises in on a gentle spring and fades down as it goes. Text keeps the readable ink (4.5:1 on the tint in both themes). */
 .ux-snacks {
   position: fixed;
-  left: max(16px, env(safe-area-inset-left, 0px));
+  left: 50%;
   bottom: max(16px, env(safe-area-inset-bottom, 0px));
   z-index: 1900;
   display: grid;
   gap: 8px;
-  width: min(420px, calc(100vw - 32px));
+  width: min(480px, calc(100vw - 24px));
+  transform: translateX(-50%);
   pointer-events: none;
 }
 .ux-snacks:empty {
   display: none;
 }
-.adm:has(.tm--bnav) .ux-snacks {
-  bottom: calc(70px + env(safe-area-inset-bottom, 0px));
+/* above the terminal's Positions bar, and above the dock when it is open */
+.adm:has(.tm-dock) .ux-snacks {
+  bottom: calc(40px + 12px + env(safe-area-inset-bottom, 0px));
 }
-@media (max-width: 640px) {
-  .ux-snacks {
-    left: 50%;
-    transform: translateX(-50%);
-  }
+.adm:has(.tm-dock.is-open) .ux-snacks {
+  bottom: calc(min(290px, 34vh) + 12px);
+}
+.adm:has(.tm--bnav) .ux-snacks {
+  bottom: calc(70px + 10px + env(safe-area-inset-bottom, 0px));
 }
 .ux-snack {
   --ux-tone: var(--accent);
+  position: relative;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto auto;
-  gap: 10px;
+  gap: 10px 12px;
   align-items: center;
-  min-height: 48px;
-  padding: 8px 8px 8px 12px;
-  border: 1px solid var(--line-2, var(--line));
-  border-left: 3px solid var(--ux-tone);
-  border-radius: var(--r-lg, 6px);
-  background: var(--surface);
+  min-height: 52px;
+  padding: 10px 8px 12px 12px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--ux-tone) 30%, var(--line));
+  border-radius: 14px;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--ux-tone) 14%, transparent), color-mix(in srgb, var(--ux-tone) 4%, transparent) 60%),
+    color-mix(in srgb, var(--surface) 92%, transparent);
+  -webkit-backdrop-filter: saturate(160%) blur(16px);
+  backdrop-filter: saturate(160%) blur(16px);
   color: var(--ink);
-  box-shadow: 0 12px 32px -14px color-mix(in srgb, #000 60%, transparent), 0 2px 6px -2px color-mix(in srgb, #000 25%, transparent);
+  box-shadow:
+    0 1px 0 color-mix(in srgb, #fff 10%, transparent) inset,
+    0 18px 40px -18px color-mix(in srgb, var(--ux-tone) 45%, rgba(0, 0, 0, 0.55)),
+    0 4px 12px -6px rgba(0, 0, 0, 0.25);
   pointer-events: auto;
   touch-action: pan-y;
-  animation: ux-snack-in var(--ux-d2) var(--ux-ease) both;
+  transform-origin: 50% 100%;
+  animation: ux-snack-in 420ms cubic-bezier(0.22, 1.2, 0.36, 1) both;
+}
+.ux-snack.has-title {
+  align-items: start;
 }
 .ux-snack.is-leaving {
-  animation: ux-snack-out 180ms var(--ux-ease-io) both;
+  animation: ux-snack-out 220ms cubic-bezier(0.4, 0, 1, 1) both;
 }
 .ux-snack--ok {
   --ux-tone: var(--up);
 }
 .ux-snack--warn {
-  --ux-tone: var(--warn);
+  --ux-tone: var(--warn, #e08a00);
 }
 .ux-snack--error {
   --ux-tone: var(--down);
 }
 .ux-snack__icon {
-  width: 22px;
-  height: 22px;
+  width: 30px;
+  height: 30px;
+  padding: 5px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--ux-tone) 18%, transparent);
   fill: none;
   stroke: var(--ux-tone);
-  stroke-width: 1.8;
+  stroke-width: 1.9;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
+.ux-snack__icon circle {
+  stroke: none;
+}
+.ux-snack__body {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.ux-snack__title {
+  margin: 0;
+  color: var(--ink);
+  font-size: var(--t-base);
+  font-weight: 600;
+  line-height: 1.35;
+  overflow-wrap: break-word;
+}
 .ux-snack__text {
   margin: 0;
+  color: var(--ink-2, var(--ink));
   font-size: var(--t-mid);
   line-height: 1.45;
   overflow-wrap: break-word;
+}
+.ux-snack:not(.has-title) .ux-snack__text {
+  color: var(--ink);
+}
+.ux-snack__text p {
+  margin: 0;
 }
 .ux-snack__count {
   color: var(--ink-3);
   font-variant-numeric: tabular-nums;
 }
+.ux-snack__acts {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+.ux-snack.has-title .ux-snack__acts {
+  grid-column: 2 / 4;
+  grid-row: 2;
+  justify-content: flex-start;
+}
 .ux-snack__act {
-  min-height: 32px;
-  padding: 0 10px;
-  border: 0;
-  border-radius: var(--r, 3px);
-  background: transparent;
-  color: var(--accent);
+  min-height: 30px;
+  padding: 0 12px;
+  border: 1px solid color-mix(in srgb, var(--ux-tone) 35%, var(--line));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
+  color: var(--ink);
   font: inherit;
   font-size: var(--t-small);
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
+  font-weight: 600;
   cursor: pointer;
+  transition: background var(--ux-d1, 120ms) ease, border-color var(--ux-d1, 120ms) ease, transform var(--ux-d1, 120ms) ease;
 }
 .ux-snack__act:hover {
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  border-color: var(--ux-tone);
+  background: color-mix(in srgb, var(--ux-tone) 12%, var(--surface));
+}
+.ux-snack__act:active {
+  transform: scale(0.97);
+}
+.ux-snack__act.is-primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--on-accent, #fff);
+}
+.ux-snack__act.is-primary:hover {
+  background: color-mix(in srgb, var(--accent) 88%, #000);
 }
 .ux-snack__x {
   display: grid;
   place-items: center;
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   padding: 0;
   border: 0;
   border-radius: 50%;
@@ -190,19 +257,34 @@ html:has(.adm) {
   cursor: pointer;
 }
 .ux-snack__x:hover {
-  background: var(--surface-2);
+  background: color-mix(in srgb, var(--ux-tone) 14%, transparent);
   color: var(--ink);
 }
 .ux-snack__x svg {
-  width: 16px;
-  height: 16px;
+  width: 15px;
+  height: 15px;
   fill: none;
   stroke: currentColor;
   stroke-width: 2;
   stroke-linecap: round;
 }
+/* the time left: a thin soft line along the foot that runs down, and stops while the note is held */
+.ux-snack__time {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 4px;
+  height: 2px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--ux-tone) 70%, transparent);
+  transform-origin: left center;
+  animation: ux-snack-time linear both;
+}
+.ux-snack.is-held .ux-snack__time {
+  animation-play-state: paused;
+}
 .ux-snacks__more {
-  justify-self: start;
+  justify-self: center;
   margin: 0;
   padding: 2px 10px;
   border-radius: 99px;
@@ -214,7 +296,7 @@ html:has(.adm) {
 @keyframes ux-snack-in {
   from {
     opacity: 0;
-    transform: translateY(12px) scale(0.98);
+    transform: translateY(16px) scale(0.96);
   }
   to {
     opacity: 1;
@@ -224,7 +306,24 @@ html:has(.adm) {
 @keyframes ux-snack-out {
   to {
     opacity: 0;
-    transform: translateY(8px) scale(0.98);
+    transform: translateY(10px) scale(0.97);
+  }
+}
+@keyframes ux-snack-time {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ux-snack,
+  .ux-snack.is-leaving {
+    animation-duration: 1ms;
+  }
+  .ux-snack__time {
+    display: none;
   }
 }
 

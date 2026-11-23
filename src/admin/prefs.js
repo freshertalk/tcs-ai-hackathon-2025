@@ -22,6 +22,7 @@ export const DEFAULT_PREFS = Object.freeze({
   text: "normal",
   density: "compact", // compact by default (24 Nov 2026); Customize → Comfortable gives room back
   motion: true,
+  privacy: false, // hide amounts with ***** on every page (privacy.jsx)
   nav: { order: [], hidden: [] },
   start: "analyzer",
   desk: { board: true, dock: "auto", chart: "pro" },
@@ -90,6 +91,7 @@ export function applyLook(prefs) {
     el.setAttribute("data-accent", p.accent);
     el.setAttribute("data-density", p.density);
     el.setAttribute("data-motion", p.motion ? "on" : "off");
+    el.setAttribute("data-privacy", p.privacy ? "on" : "off");
   }
   document.documentElement.style.fontSize = TEXT_SIZE[p.text] || "";
 }

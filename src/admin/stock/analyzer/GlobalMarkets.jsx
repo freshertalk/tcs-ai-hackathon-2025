@@ -93,9 +93,18 @@ function FeedSettings({ feed, onSaved }) {
       </p>
       {feed.lastError && <p className="adm-alert adm-alert--info">{feed.lastError}</p>}
       {owner ? (
-        <div className="gm-feed__row">
-          <input type="password" autoComplete="off" value={key} onChange={(e) => setKey(e.target.value)} placeholder={feed.configured ? "Replace the saved key" : "Your FMP API key"} aria-label="FMP API key" />
-          <button type="button" className="adm-btn adm-btn--solid adm-btn--sm" disabled={busy || !key.trim()} onClick={() => save({ key })}>
+        // its own form (24 Nov 2026): a password-type field standing alone made the browser treat the page's first text box —
+        // the Desk's stock search — as a sign-in "username" and fill it with the saved sign-in email
+        <form
+          className="gm-feed__row"
+          autoComplete="off"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!busy && key.trim()) save({ key });
+          }}
+        >
+          <input type="password" name="fmp-api-key" autoComplete="new-password" data-lpignore="true" data-1p-ignore="true" value={key} onChange={(e) => setKey(e.target.value)} placeholder={feed.configured ? "Replace the saved key" : "Your FMP API key"} aria-label="FMP API key" />
+          <button type="submit" className="adm-btn adm-btn--solid adm-btn--sm" disabled={busy || !key.trim()}>
             Save key
           </button>
           {feed.configured && (
@@ -108,7 +117,7 @@ function FeedSettings({ feed, onSaved }) {
               </button>
             </>
           )}
-        </div>
+        </form>
       ) : (
         <p className="ab-dim">Only the account owner can set the key.</p>
       )}

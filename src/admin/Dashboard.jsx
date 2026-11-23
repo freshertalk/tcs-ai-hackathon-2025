@@ -25,6 +25,7 @@ import { mayOpen } from "./workspaces";
 import PageJumps from "./stock/terminal/PageJumps";
 import CustomizeCard from "./CustomizeCard";
 import LearningCard from "./LearningCard";
+import { PrivacyToggle } from "./privacy";
 import LoginIconTile from "./LoginIconTile";
 import ZerodhaAccounts from "./ZerodhaAccounts";
 import DrishtiLogo from "./DrishtiLogo";
@@ -548,15 +549,49 @@ export default function Dashboard() {
             <p className="hm-me__role">
               {isSuper ? (user.owner === false ? "Superadmin" : "Owner") : user.trader ? "Member · own Zerodha account" : "Member"}
             </p>
+            {/* hide every amount with ***** on every page (privacy.jsx) — also in the account menu */}
+            <PrivacyToggle />
+            {/* the three ways in (24 Nov 2026): one framed action each — its icon in a soft disc, its name, a line on what is
+                there, and the arrow that says it opens in a new tab. The terminal is the filled one. */}
             <div className="hm-me__cta">
-              <a className="hm-btn hm-btn--go" href={terminal(startView)} target="_blank" rel="noopener noreferrer" data-tip={`Open the trading terminal in a new tab${start && startView ? `, on ${start.label}` : ""}. Choose where it opens under Customize.`}>
-                Open the terminal <IconArrow />
+              <a className="hm-btn hm-btn--go hm-cta" href={terminal(startView)} target="_blank" rel="noopener noreferrer" data-tip={`Open the trading terminal in a new tab${start && startView ? `, on ${start.label}` : ""}. Choose where it opens under Customize.`}>
+                <span className="hm-cta__ico" aria-hidden="true">
+                  <svg viewBox="0 0 24 24">
+                    <rect x="3" y="4" width="18" height="13" rx="2" />
+                    <path d="M7 13l3-3 2.5 2L17 8M8 21h8M12 17v4" />
+                  </svg>
+                </span>
+                <span className="hm-cta__txt">
+                  <b>Open the terminal</b>
+                  <small>Desk, live calls, positions</small>
+                </span>
+                <IconArrow />
               </a>
-              <a className="hm-btn" href={terminal("research")} target="_blank" rel="noopener noreferrer" data-tip="Research, the autopilot and the 15-minute forecaster.">
-                Research &amp; forecasts
+              <a className="hm-btn hm-cta" href={terminal("research")} target="_blank" rel="noopener noreferrer" data-tip="Research, the autopilot and the 15-minute forecaster.">
+                <span className="hm-cta__ico" aria-hidden="true">
+                  <svg viewBox="0 0 24 24">
+                    <circle cx="10.5" cy="10.5" r="6.5" />
+                    <path d="M20 20l-4.6-4.6M7.5 12l2-2 1.6 1.4L13.5 9" />
+                  </svg>
+                </span>
+                <span className="hm-cta__txt">
+                  <b>Research &amp; forecasts</b>
+                  <small>Top 10, autopilot, 15-min forecast</small>
+                </span>
+                <IconArrow />
               </a>
-              <a className="hm-btn" href={adminPath("/tradeai")} target="_blank" rel="noopener noreferrer" data-tip="Ask TradeAI about the market, a stock or your positions.">
-                Ask TradeAI
+              <a className="hm-btn hm-cta" href={adminPath("/tradeai")} target="_blank" rel="noopener noreferrer" data-tip="Ask TradeAI about the market, a stock or your positions.">
+                <span className="hm-cta__ico" aria-hidden="true">
+                  <svg viewBox="0 0 24 24">
+                    <path d="M4 5h16v11H9l-5 4z" />
+                    <path d="M12 8.2l.8 1.8 1.8.8-1.8.8-.8 1.8-.8-1.8-1.8-.8 1.8-.8z" />
+                  </svg>
+                </span>
+                <span className="hm-cta__txt">
+                  <b>Ask TradeAI</b>
+                  <small>Your AI market assistant</small>
+                </span>
+                <IconArrow />
               </a>
             </div>
           </section>

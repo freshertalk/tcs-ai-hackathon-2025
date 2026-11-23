@@ -41,3 +41,13 @@ test("Trade setup and Vinaypedia can be hidden and ordered", () => {
   assert.deepEqual(c.nav.hidden, ["setup"]);
   assert.equal(c.start, "learning");
 });
+
+test("hide amounts is a kept preference, off unless switched on", () => {
+  assert.equal(DEFAULTS.privacy, false);
+  assert.equal(clean({ privacy: true }).privacy, true);
+  assert.equal(clean({ privacy: "yes" }).privacy, false, "only a real yes or no");
+  const s = store();
+  const p = new Prefs({ docs: s.docs });
+  p.set("pv@example.com", { privacy: true });
+  assert.equal(new Prefs({ docs: s.docs }).get("pv@example.com").privacy, true, "kept across a restart");
+});

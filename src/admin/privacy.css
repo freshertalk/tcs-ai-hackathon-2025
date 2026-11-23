@@ -1,0 +1,115 @@
+/* Hide amounts (privacy.jsx): while the private area carries data-privacy="on", every marked amount is drawn as *****.
+   The page's own text stays underneath (invisible), so nothing about the page changes but what you see. */
+.adm[data-privacy="on"] [data-pv-pos="r"] {
+  position: relative;
+}
+.adm[data-privacy="on"] [data-pv] {
+  color: transparent !important;
+  text-shadow: none !important;
+  -webkit-text-fill-color: transparent;
+  user-select: none;
+}
+.adm[data-privacy="on"] [data-pv] * {
+  color: transparent !important;
+  -webkit-text-fill-color: transparent;
+  visibility: hidden;
+}
+.adm[data-privacy="on"] [data-pv]::after {
+  content: "*****";
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: inherit;
+  color: var(--ink-3);
+  -webkit-text-fill-color: var(--ink-3);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+  overflow: hidden;
+  visibility: visible;
+  pointer-events: none;
+}
+/* right-aligned figures (table columns of numbers) keep their stars to the right */
+.adm[data-privacy="on"] :is(td, th, dd).is-num[data-pv]::after,
+.adm[data-privacy="on"] td[data-pv]::after {
+  justify-content: flex-end;
+  padding-right: inherit;
+}
+.adm[data-privacy="on"] text[data-pv] {
+  fill-opacity: 0;
+}
+
+/* the switch */
+.pv-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 4px 8px 4px 10px;
+  border: 1px solid var(--line-2);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink-2);
+  font: inherit;
+  font-size: var(--t-small);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 160ms ease, border-color 160ms ease, color 160ms ease;
+}
+.pv-toggle svg,
+.acm__item svg {
+  flex: none;
+}
+.pv-toggle svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.pv-toggle:hover {
+  border-color: var(--accent);
+  color: var(--ink);
+}
+.pv-toggle.is-on {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line-2));
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+  color: var(--ink);
+}
+.pv-switch {
+  position: relative;
+  flex: none;
+  width: 30px;
+  height: 18px;
+  margin-left: auto;
+  border-radius: 999px;
+  background: var(--line-2);
+  transition: background 160ms ease;
+}
+.pv-switch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--surface);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  transition: transform 180ms cubic-bezier(0.22, 1.2, 0.36, 1);
+}
+.pv-switch.is-on {
+  background: var(--accent);
+}
+.pv-switch.is-on::after {
+  transform: translateX(12px);
+}
+@media (prefers-reduced-motion: reduce) {
+  .pv-switch,
+  .pv-switch::after {
+    transition: none;
+  }
+}
