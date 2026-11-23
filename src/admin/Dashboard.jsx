@@ -24,6 +24,7 @@ import { usePrefs } from "./prefs";
 import { mayOpen } from "./workspaces";
 import PageJumps from "./stock/terminal/PageJumps";
 import CustomizeCard from "./CustomizeCard";
+import LearningCard from "./LearningCard";
 import LoginIconTile from "./LoginIconTile";
 import ZerodhaAccounts from "./ZerodhaAccounts";
 import DrishtiLogo from "./DrishtiLogo";
@@ -602,6 +603,9 @@ export default function Dashboard() {
           <PaperFeat />
           <SocialFeat />
         </div>
+
+        {/* outside resources for learning, technical and fundamental analysis — each opens in a new tab */}
+        <LearningCard />
 
         <ZerodhaAccounts />
 

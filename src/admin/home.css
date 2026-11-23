@@ -865,15 +865,179 @@
   }
 }
 
-/* six tiles (the owner's row): one line on a wide screen, two lines of three below that — never five and one */
-@media (min-width: 1500px) {
-  .hm-sys__row[data-n="6"] {
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-  }
-}
-@media (min-width: 720px) and (max-width: 1499.98px) {
+/* the system tiles in TWO rows on every screen wide enough (the owner's choice, 23 Nov 2026): six as 3 + 3, four as 2 + 2 —
+   each tile wide enough for its words to sit on few lines. A phone stacks them one under another. */
+@media (min-width: 720px) {
   .hm-sys__row[data-n="6"] {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .hm-sys__row[data-n="4"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (min-width: 480px) and (max-width: 719.98px) {
+  .hm-sys__row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 479.98px) {
+  .hm-sys__row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+/* every tile the same height in its row, the words given room */
+.hm-sys__row {
+  align-items: stretch;
+}
+.hm-sys__tile > button {
+  align-items: start;
+  padding: 14px 16px;
+}
+.hm-sys__ico {
+  margin-top: 2px;
+}
+.hm-sys__txt {
+  gap: 3px;
+}
+.hm-sys__v {
+  overflow-wrap: break-word;
+}
+.hm-sys__txt small {
+  overflow-wrap: break-word;
+}
+.hm-sys__chev {
+  align-self: center;
+}
+
+/* Learning (LearningCard.jsx): outside resources, grouped, each a card opening a new tab */
+.hm-learn {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+.hm-learn__head {
+  display: grid;
+  gap: 2px;
+}
+.hm-learn__head p {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: var(--t-mid);
+}
+.hm-learn__group {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.hm-learn__group h3 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  margin: 0;
+  font-size: var(--t-base);
+  font-weight: 700;
+}
+.hm-learn__group h3 small {
+  color: var(--ink-3);
+  font-size: var(--t-small);
+  font-weight: 400;
+}
+.hm-learn__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.hm-learn__grid > li {
+  display: grid;
+  min-width: 0;
+}
+.hm-learn__card {
+  --lc: var(--accent);
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg, 6px);
+  background: var(--surface);
+  color: var(--ink);
+  text-decoration: none;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+}
+.hm-learn__group.is-technical .hm-learn__card {
+  --lc: var(--up);
+}
+.hm-learn__group.is-fundamental .hm-learn__card {
+  --lc: var(--warn);
+}
+.hm-learn__card:hover {
+  border-color: var(--lc);
+  box-shadow: 0 10px 22px -16px color-mix(in srgb, #000 55%, transparent);
+  transform: translateY(-1px);
+}
+.hm-learn__card:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.hm-learn__mono {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--lc) 14%, var(--surface));
+  color: var(--ink);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--lc) 45%, transparent);
+  font-size: var(--t-small);
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+.hm-learn__txt {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.hm-learn__txt b {
+  font-size: var(--t-base);
+  overflow-wrap: break-word;
+}
+.hm-learn__txt small {
+  color: var(--ink-2);
+  font-size: var(--t-small);
+  line-height: 1.4;
+  overflow-wrap: break-word;
+}
+.hm-learn__txt em {
+  color: var(--ink-3);
+  font-size: var(--t-tag);
+  font-style: normal;
+  overflow-wrap: anywhere;
+}
+.hm-learn__out {
+  width: 16px;
+  height: 16px;
+  margin-top: 3px;
+  fill: none;
+  stroke: var(--ink-3);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.hm-learn__card:hover .hm-learn__out {
+  stroke: var(--lc);
+}
+@media (prefers-reduced-motion: reduce) {
+  .hm-learn__card {
+    transition: none;
+  }
+  .hm-learn__card:hover {
+    transform: none;
   }
 }
 
@@ -1672,5 +1836,21 @@
   .hm-switch,
   .hm-switch i {
     transition: none;
+  }
+}
+/* the learning cards in steady columns: three across on a wide screen (3 + 2 for the five, never 4 + 1), two on a tablet, one on a phone */
+@media (min-width: 900px) {
+  .hm-learn__grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (min-width: 560px) and (max-width: 899.98px) {
+  .hm-learn__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 559.98px) {
+  .hm-learn__grid {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
