@@ -467,3 +467,11 @@ html:has(.adm) {
     animation: none;
   }
 }
+
+/* ------------------------------------------------------------------ 12. tabs and segmented buttons: words in the middle */
+/* every tab bar and segmented control: the label (and any small note beside it) centred vertically and horizontally */
+.adm :where([role="tablist"] > button, [role="tablist"] > a, .sv__ranges > button, .jr-parts > button) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}

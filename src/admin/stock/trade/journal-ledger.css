@@ -1,0 +1,811 @@
+/* ==========================================================================
+   The Journal's ledger (JournalLedger.jsx): charges & taxes and the month calendar.
+   Zerodha's cleanness (flat panels, hairlines, small corners, its P&L words), a Google Analytics read (scorecards, a donut with
+   its legend, a statement as a waterfall) and a Google Calendar month. Colours: the private area's tokens; the seven charge
+   colours are the Expenses page's palette, in the order checked for colour-blind separation on the light (#fff) and dark
+   (#181818) cards — every colour sits beside its name and amount. Motion stops for "reduce motion" and Customize → motion off.
+   ========================================================================== */
+.jr {
+  --jl-1: #2a78d6;
+  --jl-2: #eb6834;
+  --jl-3: #1baf7a;
+  --jl-4: #eda100;
+  --jl-5: #e87ba4;
+  --jl-6: #008300;
+  --jl-7: #6250d6;
+  --jl-0: #8a94a3;
+}
+.adm[data-desk="dark"] .jr {
+  --jl-1: #3987e5;
+  --jl-2: #d95926;
+  --jl-3: #199e70;
+  --jl-4: #c98500;
+  --jl-5: #d55181;
+  --jl-6: #0ca30c;
+  --jl-7: #9085e9;
+  --jl-0: #6f7b8a;
+}
+.jl-c--brokerage {
+  --c: var(--jl-1);
+}
+.jl-c--stt {
+  --c: var(--jl-2);
+}
+.jl-c--exchange {
+  --c: var(--jl-3);
+}
+.jl-c--gst {
+  --c: var(--jl-4);
+}
+.jl-c--sebi {
+  --c: var(--jl-5);
+}
+.jl-c--stamp {
+  --c: var(--jl-6);
+}
+.jl-c--dp {
+  --c: var(--jl-7);
+}
+.jl-c--other {
+  --c: var(--jl-0);
+}
+.jl-dim {
+  color: var(--ink-3);
+  font-size: var(--t-small);
+}
+.jl .is-up,
+.jl-cal .is-up,
+.jl-panel .is-up {
+  color: var(--up-ink, var(--up));
+}
+.jl .is-down,
+.jl-cal .is-down,
+.jl-panel .is-down {
+  color: var(--down-ink, var(--down));
+}
+
+/* ------------------------------------------------------------------ charges & taxes */
+.jl {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+.jl-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px 16px;
+}
+.jl-head p {
+  margin: 2px 0 0;
+  color: var(--ink-2);
+  font-size: var(--t-small);
+  max-width: 70ch;
+}
+.jl-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg, 6px);
+  font-size: var(--t-small);
+  cursor: pointer;
+}
+.jl-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr)); /* four across, or two by two — never three and one alone */
+  gap: 0;
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg, 6px);
+  overflow: hidden;
+}
+.jl-kpis > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding: 12px 16px;
+  border-right: 1px solid var(--line);
+}
+.jl-kpis > div:last-child {
+  border-right: 0;
+}
+@media (max-width: 899.98px) {
+  .jl-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .jl-kpis > div:nth-child(2n) {
+    border-right: 0;
+  }
+  .jl-kpis > div:nth-child(-n + 2) {
+    border-bottom: 1px solid var(--line);
+  }
+}
+@media (max-width: 420px) {
+  .jl-kpis {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .jl-kpis > div {
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .jl-kpis > div:last-child {
+    border-bottom: 0;
+  }
+}
+.jl-kpis dt {
+  color: var(--ink-3);
+  font-size: var(--t-small);
+}
+.jl-kpis dd {
+  margin: 0;
+  font-size: var(--t-large);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.jl-kpis small {
+  color: var(--ink-3);
+  font-size: var(--t-tag);
+}
+.jl-split {
+  display: grid;
+  grid-template-columns: minmax(0, 220px) minmax(0, 1fr);
+  gap: 20px;
+  align-items: center;
+}
+@media (max-width: 720px) {
+  .jl-split {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
+  }
+  .jl-legend {
+    width: 100%;
+  }
+}
+.jl-donut {
+  position: relative;
+  width: min(220px, 70vw);
+  aspect-ratio: 1;
+}
+.jl-donut svg {
+  width: 100%;
+  height: 100%;
+}
+.jl-donut__track {
+  fill: none;
+  stroke: var(--surface-2);
+  stroke-width: 22;
+}
+.jl-donut__arc {
+  fill: none;
+  stroke: var(--c);
+  stroke-width: 22;
+  transition: opacity 0.18s ease, stroke-width 0.18s ease;
+  animation: jl-draw 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  cursor: pointer;
+}
+.jl-donut__arc:hover {
+  stroke-width: 26;
+}
+.jl-donut__arc.is-dim {
+  opacity: 0.28;
+}
+@keyframes jl-draw {
+  from {
+    stroke-dasharray: 0 999;
+  }
+}
+.jl-donut__mid {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 2px;
+  text-align: center;
+  pointer-events: none;
+}
+.jl-donut__mid span {
+  color: var(--ink-3);
+  font-size: var(--t-small);
+}
+.jl-donut__mid b {
+  font-size: var(--t-lead);
+  font-variant-numeric: tabular-nums;
+}
+.jl-donut__mid small {
+  color: var(--ink-3);
+  font-size: var(--t-tag);
+}
+.jl-legend {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.jl-legend li {
+  display: grid;
+  grid-template-columns: 12px minmax(0, 1fr) auto 52px minmax(0, 110px);
+  gap: 10px;
+  align-items: center;
+  padding: 6px 8px;
+  border-radius: var(--r, 3px);
+  font-size: var(--t-mid);
+  transition: background 0.15s ease, opacity 0.15s ease;
+}
+.jl-legend li.is-on {
+  background: var(--surface-2);
+}
+.jl-legend li.is-dim {
+  opacity: 0.55;
+}
+.jl-legend b {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.jl-legend__name small {
+  margin-left: 4px;
+  padding: 0 6px;
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  color: var(--ink-3);
+  font-size: var(--t-tag);
+}
+.jl-legend__share,
+.jl-legend__per {
+  color: var(--ink-3);
+  font-size: var(--t-small);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+@media (max-width: 560px) {
+  .jl-legend li {
+    grid-template-columns: 12px minmax(0, 1fr) auto 46px;
+  }
+  .jl-legend__per {
+    display: none;
+  }
+}
+.jl-sw {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  background: var(--c);
+  vertical-align: middle;
+}
+/* the statement: realised P&L → each charge → net */
+.jl-fall {
+  display: grid;
+  gap: 0;
+  border-top: 1px solid var(--line);
+}
+.jl-fall__row {
+  display: grid;
+  grid-template-columns: minmax(0, 190px) minmax(0, 1fr) minmax(0, 120px);
+  gap: 12px;
+  align-items: center;
+  padding: 7px 4px;
+  border-bottom: 1px solid var(--line);
+  font-size: var(--t-mid);
+}
+.jl-fall__row.is-total {
+  font-weight: 600;
+}
+.jl-fall__row.is-net {
+  border-bottom: 0;
+  background: var(--surface-2);
+}
+.jl-fall__row > b {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.jl-fall__bar {
+  height: 10px;
+  border-radius: 2px;
+  background: transparent;
+}
+.jl-fall__bar i {
+  display: block;
+  height: 100%;
+  border-radius: 0 3px 3px 0;
+  background: var(--c, var(--accent));
+  transform-origin: left center;
+  animation: jl-grow 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.jl-fall__bar i.is-up {
+  background: var(--up);
+}
+.jl-fall__bar i.is-down {
+  background: var(--down);
+}
+@keyframes jl-grow {
+  from {
+    transform: scaleX(0);
+  }
+}
+@media (max-width: 560px) {
+  .jl-fall__row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 110px);
+  }
+  .jl-fall__bar {
+    grid-column: 1 / -1;
+    order: 3;
+  }
+}
+
+/* ------------------------------------------------------------------ the month calendar (Google Calendar) */
+.jl-cal {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+.jl-cal__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+.jl-cal__nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.jl-cal__nav h3 {
+  margin: 0 0 0 8px;
+  font-size: var(--t-title);
+  font-weight: 500;
+}
+.jl-cal__arrow {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink-2);
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.jl-cal__arrow:hover {
+  background: var(--surface-2);
+}
+.jl-cal__sum {
+  margin: 0;
+  color: var(--ink-3);
+  font-size: var(--t-small);
+}
+.jl-cal__sum b {
+  font-size: var(--t-base);
+  font-variant-numeric: tabular-nums;
+}
+.jl-cal__week,
+.jl-cal__grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+.jl-cal__week span {
+  padding: 4px 0;
+  color: var(--ink-3);
+  font-size: var(--t-tag);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-align: center;
+  text-transform: uppercase;
+}
+.jl-cal__grid {
+  border-top: 1px solid var(--line);
+  border-left: 1px solid var(--line);
+  animation: jl-fade 0.25s ease both;
+}
+.jl-cal__grid.is-next {
+  animation-name: jl-from-right;
+}
+.jl-cal__grid.is-prev {
+  animation-name: jl-from-left;
+}
+@keyframes jl-fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes jl-from-right {
+  from {
+    opacity: 0;
+    transform: translateX(14px);
+  }
+}
+@keyframes jl-from-left {
+  from {
+    opacity: 0;
+    transform: translateX(-14px);
+  }
+}
+.jl-cell {
+  position: relative;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  align-content: start;
+  justify-items: start;
+  gap: 2px;
+  min-width: 0;
+  min-height: 92px;
+  padding: 6px 7px;
+  border: 0;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.jl-cell.is-empty {
+  cursor: default;
+  background: color-mix(in srgb, var(--surface-2) 60%, var(--surface));
+}
+.jl-cell.is-weekend {
+  background: color-mix(in srgb, var(--surface-2) 45%, var(--surface));
+}
+.jl-cell:hover:not(.is-empty),
+.jl-cell.is-open {
+  background: var(--surface-2);
+}
+.jl-cell:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  z-index: 1;
+}
+.jl-cell__d {
+  display: grid;
+  place-items: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 4px;
+  border-radius: 99px;
+  color: var(--ink-2);
+  font-size: var(--t-small);
+  font-weight: 600;
+}
+.jl-cell.is-today .jl-cell__d {
+  background: var(--accent);
+  color: var(--on-accent, #fff);
+}
+.jl-cell__v {
+  align-self: center;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: var(--t-small);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.jl-cell.is-gain .jl-cell__v {
+  background: var(--up-bg, color-mix(in srgb, var(--up) 14%, transparent));
+  color: var(--up-ink, var(--up));
+}
+.jl-cell.is-loss .jl-cell__v {
+  background: var(--down-bg, color-mix(in srgb, var(--down) 14%, transparent));
+  color: var(--down-ink, var(--down));
+}
+.jl-cell__n {
+  color: var(--ink-3);
+  font-size: var(--t-tag);
+}
+.jl-cell__m {
+  padding: 0 6px;
+  border: 1px dashed var(--warn-line, var(--line));
+  border-radius: 99px;
+  background: var(--warn-bg, transparent);
+  color: var(--warn-ink, var(--ink-2));
+  font-size: var(--t-tag);
+}
+@media (max-width: 640px) {
+  .jl-cell {
+    min-height: 64px;
+    padding: 4px;
+  }
+  .jl-cell__n {
+    display: none;
+  }
+  .jl-cell__v {
+    padding: 0 3px;
+    font-size: var(--t-tag);
+  }
+  .jl-cell__m {
+    padding: 0 3px;
+  }
+}
+.jl-cal__foot {
+  margin: 0;
+}
+
+/* ------------------------------------------------------------------ the day panel: a side sheet (a bottom sheet on a phone) */
+.jl-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 1500;
+  display: flex;
+  justify-content: flex-end;
+  background: color-mix(in srgb, #05080d 38%, transparent);
+  animation: jl-fade 0.18s ease both;
+}
+.jl-panel {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  width: min(440px, 100vw);
+  height: 100%;
+  overflow-y: auto;
+  padding: 18px 20px 24px;
+  border-left: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: -20px 0 50px -30px rgba(0, 0, 0, 0.55);
+  animation: jl-sheet-in 0.28s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  outline: none;
+}
+@keyframes jl-sheet-in {
+  from {
+    transform: translateX(32px);
+    opacity: 0;
+  }
+}
+@media (max-width: 640px) {
+  .jl-scrim {
+    align-items: flex-end;
+  }
+  .jl-panel {
+    width: 100vw;
+    height: auto;
+    max-height: 88vh;
+    border-left: 0;
+    border-top: 1px solid var(--line);
+    border-radius: 14px 14px 0 0;
+    padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+    animation-name: jl-rise;
+  }
+}
+@keyframes jl-rise {
+  from {
+    transform: translateY(40px);
+    opacity: 0;
+  }
+}
+.jl-panel__head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: start;
+}
+.jl-panel__head h3 {
+  margin: 0 0 4px;
+  font-size: var(--t-title);
+  font-weight: 500;
+}
+.jl-src {
+  display: inline-block;
+  padding: 1px 8px;
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  color: var(--ink-2);
+  font-size: var(--t-tag);
+}
+.jl-src.is-zerodha {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.jl-src.is-manual {
+  border-color: var(--warn-line, var(--line));
+  background: var(--warn-bg, transparent);
+  color: var(--warn-ink, var(--ink));
+}
+.jl-x {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+.jl-x:hover {
+  background: var(--surface-2);
+}
+.jl-x svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+.jl-panel__kpis {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+.jl-panel__kpis > div {
+  display: grid;
+  gap: 2px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg, 6px);
+}
+.jl-panel__kpis dt {
+  color: var(--ink-3);
+  font-size: var(--t-tag);
+}
+.jl-panel__kpis dd {
+  margin: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.jl-panel__parts,
+.jl-panel__trips ul {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.jl-panel__parts li {
+  display: grid;
+  grid-template-columns: 12px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: var(--t-mid);
+}
+.jl-panel__parts b {
+  font-variant-numeric: tabular-nums;
+}
+.jl-panel__trips h4 {
+  margin: 0 0 4px;
+  font-size: var(--t-small);
+  color: var(--ink-3);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.jl-panel__trips li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-areas: "s side net" "q q q";
+  gap: 2px 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: var(--t-mid);
+}
+.jl-panel__trips li > b:first-child {
+  grid-area: s;
+}
+.jl-panel__trips li > span {
+  grid-area: side;
+  font-size: var(--t-small);
+}
+.jl-panel__trips li > small {
+  grid-area: q;
+  color: var(--ink-3);
+  font-size: var(--t-small);
+  font-variant-numeric: tabular-nums;
+}
+.jl-panel__trips li > b:last-child {
+  grid-area: net;
+  font-variant-numeric: tabular-nums;
+}
+.jl-note {
+  margin: 0;
+  padding: 8px 10px;
+  border-left: 3px solid var(--warn, var(--line));
+  background: var(--surface-2);
+  color: var(--ink-2);
+  font-size: var(--t-small);
+}
+.jl-lock {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin: 0;
+  color: var(--ink-3);
+  font-size: var(--t-small);
+}
+.jl-lock svg {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+}
+.jl-panel__acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.jl-panel__acts p {
+  flex-basis: 100%;
+  margin: 0;
+}
+/* the form for a day entered by hand */
+.jl-form {
+  display: grid;
+  gap: 12px;
+}
+.jl-form__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.jl-form__grid label {
+  display: grid;
+  align-content: start; /* a field with a hint never pushes its neighbour's box down */
+  gap: 3px;
+  min-width: 0;
+  font-size: var(--t-small);
+  color: var(--ink-2);
+}
+.jl-form__grid label.is-wide {
+  grid-column: 1 / -1;
+}
+.jl-form__grid input {
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--line-2, var(--line));
+  border-radius: var(--r, 3px);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--t-mid);
+  font-variant-numeric: tabular-nums;
+}
+.jl-form__grid input:focus {
+  border-color: var(--accent);
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+.jl-form__grid small {
+  color: var(--ink-3);
+  font-size: var(--t-tag);
+}
+.jl-form__sum {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: var(--r, 3px);
+  background: var(--surface-2);
+  font-size: var(--t-mid);
+  font-variant-numeric: tabular-nums;
+}
+.jl-form__acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jl-donut__arc,
+  .jl-fall__bar i,
+  .jl-cal__grid,
+  .jl-scrim,
+  .jl-panel {
+    animation: none;
+  }
+}
+.adm[data-motion="off"] :where(.jl-donut__arc, .jl-fall__bar i, .jl-cal__grid, .jl-scrim, .jl-panel) {
+  animation: none;
+}

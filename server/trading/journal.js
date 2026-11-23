@@ -685,7 +685,7 @@ class TradeJournal {
   _load() {
     const d = this.docs.read(NAME, null);
     this._migrate();
-    const out = { tags: (d && d.tags) || {}, excursions: (d && d.excursions) || {}, imports: (d && d.imports) || [], captured: (d && d.captured) || {}, accountSince: (d && d.accountSince) || "", views: (d && d.views) || [], retros: (d && d.retros) || [], capital: (d && d.capital) || [] };
+    const out = { tags: (d && d.tags) || {}, excursions: (d && d.excursions) || {}, imports: (d && d.imports) || [], captured: (d && d.captured) || {}, accountSince: (d && d.accountSince) || "", views: (d && d.views) || [], retros: (d && d.retros) || [], capital: (d && d.capital) || [], manualDays: (d && d.manualDays) || {} };
     if (!this._itemMode()) out.fills = (d && d.fills) || {};
     return out;
   }
@@ -872,7 +872,9 @@ class TradeJournal {
     // only Zerodha's own fills (Kite and Console imports); hand-typed ones of an earlier version are not counted
     const trips = roundTrips(list.filter((f) => f.source !== "manual")).map((t) => {
       const c = t.open ? 0 : charges(t);
-      return { ...t, charges: c, brokerage: t.open ? 0 : r2(chargeParts(t).brokerage), net: r2(t.pnl - c) };
+      const parts = t.open ? null : chargeParts(t);
+      // each charge on its own (brokerage, STT, exchange, SEBI, GST, stamp duty, DP), for the charges breakdown
+      return { ...t, charges: c, brokerage: t.open ? 0 : r2(parts.brokerage), parts: parts ? Object.fromEntries(Object.entries(parts).map(([k, v]) => [k, r2(v)])) : null, net: r2(t.pnl - c) };
     });
     this._memo = { ver: this._ver, n: list.length, trips };
     return trips;
@@ -897,6 +899,53 @@ class TradeJournal {
     return Number.isFinite(at) ? at : null;
   }
 
+  /* ------------------------------------------------------------- days entered by hand (23 Nov 2026) */
+  /**
+   * A day the owner enters by hand: a session that has no Zerodha record here (another broker, a day before the tradebooks).
+   * Its figures are the owner's: gross P&L and each charge. A day that has Zerodha's own trades can never be entered or changed
+   * by hand — those figures come from Zerodha alone. Kept apart from the fills; counted only where the page says so.
+   */
+  manualDays({ fromDay = "", toDay = "" } = {}) {
+    const d = this._load();
+    return Object.values(d.manualDays || {})
+      .filter((m) => (!fromDay || m.date >= fromDay) && (!toDay || m.date <= toDay))
+      .sort((a, b) => (a.date < b.date ? -1 : 1));
+  }
+  /** Does Zerodha's own record have a trade on this IST day? (Then the day is not open to hand entry.) */
+  zerodhaDay(date) {
+    return this._fillsList().some((f) => f.source !== "manual" && istDay(f.at) === date);
+  }
+  setManualDay(date, input = {}, by = "", now = Date.now()) {
+    const day = String(date || "");
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || Number.isNaN(Date.parse(`${day}T00:00:00Z`))) throw Object.assign(new Error("Give the day as YYYY-MM-DD."), { status: 400 });
+    if (day > istDay(now)) throw Object.assign(new Error("A day in the future cannot be entered."), { status: 400 });
+    if (this.zerodhaDay(day)) throw Object.assign(new Error("This day has trades from Zerodha: its figures come from Zerodha alone and cannot be entered or changed by hand."), { status: 409, code: "zerodha_day" });
+    const n = (k, { min = -1e10, max = 1e10 } = {}) => {
+      const v = input[k] === "" || input[k] === undefined || input[k] === null ? 0 : Number(input[k]);
+      if (!Number.isFinite(v) || v < min || v > max) throw Object.assign(new Error(`"${k}" must be a number${min === 0 ? " of 0 or more" : ""}.`), { status: 400 });
+      return Math.round(v * 100) / 100;
+    };
+    const parts = { brokerage: n("brokerage", { min: 0 }), stt: n("stt", { min: 0 }), exchange: n("exchange", { min: 0 }), sebi: n("sebi", { min: 0 }), gst: n("gst", { min: 0 }), stamp: n("stamp", { min: 0 }), dp: n("dp", { min: 0 }), other: n("other", { min: 0 }) };
+    const gross = n("gross");
+    const trades = Math.round(n("trades", { min: 0, max: 100000 }));
+    const charges = r2(Object.values(parts).reduce((a, b) => a + b, 0));
+    const d = this._load();
+    const old = d.manualDays[day] || null;
+    const rec = { date: day, gross, parts, charges, net: r2(gross - charges), trades, note: String(input.note || "").replace(/[\u0000-\u001f\u007f]/g, " ").trim().slice(0, 300), source: "manual", by: String(by || "").slice(0, 120), createdAt: old ? old.createdAt : new Date(now).toISOString(), updatedAt: old ? new Date(now).toISOString() : null };
+    d.manualDays = { ...d.manualDays, [day]: rec };
+    this._save(d);
+    return rec;
+  }
+  removeManualDay(date) {
+    const d = this._load();
+    if (!d.manualDays[String(date)]) return false;
+    const next = { ...d.manualDays };
+    delete next[String(date)];
+    d.manualDays = next;
+    this._save(d);
+    return true;
+  }
+
   view(filters = {}) {
     const d = this._load();
     const trips = this.trips(filters);
@@ -912,6 +961,14 @@ class TradeJournal {
       mistakes: MISTAKES,
       firstAt: this.firstAt(),
       period: filters.period || null,
+      // the charges of the period's closed trades, one by one (Zerodha's published rates — an estimate; the contract note is the truth)
+      chargeParts: (() => {
+        const sum = { brokerage: 0, stt: 0, exchange: 0, sebi: 0, gst: 0, stamp: 0, dp: 0 };
+        for (const t of trips) if (!t.open && t.parts) for (const k of Object.keys(sum)) sum[k] += t.parts[k] || 0;
+        return Object.fromEntries(Object.entries(sum).map(([k, v]) => [k, r2(v)]));
+      })(),
+      // days entered by hand in the period (never a day Zerodha has trades for)
+      manualDays: this.manualDays(filters.period ? { fromDay: filters.period.fromDay || "", toDay: filters.period.toDay || "" } : {}),
     };
   }
 

@@ -235,6 +235,18 @@ One process only (`instances: 1`): the trading guard rails and the live price st
 so a restart briefly drops open streams (pages reconnect by themselves) — there is no zero-downtime
 reload with one process, and that is the deliberate trade.
 
+**Journal ledger (2026-11-23; `src/admin/stock/trade/JournalLedger.jsx`, `server/trading/journal.js`).** The Journal's overview
+gains **Charges & taxes**: realised P&L → each charge (brokerage, STT, exchange transaction charges, GST, SEBI fees, stamp duty,
+DP charges, and "other" from hand-entered days) → net, as scorecards, a donut with its legend (share and per-trade figure for
+each charge) and a statement drawn as a waterfall, with taxes (STT, GST, stamp) apart from fees. Every closed trade now carries
+its own `parts`, and the view adds `chargeParts`. A **month calendar** like Google Calendar (today circled, each day's net and
+trades, weekends shaded) opens a day panel — a side sheet, a bottom sheet on a phone — with that day's trades and charges.
+**Days entered by hand** (`manualDays` in the journal record; `PUT|DELETE /api/admin/trading/journal/manual/:date`, superadmin):
+only for a past day with no Zerodha trades; such a day can be corrected or removed at any time, and a day Zerodha has trades for
+is always read-only (409 with its reason). Hand-entered days never change Zerodha's own statistics; the charges card can include
+them (switch). Charge colours: the Expenses palette, checked for colour-blind separation in both themes, each beside its label.
+Tab bars and segmented buttons across the private area centre their labels vertically.
+
 **Security and robustness review (2026-11-23).** Two independent read-only reviews; what they found and what changed:
 - *Access*: the mail server, site address and sign-in switches are **owner-only** (whoever controls them receives everyone's
   sign-in codes, the owner's too); only a superadmin may log the site's Zerodha account in, and a login for a *different*

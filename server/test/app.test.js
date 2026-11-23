@@ -905,3 +905,21 @@ test("security review (23 Nov 2026): only the owner changes mail and sign-in; on
   await s.request("GET", "/api/admin/ai/pulse/INFY", { cookie: plain });
   assert.equal(asked, 0, "the account is not even read for a plain admin");
 });
+
+test("days entered by hand over HTTP: added and corrected on an empty day; refused with its reason on a bad one", async (t) => {
+  const s = await boot();
+  t.after(s.close);
+  await s.configure();
+  const boss = (await s.login(SUPERADMIN_EMAIL)).session;
+  let r = await s.request("PUT", "/api/admin/trading/journal/manual/2026-11-10", { cookie: boss, body: { gross: 1500, brokerage: 40, stt: 12.5, trades: 2, note: "another broker" } });
+  assert.equal(r.status, 200, JSON.stringify(r.json));
+  assert.equal(r.json.day.net, 1447.5);
+  r = await s.request("PUT", "/api/admin/trading/journal/manual/2026-11-10", { cookie: boss, body: { brokerage: -1 } });
+  assert.equal(r.status, 400);
+  assert.match(r.json.message, /0 or more/, "the real reason, not 'could not reach Zerodha'");
+  r = await s.request("PUT", "/api/admin/trading/journal/manual/not-a-day", { cookie: boss, body: {} });
+  assert.equal(r.status, 400);
+  r = await s.request("DELETE", "/api/admin/trading/journal/manual/2026-11-10", { cookie: boss });
+  assert.deepEqual(r.json, { removed: true });
+  assert.equal((await s.request("PUT", "/api/admin/trading/journal/manual/2026-11-10", { body: { gross: 1 } })).status, 401);
+});

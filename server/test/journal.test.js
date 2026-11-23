@@ -437,3 +437,39 @@ test("per stock, the figures of Zerodha's P&L report: quantity, buy and sell ave
   // the realised P&L is the sell value less the buy value, as in Zerodha's report
   assert.equal(Math.round((hc.sellValue - hc.buyValue) * 100) / 100, hc.gross);
 });
+
+test("each charge on its own, and days entered by hand: allowed only where Zerodha has no trades, editable, never on Zerodha's days", () => {
+  const j = new TradeJournal(new FileDocs(fs.mkdtempSync(path.join(os.tmpdir(), "vpt-jm-"))));
+  j.add([fill("2026-11-20T09:30:00", "BUY", 100, 1500), fill("2026-11-20T10:30:00", "SELL", 100, 1510)], "kite");
+  const v = j.view({ period: { fromDay: "2026-11-01", toDay: "2026-11-30" } });
+  const parts = v.chargeParts;
+  assert.deepEqual(Object.keys(parts), ["brokerage", "stt", "exchange", "sebi", "gst", "stamp", "dp"]);
+  const sum = Object.values(parts).reduce((a, b) => a + b, 0);
+  assert.ok(Math.abs(sum - v.stats.charges) < 0.05, `the parts add up to the charges: ${sum} vs ${v.stats.charges}`);
+  assert.equal(parts.brokerage, 40, "₹20 a side intraday, capped");
+  assert.ok(v.trips[0].parts && v.trips[0].parts.stt > 0, "every closed trade carries its own parts");
+  // a Zerodha day cannot be entered by hand
+  assert.throws(() => j.setManualDay("2026-11-20", { gross: 100 }), (e) => e.status === 409 && e.code === "zerodha_day");
+  // a day with no Zerodha trades can, and its net is its gross less every charge
+  const m = j.setManualDay("2026-11-18", { gross: 2500, brokerage: 40, stt: 25.5, exchange: 3.1, gst: 7.8, sebi: 0.1, stamp: 1.5, other: 2, trades: 3, note: "from another broker" }, "owner@example.com", Date.parse("2026-11-23T05:00:00Z"));
+  assert.equal(m.charges, 80);
+  assert.equal(m.net, 2420);
+  assert.equal(m.source, "manual");
+  assert.equal(m.updatedAt, null);
+  // corrected later
+  const m2 = j.setManualDay("2026-11-18", { gross: 2600, brokerage: 40 }, "owner@example.com", Date.parse("2026-11-23T06:00:00Z"));
+  assert.equal(m2.net, 2560);
+  assert.equal(m2.createdAt, m.createdAt);
+  assert.ok(m2.updatedAt);
+  assert.deepEqual(j.view({ period: { fromDay: "2026-11-01", toDay: "2026-11-30" } }).manualDays.map((x) => x.date), ["2026-11-18"]);
+  assert.deepEqual(j.view({ period: { fromDay: "2026-12-01", toDay: "2026-12-31" } }).manualDays, []);
+  // bad input is refused
+  assert.throws(() => j.setManualDay("2026-13-40", {}), /YYYY-MM-DD/);
+  assert.throws(() => j.setManualDay("2026-11-17", { brokerage: -5 }), /0 or more/);
+  assert.throws(() => j.setManualDay("2099-01-01", {}, "", Date.parse("2026-11-23T05:00:00Z")), /future/);
+  // removed
+  assert.equal(j.removeManualDay("2026-11-18"), true);
+  assert.equal(j.removeManualDay("2026-11-18"), false);
+  // a hand-entered day never changes Zerodha's own numbers
+  assert.equal(j.view({}).stats.trades, 1);
+});

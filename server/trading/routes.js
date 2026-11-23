@@ -34,6 +34,8 @@ function mountTrading(app, { trading, ai, requireSuper, limiter, capture = null,
       if (err instanceof TradingError || err instanceof UploadError) return res.status(err.status).json({ error: err.code, message: err.message });
       if (err instanceof AiError) return res.status(err.status || 400).json({ error: err.code, message: err.message });
       if (err instanceof KiteError) return res.status(502).json({ error: "kite_error", message: `Zerodha said: ${err.message}` });
+      // a refusal with its own reason (a journal rule, a bad input): said as it is, never as "could not reach Zerodha"
+      if (err && Number.isInteger(err.status) && err.status >= 400 && err.status < 500) return res.status(err.status).json({ error: err.code || "invalid", message: err.message });
       const timeout = err && (err.name === "TimeoutError" || err.name === "AbortError");
       console.error("[trading]", err && err.message ? err.message : err);
       res.status(502).json({ error: "upstream", message: timeout ? "Zerodha did not answer in time. Check the order book before trying again." : "Could not reach Zerodha." });
@@ -132,6 +134,13 @@ function mountTrading(app, { trading, ai, requireSuper, limiter, capture = null,
   // where the history comes from (and its gaps), your saved views and the automatic capture
   // the capital ledger: the money put in (and taken out), which every percentage return is measured on
   app.get("/api/admin/trading/journal/capital", requireSuper, wrap(async () => ({ capital: trading.journal.capital() })));
+  // days entered by hand (23 Nov 2026): only days with no Zerodha trades; Zerodha's own days are never changed here
+  const dayOf = (req) => String(req.params.date || "").slice(0, 10);
+  app.put("/api/admin/trading/journal/manual/:date", requireSuper, limiter(120, 10 * 60 * 1000), wrap(async (req) => ({ day: trading.journal.setManualDay(dayOf(req), req.body || {}, req.user && req.user.email, nowMs()) })));
+  app.delete("/api/admin/trading/journal/manual/:date", requireSuper, limiter(120, 10 * 60 * 1000), wrap(async (req) => {
+    if (trading.journal.zerodhaDay(dayOf(req))) throw Object.assign(new Error("This day comes from Zerodha and cannot be removed here."), { status: 409, code: "zerodha_day" });
+    return { removed: trading.journal.removeManualDay(dayOf(req)) };
+  }));
   app.post("/api/admin/trading/journal/capital", requireSuper, limiter(60, 10 * 60 * 1000), wrap(async (req) => {
     const r = trading.journal.addCapital(req.body || {}, nowMs());
     if (r.error) throw new TradingError(r.error);

@@ -20,6 +20,7 @@ import { everyVisible } from "../../visible";
 import DayBook from "../analysis/DayBook";
 import { PnlBySymbol, PnlSummary, unrealisedOf } from "./PnlReport";
 import { useLiveBook } from "./liveBook";
+import { ChargesBreakdown, MonthCalendar } from "./JournalLedger";
 import "./trade.css";
 const IST = 5.5 * 3600 * 1000;
 const day = (ms) => new Date(ms + IST).toISOString().slice(0, 10);
@@ -625,6 +626,8 @@ function TradesJournal() {
           <Alert>{retro.err}</Alert>
           {retro.r && <Retro r={retro.r} list={retro.list} onOpen={retro.open} onClose={retro.close} />}
           <PnlSummary s={s} unrealised={unreal} />
+          {/* where the money went: every charge on its own (and days entered by hand, when included) */}
+          <ChargesBreakdown s={s} parts={d.chargeParts} manual={d.manualDays || []} label={label} />
           <dl className="jp2-tiles jr-glance">
             <div className="jp2-tile">
               <dt>Expectancy</dt>
@@ -672,6 +675,17 @@ function TradesJournal() {
               <LineChart xs={s.curve.map((c) => day(c.at))} series={[{ label: "Total so far", values: s.curve.map((c) => c.equity), c: s.net >= 0 ? "up" : "down", area: true }]} height={230} label="Your total profit or loss over time" />
             </section>
           )}
+          {/* the month, like Google Calendar: a day opens its trades and charges; days with no Zerodha trades can be entered by hand */}
+          <MonthCalendar
+            calendar={s.calendar}
+            trips={d.trips}
+            manual={d.manualDays || []}
+            toDay={period && period.toDay}
+            onChanged={() => {
+              load();
+              loadPer();
+            }}
+          />
           <section className="an-card jr-calcard">
             <h3 className="jr-h">📆 Every day on a calendar</h3>
             <p className="jc-info">Green days made money, red days lost money; the deeper the colour, the bigger the amount. Point at a day for its figures.</p>
@@ -679,6 +693,23 @@ function TradesJournal() {
           </section>
           <PnlBySymbol rows={s.by.symbol} unrealised={unreal} onCsv={symbolCsv} updated={updatedAt ? new Date(updatedAt).toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }) : ""} />
 
+        </>
+      )}
+
+      {/* no Zerodha trades in the period: the calendar still opens, so a day traded elsewhere can be entered by hand */}
+      {tab === "overview" && d && (!s || s.trades === 0) && (
+        <>
+          {(d.manualDays || []).length > 0 && <ChargesBreakdown s={null} parts={null} manual={d.manualDays} label={label} />}
+          <MonthCalendar
+            calendar={[]}
+            trips={[]}
+            manual={d.manualDays || []}
+            toDay={period && period.toDay}
+            onChanged={() => {
+              load();
+              loadPer();
+            }}
+          />
         </>
       )}
 

@@ -2390,7 +2390,8 @@
 }
 .jr-parts button {
   display: inline-flex;
-  align-items: baseline;
+  align-items: center; /* the label and its note sit in the middle of the button (they were pinned to the top) */
+  justify-content: center;
   gap: 6px;
   min-height: 34px;
   padding: 0 14px;
