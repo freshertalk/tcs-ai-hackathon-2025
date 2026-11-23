@@ -53,6 +53,16 @@ async function buildHealth(ctx, { secure = false, host = "" } = {}) {
       parts.push(`the last restart (${ago(stop.at, now)}) came when it used ${stop.rssMB} MB after ${stop.upS} s — pm2's memory limit`);
       hint = "See how often:  pm2 describe vinaytiwari   ·   grep -c max-memory-restart ~/.pm2/pm2.log";
     }
+    // the memory governor (server/memory.js): shedding caches or holding heavy work back when memory is tight
+    if (ctx.memory && typeof ctx.memory.status === "function") {
+      const g = ctx.memory.status();
+      if (g.level !== "normal") {
+        status = "warn";
+        parts.push(`memory is ${g.level} (${Math.round(g.share * 100)}% of the limit): caches dropped, heavy jobs waiting${g.level === "critical" ? "; outside market hours the server restarts itself cleanly" : ""}`);
+      }
+      const planned = (g.events || []).find((e) => e.kind === "restart");
+      if (planned) parts.push(`the server restarted itself for memory ${ago(planned.at, now)} (planned, outside market hours)`);
+    }
     // automatic training the server did not live through (server/train-guard.js): now paused rather than looping
     const stuck = ctx.trainGuard && typeof ctx.trainGuard.troubles === "function" ? ctx.trainGuard.troubles() : [];
     for (const t of stuck) {

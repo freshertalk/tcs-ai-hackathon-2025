@@ -112,8 +112,41 @@ function feedUrl(type, value) {
   return null;
 }
 
+/**
+ * Is this address one of the server's own or a private network's (loopback, private ranges, link-local and cloud metadata,
+ * IPv6 unique-local)? A feed address typed in the settings must never make the server read itself or its network (SSRF).
+ */
+function privateAddress(ip) {
+  const a = String(ip || "").toLowerCase();
+  if (a === "::1" || a === "::" || a.startsWith("fe80:") || a.startsWith("fc") || a.startsWith("fd")) return true;
+  const v4 = a.startsWith("::ffff:") ? a.slice(7) : a;
+  const m = /^(\d+)\.(\d+)\.(\d+)\.(\d+)$/.exec(v4);
+  if (!m) return false;
+  const [x, y] = [Number(m[1]), Number(m[2])];
+  return x === 0 || x === 10 || x === 127 || (x === 169 && y === 254) || (x === 172 && y >= 16 && y <= 31) || (x === 192 && y === 168) || (x === 100 && y >= 64 && y <= 127);
+}
+async function assertPublic(url) {
+  const host = new URL(url).hostname.replace(/^\[|\]$/g, "");
+  if (host === "localhost" || host.endsWith(".localhost") || host.endsWith(".local") || host.endsWith(".internal")) throw new Error("That address is on the server's own network.");
+  const { lookup } = require("node:dns").promises;
+  const found = await lookup(host, { all: true });
+  if (!found.length || found.some((r) => privateAddress(r.address))) throw new Error("That address is on the server's own network.");
+}
+
 async function getText(fetchImpl, url, headers = {}) {
-  const res = await fetchImpl(url, { headers: { "User-Agent": UA, Accept: "application/rss+xml, application/atom+xml, application/xml, text/xml, */*", ...headers }, redirect: "follow", signal: AbortSignal.timeout(15000) });
+  // real network reads check every hop: the address and each redirect must be public (tests hand a fake fetch and skip this)
+  const real = fetchImpl === globalThis.fetch;
+  let target = url;
+  let res;
+  for (let hop = 0; ; hop += 1) {
+    if (real) await assertPublic(target);
+    res = await fetchImpl(target, { headers: { "User-Agent": UA, Accept: "application/rss+xml, application/atom+xml, application/xml, text/xml, */*", ...headers }, redirect: real ? "manual" : "follow", signal: AbortSignal.timeout(15000) });
+    const loc = res.headers && typeof res.headers.get === "function" ? res.headers.get("location") : null;
+    if (!real || res.status < 300 || res.status >= 400 || !loc) break;
+    if (hop >= 4) throw new Error("The feed redirected too many times.");
+    target = new URL(loc, target).toString();
+    if (!/^https?:$/.test(new URL(target).protocol)) throw new Error("The feed redirected to something that is not a web address.");
+  }
   const head = (k) => (res.headers && typeof res.headers.get === "function" ? res.headers.get(k) : null);
   if (res.status === 304) return { ok: true, status: 304, text: "", etag: head("etag"), lastModified: head("last-modified") };
   const text = await res.text();
@@ -180,4 +213,4 @@ async function readSource(source, { fetchImpl = globalThis.fetch, xToken = "" } 
   }
 }
 
-module.exports = { parseFeed, readSource, cleanValue, feedUrl, plain, decode, tidyGoogle, KINDS, UA };
+module.exports = { privateAddress, parseFeed, readSource, cleanValue, feedUrl, plain, decode, tidyGoogle, KINDS, UA };

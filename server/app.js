@@ -77,6 +77,7 @@ const { Supervisor } = require("./supervisor");
 const { TrainGuard } = require("./train-guard");
 const { Consensus } = require("./consensus");
 const { TradeSetup } = require("./setup");
+const { MemoryGovernor } = require("./memory");
 const { DeliveryStore } = require("./market/delivery");
 const { dossier } = require("./dossier");
 const { Recorder } = require("./recorder");
@@ -139,6 +140,8 @@ function cookie(name, value, { maxAge, path: p = "/", secure }) {
  */
 function isLocalHost(hostHeader) {
   let h = String(hostHeader || "").toLowerCase();
+  // a real host name only (letters, digits, dots, hyphens, an optional port, or a bracketed IPv6): "evil.com?.local" is not local
+  if (!/^(\[[0-9a-f:.]+\]|[a-z0-9.-]*)(:\d{1,5})?$/.test(h)) return false;
   h = h.startsWith("[") ? h.slice(0, h.indexOf("]") + 1) : h.replace(/:\d+$/, "");
   if (["localhost", "127.0.0.1", "[::1]", "::1", "0.0.0.0", ""].includes(h)) return true;
   if (h.endsWith(".localhost") || h.endsWith(".local")) return true;
@@ -160,8 +163,14 @@ function limiter(max, windowMs) {
       return;
     }
     list.push(now);
-    hits.set(key, list);
-    if (hits.size > 5000) hits.clear(); // never let it grow without bound
+    hits.delete(key);
+    hits.set(key, list); // the newest at the end
+    // never let it grow without bound — by dropping the OLDEST entries, never all of them (clearing every bucket at once let a
+    // stream of new addresses reset everyone's limits, sign-in included)
+    if (hits.size > 5000) for (const k of hits.keys()) {
+      if (hits.size <= 4500) break;
+      hits.delete(k);
+    }
     next();
   };
 }
@@ -531,6 +540,8 @@ function createApp(opts = {}) {
         "Cache-Control": "no-store",
         "X-Robots-Tag": "noindex, nofollow, noarchive",
         "X-Frame-Options": "DENY",
+        // the modern form of the same rule, plus no plugins and no foreign <base> (scripts are left to the existing rules)
+        "Content-Security-Policy": "frame-ancestors 'none'; object-src 'none'; base-uri 'self'",
       });
     }
     next();
@@ -861,7 +872,7 @@ function createApp(opts = {}) {
     });
   });
 
-  app.put("/api/admin/settings/google", requireAdmin, (req, res) => {
+  app.put("/api/admin/settings/google", requireSuper, (req, res) => {
     const b = req.body || {};
     const hadSecret = Boolean(credentials().secret);
     const newSecret = String(b.googleClientSecret || "").trim();
@@ -875,7 +886,7 @@ function createApp(opts = {}) {
     res.json({ ok: true });
   });
 
-  app.put("/api/admin/settings/analytics", requireAdmin, (req, res) => {
+  app.put("/api/admin/settings/analytics", requireSuper, (req, res) => {
     const id = String((req.body || {}).gaMeasurementId || "").trim().toUpperCase();
     if (id && !GA_RE.test(id)) {
       return res.status(400).json({ error: "invalid", message: "That does not look like a GA4 measurement ID (G-XXXXXXXXXX)." });
@@ -909,7 +920,8 @@ function createApp(opts = {}) {
       lastLogin: u.lastLogin || null,
       hasPassword: Boolean(u.passwordHash),
       googleLinked: Boolean(u.googleAt),
-      lockedOut: Boolean(u.fails && u.fails.until > authNow()), // too many wrong passwords: locked for a while
+      // too many wrong passwords: locked for a while (for one visitor or for everyone — server/email-auth.js counts both)
+      lockedOut: Boolean(u.fails && u.fails.until > authNow()) || Boolean(emailAuth && typeof emailAuth.isLocked === "function" && emailAuth.isLocked({ email })),
       ...extra,
     };
   };
@@ -1693,6 +1705,24 @@ ${e.text}
   ai.deskSetup = () => setup.brief();
   ai.deskSetupFor = (symbol) => setup.forStock(symbol);
   live.watch("setup", () => setup.fingerprint());
+  // The memory governor (server/memory.js): drops these caches when memory is tight, holds heavy jobs back, and outside market
+  // hours restarts the server cleanly before pm2's hard limit would kill it mid-work. Every cache here refills from its source.
+  const memory =
+    opts.memory ||
+    new MemoryGovernor({
+      log: opts.log || console,
+      now: opts.now,
+      inSession: () => {
+        const t = new Date((opts.now ? opts.now() : Date.now()) + 5.5 * 3600000);
+        const m = t.getUTCHours() * 60 + t.getUTCMinutes();
+        return nseCalendar.isTradingDay(t.toISOString().slice(0, 10)) && m >= 9 * 60 && m < 15 * 60 + 45;
+      },
+    });
+  const dropMap = (o, k) => () => o && o[k] && typeof o[k].clear === "function" && o[k].clear();
+  memory.register("forecaster views", dropMap(horizon, "_cache")).register("evidence views", dropMap(evidence, "_cache")).register("early-call views", dropMap(ahead, "_cache")).register("consensus views", dropMap(consensus, "_cache")).register("option chains", dropMap(market, "_chainAt")).register("delivery days", dropMap(delivery, "_days")).register("index analyses", dropMap(indices, "cache"));
+  if (trainGuard) trainGuard.memory = memory;
+  if (!underTest && opts.memoryWatch !== false) memory.start();
+  app.get("/api/admin/system/memory", requireSuper, (req, res) => res.json(memory.status()));
   app.get("/api/admin/market/setup", requireAdmin, limiter(240, 60 * 1000), hWrap(async () => setup.view()));
   app.get("/api/admin/market/setup/stock/:symbol", requireAdmin, limiter(240, 60 * 1000), hWrap(async (req) => setup.forStock(csSym(req))));
   // The research dossier (server/dossier.js): everything the desk knows about one stock in one read — for TradeAI's deep research
@@ -2322,7 +2352,7 @@ ${e.text}
 
   app.get("/api/admin/health", requireAdmin, limiter(60, 60 * 1000), async (req, res) => {
     try {
-      res.json(await buildHealth({ now: opts.now, docs, dataDir, trainGuard, supervisor, recorder, vault, horizon, openForecast, autopilot, robot, market, ai, trading, analysis, paper, researchAuto, notifier, alertWatch, whatsapp, temple, holidays, googleConfigured: () => credentials().source !== "none" }, { secure: isSecure(req), host: req.get("host") || "" }));
+      res.json(await buildHealth({ now: opts.now, docs, dataDir, memory, trainGuard, supervisor, recorder, vault, horizon, openForecast, autopilot, robot, market, ai, trading, analysis, paper, researchAuto, notifier, alertWatch, whatsapp, temple, holidays, googleConfigured: () => credentials().source !== "none" }, { secure: isSecure(req), host: req.get("host") || "" }));
     } catch (err) {
       res.status(500).json({ error: "health_failed", message: err.message });
     }

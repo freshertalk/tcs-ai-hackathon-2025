@@ -60,8 +60,11 @@ function mountMarket(app, deps) {
 
   // Step 1 of the daily login: send the browser to Zerodha's own login page.
   // (The password and 2FA are typed on kite.zerodha.com — never on this site.)
+  // the site's own Zerodha account: only a superadmin may log it in (a plain admin used to be able to replace its session)
+  const mayLogin = (u) => Boolean(u && (u.role === "superadmin" || u.owner));
   app.get(`${STATE_PATH}/login`, limiter(20, 15 * 60 * 1000), (req, res) => {
     if (!currentUser(req)) return res.redirect(adminBase);
+    if (!mayLogin(currentUser(req))) return res.redirect(`${page}?kite=error&reason=${encodeURIComponent("Only a superadmin can log the site's Zerodha account in.")}`);
     try {
       const state = randomToken(18);
       res.append("Set-Cookie", cookie(STATE_COOKIE, sign({ state }, sessionKey, 600), { maxAge: 600, path: STATE_PATH, secure: isSecure(req) }));
@@ -79,6 +82,7 @@ function mountMarket(app, deps) {
       res.redirect(`${page}?kite=error&reason=${encodeURIComponent(reason)}`);
     };
     if (!currentUser(req)) return res.redirect(adminBase);
+    if (!mayLogin(currentUser(req))) return fail("Only a superadmin can log the site's Zerodha account in.");
 
     const pending = verify(parseCookies(req.headers.cookie)[STATE_COOKIE], sessionKey);
     if (!pending || typeof req.query.state !== "string" || !safeEqual(req.query.state, pending.state)) {
@@ -86,7 +90,8 @@ function mountMarket(app, deps) {
     }
     if (req.query.status && req.query.status !== "success") return fail("The Kite login was cancelled.");
     try {
-      await market.completeLogin(req.query.request_token);
+      // a login for ANOTHER Zerodha account than the site's is refused unless the owner made it (switching accounts is theirs)
+      await market.completeLogin(req.query.request_token, { allowOtherUser: Boolean(currentUser(req).owner) });
       res.append("Set-Cookie", clear);
       res.redirect(`${page}?kite=connected`);
     } catch (err) {
@@ -159,8 +164,23 @@ function mountMarket(app, deps) {
     let timer = null;
     let handle = { close() {} };
     const pending = new Map();
+    // a page that stopped reading (a stalled tab, a sleeping laptop) must not make the server hold megabytes for it: past 1 MB
+    // waiting to go out, ticks are dropped (the next one carries the newest price anyway); past 4 MB the stream is closed and
+    // the page reconnects by itself when it wakes (robustness review, 23 Nov 2026)
     const write = (event, data) => {
-      if (open) res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+      if (!open) return;
+      const backlog = res.writableLength || 0;
+      if (backlog > 4 * 1048576) {
+        open = false;
+        try {
+          res.end();
+        } catch (_) {
+          /* already gone */
+        }
+        return;
+      }
+      if (backlog > 1048576 && event === "tick") return;
+      res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
     };
     const flush = () => {
       timer = null;

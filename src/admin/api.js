@@ -25,7 +25,10 @@ export function peek(path, maxAgeMs = 5 * 60 * 1000) {
 //    asks for (Retry-After), or a short random one, instead of failing on screen; and while one
 //    such wait is running, this tab's other reads wait for it too rather than piling on.
 // Orders and other writes are never sent twice by this: only GETs are retried.
-export const apiTuning = { maxActive: 8, slowMs: 4000, retries: 2, waitMs: 1200 };
+export const apiTuning = { maxActive: 8, slowMs: 4000, retries: 2, waitMs: 1200, readTimeoutMs: 45000, writeTimeoutMs: 5 * 60000 };
+// A signed-in session that ends while a page is open (it expired, the address was taken off the list, or you signed out in
+// another tab): the server answers 401, and the app goes back to the sign-in door instead of showing errors everywhere.
+export const SIGNED_OUT_EVENT = "drishti:signed-out";
 let active = 0;
 const queue = [];
 let coolUntil = 0;
@@ -52,9 +55,14 @@ async function send(path, method, body) {
     release();
   };
   const slow = setTimeout(free, apiTuning.slowMs);
+  // no request waits for ever: a read gives up after 45 s, a change (an AI run, a training) after 5 minutes
+  const ctl = typeof AbortController === "function" ? new AbortController() : null;
+  const limit = method === "GET" ? apiTuning.readTimeoutMs : apiTuning.writeTimeoutMs;
+  const cut = ctl ? setTimeout(() => ctl.abort(), limit) : null;
   try {
     return await fetch(path, {
       method,
+      signal: ctl ? ctl.signal : undefined,
       credentials: "same-origin",
       headers: {
         Accept: "application/json",
@@ -63,8 +71,17 @@ async function send(path, method, body) {
       },
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
+  } catch (err) {
+    if (err && err.name === "AbortError") {
+      const e = new Error(method === "GET" ? "The server took too long to answer; this is read again by itself." : "The server took too long to answer. It may still finish: check again in a moment.");
+      e.status = 504;
+      e.code = "timeout";
+      throw e;
+    }
+    throw err;
   } finally {
     clearTimeout(slow);
+    if (cut) clearTimeout(cut);
     free();
   }
 }
@@ -106,6 +123,9 @@ export async function api(path, { method = "GET", body } = {}) {
     throw err;
   }
 
+  if (res.status === 401 && !String(path).startsWith("/api/auth/") && typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent(SIGNED_OUT_EVENT, { detail: { path } }));
+  }
   if (!res.ok) {
     const err = new Error(
       (data && data.message) ||

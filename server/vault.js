@@ -156,7 +156,10 @@ const PRIVATE_DOC = /(^|\/)db\.json$|\.key$|secret|^accounts\//i;
 
 const cell = (v) => {
   if (v === null || v === undefined) return "";
-  const s = typeof v === "object" ? JSON.stringify(v) : String(v);
+  let s = typeof v === "object" ? JSON.stringify(v) : String(v);
+  // text that a spreadsheet would run as a formula (=, +, -, @, tab, return first) is kept as text with a leading apostrophe;
+  // numbers are left as they are (a negative number is a number, not a formula)
+  if (typeof v === "string" && /^[=+\-@\t\r]/.test(s)) s = `'${s}`;
   return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 };
 

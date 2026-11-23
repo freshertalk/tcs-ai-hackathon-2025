@@ -273,13 +273,17 @@ class MongoDocs {
     this._items = new Map(); // collection name → Map(id → item), read at start
     this._chain = new Map(); // name → the last write in flight: writes to one record stay in order
     this._pending = new Set();
+    this._latestDoc = new Map(); // name → the newest value waiting to be saved (a burst of saves of one record becomes one)
+    this._waitingDoc = new Set(); // names with a save queued that has not started yet
     this.lastError = "";
   }
 
   /** Connect, read everything into memory, and import any records still only on disk. */
   static async open({ uri, dbName = "stock-trading", dir, log = console, MongoClient }) {
     const Client = MongoClient || require("mongodb").MongoClient;
-    const client = new Client(uri, { serverSelectionTimeoutMS: 10000, appName: "vinaytiwari-desk" });
+    // socketTimeoutMS: a half-open connection fails in 30 s instead of waiting for TCP to give up (10 minutes or more), so a
+    // stalled database cannot freeze every save behind it (robustness review, 23 Nov 2026)
+    const client = new Client(uri, { serverSelectionTimeoutMS: 10000, connectTimeoutMS: 10000, socketTimeoutMS: 30000, appName: "vinaytiwari-desk" });
     await client.connect();
     const docs = new MongoDocs({ db: client.db(dbName), client, dir, log });
     await docs.load();
@@ -349,10 +353,37 @@ class MongoDocs {
   write(name, value) {
     const v = clone(value);
     this._cache.set(name, v);
-    this._queue(name, () => this.docs.updateOne({ _id: name }, { $set: { v, at: new Date() } }, { upsert: true }));
+    // writes to one record are merged while they wait: only the newest value is saved, so a slow database never holds a growing
+    // pile of copies of the same record (each a full clone)
+    this._latestDoc.set(name, v);
+    this._saveLatest(name, 0);
+  }
+
+  /** Queue the save of a record's newest value (once while one waits); a failed save is tried again up to twice. */
+  _saveLatest(name, tries) {
+    if (this._waitingDoc.has(name)) return;
+    this._waitingDoc.add(name);
+    this._queue(name, async () => {
+      this._waitingDoc.delete(name);
+      if (!this._latestDoc.has(name)) return null; // removed meanwhile, or a newer save already took it
+      const cur = this._latestDoc.get(name);
+      this._latestDoc.delete(name);
+      try {
+        return await this.docs.updateOne({ _id: name }, { $set: { v: cur, at: new Date() } }, { upsert: true, maxTimeMS: 20000 });
+      } catch (err) {
+        // the value is not lost: unless a newer one is already waiting, it is put back and tried again (at most twice)
+        if (tries < 2 && !this._latestDoc.has(name) && this._cache.has(name)) {
+          this._latestDoc.set(name, cur);
+          this._saveLatest(name, tries + 1);
+        }
+        throw err;
+      }
+    });
   }
 
   remove(name) {
+    this._latestDoc.delete(name);
+    this._waitingDoc.delete(name);
     this._cache.delete(name);
     this._queue(name, () => this.docs.deleteOne({ _id: name }));
   }
@@ -446,8 +477,21 @@ class MongoDocs {
     for (const name of COLD) for (const r of await this.coldList(name)) await emit({ kind: "cold", name, id: r.id, v: await this.coldGet(name, r.id) });
   }
 
-  async flush() {
-    while (this._pending.size) await Promise.all([...this._pending]);
+  /** Every write reaches the database — or, after `timeoutMs`, it gives up waiting (a stalled database cannot hang a backup or a stop). */
+  async flush({ timeoutMs = 20000 } = {}) {
+    const until = Date.now() + timeoutMs;
+    while (this._pending.size) {
+      const left = until - Date.now();
+      if (left <= 0) {
+        this.lastError = `${new Date().toISOString()} flush: ${this._pending.size} save(s) still waiting after ${Math.round(timeoutMs / 1000)} s`;
+        this.log.error(`[db] ${this._pending.size} save(s) still waiting after ${Math.round(timeoutMs / 1000)} s; carrying on`);
+        return false;
+      }
+      let timer;
+      await Promise.race([Promise.all([...this._pending]), new Promise((r) => (timer = setTimeout(r, left)))]);
+      clearTimeout(timer);
+    }
+    return true;
   }
 
   async close() {

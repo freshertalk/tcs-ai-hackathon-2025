@@ -233,7 +233,40 @@ any crash in the last 24 hours with its message, event-loop stalls today and rej
 `GET /api/live` (`{ ok, up, at }`, no sign-in, no database, nothing private) is the watchdog's question.
 One process only (`instances: 1`): the trading guard rails and the live price stream live in its memory,
 so a restart briefly drops open streams (pages reconnect by themselves) — there is no zero-downtime
-reload with one process, and that is the deliberate trade.
+reload with one process, and that is the deliberate trade.
+
+**Security and robustness review (2026-11-23).** Two independent read-only reviews; what they found and what changed:
+- *Access*: the mail server, site address and sign-in switches are **owner-only** (whoever controls them receives everyone's
+  sign-in codes, the owner's too); only a superadmin may log the site's Zerodha account in, and a login for a *different*
+  Zerodha account is refused unless the owner makes it; the AI pulse and AI runs never read the owner's cash or positions for a
+  plain admin (runs that did are hidden from them); Google sign-in, analytics, the AI key and the paid-AI cap are
+  superadmin-only.
+- *Sign-in*: captcha characters are drawn as stroked paths from a small font (no `<text>` to read back), points jittered,
+  written in shuffled order; wrong passwords and codes lock per address **and visitor** (5), the whole address only after 30
+  from everyone — a stranger can no longer lock the owner out.
+- *Hardening*: `isLocalHost` accepts real host names only; the per-IP limiter evicts its oldest entries instead of clearing
+  every bucket; `/me` and `/api` send `frame-ancestors 'none'; object-src 'none'; base-uri 'self'` (the Kundali paper may be
+  framed by this site only, so its preview works); RSS feeds refuse private, loopback and metadata addresses and check every
+  redirect; the WhatsApp verify token is compared in constant time; CSV exports neutralise formula cells.
+- *Robustness*: a throwing price-tick listener is logged and skipped (it used to end the process, all session long); the
+  Zerodha queue is bounded (40 waiting, 30 s wait) and simultaneous quote requests are shared; MongoDB has socket timeouts,
+  merged writes per record (with two retries) and a bounded `flush()`; old robot/Top 10/scanner day records are deleted and the
+  Level Book keeps 120 sessions; forecaster, evidence, early-call and Live-board rounds never overlap and are let go when stuck
+  (`guardedTick`); the supervisor is freed whatever a duty does (30-minute deadline); Telegram/WhatsApp sends time out at 10 s;
+  the delivery download reads its body inside its time limit; the Zerodha socket handshake times out at 15 s; the price
+  stream drops ticks for a page that stopped reading and closes it past 4 MB.
+
+**Healing inside the process (2026-11-23).** Two more layers, before pm2 ever has to act:
+- **The memory governor** (`server/memory.js`): every 15 s it compares the heap with V8's limit and the resident size with pm2's.
+  At 72 % it drops the read caches (forecaster, evidence, early-call and consensus views, option chains, delivery days, index
+  analyses — each refills from its source), asks the collector to run when exposed, and makes automatic training wait (the train
+  guard asks `pressure()`). At 88 % twice in a row it restarts the server cleanly **outside market hours** (the same clean path as
+  a deploy); during the session it keeps shedding instead. Shown on Site health → Server; `GET /api/admin/system/memory`.
+- **Rounds that cannot hang** (`server/heal.js`): `deadline()` and `guardedTick()` let a background round go after a limit, so a
+  network call that never answers cannot stop a service for ever (the trade setup and the consensus forecast use it: 5 minutes).
+- **In the browser**: no request waits for ever (reads give up after 45 s, changes after 5 minutes, with a plain message), and a
+  session that ends while a page is open (expired, removed from the list, signed out elsewhere) returns to the sign-in door with
+  a note instead of showing errors.
 
 **Only the owner's people can sign in (2026-11-22).** Every way in checks the list on every request (`identify`), and a session
 dies the moment a person is removed. By email the door now asks for the address first (`POST /api/auth/email/check`): an

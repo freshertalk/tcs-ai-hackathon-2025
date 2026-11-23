@@ -166,8 +166,20 @@ class PaperRobot {
     this.rec = d && d.date === date ? d : { date, trades: {}, decisions: [], frames: {}, openedAt: null };
     const ix = this.docs.read(INDEX, null) || { days: [] };
     if (!ix.days.includes(date)) {
-      ix.days = [...ix.days, date].sort().slice(-KEEP_DAYS);
+      const all = [...ix.days, date].sort();
+      ix.days = all.slice(-KEEP_DAYS);
       this.docs.write(INDEX, ix);
+      // the days that fell out of the index are deleted too (they used to stay, and every one was loaded at each start)
+      for (const old of all.slice(0, Math.max(0, all.length - KEEP_DAYS))) if (typeof this.docs.remove === "function") this.docs.remove(dayName(old));
+    }
+    // once a day, day records left behind before this (older than the index keeps) are swept away too
+    if (this._prunedOn !== date && typeof this.docs.remove === "function") {
+      this._prunedOn = date;
+      const t = Date.parse(`${date}T00:00:00Z`);
+      for (let k = KEEP_DAYS + 31; k <= 500; k += 1) {
+        const old = new Date(t - k * 86400000).toISOString().slice(0, 10);
+        if (!ix.days.includes(old) && this.docs.read(dayName(old), null)) this.docs.remove(dayName(old));
+      }
     }
     return this.rec;
   }
@@ -647,6 +659,9 @@ class PaperRobot {
       rows.push({ id: date, date, source: date === today ? "live" : "backfill", at: new Date(now).toISOString(), stocks: Object.keys(slot.trials).length, tests: Object.values(slot.trials).reduce((a, t) => a + t.length, 0), pooled: agg.pooled, stock: agg.stock, lasts: slot.lasts, own: slot.own });
     }
     this._put(STUDY, rows);
+    // the Level Book keeps its newest 120 sessions (each row holds the NIFTY 100's levels; older ones only grew memory)
+    const study = this._tbl(STUDY).map((r) => r.id).sort();
+    if (study.length > 120 && typeof this.docs.removeItems === "function") this.docs.removeItems(STUDY, study.slice(0, study.length - 120));
     this._bookCache = null;
     this.job.sessions = rows.length;
     this.job.failed = failed.length;

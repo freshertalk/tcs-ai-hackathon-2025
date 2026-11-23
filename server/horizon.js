@@ -56,6 +56,7 @@ const tick = () => new Promise((r) => setImmediate(r));
 const iso = (ms) => new Date(ms).toISOString();
 
 const SESSION = require("./market/session");
+const { guardedTick } = require("./heal");
 const { liveCloseSlot } = SESSION;
 
 class HorizonError extends Error {
@@ -1514,7 +1515,10 @@ class Horizon {
   start() {
     if (this.timer) return;
     this.timer = setInterval(() => {
-      this.tickOnce().catch((err) => this.log.error(`[horizon] ${err.message}`));
+      // one round at a time (a sweep longer than its slot no longer starts a second beside it), and a round stuck for
+      // 15 minutes is let go so the service carries on (server/heal.js)
+      if (!this._heal) this._heal = guardedTick("horizon", () => this.tickOnce(), { ms: 15 * 60000, log: this.log });
+      this._heal.tick();
     }, 30000);
     if (this.timer.unref) this.timer.unref();
   }

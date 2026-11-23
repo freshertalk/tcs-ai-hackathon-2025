@@ -244,10 +244,15 @@ test("admin vs superadmin: same access, except managing admin users", async (t) 
   const status = await s.request("GET", "/api/auth/status", { cookie: helper });
   assert.equal(status.json.user.role, "admin");
   assert.equal((await s.request("GET", "/api/admin/settings", { cookie: helper })).status, 200);
+  // site-wide settings (sign-in, analytics, the AI key) are a superadmin's since the security review of 23 Nov 2026
   r = await s.request("PUT", "/api/admin/settings/analytics", { cookie: helper, body: { gaMeasurementId: "G-ABCD1234" } });
+  assert.equal(r.status, 403);
+  assert.equal((await s.request("PUT", "/api/admin/settings/google", { cookie: helper, body: { googleClientId: "999-x.apps.googleusercontent.com", googleClientSecret: "" } })).status, 403);
+  assert.equal((await s.request("PUT", "/api/admin/ai/settings", { cookie: helper, body: { provider: "anthropic" } })).status, 403);
+  r = await s.request("PUT", "/api/admin/settings/analytics", { cookie: boss, body: { gaMeasurementId: "G-ABCD1234" } });
   assert.equal(r.status, 200);
 
-  // … but cannot manage admins
+  // … and cannot manage admins
   assert.equal((await s.request("GET", "/api/admin/admins", { cookie: helper })).status, 403);
   assert.equal((await s.request("POST", "/api/admin/admins", { cookie: helper, body: { email: "x@example.com" } })).status, 403);
   assert.equal((await s.request("DELETE", "/api/admin/admins/helper%40example.com", { cookie: helper })).status, 403);
@@ -870,4 +875,33 @@ test("the trade setup and the AI asks over HTTP: the setup for admins; the asks,
   await s.request("POST", "/api/admin/admins", { cookie: boss, body: { email: "plain2@example.com", invite: false } });
   const plain = (await s.login("plain2@example.com")).session;
   assert.equal((await s.request("GET", "/api/admin/ai/asks", { cookie: plain })).status, 403);
+});
+
+test("security review (23 Nov 2026): only the owner changes mail and sign-in; only a superadmin logs the site's Zerodha in; plain admins never see the owner's account", async (t) => {
+  const s = await boot();
+  t.after(s.close);
+  await s.configure();
+  const boss = (await s.login(SUPERADMIN_EMAIL)).session;
+  await s.request("POST", "/api/admin/admins", { cookie: boss, body: { email: "partner@example.com", role: "superadmin", invite: false } });
+  await s.request("POST", "/api/admin/admins", { cookie: boss, body: { email: "plain@example.com", invite: false } });
+  const partner = (await s.login("partner@example.com")).session;
+  const plain = (await s.login("plain@example.com")).session;
+  // a superadmin who is not the owner cannot point the mail server or the site address elsewhere (that would receive the owner's codes)
+  let r = await s.request("PUT", "/api/admin/settings/email", { cookie: partner, body: { smtp: { host: "smtp.evil.example", port: 587, security: "starttls", fromEmail: "x@evil.example", user: "", pass: "" } } });
+  assert.equal(r.status, 403);
+  assert.equal(r.json.error, "owner_only");
+  assert.equal((await s.request("PUT", "/api/admin/settings/email", { cookie: partner, body: { publicUrl: "https://evil.example" } })).status, 403);
+  assert.equal((await s.request("GET", "/api/admin/settings/email", { cookie: partner })).status, 200, "they may still read it");
+  // a plain admin cannot start the site's Zerodha login
+  r = await s.request("GET", "/api/admin/market/kite/login", { cookie: plain });
+  assert.equal(r.status, 302);
+  assert.match(decodeURIComponent(r.headers.location || ""), /Only a superadmin can log the site's Zerodha account in/);
+  // the AI pulse never carries the owner's account for a plain admin
+  let asked = 0;
+  s.made.ai.ensemble.account = async () => {
+    asked += 1;
+    return { available: 123456, position: null };
+  };
+  await s.request("GET", "/api/admin/ai/pulse/INFY", { cookie: plain });
+  assert.equal(asked, 0, "the account is not even read for a plain admin");
 });

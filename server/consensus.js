@@ -20,6 +20,7 @@ const C = require("./market/consensus");
 const H = require("./market/horizon");
 const R = require("./market/refine");
 const V = require("./market/volmodel"); // volatility from several days of history (22 Nov 2026)
+const { deadline } = require("./heal");
 const VOL_MODEL = "market/vol-model.json"; // the refiner (22 Nov 2026): the top of the book, today's volatility, conformal bands, the off-form alarm
 
 const IST = 5.5 * 3600 * 1000;
@@ -447,7 +448,8 @@ class Consensus {
 
   async tickOnce() {
     if (this._busy) return null;
-    this._busy = (async () => {
+    // a round that hangs (a network call that never answers) is let go after five minutes, so the next round runs (server/heal.js)
+    this._busy = deadline((async () => {
       const now = this.now();
       const today = istDate(now);
       const min = minuteOfDay(now);
@@ -477,7 +479,7 @@ class Consensus {
         await this.refreshVol();
       }
       this._flush();
-    })()
+    })(), 5 * 60000, "the consensus round")
       .catch((err) => {
         this.lastError = err.message || String(err);
         this.log.error(`[consensus] ${this.lastError}`);

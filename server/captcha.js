@@ -37,6 +37,15 @@ const PAPER = [["#f7f4ee", "#eef3f8"], ["#f3f6f0", "#f8f1f1"], ["#f1f4fa", "#f7f
 const pick = (list) => list[crypto.randomInt(0, list.length)];
 const between = (a, b) => a + (crypto.randomInt(0, 10001) / 10000) * (b - a);
 const r1 = (x) => Math.round(x * 10) / 10;
+/** A copy of a list in random order (Fisher–Yates, crypto randomness). */
+const shuffle = (list) => {
+  const a = [...list];
+  for (let i = a.length - 1; i > 0; i -= 1) {
+    const j = crypto.randomInt(0, i + 1);
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+};
 
 /** Leading zero bits of a SHA-256 digest. */
 function zeroBits(buf) {
@@ -67,6 +76,50 @@ function makeText() {
   return { kind: "text", show: t, answer: t };
 }
 
+// A small stroke font (23 Nov 2026, after the security review): each character is drawn as lines on an 8 × 12 grid, so the
+// picture holds no <text> a script could read back. Every point is nudged at random each time, and the characters are written into
+// the picture in a shuffled order (their places come from their transforms), so neither the shapes nor their order repeat.
+const FONT = {
+  A: [[[0, 12], [4, 0], [8, 12]], [[1.5, 7.5], [6.5, 7.5]]],
+  B: [[[0, 12], [0, 0], [5, 0], [7, 1.5], [7, 4.5], [5, 6], [0, 6]], [[5, 6], [7.5, 7.5], [7.5, 10.5], [5, 12], [0, 12]]],
+  C: [[[8, 1.5], [6, 0], [2, 0], [0, 2], [0, 10], [2, 12], [6, 12], [8, 10.5]]],
+  D: [[[0, 0], [0, 12], [5, 12], [8, 9], [8, 3], [5, 0], [0, 0]]],
+  E: [[[8, 0], [0, 0], [0, 12], [8, 12]], [[0, 6], [6, 6]]],
+  F: [[[8, 0], [0, 0], [0, 12]], [[0, 6], [6, 6]]],
+  G: [[[8, 1.5], [6, 0], [2, 0], [0, 2], [0, 10], [2, 12], [6, 12], [8, 10], [8, 7], [4.5, 7]]],
+  H: [[[0, 0], [0, 12]], [[8, 0], [8, 12]], [[0, 6], [8, 6]]],
+  J: [[[2, 0], [8, 0]], [[6, 0], [6, 10], [4, 12], [2, 12], [0, 10]]],
+  K: [[[0, 0], [0, 12]], [[8, 0], [0, 7]], [[2.5, 5], [8, 12]]],
+  M: [[[0, 12], [0, 0], [4, 7], [8, 0], [8, 12]]],
+  N: [[[0, 12], [0, 0], [8, 12], [8, 0]]],
+  P: [[[0, 12], [0, 0], [6, 0], [8, 2], [8, 4.5], [6, 6.5], [0, 6.5]]],
+  Q: [[[2, 0], [6, 0], [8, 2], [8, 10], [6, 12], [2, 12], [0, 10], [0, 2], [2, 0]], [[5, 9], [8.5, 13]]],
+  R: [[[0, 12], [0, 0], [6, 0], [8, 2], [8, 4.5], [6, 6.5], [0, 6.5]], [[4, 6.5], [8, 12]]],
+  S: [[[8, 1.5], [6, 0], [2, 0], [0, 2], [0, 4], [2, 6], [6, 6], [8, 8], [8, 10], [6, 12], [2, 12], [0, 10.5]]],
+  T: [[[0, 0], [8, 0]], [[4, 0], [4, 12]]],
+  U: [[[0, 0], [0, 10], [2, 12], [6, 12], [8, 10], [8, 0]]],
+  V: [[[0, 0], [4, 12], [8, 0]]],
+  W: [[[0, 0], [2, 12], [4, 5], [6, 12], [8, 0]]],
+  X: [[[0, 0], [8, 12]], [[8, 0], [0, 12]]],
+  Y: [[[0, 0], [4, 6], [8, 0]], [[4, 6], [4, 12]]],
+  Z: [[[0, 0], [8, 0], [0, 12], [8, 12]]],
+  2: [[[0, 2], [2, 0], [6, 0], [8, 2], [8, 4.5], [0, 12], [8, 12]]],
+  3: [[[0, 1.5], [2, 0], [6, 0], [8, 2], [8, 4], [6, 6], [3, 6]], [[6, 6], [8, 8], [8, 10], [6, 12], [2, 12], [0, 10.5]]],
+  4: [[[6, 12], [6, 0], [0, 8.5], [8.5, 8.5]]],
+  5: [[[8, 0], [1, 0], [0, 5.5], [5, 5], [8, 7], [8, 10], [6, 12], [2, 12], [0, 10.5]]],
+  6: [[[7.5, 1], [5, 0], [2, 0], [0, 3], [0, 10], [2, 12], [6, 12], [8, 10], [8, 7.5], [6, 5.5], [2, 5.5], [0, 7.5]]],
+  7: [[[0, 0], [8, 0], [3, 12]]],
+  8: [[[4, 6], [1.5, 4.5], [1.5, 1.5], [3, 0], [5, 0], [6.5, 1.5], [6.5, 4.5], [4, 6], [0.5, 8], [0.5, 10.5], [2.5, 12], [5.5, 12], [7.5, 10.5], [7.5, 8], [4, 6]]],
+  9: [[[8, 4.5], [6, 6.5], [2, 6.5], [0, 4.5], [0, 2], [2, 0], [6, 0], [8, 2], [8, 9], [6, 12], [2.5, 12], [0.5, 11]]],
+  "+": [[[4, 3], [4, 11]], [[0, 7], [8, 7]]],
+  "−": [[[0, 7], [8, 7]]],
+};
+/** One character as a path: its strokes on the grid, every point nudged a little. */
+function glyphPath(ch) {
+  const strokes = FONT[ch] || FONT.X;
+  return strokes.map((line) => line.map(([x, y], i) => `${i ? "L" : "M"}${r1(x + between(-0.35, 0.35))} ${r1(y + between(-0.35, 0.35))}`).join(" ")).join(" ");
+}
+
 /** The picture: an SVG, different every time. */
 function drawSvg(show) {
   const [c1, c2] = pick(PAPER);
@@ -87,7 +140,9 @@ function drawSvg(show) {
     const rot = r1(between(-24, 24));
     const skew = r1(between(-14, 14));
     const gx = r1(x + between(-3, 3));
-    parts.push(`<text x="${gx}" y="${y}" font-size="${size}" font-weight="700" font-family="Georgia,'Trebuchet MS',Verdana,sans-serif" fill="${pick(INK)}" transform="rotate(${rot} ${gx} ${y}) skewX(${skew})">${ch.replace("&", "&amp;")}</text>`);
+    const k = r1((size / 14) * 100) / 100; // the grid's 12 units ≈ the old letters' height
+    const top = r1(y - 12 * k);
+    parts.push(`<path d="${glyphPath(ch)}" fill="none" stroke="${pick(INK)}" stroke-width="${r1(between(1.9, 2.6))}" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke" transform="translate(${gx} ${top}) rotate(${rot} ${r1(4 * k)} ${r1(6 * k)}) skewX(${skew}) scale(${k})"/>`);
     x += step;
   }
   const curve = (w, op) => {
@@ -104,7 +159,7 @@ function drawSvg(show) {
     `<filter id="w" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="turbulence" baseFrequency="${r1(fx * 1000) / 1000} ${r1(fy * 1000) / 1000}" numOctaves="2" seed="${crypto.randomInt(1, 9999)}" result="t"/><feDisplacementMap in="SourceGraphic" in2="t" scale="${scale}"/></filter></defs>` +
     `<rect width="${W}" height="${H}" fill="url(#g)"/>` +
     noise.slice(0, 3).join("") +
-    `<g filter="url(#w)">${parts.join("")}</g>` +
+    `<g filter="url(#w)">${shuffle(parts).join("")}</g>` +
     noise.slice(3).join("") +
     dots.join("") +
     `</svg>`;

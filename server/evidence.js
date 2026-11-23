@@ -23,6 +23,7 @@
 const H = require("./market/horizon");
 const E = require("./market/evidence");
 const { sectorOf } = require("./market/sectors");
+const { guardedTick } = require("./heal");
 
 const IST = 5.5 * 3600 * 1000;
 const MODEL = "market/evidence-model.json";
@@ -1210,7 +1211,10 @@ class Evidence {
   start() {
     if (this.timer) return;
     this.timer = setInterval(() => {
-      this.tickOnce().catch((err) => this.log.error(`[evidence] ${err.message}`));
+      // one round at a time (a sweep longer than its slot no longer starts a second beside it), and a round stuck for
+      // 15 minutes is let go so the service carries on (server/heal.js)
+      if (!this._heal) this._heal = guardedTick("evidence", () => this.tickOnce(), { ms: 15 * 60000, log: this.log });
+      this._heal.tick();
     }, 30000);
     if (this.timer.unref) this.timer.unref();
   }

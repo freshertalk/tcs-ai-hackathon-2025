@@ -204,7 +204,7 @@ class WhatsAppService {
       return { sent: false, reason: "window_closed" };
     }
     try {
-      const res = await this.fetch(`${GRAPH}/${d.phoneNumberId}/messages`, { method: "POST", headers: { authorization: `Bearer ${token}`, "content-type": "application/json" }, body: JSON.stringify(body) });
+      const res = await this.fetch(`${GRAPH}/${d.phoneNumberId}/messages`, { method: "POST", headers: { authorization: `Bearer ${token}`, "content-type": "application/json" }, body: JSON.stringify(body), signal: AbortSignal.timeout(10000) });
       const j = await res.json().catch(() => null);
       if (!res.ok) throw new Error((j && j.error && j.error.message) || `WhatsApp answered ${res.status}`);
       this._note({ lastSent: new Date(this.now()).toISOString(), lastError: "" });
@@ -234,7 +234,10 @@ class WhatsAppService {
   verify(q) {
     const d = this._load();
     const want = this._secret(d, "verifyTokenEnc");
-    if (q["hub.mode"] === "subscribe" && want && String(q["hub.verify_token"] || "") === want) return String(q["hub.challenge"] || "");
+    const got = Buffer.from(String(q["hub.verify_token"] || ""));
+    const exp = Buffer.from(String(want || ""));
+    // compared in constant time (a byte-by-byte === leaks how much of the token was right)
+    if (q["hub.mode"] === "subscribe" && want && got.length === exp.length && crypto.timingSafeEqual(got, exp)) return String(q["hub.challenge"] || "");
     return null;
   }
 
@@ -602,11 +605,11 @@ Daily: ${v.summary}
       if (t.mins >= 560 && t.mins < 575 && d.morning !== t.date) {
         this._note({ morning: t.date });
         const st = await this._status();
-        return this.send(`🌅 Good morning — Jai Shri Ram.\n${st}\nUpdates every ${d.every || 30} min while positions are open. Reply HELP for commands.`);
+        return await this.send(`🌅 Good morning — Jai Shri Ram.\n${st}\nUpdates every ${d.every || 30} min while positions are open. Reply HELP for commands.`);
       }
       if (t.mins >= 935 && t.mins < 960 && d.closing !== t.date) {
         this._note({ closing: t.date });
-        return this.send(`🔔 Market closed.\n${await this._pnl("PNL")}\nThe Trade Analysis report follows at 3:45 PM.`);
+        return await this.send(`🔔 Market closed.\n${await this._pnl("PNL")}\nThe Trade Analysis report follows at 3:45 PM.`);
       }
       if (!marketOpen(this.now()) || d.updates === false || !this.trading.status().connected) return null;
       const due = !d.lastUpdate || this.now() - Date.parse(d.lastUpdate) >= (d.every || 30) * 60000;
@@ -614,7 +617,7 @@ Daily: ${v.summary}
       this._note({ lastUpdate: new Date(this.now()).toISOString() });
       const text = await this.positionsText({ ai: true });
       if (!text) return null; // nothing open: no message
-      return this.send(text);
+      return await this.send(text);
     } finally {
       this.busy = false;
     }

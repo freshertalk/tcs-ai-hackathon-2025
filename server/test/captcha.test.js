@@ -35,7 +35,10 @@ test("the picture is random and drawn on the spot: five unmistakable characters 
   assert.match(uri, /^data:image\/svg\+xml;base64,/);
   const svg = Buffer.from(uri.split(",")[1], "base64").toString("utf8");
   assert.match(svg, /<feDisplacementMap/);
-  assert.equal((svg.match(/<text /g) || []).length, 5);
+  // the characters are drawn as stroked paths (a small stroke font): no <text> a script could read back
+  assert.equal((svg.match(/<text/g) || []).length, 0);
+  assert.equal((svg.match(/stroke-linejoin="round"/g) || []).length, 5, "five characters");
+  assert.doesNotMatch(svg, /AB7K2|>A<|>B</, "the answer is nowhere in the picture");
   assert.notEqual(drawSvg("AB7K2"), uri, "never the same picture twice");
   assert.doesNotMatch(svg, /<script|onload|javascript:/i);
 });

@@ -532,6 +532,18 @@ class TopPicks {
     // the lists that are scored later: the one made before the open, the one made after the close
     if (snap.phase === "pre" || snap.phase === "post") d[snap.phase] = { at: snap.at, session: snap.session, picks: snap.list.map((x) => ({ symbol: x.symbol, side: x.side, rank: x.rank, tags: x.tags })), ai: snap.ai && !snap.ai.failed ? snap.ai.by : null };
     this.docs.write(dayDoc(date), d);
+    this._pruneDays(date);
+  }
+
+  /** Once a day: the day records older than 90 days are deleted (they were kept for ever, and all loaded at each start). */
+  _pruneDays(today) {
+    if (this._prunedOn === today || typeof this.docs.remove !== "function") return;
+    this._prunedOn = today;
+    const t = Date.parse(`${today}T00:00:00Z`);
+    for (let k = 91; k <= 500; k += 1) {
+      const old = new Date(t - k * 86400000).toISOString().slice(0, 10);
+      if (this.docs.read(dayDoc(old), null)) this.docs.remove(dayDoc(old));
+    }
   }
 
   _share(snap) {

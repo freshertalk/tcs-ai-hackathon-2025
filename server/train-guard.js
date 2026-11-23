@@ -74,6 +74,8 @@ class TrainGuard {
     if (MANUAL.has(String(trigger))) return "";
     const now = this.now();
     const up = now - this.startedAt;
+    // memory is tight (server/memory.js): a heavy job now would push the process into pm2's limit
+    if (this.memory && typeof this.memory.pressure === "function" && this.memory.pressure()) return "memory is tight right now (the server is dropping its caches); automatic training waits until it is back to normal";
     if (up < this.graceMs) return `the server started ${Math.max(0, Math.round(up / 1000))} s ago, and automatic training waits ${Math.round(this.graceMs / 60000)} minutes after a start`;
     const r = this.record(id);
     if (!r || !r.startedAt || ended(r) || this._live.has(id)) return "";

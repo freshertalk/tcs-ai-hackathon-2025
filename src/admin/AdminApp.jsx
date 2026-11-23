@@ -13,7 +13,8 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { BRAND } from "./brand";
 import { Navigate, Route, Routes } from "react-router-dom";
 
-import { api } from "./api";
+import { api, SIGNED_OUT_EVENT } from "./api";
+import { snack } from "./ux/snack";
 import { AuthContext, useAuth } from "./auth";
 import { ADMIN_BASE } from "./paths";
 import { Loading } from "./ui";
@@ -200,6 +201,18 @@ export default function AdminApp() {
 
   useEffect(() => {
     reload();
+  }, [reload]);
+  // the session ended while the page was open: back to the sign-in door, with a word saying why (at most once in 10 s)
+  useEffect(() => {
+    let last = 0;
+    const onOut = () => {
+      if (Date.now() - last < 10000) return;
+      last = Date.now();
+      reload();
+      snack("Your session has ended. Please sign in again.", { tone: "warn", key: "signed-out", ms: 8000 });
+    };
+    window.addEventListener(SIGNED_OUT_EVENT, onOut);
+    return () => window.removeEventListener(SIGNED_OUT_EVENT, onOut);
   }, [reload]);
 
   const value = useMemo(() => ({ ...state, reload }), [state, reload]);

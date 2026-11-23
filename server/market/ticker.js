@@ -294,13 +294,34 @@ class KiteTicker extends EventEmitter {
     if (this._retryTimer.unref) this._retryTimer.unref();
   }
 
+  /**
+   * Hand a tick to every listener, each on its own: a listener that throws (a bug in the scanner, the exit coach, the live
+   * book…) is logged — at most once a minute — and the others still get the tick. Before, one throw here was an uncaught
+   * exception, which ends the process; ticks kept coming after the restart, so it would repeat all session.
+   */
+  _safeEmit(name, value) {
+    for (const fn of this.rawListeners(name)) {
+      try {
+        fn.call(this, value);
+      } catch (err) {
+        this.listenerErrors = (this.listenerErrors || 0) + 1;
+        const t = Date.now();
+        if (!this._listenerErrAt || t - this._listenerErrAt > 60000) {
+          this._listenerErrAt = t;
+          console.error(`[ticker] a ${name} listener failed (${this.listenerErrors} so far; the others carry on): ${err && err.message ? err.message : err}`);
+        }
+      }
+    }
+  }
+
   _connect() {
     if (this.ws || !this.creds) return;
     this._set("connecting");
     let ws;
     try {
       // the session travels in the query string because that is Zerodha's protocol; this URL is never logged
-      ws = new this.WS(`${ENDPOINT}?api_key=${encodeURIComponent(this.creds.apiKey)}&access_token=${encodeURIComponent(this.creds.accessToken)}`);
+      // handshakeTimeout: an upgrade that never answers ends in an error (and a retry) instead of "connecting" for ever
+      ws = new this.WS(`${ENDPOINT}?api_key=${encodeURIComponent(this.creds.apiKey)}&access_token=${encodeURIComponent(this.creds.accessToken)}`, { handshakeTimeout: 15000 });
     } catch (err) {
       this._retry("could not open the connection");
       return;
@@ -345,7 +366,7 @@ class KiteTicker extends EventEmitter {
           tr.push([merged.at, merged.last]);
           if (tr.length > 360) tr.shift();
         } else tr[tr.length - 1][1] = merged.last;
-        this.emit("tick", merged);
+        this._safeEmit("tick", merged);
       }
     });
 

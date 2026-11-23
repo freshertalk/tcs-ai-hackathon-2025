@@ -1,5 +1,6 @@
 "use strict";
 // The automation supervisor: makes sure nothing that should run by itself is left behind.
+const { deadline } = require("./heal");
 //
 //   WHY      Every learner and forecaster has its own clock (the forecaster learns at 3:40 PM, the set-up lab runs in the
 //            evening, the level learner after the close…). A clock only fires if the server is up AND Zerodha is connected
@@ -153,14 +154,17 @@ class Supervisor {
     rec.lastRunAt = new Date(started).toISOString();
     rec.lastReason = reason;
     rec.inFlight = rec.lastRunAt; // cleared when it ends; found by the next process if the server stops during it
-    this._event({ id: d.id, name: d.name, kind: "started", reason });
-    this._save();
     let error = "";
     try {
-      await d.run();
+      this._event({ id: d.id, name: d.name, kind: "started", reason });
+      this._save();
+      // a duty that hangs is let go after its limit (30 minutes unless it says otherwise), so one stuck duty can never stop all
+      // catch-up work for ever (robustness review, 23 Nov 2026)
+      await deadline(Promise.resolve().then(() => d.run()), d.maxMs || 30 * 60000, `the duty "${d.name}"`);
     } catch (err) {
       error = String(err && err.message ? err.message : err).slice(0, 200);
     }
+    try {
     const still = error ? reason : this._reason(d);
     const base = d.every || MIN_GAP;
     if (error) {
@@ -180,8 +184,15 @@ class Supervisor {
     rec.inFlight = null;
     if (!error) rec.died = 0;
     this._event({ id: d.id, name: d.name, kind: error ? "failed" : still ? "partial" : "done", reason, error, ms: rec.lastMs });
-    this.running = null;
-    this._save();
+    } finally {
+      // whatever happened above, the supervisor is free for the next duty
+      this.running = null;
+      try {
+        this._save();
+      } catch (err) {
+        this.log.error(`[supervisor] could not save its record: ${err && err.message ? err.message : err}`);
+      }
+    }
   }
 
   /* --------------------------------------------------------------------------- for the screen */

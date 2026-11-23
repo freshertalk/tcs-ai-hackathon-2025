@@ -93,6 +93,7 @@ class Notifier {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ chat_id: d.chatId, text: String(text).slice(0, 3900), disable_web_page_preview: true }),
+        signal: AbortSignal.timeout(10000), // a phone note never holds the price alerts up for minutes
       });
       const j = await res.json().catch(() => null);
       if (!res.ok || !j || !j.ok) throw new Error((j && j.description) || `Telegram answered ${res.status}`);

@@ -199,14 +199,17 @@ class DeliveryStore {
           const ctl = typeof AbortController === "function" ? new AbortController() : null;
           const t = ctl ? setTimeout(() => ctl.abort(), TIMEOUT_MS) : null;
           let res;
+          let text;
           try {
             res = await this.fetch(url, { method: "GET", headers: { "User-Agent": UA, Accept: "text/csv,*/*" }, signal: ctl ? ctl.signal : undefined });
+            // the body is read inside the same time limit (the timer used to be cleared before it, leaving the read unbounded)
+            text = res.ok ? await res.text() : "";
           } finally {
             if (t) clearTimeout(t);
           }
           if (res.status === 404) continue; // a holiday the calendar did not know, or not published yet
           if (!res.ok) throw new Error(`NSE answered ${res.status}`);
-          const day = parse(await res.text());
+          const day = parse(text);
           this.put(day);
           got += 1;
           this.lastError = "";

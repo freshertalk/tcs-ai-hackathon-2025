@@ -100,3 +100,32 @@ describe("several tabs at once: the server says 'too many'", () => {
     Object.assign(apiTuning, { maxActive: was.maxActive });
   });
 });
+
+test("a session that ended answers 401: the app is told (to go back to the door); sign-in routes themselves do not trigger it", async () => {
+  const { SIGNED_OUT_EVENT } = require("./api");
+  const heard = [];
+  const on = (e) => heard.push(e.detail.path);
+  window.addEventListener(SIGNED_OUT_EVENT, on);
+  global.fetch = jest.fn(async () => ({ ok: false, status: 401, headers: { get: () => "application/json" }, json: async () => ({ error: "unauthorized", message: "Sign in again." }) }));
+  await expect(api("/api/admin/market/status")).rejects.toThrow("Sign in again.");
+  await expect(api("/api/auth/email/login", { method: "POST", body: {} })).rejects.toThrow();
+  expect(heard).toEqual(["/api/admin/market/status"]);
+  window.removeEventListener(SIGNED_OUT_EVENT, on);
+});
+
+test("no request waits for ever: a read that never answers gives up with a plain message", async () => {
+  const keep = apiTuning.readTimeoutMs;
+  apiTuning.readTimeoutMs = 30;
+  global.fetch = jest.fn(
+    (_, init) =>
+      new Promise((_, reject) => {
+        init.signal.addEventListener("abort", () => {
+          const e = new Error("aborted");
+          e.name = "AbortError";
+          reject(e);
+        });
+      })
+  );
+  await expect(api("/api/admin/slow")).rejects.toMatchObject({ code: "timeout", status: 504 });
+  apiTuning.readTimeoutMs = keep;
+});

@@ -31,7 +31,7 @@ function mountAi(app, { ai, requireAdmin, requireSuper = requireAdmin, limiter }
 
   app.get("/api/admin/ai/status", requireAdmin, wrap(async () => ai.status()));
 
-  app.put("/api/admin/ai/settings", requireAdmin, limiter(30, 15 * 60 * 1000), wrap(async (req) => {
+  app.put("/api/admin/ai/settings", requireSuper, limiter(30, 15 * 60 * 1000), wrap(async (req) => {
     const b = req.body || {};
     const out = ai.setSettings({ provider: b.provider ? String(b.provider) : undefined, apiKey: b.apiKey, model: b.model, clear: Boolean(b.clear), live: b.live, use: b.use, fallback: typeof b.fallback === "boolean" ? b.fallback : undefined });
     // never the key itself; the company and model names only (safe characters, so no forged log lines)
@@ -104,7 +104,10 @@ function mountAi(app, { ai, requireAdmin, requireSuper = requireAdmin, limiter }
   /* ---- AI Live and AI Research: the desk's own arithmetic answers first and needs no AI; the
      analyst (the default model, which also does the web search when its company has one) is
      started only by these buttons, for the stock that is open. */
-  app.get("/api/admin/ai/pulse/:symbol", requireAdmin, limiter(300, 60 * 1000), wrap(async (req) => ai.ensemble.pulse(symbolOf(req))));
+  // the site's own account (cash, this stock's position) only for a superadmin: a plain admin gets the reading without it
+  const isSuper = (req) => Boolean(req.user && req.user.role === "superadmin");
+  const hideAccount = (req, v) => (v && v.withAccount && !isSuper(req) ? { hidden: true, reason: "This run read the owner's account, so it is shown only to a superadmin. Start your own run." } : v);
+  app.get("/api/admin/ai/pulse/:symbol", requireAdmin, limiter(300, 60 * 1000), wrap(async (req) => ai.ensemble.pulse(symbolOf(req), { withAccount: isSuper(req) })));
 
   app.get("/api/admin/ai/outlook/:symbol", requireAdmin, limiter(90, 60 * 1000), wrap(async (req) => {
     const { brief, verdict, sheet, ...rest } = await ai.ensemble.outlook(symbolOf(req));
@@ -127,14 +130,14 @@ function mountAi(app, { ai, requireAdmin, requireSuper = requireAdmin, limiter }
     return ai.ensemble.status();
   }));
 
-  app.put("/api/admin/ai/ensemble/settings", requireAdmin, limiter(40, 15 * 60 * 1000), wrap(async (req) => ai.ensemble.setSettings(req.body || {})));
+  app.put("/api/admin/ai/ensemble/settings", requireSuper, limiter(40, 15 * 60 * 1000), wrap(async (req) => ai.ensemble.setSettings(req.body || {})));
 
   // one run reads the page's stock with up to eight models at once: a limit keeps a stuck button from spending
-  app.post("/api/admin/ai/ensemble/:kind/:symbol", requireAdmin, limiter(30, 10 * 60 * 1000), wrap(async (req) => ai.ensemble.start(kindOf(req), symbolOf(req), { engineOnly: Boolean((req.body || {}).engineOnly) })));
+  app.post("/api/admin/ai/ensemble/:kind/:symbol", requireAdmin, limiter(30, 10 * 60 * 1000), wrap(async (req) => ai.ensemble.start(kindOf(req), symbolOf(req), { withAccount: isSuper(req), engineOnly: Boolean((req.body || {}).engineOnly) })));
 
-  app.get("/api/admin/ai/ensemble/job/:id", requireAdmin, limiter(600, 60 * 1000), wrap(async (req) => ai.ensemble.job(req.params.id)));
+  app.get("/api/admin/ai/ensemble/job/:id", requireAdmin, limiter(600, 60 * 1000), wrap(async (req) => hideAccount(req, ai.ensemble.job(req.params.id))));
 
-  app.get("/api/admin/ai/ensemble/:kind/:symbol", requireAdmin, wrap(async (req) => ({ last: ai.ensemble.last(kindOf(req), symbolOf(req)) })));
+  app.get("/api/admin/ai/ensemble/:kind/:symbol", requireAdmin, wrap(async (req) => ({ last: hideAccount(req, ai.ensemble.last(kindOf(req), symbolOf(req))) })));
 
   app.get("/api/admin/ai/skills", requireSuper, wrap(async () => ({ text: ai.playbook.read(), lessons: ai.playbook.lessons().length })));
 

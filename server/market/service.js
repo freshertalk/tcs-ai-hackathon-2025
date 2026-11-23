@@ -271,7 +271,7 @@ class MarketService {
     return loginUrl(s.kiteApiKey, state);
   }
 
-  async completeLogin(requestToken) {
+  async completeLogin(requestToken, { allowOtherUser = true } = {}) {
     if (!/^[A-Za-z0-9]{6,64}$/.test(String(requestToken || ""))) throw new MarketError("Kite did not send a valid request token.", "invalid");
     const s = this._settings();
     const r = await exchangeToken({
@@ -280,6 +280,11 @@ class MarketService {
       requestToken,
       fetchImpl: this.fetch,
     });
+    const known = s.kiteUserId || "";
+    if (!allowOtherUser && known && r.userId && r.userId !== known) {
+      this.log.warn(`[market] a Kite login for ${r.userId} was refused: the site's account is ${known}`);
+      throw new MarketError(`That login was for Zerodha account ${r.userId}, not the site's account ${known}. Only the owner can switch the site to another Zerodha account.`, "other_account", 403);
+    }
     this.store.update((d) => {
       d.settings.kiteAccessTokenEnc = this.secrets.encrypt(r.accessToken);
       d.settings.kiteLoginAt = new Date(this.now()).toISOString();
@@ -711,9 +716,28 @@ class MarketService {
     };
     const need = list.filter((s) => !fresh(s));
     if (need.length) {
-      const raw = await this._call((k) => k.quotes(need.map((s) => `NSE:${s}`)));
-      // a symbol Kite did not answer for is remembered too, so it is not asked again at once
-      for (const s of need) this._quoteAt.set(s, { at: now, q: raw[`NSE:${s}`] || null });
+      // callers asking at the same moment share one request per symbol (before, each queued its own behind Zerodha's limit)
+      if (!this._quoteFlight) this._quoteFlight = new Map();
+      const waitOn = new Set();
+      const ask = [];
+      for (const s of need) {
+        const f = this._quoteFlight.get(s);
+        if (f) waitOn.add(f);
+        else ask.push(s);
+      }
+      if (ask.length) {
+        const job = this._call((k) => k.quotes(ask.map((s) => `NSE:${s}`)))
+          .then((raw) => {
+            // a symbol Kite did not answer for is remembered too, so it is not asked again at once
+            for (const s of ask) this._quoteAt.set(s, { at: now, q: raw[`NSE:${s}`] || null });
+          })
+          .finally(() => {
+            for (const s of ask) if (this._quoteFlight.get(s) === job) this._quoteFlight.delete(s);
+          });
+        for (const s of ask) this._quoteFlight.set(s, job);
+        waitOn.add(job);
+      }
+      await Promise.all(waitOn);
     }
     const quotes = {};
     let oldest = now;

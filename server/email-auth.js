@@ -47,6 +47,10 @@ const CODE_TRIES = 5;
 const MAX_FAILS = 5;
 const FAIL_WINDOW_MS = 15 * 60 * 1000;
 const LOCK_MS = 15 * 60 * 1000;
+// Wrong tries are counted per address AND visitor (security review, 23 Nov 2026): five from one visitor lock that visitor out of
+// that address; a stranger can no longer lock the owner out of their own email sign-in. The address as a whole locks only after
+// MAX_FAILS_ALL wrong tries from everyone together in the window (a wide guessing attack).
+const MAX_FAILS_ALL = 30;
 const RESEND_MS = 60 * 1000;
 const PER_HOUR = 5;
 const MAX_REQUESTS = 50; // open requests kept; a flood cannot grow the record
@@ -109,31 +113,49 @@ function mountEmailAuth(app, ctx) {
 
   /* ------------------------------------------------ wrong tries and the lock */
   const memFails = new Map(); // for addresses that are not on the list: kept only in memory
+  const visitorFails = new Map(); // `${address}|${visitor}` → { n, first, until } (memory; a restart forgets, the address lock stays)
+  const visitorOf = (req) => String((req && (req.ip || (req.socket && req.socket.remoteAddress))) || "?").slice(0, 64);
   const failsOf = (canon, id) => (id ? (record(id) || {}).fails || null : memFails.get(canon) || null);
-  const lockLeft = (canon, id) => {
-    const f = failsOf(canon, id);
-    return f && f.until > now() ? f.until - now() : 0;
+  const left = (f) => (f && f.until > now() ? f.until - now() : 0);
+  /** How long this address is locked: for one visitor (`who`), or — without `who` — for anyone (the admin page's "locked"). */
+  const lockLeft = (canon, id, who) => {
+    let ms = left(failsOf(canon, id));
+    if (who) ms = Math.max(ms, left(visitorFails.get(`${canon}|${who}`)));
+    else for (const [k, f] of visitorFails) if (k.startsWith(`${canon}|`)) ms = Math.max(ms, left(f));
+    return ms;
   };
-  function recordFail(canon, id) {
+  const bump = (f, t, max) => {
+    let g = f || { n: 0, first: t, until: 0 };
+    if (t - g.first > FAIL_WINDOW_MS || (g.until && g.until <= t)) g = { n: 0, first: t, until: 0 };
+    return { n: g.n + 1, first: g.first, until: g.n + 1 >= max ? t + LOCK_MS : 0 };
+  };
+  function recordFail(canon, id, who) {
     const t = now();
-    let f = failsOf(canon, id) || { n: 0, first: t, until: 0 };
-    if (t - f.first > FAIL_WINDOW_MS || (f.until && f.until <= t)) f = { n: 0, first: t, until: 0 };
-    f = { n: f.n + 1, first: f.first, until: f.n + 1 >= MAX_FAILS ? t + LOCK_MS : 0 };
+    // the address as a whole: a listed one only after many wrong tries from everyone; an unlisted one as before
+    const f = bump(failsOf(canon, id), t, id && who ? MAX_FAILS_ALL : MAX_FAILS);
     if (id) touch(id, (u) => (u.fails = f));
     else {
       memFails.set(canon, f);
       if (memFails.size > 5000) memFails.delete(memFails.keys().next().value);
     }
-    return f;
+    if (!who) return f;
+    const k = `${canon}|${who}`;
+    const v = bump(visitorFails.get(k), t, MAX_FAILS);
+    visitorFails.delete(k);
+    visitorFails.set(k, v);
+    if (visitorFails.size > 20000) visitorFails.delete(visitorFails.keys().next().value);
+    return { n: Math.max(f.n, v.n), until: Math.max(f.until || 0, v.until || 0) };
   }
-  function clearFails(canon, id) {
+  function clearFails(canon, id, who) {
     if (id) {
       const u = record(id);
-      if (u && u.fails) touch(id, (x) => delete x.fails);
+      if (u && u.fails && !who) touch(id, (x) => delete x.fails);
     } else memFails.delete(canon);
+    if (who) visitorFails.delete(`${canon}|${who}`);
+    else for (const k of [...visitorFails.keys()]) if (k.startsWith(`${canon}|`)) visitorFails.delete(k);
   }
   const lockedReply = (res, canon, id, req, method) => {
-    const ms = lockLeft(canon, id);
+    const ms = lockLeft(canon, id, visitorOf(req));
     audit(req, "locked", canon, { method });
     res.set("Retry-After", String(Math.ceil(ms / 1000)));
     return bad(res, 429, "locked", `Too many wrong attempts. Try again in ${Math.max(1, Math.ceil(ms / 60000))} minute${Math.ceil(ms / 60000) === 1 ? "" : "s"}.`);
@@ -302,13 +324,13 @@ function mountEmailAuth(app, ctx) {
     const id = identify(email);
     if (!id) return deny(req, res, canon, "password");
     if (!methods().password) return bad(res, 403, "disabled", "Signing in with a password is turned off.");
-    if (lockLeft(canon, id)) return lockedReply(res, canon, id, req, "password");
+    if (lockLeft(canon, id, visitorOf(req))) return lockedReply(res, canon, id, req, "password");
 
     const rec = record(id);
     // always spend the time of one check, so an unknown address cannot be told from a wrong password
     const ok = (await pw.verifyPassword(password, rec && rec.passwordHash ? rec.passwordHash : await pw.dummyHash())) && Boolean(rec && rec.passwordHash);
     if (!ok) {
-      const f = recordFail(canon, id);
+      const f = recordFail(canon, id, visitorOf(req));
       audit(req, "signin_failed", canon, { method: "password", known: Boolean(id) });
       if (f.until) return lockedReply(res, canon, id, req, "password");
       return bad(res, 401, "bad_login", "That email address or password is not right.");
@@ -467,14 +489,14 @@ function mountEmailAuth(app, ctx) {
     const id = identify(email);
     if (!id) return deny(req, res, canon, "code");
     if (!methods().code) return bad(res, 403, "disabled", "Signing in with an emailed code is turned off.");
-    if (lockLeft(canon, id)) return lockedReply(res, canon, id, req, "code");
+    if (lockLeft(canon, id, visitorOf(req))) return lockedReply(res, canon, id, req, "code");
     const rec = record(id);
     const c = rec && rec.code;
     const live = Boolean(c && c.exp > now() && c.tries < CODE_TRIES);
     const same = safeEqual(codeMac(id || { email: canon }, code), (live && c.h) || "0".repeat(64));
     if (!(live && same)) {
       if (id && c) touch(id, (u) => u.code && (u.code.tries += 1));
-      const f = recordFail(canon, id);
+      const f = recordFail(canon, id, visitorOf(req));
       audit(req, "signin_failed", canon, { method: "code", known: Boolean(id) });
       if (f.until) return lockedReply(res, canon, id, req, "code");
       return bad(res, 401, "bad_code", "That code is not right, or it has expired. Ask for a new one.");
@@ -565,6 +587,14 @@ function mountEmailAuth(app, ctx) {
 
   app.put("/api/admin/settings/email", requireSuper, (req, res) => {
     const b = req.body || {};
+    // The mail server and the site address carry EVERY sign-in code and reset link — the owner's too. Whoever controls them could
+    // receive the owner's code and sign in as the owner, so only the owner may change them (security review, 23 Nov 2026). A
+    // superadmin still sees the settings and can send the test message.
+    const touchesMail = b.clearSmtp === true || (b.smtp && typeof b.smtp === "object") || typeof b.publicUrl === "string" || (b.signIn && typeof b.signIn === "object");
+    if (touchesMail && !(req.user && req.user.owner)) {
+      audit(req, "settings_refused", req.user.email, { what: "email & sign-in (owner only)" });
+      return bad(res, 403, "owner_only", "Only the owner can change the mail server, the site address or the ways to sign in: they carry everyone's sign-in codes and links.");
+    }
     const next = { ...toggles(store) };
     if (b.signIn && typeof b.signIn === "object") for (const k of ["google", "password", "code"]) if (typeof b.signIn[k] === "boolean") next[k] = b.signIn[k];
 

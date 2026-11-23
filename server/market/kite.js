@@ -27,16 +27,36 @@ class KiteError extends Error {
   }
 }
 
-/** Runs tasks one at a time, at least `gapMs` apart — the API's per-second limits. */
+/**
+ * Runs tasks one at a time, at least `gapMs` apart — the API's per-second limits.
+ * BOUNDED (robustness review, 23 Nov 2026): when Zerodha slows down, callers used to pile up behind a slow call without limit and
+ * every service waiting on them stalled. Now at most `maxQueue` tasks wait (more are refused at once, "busy"), and a task that has
+ * waited `maxWaitMs` by the time its turn comes is refused instead of being sent late — its caller has moved on anyway.
+ */
 class Throttle {
-  constructor(gapMs) {
+  constructor(gapMs, { maxQueue = 40, maxWaitMs = 30000 } = {}) {
     this.gapMs = gapMs;
     this.last = 0;
     this.chain = Promise.resolve();
+    this.maxQueue = maxQueue;
+    this.maxWaitMs = maxWaitMs;
+    this.waiting = 0;
+    this.refused = 0;
   }
 
   run(fn) {
+    if (this.waiting >= this.maxQueue) {
+      this.refused += 1;
+      return Promise.reject(Object.assign(new Error("Zerodha is answering slowly and too many requests are waiting; this one is skipped (it is asked again on the next round)."), { code: "busy", busy: true }));
+    }
+    this.waiting += 1;
+    const queuedAt = Date.now();
     const next = this.chain.then(async () => {
+      this.waiting -= 1;
+      if (Date.now() - queuedAt > this.maxWaitMs) {
+        this.refused += 1;
+        throw Object.assign(new Error("This request waited too long for its turn with Zerodha and was skipped."), { code: "busy", busy: true });
+      }
       const wait = this.last + this.gapMs - Date.now();
       if (wait > 0) await new Promise((r) => setTimeout(r, wait));
       this.last = Date.now();

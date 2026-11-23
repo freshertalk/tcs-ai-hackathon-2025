@@ -380,10 +380,11 @@ class Ensemble {
 
   /* ------------------------------------------------------ the deterministic floor (no AI) */
 
-  async pulse(symbol) {
+  /** @param withAccount the site's own account (cash, this stock's position) is read only for a superadmin (security review, 23 Nov 2026) */
+  async pulse(symbol, { withAccount = true } = {}) {
     let account = null;
     try {
-      account = typeof this.account === "function" ? await this.account(symbol) : null;
+      account = withAccount && typeof this.account === "function" ? await this.account(symbol) : null;
     } catch (_) {
       account = null;
     }
@@ -450,7 +451,8 @@ class Ensemble {
     };
   }
 
-  async _you(symbol) {
+  async _you(symbol, withAccount = true) {
+    if (!withAccount) return null;
     try {
       return typeof this.account === "function" ? await this.account(symbol) : null;
     } catch (_) {
@@ -532,8 +534,8 @@ class Ensemble {
     }
   }
 
-  async _researchBrief(symbol, out) {
-    const you = await this._you(symbol);
+  async _researchBrief(symbol, out, withAccount = true) {
+    const you = await this._you(symbol, withAccount);
     const mk = this.ai.market;
     let edgeSummary = null;
     try {
@@ -575,12 +577,12 @@ class Ensemble {
   }
 
   /** Start an AI run for the stock that is open. One at a time per stock and kind. */
-  start(kind, symbol, { engineOnly = false } = {}) {
+  start(kind, symbol, { engineOnly = false, withAccount = true } = {}) {
     if (kind !== "live" && kind !== "research") throw new AiError("Unknown kind.", "invalid", 400);
     if (!SYMBOL_RE.test(symbol)) throw new AiError("That is not a valid symbol.", "invalid", 400);
-    for (const j of this.jobs.values()) if (j.kind === kind && j.symbol === symbol && !j.finishedAt) return this._view(j);
+    for (const j of this.jobs.values()) if (j.kind === kind && j.symbol === symbol && !j.finishedAt && (j.withAccount !== false) === Boolean(withAccount)) return this._view(j);
     if ([...this.jobs.values()].filter((j) => !j.finishedAt).length >= 4) throw new AiError("Four AI runs are already going. Wait for one to finish.", "busy", 429);
-    const job = { id: crypto.randomBytes(6).toString("hex"), kind, symbol, startedAt: new Date(this.ai.now()).toISOString(), finishedAt: null, engineOnly: Boolean(engineOnly), stage: "data", steps: [], analysts: [], det: null, result: null, error: "" };
+    const job = { id: crypto.randomBytes(6).toString("hex"), kind, symbol, startedAt: new Date(this.ai.now()).toISOString(), finishedAt: null, engineOnly: Boolean(engineOnly), withAccount: Boolean(withAccount), stage: "data", steps: [], analysts: [], det: null, result: null, error: "" };
     this.jobs.set(job.id, job);
     if (this.jobs.size > MAX_JOBS) for (const [id, j] of this.jobs) if (j.finishedAt && this.jobs.size > MAX_JOBS) this.jobs.delete(id);
     job._promise = this._run(job).catch((err) => {
@@ -607,7 +609,7 @@ class Ensemble {
 
     /* 1. the desk's own arithmetic — the floor that needs no AI */
     this._step(job, "data", "The desk's own arithmetic read", "running");
-    const det = live ? await this.pulse(symbol) : await this.outlook(symbol);
+    const det = live ? await this.pulse(symbol, { withAccount: job.withAccount !== false }) : await this.outlook(symbol);
     if (!det.available) {
       this._step(job, "data", "The desk's own arithmetic read", "failed", det.reason || "");
       throw new AiError(det.reason || "Not enough data.", "unavailable", 409);
@@ -660,7 +662,7 @@ class Ensemble {
     /* 3. every analyst, in parallel, on the identical brief */
     let votes = [];
     if (analysts.length) {
-      const brief = live ? await this._liveBrief(symbol, det) : await this._researchBrief(symbol, det);
+      const brief = live ? await this._liveBrief(symbol, det) : await this._researchBrief(symbol, det, job.withAccount !== false);
       const user = `${live ? "Live" : "Next-session"} snapshot for ${symbol}:\n\n${JSON.stringify(brief)}\n\n---\n\nGive your reading.`;
       const system = live ? LIVE_SYSTEM : RESEARCH_SYSTEM;
       const schema = live ? LIVE_SCHEMA : RESEARCH_SCHEMA;
@@ -727,7 +729,7 @@ class Ensemble {
     fresh.preds = [...fresh.preds, pred].slice(-MAX_PREDS);
     this._save(fresh);
     const all = ai.docs.read(LAST, {});
-    const keep = { ...(all && typeof all === "object" ? all : {}), [`${kind}|${symbol}`]: result };
+    const keep = { ...(all && typeof all === "object" ? all : {}), [`${kind}|${symbol}`]: { ...result, withAccount: job.withAccount !== false } };
     const keys = Object.keys(keep);
     if (keys.length > 60) keys.slice(0, keys.length - 60).forEach((k) => delete keep[k]);
     ai.docs.write(LAST, keep);

@@ -21,6 +21,7 @@
 // It reads only. It cannot place, change or cancel an order, and it never asks an AI model.
 
 const S = require("./market/setup");
+const { deadline } = require("./heal");
 
 const IST = 5.5 * 3600 * 1000;
 const DOC = "market/trade-setup.json";
@@ -328,7 +329,8 @@ class TradeSetup {
 
   async tickOnce() {
     if (this._busy) return this._busy;
-    this._busy = (async () => {
+    // a round that hangs (a network call that never answers) is let go after five minutes, so the next round runs (server/heal.js)
+    this._busy = deadline((async () => {
       const now = this.now();
       const min = minuteOf(now);
       const on = this._inSession(now);
@@ -358,7 +360,7 @@ class TradeSetup {
       if (tasks.length || more) this._save();
       await run("ledger", () => this._recordLean());
       if (this._isDue("teach", 30 * MIN)) this.teach();
-    })()
+    })(), 5 * 60000, "the trade setup's round")
       .catch((err) => this.log.error(`[setup] ${err.message}`))
       .finally(() => {
         this._busy = null;

@@ -515,6 +515,17 @@ class Scanner extends EventEmitter {
     return rec;
   }
 
+  /** Once a day: the day records older than 45 days are deleted (they were kept for ever, and all loaded at each start). */
+  _pruneDays(today) {
+    if (this._prunedOn === today || !this.docs || typeof this.docs.remove !== "function") return;
+    this._prunedOn = today;
+    const t = Date.parse(`${today}T00:00:00Z`);
+    for (let k = 46; k <= 500; k += 1) {
+      const old = new Date(t - k * 86400000).toISOString().slice(0, 10);
+      if (this.docs.read(dayDoc(old), null)) this.docs.remove(dayDoc(old));
+    }
+  }
+
   _save(force = false) {
     if (!this.docs || !this.rec) return;
     this.lastSaveAt = this.now();
@@ -526,6 +537,7 @@ class Scanner extends EventEmitter {
       h.sessions = [...h.sessions.filter((x) => x.date !== this.rec.date), sum].sort((a, b) => (a.date < b.date ? -1 : 1)).slice(-30);
       this.docs.write(RECORD, h);
       this._hist = null;
+      this._pruneDays(this.rec.date);
     } catch (err) {
       this.log.error(`[scanner] could not save the record: ${err.message}`);
     }

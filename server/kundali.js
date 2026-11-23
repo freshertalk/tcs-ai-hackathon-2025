@@ -322,6 +322,9 @@ function mountKundali(app, { kundali, requireSuper, limiter, audit = () => {} })
       "Cache-Control": "private, no-store",
       "X-Content-Type-Options": "nosniff",
       "Content-Disposition": `${download ? "attachment" : "inline"}; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(a.name)}`,
+      // the Kundali page shows the paper in a frame of its own: this site (and only this site) may frame it
+      "X-Frame-Options": "SAMEORIGIN",
+      "Content-Security-Policy": "frame-ancestors 'self'; object-src 'none'; base-uri 'self'",
     });
     res.type(a.mime);
     res.sendFile(a.file);

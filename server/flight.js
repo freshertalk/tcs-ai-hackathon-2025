@@ -39,6 +39,7 @@ const { squareOffAt } = require("./market/session");
 const { BRAND } = require("./brand");
 const KC = require("./market/situation");
 const { wantAi } = require("./ai/spend"); // an automatic AI wish becomes an ask the owner can allow (23 Nov 2026)
+const { guardedTick } = require("./heal");
 
 const IST = 5.5 * 3600 * 1000;
 const SETTINGS = "flight/settings.json";
@@ -880,8 +881,11 @@ class FlightDeck extends EventEmitter {
   start() {
     if (this.timers.length) return;
     if (this.market.ticker) this.market.ticker.on("tick", this._onTick);
+    // every 2 s — but never two rounds at once (a slow Zerodha used to start duplicate reads of each position's inputs), and a
+    // round stuck for 2 minutes is let go (server/heal.js)
+    const heal = guardedTick("flight", () => this.tick(), { ms: 2 * 60000, log: this.log });
     const t = setInterval(() => {
-      this.tick().catch((err) => this.log.error(`[flight] ${err.message}`));
+      heal.tick();
     }, 2000);
     if (t.unref) t.unref();
     this.timers.push(t);
