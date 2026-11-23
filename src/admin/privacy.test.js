@@ -1,4 +1,6 @@
-import { hideAmounts, isAmount, markAmounts } from "./privacy";
+import React from "react";
+import { render } from "@testing-library/react";
+import { hideAmounts, isAmount, markAmounts, onChanges, PrivacyMasker } from "./privacy";
 
 test("what counts as an amount: rupees, signed figures, short figures — never a percentage, a time or a plain count", () => {
   for (const t of ["₹1,627.85", "+₹1,627.85", "−₹3,118", "+4.24k", "1.54k", "−2,840.00", "₹4.2 L", "₹69,001", "+3,369.99"]) expect([t, isAmount(t)]).toEqual([t, true]);
@@ -30,4 +32,44 @@ test("inside the money areas only: figures, money columns and labelled figures a
   document.getElementById("made").textContent = "—";
   markAmounts(document.getElementById("made"));
   expect(pv("made")).toBeNull();
+});
+
+test("instant: a figure that changes, a row that appears and a workspace that switches are marked in the same moment", async () => {
+  document.body.innerHTML = `
+    <div class="adm">
+      <div class="tm-page" data-view="journal">
+        <b id="pnl">51%</b>
+        <table><thead><tr><th>Symbol</th><th>Net P&amp;L</th></tr></thead><tbody id="rows"></tbody></table>
+      </div>
+      <div class="tm-page" data-view="setup" id="other"><b id="later">₹2,000</b></div>
+    </div>`;
+  // a figure changes from a percentage to an amount (a live tick): read again at once
+  const pnl = document.getElementById("pnl");
+  pnl.firstChild.nodeValue = "+₹1,627.85";
+  onChanges([{ type: "characterData", target: pnl.firstChild }]);
+  expect(pnl.getAttribute("data-pv")).toBe("t");
+  // a new row in a money table: its money column is marked with it
+  const tr = document.createElement("tr");
+  tr.innerHTML = "<th>SBIN</th><td id='cell'>277.62</td>";
+  document.getElementById("rows").appendChild(tr);
+  onChanges([{ type: "childList", target: document.getElementById("rows"), addedNodes: [tr] }]);
+  expect(document.getElementById("cell").getAttribute("data-pv")).toBe("c");
+  // a workspace switches to a money one: read whole
+  const other = document.getElementById("other");
+  expect(document.getElementById("later").getAttribute("data-pv")).toBeNull();
+  other.setAttribute("data-view", "account");
+  onChanges([{ type: "attributes", target: other }]);
+  expect(document.getElementById("later").getAttribute("data-pv")).toBe("t");
+});
+
+test("the watcher marks while the switch is off too, so switching it on is only the page's attribute", async () => {
+  document.body.innerHTML = '<div class="adm" data-privacy="off"><div class="tm-dock"><b id="dock">+₹1,627.85</b></div></div>';
+  render(React.createElement(PrivacyMasker), { container: document.querySelector(".adm").appendChild(document.createElement("div")) });
+  expect(document.getElementById("dock").getAttribute("data-pv")).toBe("t"); // marked already, with the switch off
+  const b = document.createElement("b");
+  b.id = "late";
+  b.textContent = "−₹3,118";
+  document.querySelector(".tm-dock").appendChild(b);
+  await Promise.resolve(); // the observer's moment: before any drawing
+  expect(document.getElementById("late").getAttribute("data-pv")).toBe("t");
 });

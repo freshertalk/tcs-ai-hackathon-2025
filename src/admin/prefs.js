@@ -11,9 +11,10 @@
 // The last known preferences are kept in this browser too, so the page is drawn right before the server answers.
 // A preference shows, hides and arranges; it can never give a person a workspace their role does not allow.
 
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { api } from "./api";
 import { setDeskTheme, useDeskTheme } from "./stock/analyzer/theme";
+import { useTopics } from "./live";
 import "./prefs.css";
 
 export const DEFAULT_PREFS = Object.freeze({
@@ -134,6 +135,10 @@ export function PrefsProvider({ enabled, children }) {
   const [error, setError] = useState("");
   const now = useRef(prefs);
   now.current = prefs;
+  const saveSeq = useRef(0); // which save is the latest
+  const inflight = useRef(0); // saves on their way to the server
+  const rereadLater = useRef(false); // an announcement came while a save was on its way
+  const rereadRef = useRef(null);
 
   const take = useCallback((p) => {
     const full = fillPrefs(p);
@@ -146,17 +151,26 @@ export function PrefsProvider({ enabled, children }) {
     async (patch, { desk = false } = {}) => {
       // at once on screen; the server's answer (what it accepted) replaces it
       const next = take(mergePrefs(now.current, patch));
+      applyLook(next); // this very moment, before React draws again (hide amounts, density, accent flip instantly)
       if (patch && patch.theme) setDeskTheme(next.theme);
       if (desk) applyDesk(next, true);
       setSaving(true);
+      const mine = ++saveSeq.current; // pressed twice quickly: only the last press's answer counts, so nothing flips back
+      inflight.current += 1;
       try {
         const r = await api("/api/admin/prefs", { method: "PUT", body: patch });
-        if (r && r.prefs) take(r.prefs);
+        if (r && r.prefs && mine === saveSeq.current) take(r.prefs);
         setError("");
       } catch (e) {
         setError(e.message);
       }
+      inflight.current -= 1;
       setSaving(false);
+      // a change from elsewhere announced while this one was on its way: read it now that ours has landed
+      if (inflight.current === 0 && rereadLater.current) {
+        rereadLater.current = false;
+        if (rereadRef.current) rereadRef.current();
+      }
       return next;
     },
     [take]
@@ -202,10 +216,56 @@ export function PrefsProvider({ enabled, children }) {
     };
   }, [enabled, take]);
 
-  // the look follows every change
-  useEffect(() => {
+  // the look follows every change — before the browser draws, so a switch never shows a frame of the old state
+  useLayoutEffect(() => {
     applyLook(prefs);
   }, [prefs]);
+
+  // LIVE, EVERYWHERE (24 Nov 2026): a change made in another tab of this browser arrives at once (the browser tells every
+  // tab when the stored copy changes) and one made on another device arrives through the live channel (the server
+  // announces "prefs" on every save; this page then reads its own preferences again) — no refresh anywhere.
+  const adopt = useCallback((p) => {
+    const full = fillPrefs(p);
+    setPrefs(full);
+    applyLook(full);
+    return full;
+  }, []);
+  useEffect(() => {
+    if (!enabled || typeof window === "undefined") return undefined;
+    const onStore = (e) => {
+      if (e.key !== KEY || !e.newValue) return;
+      try {
+        const p = adopt(JSON.parse(e.newValue));
+        setDeskTheme(p.theme);
+      } catch (_) {
+        /* not ours to read */
+      }
+    };
+    window.addEventListener("storage", onStore);
+    return () => window.removeEventListener("storage", onStore);
+  }, [enabled, adopt]);
+  const reread = useCallback(() => {
+    // while a save of ours is on its way, the server may still hold the state before it: wait for it to land
+    if (inflight.current > 0) {
+      rereadLater.current = true;
+      return;
+    }
+    const at = saveSeq.current;
+    api("/api/admin/prefs")
+      .then((r) => {
+        if (!r || !r.prefs || r.stored === false) return;
+        if (saveSeq.current !== at) return; // you changed something meanwhile: yours is newer
+        const cur = JSON.stringify(now.current);
+        const p = fillPrefs(r.prefs);
+        if (JSON.stringify(p) === cur) return; // nothing new (often our own save coming back)
+        take(p);
+        applyLook(p);
+        setDeskTheme(p.theme);
+      })
+      .catch(() => {});
+  }, [take]);
+  rereadRef.current = reread;
+  useTopics(enabled && ready ? ["prefs"] : [], reread);
   useEffect(
     () => () => {
       if (typeof document !== "undefined") document.documentElement.style.fontSize = "";

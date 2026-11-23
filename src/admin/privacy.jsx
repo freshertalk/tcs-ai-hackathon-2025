@@ -13,7 +13,7 @@
 //   · every figure under a label that names money (a <dt> "Net realised P&L" and its <dd>)
 // Percentages, quantities, times and prices without a rupee sign are left alone. The marked text is drawn as ***** (privacy.css).
 // Words that carry amounts (a hover help, the daily goal's popup) pass through hideAmounts().
-import React, { useEffect } from "react";
+import React, { useLayoutEffect } from "react";
 import { usePrefs } from "./prefs";
 import "./privacy.css";
 
@@ -66,6 +66,55 @@ const mark = (el, why) => {
   }
 };
 
+/** The own-text rule for one element: an amount gets the mark, a figure that stopped being one loses it. */
+function markOne(el) {
+  if (!el || el.nodeType !== 1 || el.closest(".pv-skip, svg defs")) return 0;
+  const own = ownText(el);
+  const was = el.getAttribute("data-pv");
+  if (own && isAmount(own)) {
+    if (!was) {
+      mark(el, "t");
+      return 1;
+    }
+  } else if (was === "t") el.removeAttribute("data-pv");
+  return 0;
+}
+/** A table column whose heading names money: every figure in it. */
+function markTable(table) {
+  let n = 0;
+  const heads = [...table.querySelectorAll("thead th")];
+  const cols = new Set(heads.map((th, i) => (MONEY_WORDS.test(th.textContent || "") ? th.cellIndex ?? i : -1)).filter((i) => i >= 0));
+  if (!cols.size) return 0;
+  for (const row of table.querySelectorAll("tbody tr, tfoot tr")) {
+    for (const cell of row.children) {
+      if (cols.has(cell.cellIndex) && hasDigit(cell) && !cell.getAttribute("data-pv")) {
+        mark(cell, "c");
+        n += 1;
+      }
+    }
+  }
+  return n;
+}
+/** A figure under a label that names money. */
+function markPair(dt) {
+  if (!dt || !MONEY_WORDS.test(dt.textContent || "")) return 0;
+  const dd = dt.nextElementSibling;
+  if (dd && dd.tagName === "DD" && hasDigit(dd) && !dd.getAttribute("data-pv")) {
+    mark(dd, "d");
+    return 1;
+  }
+  return 0;
+}
+/** What around an element decides it: the table it sits in, the label it sits under. */
+function markContext(el) {
+  let n = 0;
+  const table = el.closest && el.closest("table");
+  if (table && table.closest(MONEY_ZONES)) n += markTable(table);
+  const dd = el.closest && el.closest("dd");
+  if (dd && dd.closest(MONEY_ZONES)) n += markPair(dd.previousElementSibling);
+  return n;
+}
+
 /** Mark the amounts inside `scope` (an element). @returns how many were marked */
 export function markAmounts(scope) {
   if (!scope || scope.nodeType !== 1) return 0;
@@ -74,43 +123,40 @@ export function markAmounts(scope) {
   else zones.push(...scope.querySelectorAll(MONEY_ZONES));
   let n = 0;
   for (const zone of zones) {
-    const els = [zone, ...zone.querySelectorAll("*")];
-    for (const el of els) {
-      if (el.closest(".pv-skip, svg defs")) continue;
-      const own = ownText(el);
-      const was = el.getAttribute("data-pv");
-      if (own && isAmount(own)) {
-        if (!was) {
-          mark(el, "t");
-          n += 1;
-        }
-      } else if (was === "t" && !isAmount(own)) el.removeAttribute("data-pv");
-    }
-    // a table column whose heading names money
-    for (const table of zone.querySelectorAll("table")) {
-      const heads = [...table.querySelectorAll("thead th")];
-      const cols = new Set(heads.map((th, i) => (MONEY_WORDS.test(th.textContent || "") ? th.cellIndex ?? i : -1)).filter((i) => i >= 0));
-      if (!cols.size) continue;
-      for (const row of table.querySelectorAll("tbody tr, tfoot tr")) {
-        for (const cell of row.children) {
-          if (cols.has(cell.cellIndex) && hasDigit(cell) && !cell.getAttribute("data-pv")) {
-            mark(cell, "c");
-            n += 1;
-          }
-        }
-      }
-    }
-    // a figure under a label that names money
-    for (const dt of zone.querySelectorAll("dt")) {
-      if (!MONEY_WORDS.test(dt.textContent || "")) continue;
-      const dd = dt.nextElementSibling;
-      if (dd && dd.tagName === "DD" && hasDigit(dd) && !dd.getAttribute("data-pv")) {
-        mark(dd, "d");
-        n += 1;
-      }
-    }
+    for (const el of [zone, ...zone.querySelectorAll("*")]) n += markOne(el);
+    for (const table of zone.querySelectorAll("table")) n += markTable(table);
+    for (const dt of zone.querySelectorAll("dt")) n += markPair(dt);
+    // a piece drawn inside a table or under a label (a new row, a changed figure)
+    n += markContext(zone);
   }
   return n;
+}
+
+/**
+ * The work the watcher does for one batch of changes, before the browser draws them: a changed figure is read again, a new
+ * piece of page is read whole, a workspace that changed is read whole. Exported for the tests.
+ */
+export function onChanges(records) {
+  for (const r of records) {
+    if (r.type === "characterData") {
+      const el = r.target.parentElement;
+      if (el && el.closest(MONEY_ZONES)) {
+        markOne(el);
+        markContext(el);
+      }
+    } else if (r.type === "attributes") {
+      if (r.target.nodeType === 1) markAmounts(r.target);
+    } else {
+      for (const node of r.addedNodes) {
+        if (node.nodeType === 1) markAmounts(node);
+        else if (node.nodeType === 3 && node.parentElement && node.parentElement.closest(MONEY_ZONES)) {
+          markOne(node.parentElement);
+          markContext(node.parentElement);
+        }
+      }
+      if (r.target.nodeType === 1 && r.target.closest(MONEY_ZONES)) markOne(r.target);
+    }
+  }
 }
 
 /** The switch's state and how to flip it (kept with your preferences). */
@@ -120,36 +166,22 @@ export function usePrivacy() {
   return { on, set: (v) => save({ privacy: Boolean(v) }), toggle: () => save({ privacy: !on }) };
 }
 
-/** Mounted once (AdminApp): while the switch is on, watches the page and marks amounts as they appear. */
+/**
+ * Mounted once (AdminApp). Instant, both ways (24 Nov 2026, the owner: "after switch on/off, without doing manual refresh,
+ * amounts must be displayed instantly"): the watcher keeps every amount marked ALL the time — whether the switch is on or
+ * off — and reads each change in the same moment it happens (a MutationObserver runs before the browser draws), so a figure
+ * that appears or changes is marked before it is ever seen. The switch itself then only flips data-privacy on the page,
+ * which the stylesheet follows at once: nothing is read, nothing waits. Other tabs and devices follow too (prefs.js).
+ */
 export function PrivacyMasker() {
-  const { on } = usePrivacy();
-  useEffect(() => {
-    if (!on || typeof MutationObserver === "undefined") return undefined;
+  useLayoutEffect(() => {
+    if (typeof MutationObserver === "undefined") return undefined;
     const root = document.querySelector(".adm") || document.body;
     markAmounts(root);
-    let pending = new Set();
-    let timer = null;
-    const flush = () => {
-      timer = null;
-      const list = [...pending];
-      pending = new Set();
-      // many changes at once (a page drawing): read the zones whole; otherwise only what changed
-      if (list.length > 40) markAmounts(root);
-      else for (const el of list) if (el.isConnected) markAmounts(el);
-    };
-    const mo = new MutationObserver((records) => {
-      for (const r of records) {
-        const el = r.target.nodeType === 1 ? r.target : r.target.parentElement;
-        if (el) pending.add(el);
-      }
-      if (!timer) timer = setTimeout(flush, 120);
-    });
-    mo.observe(root, { subtree: true, childList: true, characterData: true });
-    return () => {
-      mo.disconnect();
-      clearTimeout(timer);
-    };
-  }, [on]);
+    const mo = new MutationObserver(onChanges);
+    mo.observe(root, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ["data-view"] });
+    return () => mo.disconnect();
+  }, []);
   return null;
 }
 

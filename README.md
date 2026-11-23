@@ -363,12 +363,20 @@ clamps), then set one standard over all of them by their existing class names:
 `ux/ButtonIcons.jsx` + `ux/soft-buttons.css`, `Dashboard.jsx`, `account-menu.css`).**
 - *Hide amounts*: one switch, on /me (under the greeting) and in every account menu, kept with your preferences
   (`privacy`, server and client). It puts `data-privacy="on"` on the private area.
-  - While it is on, a watcher reads the your-money areas: Positions, Journal, Trade Analysis, Paper, the dock, the top
-    bar's P&L and goal pills, /me's glance and status, Expenses.
+  - A watcher reads the your-money areas all the time, whether the switch is on or off: Positions, Journal, Trade
+    Analysis, Paper, the dock, the top bar's P&L and goal pills, /me's glance and status, Expenses.
   - It marks every amount with an attribute only: rupee figures, signed figures, short figures (k, L, Cr), figures in
     a table column headed with money words, and figures under a money label.
   - Marked amounts are drawn as `*****`. Percentages, counts, times, prices and market data stay visible.
   - The hover help and the daily goal's popup pass through `hideAmounts()`.
+  - *Live, no refresh*: the watcher reads each change before the browser draws it (a MutationObserver, no delay), so
+    the switch only flips `data-privacy` and the stylesheet follows in the same moment. The switch also reaches every
+    other page without a refresh:
+    - another tab of this browser: the stored copy's `storage` event (`prefs.js`);
+    - another device: the live channel's `prefs` topic, which makes the page read its preferences again.
+  - Pressing it twice quickly never flips back: only the latest save's answer is used, and a live re-read waits until
+    your own saves have reached the server.
+  - Tests: `privacy.test.js` and `prefs-live.test.js`.
 - */me redesign*:
   - The three ways in are framed actions: icon disc, name, one-line hint and arrow. "Open the terminal" is the filled one.
   - On phones and tablets the side column dissolves into the page, so Personal (Kundali, Expenses, Login icon) comes
