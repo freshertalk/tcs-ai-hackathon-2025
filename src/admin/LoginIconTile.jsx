@@ -4,6 +4,7 @@
 import React, { useEffect, useState } from "react";
 import { api } from "./api";
 import { snack } from "./ux/snack";
+import { useTopics } from "./live";
 
 export default function LoginIconTile() {
   const [on, setOn] = useState(null); // null: still reading
@@ -18,6 +19,14 @@ export default function LoginIconTile() {
       alive = false;
     };
   }, []);
+
+  // live: switched from another tab or device, the switch here follows at once
+  useTopics(["system"], () => {
+    if (busy) return;
+    api("/api/admin/settings/login-icon")
+      .then((d) => setOn(Boolean(d.on)))
+      .catch(() => {});
+  });
 
   const flip = async () => {
     if (busy || on === null) return;

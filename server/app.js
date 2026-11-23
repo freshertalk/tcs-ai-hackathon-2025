@@ -72,7 +72,7 @@ const { Ahead } = require("./ahead");
 const { Evidence } = require("./evidence");
 const { ExpiryCalendar } = require("./expiry");
 const { askDefault, team: aiTeam } = require("./ai/mixture");
-const { LiveHub } = require("./live");
+const { LiveHub, watchDocs } = require("./live");
 const { Supervisor } = require("./supervisor");
 const { TrainGuard } = require("./train-guard");
 const { Consensus } = require("./consensus");
@@ -608,6 +608,9 @@ function createApp(opts = {}) {
   // so they re-read at once; the watchers further down publish what no request caused. Registered before any route.
   const live = opts.liveHub || new LiveHub({ now: opts.now, log: opts.log || console });
   app.use("/api/admin", live.middleware());
+  // every saved record publishes its topic (server/live.js watchDocs): a change made by a timer, the clock or a learner reaches
+  // the open pages at once, exactly as one made by a button does
+  if (opts.liveDocs !== false) watchDocs(store.docs, live);
 
   const requireAdmin = (req, res, next) => {
     const u = currentUser(req);

@@ -20,6 +20,11 @@
 //            · the pages also keep their own slow polling as a safety net: this channel makes things instant, it is not the
 //              only thing keeping them right
 //
+//   EVERY SAVE (23 Nov 2026)
+//            · the app also hooks the record store: whenever any record is saved — by a request, a timer, the clock, a
+//              learner — its topic is published (DOC_TOPICS below; bursts are gathered for 400 ms). So a change made by
+//              ANY part of the server reaches the open pages at once, not on their next poll.
+//
 // It reads, never writes, and has no way to reach the broker, an order or an AI model.
 
 const crypto = require("node:crypto");
@@ -66,6 +71,9 @@ const ROUTE_TOPICS = [
   ["/api/admin/google", ["system", "health"]],
   ["/api/admin/email", ["system", "health"]],
   ["/api/admin/account", ["system"]],
+  ["/api/admin/expenses", ["expenses"]],
+  ["/api/admin/kundali", ["kundali"]],
+  ["/api/admin/tradeai", ["tradeai"]],
 ];
 
 function topicsForRoute(path) {
@@ -224,4 +232,94 @@ class LiveHub {
   }
 }
 
-module.exports = { LiveHub, topicsForRoute, ROUTE_TOPICS };
+/**
+ * Which topics a saved record belongs to, by its name (a document such as "paper/state.json", or a collection such as
+ * "consensus_calls"). The first match wins; records not listed (caches, keys, the per-minute tape, the AI's answer cache, the
+ * credit guard's refusal counter) publish nothing — they change too often to mean anything to a page, or are not shown.
+ */
+const DOC_TOPICS = [
+  [/^paper\//, ["paper"]],
+  [/^market\/(consensus|vol-model)|^consensus_calls$/, ["consensus"]],
+  [/^analysis\/|^analysis_|^journal_fills$|^trading\/journal/, ["analysis", "trading"]],
+  [/^picks\/|^research\/|^ai\/shared-research|^setups\/|^learn\//, ["research"]],
+  [/^scanner\//, ["scanner"]],
+  [/^indices\//, ["indices"]],
+  [/^market\/(trade-setup|setup-)/, ["setup"]],
+  [/^expenses$/, ["expenses"]],
+  [/^kundali\//, ["kundali"]],
+  [/^robot\/|^robot_/, ["robot"]],
+  [/^autopilot\/|^autopilot_/, ["autopilot"]],
+  [/^market\/open-|^open_forecasts$/, ["open"]],
+  [/^market\/horizon|^horizon_/, ["horizon"]],
+  [/^market\/ahead|^ahead_/, ["ahead"]],
+  [/^market\/evidence|^evidence_|^market\/flow-model/, ["evidence"]],
+  [/^market\/alerts/, ["alerts"]],
+  [/^market\/(signals|edge)/, ["research"]],
+  [/^market\/expiry/, ["expiry"]],
+  [/^flight\//, ["flight"]],
+  [/^social\//, ["social"]],
+  [/^(notify|whatsapp|temple)\//, ["system"]],
+  [/^accounts\//, ["accounts"]],
+  [/^automation\//, ["automation"]],
+  [/^tradeai\/|^ai\/tradeai(?!-activity)/, ["tradeai"]],
+  [/^ai\/(brains|decisions|reviews|ensemble\.json|trading-skills)/, ["ai"]],
+];
+function topicsForDoc(name) {
+  const n = String(name || "");
+  for (const [re, topics] of DOC_TOPICS) if (re.test(n)) return topics;
+  return null;
+}
+
+/**
+ * Hook a record store so every save publishes its topics on `hub` (gathered for `gap` ms). Returns a function that undoes it.
+ * The store's own behaviour is untouched: the original method runs first, and a failure to publish can never fail a save.
+ */
+function watchDocs(docs, hub, { gap = 400 } = {}) {
+  if (!docs || !hub || docs.__liveWatched) return () => {};
+  const pending = new Set();
+  let timer = null;
+  const flush = () => {
+    timer = null;
+    const list = [...pending];
+    pending.clear();
+    for (const t of list) {
+      try {
+        hub.publish(t, "data");
+      } catch (_) {
+        /* telling the pages is best effort */
+      }
+    }
+  };
+  const touch = (name) => {
+    const topics = topicsForDoc(name);
+    if (!topics) return;
+    for (const t of topics) pending.add(t);
+    if (!timer) {
+      timer = setTimeout(flush, gap);
+      if (timer.unref) timer.unref();
+    }
+  };
+  const originals = {};
+  for (const m of ["write", "putItems", "removeItems", "append"]) {
+    if (typeof docs[m] !== "function") continue;
+    const orig = docs[m];
+    originals[m] = orig;
+    docs[m] = function liveWrite(name, ...rest) {
+      const out = orig.call(this, name, ...rest);
+      try {
+        touch(name);
+      } catch (_) {
+        /* never fail a save */
+      }
+      return out;
+    };
+  }
+  docs.__liveWatched = true;
+  return () => {
+    for (const [m, f] of Object.entries(originals)) docs[m] = f;
+    delete docs.__liveWatched;
+    if (timer) clearTimeout(timer);
+  };
+}
+
+module.exports = { LiveHub, topicsForRoute, ROUTE_TOPICS, DOC_TOPICS, topicsForDoc, watchDocs };

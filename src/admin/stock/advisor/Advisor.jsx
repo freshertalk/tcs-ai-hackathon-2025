@@ -23,6 +23,7 @@ import EdgeCard, { Grade, OddsBar } from "./EdgeCard";
 import { callLabel, dayStillOpen, headline, planAt, qtyForRisk, rankRows, signedR, tally, ticketFor, verdictOf } from "./advisorMath";
 import { useRisk } from "./useRisk";
 import "./advisor.css";
+import { useTopics } from "../../live";
 
 const SHOW = [
   { id: "all", label: "All" },
@@ -523,6 +524,14 @@ export default function Advisor({ onOpen }) {
       clearTimeout(timer);
     };
   }, [load]);
+
+  // live: a Zerodha login (or logout), a fresh research run or new signals change the board at once, not on the next minute
+  useTopics(["market", "research"], () => {
+    load();
+    api("/api/admin/market/status")
+      .then((s) => setMode(s.mode))
+      .catch(() => {});
+  });
 
   const symbols = useMemo(() => (board ? board.rows.map((r) => r.symbol) : []), [board]);
   const live = useLiveTicks(symbols, mode === "kite");

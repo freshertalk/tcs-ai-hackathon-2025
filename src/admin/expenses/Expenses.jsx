@@ -24,6 +24,7 @@ import { useDialog } from "../dialog/DialogProvider";
 import { addMonths, alignPrev, applyFilters, breakdown, bucketsFor, byCategory, byMethod, byWeekday, dayName, daysSoFar, groupTotal, money, monthName, periodRange, sortItems, splitByGroup, stack, toCsv, total, weekday, ymOf } from "./ledger";
 import { Columns, Donut, RankBars, Sparkline, StackBars, TrendLine } from "./charts";
 import "./expenses.css";
+import { useTopics } from "../live";
 
 const BLANK = { id: "", date: "", amount: "", category: "grocery", title: "", method: "upi", note: "" };
 const pct = (x) => `${Math.round(x * 100)}%`;
@@ -166,6 +167,12 @@ export default function Expenses() {
       })
       .catch((e) => setError(e.message || "The expenses could not be read."));
   }, []);
+  // live: an expense added, changed or removed anywhere (another tab, another device) shows here at once; the form is left alone
+  useTopics(["expenses"], () => {
+    api("/api/admin/expenses")
+      .then(setData)
+      .catch(() => {});
+  });
 
   const items = useMemo(() => (data ? data.items : []), [data]);
   const today = data ? data.today : "";

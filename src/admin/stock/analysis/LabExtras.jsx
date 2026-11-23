@@ -15,6 +15,7 @@ import { api } from "../../api";
 import { Alert, Loading } from "../../ui";
 import { rs, rsSigned, tone } from "./charts";
 import "./flight.css";
+import { useTopics } from "../../live";
 
 const px = (x) => (typeof x === "number" ? x.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "—");
 const WORD = { hold: "HOLD", tighten: "TIGHTEN", "book-part": "BOOK PART", "exit-now": "EXIT NOW" };
@@ -249,6 +250,12 @@ export function useFlightDay(date) {
       on = false;
     };
   }, [date]);
+  // live: a recording or a set of AI levels saved for the day shows at once
+  useTopics(date ? ["flight", "analysis"] : [], () => {
+    api(`/api/admin/flight/day/${date}`)
+      .then((d) => setSt({ flights: d && d.available ? d.flights : [], record: (d && d.levelsRecord) || null }))
+      .catch(() => {});
+  });
   return st;
 }
 export const useFlights = (date) => useFlightDay(date).flights;
@@ -275,6 +282,11 @@ export function CoachView({ date }) {
       on = false;
     };
   }, [date]);
+  useTopics(["analysis"], () => {
+    api(`/api/admin/analysis/compare/${date}`)
+      .then((c) => setSt({ loading: false, c, error: "" }))
+      .catch(() => {});
+  });
   const c = st.c;
   if (st.loading) return <Loading label="Comparing with your earlier days…" />;
   if (st.error) return <Alert>{st.error}</Alert>;

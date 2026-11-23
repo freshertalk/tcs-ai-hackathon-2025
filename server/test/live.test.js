@@ -95,3 +95,38 @@ test("a successful state-changing request publishes its topics; a refused one an
   run("PUT", "/trading/enable", 200);
   assert.deepEqual(hub.ring.map((e) => e.topic), ["horizon", "trading", "market", "health"]);
 });
+
+test("every saved record publishes its topic: gathered for a moment, caches and noisy records left out, the save itself untouched", async () => {
+  const { watchDocs, topicsForDoc } = require("../live");
+  const published = [];
+  const hub = { publish: (t, via) => published.push(`${t}:${via}`) };
+  const saved = [];
+  const docs = {
+    write: (n, v) => {
+      saved.push([n, v]);
+      return "written";
+    },
+    putItems: (n, list) => saved.push([n, list.length]),
+  };
+  const undo = watchDocs(docs, hub, { gap: 20 });
+  assert.equal(docs.write("paper/state.json", { a: 1 }), "written", "the save returns what it always did");
+  docs.write("paper/state.json", { a: 2 });
+  docs.putItems("consensus_calls", [{ id: 1 }, { id: 2 }]);
+  docs.write("market/oi-snapshots.json", {}); // written every minute in the session: not a page's business
+  docs.write("ai/engine.json", {}); // the AI's answer cache
+  assert.deepEqual(published, [], "gathered, not sent one by one");
+  await new Promise((r) => setTimeout(r, 40));
+  assert.deepEqual(published.sort(), ["consensus:data", "paper:data"]);
+  assert.equal(saved.length, 5, "every save went through");
+  assert.deepEqual(topicsForDoc("expenses"), ["expenses"]);
+  assert.deepEqual(topicsForDoc("analysis/days"), ["analysis", "trading"]);
+  assert.equal(topicsForDoc("market/candles/INFY.json"), null);
+  // a hub that throws can never fail a save
+  undo();
+  const angry = { publish: () => {
+    throw new Error("down");
+  } };
+  watchDocs(docs, angry, { gap: 5 });
+  assert.equal(docs.write("paper/state.json", {}), "written");
+  await new Promise((r) => setTimeout(r, 20));
+});

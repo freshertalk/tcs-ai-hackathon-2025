@@ -15,6 +15,7 @@ import { adminPath } from "../../paths";
 import { inr, isNum, pct, when } from "../analyzer/format";
 import { KnowledgeChecks } from "../engine/KnowledgeChecks";
 import { everyVisible } from "../../visible";
+import { Flash, liveRow, useLivePrices } from "../../live/prices";
 
 const SIDE = { long: { word: "LONG", icon: "▲", cls: "is-up" }, short: { word: "SHORT", icon: "▼", cls: "is-down" } };
 const PHASE = { pre: "Before the open", live: "In the session", post: "After the close" };
@@ -86,7 +87,7 @@ function Row({ x, open, onToggle, onOpen }) {
           </span>
         </td>
         <td className="is-num">
-          {inr(x.last)} <small className={tone(x.changePct)}>{pct(x.changePct)}</small>
+          <Flash value={x.last}>{inr(x.last)}</Flash> <small className={tone(x.changePct)}>{pct(x.changePct)}</small>
         </td>
         <td className="t10-plan">{planText(x.plan)}</td>
         <td className="t10-why">{x.ai && x.ai.thesis ? <span className="t10-ai">AI: {x.ai.thesis}</span> : x.reasons[0]}</td>
@@ -266,7 +267,10 @@ export function TopPicks({ onOpen }) {
       setErr(e.message);
     }
   };
-  const s = v && v.snap;
+  const s0 = v && v.snap;
+  // live: each stock's price and change from the tick stream, between the list's own refreshes
+  const { prices } = useLivePrices(s0 && s0.list ? s0.list.map((x) => x.symbol) : []);
+  const s = s0 && s0.list ? { ...s0, list: s0.list.map((x) => liveRow(x, prices)) } : s0;
   const c = s ? s.context || {} : {};
   return (
     <section className="an-card t10" aria-label="Top 10 stocks to trade">
@@ -411,6 +415,7 @@ export function RsiWatch({ onOpen }) {
       id();
     };
   }, [r && r.preparing]); // eslint-disable-line react-hooks/exhaustive-deps
+  const { prices: rsiPrices } = useLivePrices(r && r.available ? [...(r.oversold || []), ...(r.overbought || [])].map((x) => x.symbol) : []);
   const table = (rows, kind) => (
     <div className="rw-col">
       <h4>
@@ -444,7 +449,9 @@ export function RsiWatch({ onOpen }) {
                   <th scope="row">
                     <b>{x.symbol}</b>
                   </th>
-                  <td className="is-num">{inr(x.last)}</td>
+                  <td className="is-num">
+                    <Flash value={x.last}>{inr(x.last)}</Flash>
+                  </td>
                   <td className={`is-num ${tone(x.changePct)}`}>{pct(x.changePct)}</td>
                   <td className="is-num">
                     <b>{x.rsi}</b> <small>{isNum(x.rsiPrev) ? `from ${x.rsiPrev}` : ""}</small>
@@ -481,8 +488,8 @@ export function RsiWatch({ onOpen }) {
         <p className="adm-alert adm-alert--info">{r.reason}</p>
       ) : (
         <div className="rw-grid">
-          {table(r.oversold, "low")}
-          {table(r.overbought, "high")}
+          {table(r.oversold.map((x) => liveRow(x, rsiPrices)), "low")}
+          {table(r.overbought.map((x) => liveRow(x, rsiPrices)), "high")}
         </div>
       )}
       <p className="t10-dim">An RSI this far from 50 says how stretched a move is, not that it must turn: strong trends stay overbought (or oversold) for a long time.</p>

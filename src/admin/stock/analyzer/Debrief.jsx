@@ -17,6 +17,7 @@ import { fmtR, WHY } from "./debriefMath";
 import { NetBar, ReplayStrip, RunningTotal } from "./DebriefCharts";
 import "./analyzer.css";
 import DebriefGuide from "./DebriefGuide";
+import { useTopics } from "../../live";
 
 const COSTS = [
   { v: "0", label: "None" },
@@ -293,6 +294,13 @@ export default function Debrief({ onOpen = null }) {
     };
   }, [cost]);
   useEffect(() => load(), [load]);
+  // live: a session scored, a debrief written or Zerodha connected — the card follows at once
+  useTopics(["analysis", "market", "ai"], () => {
+    load();
+    api("/api/admin/ai/debrief")
+      .then((d) => setAi({ configured: d.configured, debriefs: d.debriefs }))
+      .catch(() => {});
+  }, { gap: 5000 });
 
   useEffect(() => {
     let alive = true;

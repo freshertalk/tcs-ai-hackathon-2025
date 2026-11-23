@@ -12,6 +12,7 @@ import "./analyzer.css";
 import MarketBoard from "./MarketBoard";
 import CustomScan from "./CustomScan";
 import { everyVisible } from "../../visible";
+import { Flash, liveRow, useLivePrices } from "../../live/prices";
 
 const CONDITIONS = [
   { id: "about", label: "about (± 2)" },
@@ -142,7 +143,9 @@ export default function Screener({ onOpen }) {
     search(p);
   };
 
-  const rows = result && result.rows ? [...result.rows] : [];
+  // live: the shown index's prices and changes from the tick stream (the sort and the RSI stay the board's)
+  const { prices } = useLivePrices(result && result.rows ? result.rows.slice(0, 120).map((r) => r.symbol) : []);
+  const rows = result && result.rows ? result.rows.map((r) => liveRow(r, prices)) : [];
   if (sort === "change") rows.sort((x, y) => (y.changePct ?? -1e9) - (x.changePct ?? -1e9));
   if (sort === "turnover") rows.sort((x, y) => (y.avgTurnoverCr ?? 0) - (x.avgTurnoverCr ?? 0));
   if (sort === "symbol") rows.sort((x, y) => x.symbol.localeCompare(y.symbol));
@@ -334,7 +337,9 @@ export default function Screener({ onOpen }) {
                             {r.fund ? " · fund" : ""}
                           </small>
                         </th>
-                        <td>{inr(r.last)}</td>
+                        <td>
+                          <Flash value={r.last}>{inr(r.last)}</Flash>
+                        </td>
                         <td className={`is-${!isNum(r.changePct) || r.changePct === 0 ? "flat" : r.changePct > 0 ? "up" : "down"}`}>{pct(r.changePct)}</td>
                         <td>
                           <b className={r.rsi >= 70 ? "is-down" : r.rsi <= 30 ? "is-up" : ""}>{num(r.rsi, 1)}</b>

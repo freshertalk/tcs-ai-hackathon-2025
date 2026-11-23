@@ -266,6 +266,18 @@ The pass is signed, tied to the visitor's address, lasts 15 minutes and carries 
 the anonymous budget still apply. Switch off only for tests (`createApp({ captcha: false })`). A flood of 600 login requests was
 answered in 0.65 s, 20 of them reaching the gate and the rest turned away by the limiter.
 
+**Everything live (2026-11-23; `server/live.js` watchDocs, `src/admin/live/prices.jsx`).** Every saved record now publishes its
+live topic: the app hooks the record store (`write`, `putItems`, `removeItems`, `append`), maps the record's name to topics
+(`DOC_TOPICS`: paper, consensus, analysis/journal, research/picks, scanner, indices, setup, expenses, kundali, robot,
+autopilot, open, horizon, ahead, evidence, alerts, expiry, flight, social, system, accounts, automation, tradeai, ai) and
+publishes them, bursts gathered for 400 ms. A change made by a timer, the clock or a learner reaches every open page at once,
+like one made by a button. Caches, keys, the per-minute OI snapshots, the AI answer cache and activity logs publish nothing.
+Pages that read once now follow their topics too (Advisor, Debrief, Trade Analysis extras, Expenses, Kundali, the login-icon
+tile; the consensus card also hears `consensus` and `setup`). Settings forms and AI-on-click panels deliberately do not
+refresh by themselves (a re-read would wipe what is being typed, or spend credit). Prices tick on more pages: Research Top 10
+and its RSI watch, the Screener and Paper's open trades (P&L marked to the live price) take each stock's price and change from
+the one shared tick stream (`useLivePrices`, `liveRow`), and a moving value flashes green or red (`Flash`).
+
 **The trade setup (2026-11-23; `server/setup.js`, `server/market/setup.js`, Trade setup workspace).** The fifteen readings of the
 morning "trade setup", gathered by the desk itself with no AI and no button: NIFTY 50 / NIFTY BANK floor-trader pivots from the last
 finished session (beside the option walls and max pain); NIFTY and BANKNIFTY calls and puts — most OI, most OI added, most OI

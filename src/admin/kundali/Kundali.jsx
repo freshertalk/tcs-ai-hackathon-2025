@@ -23,6 +23,7 @@ import { Loading } from "../ui";
 import KundaliChart from "./KundaliChart";
 import { HOUSE_NAMES, ORDINALS, antardashas, hindiDate, planetName, pratyantars, progress, runningOn, signName, todayYmd } from "./jyotish";
 import "./kundali.css";
+import { useTopics } from "../live";
 
 const PART = 2 * 1024 * 1024; // each upload part (the server takes up to 2.5 MB)
 const size = (n) => (n >= 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
@@ -469,6 +470,11 @@ export default function Kundali() {
       .then(setView)
       .catch((e) => setError(e.message || "कुंडली पढ़ी नहीं जा सकी।"));
   }, []);
+  useTopics(["kundali"], () => {
+    api("/api/admin/kundali")
+      .then(setView)
+      .catch(() => {});
+  });
 
   const c = view && view.chart;
   const marks = useMemo(() => {

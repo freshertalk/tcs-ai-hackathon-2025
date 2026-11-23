@@ -408,3 +408,62 @@ html:has(.adm) {
     display: none !important;
   }
 }
+
+/* ------------------------------------------------------------------ 11. live values (live/prices.jsx) */
+/* a price that just moved: a short tint behind it, green up, red down — never a colour change of the text itself */
+.lv-flash {
+  border-radius: 2px;
+}
+.lv-flash.is-up {
+  animation: lv-up 0.9s ease-out;
+}
+.lv-flash.is-down {
+  animation: lv-down 0.9s ease-out;
+}
+@keyframes lv-up {
+  from {
+    background: color-mix(in srgb, var(--up) 28%, transparent);
+  }
+  to {
+    background: transparent;
+  }
+}
+@keyframes lv-down {
+  from {
+    background: color-mix(in srgb, var(--down) 28%, transparent);
+  }
+  to {
+    background: transparent;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lv-flash.is-up,
+  .lv-flash.is-down {
+    animation: none;
+  }
+}
+.adm[data-motion="off"] .lv-flash {
+  animation: none;
+}
+/* "live" marker beside a table that is ticking */
+.lv-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: var(--up);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--up) 60%, transparent);
+  animation: lv-pulse 2s ease-out infinite;
+  vertical-align: middle;
+}
+@keyframes lv-pulse {
+  to {
+    box-shadow: 0 0 0 7px transparent;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lv-dot {
+    animation: none;
+  }
+}

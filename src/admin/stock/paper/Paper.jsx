@@ -10,6 +10,7 @@ import { inr, isNum, num, when } from "../analyzer/format";
 import { useDialog } from "../../dialog/DialogProvider";
 import "./paper.css";
 import { everyVisible } from "../../visible";
+import { Flash, useLivePrices } from "../../live/prices";
 
 const rText = (r) => (isNum(r) ? `${r > 0 ? "+" : ""}${num(r, 2)}R` : "—");
 const rs = (x) => (isNum(x) ? `${x < 0 ? "−" : x > 0 ? "+" : ""}₹${Math.abs(Math.round(x)).toLocaleString("en-IN")}` : "—");
@@ -41,7 +42,24 @@ function sumTiles(s) {
   ];
 }
 
-function TradeTable({ rows, showDate = false }) {
+/**
+ * An open paper trade marked to the live price: its P&L moves from the last 5-minute mark by (live − mark) × quantity, in the
+ * trade's direction. Closed trades are as they were. (Paper only: nothing here reaches an order.)
+ */
+function markLive(t, prices) {
+  if (!t || t.why !== "open") return t;
+  const k = prices[t.symbol];
+  const mark = typeof t.exit === "number" ? t.exit : null;
+  if (!k || typeof k.last !== "number" || k.last <= 0 || mark === null || typeof t.pnl !== "number") return t;
+  const dir = t.side === "long" ? 1 : -1;
+  const pnl = Math.round((t.pnl + (k.last - mark) * (t.qty || 0) * dir) * 100) / 100;
+  return { ...t, exit: k.last, pnl, live: true };
+}
+
+function TradeTable({ rows: rows0, showDate = false }) {
+  // live: open trades follow the tick stream between the paper desk's own five-minute steps
+  const { prices } = useLivePrices((rows0 || []).filter((t) => t.why === "open").map((t) => t.symbol));
+  const rows = (rows0 || []).map((t) => markLive(t, prices));
   if (!rows || rows.length === 0) return <p className="vd-note">No paper trades yet.</p>;
   return (
     <div className="bt__scroll">
@@ -75,10 +93,19 @@ function TradeTable({ rows, showDate = false }) {
               <td className="is-num">{t.target ? inr(t.target) : "—"}</td>
               <td className="is-num">{num(t.qty, 0)}</td>
               <td>{t.exitAt || "—"}</td>
-              <td className="is-num">{t.exit ? inr(t.exit) : "—"}</td>
+              <td className="is-num">{t.exit ? <Flash value={t.exit}>{inr(t.exit)}</Flash> : "—"}</td>
               <td>{WHY[t.why] || t.why}</td>
               <td className={`is-num ${tone(t.netR)}`}>{rText(t.netR)}</td>
-              <td className={`is-num ${tone(t.pnl)}`}>{t.why === "open" ? `${rs(t.pnl)} open` : rs(t.pnl)}</td>
+              <td className={`is-num ${tone(t.pnl)}`}>
+                {t.why === "open" ? (
+                  <>
+                    {t.live && <i className="lv-dot" aria-label="live" />}
+                    <Flash value={t.pnl}>{rs(t.pnl)}</Flash> open
+                  </>
+                ) : (
+                  rs(t.pnl)
+                )}
+              </td>
             </tr>
           ))}
         </tbody>
