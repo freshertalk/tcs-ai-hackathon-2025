@@ -42,6 +42,8 @@ import Social from "./social/Social";
 import Kundali from "./kundali/Kundali";
 import Expenses from "./expenses/Expenses";
 import AiAsks from "./AiAsks";
+import SnackHost from "./ux/SnackHost";
+import BackToTop from "./ux/BackToTop";
 
 import "./admin.css";
 import "./hub.css";
@@ -56,6 +58,8 @@ import "./polish.css";
 import "./kite.css";
 // no text spilling, cut off or pushing a page sideways, on any screen: loaded last of all
 import "./fit.css";
+// the experience layer (23 Nov 2026): spacing and motion scales, wrapping type, focus ring, tap targets, snackbar, skeletons
+import "./ux/ux.css";
 // The private area wears the DrishtiAI logo as its icon (public/drishti-logo.svg and its PNG copies). The public
 // site's own link tags are put aside while this area is open and put back when it is left. (A page loaded straight
 // from /me already carries these in its own head: see scripts/prerender.js.)
@@ -210,6 +214,9 @@ export default function AdminApp() {
         <TempleProvider>
         {/* what an automatic feature would like the AI for: a popup for the superadmin, "Allow once" or "Not now" */}
         {value.user && value.user.role === "superadmin" && <AiAsks />}
+        {/* the snackbar (short notes at the bottom: saved, copied, offline…) and "back to top" on long pages */}
+        {value.user && <SnackHost />}
+        {value.user && <BackToTop />}
         <Routes>
           <Route path={ADMIN_BASE} element={<Gate><Dashboard /></Gate>} />
           <Route path={`${ADMIN_BASE}/google`} element={<Gate><GoogleSettings /></Gate>} />

@@ -5,7 +5,12 @@ import { api } from "./api";
 
 jest.mock("./api", () => ({ api: jest.fn() }));
 jest.mock("./visible", () => ({ everyVisible: () => () => {} }));
-afterEach(() => api.mockReset());
+const mockSnack = jest.fn();
+jest.mock("./ux/snack", () => ({ snack: (...a) => mockSnack(...a) }));
+afterEach(() => {
+  api.mockReset();
+  mockSnack.mockReset();
+});
 
 const ask = { key: "picks-review", feature: "Research Top 10 — the AI's review", why: "The Top 10 changed enough to need a fresh AI review.", first: "2026-11-23T04:00:00.000Z", last: "2026-11-23T04:10:00.000Z", n: 3 };
 
@@ -20,7 +25,7 @@ test("an automatic wish for the AI shows as a popup: what and why; Allow once st
   api.mockResolvedValueOnce({ started: true, asks: [{ ...ask, key: "scanner-review", feature: "Live scanner — the AI's review", why: "", n: 1 }] });
   fireEvent.click(screen.getAllByRole("button", { name: "Allow once" })[0]);
   await waitFor(() => expect(api).toHaveBeenCalledWith("/api/admin/ai/asks/picks-review/allow", { method: "POST" }));
-  expect(await screen.findByText(/Started — the AI is working on it now/)).toBeTruthy();
+  await waitFor(() => expect(mockSnack).toHaveBeenCalledWith(expect.stringMatching(/^Started — the AI is working on it now/), { tone: "ok" }));
   expect(screen.queryByText("Research Top 10 — the AI's review")).toBeNull();
   api.mockResolvedValueOnce({ ok: true, asks: [] });
   fireEvent.click(screen.getByRole("button", { name: "Not now" }));
@@ -28,15 +33,14 @@ test("an automatic wish for the AI shows as a popup: what and why; Allow once st
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull()); // nothing left to ask: the popup goes
 });
 
-test("after Allow on the last ask, a short note says it started, and Close removes it", async () => {
+test("after Allow on the last ask the popup goes and the snackbar says it started; a refusal says why", async () => {
   api.mockResolvedValueOnce({ asks: [ask] });
   render(<AiAsks />);
   const allow = await screen.findByRole("button", { name: "Allow once" });
   api.mockResolvedValueOnce({ started: true, asks: [] });
   fireEvent.click(allow);
-  expect(await screen.findByText(/Started — the AI is working on it now/)).toBeTruthy();
-  fireEvent.click(screen.getByRole("button", { name: "Close" }));
-  await waitFor(() => expect(screen.queryByRole("status")).toBeNull());
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  expect(mockSnack).toHaveBeenCalledWith(expect.stringMatching(/^Started/), { tone: "ok" });
 });
 
 test("no asks: nothing is shown", async () => {

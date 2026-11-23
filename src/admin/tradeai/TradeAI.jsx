@@ -17,6 +17,7 @@ import Shell from "../Shell";
 import Markdown, { inline } from "./markdown";
 import { GoalChip } from "../stock/trade/DailyGoal";
 import "./tradeai.css";
+import { snack } from "../ux/snack";
 
 const KIND = { corrective: "Fix now", proactive: "Prepare", watch: "Watch" };
 const SUGGEST_ICON = { position: "📈", order: "⏳", review: "📋", probable: "🎯", alert: "🔔", time: "🕘", market: "🌐" };
@@ -100,6 +101,7 @@ function CopyBtn({ text, label = "Copy" }) {
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(text);
+      snack("Copied to the clipboard.", { tone: "ok", key: "copied", ms: 2500 });
     } catch (_) {
       const t = document.createElement("textarea");
       t.value = text;

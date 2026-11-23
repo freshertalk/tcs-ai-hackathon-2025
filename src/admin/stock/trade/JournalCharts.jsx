@@ -11,6 +11,7 @@ import { api } from "../../api";
 import { DailyBars, HBars, LineChart, Waterfall, rs, rsSigned, short } from "../analysis/charts";
 import "../analysis/analysis.css";
 import "./journal-charts.css";
+import { snack } from "../../ux/snack";
 
 const isNum = (x) => typeof x === "number" && Number.isFinite(x);
 const pct = (x) => (isNum(x) ? `${Math.round(x)}%` : "—");
@@ -291,6 +292,7 @@ export function Retro({ r, onClose, onOpen, list }) {
     const text = [`Retrospective — ${r.period.label}${r.period.fromDay ? ` (${dayText(r.period.fromDay)} – ${dayText(r.period.toDay)})` : ""}`, r.headline, ...SECTIONS.flatMap(([k, t]) => (r[k] && r[k].length ? ["", `${t}:`, ...r[k].map((x) => `- ${x.text}`)] : [])), "", r.note].join("\n");
     try {
       await navigator.clipboard.writeText(text);
+      snack("Copied to the clipboard.", { tone: "ok", key: "copied", ms: 2500 });
       setCopied(true);
       setTimeout(() => setCopied(false), 1600);
     } catch (_) {

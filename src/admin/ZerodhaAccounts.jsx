@@ -16,6 +16,7 @@ import { useAuth } from "./auth";
 import { adminPath } from "./paths";
 import { everyVisible } from "./visible";
 import { useDialog } from "./dialog/DialogProvider";
+import { snack } from "./ux/snack";
 
 const when = (iso) => (iso ? new Date(iso).toLocaleString(undefined, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "—");
 const terminal = (view) => `${adminPath("/stock-report")}${view ? `?view=${view}` : ""}`;
@@ -25,6 +26,7 @@ function Copy({ text }) {
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(text);
+      snack("Copied to the clipboard.", { tone: "ok", key: "copied", ms: 2500 });
       setDone(true);
       setTimeout(() => setDone(false), 1800);
     } catch (_) {

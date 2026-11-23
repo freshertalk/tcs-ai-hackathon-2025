@@ -138,3 +138,22 @@ DrishtiAI keeps its own name and logo; nothing of Zerodha's brand (name, logo) i
 - Colours are a traditional observance. They do not change a price, and nothing in the desk's logic reads them.
 
 Named on 15 November 2026, by the owner.
+
+## The experience layer — `src/admin/ux/` (23 November 2026)
+
+Loaded after every other sheet of the private area (`ux/ux.css`). Fonts and colours are unchanged; it adds:
+
+- **Scales**: spacing `--sp-1…--sp-8` (4 px steps; tighter under Customize → Compact), motion `--ux-d1/2/3` with one easing.
+- **Type**: titles `text-wrap: balance`, paragraphs `pretty`, numbers `tabular-nums`; no text under 12 px.
+- **Focus**: one 2 px accent ring on every control, keyboard only (`:focus-visible`).
+- **Targets**: every clickable thing at least 24 px tall (WCAG 2.2), 32–40 px on touch screens; phone fields are 16 px so iOS
+  does not zoom.
+- **Snackbar** (`ux/SnackHost.jsx`, `ux/snack.js`): `snack(text, { tone, action, ms, key })` from anywhere. Bottom-left on a desktop,
+  bottom-centre above the terminal's bar on a phone; three at most, the rest wait; holds while hovered or touched; swipe or ×
+  closes; errors announced at once. Going offline is said until the connection is back. Used for copy, the login-icon switch and
+  the AI requests.
+- **Skeletons** (`ux/Skeleton.jsx`): shimmering bars in place of "Reading…", the words kept for screen readers.
+- **Back to top** (`ux/BackToTop.jsx`): after 1.4 screens of scrolling, on whatever area scrolls (hidden where a page has its own).
+- **Popups**: the confirmation dialog (`dialog/`) stays as it is; the AI request sits at the top, where permission prompts belong.
+- **Checked**: every private page at 390 and 1440 px, dark and light, by a script measuring overflow, text size, target size and
+  contrast (alpha-aware): no failures left (native desktop checkboxes excepted).

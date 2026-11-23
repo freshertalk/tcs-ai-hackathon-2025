@@ -6,6 +6,7 @@
 import React, { useEffect, useState } from "react";
 import { api, peek } from "../../api";
 import { everyVisible } from "../../visible";
+import Skeleton from "../../ux/Skeleton";
 import "./setup.css";
 
 const URL = "/api/admin/market/setup";
@@ -129,7 +130,7 @@ export default function TradeSetup({ onOpen }) {
             <p>Levels, options, flows, PCR, VIX, build-ups, delivery and the F&amp;O ban — kept current by the desk itself</p>
           </div>
         </div>
-        {s.error ? <p className="adm-alert adm-alert--info">{s.error}</p> : <p className="ts-dim">Reading the trade setup…</p>}
+        {s.error ? <p className="adm-alert adm-alert--info">{s.error}</p> : <Skeleton label="Reading the trade setup…" tiles={4} lines={3} />}
       </section>
     );
   const lean = d.lean || { votes: [] };

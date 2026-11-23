@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { snack } from "./ux/snack";
 
 export function Alert({ kind = "error", children }) {
   if (!children) return null;
@@ -25,6 +26,7 @@ export function CopyBox({ value }) {
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(value);
+      snack("Copied to the clipboard.", { tone: "ok", key: "copied", ms: 2500 });
       setDone(true);
       setTimeout(() => setDone(false), 1800);
     } catch (_) {

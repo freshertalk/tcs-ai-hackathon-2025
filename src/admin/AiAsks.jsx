@@ -7,6 +7,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { api } from "./api";
 import { everyVisible } from "./visible";
+import { snack } from "./ux/snack";
 import "./ai-asks.css";
 
 const URL = "/api/admin/ai/asks";
@@ -38,9 +39,9 @@ export default function AiAsks() {
     try {
       const d = await api(`${URL}/${encodeURIComponent(key)}/${what}`, { method: "POST" });
       setAsks(Array.isArray(d.asks) ? d.asks : []);
-      if (what === "allow") setNote("Started — the AI is working on it now; the result appears on its page.");
+      if (what === "allow") snack("Started — the AI is working on it now; the result appears on its page.", { tone: "ok" });
     } catch (e) {
-      setNote(e.message || "That did not go through.");
+      snack(e.message || "That did not go through.", { tone: "error" });
       read();
     }
     setBusy("");

@@ -1,0 +1,410 @@
+/* ==========================================================================
+   DrishtiAI — the experience layer (23 Nov 2026), loaded after every other sheet of the private area.
+   It keeps the fonts (Open Sans, Kite's sizes) and the colours (the Zerodha tokens) exactly as they are, and adds what an
+   enterprise product is judged on: a spacing and motion scale, type that wraps well, a focus ring you can always see, tap
+   targets a thumb can hit, the snackbar, loading skeletons, "back to top", and calm, consistent popups.
+   Tokens only, so dark and light both follow; every animation stops for "reduce motion" and for Customize → motion off.
+   ========================================================================== */
+
+/* ------------------------------------------------------------------ 1. scales */
+.adm {
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+  --ux-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ux-ease-io: cubic-bezier(0.4, 0, 0.2, 1);
+  --ux-d1: 120ms;
+  --ux-d2: 200ms;
+  --ux-d3: 320ms;
+  --ux-ring: var(--accent);
+  --ux-head: 64px; /* room under the sticky headers, for jumps to a section */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  -webkit-tap-highlight-color: transparent;
+}
+.adm[data-density="compact"] {
+  --sp-4: 12px;
+  --sp-5: 16px;
+  --sp-6: 18px;
+  --sp-8: 24px;
+}
+html:has(.adm) {
+  scroll-padding-top: var(--ux-head, 64px);
+}
+@media (prefers-reduced-motion: no-preference) {
+  html:has(.adm:not([data-motion="off"])) {
+    scroll-behavior: smooth;
+  }
+}
+
+/* ------------------------------------------------------------------ 2. type that reads well */
+/* titles break into even lines; paragraphs avoid a lonely last word; numbers line up in columns */
+.adm :where(h1, h2, h3, h4) {
+  text-wrap: balance;
+}
+.adm :where(p, li, dd, figcaption, .adm-lead) {
+  text-wrap: pretty;
+}
+.adm :where(table, time, output, [class*="__price"], [class*="-price"], [class*="__num"], [class*="-num"], [class*="__figure"]) {
+  font-variant-numeric: tabular-nums;
+}
+.adm ::selection {
+  background: color-mix(in srgb, var(--accent) 30%, transparent);
+  color: inherit;
+}
+.adm :where(input, textarea) {
+  caret-color: var(--accent);
+}
+
+/* ------------------------------------------------------------------ 3. a focus ring you can always see (keyboard only) */
+.adm :where(a, button, input, select, textarea, summary, [role="button"], [role="tab"], [role="switch"], [tabindex]:not([tabindex="-1"])):focus-visible {
+  outline: 2px solid var(--ux-ring);
+  outline-offset: 2px;
+}
+.adm :where(input, select, textarea):focus-visible {
+  outline-offset: 0;
+}
+
+/* ------------------------------------------------------------------ 4. tap targets a thumb can hit (touch screens only) */
+@media (pointer: coarse) {
+  .adm :where(.adm-btn:not(.adm-btn--sm), .tm-tab, .xp-chip, .ts-switch button, .aiask .adm-btn) {
+    min-height: 40px;
+  }
+  .adm .adm-btn--sm {
+    min-height: 34px;
+  }
+  .adm :where(input[type="text"], input[type="email"], input[type="password"], input[type="search"], input[type="number"], input[type="date"], input[type="time"], input:not([type]), select) {
+    min-height: 40px;
+    font-size: max(16px, 1em); /* 16px or more: phones do not zoom into a field when it is tapped */
+  }
+  .adm :where(input[type="checkbox"], input[type="radio"]) {
+    min-width: 20px;
+    min-height: 20px;
+  }
+}
+
+/* ------------------------------------------------------------------ 5. the snackbar (ux/SnackHost.jsx) */
+.ux-snacks {
+  position: fixed;
+  left: max(16px, env(safe-area-inset-left, 0px));
+  bottom: max(16px, env(safe-area-inset-bottom, 0px));
+  z-index: 1900;
+  display: grid;
+  gap: 8px;
+  width: min(420px, calc(100vw - 32px));
+  pointer-events: none;
+}
+.ux-snacks:empty {
+  display: none;
+}
+.adm:has(.tm--bnav) .ux-snacks {
+  bottom: calc(70px + env(safe-area-inset-bottom, 0px));
+}
+@media (max-width: 640px) {
+  .ux-snacks {
+    left: 50%;
+    transform: translateX(-50%);
+  }
+}
+.ux-snack {
+  --ux-tone: var(--accent);
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  gap: 10px;
+  align-items: center;
+  min-height: 48px;
+  padding: 8px 8px 8px 12px;
+  border: 1px solid var(--line-2, var(--line));
+  border-left: 3px solid var(--ux-tone);
+  border-radius: var(--r-lg, 6px);
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 12px 32px -14px color-mix(in srgb, #000 60%, transparent), 0 2px 6px -2px color-mix(in srgb, #000 25%, transparent);
+  pointer-events: auto;
+  touch-action: pan-y;
+  animation: ux-snack-in var(--ux-d2) var(--ux-ease) both;
+}
+.ux-snack.is-leaving {
+  animation: ux-snack-out 180ms var(--ux-ease-io) both;
+}
+.ux-snack--ok {
+  --ux-tone: var(--up);
+}
+.ux-snack--warn {
+  --ux-tone: var(--warn);
+}
+.ux-snack--error {
+  --ux-tone: var(--down);
+}
+.ux-snack__icon {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: var(--ux-tone);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.ux-snack__text {
+  margin: 0;
+  font-size: var(--t-mid);
+  line-height: 1.45;
+  overflow-wrap: break-word;
+}
+.ux-snack__count {
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+.ux-snack__act {
+  min-height: 32px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--r, 3px);
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-size: var(--t-small);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.ux-snack__act:hover {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+.ux-snack__x {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink-3);
+  cursor: pointer;
+}
+.ux-snack__x:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+.ux-snack__x svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+.ux-snacks__more {
+  justify-self: start;
+  margin: 0;
+  padding: 2px 10px;
+  border-radius: 99px;
+  background: var(--surface-2);
+  color: var(--ink-2);
+  font-size: var(--t-tag);
+  pointer-events: auto;
+}
+@keyframes ux-snack-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes ux-snack-out {
+  to {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
+
+/* ------------------------------------------------------------------ 6. loading skeletons (ux/Skeleton.jsx) */
+.ux-skel {
+  display: grid;
+  gap: 10px;
+  padding: 4px 0;
+}
+.ux-skel__tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr));
+  gap: 10px;
+}
+.ux-skel__tile,
+.ux-skel__line {
+  display: block;
+  border-radius: var(--r, 3px);
+  background: linear-gradient(90deg, var(--surface-2) 0%, color-mix(in srgb, var(--surface-2) 55%, var(--line)) 45%, var(--surface-2) 90%);
+  background-size: 300% 100%;
+  animation: ux-shimmer 1.4s ease-in-out infinite;
+}
+.ux-skel__tile {
+  height: 64px;
+}
+.ux-skel__line {
+  height: 12px;
+}
+@keyframes ux-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+
+/* ------------------------------------------------------------------ 7. back to top (ux/BackToTop.jsx) */
+.ux-top {
+  position: fixed;
+  right: max(16px, env(safe-area-inset-right, 0px));
+  bottom: max(16px, env(safe-area-inset-bottom, 0px));
+  z-index: 880;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid var(--line-2, var(--line));
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--ink-2);
+  box-shadow: 0 10px 24px -12px color-mix(in srgb, #000 55%, transparent);
+  cursor: pointer;
+  animation: ux-snack-in var(--ux-d2) var(--ux-ease) both;
+  transition: color var(--ux-d1) ease, border-color var(--ux-d1) ease, transform var(--ux-d1) ease;
+}
+.ux-top:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  transform: translateY(-2px);
+}
+.ux-top svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.adm:has(.tm--bnav) .ux-top {
+  bottom: calc(70px + env(safe-area-inset-bottom, 0px));
+}
+/* a toast from the trading desk takes the corner while it is up */
+.adm:has(.tr-toast) .ux-top {
+  display: none;
+}
+
+/* ------------------------------------------------------------------ 8. the AI request: at the top, where permission prompts belong */
+.adm .aiask {
+  top: calc(var(--ux-head, 64px) + 4px);
+  bottom: auto;
+  max-height: min(72vh, 560px);
+}
+.adm:has(.tm--bnav) .aiask {
+  bottom: auto;
+}
+@media (max-width: 640px) {
+  .adm .aiask {
+    right: 50%;
+    transform: translateX(50%);
+    animation-name: ux-drop;
+  }
+}
+@keyframes ux-drop {
+  from {
+    opacity: 0;
+    transform: translate(50%, -10px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(50%, 0);
+  }
+}
+
+/* ------------------------------------------------------------------ 9. motion off */
+@media (prefers-reduced-motion: reduce) {
+  .ux-snack,
+  .ux-snack.is-leaving,
+  .ux-top,
+  .ux-skel__tile,
+  .ux-skel__line {
+    animation: none;
+  }
+}
+.adm[data-motion="off"] :where(.ux-snack, .ux-top, .ux-skel__tile, .ux-skel__line) {
+  animation: none;
+}
+
+/* ------------------------------------------------------------------ 10. what the page-by-page audit found (23 Nov 2026) */
+/* Every clickable thing is at least 24 px tall (WCAG 2.2 target size), 32 px on a touch screen: the stock-name buttons, the
+   text-style links, the "how it works" disclosures and the sortable column heads. They keep their look; only their height grows. */
+.adm :where(button[class$="-sym"], button[class*="-sym "], button[class$="-link"], button[class*="-link "], .sx-more, .soc-item__title) {
+  min-height: 24px;
+  padding-block: 2px;
+}
+.adm :where(.soc-item__title) {
+  display: inline-block;
+}
+.adm :where(table) :where(th) > button {
+  min-height: 24px;
+}
+.adm :where(details) > summary {
+  min-height: 28px;
+  padding-block: 4px;
+  cursor: pointer;
+}
+@media (pointer: coarse) {
+  .adm :where(button[class$="-sym"], button[class*="-sym "], button[class$="-link"], button[class*="-link "], .sx-more, .soc-item__title, details > summary) {
+    min-height: 32px;
+  }
+  .adm :where(table) :where(th) > button {
+    min-height: 32px;
+  }
+}
+/* no text under 12 px: the small change under a number in a table */
+.adm .is-num > small,
+.adm td > small {
+  font-size: max(var(--t-tag, 12px), 0.8em);
+}
+/* inline code: the accent, mixed towards the ink so it reads at 4.5:1 on its own tinted chip in both themes */
+.adm code {
+  color: color-mix(in srgb, var(--accent) 55%, var(--ink));
+}
+/* the Now board's calls on their tinted chips: the up and down inks a shade deeper in the light theme (4.5:1 and more) */
+.adm[data-desk="light"] .nw-lean--down b,
+.adm[data-desk="light"] .nw-lean--down {
+  color: color-mix(in srgb, var(--down-ink, var(--down)) 86%, #000);
+}
+.adm[data-desk="light"] .nw-lean--up b,
+.adm[data-desk="light"] .nw-lean--up {
+  color: color-mix(in srgb, var(--up-ink, var(--up)) 86%, #000);
+}
+/* chapter numbers on their tinted chips (Document, AI Engine): the same accent, mixed towards the ink — 4.5:1 and more */
+.adm .doc-chapter__no {
+  color: color-mix(in srgb, var(--accent) 55%, var(--ink));
+}
+/* the Journal's retrospective button: its subtitle takes the title's own ink (made for that blue), so it reads at 4.5:1 too */
+.adm .jc-retro-btn__s {
+  color: inherit;
+  opacity: 1;
+}
+/* a page that brings its own "back to top" (the Document) keeps just that one */
+.adm:has(.doc-top) .ux-top {
+  display: none;
+}
+/* the terminal's search box: " or command" only where the bar has room for it (tablets show "Search", never a cut word) */
+@media (max-width: 1023px) {
+  .adm .tm-cmd__text .tm-x {
+    display: none !important;
+  }
+}

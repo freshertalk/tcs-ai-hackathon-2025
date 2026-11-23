@@ -3,6 +3,7 @@
 
 import React, { useEffect, useState } from "react";
 import { api } from "./api";
+import { snack } from "./ux/snack";
 
 export default function LoginIconTile() {
   const [on, setOn] = useState(null); // null: still reading
@@ -27,6 +28,7 @@ export default function LoginIconTile() {
     try {
       const d = await api("/api/admin/settings/login-icon", { method: "PUT", body: { on: next } });
       setOn(Boolean(d.on));
+      snack(d.on ? "The login icon is shown on the website again." : "The login icon is hidden on the website. /me still opens.", { tone: "ok", key: "login-icon" });
       try {
         window.localStorage.removeItem("vpt.loginIcon"); // this browser's memory of the icon: the next visit asks the server
       } catch (_) {

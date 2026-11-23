@@ -9,6 +9,7 @@ import { api, peek } from "../../api";
 import { everyVisible } from "../../visible";
 import { inr, isNum } from "./format";
 import "./consensus.css";
+import Skeleton from "../../ux/Skeleton";
 
 const enc = encodeURIComponent;
 const clock = (iso) => (iso ? new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "");
@@ -143,7 +144,7 @@ export default function ConsensusCard({ symbol, enabled = true, compact = false,
   if (!d)
     return (
       <section className="cs cs--wait">
-        {s.error ? <p className="adm-alert adm-alert--info">The consensus forecast is not available: {s.error}</p> : <p className="cs-dim">Reading the consensus forecast…</p>}
+        {s.error ? <p className="adm-alert adm-alert--info">The consensus forecast is not available: {s.error}</p> : <Skeleton label="Reading the consensus forecast…" tiles={2} lines={2} />}
       </section>
     );
   if (!d.available)
