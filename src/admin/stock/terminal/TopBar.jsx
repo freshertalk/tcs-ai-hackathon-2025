@@ -23,20 +23,61 @@ import { useStreamState } from "../analyzer/liveTicks";
 import { everyVisible } from "../../visible";
 
 const IST = 5.5 * 3600 * 1000;
+
+// NSE's trading calendar for today (23 Nov 2026): the clock alone would call a holiday "open" at 9:15. Today's entry comes
+// from the server's next-session answer (market/nse-holidays.js, which reads NSE's own holiday list) — the same answer
+// as the /me strip and the Calendar page. Shared by every clock on the page; asked at most once a minute.
+let calToday = null; // { date, trading, holiday, special }
+let calAsked = 0;
+const calListeners = new Set();
+function askCalendar(force = false) {
+  if (!force && Date.now() - calAsked < 60000) return;
+  calAsked = Date.now();
+  api("/api/admin/market/next-session")
+    .then((d) => {
+      if (!d || !d.today || !d.today.date) return;
+      calToday = { date: d.today.date, trading: Boolean(d.today.trading), holiday: d.today.holiday || "", special: d.today.special || "" };
+      calListeners.forEach((f) => f());
+    })
+    .catch(() => {});
+}
+
 function istNow() {
   const d = new Date(Date.now() + IST);
   const m = d.getUTCHours() * 60 + d.getUTCMinutes();
   const dow = d.getUTCDay();
   const open = dow >= 1 && dow <= 5 && m >= 9 * 60 + 15 && m < 15 * 60 + 30;
   const pre = dow >= 1 && dow <= 5 && m >= 9 * 60 && m < 9 * 60 + 15;
-  return { time: d.toISOString().slice(11, 19), state: open ? "open" : pre ? "pre-open" : "closed" };
+  const time = d.toISOString().slice(11, 19);
+  // by NSE's calendar when the server has said what today is: shut on a holiday, open on a special weekend session
+  const cal = calToday && calToday.date === d.toISOString().slice(0, 10) ? calToday : null;
+  if (cal && !cal.trading) return { time, state: "closed", holiday: cal.holiday || (dow === 0 || dow === 6 ? "" : "Market holiday") };
+  if (cal && cal.trading && cal.special) {
+    const sOpen = m >= 9 * 60 + 15 && m < 15 * 60 + 30;
+    const sPre = m >= 9 * 60 && m < 9 * 60 + 15;
+    return { time, state: sOpen ? "open" : sPre ? "pre-open" : "closed", special: cal.special };
+  }
+  return { time, state: open ? "open" : pre ? "pre-open" : "closed" };
 }
 
 export function useClock() {
   const [now, setNow] = useState(istNow);
   useEffect(() => {
-    const id = setInterval(() => setNow(istNow()), 1000);
-    return () => clearInterval(id);
+    const id = setInterval(() => {
+      setNow(istNow());
+      // a new IST day: ask what it is (holiday or not)
+      if (!calToday || calToday.date !== new Date(Date.now() + IST).toISOString().slice(0, 10)) askCalendar();
+    }, 1000);
+    const onCal = () => setNow(istNow());
+    calListeners.add(onCal);
+    askCalendar();
+    // NSE's list changing at the source reaches the clock at once
+    const stop = everyVisible(() => askCalendar(true), 30 * 60000, { topics: ["holidays"] });
+    return () => {
+      clearInterval(id);
+      calListeners.delete(onCal);
+      stop();
+    };
   }, []);
   return now;
 }
@@ -150,10 +191,13 @@ export default function TopBar({ views, view, onView, theme, onTheme, onHelp, on
 
       <div className="tm-status">
         <LiveBadge />
-        <span className={`tm-pill tm-pill--clock tm-pill--${clock.state}`} data-tip="NSE’s session by the clock (9:15 AM – 3:30 PM IST, Monday to Friday). Exchange holidays are listed under Calendar.">
+        <span
+          className={`tm-pill tm-pill--clock tm-pill--${clock.state}`}
+          data-tip={`NSE’s session (9:15 AM – 3:30 PM IST) by NSE’s trading calendar: weekends and NSE’s own holiday list are counted.${clock.holiday ? ` Today is a market holiday: ${clock.holiday}.` : ""}${clock.special ? ` Today: ${clock.special}.` : ""} The full list and the next trading day are on the Calendar and on /me.`}
+        >
           <i aria-hidden="true" />
           <span className="tm-x">NSE </span>
-          {clock.state}
+          {clock.holiday ? "holiday" : clock.state}
           <span className="tm-x"> ·</span> <b>{clock.time}</b>
           <span className="tm-x"> IST</span>
         </span>

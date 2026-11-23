@@ -268,3 +268,42 @@ export function indiaFreshness(todayIso) {
   }
   return { state: "ok", text: "" };
 }
+
+/* ------------------------------------- NSE's own list beats the table (23 Nov 2026) */
+/**
+ * Pick what to show for BSE / NSE in `year`.
+ *   official  NSE's own trading-holiday list, read by the server every six hours (`nse` from /api/admin/stock/holidays) —
+ *             the same list the server's trading-day rules use, so this page, the /me next-trading-day strip and the desk
+ *             agree by construction
+ *   table     the list above (checked by hand), the fallback when the server has no copy of NSE's list for that year
+ * The special sessions (the Budget Sunday, the Muhurat hour) are announced by circular, not in NSE's holiday list, so the
+ * table's are kept beside NSE's list. A date where the two lists disagree is reported in `differences` (NSE's is shown).
+ *
+ * @param nse  the `nse` object from /api/admin/stock/holidays, or null
+ */
+export function resolveIndia(year, nse) {
+  const table = indiaHolidays(year);
+  const snap = nse && nse.years ? nse.years[year] || nse.years[String(year)] : null;
+  if (!snap || !Array.isArray(snap.entries) || !snap.entries.length) return { entries: table, source: "manual", differences: [], snapshot: null };
+  const local = new Map(table.map((e) => [e.date, e]));
+  const entries = snap.entries.map((e) => {
+    const mine = local.get(e.date);
+    if (e.kind === "muhurat") {
+      return {
+        date: e.date,
+        name: `${e.name} — Muhurat trading`,
+        kind: "special",
+        tag: "Special session",
+        note: (mine && mine.note) || e.note || "Market is closed for the day, with a special Muhurat session; timings are set by the exchanges",
+      };
+    }
+    return { date: e.date, name: e.name, kind: "closed", tag: (mine && mine.kind === "closed" && mine.tag) || "", note: (mine && mine.kind === "closed" && mine.note) || "" };
+  });
+  const nseDates = new Set(entries.map((e) => e.date));
+  // the table's special sessions on days NSE's holiday list does not mention (e.g. the Budget Sunday)
+  for (const e of table) if (e.kind === "special" && !nseDates.has(e.date)) entries.push(e);
+  entries.sort((a, b) => a.date.localeCompare(b.date));
+  const tableShut = new Set(table.filter((e) => e.kind === "closed" || /muhurat/i.test(e.name)).map((e) => e.date));
+  const differences = [...[...nseDates].filter((d) => !tableShut.has(d)), ...[...tableShut].filter((d) => !nseDates.has(d))];
+  return { entries, source: "official", snapshot: snap, differences: [...new Set(differences)].sort() };
+}

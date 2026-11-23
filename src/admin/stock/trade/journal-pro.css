@@ -100,6 +100,12 @@
   color: var(--warn-ink);
   cursor: pointer;
 }
+/* a chip that is a button is at least 24 px tall (WCAG 2.2 target size) */
+button.jr-chip--warn {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+}
 .jr-tabs {
   display: flex;
   flex-wrap: wrap;

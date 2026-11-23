@@ -1,0 +1,408 @@
+/* ==========================================================================
+   The P&L day grid (PnlGrid.jsx), as on Zerodha Console's P&L report: months side by side, one small square per day,
+   grey for no trades, four greens for profit and four reds for loss (Kite's own green #4caf50 and red #df514c families;
+   the deepest shade is Kite's colour itself). Text never wears the square colours — figures keep the private area's
+   readable --up / --down. The squares size themselves to the card (container query): one row of twelve months on a
+   desktop, wrapped months of larger squares on a phone. Colour is never the only cue: every square names its date and
+   figures (tooltip and screen reader), and the day's table spells them out.
+   ========================================================================== */
+.pg {
+  --pg-gap: 3px;
+  --pg-mgap: 12px;
+  --pg-cell: 13px;
+  --pg-empty: #ebebeb;
+  --pg-up-1: #c8e6c9;
+  --pg-up-2: #8fd197;
+  --pg-up-3: #5cbf65;
+  --pg-up-4: #2e9e3a;
+  --pg-down-1: #fbd0ce;
+  --pg-down-2: #f59a96;
+  --pg-down-3: #ec6560;
+  --pg-down-4: #d2332d;
+  --pg-ring: var(--ink);
+  margin: 14px 0;
+}
+.adm[data-desk="dark"] .pg {
+  --pg-empty: #2a2a2c;
+  --pg-up-1: #1f3d22;
+  --pg-up-2: #2d6332;
+  --pg-up-3: #3f8d45;
+  --pg-up-4: #5cb862;
+  --pg-down-1: #4a2321;
+  --pg-down-2: #7a302d;
+  --pg-down-3: #b2403b;
+  --pg-down-4: #e8605a;
+}
+
+.pg__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px 16px;
+  margin-bottom: 14px;
+}
+.pg__title {
+  min-width: 0;
+}
+.pg__title h3 {
+  margin: 0;
+  color: var(--ink);
+  font-size: var(--t-mid, 1rem);
+  font-weight: 600;
+}
+.pg__title p {
+  margin: 2px 0 0;
+  color: var(--ink-3);
+  font-size: var(--t-small);
+  overflow-wrap: anywhere;
+}
+.pg__tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+}
+.pg__range select {
+  min-height: 34px;
+}
+
+/* the grid: squares sized to the card */
+.pg__wrap {
+  position: relative;
+  container-type: inline-size;
+}
+.pg__grid {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+@container (min-width: 0px) {
+  .pg__grid {
+    /* (card width − weekday labels − the gaps between months) ÷ the week columns, within 9–16 px */
+    --pg-cell: clamp(9px, calc((100cqw - 34px - 11 * var(--pg-mgap)) / var(--pg-cols, 64) - var(--pg-gap)), 16px);
+  }
+}
+/* a tablet-wide card: twelve months will not fit one row at a readable size, so the months wrap with larger squares */
+@container (max-width: 899px) {
+  .pg__grid {
+    --pg-cell: 13px;
+  }
+}
+.pg__days {
+  display: grid;
+  flex: 0 0 auto;
+  grid-template-rows: repeat(7, var(--pg-cell));
+  gap: var(--pg-gap);
+  width: 28px;
+  color: var(--ink-3);
+  font-size: 0.68rem;
+  line-height: var(--pg-cell);
+}
+.pg__days span {
+  white-space: nowrap;
+}
+.pg__months {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  gap: 10px var(--pg-mgap);
+  min-width: 0;
+}
+.pg__month {
+  display: grid;
+  gap: 6px;
+  justify-items: start;
+}
+.pg__cells {
+  display: grid;
+  grid-template-rows: repeat(7, var(--pg-cell));
+  gap: var(--pg-gap);
+}
+.pg__mlabel {
+  color: var(--ink-2);
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+}
+
+.pg__cell {
+  display: block;
+  width: var(--pg-cell);
+  height: var(--pg-cell);
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 2px;
+  background: var(--pg-empty);
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+i.pg__cell {
+  cursor: default;
+}
+.pg__cell.is-flat {
+  background: var(--line-2);
+}
+.pg__cell.is-up.l1 {
+  background: var(--pg-up-1);
+}
+.pg__cell.is-up.l2 {
+  background: var(--pg-up-2);
+}
+.pg__cell.is-up.l3 {
+  background: var(--pg-up-3);
+}
+.pg__cell.is-up.l4 {
+  background: var(--pg-up-4);
+}
+.pg__cell.is-down.l1 {
+  background: var(--pg-down-1);
+}
+.pg__cell.is-down.l2 {
+  background: var(--pg-down-2);
+}
+.pg__cell.is-down.l3 {
+  background: var(--pg-down-3);
+}
+.pg__cell.is-down.l4 {
+  background: var(--pg-down-4);
+}
+/* a day entered by hand: a dot in the middle */
+.pg__cell.is-manual {
+  background-image: radial-gradient(circle, var(--surface) 0 22%, transparent 26%);
+}
+.pg__cell.is-today {
+  box-shadow: inset 0 0 0 1px var(--ink-3);
+}
+button.pg__cell:hover {
+  transform: scale(1.25);
+  box-shadow: 0 0 0 1px var(--surface), 0 0 0 2px var(--ink-3);
+}
+button.pg__cell:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.pg__cell.is-picked {
+  box-shadow: 0 0 0 1px var(--surface), 0 0 0 3px var(--pg-ring);
+}
+/* a phone: larger squares, months wrap (three or four to a row) */
+@media (max-width: 640px) {
+  .pg__grid {
+    --pg-cell: 15px;
+  }
+  .pg__days {
+    display: none;
+  }
+  .pg__months {
+    gap: 12px 16px;
+  }
+}
+@media (pointer: coarse) {
+  button.pg__cell:hover {
+    transform: none;
+  }
+}
+
+/* the tooltip: Console's white card with a soft shadow */
+.pg__tip {
+  position: absolute;
+  z-index: 5;
+  display: grid;
+  gap: 2px;
+  min-width: 180px;
+  max-width: 220px;
+  padding: 8px 12px;
+  border: 1px solid var(--line-2);
+  border-radius: 4px;
+  background: var(--surface);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.14);
+  color: var(--ink);
+  font-size: var(--t-small);
+  line-height: 1.4;
+  pointer-events: none;
+  transform: translate(-50%, -100%);
+  animation: pg-tip 0.12s ease-out;
+}
+.pg__tip.is-below {
+  transform: translate(-50%, 0);
+}
+.pg__tip b {
+  font-weight: 600;
+}
+.pg__tip em {
+  font-style: normal;
+  font-variant-numeric: tabular-nums;
+}
+.pg__tip .is-up,
+.pg__sum .is-up,
+.pg__dfigs .is-up,
+.pg__dline .is-up,
+.pg__note .is-up {
+  color: var(--up);
+}
+.pg__tip .is-down,
+.pg__sum .is-down,
+.pg__dfigs .is-down,
+.pg__dline .is-down,
+.pg__note .is-down {
+  color: var(--down);
+}
+@keyframes pg-tip {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.pg__legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  margin-top: 12px;
+  color: var(--ink-3);
+  font-size: 0.72rem;
+}
+.pg__legend .pg__cell {
+  --pg-cell: 11px;
+}
+.pg__legend span {
+  margin: 0 4px;
+}
+.pg__legend-gap {
+  margin-left: 12px;
+}
+
+.pg__sum {
+  margin: 14px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  color: var(--ink-2);
+  font-size: var(--t-small);
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.pg__hint {
+  color: var(--ink-3);
+}
+
+/* the day: Console's line ("Gross realised P&L  Nov 12, 2026 | Equity: 8105.50"), the figures, the table */
+.pg__detail {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+  animation: pg-open 0.18s ease-out;
+}
+@keyframes pg-open {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.pg__dhead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+}
+.pg__dline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 18px;
+  margin: 0;
+  color: var(--ink);
+  font-size: var(--t-base, 1rem);
+}
+.pg__ddate {
+  color: var(--accent);
+  font-weight: 400;
+}
+.pg__dline b {
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+.pg__dsep {
+  align-self: stretch;
+  width: 1px;
+  min-height: 20px;
+  background: var(--line-2);
+}
+.pg__dact {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.pg__dfigs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px 16px;
+  margin: 14px 0;
+  padding: 14px 16px;
+  border-radius: 4px;
+  background: var(--surface-2);
+}
+.pg__dfigs div {
+  min-width: 0;
+}
+.pg__dfigs dt {
+  color: var(--ink-3);
+  font-size: var(--t-small);
+}
+.pg__dfigs dd {
+  margin: 2px 0 0;
+  color: var(--ink);
+  font-size: 1.25rem;
+  font-variant-numeric: tabular-nums;
+}
+.pg__dfigs small {
+  color: var(--ink-3);
+  font-size: 0.75em;
+}
+@media (max-width: 640px) {
+  .pg__dfigs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.pg__table tfoot th,
+.pg__table tfoot td {
+  border-top: 1px solid var(--line-2);
+  font-weight: 600;
+}
+.pg__note {
+  margin: 12px 0 0;
+  color: var(--ink-2);
+  font-size: var(--t-small);
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.pg__noteText {
+  color: var(--ink-3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pg__cell,
+  .pg__tip,
+  .pg__detail {
+    transition: none;
+    animation: none;
+  }
+  button.pg__cell:hover {
+    transform: none;
+  }
+}
+.adm[data-motion="off"] .pg__cell,
+.adm[data-motion="off"] .pg__tip,
+.adm[data-motion="off"] .pg__detail {
+  transition: none;
+  animation: none;
+}

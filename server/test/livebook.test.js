@@ -193,3 +193,24 @@ test("the base is read every 15 s in market hours only while it is needed (a pag
   await book._loop();
   assert.equal(trading.reads, 2);
 });
+
+test("unrealised = open positions only: a squared-off intraday position's P&L (Kite reports it as 'unrealised') is booked, not unrealised", () => {
+  const { totals, openUnrealised } = require("../trading/livebook");
+  // what Kite really sends for an intraday position closed today: quantity 0, realised 0, the whole P&L in `unrealised`
+  const squared = { ...closed, symbol: "HINDCOPPER", pnl: 1627.85, m2m: 1627.85, realised: 0, unrealised: 1627.85 };
+  const t = totals([squared]);
+  assert.equal(t.unrealised, 0, "nothing open, nothing unrealised (Zerodha Console shows 0)");
+  assert.equal(t.booked, 1627.85);
+  assert.equal(t.unrealisedKite, 1627.85, "Kite's own sum is still there for anything that reads it");
+  assert.equal(t.open, 0);
+  // an open position partly booked: only the quantity still held counts, at (price − average)
+  const part = { ...long, quantity: 50, average: 990, last: 1000, pnl: 900, unrealised: 900 }; // 400 booked earlier
+  assert.equal(openUnrealised(part), 500);
+  const both = totals([part, squared]);
+  assert.equal(both.unrealised, 500);
+  assert.equal(both.booked, 2027.85);
+  // short: 20 short at 1300, price 1290 → +200
+  assert.equal(openUnrealised(short), 200);
+  // no average or price known: Kite's figure is the fallback
+  assert.equal(openUnrealised({ quantity: 5, unrealised: 42 }), 42);
+});

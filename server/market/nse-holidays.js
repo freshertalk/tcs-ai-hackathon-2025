@@ -8,6 +8,11 @@
 //
 // A year that is not in the table is treated as "no holidays known": weekdays are trading days and `known` says so, so
 // a caller can be honest about it instead of confident.
+//
+// NSE's OWN LIST (23 Nov 2026): the holiday service (holidays/nse-service.js) reads NSE's official trading-holiday list
+// every few hours and hands it here with setOfficial(). A year NSE has published is then read from NSE's list; the table
+// below is the fallback for a year NSE's list does not carry (and the comparison that says whether the two agree). The
+// special sessions stay here: NSE announces them by circular, not in the holiday list.
 
 const CLOSED = {
   2026: {
@@ -42,10 +47,40 @@ const dow = (date) => new Date(utc(date)).getUTCDay();
 const isWeekend = (date) => [0, 6].includes(dow(date));
 const yearOf = (date) => Number(String(date).slice(0, 4));
 
-/** True when this year's list is in the table. */
-const known = (date) => Boolean(CLOSED[yearOf(date)]);
+// NSE's official list, by year: { 2026: { "2026-11-24": "Prakash Gurpurb Sri Guru Nanak Dev", … } }. Empty until the service
+// has read it (or loaded its last good copy from disk).
+let OFFICIAL = {};
+
+/**
+ * Take NSE's official list. `years` is { "2026": [{ date, name, kind }…] } (the holiday service's stored copy); a year
+ * given here replaces the table's year. `setOfficial(null)` forgets it (tests). Returns the years now official.
+ */
+function setOfficial(years) {
+  const next = {};
+  for (const [y, list] of Object.entries(years || {})) {
+    if (!Array.isArray(list) || !list.length) continue;
+    const map = {};
+    for (const e of list) {
+      if (!e || !/^\d{4}-\d{2}-\d{2}$/.test(String(e.date)) || String(e.date).slice(0, 4) !== String(y)) continue;
+      map[e.date] = e.kind === "muhurat" ? `${e.name} (Muhurat trading only)` : String(e.name || "Market holiday");
+    }
+    if (Object.keys(map).length) next[Number(y)] = map;
+  }
+  OFFICIAL = next;
+  return Object.keys(OFFICIAL).map(Number);
+}
+/** Is this year read from NSE's own list (true) or from the table (false)? */
+const isOfficial = (date) => Boolean(OFFICIAL[yearOf(date)]);
+/** The closures in force for a year, and where they come from. */
+const closedFor = (year) => (OFFICIAL[year] ? OFFICIAL[year] : CLOSED[year] || null);
+const sourceOf = (year) => (OFFICIAL[year] ? "nse" : CLOSED[year] ? "table" : "none");
+/** The table's own closures for a year (for the comparison with NSE's list). */
+const localClosed = (year) => ({ ...(CLOSED[year] || {}) });
+
+/** True when this year's list is in the table (or NSE's official list carries it). */
+const known = (date) => Boolean(OFFICIAL[yearOf(date)] || CLOSED[yearOf(date)]);
 /** The name of the holiday, or "" when the market is not closed for one. */
-const holidayName = (date) => ((CLOSED[yearOf(date)] || {})[date]) || "";
+const holidayName = (date) => ((closedFor(yearOf(date)) || {})[date]) || "";
 /** Is the equity market open for a normal session on this date? */
 function isTradingDay(date) {
   if (SPECIAL[date]) return true;
@@ -80,4 +115,4 @@ function lastTradingDayOfMonth(date) {
   return iso(t);
 }
 
-module.exports = { isTradingDay, nextTradingDay, prevTradingDay, holidayName, closuresBetween, lastTradingDayOfMonth, known, isWeekend, SPECIAL };
+module.exports = { isTradingDay, nextTradingDay, prevTradingDay, holidayName, closuresBetween, lastTradingDayOfMonth, known, isWeekend, SPECIAL, setOfficial, isOfficial, sourceOf, localClosed };

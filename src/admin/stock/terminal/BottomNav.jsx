@@ -92,7 +92,7 @@ function MoreSheet({ rest, view, onView, theme, onTheme, onAlerts, onClose }) {
           <li>
             <i className={`is-${clock.state === "open" ? "ok" : clock.state === "pre-open" ? "warn" : "off"}`} aria-hidden="true" />
             <span>
-              NSE {clock.state} · <b>{clock.time}</b> IST
+              NSE {clock.holiday ? `holiday (${clock.holiday})` : clock.state} · <b>{clock.time}</b> IST
             </span>
           </li>
           <li>

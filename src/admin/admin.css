@@ -1508,6 +1508,12 @@
   border-color: var(--warn-line);
   color: var(--warn-ink);
 }
+/* the "official list" strip in the dark theme (23 Nov 2026): its light green ground left the dark theme's grey text and
+   the Check now button at under 2:1 */
+.adm[data-desk="dark"] .hc__source--ok {
+  background: var(--up-bg);
+  border-color: var(--up-line);
+}
 
 /* the live channel's state in the header (LiveBadge.jsx) */
 .adm .live-badge {

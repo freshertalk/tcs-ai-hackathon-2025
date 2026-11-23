@@ -923,3 +923,29 @@ test("days entered by hand over HTTP: added and corrected on an empty day; refus
   assert.deepEqual(r.json, { removed: true });
   assert.equal((await s.request("PUT", "/api/admin/trading/journal/manual/2026-11-10", { body: { gross: 1 } })).status, 401);
 });
+
+test("the P&L grid's days over HTTP: the last 12 months by default, a chosen range, refusals said plainly, superadmins only", async (t) => {
+  const s = await boot();
+  t.after(s.close);
+  await s.configure();
+  const boss = (await s.login(SUPERADMIN_EMAIL)).session;
+  await s.request("PUT", "/api/admin/trading/journal/manual/2026-11-10", { cookie: boss, body: { gross: 1500, brokerage: 40, trades: 2 } });
+  let r = await s.request("GET", "/api/admin/trading/journal/days", { cookie: boss });
+  assert.equal(r.status, 200, JSON.stringify(r.json));
+  assert.match(r.json.fromDay, /^\d{4}-\d{2}-01$/, "from the 1st of a month");
+  assert.equal(r.json.toDay, r.json.today);
+  const months = (Number(r.json.toDay.slice(0, 4)) - Number(r.json.fromDay.slice(0, 4))) * 12 + Number(r.json.toDay.slice(5, 7)) - Number(r.json.fromDay.slice(5, 7));
+  assert.equal(months, 11, "twelve months shown, this one included");
+  assert.ok(Array.isArray(r.json.days) && r.json.totals);
+  r = await s.request("GET", "/api/admin/trading/journal/days?from=2026-11-01&to=2026-11-30", { cookie: boss });
+  assert.equal(r.json.fromDay, "2026-11-01");
+  assert.ok(r.json.toDay <= r.json.today, "never past today");
+  assert.deepEqual(r.json.manual.map((m) => [m.date, m.gross]), [["2026-11-10", 1500]]);
+  r = await s.request("GET", "/api/admin/trading/journal/days?from=2026-11-20&to=2026-11-01", { cookie: boss });
+  assert.equal(r.status, 400);
+  assert.match(r.json.message, /valid date range/);
+  r = await s.request("GET", "/api/admin/trading/journal/days?from=2020-01-01&to=2026-11-01", { cookie: boss });
+  assert.equal(r.status, 400);
+  assert.match(r.json.message, /three years/);
+  assert.equal((await s.request("GET", "/api/admin/trading/journal/days")).status, 401);
+});

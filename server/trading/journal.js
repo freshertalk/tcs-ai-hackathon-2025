@@ -314,6 +314,9 @@ function periodRange(id, now = Date.now(), { from = "", to = "", firstAt = null 
  */
 function roundTrips(fills) {
   const by = new Map();
+  // the whole value of every order (Zerodha charges intraday brokerage per executed ORDER: ₹20 or 0.03%, whichever is lower)
+  const orderValue = new Map();
+  for (const f of fills) if (f && f.orderId) orderValue.set(`${f.side}:${f.orderId}`, (orderValue.get(`${f.side}:${f.orderId}`) || 0) + f.qty * f.price);
   for (const f of [...fills].sort((a, b) => a.at - b.at || (a.id < b.id ? -1 : 1))) {
     const k = `${f.exchange}:${f.symbol}`;
     if (!by.has(k)) by.set(k, []);
@@ -324,7 +327,7 @@ function roundTrips(fills) {
     let cur = null;
     let pos = 0;
     const start = (f, qty) => {
-      cur = { symbol: f.symbol, exchange: f.exchange, side: f.side === "BUY" ? "long" : "short", entryAt: f.at, exitAt: null, buyQty: 0, buyVal: 0, sellQty: 0, sellVal: 0, maxQty: 0, fills: 0, products: new Set(), sources: new Set() };
+      cur = { symbol: f.symbol, exchange: f.exchange, side: f.side === "BUY" ? "long" : "short", entryAt: f.at, exitAt: null, buyQty: 0, buyVal: 0, sellQty: 0, sellVal: 0, maxQty: 0, fills: 0, products: new Set(), sources: new Set(), orders: new Map(), noOrder: false };
       pos = 0;
       return qty;
     };
@@ -339,6 +342,9 @@ function roundTrips(fills) {
         pos -= qty;
       }
       cur.fills += 1;
+      // this trip's part of each order (an order can close one trip and open the next)
+      if (f.orderId) cur.orders.set(`${f.side}:${f.orderId}`, (cur.orders.get(`${f.side}:${f.orderId}`) || 0) + qty * f.price);
+      else cur.noOrder = true;
       if (f.source) cur.sources.add(f.source);
       if (f.product) cur.products.add(f.product);
       cur.maxQty = Math.max(cur.maxQty, Math.abs(pos));
@@ -346,6 +352,8 @@ function roundTrips(fills) {
     };
     const close = () => {
       cur.exitAt = cur.lastAt;
+      cur.orderBrokerage = orderBrokerage(cur, orderValue);
+      cur.orderCount = cur.orders.size;
       trips.push(finish(cur, false));
       cur = null;
       pos = 0;
@@ -368,6 +376,21 @@ function roundTrips(fills) {
     if (cur) trips.push(finish(cur, true));
   }
   return trips.sort((a, b) => a.entryAt - b.entryAt);
+}
+
+/**
+ * Intraday brokerage by Zerodha's rule — per executed order, ₹20 or 0.03% of the order's value, whichever is lower — with an
+ * order shared between two trips split by value. null when a fill has no order id (an old import): the per-side estimate
+ * is used then.
+ */
+function orderBrokerage(trip, orderValue) {
+  if (trip.noOrder || !trip.orders || !trip.orders.size) return null;
+  let total = 0;
+  for (const [k, part] of trip.orders) {
+    const whole = orderValue.get(k) || part;
+    total += Math.min(20, whole * 0.0003) * (whole > 0 ? part / whole : 1);
+  }
+  return total;
 }
 
 function finish(t, open) {
@@ -400,6 +423,8 @@ function finish(t, open) {
     product: products.length === 1 ? products[0] : intraday ? "MIS" : products.includes("CNC") || !products.length ? "CNC" : products.join("/"),
     intraday,
     sources: [...t.sources], // "kite" (captured from Kite) and/or "console" (a tradebook import)
+    orderBrokerage: Number.isFinite(t.orderBrokerage) ? t.orderBrokerage : null, // per executed order (see orderBrokerage)
+    orders: Number.isFinite(t.orderCount) ? t.orderCount : null,
     holdMin: open ? null : Math.round((t.exitAt - t.entryAt) / 60000),
   };
 }
@@ -417,7 +442,8 @@ function chargeParts(t) {
   const sell = t.turnoverSell;
   const turnover = buy + sell;
   const intraday = t.intraday;
-  const brokerage = intraday ? Math.min(20, buy * 0.0003) + Math.min(20, sell * 0.0003) : 0;
+  // per executed order when the orders are known (Zerodha's rule); otherwise one order a side, as before
+  const brokerage = intraday ? (Number.isFinite(t.orderBrokerage) ? t.orderBrokerage : Math.min(20, buy * 0.0003) + Math.min(20, sell * 0.0003)) : 0;
   const stt = intraday ? sell * 0.00025 : turnover * 0.001;
   const exchange = turnover * (t.exchange === "NSE" ? 0.0000297 : 0.0000375);
   const sebi = turnover * 0.000001;
@@ -944,6 +970,63 @@ class TradeJournal {
     d.manualDays = next;
     this._save(d);
     return true;
+  }
+
+  /**
+   * Day by day, for the P&L grid (Zerodha Console's green/red day grid, 23 Nov 2026): every IST day in the range that has
+   * closed trades (each on the day it was closed, as in Zerodha's P&L), with its figures and its trades — so a click on a
+   * day opens its table with no second request. Days entered by hand in the range come apart, marked as such.
+   * @param fromDay, toDay  "YYYY-MM-DD" (IST), both included
+   * @returns { fromDay, toDay, days: [{ date, trades, wins, gross, charges, brokerage, taxes, net, trips: [...] }], manual, totals }
+   */
+  days({ fromDay, toDay, side = "", kind = "", setup = "", symbol = "" } = {}) {
+    const from = Date.parse(`${fromDay}T00:00:00+05:30`);
+    const to = Date.parse(`${toDay}T23:59:59.999+05:30`);
+    const closed = this.trips({ from, to, side, kind, setup, symbol }).filter((t) => !t.open);
+    const by = new Map();
+    for (const t of closed) {
+      const k = istDay(t.exitAt);
+      const g = by.get(k) || { date: k, trades: 0, wins: 0, gross: 0, charges: 0, brokerage: 0, net: 0, trips: [] };
+      g.trades += 1;
+      if (t.net > 0) g.wins += 1;
+      g.gross += num(t.pnl) ? t.pnl : 0;
+      g.charges += num(t.charges) ? t.charges : 0;
+      g.brokerage += num(t.brokerage) ? t.brokerage : 0;
+      g.net += num(t.net) ? t.net : 0;
+      g.trips.push({
+        key: t.key,
+        symbol: t.symbol,
+        exchange: t.exchange,
+        side: t.side,
+        product: t.product,
+        intraday: Boolean(t.intraday),
+        qty: t.maxQty || t.qty || 0,
+        entryAt: t.entryAt,
+        exitAt: t.exitAt,
+        entryAvg: t.entryAvg,
+        exitAvg: t.exitAvg,
+        buyValue: num(t.turnoverBuy) ? r2(t.turnoverBuy) : null,
+        sellValue: num(t.turnoverSell) ? r2(t.turnoverSell) : null,
+        holdMin: t.holdMin,
+        gross: r2(t.pnl || 0),
+        charges: r2(t.charges || 0),
+        net: r2(t.net || 0),
+        setup: (t.tags && t.tags.setup) || "",
+      });
+      by.set(k, g);
+    }
+    const days = [...by.values()]
+      .sort((a, b) => (a.date < b.date ? -1 : 1))
+      .map((g) => ({ ...g, gross: r2(g.gross), charges: r2(g.charges), brokerage: r2(g.brokerage), taxes: r2(g.charges - g.brokerage), net: r2(g.net), trips: g.trips.sort((a, b) => a.exitAt - b.exitAt) }));
+    const manual = this.manualDays({ fromDay, toDay }).map((m) => ({ date: m.date, trades: m.trades, gross: m.gross, charges: m.charges, net: m.net, note: m.note, manual: true }));
+    const sum = (f) => r2(days.reduce((a, g) => a + g[f], 0));
+    return {
+      fromDay,
+      toDay,
+      days,
+      manual,
+      totals: { days: days.length, green: days.filter((g) => g.gross > 0).length, red: days.filter((g) => g.gross < 0).length, trades: days.reduce((a, g) => a + g.trades, 0), gross: sum("gross"), charges: sum("charges"), net: sum("net") },
+    };
   }
 
   view(filters = {}) {

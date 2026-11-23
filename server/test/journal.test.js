@@ -473,3 +473,59 @@ test("each charge on its own, and days entered by hand: allowed only where Zerod
   // a hand-entered day never changes Zerodha's own numbers
   assert.equal(j.view({}).stats.trades, 1);
 });
+
+test("day by day for the P&L grid: each day its figures and trades (closed day), hand-entered days apart, filters honoured", () => {
+  const j = new TradeJournal(new FileDocs(fs.mkdtempSync(path.join(os.tmpdir(), "vpt-jd-"))));
+  j.add(
+    [
+      fill("2026-11-12T09:30:00", "BUY", 100, 1500, "INFY"),
+      fill("2026-11-12T10:30:00", "SELL", 100, 1520, "INFY"), // +2,000 gross
+      fill("2026-11-12T11:00:00", "SELL", 50, 800, "SBIN"),
+      fill("2026-11-12T11:40:00", "BUY", 50, 790, "SBIN"), // short +500
+      fill("2026-11-18T09:20:00", "BUY", 10, 2000, "TCS"),
+      fill("2026-11-18T13:20:00", "SELL", 10, 1950, "TCS"), // −500
+      fill("2026-11-16T09:20:00", "BUY", 5, 100, "ITC", "CNC"), // still open: not on the grid
+      fill("2026-09-01T09:20:00", "BUY", 1, 100, "WIPRO"),
+      fill("2026-09-01T09:40:00", "SELL", 1, 101, "WIPRO"), // before the range
+    ],
+    "kite"
+  );
+  j.setManualDay("2026-11-05", { gross: 900, brokerage: 40, trades: 2, note: "another broker" }, "owner@example.com", Date.parse("2026-11-23T05:00:00Z"));
+  const g = j.days({ fromDay: "2026-11-01", toDay: "2026-11-23" });
+  assert.deepEqual(g.days.map((x) => x.date), ["2026-11-12", "2026-11-18"]);
+  const d12 = g.days[0];
+  assert.equal(d12.trades, 2);
+  assert.equal(d12.wins, 2);
+  assert.equal(d12.gross, 2500);
+  assert.ok(d12.charges > 0 && Math.abs(d12.net - (d12.gross - d12.charges)) < 0.02, "net = realised − charges");
+  assert.equal(Math.round((d12.taxes + d12.brokerage) * 100) / 100, d12.charges);
+  assert.deepEqual(d12.trips.map((t) => [t.symbol, t.side, t.qty, t.gross]), [["INFY", "long", 100, 2000], ["SBIN", "short", 50, 500]]);
+  assert.equal(g.days[1].gross, -500);
+  assert.deepEqual(g.manual.map((m) => [m.date, m.gross, m.manual]), [["2026-11-05", 900, true]]);
+  assert.deepEqual([g.totals.days, g.totals.green, g.totals.red, g.totals.trades, g.totals.gross], [2, 1, 1, 3, 2000]);
+  // filters: the short side only
+  assert.deepEqual(j.days({ fromDay: "2026-11-01", toDay: "2026-11-23", side: "short" }).days.map((x) => [x.date, x.gross]), [["2026-11-12", 500]]);
+  // a trade counts on the IST day it was closed: the range edges are IST days
+  assert.deepEqual(j.days({ fromDay: "2026-11-18", toDay: "2026-11-18" }).days.map((x) => x.date), ["2026-11-18"]);
+});
+
+test("intraday brokerage per executed order, as Zerodha charges it: ₹20 or 0.03% an order; an order across two trips is split", () => {
+  const of = (time, side, qty, price, orderId) => ({ ...fill(time, side, qty, price, "LT"), orderId });
+  // one buy order, two sell orders: 3 orders, not one a side
+  const [t] = roundTrips([of("2026-11-12T09:20:00", "BUY", 100, 1000, "B1"), of("2026-11-12T10:00:00", "SELL", 50, 1010, "S1"), of("2026-11-12T10:30:00", "SELL", 50, 1012, "S2")]);
+  assert.equal(t.orders, 3);
+  // B1 ₹1,00,000 → ₹20 (cap); S1 ₹50,500 → ₹15.15; S2 ₹50,600 → ₹15.18
+  assert.equal(Math.round(t.orderBrokerage * 100) / 100, 50.33);
+  assert.ok(charges(t) > charges({ ...t, orderBrokerage: null }), "more than the old one-order-a-side estimate");
+  // one order fills in three parts: still one order, one ₹20
+  const [u] = roundTrips([of("2026-11-12T09:20:00", "BUY", 40, 1000, "B9"), of("2026-11-12T09:20:01", "BUY", 30, 1000, "B9"), of("2026-11-12T09:20:02", "BUY", 30, 1000, "B9"), of("2026-11-12T11:00:00", "SELL", 100, 1005, "S9")]);
+  assert.equal(u.orders, 2);
+  assert.equal(Math.round(u.orderBrokerage * 100) / 100, 40);
+  // a sell order of 150 closes a 100 long and opens a 50 short: its ₹20 is shared 2 : 1
+  const [a, b] = roundTrips([of("2026-11-12T09:20:00", "BUY", 100, 1000, "B2"), of("2026-11-12T10:00:00", "SELL", 150, 1010, "S3"), of("2026-11-12T11:00:00", "BUY", 50, 1000, "B3")]);
+  assert.equal(Math.round(a.orderBrokerage * 100) / 100, 33.33); // 20 (B2) + 20 × 100/150
+  assert.equal(Math.round(b.orderBrokerage * 100) / 100, 21.67); // 20 × 50/150 + 15 (B3: ₹50,000 × 0.03%)
+  // without order ids (an old import) the estimate is one order a side, as before
+  const [old] = roundTrips([fill("2026-11-12T09:20:00", "BUY", 100, 1000), fill("2026-11-12T10:00:00", "SELL", 100, 1010)]);
+  assert.equal(old.orderBrokerage, null);
+});

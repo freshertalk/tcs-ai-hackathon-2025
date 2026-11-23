@@ -5,9 +5,9 @@ import {
   daysBetween,
   formatDate,
   indiaFreshness,
-  indiaHolidays,
   isWeekend,
   nextClosure,
+  resolveIndia,
   resolveNasdaq,
   todayIn,
   weekdayClosures,
@@ -63,7 +63,7 @@ function NasdaqSource({ view, hook, year }) {
   const feed = data && data.nasdaq;
 
   const button = (
-    <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm" onClick={checkNow} disabled={busy}>
+    <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm" onClick={() => checkNow("nasdaq")} disabled={busy}>
       {busy ? "Checking…" : "Check now"}
     </button>
   );
@@ -129,14 +129,75 @@ function NasdaqSource({ view, hook, year }) {
   );
 }
 
-function IndiaSource({ today }) {
+/**
+ * Where the BSE / NSE list on screen came from (23 Nov 2026): NSE's own list, read by the server every six hours — the
+ * same list the server's trading-day rules (and so the /me next-trading-day strip) use — or, when the server has no copy
+ * for this year, the table checked by hand.
+ */
+function IndiaSource({ today, view, hook, year }) {
+  const feed = hook && hook.data ? hook.data.nse : null;
+  const button = hook ? (
+    <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm" onClick={() => hook.checkNow("nse")} disabled={hook.busy}>
+      {hook.busy ? "Checking…" : "Check now"}
+    </button>
+  ) : null;
+  if (view && view.source === "official" && feed) {
+    const s = view.snapshot || {};
+    return (
+      <>
+        <SourceStrip tone={feed.lastError ? "warn" : "ok"} action={button}>
+          <b>Verified with NSE’s official list</b> (
+          <a href={feed.sourceUrl} target="_blank" rel="noopener noreferrer">
+            NSE holidays
+          </a>
+          , equity segment). Checked {stamp(feed.lastSuccessAt)}; the list last changed {stamp(s.changedAt)}. The /me next trading
+          day, the desk and the forecasters read this same list.
+          {feed.lastError ? (
+            <>
+              {" "}
+              The latest check failed (<i>{feed.lastError}</i>); the last good copy is kept.
+            </>
+          ) : null}
+        </SourceStrip>
+        {view.differences.length > 0 && (
+          <SourceStrip tone="warn">
+            <b>Heads-up:</b> NSE’s list differs from the table checked by hand on{" "}
+            {view.differences.map((d) => formatDate(d, { day: "numeric", month: "short" })).join(", ")}. NSE’s list is what is
+            shown and used.
+          </SourceStrip>
+        )}
+      </>
+    );
+  }
+  return <IndiaManualSource today={today} feed={feed} button={button} year={year} />;
+}
+
+function IndiaManualSource({ today, feed, button, year }) {
   const fresh = indiaFreshness(today);
   return (
     <>
+      {feed && (
+        <SourceStrip tone="warn" action={button}>
+          <b>NSE’s own list {feed.lastSuccessAt ? `does not carry ${year} yet` : "has not been read yet"}</b>
+          {feed.lastError ? (
+            <>
+              {" "}
+              (the last check failed: <i>{feed.lastError}</i>)
+            </>
+          ) : null}
+          . The server checks it every six hours and switches to it by itself; until then the table below is used.
+        </SourceStrip>
+      )}
       <SourceStrip tone="idle">
         <b>Checked by hand</b> on {formatDate(INDIA_META.verifiedOn, { day: "numeric", month: "short", year: "numeric" })}{" "}
-        against {INDIA_META.basis}. <b>Not updated automatically</b> — the exchanges publish it only on pages that block
-        automated requests.
+        against {INDIA_META.basis}.{" "}
+        {feed ? (
+          <>It is the fallback while NSE’s own list is not in for this year.</>
+        ) : (
+          <>
+            <b>Not updated automatically</b> — the exchanges publish it only on pages that block automated requests.
+          </>
+        )}
       </SourceStrip>
       {fresh.state === "stale" && (
         <SourceStrip tone="warn">
@@ -150,16 +211,22 @@ function IndiaSource({ today }) {
 export default function HolidayCalendar({ market }) {
   const m = MARKETS[market];
   const isNasdaq = market === "nasdaq";
-  const hook = useOfficialHolidays(isNasdaq);
+  // both calendars read the server's official copies (NASDAQ from Nasdaq Trader, BSE / NSE from NSE's own list)
+  const hook = useOfficialHolidays(true);
 
   const today = todayIn(m.tz);
   const thisYear = Number(today.slice(0, 4));
   // only what is still to come: past years are not offered, and days already gone are hidden
-  const years = useMemo(() => m.years(thisYear).filter((y) => y >= thisYear), [m, thisYear]);
+  // (a year NSE has published is offered too, even before the table has it)
+  const official = hook.data ? (isNasdaq ? hook.data.nasdaq : hook.data.nse) : null;
+  const officialYears = !isNasdaq && official && official.years ? Object.keys(official.years).map(Number).filter(Number.isFinite).join(",") : "";
+  const years = useMemo(() => {
+    const extra = officialYears ? officialYears.split(",").map(Number) : [];
+    return [...new Set([...m.years(thisYear), ...extra])].filter((y) => y >= thisYear).sort((a, b) => a - b);
+  }, [m, thisYear, officialYears]);
 
-  const entriesFor = (y, official) => (isNasdaq ? resolveNasdaq(y, official) : { entries: indiaHolidays(y), source: "manual", differences: [] });
+  const entriesFor = (y, off) => (isNasdaq ? resolveNasdaq(y, off) : resolveIndia(y, off));
   const ahead = (list) => list.filter((e) => e.date >= today);
-  const official = hook.data && hook.data.nasdaq;
 
   // start on the current year while it has closures left, else the next year that has any
   const firstYear = years.find((y) => ahead(entriesFor(y, null).entries).length) || years[0];
@@ -200,7 +267,7 @@ export default function HolidayCalendar({ market }) {
         </label>
       </header>
 
-      {isNasdaq ? <NasdaqSource view={view} hook={hook} year={year} /> : <IndiaSource today={today} />}
+      {isNasdaq ? <NasdaqSource view={view} hook={hook} year={year} /> : <IndiaSource today={today} view={view} hook={hook} year={year} />}
 
       {entries.length === 0 ? (
         <p className="adm-alert adm-alert--info">

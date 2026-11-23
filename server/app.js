@@ -39,6 +39,8 @@ const defaultGoogle = require("./google");
 const { Mailer } = require("./mailer");
 const { mountEmailAuth } = require("./email-auth");
 const { HolidayService } = require("./holidays/service");
+const { NseHolidayService } = require("./holidays/nse-service");
+const { nextSession } = require("./market/next-session");
 const { MarketService, MarketError } = require("./market/service");
 const { mountMarket } = require("./market/routes");
 const { AiService } = require("./ai/service");
@@ -213,6 +215,10 @@ function createApp(opts = {}) {
   const store = new Store(dataDir, docs);
   // exchange holiday data, kept in step with the exchange's own publication
   const holidays = opts.holidays || new HolidayService({ dir: dataDir, fetchImpl: opts.holidayFetch });
+  // NSE's own trading-holiday list (23 Nov 2026): read every six hours and handed to the server's trading-day rules
+  // (market/nse-holidays.js), so the /me next-session strip, the Calendar page and every service read one calendar.
+  // A change at NSE is published on the live channel ("holidays") — `live` is created further down, before start().
+  const nseHolidays = opts.nseHolidays || new NseHolidayService({ dir: dataDir, fetchImpl: opts.holidayFetch, onChange: () => live && live.publish("holidays", "watch") });
   const settingsKey = loadKey(dataDir, "settings.key", env.SETTINGS_KEY);
   const sessionKey = loadKey(dataDir, "session.key", env.SESSION_SECRET);
 
@@ -900,12 +906,25 @@ function createApp(opts = {}) {
 
   /* ------------------------------------------------ stock report: holidays */
   // The official copies the server has fetched, and when each source was last checked.
-  app.get("/api/admin/stock/holidays", requireAdmin, (req, res) => res.json(holidays.snapshot()));
+  // `nse` (23 Nov 2026): NSE's own trading-holiday list — the one the server's trading-day rules use — with its check
+  // against the built-in table.
+  app.get("/api/admin/stock/holidays", requireAdmin, (req, res) => res.json({ ...holidays.snapshot(), nse: nseHolidays.snapshot() }));
+
+  // The next trading session by NSE's calendar (23 Nov 2026): today's state, the next trading day after today with its
+  // times, the days skipped and why, and whether the calendar is NSE's own list (verified) or the built-in table.
+  app.get("/api/admin/market/next-session", requireAdmin, (req, res) => {
+    res.json(nextSession({ now: opts.now ? opts.now() : Date.now(), official: nseHolidays.snapshot() }));
+  });
 
   // "Check now". Limited per client, and the service itself refuses to ask the
   // exchange more than once a minute.
   app.post("/api/admin/stock/holidays/refresh", requireAdmin, limiter(6, 10 * 60 * 1000), async (req, res) => {
     res.json(await holidays.refresh());
+  });
+  // "Check now" for NSE's own list (the BSE / NSE calendar's button). Limited the same way; the service itself asks NSE
+  // at most once a minute and keeps the last good copy when NSE does not answer.
+  app.post("/api/admin/stock/holidays/nse/refresh", requireAdmin, limiter(6, 10 * 60 * 1000), async (req, res) => {
+    res.json({ nse: await nseHolidays.refresh() });
   });
 
   /* ------------------------------------------- superadmin: admin users */
@@ -2347,12 +2366,13 @@ ${e.text}
   live.watch("ai", () => [ai.guard.status(), ai.status()]);
   live.watch("social", () => (market.social && typeof market.social.status === "function" ? market.social.status() : null));
   live.watch("system", () => [whatsapp ? whatsapp.status() : null, notifier.status(), temple.settings()]);
+  live.watch("holidays", () => nseHolidays.fingerprint());
   live.watch("health", () => [market.mode(), trading.status().enabled, trading.status().riskLock, alertWatch ? alertWatch.status() : null, ai.configured(), horizon.fingerprint()]);
   if (opts.liveWatch !== false) live.start();
 
   app.get("/api/admin/health", requireAdmin, limiter(60, 60 * 1000), async (req, res) => {
     try {
-      res.json(await buildHealth({ now: opts.now, docs, dataDir, memory, trainGuard, supervisor, recorder, vault, horizon, openForecast, autopilot, robot, market, ai, trading, analysis, paper, researchAuto, notifier, alertWatch, whatsapp, temple, holidays, googleConfigured: () => credentials().source !== "none" }, { secure: isSecure(req), host: req.get("host") || "" }));
+      res.json(await buildHealth({ now: opts.now, docs, dataDir, memory, trainGuard, supervisor, recorder, vault, horizon, openForecast, autopilot, robot, market, ai, trading, analysis, paper, researchAuto, notifier, alertWatch, whatsapp, temple, holidays, nseHolidays, googleConfigured: () => credentials().source !== "none" }, { secure: isSecure(req), host: req.get("host") || "" }));
     } catch (err) {
       res.status(500).json({ error: "health_failed", message: err.message });
     }
@@ -2428,6 +2448,7 @@ ${e.text}
     app,
     store,
     holidays,
+    nseHolidays,
     market,
     ai,
     tradeSetup: setup,

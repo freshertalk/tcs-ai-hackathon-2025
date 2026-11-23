@@ -21,6 +21,7 @@ import DayBook from "../analysis/DayBook";
 import { PnlBySymbol, PnlSummary, unrealisedOf } from "./PnlReport";
 import { useLiveBook } from "./liveBook";
 import { ChargesBreakdown, MonthCalendar } from "./JournalLedger";
+import PnlGrid from "./PnlGrid";
 import "./trade.css";
 const IST = 5.5 * 3600 * 1000;
 const day = (ms) => new Date(ms + IST).toISOString().slice(0, 10);
@@ -541,6 +542,26 @@ function TradesJournal() {
       d.trips.filter((t) => !t.open).map((t) => [stamp(t.entryAt), stamp(t.exitAt), t.symbol, t.exchange, t.side, t.product, t.maxQty, t.entryAvg, t.exitAvg, t.holdMin, t.pnl, t.brokerage, t.charges, t.net, t.tags ? t.tags.setup : "", t.tags ? t.tags.mistakes.join("; ") : "", t.tags ? t.tags.note : "", t.tags && t.tags.rating ? t.tags.rating : ""])
     );
 
+  // the year of days, as on Zerodha Console's P&L report: the last 12 months, this FY or any past FY
+  const gridRanges = [{ id: "12m", label: "Last 12 months" }];
+  const fyRow = per && per.rows ? per.rows.find((r) => r.id === "fy") : null;
+  if (fyRow && fyRow.fromDay) gridRanges.push({ id: "fy", label: fyRow.label || "This FY", fromDay: fyRow.fromDay, toDay: fyRow.toDay });
+  for (const r of (per && per.fys) || []) if (r && r.fromDay) gridRanges.push({ id: r.id, label: r.label, fromDay: r.fromDay, toDay: r.toDay });
+  const grid = d ? (
+    <PnlGrid
+      kind={kind}
+      side={side}
+      setup={setup}
+      refreshKey={updatedAt || 0}
+      ranges={gridRanges}
+      segment={kind === "intraday" ? "Equity · intraday" : kind === "delivery" ? "Equity · delivery" : "Equity"}
+      onOpenDay={(k) => {
+        setSel({ period: "custom", from: k, to: k });
+        if (top.current && top.current.scrollIntoView) top.current.scrollIntoView({ behavior: "smooth", block: "start" });
+      }}
+    />
+  ) : null;
+
   return (
     <div className="jr">
       <section className="an-card jr-head" ref={top}>
@@ -594,10 +615,6 @@ function TradesJournal() {
         <Alert>{state.error}</Alert>
       </section>
 
-      {state.loading && !d && <Loading label="Reading your journal…" />}
-      {d && d.fills === 0 && <p className="adm-alert adm-alert--info">The journal is empty. Trades are added by themselves every trading day while Zerodha is connected; import your Console tradebooks below for the history since your account opened.</p>}
-      {s && s.trades === 0 && d.fills > 0 && <p className="adm-alert adm-alert--info">No closed trades in {label || "this period"}. Pick another period above, or a row in the table below.</p>}
-
       <CommandBar
         label={label}
         s={s}
@@ -625,7 +642,8 @@ function TradesJournal() {
           <Hero s={s} a={a} rt={rt} label={label} period={period} onRetro={retro.run} busy={retro.busy} onCapital={() => goTab("returns")} />
           <Alert>{retro.err}</Alert>
           {retro.r && <Retro r={retro.r} list={retro.list} onOpen={retro.open} onClose={retro.close} />}
-          <PnlSummary s={s} unrealised={unreal} />
+          {grid}
+          <PnlSummary s={s} unrealised={unreal} period={period} />
           {/* where the money went: every charge on its own (and days entered by hand, when included) */}
           <ChargesBreakdown s={s} parts={d.chargeParts} manual={d.manualDays || []} label={label} />
           <dl className="jp2-tiles jr-glance">
@@ -699,6 +717,7 @@ function TradesJournal() {
       {/* no Zerodha trades in the period: the calendar still opens, so a day traded elsewhere can be entered by hand */}
       {tab === "overview" && d && (!s || s.trades === 0) && (
         <>
+          {grid}
           {(d.manualDays || []).length > 0 && <ChargesBreakdown s={null} parts={null} manual={d.manualDays} label={label} />}
           <MonthCalendar
             calendar={[]}
@@ -976,6 +995,7 @@ function TradesJournal() {
 
       {tab === "calendar" && (
         <>
+          {grid}
           {s && s.trades > 0 && (
             <>
           {monthRows && <MonthTable months={monthRows} label={fileTag} />}

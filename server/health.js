@@ -147,7 +147,16 @@ async function buildHealth(ctx, { secure = false, host = "" } = {}) {
   });
   await check("holidays", "Market data", "Holiday calendars", () => {
     const n = ctx.holidays ? ctx.holidays.snapshot().nasdaq : null;
-    const india = "NSE/BSE list is checked by hand (2026)";
+    let india = "NSE/BSE list is checked by hand (2026)";
+    // NSE's own list (23 Nov 2026): read every six hours; the trading-day rules use it once a copy is in.
+    const nse = ctx.nseHolidays ? ctx.nseHolidays.snapshot() : null;
+    if (nse) {
+      const years = Object.keys(nse.years || {});
+      const differs = (nse.verify || []).filter((v) => v.status === "differs").map((v) => v.year);
+      if (!years.length) india = `NSE's own list not read yet${nse.lastError ? ` (${nse.lastError})` : ""}; the built-in 2026 table is in use`;
+      else india = `NSE ${years.join(", ")} read from NSE ${ago(nse.lastSuccessAt, now)}${nse.lastError ? ` (the last check failed: ${nse.lastError}; the last good copy is kept)` : ""}${differs.length ? ` · NSE's list differs from the built-in table for ${differs.join(", ")} (NSE's is used)` : " · matches the built-in table"}`;
+      if (nse.lastError && !years.length && !n) return { status: "warn", detail: india };
+    }
     if (!n) return { status: "ok", detail: india };
     if (n.lastError) return { status: "warn", detail: `NASDAQ: the last check failed (${n.lastError}); the last good copy is kept. ${india}.` };
     return { status: "ok", detail: `NASDAQ checked ${ago(n.lastSuccessAt, now)}. ${india}; add 2027 in December.` };

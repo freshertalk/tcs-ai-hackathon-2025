@@ -28,6 +28,7 @@ import LearningCard from "./LearningCard";
 import LoginIconTile from "./LoginIconTile";
 import ZerodhaAccounts from "./ZerodhaAccounts";
 import DrishtiLogo from "./DrishtiLogo";
+import NextSession, { sessionCard, useNextSession } from "./NextSession";
 
 const WORKSPACES = [
   { view: "", label: "Desk", text: "Chart, live call, order book, 5- and 15-minute forecast" },
@@ -134,7 +135,7 @@ function Pc({ tone = "off", k, v, sub, tip, to, href, valueTone }) {
 }
 
 /** The live status row. Re-read every 30 seconds while the tab is in front, and at once when you return to it. */
-function Pulse({ isSuper }) {
+function Pulse({ isSuper, ns }) {
   const [d, setD] = useState({});
   const [, tick] = useState(0);
   useEffect(() => {
@@ -167,14 +168,15 @@ function Pulse({ isSuper }) {
     };
   }, [isSuper]);
   const { market, board, horizon, spend, trade, pnl } = d;
-  const nse = nseState();
+  // by NSE's calendar (holidays included) when the server has answered; by the clock alone until then
+  const nse = sessionCard(ns) || nseState();
   const kite = market && market.mode === "kite";
   const counts = { A: 0, B: 0 };
   if (board) for (const r of board.rows || []) if (r.available && r.best && counts[r.best.grade] !== undefined) counts[r.best.grade] += 1;
   const h15 = horizon && horizon.validation ? (horizon.validation.horizons || []).find((x) => x.h === 3) : null;
   return (
     <ul className="hm-pulse" aria-label="Status">
-      <Pc tone={nse.id === "open" ? "ok" : nse.id === "pre" ? "warn" : "off"} k="NSE session" v={nse.label} sub={nse.sub} tip="The exchange's session by the clock (9:15 AM – 3:30 PM IST, Monday to Friday). Exchange holidays are on the Calendar." />
+      <Pc tone={nse.id === "open" ? "ok" : nse.id === "pre" ? "warn" : "off"} k="NSE session" v={nse.label} sub={nse.sub} tip="The exchange's session (9:15 AM – 3:30 PM IST) by NSE's trading calendar: weekends and NSE's own holiday list are counted, so after a close before a holiday it names the day after. The full list is on the Calendar." />
       <Pc
         tone={kite ? "ok" : market && market.mode === "demo" ? "warn" : "off"}
         k="Zerodha"
@@ -520,6 +522,8 @@ export default function Dashboard() {
   // "Open the terminal" goes to the workspace you chose under Customize (the Desk unless you chose another)
   const start = WORKSPACES.find((w) => (w.view || "analyzer") === prefs.start && mayOpen(w, user) && !prefs.nav.hidden.includes(prefs.start));
   const startView = start ? start.view : "";
+  // the next trading day by NSE's calendar: one answer for the strip (drawn at the top for every screen) and the status row
+  const ns = useNextSession();
 
   return (
     <Shell wide>
@@ -546,6 +550,8 @@ export default function Dashboard() {
               </a>
             </div>
           </section>
+          {/* the next trading day, under the greeting — shown on narrow screens, where this column is the top of the page */}
+          <NextSession ns={ns} place="side" />
           {/* Personal: what is the owner's own — his Kundali and his expenses. For superadmins only; the server refuses
               everyone else as well. */}
           {isSuper && (
@@ -592,7 +598,10 @@ export default function Dashboard() {
         </aside>
 
         <div className="hm-main">
-        {prefs.home.status && <Pulse isSuper={isSuper} />}
+        {/* the next trading day by NSE's calendar, at the top of the page on wide screens */}
+        <NextSession ns={ns} place="main" />
+
+        {prefs.home.status && <Pulse isSuper={isSuper} ns={ns} />}
 
         {prefs.home.today && <TodayCard isSuper={isSuper} />}
 

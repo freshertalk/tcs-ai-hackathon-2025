@@ -130,6 +130,21 @@ function mountTrading(app, { trading, ai, requireSuper, limiter, capture = null,
     const view = await trading.journalView(f);
     return { ...view, analytics: trading.journal.analytics(f), returns: trading.journal.returns(f, nowMs()), capital: trading.journal.capital() };
   }));
+  // day by day for the P&L grid (Zerodha Console's green/red days): the last 12 months by default, each day with its trades
+  app.get("/api/admin/trading/journal/days", requireSuper, wrap(async (req) => {
+    const q = req.query || {};
+    const today = new Date(nowMs() + 5.5 * 3600000).toISOString().slice(0, 10);
+    const okDay = (x) => /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(String(x || "")) && !Number.isNaN(Date.parse(`${x}T00:00:00Z`));
+    const [ty, tm] = today.split("-").map(Number);
+    const yearAgo = new Date(Date.UTC(ty, tm - 12, 1)).toISOString().slice(0, 10); // the 1st of the month, 11 months back
+    const fromDay = okDay(q.from) ? String(q.from) : yearAgo;
+    let toDay = okDay(q.to) ? String(q.to) : today;
+    if (toDay > today) toDay = today;
+    if (fromDay > toDay) throw new TradingError("Pick a valid date range: the first day on or before the last.");
+    if ((Date.parse(`${toDay}T00:00:00Z`) - Date.parse(`${fromDay}T00:00:00Z`)) / DAY > 3 * 366) throw new TradingError("Pick a range of three years or less.");
+    const f = filtersOf({ side: q.side, kind: q.kind, setup: q.setup, symbol: q.symbol });
+    return { today, ...trading.journal.days({ fromDay, toDay, side: f.side, kind: f.kind, setup: f.setup, symbol: f.symbol }) };
+  }));
   // profit and loss for every period at once, every financial year since the account opened, the month heatmap,
   // where the history comes from (and its gaps), your saved views and the automatic capture
   // the capital ledger: the money put in (and taken out), which every percentage return is measured on

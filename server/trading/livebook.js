@@ -56,15 +56,38 @@ function reprice(p, last) {
   };
 }
 
+/**
+ * The unrealised part of ONE position, as Zerodha's P&L report counts it: what the quantity still held would make or lose
+ * at the price — quantity × (price − average) × multiplier. A closed position (quantity 0) has none.
+ *
+ * Why not Kite's own `unrealised` field (23 Nov 2026): Kite puts the WHOLE P&L of a position in it — also for an intraday
+ * position already squared off (quantity 0, `realised` 0, `unrealised` = the day's booked profit), and for an open position
+ * that was partly booked. Summed, that showed the day's booked profit as "Unrealised P&L" with nothing open (the Journal
+ * read +1.63k where Zerodha's Console read 0). Kite's field is the fallback only when the average or the price is unknown.
+ */
+function openUnrealised(p) {
+  if (!p || p.quantity === 0) return 0;
+  const mult = num(p.multiplier) && p.multiplier > 0 ? p.multiplier : 1;
+  if (num(p.average) && p.average > 0 && num(p.last) && p.last > 0) return r2(p.quantity * (p.last - p.average) * mult);
+  return num(p.unrealised) ? p.unrealised : 0;
+}
+
 /** The day's figures over a set of (re-priced) positions. `day` is the day's M2M, as the goal counts it. */
 function totals(rows) {
   const sum = (f) => r2(rows.reduce((a, p) => a + (num(p[f]) ? p[f] : 0), 0));
   const open = rows.filter((p) => p.quantity !== 0);
+  // open positions only (see openUnrealised); the rest of the P&L is booked
+  const unrealisedOpen = r2(open.reduce((a, p) => a + openUnrealised(p), 0));
   return {
     day: r2(rows.reduce((a, p) => a + (num(p.m2m) ? p.m2m : num(p.pnl) ? p.pnl : 0), 0)),
     pnl: sum("pnl"),
     realised: sum("realised"),
-    unrealised: sum("unrealised"),
+    // Kite's own fields, summed as before (kept for anything that reads them)
+    unrealisedKite: sum("unrealised"),
+    // Zerodha's P&L-report meaning: open positions only — 0 when nothing is open
+    unrealised: unrealisedOpen,
+    // booked today = the P&L that is not unrealised (Kite reports `realised` 0 for squared-off intraday positions)
+    booked: r2(sum("pnl") - unrealisedOpen),
     open: open.length,
     closed: rows.length - open.length,
     // every open position is moving with the stream (true with none open: nothing can be out of date)
@@ -297,7 +320,7 @@ class LiveBook extends EventEmitter {
       error: this.error,
       streaming: Boolean(tk && tk.isLive && tk.isLive()),
       ...totals(rows),
-      positions: rows.map((p) => ({ key: keyOf(p), ...p })),
+      positions: rows.map((p) => ({ key: keyOf(p), ...p, unrealisedOpen: openUnrealised(p) })),
     };
   }
 
@@ -334,4 +357,4 @@ class LiveBook extends EventEmitter {
   }
 }
 
-module.exports = { LiveBook, reprice, totals, keyOf };
+module.exports = { LiveBook, reprice, totals, keyOf, openUnrealised };
