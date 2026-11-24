@@ -220,6 +220,78 @@ function readTradebook(buf, opts = {}) {
   return { ...fromConsoleCsv(text, opts), kind: "csv" };
 }
 
+/**
+ * The correction that makes a day match Zerodha's ledger (see reconcile): the day's extra charges (negative: fewer) are shared
+ * among the day's closed trades in proportion to their estimated charges, and carried as the "other" charge, so every page —
+ * the Journal, the Day book, the calendar, the returns — shows the corrected charges and net without knowing about it.
+ */
+function applyChargeFix(trips, fixes) {
+  const days = Object.keys(fixes || {});
+  if (!days.length) return trips;
+  const by = new Map();
+  for (const t of trips) {
+    if (t.open) continue;
+    const k = istDay(t.exitAt);
+    if (fixes[k]) (by.get(k) || by.set(k, []).get(k)).push(t);
+  }
+  for (const [k, list] of by) {
+    const fix = fixes[k];
+    const extra = Number(fix.amount);
+    if (!Number.isFinite(extra) || !extra) continue;
+    const base = list.reduce((a, t) => a + t.chargesEst, 0);
+    const ratio = (t) => (base > 0 ? t.chargesEst / base : 1 / list.length);
+    // a correction that knows its heads (from Console's P&L statement) lands on those heads; otherwise on "other"
+    const heads = fix.parts && typeof fix.parts === "object" && Object.keys(fix.parts).length ? fix.parts : { other: extra };
+    const names = Object.keys(heads);
+    const leftHead = { ...heads };
+    let left = r2(extra);
+    list.forEach((t, i) => {
+      const last = i === list.length - 1;
+      const share = last ? left : r2(extra * ratio(t));
+      left = r2(left - share);
+      t.charges = r2(t.chargesEst + share);
+      t.net = r2(t.pnl - t.charges);
+      if (t.parts) {
+        const np = { ...t.parts };
+        let put = 0;
+        names.forEach((h, j) => {
+          const part = last ? leftHead[h] : r2(heads[h] * ratio(t));
+          leftHead[h] = r2(leftHead[h] - part);
+          // the last head takes what the rounding left, so the heads always add up to the trade's charges
+          const v = j === names.length - 1 ? r2(share - put) : part;
+          put = r2(put + v);
+          np[h] = r2((np[h] || 0) + v);
+        });
+        t.parts = np;
+      }
+    });
+  }
+  return trips;
+}
+
+/**
+ * What a file from Zerodha Console is, read from its own headers (not its name): "tradebook" (symbol, trade type, quantity),
+ * "ledger" (particulars, debit, credit) or "pnl" (Console's P&L statement — recognised, not read yet), else "unknown".
+ */
+function detectKind(buf) {
+  const b = Buffer.isBuffer(buf) ? buf : Buffer.from(String(buf || ""), "utf8");
+  let sheets;
+  try {
+    if (b.length >= 4 && b.readUInt32LE(0) === 0x04034b50) sheets = readXlsx(b).map((s) => s.rows);
+    else sheets = [csvRows(b[0] === 0xff && b[1] === 0xfe ? b.subarray(2).toString("utf16le") : b.toString("utf8"))];
+  } catch (_) {
+    return "unknown";
+  }
+  const heads = [];
+  for (const rows of sheets) for (const r of rows.slice(0, 40)) heads.push(r.map(normHead));
+  const has = (h, ...names) => names.some((n) => h.includes(n));
+  // the order matters: a P&L statement also holds a sheet of other debits and credits that looks like a ledger
+  if (heads.some((h) => has(h, "symbol", "tradingsymbol") && has(h, "trade_type", "type", "transaction_type", "buy_sell") && has(h, "quantity", "qty"))) return "tradebook";
+  if (heads.some((h) => has(h, "symbol") && (has(h, "realized_p_l", "realised_p_l", "realized_profit", "profit") || (has(h, "buy_value") && has(h, "sell_value"))))) return "pnl";
+  if (heads.some((h) => has(h, "particulars") && has(h, "debit") && has(h, "credit"))) return "ledger";
+  return "unknown";
+}
+
 /** A Console ledger file (.xlsx or .csv bytes) → { entries, left, rows, error, kind }. See otherbook.js. */
 function readLedger(buf) {
   const b = Buffer.isBuffer(buf) ? buf : Buffer.from(String(buf || ""), "utf8");
@@ -231,7 +303,7 @@ function readLedger(buf) {
       return { entries: [], left: {}, rows: 0, error: err.message, kind: "xlsx" };
     }
     // every sheet that is a ledger (Console writes one per segment: Equity, Commodity…) is read and added together
-    const all = { entries: [], left: {}, rows: 0 };
+    const all = { entries: [], left: {}, settle: {}, rows: 0 };
     let first = null;
     let found = false;
     for (const sh of sheets) {
@@ -243,6 +315,7 @@ function readLedger(buf) {
       found = true;
       all.entries.push(...r.entries);
       all.rows += r.rows;
+      for (const [k, n] of Object.entries(r.settle || {})) all.settle[k] = r2((all.settle[k] || 0) + n);
       for (const [k, n] of Object.entries(r.left)) all.left[k] = (all.left[k] || 0) + n;
     }
     if (found) return { ...all, entries: O.numbered(all.entries), error: "", kind: "xlsx" };
@@ -479,7 +552,8 @@ function chargeParts(t) {
   // per executed order when the orders are known (Zerodha's rule); otherwise one order a side, as before
   const brokerage = intraday ? (Number.isFinite(t.orderBrokerage) ? t.orderBrokerage : Math.min(20, buy * 0.0003) + Math.min(20, sell * 0.0003)) : 0;
   const stt = intraday ? sell * 0.00025 : turnover * 0.001;
-  const exchange = turnover * (t.exchange === "NSE" ? 0.0000297 : 0.0000375);
+  // NSE 0.00307% (24 Nov 2026: what Console charged on the owner's own statement, 185.13 on 6.03M); a ledger or P&L statement corrects any day
+  const exchange = turnover * (t.exchange === "NSE" ? 0.0000307 : 0.0000375);
   const sebi = turnover * 0.000001;
   const gst = 0.18 * (brokerage + exchange + sebi);
   const stamp = buy * (intraday ? 0.00003 : 0.00015);
@@ -745,7 +819,7 @@ class TradeJournal {
   _load() {
     const d = this.docs.read(NAME, null);
     this._migrate();
-    const out = { tags: (d && d.tags) || {}, excursions: (d && d.excursions) || {}, imports: (d && d.imports) || [], captured: (d && d.captured) || {}, accountSince: (d && d.accountSince) || "", views: (d && d.views) || [], retros: (d && d.retros) || [], capital: (d && d.capital) || [], manualDays: (d && d.manualDays) || {}, other: (d && d.other) || [] };
+    const out = { tags: (d && d.tags) || {}, excursions: (d && d.excursions) || {}, imports: (d && d.imports) || [], captured: (d && d.captured) || {}, accountSince: (d && d.accountSince) || "", views: (d && d.views) || [], retros: (d && d.retros) || [], capital: (d && d.capital) || [], manualDays: (d && d.manualDays) || {}, other: (d && d.other) || [], ledgerDays: (d && d.ledgerDays) || {}, chargeFix: (d && d.chargeFix) || {}, pnlRefs: (d && d.pnlRefs) || {} };
     if (!this._itemMode()) out.fills = (d && d.fills) || {};
     return out;
   }
@@ -897,11 +971,235 @@ class TradeJournal {
       fresh.push({ id: crypto.randomBytes(5).toString("hex"), date: e.date, amount: e.amount, kind: e.kind, note: e.note, key: e.key, source: "console", file: String(name).slice(0, 100), at: new Date(now).toISOString() });
     }
     if (d.other.length + fresh.length > 5000) return { added: 0, read: r.entries.length, left: r.left, error: "The list holds 5,000 entries; remove some first.", kind: r.kind };
-    if (fresh.length) {
-      d.other = [...d.other, ...fresh];
-      this._save(d);
+    // each day's net settlement for trades: what the reconciliation compares the journal's day with
+    const days = Object.keys(r.settle || {});
+    let changed = fresh.length > 0;
+    for (const day of days) {
+      const have1 = d.ledgerDays[day];
+      if (!have1 || have1.settle !== r.settle[day]) changed = true;
+      d.ledgerDays[day] = { settle: r.settle[day], file: String(name).slice(0, 100), at: new Date(now).toISOString() };
     }
-    return { added: fresh.length, read: r.entries.length, left: r.left, rows: r.rows, error: "", kind: r.kind };
+    if (fresh.length) d.other = [...d.other, ...fresh];
+    if (changed) this._save(d);
+    return { added: fresh.length, read: r.entries.length, left: r.left, rows: r.rows, settledDays: days.length, error: "", kind: r.kind };
+  }
+
+  /**
+   * Zerodha's ledger against the journal, day by day (24 Nov 2026). The ledger's net settlement of a day is what the day's
+   * trades came to in the account — profit or loss after every charge — so for a day of intraday equity trades it should equal
+   * the journal's day (realised P&L − estimated charges). The charges are an estimate, so a few rupees can differ; the ledger
+   * is Zerodha's own figure, so a small difference is corrected (the day's charges are set so the net is the ledger's), and a
+   * large one is left for a look (a trade missing from or extra in the journal).
+   *   match        within ₹1
+   *   corrected    a correction is in place and the day now equals the ledger
+   *   off          differs by ₹1–50: can be corrected
+   *   check        differs by more than ₹50, or the ledger has a day the journal has no trades for
+   *   later        trades the ledger does not hold yet (after its last day)
+   *   skip         not comparable: delivery, futures & options or an open position (their settlement is not the day's P&L)
+   * @returns { days: [{ date, ledger, app, appNow, diff, fix, status, trades }], counts, from, to, file }
+   */
+  reconcile({ fromDay = "", toDay = "" } = {}) {
+    const d = this._load();
+    const ledger = d.ledgerDays;
+    const keys = Object.keys(ledger).sort();
+    if (!keys.length) return { days: [], counts: {}, from: null, to: null, file: null };
+    const lo = fromDay && fromDay > keys[0] ? fromDay : keys[0];
+    const hi = toDay && toDay < keys[keys.length - 1] ? toDay : keys[keys.length - 1];
+    const byDay = new Map();
+    for (const t of this._baseTrips()) {
+      const k = t.open ? null : istDay(t.exitAt);
+      if (!k) continue;
+      const g = byDay.get(k) || { pnl: 0, est: 0, now: 0, n: 0, plain: true };
+      g.pnl += t.pnl;
+      g.est += t.chargesEst;
+      g.now += t.charges;
+      g.n += 1;
+      if (!t.intraday || !["NSE", "BSE"].includes(t.exchange)) g.plain = false;
+      byDay.set(k, g);
+    }
+    const openDays = new Set(this._baseTrips().filter((t) => t.open).map((t) => istDay(t.entryAt)));
+    const all = [...new Set([...keys, ...[...byDay.keys()]])].filter((k) => k >= lo && k <= keys[keys.length - 1] && (!hi || k <= hi)).sort();
+    const rows = all.map((date) => {
+      const L = ledger[date] ? ledger[date].settle : null;
+      const g = byDay.get(date) || null;
+      const app = g ? r2(g.pnl - g.est) : null;
+      const appNow = g ? r2(g.pnl - g.now) : null;
+      const fix = d.chargeFix[date] ? d.chargeFix[date].amount : 0;
+      let status;
+      let diff = null;
+      if (L === null || L === undefined) status = "later";
+      else if (!g) status = Math.abs(L) > 1 ? "check" : "match";
+      else if (!g.plain || openDays.has(date)) status = "skip";
+      else {
+        diff = r2(L - app);
+        if (fix && Math.abs(appNow - L) <= 1) status = "corrected";
+        else if (Math.abs(diff) <= 1) status = "match";
+        else if (Math.abs(diff) <= 50) status = "off";
+        else status = "check";
+      }
+      return { date, ledger: L === undefined ? null : L, app, appNow, diff, fix: r2(fix), status, trades: g ? g.n : 0, note: ledger[date] ? undefined : "not in the ledger" };
+    });
+    const counts = {};
+    for (const x of rows) counts[x.status] = (counts[x.status] || 0) + 1;
+    const last = keys.map((k) => ledger[k]).sort((a, b) => (a.at < b.at ? 1 : -1))[0];
+    return { days: rows, counts, from: keys[0], to: keys[keys.length - 1], file: last ? last.file : null, at: last ? last.at : null };
+  }
+
+  /**
+   * Make the days that differ a little match the ledger: the day's charges are set so its net is the ledger's. Without `days`,
+   * every day that is "off" (and every corrected day whose trades changed since). A day that already matches loses its correction.
+   * @returns { corrected: [dates], reconcile }
+   */
+  applyMatch({ days = null } = {}, now = Date.now()) {
+    const want = Array.isArray(days) ? new Set(days.map(String)) : null;
+    const rec = this.reconcile();
+    const d = this._load();
+    const corrected = [];
+    for (const x of rec.days) {
+      if (want && !want.has(x.date)) continue;
+      if (x.status === "off" || (x.status === "corrected" && x.diff !== null && Math.abs(x.diff + x.fix) > 0.5)) {
+        d.chargeFix[x.date] = { amount: r2(-x.diff), ledger: x.ledger, estimate: x.app, at: new Date(now).toISOString() };
+        corrected.push(x.date);
+      } else if (x.status === "match" && d.chargeFix[x.date]) {
+        delete d.chargeFix[x.date];
+        corrected.push(x.date);
+      }
+    }
+    if (corrected.length) this._save(d);
+    return { corrected, reconcile: this.reconcile() };
+  }
+
+  /* ------------------------------------------------------------------ Console's P&L statement */
+
+  /** A Console P&L statement (.xlsx bytes) → kept as the reference for its period; its other debits and credits are read too. */
+  importPnl(buf, { name = "" } = {}, now = Date.now()) {
+    const b = Buffer.isBuffer(buf) ? buf : Buffer.from(String(buf || ""), "utf8");
+    let sheets;
+    try {
+      sheets = b.length >= 4 && b.readUInt32LE(0) === 0x04034b50 ? readXlsx(b) : [{ name: "csv", rows: csvRows(b.toString("utf8")) }];
+    } catch (err) {
+      return { error: err.message };
+    }
+    const p = O.fromPnlSheets(sheets);
+    if (p.error) return { error: p.error };
+    const d = this._load();
+    const key = `${p.from}_${p.to}`;
+    d.pnlRefs[key] = { key, from: p.from, to: p.to, file: String(name).slice(0, 100), at: new Date(now).toISOString(), summary: p.summary, heads: p.heads, headList: p.headList, symbols: p.symbols };
+    const keys = Object.keys(d.pnlRefs).sort();
+    if (keys.length > 24) for (const k of keys.slice(0, keys.length - 24)) delete d.pnlRefs[k];
+    // the statement's own sheet of other debits and credits: the same entries the ledger holds (the same key, so never twice)
+    const have = new Set(d.other.map((e) => e.key).filter(Boolean));
+    let added = 0;
+    for (const e of O.numbered(p.others.entries)) {
+      if (have.has(e.key)) continue;
+      have.add(e.key);
+      d.other.push({ id: crypto.randomBytes(5).toString("hex"), date: e.date, amount: e.amount, kind: e.kind, note: e.note, key: e.key, source: "console", file: String(name).slice(0, 100), at: new Date(now).toISOString() });
+      added += 1;
+    }
+    this._save(d);
+    return { key, from: p.from, to: p.to, added, summary: p.summary, symbols: p.symbols.length };
+  }
+
+  /** The closed equity trades of a period: what the statement of that period is about (futures and options have their own statement). */
+  _pnlTrips(from, to) {
+    return this._baseTrips().filter((t) => !t.open && ["NSE", "BSE"].includes(t.exchange) && istDay(t.exitAt) >= from && istDay(t.exitAt) <= to);
+  }
+
+  /**
+   * The statements kept, each against the journal for its own period: realised P&L, charges (and every head), other credits &
+   * debits, net, and each symbol's realised P&L — Console's figure, the journal's, the difference.
+   */
+  pnlCompare() {
+    const d = this._load();
+    const dp = this._dpByDay();
+    return Object.values(d.pnlRefs)
+      .sort((a, b) => (a.to < b.to ? 1 : -1))
+      .map((ref) => {
+        const trips = this._pnlTrips(ref.from, ref.to);
+        const sum = (f) => r2(trips.reduce((a, t) => a + f(t), 0));
+        const app = { realised: sum((t) => t.pnl), charges: sum((t) => t.charges), est: sum((t) => t.chargesEst) };
+        const oth = O.totals(O.counted(d.other, { fromDay: ref.from, toDay: ref.to }, dp));
+        const row = (label, theirs, mine, tol) => ({ label, console: theirs, app: mine, diff: r2(mine - theirs), ok: Math.abs(mine - theirs) <= tol });
+        const heads = ["brokerage", "stt", "exchange", "gst", "sebi", "stamp", "dp", "other"]
+          .map((h) => {
+            const mine = r2(trips.reduce((a, t) => a + ((t.parts && t.parts[h]) || 0), 0));
+            const est = r2(trips.reduce((a, t) => a + ((t.partsEst && t.partsEst[h]) || 0), 0));
+            const c = ref.heads[h] || 0;
+            return { head: h, console: r2(c), app: mine, est, diff: r2(mine - c), ok: Math.abs(mine - c) <= 0.5 };
+          })
+          .filter((h) => h.console || h.app || h.est);
+        const mine = new Map();
+        for (const t of trips) mine.set(t.symbol, r2((mine.get(t.symbol) || 0) + t.pnl));
+        const names = new Set([...mine.keys(), ...ref.symbols.map((x) => x.symbol)]);
+        const symbols = [...names].sort().map((s) => {
+          const c = (ref.symbols.find((x) => x.symbol === s) || {}).pnl;
+          const m = mine.has(s) ? mine.get(s) : null;
+          return { symbol: s, console: c === undefined ? null : c, app: m, diff: c === undefined || m === null ? null : r2(m - c), ok: c !== undefined && m !== null && Math.abs(m - c) <= 1 };
+        });
+        const cNet = r2(ref.summary.realised - ref.summary.charges + (ref.summary.other || 0));
+        const aNet = r2(app.realised - app.charges + oth.total);
+        const corrected = Object.values(d.chargeFix).filter((f) => f.source === "pnl" && f.ref === ref.key).length;
+        const rows = [row("Realised P&L", ref.summary.realised, app.realised, 1), row("Charges & taxes", ref.summary.charges, app.charges, 0.5), row("Other credits & debits", ref.summary.other || 0, oth.total, 0.5), row("Net realised P&L", cNet, aNet, 1)];
+        return { key: ref.key, from: ref.from, to: ref.to, file: ref.file, at: ref.at, rows, heads, symbols, trades: trips.length, corrected, ok: rows.every((x) => x.ok) && heads.every((h) => h.ok) && symbols.every((s) => s.ok) };
+      });
+  }
+
+  /**
+   * Make a period's charges Console's, head by head: what the statement says for each head less what the estimate says, spread
+   * over the days that closed trades (in proportion to their estimated charges), kept as a correction of those days. A day the
+   * ledger has settled is set to the ledger afterwards if it still differs by more than ₹1.
+   */
+  applyPnlMatch(key, now = Date.now()) {
+    const d = this._load();
+    const ref = d.pnlRefs[key];
+    if (!ref) return { error: "That statement is not kept any more." };
+    const trips = this._pnlTrips(ref.from, ref.to);
+    if (!trips.length) return { error: "The journal has no closed equity trades in that period, so there is nothing to correct." };
+    const heads = {};
+    for (const h of ["brokerage", "stt", "exchange", "gst", "sebi", "stamp", "dp", "other"]) {
+      const est = trips.reduce((a, t) => a + ((t.partsEst && t.partsEst[h]) || 0), 0);
+      const c = ref.heads[h] || 0;
+      if (Math.abs(c - est) >= 0.005) heads[h] = r2(c - est);
+    }
+    const w = new Map();
+    for (const t of trips) w.set(istDay(t.exitAt), (w.get(istDay(t.exitAt)) || 0) + t.chargesEst);
+    const days = [...w.keys()].sort();
+    const total = [...w.values()].reduce((a, v) => a + v, 0);
+    const left = { ...heads };
+    days.forEach((day, i) => {
+      const last = i === days.length - 1;
+      const parts = {};
+      for (const h of Object.keys(heads)) {
+        const v = last ? left[h] : r2(heads[h] * (total > 0 ? w.get(day) / total : 1 / days.length));
+        left[h] = r2(left[h] - v);
+        if (v) parts[h] = v;
+      }
+      const amount = r2(Object.values(parts).reduce((a, v) => a + v, 0));
+      if (amount) d.chargeFix[day] = { amount, parts, source: "pnl", ref: key, at: new Date(now).toISOString() };
+      else delete d.chargeFix[day];
+    });
+    this._save(d);
+    const m = this.applyMatch({}, now);
+    return { days, ledger: m.corrected, compare: this.pnlCompare() };
+  }
+
+  /** Take a statement's correction back (the days it corrected have the estimate again). */
+  removePnlMatch(key) {
+    const d = this._load();
+    const gone = Object.keys(d.chargeFix).filter((day) => d.chargeFix[day].ref === key);
+    if (!gone.length) return { error: "That statement has no correction in place." };
+    for (const day of gone) delete d.chargeFix[day];
+    this._save(d);
+    return { days: gone, compare: this.pnlCompare() };
+  }
+
+  /** Take a day's correction back: its charges are the estimate again. */
+  removeMatch(day) {
+    const d = this._load();
+    if (!d.chargeFix[day]) return { error: "That day has no correction." };
+    delete d.chargeFix[day];
+    this._save(d);
+    return { reconcile: this.reconcile() };
   }
 
   /**
@@ -998,8 +1296,9 @@ class TradeJournal {
       const c = t.open ? 0 : charges(t);
       const parts = t.open ? null : chargeParts(t);
       // each charge on its own (brokerage, STT, exchange, SEBI, GST, stamp duty, DP), for the charges breakdown
-      return { ...t, charges: c, brokerage: t.open ? 0 : r2(parts.brokerage), parts: parts ? Object.fromEntries(Object.entries(parts).map(([k, v]) => [k, r2(v)])) : null, net: r2(t.pnl - c) };
+      return { ...t, charges: c, chargesEst: c, partsEst: parts, brokerage: t.open ? 0 : r2(parts.brokerage), parts: parts ? Object.fromEntries(Object.entries(parts).map(([k, v]) => [k, r2(v)])) : null, net: r2(t.pnl - c) };
     });
+    applyChargeFix(trips, this._load().chargeFix);
     this._memo = { ver: this._ver, n: list.length, trips };
     return trips;
   }
@@ -1144,9 +1443,10 @@ class TradeJournal {
       period: filters.period || null,
       // the charges of the period's closed trades, one by one (Zerodha's published rates — an estimate; the contract note is the truth)
       chargeParts: (() => {
-        const sum = { brokerage: 0, stt: 0, exchange: 0, sebi: 0, gst: 0, stamp: 0, dp: 0 };
+        const sum = { brokerage: 0, stt: 0, exchange: 0, sebi: 0, gst: 0, stamp: 0, dp: 0, other: 0 };
         for (const t of trips) if (!t.open && t.parts) for (const k of Object.keys(sum)) sum[k] += t.parts[k] || 0;
-        return Object.fromEntries(Object.entries(sum).map(([k, v]) => [k, r2(v)]));
+        // "other" (a correction that makes a day match the ledger) is there only when there is one
+        return Object.fromEntries(Object.entries(sum).filter(([k, v]) => k !== "other" || v !== 0).map(([k, v]) => [k, r2(v)]));
       })(),
       // days entered by hand in the period (never a day Zerodha has trades for)
       manualDays: this.manualDays(filters.period ? { fromDay: filters.period.fromDay || "", toDay: filters.period.toDay || "" } : {}),
@@ -1308,4 +1608,4 @@ class TradeJournal {
   }
 }
 
-module.exports = { TradeJournal, roundTrips, charges, chargeParts, stats, summarize, byMonth, excursion, fromConsoleCsv, fromRows, readTradebook, parseWhen, exchangeOf, fromKite, parseTime, csvRows, periodRange, fyOf, fyLabel, istDay, MISTAKES, NAME, FILLS, MAX_FILLS };
+module.exports = { TradeJournal, detectKind, applyChargeFix, roundTrips, charges, chargeParts, stats, summarize, byMonth, excursion, fromConsoleCsv, fromRows, readTradebook, parseWhen, exchangeOf, fromKite, parseTime, csvRows, periodRange, fyOf, fyLabel, istDay, MISTAKES, NAME, FILLS, MAX_FILLS };

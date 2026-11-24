@@ -8,6 +8,7 @@ import { api } from "../../api";
 import { Alert } from "../../ui";
 import { useDialog } from "../../dialog/DialogProvider";
 import { DateField } from "../../DatePicker";
+import { uploadConsoleFile } from "./consoleUpload";
 import { isNum, num } from "../analyzer/format";
 import "./other-ledger.css";
 
@@ -76,16 +77,8 @@ export default function OtherLedger({ other, label = "", onChanged = () => {} })
     setBusy("file");
     setMsg({ kind: "", text: "" });
     try {
-      const st = await api("/api/admin/trading/journal/upload", { method: "POST", body: { name: f.name, size: f.size } });
-      for (let i = 0, k = 0; i < f.size; i += st.partSize, k += 1) {
-        const res = await fetch(`/api/admin/trading/journal/upload/${st.id}/${k}`, { method: "PUT", credentials: "same-origin", headers: { "X-Requested-With": "vpt", "Content-Type": "application/octet-stream", Accept: "application/json" }, body: f.slice(i, i + st.partSize) });
-        if (!res.ok) {
-          const d = await res.json().catch(() => null);
-          throw new Error((d && d.message) || `The upload failed (${res.status}).`);
-        }
-      }
-      const r = await api(`/api/admin/trading/journal/upload/${st.id}/finish-ledger`, { method: "POST", body: {} });
-      setMsg({ kind: "ok", text: importSaid(r) });
+      const r = await uploadConsoleFile(f);
+      setMsg({ kind: "ok", text: r.type === "tradebook" ? `${f.name}: this was a tradebook, and it was read as one — ${r.added} new trade${r.added === 1 ? "" : "s"} added.` : importSaid(r) });
       onChanged();
     } catch (err) {
       fail(err);

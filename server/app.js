@@ -379,6 +379,10 @@ function createApp(opts = {}) {
     await analysis.labBackfill({ max: 10 });
     await analysis.snapshotBackfill({ max: 10 });
   };
+  // a ledger matched to the journal: the Day book re-reads the days whose charges changed
+  trading.onJournalMatch = async (days) => {
+    for (const day of days) await analysis.capture(day, { by: "manual" }).catch(() => {});
+  };
   // figures are no longer entered by hand: days edited by hand in an earlier version are rebuilt from the journal once
   if (typeof analysis.dropHandFigures === "function") analysis.dropHandFigures().catch((err) => (opts.log || console).error(`[analysis] ${err.message}`));
 

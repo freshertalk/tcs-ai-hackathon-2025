@@ -13,6 +13,7 @@ import { Alert, Loading } from "../../ui";
 import { useDialog } from "../../dialog/DialogProvider";
 import { DateField, DateRangeField } from "../../DatePicker";
 import { Calendar, DailyBars, Donut, HBars, LineChart, Spark, Waterfall, dayLabel, dayLong, rs, rsSigned, tone } from "./charts";
+import ConsoleMatch from "../trade/ConsoleMatch";
 import "./analysis.css";
 
 const IST = 5.5 * 3600 * 1000;
@@ -888,6 +889,9 @@ export default function DayBook() {
         </div>
       </section>
       <Alert kind={msg.kind === "ok" ? "ok" : "error"}>{msg.text || list.error}</Alert>
+
+      {/* Zerodha Console's files: recognised, read, and every day compared with the ledger */}
+      {view !== "day" && <ConsoleMatch onChanged={changed} />}
 
       <div className="ta-toolbar">
         <div className="ta-tabs" role="tablist" aria-label="Day book">

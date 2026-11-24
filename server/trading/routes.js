@@ -13,7 +13,7 @@ const { TradingError } = require("./service");
 const { KiteError } = require("../market/kite");
 const { AiError } = require("../ai/client");
 const express = require("express");
-const { periodRange } = require("./journal");
+const { periodRange, detectKind } = require("./journal");
 const { JournalFiles, UploadError } = require("./uploads");
 
 function mountTrading(app, { trading, ai, requireSuper, limiter, capture = null, requireTrader = null }) {
@@ -219,8 +219,8 @@ function mountTrading(app, { trading, ai, requireSuper, limiter, capture = null,
   const fileName = (n) => String(n || "tradebook").replace(/[^A-Za-z0-9 ._()-]/g, "_").slice(0, 100);
   app.post("/api/admin/trading/journal/upload", requireSuper, limiter(60, 10 * 60 * 1000), wrap(async (req) => files.start(req.body || {})));
   app.put("/api/admin/trading/journal/upload/:id/:index", requireSuper, limiter(400, 10 * 60 * 1000), express.raw({ type: () => true, limit: "3mb" }), wrap(async (req) => files.part(String(req.params.id), Number(req.params.index), req.body)));
-  app.post("/api/admin/trading/journal/upload/:id/finish", requireSuper, limiter(60, 10 * 60 * 1000), wrap(async (req) => {
-    const { name, buf } = files.take(String(req.params.id));
+  // one tradebook, read and kept (shared by the plain upload and the smart one)
+  const finishTradebook = async (req, name, buf) => {
     const id = require("node:crypto").createHash("sha256").update(buf).digest("hex").slice(0, 16);
     const r = trading.journal.importFile(buf, { name, file: id });
     if (r.error) throw new TradingError(`${name}: ${r.error}`);
@@ -230,15 +230,69 @@ function mountTrading(app, { trading, ai, requireSuper, limiter, capture = null,
     // LISTENER: new trades in the journal — the Day book saves their days and the lab replays them at once
     if (r.added && typeof trading.onJournalImport === "function") Promise.resolve().then(() => trading.onJournalImport(r)).catch(() => {});
     return { ...r, name, file: kept.meta, duplicate: kept.duplicate };
-  }));
-  // the same upload, read as a Console LEDGER (Funds → Statement) instead of a tradebook
-  app.post("/api/admin/trading/journal/upload/:id/finish-ledger", requireSuper, limiter(60, 10 * 60 * 1000), wrap(async (req) => {
-    const { name, buf } = files.take(String(req.params.id));
+  };
+  // a ledger, read, and every day that differs a little made to match it; the Day book re-reads the days that changed
+  const finishLedger = (req, name, buf) => {
     const r = trading.journal.importLedger(buf, { name }, nowMs());
     if (r.error) throw new TradingError(`${name}: ${r.error}`);
+    const m = trading.journal.applyMatch({}, nowMs());
     trading.journal.snapshot(nowMs());
-    console.log(`[trading] ledger upload by ${req.user.email}: ${name} (${r.kind}) — ${r.added} new of ${r.read} other credits & debits`);
-    return { ...r, name };
+    console.log(`[trading] ledger upload by ${req.user.email}: ${name} (${r.kind}) — ${r.added} new of ${r.read} other credits & debits, ${r.settledDays} days, ${m.corrected.length} corrected`);
+    if (m.corrected.length && typeof trading.onJournalMatch === "function") Promise.resolve().then(() => trading.onJournalMatch(m.corrected)).catch(() => {});
+    return { ...r, name, matched: m.corrected, counts: m.reconcile.counts };
+  };
+  // Console's P&L statement: kept as the reference for its period, and compared with the journal's period
+  const finishPnl = (req, name, buf) => {
+    const r = trading.journal.importPnl(buf, { name }, nowMs());
+    if (r.error) throw new TradingError(`${name}: ${r.error}`);
+    trading.journal.snapshot(nowMs());
+    console.log(`[trading] P&L statement upload by ${req.user.email}: ${name} (${r.from} to ${r.to}) — ${r.added} other entries`);
+    return { name, ...r, compare: trading.journal.pnlCompare().find((c) => c.key === r.key) || null };
+  };
+  app.post("/api/admin/trading/journal/upload/:id/finish", requireSuper, limiter(60, 10 * 60 * 1000), wrap(async (req) => {
+    const { name, buf } = files.take(String(req.params.id));
+    return finishTradebook(req, name, buf);
+  }));
+  // SMART: whatever Zerodha Console file was uploaded — its own headers say what it is (a tradebook or a ledger)
+  app.post("/api/admin/trading/journal/upload/:id/finish-console", requireSuper, limiter(60, 10 * 60 * 1000), wrap(async (req) => {
+    const { name, buf } = files.take(String(req.params.id));
+    const kind = detectKind(buf);
+    if (kind === "tradebook") return { type: "tradebook", ...(await finishTradebook(req, name, buf)) };
+    if (kind === "ledger") return { type: "ledger", ...finishLedger(req, name, buf) };
+    if (kind === "pnl") return { type: "pnl", ...finishPnl(req, name, buf) };
+    throw new TradingError(`${name}: this is not a Zerodha Console tradebook or ledger. Use Console → Reports → Tradebook, or Funds → Statement (the ledger), as .xlsx or .csv.`);
+  }));
+  app.get("/api/admin/trading/journal/pnl", requireSuper, wrap(async () => ({ statements: trading.journal.pnlCompare() })));
+  app.post("/api/admin/trading/journal/pnl/:key/apply", requireSuper, limiter(60, 10 * 60 * 1000), wrap(async (req) => {
+    const r = trading.journal.applyPnlMatch(String(req.params.key || "").slice(0, 30), nowMs());
+    if (r.error) throw new TradingError(r.error);
+    trading.journal.snapshot(nowMs());
+    if (typeof trading.onJournalMatch === "function") Promise.resolve().then(() => trading.onJournalMatch(r.days)).catch(() => {});
+    return { statements: r.compare, days: r.days };
+  }));
+  app.delete("/api/admin/trading/journal/pnl/:key/apply", requireSuper, limiter(60, 10 * 60 * 1000), wrap(async (req) => {
+    const r = trading.journal.removePnlMatch(String(req.params.key || "").slice(0, 30));
+    if (r.error) throw new TradingError(r.error);
+    trading.journal.snapshot(nowMs());
+    if (typeof trading.onJournalMatch === "function") Promise.resolve().then(() => trading.onJournalMatch(r.days)).catch(() => {});
+    return { statements: r.compare, days: r.days };
+  }));
+  // the ledger against the journal, day by day, and the corrections
+  app.get("/api/admin/trading/journal/reconcile", requireSuper, wrap(async () => trading.journal.reconcile()));
+  app.post("/api/admin/trading/journal/reconcile/apply", requireSuper, limiter(60, 10 * 60 * 1000), wrap(async (req) => {
+    const b = req.body || {};
+    const m = trading.journal.applyMatch({ days: Array.isArray(b.days) ? b.days.slice(0, 400).map((x) => String(x).slice(0, 10)) : null }, nowMs());
+    trading.journal.snapshot(nowMs());
+    if (m.corrected.length && typeof trading.onJournalMatch === "function") Promise.resolve().then(() => trading.onJournalMatch(m.corrected)).catch(() => {});
+    return m;
+  }));
+  app.delete("/api/admin/trading/journal/reconcile/:date", requireSuper, limiter(60, 10 * 60 * 1000), wrap(async (req) => {
+    const day = String(req.params.date || "").slice(0, 10);
+    const r = trading.journal.removeMatch(day);
+    if (r.error) throw new TradingError(r.error);
+    trading.journal.snapshot(nowMs());
+    if (typeof trading.onJournalMatch === "function") Promise.resolve().then(() => trading.onJournalMatch([day])).catch(() => {});
+    return r;
   }));
   app.get("/api/admin/trading/journal/files", requireSuper, wrap(async () => ({ files: await files.list(), store: files.col ? "MongoDB (collection journal_files)" : "server files (data/journal-files)" })));
   app.get("/api/admin/trading/journal/files/:id", requireSuper, async (req, res) => {

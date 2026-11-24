@@ -373,7 +373,25 @@ clamps), then set one standard over all of them by their existing class names:
     "already in charges", and not counted twice.
   - API: `GET/POST /api/admin/trading/journal/other`, `DELETE …/other/:id`, `POST …/upload/:id/finish-ledger`
     (the tradebook upload, read as a ledger). The journal view carries `other` for the period.
-  - Not included: the per-period tables, the calendar and the return on principal still use trade-only net.
+  - *Match with Zerodha Console* (Day book, top; `ConsoleMatch.jsx`, `consoleUpload.js`): drop the Tradebook and the Ledger
+    (.xlsx or .csv, several at once, any order). `detectKind` reads the file's own headers, not its name: a tradebook goes
+    to the journal, a ledger gives the other entries and each day's net settlement. Console's P&L statement is recognised
+    and Console's P&L statement (Reports → P&L). The statement is kept as the reference for its period (summary, each
+    charge head, each symbol) and its sheet of other debits and credits is read too (never twice with the ledger's).
+    - Every day is compared with the journal's day: the ledger's net settlement is what the day's trades came to after
+      every charge. Result per day: Matches (within ₹1), Corrected, Differs a little (₹1–50), Check the trades (over ₹50,
+      or a ledger day with no trades here), Not in the ledger yet, Not compared (delivery, F&O or open positions).
+    - A small difference is corrected on upload (or with Correct): the day's charges are set so its net is the ledger's,
+      shared among the day's trades and carried as the "Other" charge (`applyChargeFix` in `_baseTrips`), so the Journal,
+      the Day book, the calendar and the returns all show it. Undo per day. The Day book re-reads corrected days.
+    - The P&L statement is compared with the journal's same period: realised P&L, charges, other credits & debits, net, each
+      charge head and each symbol. "Correct charges to Console" sets each head to Console's, spread over the period's
+      trading days (`chargeFix` with `parts`), so the Charges breakdown matches head by head; undo per statement. A
+      difference in realised P&L or in a symbol means a trade is missing or extra: shown, never "corrected".
+    - Checked on the owner's files (2026-11-24): Console's realised P&L − charges = the ledger's settlements, to the paisa.
+    - API: `POST …/upload/:id/finish-console`, `GET …/reconcile`, `POST …/reconcile/apply`, `DELETE …/reconcile/:date`,
+      `GET …/pnl`, `POST/DELETE …/pnl/:key/apply`.
+  - Not included: the per-period tables and the return on principal use the entries' total only through the summary.
   - Tests: `server/test/otherbook.test.js`, `OtherLedger.test.js`, `PnlReport.test.js`.
 
 **Hide amounts, the /me redesign and soft buttons with icons (2026-11-24; `src/admin/privacy.jsx` + `privacy.css`,

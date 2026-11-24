@@ -319,7 +319,7 @@ export const TRADING = [
         ["Brokerage", "The smaller of ₹20 and 0.03% of buy turnover, plus the same on sell turnover", "₹0"],
         ["STT", "0.025% of sell turnover", "0.1% of buy plus sell turnover"],
         ["DP charge", "none", "₹15.34 flat if there was any sale"],
-        ["Exchange transaction charge", "0.00297% of total turnover on NSE (0.00375% on BSE)", "same"],
+        ["Exchange transaction charge", "0.00307% of total turnover on NSE (0.00375% on BSE)", "same"],
         ["SEBI fee", "0.0001% of turnover (₹10 per crore)", "same"],
         ["GST", "18% of (brokerage + exchange + SEBI)", "same"],
         ["Stamp duty", "0.003% of buy turnover", "0.015% of buy turnover"],

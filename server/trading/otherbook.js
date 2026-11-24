@@ -75,6 +75,7 @@ function fromLedgerRows(rows) {
   if (c.date === undefined) return { entries: [], left: {}, rows: 0, error: "The ledger has no posting date column." };
   const entries = [];
   const left = {};
+  const settle = {}; // each day's net settlement for trades (credit − debit): what the day's trades came to in the account
   let bad = 0;
   let n = 0;
   for (const r of rows.slice(hi + 1)) {
@@ -93,6 +94,7 @@ function fromLedgerRows(rows) {
       continue;
     }
     const cls = classify(get(c.p), get(c.voucher));
+    if (/net (settlement|obligation)/i.test(String(get(c.p))) && /book voucher/i.test(String(get(c.voucher)))) settle[date] = r2((settle[date] || 0) + credit - debit);
     if (!cls.kind) {
       left[cls.left] = (left[cls.left] || 0) + 1;
       continue;
@@ -103,7 +105,94 @@ function fromLedgerRows(rows) {
     entries.push({ date, amount, kind: cls.kind, note, key: `${date}|${note.slice(0, 80)}|${amount}` });
   }
   if (bad) left["lines that could not be read"] = bad;
-  return { entries, left, rows: n, error: "" };
+  return { entries, left, settle, rows: n, error: "" };
+}
+
+
+/* ------------------------------------------------------------------ Console's P&L statement */
+
+/** A charge head of Console's statement ("Securities Transaction Tax - Z") → the journal's head. */
+function headOf(name) {
+  const n = String(name || "").toLowerCase();
+  if (/brokerage/.test(n)) return "brokerage";
+  if (/securities transaction|stt|ctt/.test(n)) return "stt";
+  if (/gst/.test(n)) return "gst";
+  if (/sebi/.test(n)) return "sebi";
+  if (/stamp/.test(n)) return "stamp";
+  if (/transaction|exchange|clearing/.test(n)) return "exchange";
+  if (/dp|depository/.test(n)) return "dp";
+  return "other";
+}
+
+const cellNum = (v) => {
+  const t = String(v === undefined || v === null ? "" : v).replace(/[,₹\s]/g, "");
+  if (!t || !/^[-+]?\d*\.?\d+$/.test(t)) return null;
+  return Number(t);
+};
+
+/**
+ * Console's P&L statement (.xlsx, one sheet per segment, plus "Other Debits and Credits") → what it states for the period:
+ * the summary (charges, other credits & debits, realised, unrealised), each charge head, and each symbol's realised P&L.
+ * @param sheets [{ name, rows }] @returns { from, to, summary, heads, headList, symbols, others, error }
+ */
+function fromPnlSheets(sheets) {
+  const out = { from: "", to: "", summary: {}, heads: {}, headList: [], symbols: [], others: { entries: [], left: {} }, error: "" };
+  let seen = false;
+  for (const sh of sheets) {
+    const rows = sh.rows || [];
+    const text = rows.slice(0, 20).map((r) => r.join(" ")).join(" ");
+    const per = /from\s+(\d{4}-\d{2}-\d{2})\s+to\s+(\d{4}-\d{2}-\d{2})/i.exec(text);
+    if (per && !out.from) {
+      out.from = per[1];
+      out.to = per[2];
+    }
+    // the statement of a segment
+    const si = rows.findIndex((r) => {
+      const h = r.map(norm);
+      return h.includes("symbol") && (h.includes("realized_p_l") || h.includes("realised_p_l"));
+    });
+    if (si >= 0) {
+      seen = true;
+      for (const r of rows.slice(0, si)) {
+        const lab = String(r[1] === undefined ? "" : r[1]).trim().toLowerCase();
+        const v = cellNum(r[2]);
+        if (v === null) continue;
+        if (lab === "charges" && out.summary.charges === undefined) out.summary.charges = v;
+        else if (/^other credit/.test(lab) && out.summary.other === undefined) out.summary.other = v;
+        else if (/^realized p&l$|^realised p&l$/.test(lab) && out.summary.realised === undefined) out.summary.realised = v;
+        else if (/^unrealized p&l$|^unrealised p&l$/.test(lab) && out.summary.unrealised === undefined) out.summary.unrealised = v;
+      }
+      const hi = rows.findIndex((r) => norm(r[1]) === "account_head");
+      if (hi >= 0) {
+        for (const r of rows.slice(hi + 1, si)) {
+          const v = cellNum(r[2]);
+          if (!String(r[1] || "").trim() || v === null) continue;
+          out.headList.push({ name: String(r[1]).trim(), amount: v });
+          const h = headOf(r[1]);
+          out.heads[h] = Math.round(((out.heads[h] || 0) + v) * 10000) / 10000; // four decimals, as Console writes them
+        }
+      }
+      const head = rows[si].map(norm);
+      const col = (...n) => n.map((x) => head.indexOf(x)).find((i) => i >= 0);
+      const c = { s: col("symbol"), q: col("quantity"), b: col("buy_value"), v: col("sell_value"), p: col("realized_p_l", "realised_p_l") };
+      for (const r of rows.slice(si + 1)) {
+        const sym = String(r[c.s] === undefined ? "" : r[c.s]).trim().toUpperCase();
+        const p = cellNum(r[c.p]);
+        if (!sym || p === null) continue;
+        out.symbols.push({ symbol: sym, qty: cellNum(r[c.q]), buy: cellNum(r[c.b]), sell: cellNum(r[c.v]), pnl: r2(p) });
+      }
+    } else if (rows.slice(0, 40).some((r) => { const h = r.map(norm); return h.includes("particulars") && h.includes("debit") && h.includes("credit"); })) {
+      // the sheet of other debits and credits: lines like a ledger's
+      const l = fromLedgerRows(rows);
+      if (!l.error) {
+        out.others.entries.push(...l.entries);
+        for (const [k, n] of Object.entries(l.left)) out.others.left[k] = (out.others.left[k] || 0) + n;
+      }
+    }
+  }
+  if (!seen) out.error = "This does not look like a Zerodha Console P&L statement: it needs a sheet with Symbol and Realized P&L columns (Console → Reports → P&L).";
+  else if (!out.from || out.summary.realised === undefined) out.error = "The P&L statement has no period or no Realized P&L summary, so it cannot be compared.";
+  return out;
 }
 
 /**
@@ -151,4 +240,4 @@ function totals(list) {
   return { total: r2(credits + debits), credits: r2(credits), debits: r2(debits), count: list.length, covered: coveredN, byKind };
 }
 
-module.exports = { KINDS, classify, fromLedgerRows, numbered, counted, totals, dayOf };
+module.exports = { KINDS, classify, fromLedgerRows, fromPnlSheets, headOf, numbered, counted, totals, dayOf };

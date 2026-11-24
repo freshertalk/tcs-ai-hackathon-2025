@@ -34,12 +34,12 @@ const pct = (x) => (isNum(x) ? `${x < 10 ? x.toFixed(1) : Math.round(x)}%` : "�
 export const PARTS = [
   { id: "brokerage", label: "Brokerage", kind: "fee", what: "Zerodha's brokerage: ₹20 or 0.03% an executed intraday order, whichever is lower; free for delivery" },
   { id: "stt", label: "STT", kind: "tax", what: "Securities Transaction Tax: 0.025% on the sell side intraday, 0.1% on both sides for delivery" },
-  { id: "exchange", label: "Exchange txn charges", kind: "fee", what: "The exchange's transaction charge on turnover (NSE 0.00297%, BSE 0.00375%)" },
+  { id: "exchange", label: "Exchange txn charges", kind: "fee", what: "The exchange's transaction charge on turnover (NSE 0.00307%, BSE 0.00375%)" },
   { id: "gst", label: "GST", kind: "tax", what: "18% GST on brokerage, exchange charges and SEBI fees" },
   { id: "sebi", label: "SEBI fees", kind: "fee", what: "SEBI turnover fee: ₹10 a crore" },
   { id: "stamp", label: "Stamp duty", kind: "tax", what: "Stamp duty on the buy side: 0.003% intraday, 0.015% delivery" },
   { id: "dp", label: "DP charges", kind: "fee", what: "Depository charge when delivery shares are sold" },
-  { id: "other", label: "Other", kind: "fee", what: "Anything else you entered by hand for a day" },
+  { id: "other", label: "Other", kind: "fee", what: "Anything else you entered by hand for a day, and the correction that makes a day match Zerodha's ledger" },
 ];
 
 /* ------------------------------------------------------------------------------------------------ the donut */
@@ -106,7 +106,7 @@ export function ChargesBreakdown({ s, parts, manual = [], label = "" }) {
   const use = withManual && manual.length > 0;
   const base = { gross: (s && s.gross) || 0, charges: (s && s.charges) || 0, net: (s && s.net) || 0, trades: (s && s.trades) || 0 };
   const gross = base.gross + (use ? m.gross : 0);
-  const rows = PARTS.map((p) => ({ ...p, value: Math.round((((parts && parts[p.id]) || 0) + (use ? m.parts[p.id] : 0)) * 100) / 100 })).filter((p) => p.id !== "other" || p.value > 0);
+  const rows = PARTS.map((p) => ({ ...p, value: Math.round((((parts && parts[p.id]) || 0) + (use ? m.parts[p.id] : 0)) * 100) / 100 })).filter((p) => p.id !== "other" || p.value !== 0);
   const total = rows.reduce((a, p) => a + p.value, 0);
   const net = gross - total;
   const trades = base.trades + (use ? m.trades : 0);

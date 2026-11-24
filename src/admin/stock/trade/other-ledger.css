@@ -59,6 +59,7 @@
   line-height: 1.5;
 }
 .ol-wrap {
+  position: relative; /* the hidden column label stays inside */
   display: grid;
   gap: 8px;
   justify-items: start;

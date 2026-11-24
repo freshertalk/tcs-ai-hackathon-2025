@@ -1,0 +1,180 @@
+/* Match with Zerodha Console (ConsoleMatch.jsx): the Day book's card, in the private area's tokens. */
+.cm {
+  gap: 12px;
+}
+.cm-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+.cm-head h3 {
+  margin: 0;
+}
+.cm-head p {
+  margin: 2px 0 0;
+  max-width: 76ch;
+}
+.cm-chip {
+  display: inline-block;
+  padding: 2px 10px;
+  border: 1px solid var(--line-2);
+  border-radius: 999px;
+  color: var(--ink-2);
+  font-size: var(--t-small);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.cm-chip--ok {
+  border-color: color-mix(in srgb, var(--up) 45%, var(--line));
+  background: color-mix(in srgb, var(--up) 10%, var(--surface));
+  color: var(--ink);
+}
+.cm-chip--warn {
+  border-color: var(--warn-line, #ffd699);
+  background: var(--warn-bg, #fff4e0);
+  color: var(--warn-ink, #7a4f00);
+}
+.cm-chip--bad {
+  border-color: color-mix(in srgb, var(--down) 45%, var(--line));
+  background: color-mix(in srgb, var(--down) 10%, var(--surface));
+  color: var(--ink);
+}
+.cm-drop {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1.5px dashed var(--line-2);
+  border-radius: 8px;
+  background: var(--surface-2, transparent);
+  transition: border-color 140ms ease, background 140ms ease;
+}
+.cm-drop p {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: var(--t-base);
+}
+.cm-drop.is-drag {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+}
+.cm-queue {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.cm-q {
+  display: grid;
+  gap: 2px;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-left-width: 3px;
+  border-radius: 6px;
+  font-size: var(--t-mid);
+  overflow-wrap: anywhere;
+}
+.cm-q b {
+  color: var(--ink);
+  font-weight: 600;
+}
+.cm-q span {
+  color: var(--ink-2);
+}
+.cm-q--done {
+  border-left-color: var(--up);
+}
+.cm-q--error {
+  border-left-color: var(--down);
+}
+.cm-q--reading {
+  border-left-color: var(--accent);
+}
+.cm-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+.cm-bar p {
+  margin: 0;
+}
+.cm-wrap {
+  position: relative; /* the hidden column label stays inside */
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+}
+.cm-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--t-mid);
+}
+.cm-table th,
+.cm-table td {
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: middle;
+}
+.cm-table th {
+  color: var(--ink-3);
+  font-size: var(--t-small);
+  font-weight: 500;
+}
+.cm-table .is-num {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.cm-table .is-act {
+  text-align: right;
+  white-space: nowrap;
+}
+.cm-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.cm-st {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.cm-st__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 6px 12px;
+}
+.cm-st__head h4 {
+  margin: 0;
+  font-size: var(--t-lead);
+  font-weight: 600;
+}
+.cm-more summary {
+  cursor: pointer;
+  color: var(--ink-2);
+  font-size: var(--t-mid);
+}
+.cm-more {
+  display: grid;
+  gap: 6px;
+}
+.cm-more > .cm-wrap,
+.cm-more > p {
+  margin-top: 6px;
+}
