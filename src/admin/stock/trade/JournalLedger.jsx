@@ -108,7 +108,9 @@ export function ChargesBreakdown({ s, parts, manual = [], label = "" }) {
   const gross = base.gross + (use ? m.gross : 0);
   const rows = PARTS.map((p) => ({ ...p, value: Math.round((((parts && parts[p.id]) || 0) + (use ? m.parts[p.id] : 0)) * 100) / 100 })).filter((p) => p.id !== "other" || p.value !== 0);
   const total = rows.reduce((a, p) => a + p.value, 0);
-  const net = gross - total;
+  // Other credits & debits (ledger lines that are not trades) are part of the net, as in Console's P&L
+  const other = (s && Number.isFinite(s.other) ? s.other : 0) || 0;
+  const net = gross - total + other;
   const trades = base.trades + (use ? m.trades : 0);
   const taxes = rows.filter((p) => p.kind === "tax").reduce((a, p) => a + p.value, 0);
   const fees = total - taxes;
@@ -122,7 +124,7 @@ export function ChargesBreakdown({ s, parts, manual = [], label = "" }) {
             Charges &amp; taxes
           </h3>
           <p>
-            Where the realised P&amp;L went{label ? ` · ${label}` : ""} — every charge on its own. Estimated from Zerodha's published rates; the contract note is the final word.
+            Where the realised P&amp;L went{label ? ` · ${label}` : ""} — every charge on its own. Zerodha's own figure for each order when Kite has been read (see the Day book's “Match with Zerodha Console”), otherwise estimated from its published rates; Console's files correct them; the contract note is the final word.
           </p>
         </div>
         {manual.length > 0 && (
@@ -149,7 +151,7 @@ export function ChargesBreakdown({ s, parts, manual = [], label = "" }) {
         <div>
           <dt>Net realised P&amp;L</dt>
           <dd className={tone(net)}>{sMoney(net)}</dd>
-          <small>after every charge</small>
+          <small>{other ? "after every charge, with other credits & debits" : "after every charge"}</small>
         </div>
         <div>
           <dt>Taxes · fees</dt>
@@ -205,6 +207,19 @@ export function ChargesBreakdown({ s, parts, manual = [], label = "" }) {
               <b role="cell">{money(-p.value)}</b>
             </div>
           ))}
+        {other !== 0 && (
+          <div className="jl-fall__row" role="row">
+            <span role="cell">
+              <i className="jl-sw jl-c--other" aria-hidden="true" /> Other credits &amp; debits
+            </span>
+            <span role="cell" className="jl-fall__bar">
+              <i className={other > 0 ? "is-up" : "jl-c--other"} style={{ width: `${Math.max(0.6, (Math.abs(other) / big) * 100)}%` }} />
+            </span>
+            <b role="cell" className={tone(other)}>
+              {sMoney(other)}
+            </b>
+          </div>
+        )}
         <div className="jl-fall__row is-total is-net" role="row">
           <span role="cell">Net realised P&amp;L</span>
           <span role="cell" className="jl-fall__bar">

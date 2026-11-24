@@ -171,9 +171,9 @@ test("ledger against journal: match, off by a little (corrected), off by a lot (
   const after = j.trips({}).find((t) => t.key === before.key);
   assert.equal(Math.round((after.net - (a + 3.4)) * 100) / 100, 0);
   assert.equal(Math.round((before.charges - after.charges - 3.4) * 100) / 100, 0);
-  assert.equal(after.parts.other, -3.4);
+  assert.equal(Math.round(Object.values(after.parts).reduce((a, v) => a + v, 0) * 100) / 100, after.charges); assert.ok(!after.parts.other);
   assert.equal(m.reconcile.days[0].status, "corrected");
-  assert.equal(j.view({}).chargeParts.other, -3.4);
+  assert.equal(j.view({}).chargeParts.other, undefined);
   // a second apply changes nothing
   assert.deepEqual(j.applyMatch({}, at("2026-11-24T10:00:00")).corrected, []);
   // undo
@@ -280,4 +280,121 @@ test("the statement's sheet of other debits and credits is read into the entries
   assert.equal(o.others.entries.length, 1);
   assert.equal(o.others.entries[0].amount, -59);
   assert.equal(o.others.entries[0].key, "2026-11-14|Call and Trade charges(Auto Square Off) for 2026-11-14|-59");
+});
+
+/* ------------------------------------------------------------------ one Net realised P&L everywhere */
+const { buildDay } = require("../analysis/day");
+
+test("Net realised P&L is the same number everywhere: realised − charges + other credits & debits — in the period, the calendar, the days, the Day book record and the returns; a trade's own result is not touched", () => {
+  const j = j0();
+  const now = at("2026-11-24T10:00:00");
+  j.add([fl("2026-11-12T09:20:00", "BUY", 100, 1000), fl("2026-11-12T10:20:00", "SELL", 100, 1010), fl("2026-11-23T09:20:00", "BUY", 50, 500, "SBIN"), fl("2026-11-23T10:20:00", "SELL", 50, 505, "SBIN")], "kite");
+  j.addOther({ date: "2026-11-23", amount: -59, kind: "call", note: "Call and Trade charges" }, now);
+  j.addOther({ date: "2026-11-14", amount: -354, kind: "amc", note: "AMC on a day with no trades" }, now); // goes to the next trading day
+  const trips = j.trips({});
+  const gross = trips.reduce((a, t) => a + t.pnl, 0);
+  const charges = trips.reduce((a, t) => a + t.charges, 0);
+  const net = Math.round((gross - charges - 413) * 100) / 100;
+  const v = j.view({});
+  assert.equal(v.stats.net, net);
+  assert.equal(v.stats.other, -413);
+  assert.equal(Math.round(v.stats.calendar.reduce((a, d) => a + d.net, 0) * 100) / 100, net);
+  assert.equal(v.stats.calendar.find((d) => d.key === "2026-11-23").other, -413);
+  // the trade's own result is what it always was
+  const sbin = trips.find((t) => t.symbol === "SBIN");
+  assert.equal(sbin.net, Math.round((sbin.pnl - sbin.charges) * 100) / 100);
+  assert.equal(sbin.other, -413);
+  const d = j.days({ fromDay: "2026-11-01", toDay: "2026-11-30" });
+  assert.equal(d.totals.net, net);
+  assert.equal(j.returns({ period: { fromDay: "2026-11-01", toDay: "2026-11-30" } }, now).months[0].net, net);
+  // the Day book's record of the day carries it too
+  const day = buildDay({ date: "2026-11-23", trips: trips.filter((t) => t.symbol === "SBIN") });
+  assert.equal(day.summary.other, -413);
+  assert.equal(day.summary.net, Math.round((sbin.pnl - sbin.charges - 413) * 100) / 100);
+  assert.deepEqual(j.otherDays(), ["2026-11-23"]);
+  // taken away, everything goes back
+  const first = j.others().entries[0];
+  j.removeOther(first.id);
+  assert.equal(j.view({}).stats.other, j.others().total);
+});
+
+test("the Day book's trade source keeps the journal's corrected heads, so its charges and donut equal the journal's", () => {
+  const j = j0();
+  j.add([fl("2026-11-12T09:20:00", "BUY", 100, 1000), fl("2026-11-12T10:20:00", "SELL", 100, 1010)], "kite");
+  const t = j.trips({})[0];
+  j.importLedger(Buffer.from(ledgerCsv([["2026-11-12", t.pnl - t.chargesEst + 3]])), { name: "l.csv" }, at("2026-11-24T10:00:00"));
+  j.applyMatch({}, at("2026-11-24T10:00:00"));
+  const fixed = j.trips({})[0];
+  const day = buildDay({ date: "2026-11-12", trips: [fixed] }); // what app.js hands over now: t.parts, not a fresh estimate
+  assert.equal(day.summary.charges.total, fixed.charges);
+  assert.equal(day.summary.net, fixed.net);
+  assert.equal(day.summary.net, Math.round((t.pnl - t.chargesEst + 3) * 100) / 100);
+});
+
+/* ------------------------------------------------------------------ Zerodha's own charges per order */
+const { TradingService } = require("../trading/service");
+const { KiteBroker } = require("../trading/broker");
+
+const ofill = (time, side, qty, price, orderId, symbol = "INFY", product = "MIS", exchange = "NSE") => ({ id: `o${(nf += 1)}`, orderId, exchange, symbol, side, qty, price, at: at(time), product, source: "kite" });
+
+// a stand-in for Zerodha's virtual contract note: a fixed, recognisable figure for every order
+const noteFetch = (calls) => async (url, init = {}) => {
+  const u = new URL(url);
+  calls.push({ path: u.pathname, method: init.method, headers: init.headers, body: init.body });
+  const orders = JSON.parse(init.body);
+  return { ok: true, status: 200, json: async () => ({ status: "success", data: orders.map((o) => ({ ...o, price: o.average_price, charges: { transaction_tax: o.transaction_type === "SELL" ? 10 : 0, transaction_tax_type: "stt", exchange_turnover_charge: 2, sebi_turnover_charge: 0.5, brokerage: 20, stamp_duty: o.transaction_type === "BUY" ? 3 : 0, gst: { igst: 4, cgst: 0, sgst: 0, total: 4 }, total: 29.5 + (o.transaction_type === "SELL" ? 10 : 3) - 0 } })) }) };
+};
+
+test("the virtual contract note: the broker sends the orders as JSON with Kite's headers and shapes the heads", async () => {
+  const calls = [];
+  const b = new KiteBroker({ apiKey: "k", accessToken: "t", fetchImpl: noteFetch(calls), gapMs: 0 });
+  const rows = await b.orderCharges([{ order_id: "1", exchange: "NSE", tradingsymbol: "INFY", transaction_type: "SELL", variety: "regular", product: "MIS", order_type: "MARKET", quantity: 10, average_price: 100 }]);
+  assert.equal(calls[0].path, "/charges/orders");
+  assert.equal(calls[0].method, "POST");
+  assert.equal(calls[0].headers["X-Kite-Version"], "3");
+  assert.equal(calls[0].headers["Content-Type"], "application/json");
+  assert.deepEqual(rows[0].parts, { brokerage: 20, stt: 10, exchange: 2, sebi: 0.5, gst: 4, stamp: 0 });
+});
+
+test("Zerodha's own charges replace the estimate trade by trade: the orders are priced, split by the trade's share, and an order that changed is priced again", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "vpt-kc-"));
+  const calls = [];
+  const market = { kiteAuth: () => ({ apiKey: "k", accessToken: "t" }), forgetSession() {} };
+  const svc = new TradingService({ dir, store: { data: {}, update(fn) { fn(this.data); } }, market, fetchImpl: noteFetch(calls), gapMs: 0, log: { log() {}, error() {} } });
+  const j = svc.journal;
+  j.add([ofill("2026-11-12T09:20:00", "BUY", 100, 1000, "A1"), ofill("2026-11-12T10:20:00", "SELL", 100, 1010, "A2"), fl("2026-11-13T09:20:00", "BUY", 10, 100, "SBIN"), fl("2026-11-13T09:50:00", "SELL", 10, 101, "SBIN")], "kite");
+  const est = j.trips({}).find((t) => t.symbol === "INFY");
+  assert.equal(est.chargeSource, undefined);
+  assert.equal(j.chargeQueue().length, 2); // the SBIN fills have no order id: they stay on the estimate
+  const r = await svc.refreshCharges();
+  assert.deepEqual([r.done, r.left, r.error], [2, 0, ""]);
+  assert.equal(calls.length, 1);
+  assert.equal(JSON.parse(calls[0].body).length, 2);
+  const kite = j.trips({}).find((t) => t.symbol === "INFY");
+  assert.equal(kite.chargeSource, "kite");
+  // BUY order 29.5 (20 + 2 + 0.5 + 4 GST + 3 stamp), SELL order 36.5 (20 + 10 STT + 2 + 0.5 + 4): the two orders' own figures, nothing of the estimate
+  assert.equal(kite.charges, 66);
+  assert.deepEqual([kite.parts.brokerage, kite.parts.stt, kite.parts.stamp, kite.parts.gst], [40, 10, 3, 8]);
+  assert.equal(kite.net, Math.round((kite.pnl - 66) * 100) / 100);
+  assert.equal(j.trips({}).find((t) => t.symbol === "SBIN").chargeSource, undefined);
+  assert.deepEqual(j.chargesStatus(), { trades: 2, kite: 1, pending: 0, orders: 2 });
+  // a Console file's correction is measured against Kite's figure, not the old estimate
+  assert.equal(kite.chargesEst, 66);
+  // the same order read again with a different quantity is priced again
+  j.add([ofill("2026-11-12T10:21:00", "SELL", 5, 1010, "A2")], "kite");
+  assert.equal(j.chargeQueue().length, 1);
+});
+
+test("Zerodha being unreachable leaves the estimate and says so", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "vpt-kc2-"));
+  const market = { kiteAuth: () => ({ apiKey: "k", accessToken: "t" }), forgetSession() {} };
+  const down = async () => ({ ok: false, status: 500, json: async () => ({ status: "error", message: "calculator down" }) });
+  const svc = new TradingService({ dir, store: { data: {}, update(fn) { fn(this.data); } }, market, fetchImpl: down, gapMs: 0, log: { log() {}, error() {} } });
+  svc.journal.add([ofill("2026-11-12T09:20:00", "BUY", 100, 1000, "A1"), ofill("2026-11-12T10:20:00", "SELL", 100, 1010, "A2")], "kite");
+  const r = await svc.refreshCharges();
+  assert.equal(r.done, 0);
+  assert.match(r.error, /calculator down/);
+  assert.equal(svc.journal.trips({})[0].chargeSource, undefined);
+  const off = new TradingService({ dir, store: { data: {}, update(fn) { fn(this.data); } }, market: { kiteAuth: () => null }, gapMs: 0, log: { log() {}, error() {} } });
+  assert.match((await off.refreshCharges()).error, /not connected/);
 });

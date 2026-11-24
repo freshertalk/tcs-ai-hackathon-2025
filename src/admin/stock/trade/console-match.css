@@ -178,3 +178,50 @@
 .cm-more > p {
   margin-top: 6px;
 }
+.cm-head__side {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.cm-toggle svg {
+  width: 14px;
+  height: 14px;
+  margin-right: 4px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 160ms ease;
+}
+.cm-toggle svg.is-up {
+  transform: rotate(180deg);
+}
+.cm-body {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.cm-body[hidden] {
+  display: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .cm-toggle svg {
+    transition: none;
+  }
+}
+.cm-kite {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.cm-kite p {
+  margin: 0;
+  max-width: 80ch;
+}

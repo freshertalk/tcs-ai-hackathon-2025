@@ -131,5 +131,43 @@ test("Console's P&L statement against the journal: each figure with its result, 
 });
 
 test("a P&L statement uploaded says what it is", () => {
-  expect(resultSaid({ type: "pnl", from: "2026-11-11", to: "2026-11-24", added: 1, compare: { ok: false } })).toBe("P&L statement of 11 Nov 2026 – 24 Nov 2026: kept as the reference, 1 other credit or debit added. Some figures differ: see below.");
+  expect(resultSaid({ type: "pnl", from: "2026-11-11", to: "2026-11-24", added: 1, corrected: 5, compare: { ok: false } })).toBe("P&L statement of 11 Nov 2026 – 24 Nov 2026: kept as the reference, 1 other credit or debit added. Charges set to Console’s on 5 days. Some figures differ: see below.");
+});
+
+test("Hide collapses the card to its title and verdict, Show brings it back, and the choice is remembered", async () => {
+  window.localStorage.removeItem("vpt.consolematch.hidden");
+  const { container, unmount } = render(<ConsoleMatch />);
+  await waitFor(() => container.querySelector(".cm-table"));
+  const body = container.querySelector("#cm-body");
+  expect(body.hidden).toBe(false);
+  fireEvent.click(screen.getByRole("button", { name: "Hide" }));
+  expect(body.hidden).toBe(true);
+  expect(screen.getByRole("button", { name: "Show" }).getAttribute("aria-expanded")).toBe("false");
+  expect(container.querySelector(".cm-head .cm-chip")).toBeTruthy(); // the verdict stays
+  unmount();
+  const again = render(<ConsoleMatch />);
+  expect(again.container.querySelector("#cm-body").hidden).toBe(true); // remembered
+  fireEvent.click(screen.getByRole("button", { name: "Show" }));
+  expect(again.container.querySelector("#cm-body").hidden).toBe(false);
+  expect(window.localStorage.getItem("vpt.consolematch.hidden")).toBe("0");
+});
+
+test("Zerodha's own charges: how far they reach, and a button that reads the rest from Kite", async () => {
+  let status = { trades: 11, kite: 4, pending: 7, orders: 30, connected: true };
+  api.mockImplementation((url, opts) => {
+    if (url.endsWith("/reconcile")) return Promise.resolve({ days: [], counts: {} });
+    if (url.endsWith("/pnl")) return Promise.resolve({ statements: [] });
+    if (url.endsWith("/charges/refresh")) {
+      status = { ...status, kite: 11, pending: 0, done: 7, left: 0, error: "" };
+      return Promise.resolve(status);
+    }
+    if (url.endsWith("/charges")) return Promise.resolve(status);
+    return Promise.resolve({});
+  });
+  const { container } = render(<ConsoleMatch />);
+  await waitFor(() => expect(container.querySelector(".cm-kite")).toBeTruthy());
+  expect(container.querySelector(".cm-kite").textContent).toMatch(/4 of 11 closed trades.*7 orders are still to be priced/);
+  fireEvent.click(screen.getByRole("button", { name: "Read charges from Kite now" }));
+  await waitFor(() => expect(container.querySelector(".cm-kite").textContent).toMatch(/11 of 11 closed trades/));
+  expect(screen.queryByRole("button", { name: /Read charges from Kite now/ })).toBeNull();
 });

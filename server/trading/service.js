@@ -411,6 +411,34 @@ class TradingService {
   /* --------------------------------------------------------------- journal */
 
   /** The journal, with today's trades brought in first when Zerodha is connected. */
+  /**
+   * Zerodha's own charges for the orders in the journal that have none yet — its virtual contract note, a calculation that
+   * places nothing. Done in small batches; stops quietly at the first failure (the estimate stays for what is left).
+   * @returns { done, left, error }
+   */
+  async refreshCharges({ limit = 100 } = {}) {
+    if (!this.market.kiteAuth()) return { done: 0, left: this.journal.chargeQueue(100000).length, error: "Zerodha is not connected." };
+    const queue = this.journal.chargeQueue(limit);
+    let done = 0;
+    const days = new Set();
+    let error = "";
+    for (let i = 0; i < queue.length; i += 25) {
+      const batch = queue.slice(i, i + 25);
+      try {
+        const rows = await this._call((b) => b.orderCharges(batch.map((q) => q.order)));
+        if (!Array.isArray(rows) || rows.length !== batch.length) throw new Error("Zerodha's charge calculator answered with a different number of orders.");
+        done += this.journal.setKiteCharges(batch.map((q, j) => ({ key: q.key, sig: q.sig, parts: rows[j].parts, total: rows[j].total })), this.now());
+        for (const q of batch) days.add(q.day);
+      } catch (err) {
+        error = err && err.message ? err.message : String(err);
+        break;
+      }
+    }
+    // the Day book reads the days whose charges changed
+    if (done && typeof this.onJournalMatch === "function") Promise.resolve().then(() => this.onJournalMatch([...days])).catch(() => {});
+    return { done, left: this.journal.chargeQueue(100000).length, error };
+  }
+
   async journalView(filters) {
     if (this.market.kiteAuth()) {
       try {

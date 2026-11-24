@@ -241,9 +241,9 @@ function applyChargeFix(trips, fixes) {
     const base = list.reduce((a, t) => a + t.chargesEst, 0);
     const ratio = (t) => (base > 0 ? t.chargesEst / base : 1 / list.length);
     // a correction that knows its heads (from Console's P&L statement) lands on those heads; otherwise on "other"
-    const heads = fix.parts && typeof fix.parts === "object" && Object.keys(fix.parts).length ? fix.parts : { other: extra };
-    const names = Object.keys(heads);
-    const leftHead = { ...heads };
+    const given = fix.parts && typeof fix.parts === "object" && Object.keys(fix.parts).length ? fix.parts : null;
+    const names = given ? Object.keys(given) : [];
+    const leftHead = given ? { ...given } : {};
     let left = r2(extra);
     list.forEach((t, i) => {
       const last = i === list.length - 1;
@@ -253,17 +253,124 @@ function applyChargeFix(trips, fixes) {
       t.net = r2(t.pnl - t.charges);
       if (t.parts) {
         const np = { ...t.parts };
-        let put = 0;
-        names.forEach((h, j) => {
-          const part = last ? leftHead[h] : r2(heads[h] * ratio(t));
-          leftHead[h] = r2(leftHead[h] - part);
-          // the last head takes what the rounding left, so the heads always add up to the trade's charges
-          const v = j === names.length - 1 ? r2(share - put) : part;
-          put = r2(put + v);
-          np[h] = r2((np[h] || 0) + v);
-        });
+        if (given) {
+          let put = 0;
+          names.forEach((h, j) => {
+            const part = last ? leftHead[h] : r2(given[h] * ratio(t));
+            leftHead[h] = r2(leftHead[h] - part);
+            // the last head takes what the rounding left, so the heads always add up to the trade's charges
+            const v = j === names.length - 1 ? r2(share - put) : part;
+            put = r2(put + v);
+            np[h] = r2((np[h] || 0) + v);
+          });
+        } else {
+          // a correction that is only a total (from the ledger) is spread over the trade's own heads in proportion to the estimate
+          const w = Object.entries(t.partsEst || {}).filter(([, v]) => v > 0);
+          const W = w.reduce((a, [, v]) => a + v, 0);
+          if (W > 0) {
+            let put = 0;
+            w.forEach(([h, v], j) => {
+              const x = j === w.length - 1 ? r2(share - put) : r2((share * v) / W);
+              put = r2(put + x);
+              np[h] = r2((np[h] || 0) + x);
+            });
+          } else np.other = r2((np.other || 0) + share);
+        }
         t.parts = np;
       }
+    });
+  }
+  return trips;
+}
+
+/* ------------------------------------------------------------------ Zerodha's own charges per order */
+
+const HEADS = ["brokerage", "stt", "exchange", "sebi", "gst", "stamp"];
+
+/** Every order the fills show (side + order id): what it was, for Zerodha's charge calculator and to know when it changed. */
+function orderBookOf(fills) {
+  const book = new Map();
+  for (const f of fills) {
+    if (!f || !f.orderId || f.source === "manual") continue;
+    const k = `${f.side}:${f.orderId}`;
+    const o = book.get(k) || { key: k, orderId: f.orderId, side: f.side, exchange: f.exchange, symbol: f.symbol, product: f.product || "", qty: 0, value: 0, at: 0 };
+    o.qty += f.qty;
+    o.value += f.qty * f.price;
+    o.at = Math.max(o.at, f.at);
+    book.set(k, o);
+  }
+  for (const o of book.values()) o.sig = `${o.exchange}|${o.symbol}|${o.product}|${o.qty}|${r2(o.value / o.qty)}`;
+  return book;
+}
+
+/**
+ * Charges from Zerodha itself (its virtual contract note) replace the estimate for every closed trade whose orders all have
+ * them: each order's heads, split by the trade's share of the order, plus the estimated DP charge (the depository's, not in the
+ * note). The estimate stays what the corrections (a ledger, a P&L statement) are measured against — now a much closer one.
+ */
+function applyKiteCharges(trips, kc, book) {
+  if (!kc || !Object.keys(kc).length) return trips;
+  for (const t of trips) {
+    if (t.open || !t.orderShares || !t.orderShares.length) continue;
+    const parts = Object.fromEntries(HEADS.map((h) => [h, 0]));
+    let ok = true;
+    for (const [k, share] of t.orderShares) {
+      const e = kc[k];
+      const o = book.get(k);
+      if (!e || !o || e.sig !== o.sig) {
+        ok = false;
+        break;
+      }
+      for (const h of HEADS) parts[h] += (e.parts[h] || 0) * share;
+    }
+    if (!ok) continue;
+    const rounded = Object.fromEntries(HEADS.map((h) => [h, r2(parts[h])]));
+    rounded.dp = (t.partsEst && t.partsEst.dp) || 0;
+    const total = r2(Object.values(rounded).reduce((a, v) => a + v, 0));
+    t.charges = total;
+    t.chargesEst = total;
+    t.partsEst = rounded;
+    t.parts = { ...rounded };
+    t.brokerage = rounded.brokerage;
+    t.net = r2(t.pnl - total);
+    t.chargeSource = "kite";
+  }
+  return trips;
+}
+
+/**
+ * Other credits & debits (a ledger line that is not a trade: AMC, interest, dividends, call-and-trade charges…) belong to the
+ * day they were posted: the day's closed trades share them (in proportion to their charges) as `other`, kept apart from each
+ * trade's own result, so a day's, a month's and a period's net — everywhere — is Console's Net realised P&L: realised P&L −
+ * charges & taxes + other credits & debits. A line posted on a day with no closed trades goes to the next day that has some
+ * (or the last one before it); with no closed trade at all it stays in the Other credits & debits list only.
+ */
+function applyOther(trips, entries) {
+  if (!entries || !entries.length) return trips;
+  const closed = trips.filter((t) => !t.open);
+  if (!closed.length) return trips;
+  const byDay = new Map();
+  const dp = new Map();
+  for (const t of closed) {
+    const k = istDay(t.exitAt);
+    (byDay.get(k) || byDay.set(k, []).get(k)).push(t);
+    if (t.parts && t.parts.dp) dp.set(k, (dp.get(k) || 0) + t.parts.dp);
+  }
+  const days = [...byDay.keys()].sort();
+  const sums = new Map();
+  for (const e of O.counted(entries, {}, dp)) {
+    if (!e.counts) continue;
+    const target = days.find((k) => k >= e.date) || days[days.length - 1];
+    sums.set(target, r2((sums.get(target) || 0) + e.counts));
+  }
+  for (const [k, total] of sums) {
+    const list = byDay.get(k);
+    const base = list.reduce((a, t) => a + t.chargesEst, 0);
+    let left = total;
+    list.forEach((t, i) => {
+      const share = i === list.length - 1 ? left : r2(total * (base > 0 ? t.chargesEst / base : 1 / list.length));
+      left = r2(left - share);
+      t.other = share;
     });
   }
   return trips;
@@ -461,6 +568,8 @@ function roundTrips(fills) {
       cur.exitAt = cur.lastAt;
       cur.orderBrokerage = orderBrokerage(cur, orderValue);
       cur.orderCount = cur.orders.size;
+      // this trip's share of each order (an order can close one trip and open the next): what Zerodha's own charges are split by
+      cur.orderShares = cur.noOrder || !cur.orders.size ? null : [...cur.orders].map(([k, part]) => [k, (orderValue.get(k) || part) > 0 ? part / (orderValue.get(k) || part) : 1]);
       trips.push(finish(cur, false));
       cur = null;
       pos = 0;
@@ -531,6 +640,7 @@ function finish(t, open) {
     intraday,
     sources: [...t.sources], // "kite" (captured from Kite) and/or "console" (a tradebook import)
     orderBrokerage: Number.isFinite(t.orderBrokerage) ? t.orderBrokerage : null, // per executed order (see orderBrokerage)
+    orderShares: t.orderShares || null,
     orders: Number.isFinite(t.orderCount) ? t.orderCount : null,
     holdMin: open ? null : Math.round((t.exitAt - t.entryAt) / 60000),
   };
@@ -581,7 +691,7 @@ function group(trips, keyOf) {
   for (const t of trips) {
     const k = keyOf(t);
     if (k === null || k === undefined || k === "") continue;
-    const g = m.get(k) || { key: k, trades: 0, wins: 0, net: 0, gross: 0, charges: 0, brokerage: 0, invested: 0, qty: 0, buyValue: 0, sellValue: 0 };
+    const g = m.get(k) || { key: k, trades: 0, wins: 0, net: 0, other: 0, gross: 0, charges: 0, brokerage: 0, invested: 0, qty: 0, buyValue: 0, sellValue: 0 };
     g.trades += 1;
     // what Zerodha's P&L report shows per symbol: the quantity, and what was bought and sold for
     g.qty += num(t.qty) ? t.qty : 0;
@@ -590,12 +700,13 @@ function group(trips, keyOf) {
     g.invested += entryValue(t);
     if (t.net > 0) g.wins += 1;
     g.net += t.net;
+    g.other += t.other || 0; // this trade's share of the day's other credits & debits (kept apart from the trade's own result)
     g.gross += t.pnl;
     g.charges += t.charges || 0;
     g.brokerage += t.brokerage || 0;
     m.set(k, g);
   }
-  return [...m.values()].map((g) => ({ ...g, buyValue: r2(g.buyValue), sellValue: r2(g.sellValue), buyAvg: g.qty ? r2(g.buyValue / g.qty) : null, sellAvg: g.qty ? r2(g.sellValue / g.qty) : null, invested: r2(g.invested), netPct: pctOf(g.net, g.invested), net: r2(g.net), gross: r2(g.gross), charges: r2(g.charges), brokerage: r2(g.brokerage), taxes: r2(g.charges - g.brokerage), winRate: g.trades ? r2((g.wins / g.trades) * 100) : 0, avg: g.trades ? r2(g.net / g.trades) : 0 }));
+  return [...m.values()].map((g) => ({ ...g, buyValue: r2(g.buyValue), sellValue: r2(g.sellValue), buyAvg: g.qty ? r2(g.buyValue / g.qty) : null, sellAvg: g.qty ? r2(g.sellValue / g.qty) : null, invested: r2(g.invested), netPct: pctOf(g.net, g.invested), other: r2(g.other), net: r2(g.net), gross: r2(g.gross), charges: r2(g.charges), brokerage: r2(g.brokerage), taxes: r2(g.charges - g.brokerage), winRate: g.trades ? r2((g.wins / g.trades) * 100) : 0, avg: g.trades ? r2(g.net / g.trades) : 0 }));
 }
 
 /**
@@ -617,7 +728,7 @@ function stats(trips) {
   let worstStreak = 0;
   const curve = [];
   for (const t of [...closed].sort((a, b) => a.exitAt - b.exitAt)) {
-    eq += t.net;
+    eq += t.net + (t.other || 0);
     peak = Math.max(peak, eq);
     maxDd = Math.max(maxDd, peak - eq);
     streak = t.net > 0 ? (streak > 0 ? streak + 1 : 1) : streak < 0 ? streak - 1 : -1;
@@ -626,7 +737,10 @@ function stats(trips) {
     curve.push({ at: t.exitAt, equity: r2(eq), net: t.net, symbol: t.symbol });
   }
   const day = (ms) => istIso(ms).slice(0, 10);
-  const calendar = group(closed, (t) => day(t.exitAt)).sort((a, b) => (a.key < b.key ? -1 : 1));
+  // a day's net includes the day's other credits & debits (Console's Net realised P&L); the trades' own results stay as they are
+  const calendar = group(closed, (t) => day(t.exitAt))
+    .map((d) => ({ ...d, net: r2(d.net + d.other) }))
+    .sort((a, b) => (a.key < b.key ? -1 : 1));
   const n = closed.length;
   return {
     trades: n,
@@ -636,7 +750,8 @@ function stats(trips) {
     winRate: n ? r2((wins.length / n) * 100) : 0,
     gross: r2(sum(closed, (t) => t.pnl)),
     charges: r2(sum(closed, (t) => t.charges)),
-    net: r2(sum(closed, (t) => t.net)),
+    net: r2(sum(closed, (t) => t.net + (t.other || 0))),
+    other: r2(sum(closed, (t) => t.other || 0)),
     // the money put into the trades (each trade's size at its entry price) and the result as a share of it
     invested: r2(sum(closed, entryValue)),
     netPct: pctOf(sum(closed, (t) => t.net), sum(closed, entryValue)),
@@ -726,12 +841,12 @@ function summarize(closed) {
     gross += t.pnl;
     ch += t.charges;
     brk += t.brokerage;
-    net += t.net;
-    eq += t.net;
+    net += t.net + (t.other || 0);
+    eq += t.net + (t.other || 0);
     peak = Math.max(peak, eq);
     dd = Math.max(dd, peak - eq);
     const k = istDay(t.exitAt);
-    days.set(k, (days.get(k) || 0) + t.net);
+    days.set(k, (days.get(k) || 0) + t.net + (t.other || 0));
   }
   const n = closed.length;
   const list = [...days.entries()];
@@ -819,7 +934,7 @@ class TradeJournal {
   _load() {
     const d = this.docs.read(NAME, null);
     this._migrate();
-    const out = { tags: (d && d.tags) || {}, excursions: (d && d.excursions) || {}, imports: (d && d.imports) || [], captured: (d && d.captured) || {}, accountSince: (d && d.accountSince) || "", views: (d && d.views) || [], retros: (d && d.retros) || [], capital: (d && d.capital) || [], manualDays: (d && d.manualDays) || {}, other: (d && d.other) || [], ledgerDays: (d && d.ledgerDays) || {}, chargeFix: (d && d.chargeFix) || {}, pnlRefs: (d && d.pnlRefs) || {} };
+    const out = { tags: (d && d.tags) || {}, excursions: (d && d.excursions) || {}, imports: (d && d.imports) || [], captured: (d && d.captured) || {}, accountSince: (d && d.accountSince) || "", views: (d && d.views) || [], retros: (d && d.retros) || [], capital: (d && d.capital) || [], manualDays: (d && d.manualDays) || {}, other: (d && d.other) || [], ledgerDays: (d && d.ledgerDays) || {}, chargeFix: (d && d.chargeFix) || {}, pnlRefs: (d && d.pnlRefs) || {}, kiteCharges: (d && d.kiteCharges) || {} };
     if (!this._itemMode()) out.fills = (d && d.fills) || {};
     return out;
   }
@@ -914,6 +1029,34 @@ class TradeJournal {
     return { capital: this.capital() };
   }
 
+  /* ------------------------------------------------------------------ Zerodha's own charges per order */
+
+  /** The orders that still need Zerodha's charge figure (none yet, or the order changed), newest first. */
+  chargeQueue(limit = 100) {
+    const kc = this._load().kiteCharges;
+    const IST_DAY = (ms) => istDay(ms);
+    return [...orderBookOf(this._fillsList()).values()]
+      .filter((o) => o.qty > 0 && o.value > 0 && (!kc[o.key] || kc[o.key].sig !== o.sig))
+      .sort((a, b) => b.at - a.at)
+      .slice(0, limit)
+      .map((o) => ({ key: o.key, sig: o.sig, day: IST_DAY(o.at), order: { order_id: String(o.orderId), exchange: o.exchange, tradingsymbol: o.symbol, transaction_type: o.side, variety: "regular", product: o.product || "MIS", order_type: "MARKET", quantity: o.qty, average_price: r2(o.value / o.qty) } }));
+  }
+
+  /** Keep what Zerodha said for these orders: [{ key, sig, parts, total }]. */
+  setKiteCharges(items, now = Date.now()) {
+    if (!items.length) return 0;
+    const d = this._load();
+    for (const it of items) d.kiteCharges[it.key] = { sig: it.sig, parts: it.parts, total: it.total, at: new Date(now).toISOString() };
+    this._save(d);
+    return items.length;
+  }
+
+  /** How many closed trades carry Zerodha's own charges, and how many orders are still to be priced. */
+  chargesStatus() {
+    const all = this._baseTrips().filter((t) => !t.open);
+    return { trades: all.length, kite: all.filter((t) => t.chargeSource === "kite").length, pending: this.chargeQueue(100000).length, orders: orderBookOf(this._fillsList()).size };
+  }
+
   /* ------------------------------------------------------------------ other credits & debits */
 
   /** The estimated DP charge inside each day's charges (a DP charge entered or read from the ledger is not counted twice). */
@@ -931,6 +1074,11 @@ class TradeJournal {
   others({ fromDay = "", toDay = "" } = {}) {
     const list = O.counted(this._load().other, { fromDay, toDay }, this._dpByDay());
     return { entries: list, ...O.totals(list), kinds: O.KINDS };
+  }
+
+  /** The days whose figures carry other credits & debits (for the Day book to read again after a change). */
+  otherDays() {
+    return [...new Set(this._baseTrips().filter((t) => !t.open && t.other).map((t) => istDay(t.exitAt)))].sort();
   }
 
   /** One entry by hand: a credit is positive, a debit negative. */
@@ -1179,6 +1327,16 @@ class TradeJournal {
       else delete d.chargeFix[day];
     });
     this._save(d);
+    // the cents: per-trade rounding can leave the period a cent off Console's total — the last day takes it
+    const have = this._pnlTrips(ref.from, ref.to).reduce((a, t) => a + t.charges, 0);
+    const off = r2(r2(ref.summary.charges) - r2(have));
+    const lastDay = days[days.length - 1];
+    if (Math.abs(off) >= 0.01 && Math.abs(off) <= 0.1 && d.chargeFix[lastDay]) {
+      const f = d.chargeFix[lastDay];
+      f.amount = r2(f.amount + off);
+      f.parts = { ...(f.parts || {}), other: r2(((f.parts || {}).other || 0) + off) };
+      this._save(d);
+    }
     const m = this.applyMatch({}, now);
     return { days, ledger: m.corrected, compare: this.pnlCompare() };
   }
@@ -1298,7 +1456,10 @@ class TradeJournal {
       // each charge on its own (brokerage, STT, exchange, SEBI, GST, stamp duty, DP), for the charges breakdown
       return { ...t, charges: c, chargesEst: c, partsEst: parts, brokerage: t.open ? 0 : r2(parts.brokerage), parts: parts ? Object.fromEntries(Object.entries(parts).map(([k, v]) => [k, r2(v)])) : null, net: r2(t.pnl - c) };
     });
-    applyChargeFix(trips, this._load().chargeFix);
+    const dd = this._load();
+    applyKiteCharges(trips, dd.kiteCharges, orderBookOf(list));
+    applyChargeFix(trips, dd.chargeFix);
+    applyOther(trips, dd.other);
     this._memo = { ver: this._ver, n: list.length, trips };
     return trips;
   }
@@ -1383,13 +1544,14 @@ class TradeJournal {
     const by = new Map();
     for (const t of closed) {
       const k = istDay(t.exitAt);
-      const g = by.get(k) || { date: k, trades: 0, wins: 0, gross: 0, charges: 0, brokerage: 0, net: 0, trips: [] };
+      const g = by.get(k) || { date: k, trades: 0, wins: 0, gross: 0, charges: 0, brokerage: 0, net: 0, other: 0, trips: [] };
       g.trades += 1;
       if (t.net > 0) g.wins += 1;
       g.gross += num(t.pnl) ? t.pnl : 0;
       g.charges += num(t.charges) ? t.charges : 0;
       g.brokerage += num(t.brokerage) ? t.brokerage : 0;
-      g.net += num(t.net) ? t.net : 0;
+      g.net += (num(t.net) ? t.net : 0) + (t.other || 0);
+      g.other += t.other || 0;
       g.trips.push({
         key: t.key,
         symbol: t.symbol,
@@ -1414,7 +1576,7 @@ class TradeJournal {
     }
     const days = [...by.values()]
       .sort((a, b) => (a.date < b.date ? -1 : 1))
-      .map((g) => ({ ...g, gross: r2(g.gross), charges: r2(g.charges), brokerage: r2(g.brokerage), taxes: r2(g.charges - g.brokerage), net: r2(g.net), trips: g.trips.sort((a, b) => a.exitAt - b.exitAt) }));
+      .map((g) => ({ ...g, gross: r2(g.gross), charges: r2(g.charges), brokerage: r2(g.brokerage), taxes: r2(g.charges - g.brokerage), other: r2(g.other), net: r2(g.net), trips: g.trips.sort((a, b) => a.exitAt - b.exitAt) }));
     const manual = this.manualDays({ fromDay, toDay }).map((m) => ({ date: m.date, trades: m.trades, gross: m.gross, charges: m.charges, net: m.net, note: m.note, manual: true }));
     const sum = (f) => r2(days.reduce((a, g) => a + g[f], 0));
     return {
@@ -1422,7 +1584,7 @@ class TradeJournal {
       toDay,
       days,
       manual,
-      totals: { days: days.length, green: days.filter((g) => g.gross > 0).length, red: days.filter((g) => g.gross < 0).length, trades: days.reduce((a, g) => a + g.trades, 0), gross: sum("gross"), charges: sum("charges"), net: sum("net") },
+      totals: { days: days.length, green: days.filter((g) => g.gross > 0).length, red: days.filter((g) => g.gross < 0).length, trades: days.reduce((a, g) => a + g.trades, 0), gross: sum("gross"), charges: sum("charges"), other: sum("other"), net: sum("net") },
     };
   }
 

@@ -127,7 +127,7 @@ function Dashboard({ an, days, onOpen, settings }) {
           <header className="ta-card__h">
             <h3>Where the money went</h3>
           </header>
-          <Waterfall profit={t.grossProfit} loss={t.grossLoss} charges={c.total} net={t.net} />
+          <Waterfall profit={t.grossProfit} loss={t.grossLoss} charges={c.total} other={t.other || 0} net={t.net} />
           <div className="ta-split">
             <Donut parts={donut} size={132} center={[rs(c.total), "charges & taxes"]} />
             <ul className="ta-ch">
@@ -704,7 +704,7 @@ function DayBody({ d, onSaved }) {
           <header className="ta-card__h">
             <h3>Where the money went</h3>
           </header>
-          <Waterfall profit={s.grossProfit} loss={s.grossLoss} charges={c.total} net={s.net} />
+          <Waterfall profit={s.grossProfit} loss={s.grossLoss} charges={c.total} other={s.other || 0} net={s.net} />
           <ul className="ta-ch ta-ch--table">
             {["brokerage", "stt", "exchange", "sebi", "gst", "stamp", "dp"].map((k) => (
               <li key={k}>

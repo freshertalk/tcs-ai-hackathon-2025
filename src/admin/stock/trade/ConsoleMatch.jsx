@@ -22,6 +22,14 @@ const dayText = (d) => {
   return m ? `${Number(m[3])} ${MONTHS[Number(m[2]) - 1]} ${m[1]}` : d || "";
 };
 const SHOWN = 10;
+const KEY = "vpt.consolematch.hidden";
+const remembered = () => {
+  try {
+    return window.localStorage.getItem(KEY) === "1";
+  } catch (_) {
+    return false;
+  }
+};
 
 export const STATUS = {
   match: { label: "Matches", tone: "ok", tip: "The journal's day equals Zerodha's ledger (within ₹1)." },
@@ -36,7 +44,7 @@ export const STATUS = {
 export function resultSaid(r) {
   if (!r) return "";
   if (r.type === "tradebook") return `Tradebook: ${r.added} new trade${r.added === 1 ? "" : "s"} added${r.read && r.read !== r.added ? ` (${r.read - r.added} already here)` : ""}${r.fromDay ? `, ${dayText(r.fromDay)} – ${dayText(r.toDay)}` : ""}.`;
-  if (r.type === "pnl") return `P&L statement of ${range(r.from, r.to)}: kept as the reference${r.added ? `, ${r.added} other credit${r.added === 1 ? "" : "s"} or debit${r.added === 1 ? "" : "s"} added` : ""}. ${r.compare ? (r.compare.ok ? "Every figure matches the journal." : "Some figures differ: see below.") : ""}`;
+  if (r.type === "pnl") return `P&L statement of ${range(r.from, r.to)}: kept as the reference${r.added ? `, ${r.added} other credit${r.added === 1 ? "" : "s"} or debit${r.added === 1 ? "" : "s"} added` : ""}. ${r.corrected ? `Charges set to Console’s on ${r.corrected} day${r.corrected === 1 ? "" : "s"}. ` : ""}${r.compare ? (r.compare.ok ? "Every figure matches the journal." : "Some figures differ: see below.") : ""}`;
   const fixed = r.matched && r.matched.length ? ` ${r.matched.length} day${r.matched.length === 1 ? "" : "s"} corrected to match.` : "";
   return `Ledger: ${r.settledDays || 0} day${r.settledDays === 1 ? "" : "s"} of settlements read. ${importSaid({ ...r, name: "" })}${fixed}`;
 }
@@ -178,18 +186,30 @@ export default function ConsoleMatch({ onChanged = () => {} }) {
   const input = useRef(null);
   const [rec, setRec] = useState(null);
   const [pnl, setPnl] = useState([]);
+  const [kc, setKc] = useState(null); // how far Zerodha's own per-order charges reach
   const [queue, setQueue] = useState([]);
   const [busy, setBusy] = useState("");
   const [drag, setDrag] = useState(false);
   const [all, setAll] = useState(false);
   const [err, setErr] = useState("");
+  const [hidden, setHidden] = useState(remembered); // collapsed: only the title and the verdict stay
+  const toggle = () =>
+    setHidden((h) => {
+      try {
+        window.localStorage.setItem(KEY, h ? "0" : "1");
+      } catch (_) {
+        /* remembered for this visit only */
+      }
+      return !h;
+    });
 
   const load = useCallback(
     () =>
-      Promise.all([api("/api/admin/trading/journal/reconcile"), api("/api/admin/trading/journal/pnl")])
-        .then(([r, p]) => {
+      Promise.all([api("/api/admin/trading/journal/reconcile"), api("/api/admin/trading/journal/pnl"), api("/api/admin/trading/journal/charges").catch(() => null)])
+        .then(([r, p, c]) => {
           setRec(r);
           setPnl((p && p.statements) || []);
+          setKc(c);
         })
         .catch((e) => setErr(e.message)),
     []
@@ -229,6 +249,20 @@ export default function ConsoleMatch({ onChanged = () => {} }) {
     try {
       const r = await api("/api/admin/trading/journal/reconcile/apply", { method: "POST", body: days ? { days } : {} });
       setRec(r.reconcile);
+      onChanged();
+    } catch (e) {
+      setErr(e.message);
+    }
+    setBusy("");
+  };
+  const readKite = async () => {
+    setBusy("kite");
+    setErr("");
+    try {
+      const r = await api("/api/admin/trading/journal/charges/refresh", { method: "POST", body: {} });
+      setKc(r);
+      if (r.error) setErr(`Zerodha’s charge calculator: ${r.error}`);
+      await load();
       onChanged();
     } catch (e) {
       setErr(e.message);
@@ -292,8 +326,18 @@ export default function ConsoleMatch({ onChanged = () => {} }) {
             Drop the files Console gives you — the <b>Tradebook</b> (Reports → Tradebook), the <b>Ledger</b> (Funds → Statement) and the <b>P&amp;L statement</b> (Reports → P&amp;L), .xlsx or .csv, several at once. Each is recognised by what is in it; trades are added, other credits &amp; debits are read, and every day is compared with Zerodha’s own settlement.
           </p>
         </div>
-        <span className={`cm-chip cm-chip--${bad ? "bad" : fixable ? "warn" : days.length ? "ok" : "dim"}`}>{headline}</span>
+        <div className="cm-head__side">
+          <span className={`cm-chip cm-chip--${bad ? "bad" : fixable ? "warn" : days.length || pnl.length ? "ok" : "dim"}`}>{headline}</span>
+          <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm cm-toggle" data-ico="none" aria-expanded={!hidden} aria-controls="cm-body" onClick={toggle}>
+            <svg viewBox="0 0 24 24" aria-hidden="true" className={hidden ? "" : "is-up"}>
+              <path d="M6 9l6 6 6-6" />
+            </svg>
+            {hidden ? "Show" : "Hide"}
+          </button>
+        </div>
       </header>
+
+      <div id="cm-body" className="cm-body" hidden={hidden}>
 
       <div
         className={`cm-drop ${drag ? "is-drag" : ""}`}
@@ -314,6 +358,20 @@ export default function ConsoleMatch({ onChanged = () => {} }) {
           Choose files to upload
         </button>
       </div>
+
+      {kc && kc.trades > 0 && (
+        <div className="cm-kite">
+          <p className="ta-dim">
+            <b>Charges from Zerodha itself:</b> {kc.kite} of {kc.trades} closed trade{kc.trades === 1 ? "" : "s"} use the figures Kite’s own charge calculator gives for each order (brokerage, STT, exchange and SEBI fees, GST, stamp duty); the rest use Zerodha’s published rates.
+            {kc.pending > 0 ? ` ${kc.pending} order${kc.pending === 1 ? " is" : "s are"} still to be priced${kc.connected ? "; this happens by itself every few minutes while Zerodha is connected." : " — connect Zerodha (log in to Kite on the Desk) to read them."}` : ""}
+          </p>
+          {kc.pending > 0 && kc.connected && (
+            <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm" data-ico="refresh" disabled={Boolean(busy)} onClick={readKite}>
+              {busy === "kite" ? "Reading from Kite…" : "Read charges from Kite now"}
+            </button>
+          )}
+        </div>
+      )}
 
       {queue.length > 0 && (
         <ul className="cm-queue" aria-live="polite">
@@ -408,6 +466,7 @@ export default function ConsoleMatch({ onChanged = () => {} }) {
           </p>
         </>
       )}
+      </div>
     </section>
   );
 }

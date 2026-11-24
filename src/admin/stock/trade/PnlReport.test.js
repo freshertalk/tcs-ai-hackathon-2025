@@ -105,7 +105,9 @@ test("the summary says how it differs from Console and can show Console's figure
 
 test("other credits & debits are part of the net, as in Console: −354 + 1,200.50 moves 2.93k to 3.78k; none recorded stays “—”", () => {
   const other = { count: 2, total: 846.5, credits: 1200.5, debits: -354 };
-  const { container } = render(<PnlSummary s={s} unrealised={{ total: 0, why: "" }} other={other} />);
+  // the period's net already carries the other credits & debits (one Net realised P&L everywhere), so the four lines add up
+  const withOther = { ...s, other: 846.5, net: Math.round((s.net + 846.5) * 100) / 100 };
+  const { container } = render(<PnlSummary s={withOther} unrealised={{ total: 0, why: "" }} other={other} />);
   const figs = Object.fromEntries([...container.querySelectorAll(".zp-fig")].map((f) => [f.querySelector("dt").textContent, f.querySelector("dd").textContent]));
   expect([figs["Other credits & debits"], figs["Net realised P&L"], figs["Realised P&L"]]).toEqual(["+846.5", "+3.78k", "+4.24k"]);
   expect(container.querySelector(".zp-fig:nth-child(5)").getAttribute("data-tip")).toMatch(/Other credits & debits: ₹3,776\.43/);

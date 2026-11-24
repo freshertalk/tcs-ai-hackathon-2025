@@ -19,8 +19,8 @@
 
 const IST = 5.5 * 3600 * 1000;
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const PARTS = ["brokerage", "stt", "exchange", "sebi", "gst", "stamp", "dp"];
-const PART_LABEL = { brokerage: "Brokerage", stt: "STT / CTT", exchange: "Exchange transaction charges", sebi: "SEBI turnover fee", gst: "GST", stamp: "Stamp duty", dp: "DP charges" };
+const PARTS = ["brokerage", "stt", "exchange", "sebi", "gst", "stamp", "dp", "other"]; // "other": a few paise of IPFT and the like, so the heads always add up to the charges
+const PART_LABEL = { brokerage: "Brokerage", stt: "STT / CTT", exchange: "Exchange transaction charges", sebi: "SEBI turnover fee", gst: "GST", stamp: "Stamp duty", dp: "DP charges", other: "Other (IPFT, corrections)" };
 
 const num = (x) => typeof x === "number" && Number.isFinite(x);
 const r2 = (x) => (num(x) ? Math.round(x * 100) / 100 : null);
@@ -200,7 +200,9 @@ function buildDay({ date, trips, funds = null, market = null, history = [], open
   const grossLoss = -sum(losses, (t) => t.pnl);
   const ch = chargeSet(parts);
   const gross = grossProfit - grossLoss;
-  const net = gross - ch.total;
+  // Other credits & debits of the day (Console's ledger lines that are not trades) are part of the day's net, as in Console's P&L
+  const other = r2(sum(closed, (t) => t.other || 0));
+  const net = gross - ch.total + other;
   const seg = funds && funds.available ? funds : null;
   const opening = seg ? seg.available.opening : null;
   const availableMargin = seg ? (num(seg.available.live) ? seg.available.live : seg.available.cash) : null;
@@ -219,6 +221,7 @@ function buildDay({ date, trips, funds = null, market = null, history = [], open
     grossLoss: r2(grossLoss),
     gross: r2(gross),
     charges: ch,
+    other,
     net: r2(net),
     netPctOfMargin: base ? r2((net / base) * 100) : null,
     chargesPctOfGross: gross > 0 ? r1((ch.total / gross) * 100) : null,
@@ -315,7 +318,7 @@ const rate = (a, b) => (b ? r1((a / b) * 100) : null);
 
 function totalsOf(days) {
   const d = days.filter((x) => x.summary);
-  const tot = { days: d.length, trades: 0, wins: 0, losses: 0, grossProfit: 0, grossLoss: 0, charges: { ...emptyParts(), total: 0, statutory: 0, brokerAndOther: 0 }, net: 0 };
+  const tot = { days: d.length, trades: 0, wins: 0, losses: 0, grossProfit: 0, grossLoss: 0, charges: { ...emptyParts(), total: 0, statutory: 0, brokerAndOther: 0 }, net: 0, other: 0 };
   for (const x of d) {
     const s = x.summary;
     tot.trades += s.trades;
@@ -324,6 +327,7 @@ function totalsOf(days) {
     tot.grossProfit += s.grossProfit;
     tot.grossLoss += s.grossLoss;
     tot.net += s.net;
+    tot.other += s.other || 0;
     for (const k of [...PARTS, "total", "statutory", "brokerAndOther"]) tot.charges[k] += s.charges[k] || 0;
   }
   const gross = tot.grossProfit - tot.grossLoss;
@@ -358,6 +362,7 @@ function totalsOf(days) {
     grossLoss: r2(tot.grossLoss),
     gross: r2(gross),
     charges: chargesOut,
+    other: r2(tot.other),
     net: r2(tot.net),
     avgNetPerDay: d.length ? r2(tot.net / d.length) : null,
     avgTradesPerDay: d.length ? r1(tot.trades / d.length) : null,

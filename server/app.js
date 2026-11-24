@@ -338,7 +338,7 @@ function createApp(opts = {}) {
           return trading.journal
             .trips({})
             .filter((t) => !t.open && t.exitAt && istDay(t.exitAt) === date)
-            .map((t) => ({ ...t, parts: chargeParts(t) }));
+            .map((t) => ({ ...t, parts: t.parts || chargeParts(t) })); // the journal's own heads: corrected to Console's when a ledger or P&L statement was read
         },
         // that day's 1-minute bars, for the Execution Lab's replay
         minuteBars: (symbol, fromMs, toMs) => market.minuteBarsBetween(symbol, fromMs, toMs),

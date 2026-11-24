@@ -497,7 +497,7 @@ function TradesJournal() {
   const rt = d ? d.returns || null : null;
   const capital = d ? d.capital || [] : [];
   const other = d ? d.other || null : null; // other credits & debits of the period (part of Net realised P&L)
-  const netAll = s ? Math.round((s.net + (other && other.count ? other.total : 0)) * 100) / 100 : null;
+  const netAll = s ? s.net : null; // already includes the period's other credits & debits
   const period = d && d.period;
   const label = period ? period.label : "";
   const fileTag = period ? `${period.fromDay || "start"}_${period.toDay}` : "journal";
@@ -753,7 +753,7 @@ function TradesJournal() {
                 <dd>{sMoney(netAll)}</dd>
                 <small>
                   realised P&amp;L {sMoney(s.gross)} · charges &amp; taxes {sMoney(-s.charges)}
-                  {other && other.count > 0 ? ` · other credits & debits ${sMoney(other.total)}` : ""}
+                  {s.other ? ` · other credits & debits ${sMoney(s.other)}` : ""}
                 </small>
               </div>
               <div className={tone(s.netPct)} data-tip="Net profit or loss as a share of the money put into the trades: each trade's size at its entry price, added up. A trade done many times counts each time, so this is the return on the money traded, not on your account.">

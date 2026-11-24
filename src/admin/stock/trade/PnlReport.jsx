@@ -99,9 +99,11 @@ export function PnlSummary({ s, unrealised, period = null, other = null }) {
   const [asConsole, setAsConsole] = useState(false);
   const shown = asConsole && cv ? { ...s, ...cv.console } : s;
   // Other credits & debits (ledger entries that are not trades) are part of Net realised P&L, as in Console's report
-  const hasOther = Boolean(other && other.count > 0);
-  const otherTotal = hasOther && isNum(other.total) ? other.total : 0;
-  const netAll = isNum(shown.net) ? Math.round((shown.net + otherTotal) * 100) / 100 : shown.net;
+  // the net already carries them (one Net realised P&L everywhere: server/trading/journal.js applyOther); the figure shown is the
+  // period's own, so the four lines always add up
+  const hasOther = Boolean((other && other.count > 0) || (isNum(s.other) && s.other !== 0));
+  const otherTotal = isNum(s.other) ? s.other : hasOther && isNum(other.total) ? other.total : 0;
+  const netAll = shown.net;
   const Fig = ({ label, value, cls = "", tip, sub }) => (
     <div className="zp-fig" data-tip={tip}>
       <dt>{label}</dt>

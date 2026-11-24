@@ -85,7 +85,7 @@ function compute({ trips = [], entries = [], fromDay, toDay }) {
   for (const t of trips) {
     const d = dayOf(t.exitAt);
     const x = byDay.get(d) || { net: 0, gross: 0, trades: 0 };
-    x.net += t.net || 0;
+    x.net += (t.net || 0) + (t.other || 0);
     x.gross += t.pnl || 0;
     x.trades += 1;
     byDay.set(d, x);

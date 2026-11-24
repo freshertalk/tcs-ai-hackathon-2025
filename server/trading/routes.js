@@ -173,15 +173,19 @@ function mountTrading(app, { trading, ai, requireSuper, limiter, capture = null,
     return trading.journal.others({ fromDay: ok(q.fromDay), toDay: ok(q.toDay) });
   }));
   app.post("/api/admin/trading/journal/other", requireSuper, limiter(120, 10 * 60 * 1000), wrap(async (req) => {
+    const before = trading.journal.otherDays();
     const r = trading.journal.addOther(req.body || {}, nowMs());
     if (r.error) throw new TradingError(r.error);
     trading.journal.snapshot(nowMs());
+    recapture([...before, ...trading.journal.otherDays()]);
     return r;
   }));
   app.delete("/api/admin/trading/journal/other/:id", requireSuper, limiter(120, 10 * 60 * 1000), wrap(async (req) => {
+    const before = trading.journal.otherDays();
     const r = trading.journal.removeOther(String(req.params.id || "").slice(0, 20));
     if (r.error) throw new TradingError(r.error);
     trading.journal.snapshot(nowMs());
+    recapture([...before, ...trading.journal.otherDays()]);
     return r;
   }));
   app.get("/api/admin/trading/journal/periods", requireSuper, wrap(async () => ({ ...trading.journal.periods(nowMs()), capture: capture ? capture.status() : null, snapshots: { days: Object.keys(trading.journal.snapshots().days).length, latestAt: trading.journal.snapshots().latestAt } })));
@@ -219,6 +223,11 @@ function mountTrading(app, { trading, ai, requireSuper, limiter, capture = null,
   const fileName = (n) => String(n || "tradebook").replace(/[^A-Za-z0-9 ._()-]/g, "_").slice(0, 100);
   app.post("/api/admin/trading/journal/upload", requireSuper, limiter(60, 10 * 60 * 1000), wrap(async (req) => files.start(req.body || {})));
   app.put("/api/admin/trading/journal/upload/:id/:index", requireSuper, limiter(400, 10 * 60 * 1000), express.raw({ type: () => true, limit: "3mb" }), wrap(async (req) => files.part(String(req.params.id), Number(req.params.index), req.body)));
+  // the Day book re-reads the days whose figures a change touched (a correction, other credits & debits)
+  const recapture = (days) => {
+    const list = [...new Set(days)].filter(Boolean);
+    if (list.length && typeof trading.onJournalMatch === "function") Promise.resolve().then(() => trading.onJournalMatch(list)).catch(() => {});
+  };
   // one tradebook, read and kept (shared by the plain upload and the smart one)
   const finishTradebook = async (req, name, buf) => {
     const id = require("node:crypto").createHash("sha256").update(buf).digest("hex").slice(0, 16);
@@ -236,18 +245,21 @@ function mountTrading(app, { trading, ai, requireSuper, limiter, capture = null,
     const r = trading.journal.importLedger(buf, { name }, nowMs());
     if (r.error) throw new TradingError(`${name}: ${r.error}`);
     const m = trading.journal.applyMatch({}, nowMs());
+    recapture([...m.corrected, ...trading.journal.otherDays()]);
     trading.journal.snapshot(nowMs());
     console.log(`[trading] ledger upload by ${req.user.email}: ${name} (${r.kind}) — ${r.added} new of ${r.read} other credits & debits, ${r.settledDays} days, ${m.corrected.length} corrected`);
-    if (m.corrected.length && typeof trading.onJournalMatch === "function") Promise.resolve().then(() => trading.onJournalMatch(m.corrected)).catch(() => {});
     return { ...r, name, matched: m.corrected, counts: m.reconcile.counts };
   };
   // Console's P&L statement: kept as the reference for its period, and compared with the journal's period
   const finishPnl = (req, name, buf) => {
     const r = trading.journal.importPnl(buf, { name }, nowMs());
     if (r.error) throw new TradingError(`${name}: ${r.error}`);
+    // Console's statement is the truth for its period: the charges are set to its figures at once (undo is one press)
+    const m = trading.journal.applyPnlMatch(r.key, nowMs());
     trading.journal.snapshot(nowMs());
-    console.log(`[trading] P&L statement upload by ${req.user.email}: ${name} (${r.from} to ${r.to}) — ${r.added} other entries`);
-    return { name, ...r, compare: trading.journal.pnlCompare().find((c) => c.key === r.key) || null };
+    console.log(`[trading] P&L statement upload by ${req.user.email}: ${name} (${r.from} to ${r.to}) — ${r.added} other entries, ${m.error ? "no correction (" + m.error + ")" : m.days.length + " days corrected"}`);
+    recapture([...(m.days || []), ...trading.journal.otherDays()]);
+    return { name, ...r, corrected: m.error ? 0 : m.days.length, compare: trading.journal.pnlCompare().find((c) => c.key === r.key) || null };
   };
   app.post("/api/admin/trading/journal/upload/:id/finish", requireSuper, limiter(60, 10 * 60 * 1000), wrap(async (req) => {
     const { name, buf } = files.take(String(req.params.id));
@@ -261,6 +273,19 @@ function mountTrading(app, { trading, ai, requireSuper, limiter, capture = null,
     if (kind === "ledger") return { type: "ledger", ...finishLedger(req, name, buf) };
     if (kind === "pnl") return { type: "pnl", ...finishPnl(req, name, buf) };
     throw new TradingError(`${name}: this is not a Zerodha Console tradebook or ledger. Use Console → Reports → Tradebook, or Funds → Statement (the ledger), as .xlsx or .csv.`);
+  }));
+  // Zerodha's own charges per order (its virtual contract note): how far they reach, and a read of the ones still to come
+  app.get("/api/admin/trading/journal/charges", requireSuper, wrap(async () => ({ ...trading.journal.chargesStatus(), connected: Boolean(trading.market && trading.market.kiteAuth && trading.market.kiteAuth()) })));
+  app.post("/api/admin/trading/journal/charges/refresh", requireSuper, limiter(20, 10 * 60 * 1000), wrap(async () => {
+    let total = 0;
+    let last = { done: 0, left: 0, error: "" };
+    for (let i = 0; i < 8; i += 1) {
+      last = await trading.refreshCharges({ limit: 100 });
+      total += last.done;
+      if (last.error || !last.left || !last.done) break;
+    }
+    trading.journal.snapshot(nowMs());
+    return { done: total, left: last.left, error: last.error, ...trading.journal.chargesStatus() };
   }));
   app.get("/api/admin/trading/journal/pnl", requireSuper, wrap(async () => ({ statements: trading.journal.pnlCompare() })));
   app.post("/api/admin/trading/journal/pnl/:key/apply", requireSuper, limiter(60, 10 * 60 * 1000), wrap(async (req) => {

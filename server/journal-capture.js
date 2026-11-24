@@ -65,6 +65,12 @@ class JournalCapture {
       const trades = await this.trading.trades();
       const j = this.trading.journal;
       const added = j.ingestKite(trades);
+      // Zerodha's own charges for the orders not yet priced (a calculation; places nothing). A failure leaves the estimate.
+      try {
+        if (typeof this.trading.refreshCharges === "function") await this.trading.refreshCharges({ limit: 100 });
+      } catch (_) {
+        /* the estimate stays */
+      }
       j.markCaptured(day, trades.length);
       const snap = j.snapshot(this.now());
       this.last = { at: new Date(this.now()).toISOString(), day, trades: trades.length, added, error: "", snapshot: snap.saved };

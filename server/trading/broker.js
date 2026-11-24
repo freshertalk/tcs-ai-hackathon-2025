@@ -15,6 +15,7 @@
 //   portfolio GET    /portfolio/holdings · GET /portfolio/positions
 //   funds     GET    /user/margins
 //   pre-trade POST   /margins/orders            (JSON; a calculation — places nothing)
+//   charges   POST   /charges/orders            (JSON; the virtual contract note: Zerodha's own charges for orders — a calculation only)
 // Since 1 April 2026 Zerodha accepts API orders only from the static IP registered on the
 // Kite Connect app (SEBI's retail-algo rules); reads work from anywhere.
 
@@ -165,6 +166,17 @@ function shapeMargin(m) {
   };
 }
 
+/**
+ * One row of the virtual contract note: Zerodha's own charges for one order, in the journal's heads. DP charges are not in it
+ * (the depository bills them for a delivery sale); the journal keeps its estimate of those.
+ */
+function shapeCharges(r) {
+  const c = (r && r.charges) || {};
+  const g = c.gst || {};
+  const parts = { brokerage: n(c.brokerage) || 0, stt: n(c.transaction_tax) || 0, exchange: n(c.exchange_turnover_charge) || 0, sebi: n(c.sebi_turnover_charge) || 0, gst: n(g.total) || 0, stamp: n(c.stamp_duty) || 0 };
+  return { parts, total: n(c.total) || Object.values(parts).reduce((a, v) => a + v, 0), taxType: String(c.transaction_tax_type || "") };
+}
+
 class KiteBroker {
   constructor({ apiKey, accessToken, fetchImpl = globalThis.fetch, gapMs = 110 }) {
     this.apiKey = apiKey;
@@ -225,6 +237,16 @@ class KiteBroker {
     return ((await this._req("POST", "/margins/orders", null, legs)) || []).map(shapeMargin);
   }
 
+  /**
+   * Zerodha's own charges (brokerage, STT, exchange and SEBI fees, GST, stamp duty) for executed orders — the virtual contract
+   * note. A calculation only: nothing is placed. Each order: { order_id, exchange, tradingsymbol, transaction_type, variety,
+   * product, order_type, quantity, average_price }; the answer comes back in the same order.
+   */
+  async orderCharges(orders) {
+    const rows = (await this._req("POST", "/charges/orders", null, orders)) || [];
+    return rows.map(shapeCharges);
+  }
+
   /** @param form  Kite's own parameter names, already checked by the trading service */
   async place(variety, form) {
     const d = await this._req("POST", `/orders/${encodeURIComponent(variety)}`, form);
@@ -242,4 +264,4 @@ class KiteBroker {
   }
 }
 
-module.exports = { KiteBroker, shapeMargin, shapeOrder, shapePosition, shapeHolding, shapeTrade, shapeSegment };
+module.exports = { KiteBroker, shapeCharges, shapeMargin, shapeOrder, shapePosition, shapeHolding, shapeTrade, shapeSegment };

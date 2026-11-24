@@ -391,7 +391,24 @@ clamps), then set one standard over all of them by their existing class names:
     - Checked on the owner's files (2026-11-24): Console's realised P&L − charges = the ledger's settlements, to the paisa.
     - API: `POST …/upload/:id/finish-console`, `GET …/reconcile`, `POST …/reconcile/apply`, `DELETE …/reconcile/:date`,
       `GET …/pnl`, `POST/DELETE …/pnl/:key/apply`.
-  - Not included: the per-period tables and the return on principal use the entries' total only through the summary.
+  - *One Net realised P&L everywhere* (`applyOther` in `journal.js`): a day's other credits & debits are shared by that day's
+    closed trades as `other` (kept apart from each trade's own result, so win rate, profit factor and per-symbol P&L are
+    unchanged). The period summary, sticky bar, calendar, day grid, month and period tables, returns and the Day book's
+    records and waterfalls all add up as realised P&L − charges & taxes + other credits & debits, which is Console's figure.
+    A line posted on a day with no closed trades goes to the next trading day with some.
+  - Uploading a P&L statement corrects the charges at once (undo is one press) and the Day book re-reads the days that
+    changed. The Day book keeps the journal's corrected charge heads (`app.js` passes `t.parts`).
+  - The "Match with Zerodha Console" card has a Hide / Show button; the choice is remembered in this browser.
+  - *Charges from Zerodha itself* (`broker.js` `orderCharges`, `service.js` `refreshCharges`, `journal.js` `applyKiteCharges`):
+    Kite Connect's virtual contract note (`POST /charges/orders`, a calculation that places nothing) gives brokerage, STT,
+    exchange and SEBI fees, GST and stamp duty for each executed order. Every journal order (today's and the history from
+    tradebooks, grouped by order id) is priced once and kept; a closed trade's charges are its orders' figures split by its
+    share of each order, plus the estimated DP charge (the depository's, not in the note). A trade with an order that has no
+    figure yet (or whose order changed) keeps the estimate. It runs by itself in the 5-minute capture while Zerodha is
+    connected (100 orders a pass) and with "Read charges from Kite now". Kite's figure is the new baseline the Console
+    corrections are measured against, so they are small; futures and options, which the old estimate left at zero, are
+    priced too. Kite prices with today's rates, so a past period's figures are only as right as today's rate card: a ledger
+    or P&L statement uploaded for it still has the last word. API: `GET …/journal/charges`, `POST …/journal/charges/refresh`.
   - Tests: `server/test/otherbook.test.js`, `OtherLedger.test.js`, `PnlReport.test.js`.
 
 **Hide amounts, the /me redesign and soft buttons with icons (2026-11-24; `src/admin/privacy.jsx` + `privacy.css`,

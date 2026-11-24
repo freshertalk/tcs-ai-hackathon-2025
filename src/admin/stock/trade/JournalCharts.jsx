@@ -477,7 +477,7 @@ export function Dashboard({ s, a }) {
           </div>
         </Card>
         <Card title="Where your money went" icon="🧾" info="What your winning trades made, what the losing ones took, what the costs took, and what is left.">
-          <Waterfall profit={profit} loss={loss} charges={s.charges} net={s.net} />
+          <Waterfall profit={profit} loss={loss} charges={s.charges} other={s.other || 0} net={s.net} />
           <p className="jc-note">
             Costs took <b>{profit > 0 ? `${Math.round((s.charges / profit) * 100)}%` : "—"}</b> of what your winning trades made.
           </p>

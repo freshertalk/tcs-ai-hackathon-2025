@@ -205,12 +205,14 @@ export function HBars({ rows, fmt = rsSigned, empty = "Nothing to show yet." }) 
 }
 
 /** Where the money went: profit, loss, charges and what is left, as one comparison. */
-export function Waterfall({ profit, loss, charges, net }) {
-  const max = Math.max(1, profit, loss + charges);
+export function Waterfall({ profit, loss, charges, net, other = 0 }) {
+  const max = Math.max(1, profit, loss + charges + Math.max(0, -other));
   const rows = [
     { label: "Total profit", v: profit, c: "up", sign: "+" },
     { label: "Total loss", v: loss, c: "down", sign: "−" },
     { label: "Charges & taxes", v: charges, c: "warn", sign: "−" },
+    // ledger lines that are not trades (AMC, interest, dividends…): part of Console's Net realised P&L
+    ...(other ? [{ label: "Other credits & debits", v: Math.abs(other), c: other > 0 ? "up" : "down", sign: other > 0 ? "+" : "−" }] : []),
     { label: "Net", v: Math.abs(net), c: net >= 0 ? "up" : "down", sign: net >= 0 ? "+" : "−", strong: true },
   ];
   return (
