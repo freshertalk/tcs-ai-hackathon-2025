@@ -56,7 +56,7 @@ test("the banner keeps one line once the page is scrolled, and tells the page ho
   Object.defineProperty(window, "scrollY", { value: 0, configurable: true });
 });
 
-test("the alert is a soft popup above the Positions bar: title, words, Open positions; it closes by itself after 5 seconds and stays quiet until the repeat time", () => {
+test("the alert is a soft popup above the Positions bar: title, words, Open positions; it closes by itself after 30 seconds and stays quiet until the repeat time", () => {
   jest.useFakeTimers();
   try {
     const open = jest.fn();
@@ -72,8 +72,8 @@ test("the alert is a soft popup above the Positions bar: title, words, Open posi
     expect(pop.querySelector(".ux-snack__title").textContent).toBe("You have given back 58% of today's best");
     expect(pop.textContent).toMatch(/Keep at least ₹1,300/);
     expect(document.querySelector(".dg-banner")).toBeNull(); // no strip under the top bar any more
-    // 5 seconds, then it goes by itself
-    act(() => jest.advanceTimersByTime(4000));
+    // 30 seconds, then it goes by itself
+    act(() => jest.advanceTimersByTime(29000));
     expect(document.querySelector(".ux-snack")).toBeTruthy();
     act(() => jest.advanceTimersByTime(1500));
     expect(document.querySelector(".ux-snack")).toBeNull();

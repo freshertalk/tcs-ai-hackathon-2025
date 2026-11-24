@@ -27,10 +27,12 @@ test("notes stack (three on screen), renew instead of repeating, leave by themse
   // hovering holds a note; leaving lets its clock run again
   const fourth = screen.getByText("Fourth note.").closest(".ux-snack");
   fireEvent.mouseEnter(fourth);
-  act(() => jest.advanceTimersByTime(10000));
+  act(() => jest.advanceTimersByTime(60000));
   expect(screen.getByText("Fourth note.")).toBeTruthy();
   fireEvent.mouseLeave(fourth);
-  act(() => jest.advanceTimersByTime(8000));
+  act(() => jest.advanceTimersByTime(29000));
+  expect(screen.getByText("Fourth note.")).toBeTruthy(); // 30 seconds by default
+  act(() => jest.advanceTimersByTime(2000));
   expect(screen.queryByText("Fourth note.")).toBeNull();
   expect(screen.queryByText(/Saved\./)).toBeNull();
 });

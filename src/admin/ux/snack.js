@@ -4,7 +4,7 @@
 //   snack(text, { tone: "ok" | "info" | "warn" | "error", action: { label, onClick }, ms, key })
 //     tone    the colour and the icon; "error" is announced at once to screen readers, the others politely
 //     action  one button (Undo, Retry, Open…); pressing it closes the note
-//     ms      how long it stays (default 4.5 s, 7 s for an error; 0 = until closed); hovering or focusing it pauses the clock
+//     ms      how long it stays (default 30 s, errors too; 0 = until closed; the × closes it any time); hovering or focusing it pauses the clock
 //     key     a note with the same key replaces the one on screen instead of stacking (e.g. "network")
 //
 // Added on 24 Nov 2026, when every floating note on the private pages became this one soft popup (the daily goal's alert, a

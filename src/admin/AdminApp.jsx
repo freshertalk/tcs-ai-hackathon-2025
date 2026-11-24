@@ -216,7 +216,7 @@ export default function AdminApp() {
       if (Date.now() - last < 10000) return;
       last = Date.now();
       reload();
-      snack("Your session has ended. Please sign in again.", { tone: "warn", key: "signed-out", ms: 8000 });
+      snack("Your session has ended. Please sign in again.", { tone: "warn", key: "signed-out", ms: 30000 });
     };
     window.addEventListener(SIGNED_OUT_EVENT, onOut);
     return () => window.removeEventListener(SIGNED_OUT_EVENT, onOut);

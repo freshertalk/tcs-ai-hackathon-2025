@@ -178,7 +178,7 @@ export function GoalPill({ goal: given, onClick }) {
 /**
  * The daily goal's alert. Since 24 Nov 2026 it is a soft popup at the bottom of the screen, just above the Positions bar
  * (the owner's ask: "a very soft popup … auto close in 5 seconds"), in the one popup stack every private page shares
- * (ux/SnackHost.jsx). It shows for 5 seconds — longer while the pointer rests on it — then stays quiet for the
+ * (ux/SnackHost.jsx). It shows for 30 seconds (or until the × closes it) — longer while the pointer rests on it — then stays quiet for the
  * "repeat a reminder" time and comes back if it still holds. variant="strip" keeps the old full-width strip under the top
  * bar, for anyone who wants it back.
  */
@@ -216,7 +216,7 @@ export function GoalBanner({ goal, onOpen, variant = "toast" }) {
       key: "daily-goal",
       title: privacy ? hideAmounts(head) : head,
       tone,
-      ms: 5000,
+      ms: 30000,
       actions: [...(openRef.current ? [{ label: "Open positions", primary: true, onClick: () => openRef.current && openRef.current() }] : []), { label: "Got it" }],
     });
     const next = { [key]: Date.now() + repeatMs };

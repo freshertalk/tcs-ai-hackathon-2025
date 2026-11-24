@@ -3,7 +3,7 @@
 // shown, and this keeps the last words on screen for the length of the exit. The look is in smooth.css.
 //
 // Since 24 Nov 2026 the note is shown in the one soft popup every private page shares (ux/SnackHost.jsx: bottom centre,
-// above the Positions bar, gone after 5 seconds unless the pointer rests on it). The callers are unchanged — they still say
+// above the Positions bar, gone after 30 seconds (or the ×) unless the pointer rests on it). The callers are unchanged — they still say
 // show / kind / onClose — and `stamp` (the note's own time) tells a new note from the same one drawn again. Where no popup
 // host is mounted (a test, a page of its own), the old floating note is drawn as before.
 
@@ -45,7 +45,7 @@ export default function SoftToast({ show, kind = "ok", role = "status", classNam
       return;
     }
     setViaHost(true);
-    snack(kids.current, { key: key.current, tone: kind === "error" ? "error" : kind === "warn" ? "warn" : kind === "info" ? "info" : "ok", ms: 5000, onClose: () => closer.current && closer.current() });
+    snack(kids.current, { key: key.current, tone: kind === "error" ? "error" : kind === "warn" ? "warn" : kind === "info" ? "info" : "ok", ms: 30000, onClose: () => closer.current && closer.current() });
   }, [show, kind, stamp]);
   useEffect(() => () => closeSnack(key.current), []);
   const last = useRef({ kind, children });

@@ -325,10 +325,10 @@ clamps), then set one standard over all of them by their existing class names:
   bar (40 px, or the open dock's height) or the phone/tablet bottom bar, so the page's top stays clear.
   - Each note is a soft card tinted with its tone (green done, blue news, amber caution, red problem), with its icon
     in a soft disc, an optional bold `title`, up to two pill `actions` and an `onClose` callback.
-  - A thin line runs down the time left: 5 s by default, 7 s for an error. Hovering, focusing or touching pauses it.
+  - A thin line runs down the time left: 30 s by default, errors too (changed from 5 s / 7 s on 2026-11-24); the × closes it at any time. Hovering, focusing or touching pauses it.
   - It rises in on a gentle spring.
 - *The daily goal's alert* (`GoalBanner`) is now that popup instead of a full-width strip under the top bar. It shows for
-  5 s, then stays quiet for the goal's "repeat a reminder" time and returns if it still holds. It closes at once when
+  30 s (or the ×), then stays quiet for the goal's "repeat a reminder" time and returns if it still holds. It closes at once when
   the alert stops holding. `variant="strip"` keeps the old strip.
 - *Price alerts and order notes* (`SoftToast`) go to the same popup; the callers are unchanged apart from a `stamp`.
   Without a popup host on the page (tests), the old floating note is drawn.

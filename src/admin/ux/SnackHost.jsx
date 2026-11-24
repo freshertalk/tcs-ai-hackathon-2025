@@ -13,6 +13,9 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { SNACK_CLOSE, SNACK_EVENT, closeSnack, snack } from "./snack";
 
+/** How long a popup stays unless it is closed by hand (24 Nov 2026, the owner: 30 seconds, or close it with the ×). */
+export const SNACK_MS = 30000;
+
 const MAX = 3;
 const ICON = {
   ok: <path d="m7.5 12.5 3 3 6-6.5" />,
@@ -125,7 +128,7 @@ export default function SnackHost() {
     const onSnack = (e) => {
       const d = e.detail || {};
       const tone = ["ok", "info", "warn", "error"].includes(d.tone) ? d.tone : "info";
-      const ms = d.ms === 0 ? 0 : Number.isFinite(d.ms) ? d.ms : tone === "error" ? 7000 : 5000;
+      const ms = d.ms === 0 ? 0 : Number.isFinite(d.ms) ? d.ms : SNACK_MS;
       const extra = { title: d.title || "", actions: Array.isArray(d.actions) ? d.actions : null, onClose: typeof d.onClose === "function" ? d.onClose : null };
       setList((cur) => {
         // the same words again (or the same key): the note on screen is renewed instead of a second one stacking
