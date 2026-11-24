@@ -61,7 +61,7 @@ export const TABS = [
 ];
 
 /** The strip that stays under the top bar while the page scrolls: the period's headline figures and the tabs. */
-export function CommandBar({ label, s, rt, tab, setTab, counts = {}, updatedAt, loading, onRefresh, onTop, gaps = 0 }) {
+export function CommandBar({ label, s, netAll = null, rt, tab, setTab, counts = {}, updatedAt, loading, onRefresh, onTop, gaps = 0 }) {
   const cap = rt && rt.hasCapital;
   return (
     <div className="jr-cmd" role="region" aria-label="The period at a glance">
@@ -71,9 +71,9 @@ export function CommandBar({ label, s, rt, tab, setTab, counts = {}, updatedAt, 
           <b>{label || "—"}</b>
         </button>
         <dl className="jr-cmd__kpis">
-          <div className={toneOf(s && s.net)}>
+          <div className={toneOf(netAll !== null ? netAll : s && s.net)}>
             <dt>Net realised P&amp;L</dt>
-            <dd>{s ? sMoney(s.net) : "—"}</dd>
+            <dd>{s ? sMoney(netAll !== null ? netAll : s.net) : "—"}</dd>
           </div>
           <div className={cap ? toneOf(rt.totalPct) : ""}>
             <dt>Return</dt>

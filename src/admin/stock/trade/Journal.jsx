@@ -21,6 +21,7 @@ import DayBook from "../analysis/DayBook";
 import { PnlBySymbol, PnlSummary, unrealisedOf } from "./PnlReport";
 import { useLiveBook } from "./liveBook";
 import { ChargesBreakdown, MonthCalendar } from "./JournalLedger";
+import OtherLedger from "./OtherLedger";
 import PnlGrid from "./PnlGrid";
 import "./trade.css";
 const IST = 5.5 * 3600 * 1000;
@@ -495,6 +496,8 @@ function TradesJournal() {
   const a = d ? d.analytics : null;
   const rt = d ? d.returns || null : null;
   const capital = d ? d.capital || [] : [];
+  const other = d ? d.other || null : null; // other credits & debits of the period (part of Net realised P&L)
+  const netAll = s ? Math.round((s.net + (other && other.count ? other.total : 0)) * 100) / 100 : null;
   const period = d && d.period;
   const label = period ? period.label : "";
   const fileTag = period ? `${period.fromDay || "start"}_${period.toDay}` : "journal";
@@ -618,6 +621,7 @@ function TradesJournal() {
       <CommandBar
         label={label}
         s={s}
+        netAll={netAll}
         rt={rt}
         tab={tab}
         setTab={goTab}
@@ -643,9 +647,10 @@ function TradesJournal() {
           <Alert>{retro.err}</Alert>
           {retro.r && <Retro r={retro.r} list={retro.list} onOpen={retro.open} onClose={retro.close} />}
           {grid}
-          <PnlSummary s={s} unrealised={unreal} period={period} />
+          <PnlSummary s={s} unrealised={unreal} period={period} other={other} />
           {/* where the money went: every charge on its own (and days entered by hand, when included) */}
           <ChargesBreakdown s={s} parts={d.chargeParts} manual={d.manualDays || []} label={label} />
+          <OtherLedger other={other} label={label} onChanged={load} />
           <dl className="jp2-tiles jr-glance">
             <div className="jp2-tile">
               <dt>Expectancy</dt>
@@ -743,11 +748,12 @@ function TradesJournal() {
               <b>All the numbers</b> <small>— every figure of this period, group by group, for a closer look</small>
             </summary>
             <dl className="tr-tiles jr-tiles">
-              <div className={tone(s.net)} data-tip="Realised P&L minus the estimated charges & taxes, on trades closed in this period (Zerodha's Net realised P&L).">
+              <div className={tone(netAll)} data-tip="Realised P&L minus the estimated charges & taxes, plus other credits & debits, on trades closed in this period (Zerodha's Net realised P&L).">
                 <dt>Net realised P&amp;L</dt>
-                <dd>{sMoney(s.net)}</dd>
+                <dd>{sMoney(netAll)}</dd>
                 <small>
                   realised P&amp;L {sMoney(s.gross)} · charges &amp; taxes {sMoney(-s.charges)}
+                  {other && other.count > 0 ? ` · other credits & debits ${sMoney(other.total)}` : ""}
                 </small>
               </div>
               <div className={tone(s.netPct)} data-tip="Net profit or loss as a share of the money put into the trades: each trade's size at its entry price, added up. A trade done many times counts each time, so this is the return on the money traded, not on your account.">

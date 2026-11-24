@@ -166,6 +166,24 @@ function mountTrading(app, { trading, ai, requireSuper, limiter, capture = null,
     if (r.error) throw new TradingError(r.error);
     return r;
   }));
+  // other credits & debits (24 Nov 2026): DP charges billed separately, AMC, interest, dividends… — by hand or from the Console ledger file
+  app.get("/api/admin/trading/journal/other", requireSuper, wrap(async (req) => {
+    const q = req.query || {};
+    const ok = (d) => (/^\d{4}-\d{2}-\d{2}$/.test(String(d || "")) ? String(d) : "");
+    return trading.journal.others({ fromDay: ok(q.fromDay), toDay: ok(q.toDay) });
+  }));
+  app.post("/api/admin/trading/journal/other", requireSuper, limiter(120, 10 * 60 * 1000), wrap(async (req) => {
+    const r = trading.journal.addOther(req.body || {}, nowMs());
+    if (r.error) throw new TradingError(r.error);
+    trading.journal.snapshot(nowMs());
+    return r;
+  }));
+  app.delete("/api/admin/trading/journal/other/:id", requireSuper, limiter(120, 10 * 60 * 1000), wrap(async (req) => {
+    const r = trading.journal.removeOther(String(req.params.id || "").slice(0, 20));
+    if (r.error) throw new TradingError(r.error);
+    trading.journal.snapshot(nowMs());
+    return r;
+  }));
   app.get("/api/admin/trading/journal/periods", requireSuper, wrap(async () => ({ ...trading.journal.periods(nowMs()), capture: capture ? capture.status() : null, snapshots: { days: Object.keys(trading.journal.snapshots().days).length, latestAt: trading.journal.snapshots().latestAt } })));
   app.post("/api/admin/trading/journal/capture", requireSuper, limiter(20, 10 * 60 * 1000), wrap(async () => {
     if (!capture) throw new TradingError("Automatic capture is not running on this server.", "not_configured", 409);
@@ -212,6 +230,15 @@ function mountTrading(app, { trading, ai, requireSuper, limiter, capture = null,
     // LISTENER: new trades in the journal — the Day book saves their days and the lab replays them at once
     if (r.added && typeof trading.onJournalImport === "function") Promise.resolve().then(() => trading.onJournalImport(r)).catch(() => {});
     return { ...r, name, file: kept.meta, duplicate: kept.duplicate };
+  }));
+  // the same upload, read as a Console LEDGER (Funds → Statement) instead of a tradebook
+  app.post("/api/admin/trading/journal/upload/:id/finish-ledger", requireSuper, limiter(60, 10 * 60 * 1000), wrap(async (req) => {
+    const { name, buf } = files.take(String(req.params.id));
+    const r = trading.journal.importLedger(buf, { name }, nowMs());
+    if (r.error) throw new TradingError(`${name}: ${r.error}`);
+    trading.journal.snapshot(nowMs());
+    console.log(`[trading] ledger upload by ${req.user.email}: ${name} (${r.kind}) — ${r.added} new of ${r.read} other credits & debits`);
+    return { ...r, name };
   }));
   app.get("/api/admin/trading/journal/files", requireSuper, wrap(async () => ({ files: await files.list(), store: files.col ? "MongoDB (collection journal_files)" : "server files (data/journal-files)" })));
   app.get("/api/admin/trading/journal/files/:id", requireSuper, async (req, res) => {

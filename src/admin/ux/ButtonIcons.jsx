@@ -14,7 +14,7 @@ export const RULES = [
   [/^(save|apply|update|allow|done|got it|ok|yes|confirm|put it back|it has filled)\b/i, "save"],
   [/^(refresh|reload|retry|rescan|re-?read|check now|check sources|sync|scan)/i, "refresh"],
   [/(download|export|\bcsv\b|\bpdf\b|\bword\b file)/i, "download"],
-  [/^(upload|import|choose file|add file)/i, "upload"],
+  [/^(upload|import|choose file|add file|read .*(ledger|file|tradebook))/i, "upload"],
   [/^(delete|remove|clear|forget|sure\? delete|reset)/i, "trash"],
   [/^(\+\s?|add\b|new\b|create\b)/i, "plus"],
   [/^(edit|rename|change)\b/i, "edit"],

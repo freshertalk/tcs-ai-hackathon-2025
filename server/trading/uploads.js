@@ -45,7 +45,7 @@ class JournalFiles {
     const n = String(name || "").replace(/[\\/\r\n\t]/g, " ").trim().slice(0, 120);
     const bytes = Number(size);
     if (!n) throw new UploadError("The file needs a name.");
-    if (!/\.(csv|xlsx|txt)$/i.test(n)) throw new UploadError("Upload a Zerodha Console tradebook as .csv or .xlsx.");
+    if (!/\.(csv|xlsx|txt)$/i.test(n)) throw new UploadError("Upload a Zerodha Console tradebook or ledger as .csv or .xlsx.");
     if (!(bytes > 0)) throw new UploadError("The file is empty.");
     if (bytes > MAX_FILE) throw new UploadError(`A file can be at most ${MAX_FILE / 1024 / 1024} MB: download the tradebook one financial year at a time.`);
     for (const [id, u] of this.pending) if (this.now() - u.at > PENDING_MS) this.pending.delete(id);

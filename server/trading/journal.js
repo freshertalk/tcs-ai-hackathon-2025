@@ -25,6 +25,7 @@ const crypto = require("node:crypto");
 const { readXlsx } = require("./xlsx");
 const retro = require("./retro");
 const R = require("./returns");
+const O = require("./otherbook");
 
 const IST = 5.5 * 3600 * 1000;
 const NAME = "trading/journal.json";
@@ -217,6 +218,39 @@ function readTradebook(buf, opts = {}) {
   // text: UTF-8, or UTF-16 as Excel's "Unicode text" saves it
   const text = b[0] === 0xff && b[1] === 0xfe ? b.subarray(2).toString("utf16le") : b.toString("utf8");
   return { ...fromConsoleCsv(text, opts), kind: "csv" };
+}
+
+/** A Console ledger file (.xlsx or .csv bytes) → { entries, left, rows, error, kind }. See otherbook.js. */
+function readLedger(buf) {
+  const b = Buffer.isBuffer(buf) ? buf : Buffer.from(String(buf || ""), "utf8");
+  if (b.length >= 4 && b.readUInt32LE(0) === 0x04034b50) {
+    let sheets;
+    try {
+      sheets = readXlsx(b);
+    } catch (err) {
+      return { entries: [], left: {}, rows: 0, error: err.message, kind: "xlsx" };
+    }
+    // every sheet that is a ledger (Console writes one per segment: Equity, Commodity…) is read and added together
+    const all = { entries: [], left: {}, rows: 0 };
+    let first = null;
+    let found = false;
+    for (const sh of sheets) {
+      const r = O.fromLedgerRows(sh.rows);
+      if (r.error) {
+        if (!first) first = r;
+        continue;
+      }
+      found = true;
+      all.entries.push(...r.entries);
+      all.rows += r.rows;
+      for (const [k, n] of Object.entries(r.left)) all.left[k] = (all.left[k] || 0) + n;
+    }
+    if (found) return { ...all, entries: O.numbered(all.entries), error: "", kind: "xlsx" };
+    return { ...(first || { entries: [], left: {}, rows: 0, error: "The spreadsheet has no sheets." }), kind: "xlsx" };
+  }
+  const text = b[0] === 0xff && b[1] === 0xfe ? b.subarray(2).toString("utf16le") : b.toString("utf8");
+  const r = O.fromLedgerRows(csvRows(text));
+  return { ...r, entries: O.numbered(r.entries), kind: "csv" };
 }
 
 /* ---------------------------------------------------------------- periods */
@@ -711,7 +745,7 @@ class TradeJournal {
   _load() {
     const d = this.docs.read(NAME, null);
     this._migrate();
-    const out = { tags: (d && d.tags) || {}, excursions: (d && d.excursions) || {}, imports: (d && d.imports) || [], captured: (d && d.captured) || {}, accountSince: (d && d.accountSince) || "", views: (d && d.views) || [], retros: (d && d.retros) || [], capital: (d && d.capital) || [], manualDays: (d && d.manualDays) || {} };
+    const out = { tags: (d && d.tags) || {}, excursions: (d && d.excursions) || {}, imports: (d && d.imports) || [], captured: (d && d.captured) || {}, accountSince: (d && d.accountSince) || "", views: (d && d.views) || [], retros: (d && d.retros) || [], capital: (d && d.capital) || [], manualDays: (d && d.manualDays) || {}, other: (d && d.other) || [] };
     if (!this._itemMode()) out.fills = (d && d.fills) || {};
     return out;
   }
@@ -804,6 +838,70 @@ class TradeJournal {
     d.capital = left;
     this._save(d);
     return { capital: this.capital() };
+  }
+
+  /* ------------------------------------------------------------------ other credits & debits */
+
+  /** The estimated DP charge inside each day's charges (a DP charge entered or read from the ledger is not counted twice). */
+  _dpByDay() {
+    const m = new Map();
+    for (const t of this.trips({})) {
+      if (t.open || !t.parts || !t.parts.dp) continue;
+      const k = istDay(t.exitAt);
+      m.set(k, (m.get(k) || 0) + t.parts.dp);
+    }
+    return m;
+  }
+
+  /** The other credits & debits of a period (all when no days given): each entry with what counts, and the totals. */
+  others({ fromDay = "", toDay = "" } = {}) {
+    const list = O.counted(this._load().other, { fromDay, toDay }, this._dpByDay());
+    return { entries: list, ...O.totals(list), kinds: O.KINDS };
+  }
+
+  /** One entry by hand: a credit is positive, a debit negative. */
+  addOther({ date, amount, kind = "other", note = "" } = {}, now = Date.now()) {
+    const day = String(date || "").trim();
+    const amt = Number(amount);
+    if (!validDay(day) || day > istDay(now) || day < "2000-01-01") return { error: "Give the day as a date that has passed (YYYY-MM-DD)." };
+    if (!Number.isFinite(amt) || amt === 0 || Math.abs(amt) > 1e9) return { error: "Give an amount: positive for a credit, negative for a debit." };
+    const k = Object.prototype.hasOwnProperty.call(O.KINDS, kind) ? kind : "other";
+    const d = this._load();
+    if (d.other.length >= 5000) return { error: "The list holds 5,000 entries; remove some first." };
+    const text = String(note || "").replace(/[\u0000-\u001f\u007f]/g, " ").trim().slice(0, 120);
+    const entry = { id: crypto.randomBytes(5).toString("hex"), date: day, amount: r2(amt), kind: k, note: text, source: "manual", at: new Date(now).toISOString() };
+    d.other = [...d.other, entry];
+    this._save(d);
+    return { entry, ...this.others() };
+  }
+
+  removeOther(id) {
+    const d = this._load();
+    const left = d.other.filter((e) => e.id !== String(id));
+    if (left.length === d.other.length) return { error: "There is no such entry." };
+    d.other = left;
+    this._save(d);
+    return this.others();
+  }
+
+  /** A Console ledger file → the other credits & debits it holds (lines already here are skipped). @returns { added, read, left, error, kind } */
+  importLedger(buf, { name = "" } = {}, now = Date.now()) {
+    const r = readLedger(buf);
+    if (r.error) return { added: 0, read: 0, left: {}, error: r.error, kind: r.kind };
+    const d = this._load();
+    const have = new Set(d.other.map((e) => e.key).filter(Boolean));
+    const fresh = [];
+    for (const e of r.entries) {
+      if (have.has(e.key)) continue;
+      have.add(e.key);
+      fresh.push({ id: crypto.randomBytes(5).toString("hex"), date: e.date, amount: e.amount, kind: e.kind, note: e.note, key: e.key, source: "console", file: String(name).slice(0, 100), at: new Date(now).toISOString() });
+    }
+    if (d.other.length + fresh.length > 5000) return { added: 0, read: r.entries.length, left: r.left, error: "The list holds 5,000 entries; remove some first.", kind: r.kind };
+    if (fresh.length) {
+      d.other = [...d.other, ...fresh];
+      this._save(d);
+    }
+    return { added: fresh.length, read: r.entries.length, left: r.left, rows: r.rows, error: "", kind: r.kind };
   }
 
   /**
@@ -1052,6 +1150,8 @@ class TradeJournal {
       })(),
       // days entered by hand in the period (never a day Zerodha has trades for)
       manualDays: this.manualDays(filters.period ? { fromDay: filters.period.fromDay || "", toDay: filters.period.toDay || "" } : {}),
+      // other credits & debits in the period (DP charges billed separately, AMC, interest, dividends…): part of Net realised P&L, as in Console
+      other: this.others(filters.period ? { fromDay: filters.period.fromDay || "", toDay: filters.period.toDay || "" } : {}),
     };
   }
 

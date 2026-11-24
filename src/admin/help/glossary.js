@@ -493,7 +493,7 @@ const ENTRIES = [
   [["Realised P&L"], "Zerodha's term: what the closed trades made or lost before any cost (sell value − buy value). Charges & taxes are taken off in Net realised P&L."],
   [["Net realised P&L"], "Zerodha's term: Realised P&L − Charges & taxes. The Journal's charges are an estimate from Zerodha's published rates; your contract note is the truth."],
   [["Unrealised P&L"], "Zerodha's term: profit or loss on positions not yet closed, at today's price."],
-  [["Other credits & debits"], "Zerodha's term: ledger entries that are not trades (interest, separately billed DP charges and the like). Zerodha's API does not give them, so DrishtiAI shows “—”; see Console's P&L report."],
+  [["Other credits & debits"], "Zerodha's term: ledger entries that are not trades (DP charges, AMC, interest, dividends). The API does not give them: read your Console ledger or enter them in the Journal. They are part of Net realised P&L."],
   [["Total P&L"], "Zerodha's term: the whole profit or loss of the positions (today's) or the holdings (since you bought them)."],
   [["Day's P&L"], "Zerodha's term: how much your holdings moved today, against yesterday's close."],
   [["Used margin"], "Margin blocked by open positions and pending orders."],

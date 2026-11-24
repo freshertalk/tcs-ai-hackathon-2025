@@ -359,6 +359,23 @@ clamps), then set one standard over all of them by their existing class names:
     for links and codes sent.
   - The logic and the API are unchanged.
 
+**Other credits & debits in the Journal (2026-11-24; `server/trading/otherbook.js`, `journal.js`, `routes.js`,
+`src/admin/stock/trade/OtherLedger.jsx`, `PnlReport.jsx`).**
+- Zerodha Console's P&L report has an "Other credits & debits" line (DP charges billed separately, AMC, interest,
+  dividends, call-and-trade fees, penalties). Kite's API gives no ledger, so the Journal showed "—". Now:
+  - *Read Console ledger* (Console → Funds → Statement, `.csv` or `.xlsx`): trade settlements, fund transfers and
+    balances are left out (counted and named in the message); the rest become entries. Lines already here are skipped,
+    so the same file can be read again.
+  - Entries by hand: a date, a kind, credit or debit, an amount, a detail. Each can be removed.
+  - Net realised P&L = Realised P&L − Charges & taxes + Other credits & debits, in the summary, the sticky bar and
+    the "All the numbers" tile. "—" while none is recorded (never a made-up 0).
+  - A DP charge on a day whose trades already carry an estimated DP charge (delivery sells) is listed, marked
+    "already in charges", and not counted twice.
+  - API: `GET/POST /api/admin/trading/journal/other`, `DELETE …/other/:id`, `POST …/upload/:id/finish-ledger`
+    (the tradebook upload, read as a ledger). The journal view carries `other` for the period.
+  - Not included: the per-period tables, the calendar and the return on principal still use trade-only net.
+  - Tests: `server/test/otherbook.test.js`, `OtherLedger.test.js`, `PnlReport.test.js`.
+
 **Hide amounts, the /me redesign and soft buttons with icons (2026-11-24; `src/admin/privacy.jsx` + `privacy.css`,
 `ux/ButtonIcons.jsx` + `ux/soft-buttons.css`, `Dashboard.jsx`, `account-menu.css`).**
 - *Hide amounts*: one switch, on /me (under the greeting) and in every account menu, kept with your preferences

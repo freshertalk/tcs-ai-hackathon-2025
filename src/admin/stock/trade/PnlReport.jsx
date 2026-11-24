@@ -8,9 +8,10 @@
 //   Realised P&L            what the closed trades made or lost, before any cost (sell value − buy value)
 //   Charges & taxes         brokerage, STT, exchange and SEBI fees, GST, stamp duty, DP charge — estimated here from
 //                           Zerodha's published equity rates (the contract note is the truth)
-//   Other credits & debits  ledger entries that are not trades (interest, DP charges billed separately, …). Zerodha's
-//                           API does not give these, so this page cannot know them: it says so rather than show a 0
-//   Net realised P&L        Realised P&L − Charges & taxes (the Journal's "net" everywhere else)
+//   Other credits & debits  ledger entries that are not trades (interest, DP charges billed separately, AMC, dividends).
+//                           Zerodha's API does not give these: they are read from the Console ledger file or entered by
+//                           hand (OtherLedger.jsx); "—" while none is recorded, rather than a made-up 0
+//   Net realised P&L        Realised P&L − Charges & taxes + Other credits & debits (as in Console)
 //   Unrealised P&L          open positions at today's price: from the live position book when the period includes today
 //                           and Zerodha is connected; 0 when nothing is open; unknown otherwise
 import React, { useMemo, useState } from "react";
@@ -92,11 +93,15 @@ export function consoleView(s, period, today = istToday()) {
 }
 
 /* ------------------------------------------------------------------ the five figures */
-export function PnlSummary({ s, unrealised, period = null }) {
+export function PnlSummary({ s, unrealised, period = null, other = null }) {
   const u = unrealised || { total: null, why: "" };
   const cv = useMemo(() => consoleView(s, period), [s, period]);
   const [asConsole, setAsConsole] = useState(false);
   const shown = asConsole && cv ? { ...s, ...cv.console } : s;
+  // Other credits & debits (ledger entries that are not trades) are part of Net realised P&L, as in Console's report
+  const hasOther = Boolean(other && other.count > 0);
+  const otherTotal = hasOther && isNum(other.total) ? other.total : 0;
+  const netAll = isNum(shown.net) ? Math.round((shown.net + otherTotal) * 100) / 100 : shown.net;
   const Fig = ({ label, value, cls = "", tip, sub }) => (
     <div className="zp-fig" data-tip={tip}>
       <dt>{label}</dt>
@@ -109,9 +114,14 @@ export function PnlSummary({ s, unrealised, period = null }) {
       <dl className="zp-sum__row">
         <Fig label="Realised P&L" value={kite(shown.gross, { signed: true })} cls={tone(shown.gross)} tip={`What the closed trades made or lost before any cost: ₹${full(shown.gross)}.`} />
         <Fig label="Charges & taxes" value={kite(shown.charges)} tip={`Brokerage, STT, exchange and SEBI fees, GST, stamp duty and DP charge: ₹${full(shown.charges)}. An estimate from Zerodha's published rates; your contract note is the truth.`} />
-        <Fig label="Other credits & debits" value="—" tip="Ledger entries that are not trades (interest, separately billed DP charges and the like). Zerodha's API does not give them, so they are not counted here; Console's P&L report shows them." />
+        <Fig
+          label="Other credits & debits"
+          value={hasOther ? kite(otherTotal, { signed: true }) : "—"}
+          cls={hasOther ? tone(otherTotal) : ""}
+          tip={hasOther ? `Ledger entries that are not trades (separately billed DP charges, AMC, interest, dividends): ₹${full(otherTotal)}, from your Console ledger and entries made by hand (listed below).` : "Nothing recorded. Ledger entries that are not trades (DP charges billed separately, AMC, interest, dividends) are in Console's P&L report; Zerodha's API does not give them, so read your Console ledger or enter them in the panel below."}
+        />
         <i className="zp-sum__rule" aria-hidden="true" />
-        <Fig label="Net realised P&L" value={kite(shown.net, { signed: true })} cls={tone(shown.net)} tip={`Realised P&L − Charges & taxes: ₹${full(shown.net)}.`} />
+        <Fig label="Net realised P&L" value={kite(netAll, { signed: true })} cls={tone(netAll)} tip={`Realised P&L − Charges & taxes${hasOther ? " + Other credits & debits" : ""}: ₹${full(netAll)}.`} />
         <Fig label="Unrealised P&L" value={u.total === null ? "—" : kite(u.total, { signed: true })} cls={tone(u.total)} tip={`Profit or loss on positions not yet closed: ${u.why}.`} />
       </dl>
       {cv && (
