@@ -160,6 +160,10 @@ const PROVIDERS = [
 
 const BY_ID = new Map(PROVIDERS.map((p) => [p.id, p]));
 const providerOf = (id) => BY_ID.get(id) || null;
+/** Can this model look at a picture? Claude, GPT and Gemini can; of NVIDIA's hosted models only the vision ones (by name). */
+const VISION_NAME = /(vision|\bvl\b|-vl-|multimodal|pixtral|llava|vila|neva|paligemma|gemma-3|kosmos|fuyu|llama-3\.2-(11|90)b)/i;
+const canSee = (providerId, model) => ["anthropic", "openai", "gemini"].includes(providerId) || (providerId === "nvidia" && VISION_NAME.test(String(model || "")));
+
 /** A company whose models cost nothing to use (NVIDIA's hosted ones). */
 const isFree = (id) => Boolean(providerOf(id) && providerOf(id).free);
 /** The hosts of the free companies: a request to one of them spends no credit. */
@@ -273,12 +277,13 @@ class CompatClient {
     return this.p.id === "openai" && /^(o\d|gpt-5|gpt-6)/.test(this.model);
   }
 
-  async _chat({ system, user, maxTokens, effort, format }) {
+  async _chat({ system, user, maxTokens, effort, format, images }) {
+    const pics = Array.isArray(images) ? images.filter((i) => i && i.data && i.mediaType) : [];
     const body = {
       model: this.model,
       messages: [
         { role: "system", content: system },
-        { role: "user", content: user },
+        { role: "user", content: pics.length ? [{ type: "text", text: user }, ...pics.map((i) => ({ type: "image_url", image_url: { url: `data:${i.mediaType};base64,${i.data}` } }))] : user },
       ],
       [this.p.tokensField || "max_tokens"]: Math.min(maxTokens, this.p.maxOut || maxTokens),
     };
@@ -287,23 +292,23 @@ class CompatClient {
     return call(this.p, this.fetch, `${this.p.base}/chat/completions`, { headers: this._auth(), body, timeoutMs: this.timeoutMs });
   }
 
-  async ask({ system, user, schema, maxTokens = 16000, effort = "high" }) {
+  async ask({ system, user, schema, maxTokens = 16000, effort = "high", images }) {
     let r;
     if (this.p.json === "schema") {
       try {
-        r = await this._chat({ system, user, maxTokens, effort, format: { type: "json_schema", json_schema: { name: "answer", strict: true, schema } } });
+        r = await this._chat({ system, user, maxTokens, effort, images, format: { type: "json_schema", json_schema: { name: "answer", strict: true, schema } } });
       } catch (err) {
         // an older model without schema-held answers: fall back to plain JSON mode
         if (err.code !== "bad_request") throw err;
-        r = await this._chat({ system: system + schemaNote(schema), user, maxTokens, effort, format: { type: "json_object" } });
+        r = await this._chat({ system: system + schemaNote(schema), user, maxTokens, effort, images, format: { type: "json_object" } });
       }
     } else {
       try {
-        r = await this._chat({ system: system + schemaNote(schema), user, maxTokens, effort, format: this.p.json === "object" ? { type: "json_object" } : undefined });
+        r = await this._chat({ system: system + schemaNote(schema), user, maxTokens, effort, images, format: this.p.json === "object" ? { type: "json_object" } : undefined });
       } catch (err) {
         // a model that does not take JSON mode (some of the hosted ones): the schema is in the prompt, so ask again without it
         if (this.p.json !== "object" || err.code !== "bad_request") throw err;
-        r = await this._chat({ system: system + schemaNote(schema), user, maxTokens, effort });
+        r = await this._chat({ system: system + schemaNote(schema), user, maxTokens, effort, images });
       }
     }
     const choice = (r.choices || [])[0] || {};
@@ -409,10 +414,11 @@ class GeminiClient {
     return { inputTokens: u.promptTokenCount || 0, outputTokens: (u.candidatesTokenCount || 0) + (u.thoughtsTokenCount || 0), cacheReadTokens: u.cachedContentTokenCount || 0 };
   }
 
-  async ask({ system, user, schema, maxTokens = 16000 }) {
+  async ask({ system, user, schema, maxTokens = 16000, images }) {
+    const pics = Array.isArray(images) ? images.filter((i) => i && i.data && i.mediaType) : [];
     const r = await this._generate({
       systemInstruction: { parts: [{ text: system + schemaNote(schema) }] },
-      contents: [{ role: "user", parts: [{ text: user }] }],
+      contents: [{ role: "user", parts: [{ text: user }, ...pics.map((i) => ({ inlineData: { mimeType: i.mediaType, data: i.data } }))] }],
       // thinking counts against the limit on current models, so leave it room
       generationConfig: { responseMimeType: "application/json", maxOutputTokens: Math.min(this.p.maxOut, maxTokens + 8192) },
     });
@@ -485,4 +491,4 @@ function makeClient({ providerId, apiKey, model, fetchImpl, timeoutMs, repair = 
   return enforce(c, { held: false, AiError, repair });
 }
 
-module.exports = { PROVIDERS, FREE_PREFERENCE, FREE_HOSTS, isFree, providerOf, DEFAULT_PROVIDER, SEARCH_ORDER, checkKey, makeClient, readJson, pickChatModels };
+module.exports = { PROVIDERS, FREE_PREFERENCE, FREE_HOSTS, isFree, canSee, providerOf, DEFAULT_PROVIDER, SEARCH_ORDER, checkKey, makeClient, readJson, pickChatModels };

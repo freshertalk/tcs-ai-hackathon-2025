@@ -66,7 +66,8 @@ class AiClient {
    * One question, one JSON answer that matches `schema`.
    * @returns { data, usage, model, servedBy }
    */
-  async ask({ system, user, schema, maxTokens = 16000, effort = "high" }) {
+  async ask({ system, user, schema, maxTokens = 16000, effort = "high", images }) {
+    const pics = Array.isArray(images) ? images.filter((i) => i && i.data && i.mediaType) : [];
     const fallback = WITH_FALLBACK.has(this.model);
     let message;
     try {
@@ -77,7 +78,7 @@ class AiClient {
         model: this.model,
         max_tokens: maxTokens,
         system,
-        messages: [{ role: "user", content: user }],
+        messages: [{ role: "user", content: pics.length ? [...pics.map((i) => ({ type: "image", source: { type: "base64", media_type: i.mediaType, data: i.data } })), { type: "text", text: user }] : user }],
         output_config: { effort, format: { type: "json_schema", schema } },
         ...(fallback ? { betas: [FALLBACK_BETA], fallbacks: "default" } : {}),
       });

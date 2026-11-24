@@ -16,6 +16,7 @@ import { useDialog } from "../dialog/DialogProvider";
 import Shell from "../Shell";
 import Markdown, { inline } from "./markdown";
 import { GoalChip } from "../stock/trade/DailyGoal";
+import { ACCEPT, LONG_PASTE, MAX_BYTES, MAX_FILES, dropFile, isImage, nameOf, prepareImage, sizeText, uploadFile } from "./attach";
 import "./tradeai.css";
 import { snack } from "../ux/snack";
 
@@ -71,6 +72,9 @@ const IcNew = () => <I d={<path d="M12 5v14M5 12h14" />} />;
 const IcSide = () => <I d={<><rect x="3" y="4" width="18" height="16" rx="3" /><path d="M9 4v16" /></>} />;
 const IcSearch = () => <I size={16} d={<><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></>} />;
 const IcSend = () => <I d={<path d="M12 19V5M5 12l7-7 7 7" />} />;
+const IcClip = () => <I d={<path d="m21 11.5-8.6 8.6a5.5 5.5 0 0 1-7.8-7.8l8.6-8.6a3.7 3.7 0 0 1 5.2 5.2l-8.6 8.6a1.8 1.8 0 0 1-2.6-2.6l7.9-7.9" />} />;
+const IcFile = () => <I size={16} d={<><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5Z" /><path d="M14 3v5h5" /></>} />;
+const IcX = () => <I size={14} d={<path d="M6 6l12 12M18 6 6 18" />} />;
 const IcStop = () => <I fill="currentColor" d={<rect x="7" y="7" width="10" height="10" rx="2" />} />;
 const IcCopy = () => <I size={16} d={<><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15V6a2 2 0 0 1 2-2h9" /></>} />;
 const IcCheck = () => <I size={16} d={<path d="m5 12 5 5 9-10" />} />;
@@ -149,18 +153,99 @@ function useMention(value) {
   return { term, list };
 }
 
-function Composer({ value, onChange, onSend, onStop, busy, disabled, big, inputRef, hint, mode, onMode, choices = null, model = "", onModel, effort = "auto", onEffort, defaultName = "" }) {
+/** The chips of the attached files: a thumbnail or a file icon, the name, what is happening to it, and a way to take it off. */
+function FileChips({ files, onRemove }) {
+  if (!files || !files.length) return null;
+  return (
+    <ul className="tai-files" aria-label="Attached files">
+      {files.map((f) => (
+        <li key={f.key} className={`tai-file is-${f.status}`}>
+          {f.thumb ? <img src={f.thumb} alt="" className="tai-file__thumb" /> : <span className="tai-file__ico" aria-hidden="true"><IcFile /></span>}
+          <span className="tai-file__txt">
+            <b>{f.name}</b>
+            <small>{f.status === "up" ? "Reading…" : f.status === "err" ? f.error : f.kind === "image" ? `Picture · ${sizeText(f.size)}` : `${f.chars ? `${f.chars.toLocaleString("en-IN")} characters` : sizeText(f.size)}${f.truncated ? " · shortened" : ""}`}</small>
+          </span>
+          {f.status === "up" && <i className="tai-file__spin" aria-hidden="true" />}
+          {onRemove && (
+            <button type="button" className="tai-file__x" onClick={() => onRemove(f.key)} aria-label={`Remove ${f.name}`}>
+              <IcX />
+            </button>
+          )}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function Composer({ value, onChange, onSend, onStop, busy, disabled, big, inputRef, hint, mode, onMode, choices = null, model = "", onModel, effort = "auto", onEffort, defaultName = "", files = [], onFiles = null, onRemoveFile = null }) {
   const [listening, setListening] = useState(false);
+  const [drag, setDrag] = useState(false);
+  const picker = useRef(null);
+  const uploading = files.some((f) => f.status === "up");
+  const ready = files.filter((f) => f.status === "ok").length;
+  const canSend = !disabled && !uploading && Boolean(value.trim() || ready);
   const [pick, setPick] = useState(0);
   const rec = useRef(null);
   const { term, list } = useMention(value);
   const showList = Boolean(term && list.length);
-  useLayoutEffect(() => {
+  // the box grows with the text, smoothly (the height is measured, then eased to — CSS transition on height), up to 40% of the screen,
+  // and only then scrolls inside
+  const fit = useCallback(() => {
     const el = inputRef.current;
     if (!el) return;
+    const prev = el.offsetHeight;
     el.style.height = "auto";
-    el.style.height = `${Math.min(el.scrollHeight, 220)}px`;
-  }, [value, inputRef]);
+    const max = Math.max(120, Math.min(340, Math.round(window.innerHeight * 0.4)));
+    const next = Math.min(el.scrollHeight, max);
+    el.style.overflowY = el.scrollHeight > max ? "auto" : "hidden";
+    if (prev && Math.abs(prev - next) > 1) {
+      el.style.height = `${prev}px`;
+      void el.offsetHeight; // the starting height is committed before the new one is set, so the change is eased
+    }
+    el.style.height = `${next}px`;
+  }, [inputRef]);
+  useLayoutEffect(() => {
+    fit();
+  }, [value, fit]);
+  // the width can change after the text did (the page settling, the window resized, the chats panel opened): fit again
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return undefined;
+    let w = el.offsetWidth;
+    const again = () => {
+      if (el.offsetWidth !== w) {
+        w = el.offsetWidth;
+        fit();
+      }
+    };
+    window.addEventListener("resize", again);
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(again) : null;
+    if (ro) ro.observe(el);
+    return () => {
+      window.removeEventListener("resize", again);
+      if (ro) ro.disconnect();
+    };
+  }, [inputRef, fit]);
+  const take = (list) => {
+    const picked = [...(list || [])];
+    if (picked.length && onFiles) onFiles(picked);
+  };
+  const onPaste = (e) => {
+    const cd = e.clipboardData;
+    if (!cd || !onFiles) return;
+    const fs = [...(cd.files || [])];
+    if (fs.length) {
+      e.preventDefault();
+      onFiles(fs.map((f, i) => (f.name && !/^image\.(png|jpe?g)$/i.test(f.name) ? f : new File([f], nameOf(f, i), { type: f.type }))));
+      return;
+    }
+    const t = cd.getData ? cd.getData("text") : "";
+    if (t && t.length > LONG_PASTE) {
+      e.preventDefault();
+      onFiles([new File([t], "pasted-text.txt", { type: "text/plain" })]);
+    }
+  };
+  const hasFiles = (e) => Boolean(e.dataTransfer && [...(e.dataTransfer.types || [])].includes("Files"));
   useEffect(() => setPick(0), [term]);
   useEffect(() => () => rec.current && rec.current.abort && rec.current.abort(), []);
   const choose = (sym) => {
@@ -192,12 +277,32 @@ function Composer({ value, onChange, onSend, onStop, busy, disabled, big, inputR
   };
   return (
     <form
-      className={`tai-comp ${big ? "tai-comp--big" : ""}`}
+      className={`tai-comp ${big ? "tai-comp--big" : ""} ${drag ? "is-drag" : ""}`}
       onSubmit={(e) => {
         e.preventDefault();
-        if (!busy) onSend(value);
+        if (!busy && canSend) onSend(value);
+      }}
+      onDragEnter={(e) => {
+        if (onFiles && hasFiles(e)) {
+          e.preventDefault();
+          setDrag(true);
+        }
+      }}
+      onDragOver={(e) => {
+        if (onFiles && hasFiles(e)) e.preventDefault();
+      }}
+      onDragLeave={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget)) setDrag(false);
+      }}
+      onDrop={(e) => {
+        if (!onFiles || !hasFiles(e)) return;
+        e.preventDefault();
+        setDrag(false);
+        take(e.dataTransfer.files);
       }}
     >
+      {drag && <div className="tai-drop" aria-hidden="true">Drop to attach — pictures, PDF, Word, Excel, CSV, text</div>}
+      <FileChips files={files} onRemove={onRemoveFile} />
       {showList && (
         <ul className="tai-mention" role="listbox" aria-label="Stocks">
           {list.map((x, i) => (
@@ -214,8 +319,9 @@ function Composer({ value, onChange, onSend, onStop, busy, disabled, big, inputR
         ref={inputRef}
         rows={1}
         value={value}
-        maxLength={1500}
+        maxLength={4000}
         onChange={(e) => onChange(e.target.value)}
+        onPaste={onPaste}
         onKeyDown={(e) => {
           if (showList && (e.key === "ArrowDown" || e.key === "ArrowUp")) {
             e.preventDefault();
@@ -229,14 +335,22 @@ function Composer({ value, onChange, onSend, onStop, busy, disabled, big, inputR
           }
           if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
             e.preventDefault();
-            if (!busy) onSend(value);
+            if (!busy && canSend) onSend(value);
           }
         }}
-        placeholder={big ? "Ask about your positions, a stock, the market or your results… (type @ for a stock)" : "Reply to TradeAI… (@ for a stock)"}
+        placeholder={big ? "Ask about your positions, a stock, the market or your results… (@ for a stock, or attach a file)" : "Reply to TradeAI… (@ for a stock, or attach a file)"}
         aria-label="Your question"
         disabled={disabled}
       />
       <div className="tai-comp__row">
+        {onFiles && (
+          <>
+            <input ref={picker} type="file" multiple accept={ACCEPT} hidden onChange={(e) => { take(e.target.files); e.target.value = ""; }} />
+            <button type="button" className="tai-icon tai-attach" onClick={() => picker.current && picker.current.click()} disabled={busy || files.length >= MAX_FILES} aria-label="Attach files" data-tip={`Attach pictures, PDF, Word, Excel, PowerPoint, CSV or text files (up to ${MAX_FILES}, ${Math.round(MAX_BYTES / 1048576)} MB each) — or drop or paste them here. A picture is read by a paid model that can see; the free ones read text.`}>
+              <IcClip />
+            </button>
+          </>
+        )}
         {onMode && (
           <div className="tai-modes" role="group" aria-label="How to answer">
             {MODES.map((x) => (
@@ -266,8 +380,13 @@ function Composer({ value, onChange, onSend, onStop, busy, disabled, big, inputR
             </select>
           </div>
         )}
-        <span className="tai-comp__hint">{hint}</span>
-        {value.length > 1200 && <span className="tai-comp__count">{value.length}/1500</span>}
+        <span className="tai-comp__spacer" />
+        {hint && (
+          <span className="tai-info" tabIndex={0} role="img" aria-label={hint} data-tip={hint}>
+            i
+          </span>
+        )}
+        {value.length > 3400 && <span className="tai-comp__count">{value.length}/4000</span>}
         {SR && !busy && (
           <button type="button" className={`tai-icon tai-mic ${listening ? "is-on" : ""}`} onClick={listen} aria-label={listening ? "Stop listening" : "Speak your question"} aria-pressed={listening} data-tip={listening ? "Listening… press to stop" : "Speak your question"}>
             <IcMic />
@@ -278,7 +397,7 @@ function Composer({ value, onChange, onSend, onStop, busy, disabled, big, inputR
             <IcStop />
           </button>
         ) : (
-          <button type="submit" className="tai-send" disabled={disabled || !value.trim()} aria-label="Send" data-tip="Send (Enter)">
+          <button type="submit" className="tai-send" disabled={!canSend} aria-label="Send" data-tip={uploading ? "Reading your files…" : "Send (Enter)"}>
             <IcSend />
           </button>
         )}
@@ -496,7 +615,17 @@ function Question({ m, onEdit, busy }) {
     );
   return (
     <article className="tai-msg tai-msg--me">
-      <div className="tai-q">{m.text}</div>
+      {m.files && m.files.length > 0 && (
+        <ul className="tai-qfiles" aria-label="Attached files">
+          {m.files.map((f, i) => (
+            <li key={`${f.name}-${i}`}>
+              {f.thumb ? <img src={f.thumb} alt="" /> : <IcFile />}
+              <span>{f.name}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {m.text ? <div className="tai-q">{m.text}</div> : null}
       <div className="tai-bar tai-bar--me">
         <CopyBtn text={m.text} />
         <button
@@ -813,18 +942,58 @@ export default function TradeAI() {
     setTimeout(() => inputRef.current && inputRef.current.focus(), 0);
   };
 
+  /* ---- attached files: read by the server as soon as they are added (attach.js); the question carries their ids */
+  const [attached, setAttached] = useState([]); // [{ key, name, kind, status: "up" | "ok" | "err", id, size, thumb, chars, truncated, error }]
+  const attachedRef = useRef([]);
+  attachedRef.current = attached;
+  const patchFile = (key, patch) => setAttached((l) => l.map((f) => (f.key === key ? { ...f, ...patch } : f)));
+  const addFiles = async (list) => {
+    const room = MAX_FILES - attachedRef.current.length;
+    const picked = list.slice(0, Math.max(0, room));
+    if (list.length > picked.length) snack(`Up to ${MAX_FILES} files go with one question.`, { tone: "warn", key: "attach-max" });
+    for (const f0 of picked) {
+      const key = `f-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+      const img = isImage(f0);
+      const thumb = img && typeof URL !== "undefined" && URL.createObjectURL ? URL.createObjectURL(f0) : "";
+      setAttached((l) => [...l, { key, name: nameOf(f0), kind: img ? "image" : "text", status: "up", size: f0.size, thumb }]);
+      if (f0.size > MAX_BYTES) {
+        patchFile(key, { status: "err", error: `Larger than ${Math.round(MAX_BYTES / 1048576)} MB` });
+        continue;
+      }
+      (async () => {
+        try {
+          const f = img ? await prepareImage(f0) : f0;
+          const named = f.name === nameOf(f0) ? f : new File([f], nameOf(f0), { type: f.type });
+          const d = await uploadFile(named);
+          patchFile(key, { status: "ok", id: d.id, kind: d.kind, chars: d.chars, truncated: d.truncated, size: d.bytes || f.size });
+        } catch (e) {
+          patchFile(key, { status: "err", error: e.message });
+        }
+      })();
+    }
+  };
+  const removeFile = (key) => {
+    const f = attachedRef.current.find((x) => x.key === key);
+    if (f && f.thumb && typeof URL !== "undefined" && URL.revokeObjectURL) URL.revokeObjectURL(f.thumb);
+    if (f && f.id) dropFile(f.id);
+    setAttached((l) => l.filter((x) => x.key !== key));
+  };
+
   const send = async (raw, from = null) => {
+    const files = attachedRef.current.filter((f) => f.status === "ok");
+    if (attachedRef.current.some((f) => f.status === "up")) return;
     const question = String(raw || "").trim();
-    if (!question || job) return;
+    if ((!question && !files.length) || job) return;
     setErr("");
     setText("");
+    setAttached([]);
     setFresh(null);
     setAtBottom(true);
-    const base = conv || { id: null, title: question.slice(0, 60), messages: [] };
+    const base = conv || { id: null, title: (question || (files[0] && files[0].name) || "Files").slice(0, 60), messages: [] };
     const msgs = from !== null ? base.messages.slice(0, from) : base.messages;
-    setConv({ ...base, messages: [...msgs, { id: `tmp-${Date.now()}`, role: "user", text: question, at: new Date().toISOString() }] });
+    setConv({ ...base, messages: [...msgs, { id: `tmp-${Date.now()}`, role: "user", text: question, at: new Date().toISOString(), ...(files.length ? { files: files.map((f) => ({ name: f.name, kind: f.kind, chars: f.chars, truncated: f.truncated, thumb: f.thumb })) } : {}) }] });
     try {
-      const d = await api("/api/admin/tradeai/ask", { method: "POST", body: { conv: base.id, text: question, from, mode, ...(isOwner ? { effort, ...(picked ? { model: { provider: picked.split("|")[0], model: picked.split("|").slice(1).join("|") } } : {}) } : {}) } });
+      const d = await api("/api/admin/tradeai/ask", { method: "POST", body: { conv: base.id, text: question, from, mode, ...(files.length ? { attachments: files.map((f) => f.id) } : {}), ...(isOwner ? { effort, ...(picked ? { model: { provider: picked.split("|")[0], model: picked.split("|").slice(1).join("|") } } : {}) } : {}) } });
       openRef.current = d.conv;
       setUrl(d.conv);
       if (!base.id) {
@@ -1127,7 +1296,7 @@ export default function TradeAI() {
                   {greeting()}, {firstName(user)}
                 </h1>
                 <p className="tai-welcome__sub">What would you like to know about your trading today?</p>
-                <Composer value={text} onChange={setText} onSend={(v) => send(v)} onStop={stop} busy={busy} big inputRef={inputRef} hint={hint} mode={mode} onMode={setMode} choices={isOwner && tset ? tset.choices : null} model={picked} onModel={setPicked} effort={effort} onEffort={setEffort} defaultName={tset && tset.lead ? tset.lead.name : ""} />
+                <Composer value={text} onChange={setText} onSend={(v) => send(v)} onStop={stop} busy={busy} big inputRef={inputRef} files={attached} onFiles={addFiles} onRemoveFile={removeFile} hint={hint} mode={mode} onMode={setMode} choices={isOwner && tset ? tset.choices : null} model={picked} onModel={setPicked} effort={effort} onEffort={setEffort} defaultName={tset && tset.lead ? tset.lead.name : ""} />
                 {instantChips.length > 0 && (
                   <div className="tai-instant" aria-label="Instant answers">
                     <span>⚡ Instant</span>
@@ -1198,7 +1367,7 @@ export default function TradeAI() {
           )}
           {conv && (
             <div className="tai-foot">
-              <Composer value={text} onChange={setText} onSend={(v) => send(v)} onStop={stop} busy={busy} inputRef={inputRef} hint={hint} mode={mode} onMode={setMode} choices={isOwner && tset ? tset.choices : null} model={picked} onModel={setPicked} effort={effort} onEffort={setEffort} defaultName={tset && tset.lead ? tset.lead.name : ""} />
+              <Composer value={text} onChange={setText} onSend={(v) => send(v)} onStop={stop} busy={busy} inputRef={inputRef} files={attached} onFiles={addFiles} onRemoveFile={removeFile} hint={hint} mode={mode} onMode={setMode} choices={isOwner && tset ? tset.choices : null} model={picked} onModel={setPicked} effort={effort} onEffort={setEffort} defaultName={tset && tset.lead ? tset.lead.name : ""} />
               <p className="tai-dim">TradeAI can be wrong and never places orders — a second opinion, not advice. You decide.</p>
             </div>
           )}

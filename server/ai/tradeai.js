@@ -33,6 +33,10 @@ const { classify, instantAnswer, MODES, isKnowledgeQuestion, knowledgeAnswer } =
 const KB = require("../market/knowledge");
 const KC = require("../market/situation");
 const { DeskAgent } = require("./agent");
+const { AttachStore, AttachError, promptBlock } = require("./attach");
+const { canSee } = require("./providers");
+
+const MAX_Q = 4000; // characters of a question (it was 1500 before files could be attached)
 
 const SETTINGS_DOC = "ai/tradeai-settings.json";
 const SPEED_DOC = "ai/tradeai-speed.json";
@@ -150,6 +154,7 @@ class TradeAI {
     this.account = null; // set by app.js: read-only { positions, funds, history, orders, today }
     this.jobs = new Map();
     this.chats = new ChatStore(ai.docs); // every conversation is its own record in the database
+    this.attach = new AttachStore({ now: () => ai.now() }); // files attached to questions (attach.js)
     this._reuse = new Map(); // question key → { at, dkey, reply }: an answer reused while the question and data are unchanged
     this.desk = null; // set by app.js: read-only { reading, tape, levels, lab, learned } — the flight deck, the tape, the level learner
     this.agent = new DeskAgent(this); // decides what else to read, and reads it (agent.js)
@@ -162,7 +167,9 @@ class TradeAI {
   async get(id, owner) {
     const c = await this.chats.need(id, owner);
     const running = [...this.jobs.values()].find((j) => j.conv === c.id && !j.finishedAt);
-    return { ...c, job: running ? running.id : null };
+    // the pages get the names of the attached files, not their text
+    const messages = (c.messages || []).map((m) => (m.files ? { ...m, files: m.files.map(({ text, ...f }) => f) } : m));
+    return { ...c, messages, job: running ? running.id : null };
   }
   async remove(id, owner) {
     for (const j of this.jobs.values()) if (j.conv === id && j.owner === owner) j.cancelled = true;
@@ -769,8 +776,9 @@ class TradeAI {
     };
   }
 
-  async _answer(question, { owner = false, history = [], onStep = () => {}, onRoute = () => {}, mode = null, fresh = false, model = null, effort = null } = {}) {
-    const q = String(question || "").trim().slice(0, 1500);
+  async _answer(question, { owner = false, history = [], onStep = () => {}, onRoute = () => {}, mode = null, fresh = false, model = null, effort = null, files = [] } = {}) {
+    const q = String(question || "").trim().slice(0, MAX_Q);
+    const hasFiles = files.length > 0;
     if (!q) throw Object.assign(new Error("Ask a question."), { code: "invalid", status: 400 });
     const t0 = Date.now();
     onStep("Working out what this needs");
@@ -784,13 +792,16 @@ class TradeAI {
 
     // 0. a question about how markets and trading work: the desk's knowledge base answers — no model
     const kbHits = KB.search(q, { limit: 3 });
-    if (!plan.symbols.length && kbHits.length && kbHits[0].score >= 8 && isKnowledgeQuestion(q) && route.tier !== "deep" && eff !== "medium" && eff !== "high") {
+    if (!hasFiles && !plan.symbols.length && kbHits.length && kbHits[0].score >= 8 && isKnowledgeQuestion(q) && route.tier !== "deep" && eff !== "medium" && eff !== "high") {
       const r = knowledgeAnswer(kbHits);
       if (r) {
         onRoute({ tier: "instant", intent: "knowledge", why: "The desk's knowledge base answers this — no model needed.", model: null });
         return { ...r, related: [], meta: { used: ["knowledge"], symbols: [], tools: ["knowledge"], by: [], mergedBy: null, fallback: false, models: [], usage: { input: 0, output: 0 }, engineOnly: true, tier: "instant", intent: "knowledge", why: "The desk's knowledge base answers this — no model needed.", ms: Date.now() - t0 } };
       }
     }
+
+    // a question with a file is never answered from the desk's data alone: the file has to be read
+    if (hasFiles && route.tier === "instant") Object.assign(route, { tier: "advice", why: "You attached a file, so the model reads it with the desk's data." });
 
     // 1. instant: the desk's own data answers — no model
     if (route.tier === "instant") {
@@ -815,7 +826,11 @@ class TradeAI {
     await this.agent.seed(plan, data, used, { owner, onStep, exit: route.intent === "exit" || EXITISH.test(q) }).catch(() => []);
     const level = this._level(route.tier, eff);
     const tier = { ...(TIER[route.tier] || TIER.advice), ...level.tier };
-    const convo = history.slice(-6).map((m) => `${m.role === "user" ? "Trader" : "TradeAI"}: ${String(m.text).slice(0, 800)}`).join("\n");
+    const convo = history.slice(-6).map((m) => `${m.role === "user" ? "Trader" : "TradeAI"}: ${String(m.text).slice(0, 800)}${m.files && m.files.length ? ` [attached: ${m.files.map((f) => f.name).join(", ")}]` : ""}`).join("\n");
+    // the files of the last two earlier questions stay in view for a follow-up; this question's own files come first
+    const earlier = history.filter((m) => m.role === "user" && Array.isArray(m.files) && m.files.length).slice(-2).flatMap((m) => m.files.map((f) => ({ kind: "text", name: f.name, text: String(f.text || ""), truncated: Boolean(f.truncated) })));
+    const filesBlock = promptBlock([...files, ...earlier]);
+    const images = files.filter((f) => f.kind === "image");
     const rules = this.ai.playbook ? String(this.ai.playbook.read() || "").slice(0, Math.min(tier.rules, MAX_RULES)) : "";
     // the same question on the same data (or within three minutes, while prices tick) is answered with
     // the answer already paid for — no new AI call, and no agent step. Retry and edited questions always
@@ -825,11 +840,19 @@ class TradeAI {
     const dkey = crypto.createHash("sha256").update(JSON.stringify(data, (k, v) => (k === "asOf" ? undefined : v))).digest("hex");
     const prev = this._reuse.get(ckey);
     const age = prev ? this.ai.now() - prev.at : Infinity;
-    if (!fresh && prev && age < 6 * 3600000 && (prev.dkey === dkey || age < 3 * 60000)) {
+    if (!fresh && !hasFiles && prev && age < 6 * 3600000 && (prev.dkey === dkey || age < 3 * 60000)) {
       onRoute({ ...route, model: null, reused: true });
       return { ...prev.reply, meta: { ...prev.reply.meta, reused: true, reusedAt: new Date(prev.at).toISOString(), sameData: prev.dkey === dkey, models: [], usage: { input: 0, output: 0 }, ms: Date.now() - t0 } };
     }
-    onRoute({ ...route, model: models[0] ? models[0].name : null, effort: level.effort, steps: level.steps });
+    // a picture goes only to a model that can see it — the paid fallback when the free ones cannot (the one thing free cannot do)
+    let askModels = models;
+    let sightNote = "";
+    if (images.length) {
+      const seeing = models.filter((m) => canSee(m.provider, m.model));
+      if (seeing.length) askModels = seeing;
+      else sightNote = `The trader attached ${images.length} image${images.length === 1 ? "" : "s"}, but no model that can see images is set up (Anthropic, OpenAI and Gemini can). Say so plainly, answer from the rest, and suggest saving one of those keys on the AI page.`;
+    }
+    onRoute({ ...route, model: askModels[0] ? askModels[0].name : null, effort: level.effort, steps: level.steps });
     // the agent: the model names what else it needs and the desk reads it, as many steps as the level gives
     const ag = await this.agent.run(q, { data, used, models, level, owner, history, onStep, fresh }).catch(() => ({ steps: [], usage: { input: 0, output: 0 }, tried: [] }));
     // the position, the tape, the levels and the shared research go first: a long answer is cut from the end
@@ -840,11 +863,11 @@ class TradeAI {
     let json = JSON.stringify(ordered);
     const cap = Math.min(tier.data, Math.max(MAX_DATA, level.tier.data || 0));
     if (json.length > cap) json = `${json.slice(0, cap)}…(cut)`;
-    const user = `${rules ? `THE DESK'S TRADING RULES (the skills file every AI feature reads, first part):\n${rules}\n\n` : ""}${convo ? `The conversation so far:\n${convo}\n\n` : ""}DATA (gathered now):\n${json}\n\nThe trader asks: ${q}`;
+    const user = `${rules ? `THE DESK'S TRADING RULES (the skills file every AI feature reads, first part):\n${rules}\n\n` : ""}${convo ? `The conversation so far:\n${convo}\n\n` : ""}${filesBlock ? `${filesBlock}\n\n` : ""}${sightNote ? `NOTE: ${sightNote}\n\n` : ""}${images.length && !sightNote ? `The trader attached ${images.length} image${images.length === 1 ? "" : "s"} (below): read ${images.length === 1 ? "it" : "them"} with the data.\n\n` : ""}DATA (gathered now):\n${json}\n\nThe trader asks: ${q}`;
     // what this answer is about, for the shared research: the first stock of the question — or nothing
     const s0 = (plan.named || plan.symbols)[0] || "";
     const lastOf = s0 ? (data[`position_${s0}`] && data[`position_${s0}`].numbers ? data[`position_${s0}`].numbers.last : data[`stock_${s0}`] && data[`stock_${s0}`].quote ? data[`stock_${s0}`].quote.last : null) : null;
-    const r = models.length ? await askOne(this.ai, models, { system: SYSTEM, user, schema: SCHEMA, maxTokens: tier.maxTokens, effort: level.effort, timeoutSec: tier.timeoutSec, onStep, fresh, subject: s0 ? { symbol: s0, last: lastOf } : { none: true } }) : { data: null, by: [], mergedBy: null, tried: [], fallback: false, usage: { input: 0, output: 0 } };
+    const r = askModels.length ? await askOne(this.ai, askModels, { ...(images.length && !sightNote ? { images: images.map((i) => ({ mediaType: i.mediaType, data: i.data })) } : {}), system: SYSTEM, user, schema: SCHEMA, maxTokens: tier.maxTokens, effort: level.effort, timeoutSec: tier.timeoutSec, onStep, fresh, subject: s0 ? { symbol: s0, last: lastOf } : { none: true } }) : { data: null, by: [], mergedBy: null, tried: [], fallback: false, usage: { input: 0, output: 0 } };
     const tried = [...ag.tried, ...(r.tried || [])];
     this._learn(tried);
     if (tried.some((t) => t.ok && !t.cached)) this._countPaid();
@@ -853,7 +876,7 @@ class TradeAI {
     const why = models.length ? "The AI model did not answer just now" : !st.usePaid ? "TradeAI's AI model is switched off (TradeAI settings)" : st.paidToday >= st.paidDailyCap ? `Today's limit of ${st.paidDailyCap} model answers is reached (TradeAI settings)` : "No AI key is saved — the default model is Claude Sonnet 5.5; save the Anthropic key on the AI page";
     const ai = r.data ? this._clean(r.data) : this.fallbackAnswer(q, data, why);
     const out = { ...ai, related: this.related(q, ai, data, plan), meta: { used, symbols: plan.symbols, tools: plan.tools, by: r.by, mergedBy: r.mergedBy, fallback: r.fallback, models: r.tried, usage, engineOnly: !r.data, tier: route.tier, intent: route.intent || null, why: route.why, effort: level.effort, agent: { steps: ag.steps, allowed: level.steps }, picked: this._pick(model) ? models[0].name : null, ms: Date.now() - t0 } };
-    if (r.data) {
+    if (r.data && !hasFiles) {
       this._reuse.set(ckey, { at: this.ai.now(), dkey, reply: out });
       if (this._reuse.size > 200) this._reuse.delete(this._reuse.keys().next().value);
     }
@@ -1002,10 +1025,11 @@ class TradeAI {
    * Start a chat turn as a background job (the page polls it). With from (the index of one of your
    * earlier questions), the chat goes back to that point first: that is how "edit" and "retry" work.
    */
-  async start({ conv = null, text, owner = "", isOwner = false, from = null, mode = null, model = null, effort = null }) {
+  async start({ conv = null, text, owner = "", isOwner = false, from = null, mode = null, model = null, effort = null, attachments = [] }) {
     const running = [...this.jobs.values()].filter((j) => !j.finishedAt).length;
     if (running >= 3) throw Object.assign(new Error("TradeAI is already answering three questions. Try again in a moment."), { code: "busy", status: 429 });
-    const question = String(text || "").trim().slice(0, 1500);
+    let files = this.attach.take(owner, attachments);
+    const question = String(text || "").trim().slice(0, MAX_Q) || (files.length ? "Read the attached file" + (files.length === 1 ? "" : "s") + " and tell me what matters for my trading." : "");
     if (!question) throw Object.assign(new Error("Ask a question."), { code: "invalid", status: 400 });
     const at = new Date(this.ai.now()).toISOString();
     let c = conv ? await this.chats.get(String(conv), owner) : null;
@@ -1013,8 +1037,11 @@ class TradeAI {
     if (c && [...this.jobs.values()].some((j) => j.conv === c.id && !j.finishedAt)) throw Object.assign(new Error("This chat is still answering. Wait for it, or press Stop."), { code: "busy", status: 409 });
     if (!c) c = { id: crypto.randomBytes(8).toString("hex"), owner, title: question.replace(/\s+/g, " ").slice(0, 60), createdAt: at, updatedAt: at, pinned: false, messages: [] };
     const cut = Number.isInteger(from) && from >= 0 && from < c.messages.length && c.messages[from].role === "user" ? from : null;
+    // an edit or a retry of a question that had documents keeps them (a picture was not kept)
+    if (cut !== null && !files.length && Array.isArray(c.messages[cut].files)) files = c.messages[cut].files.filter((f) => f.kind === "text" && f.text).map((f) => ({ kind: "text", name: f.name, text: f.text, chars: f.chars, truncated: f.truncated }));
     if (cut !== null) c.messages = c.messages.slice(0, cut);
-    c.messages.push({ id: crypto.randomBytes(5).toString("hex"), role: "user", text: question, at });
+    // the chat keeps the files' names (and the text of the documents, for a follow-up); a picture is not kept
+    c.messages.push({ id: crypto.randomBytes(5).toString("hex"), role: "user", text: question, at, ...(files.length ? { files: files.map((f) => (f.kind === "image" ? { name: f.name, kind: "image" } : { name: f.name, kind: "text", chars: f.chars, truncated: f.truncated, text: f.text.slice(0, 20000) })) } : {}) });
     c.updatedAt = at;
     await this.chats.put(c);
     const job = { id: crypto.randomBytes(6).toString("hex"), conv: c.id, owner, steps: [], startedAt: at, finishedAt: null, error: "", reply: null, cancelled: false, route: null };
@@ -1023,7 +1050,7 @@ class TradeAI {
     const history = c.messages.slice(0, -1);
     const t0 = Date.now();
     // Retry or an edited question asks for a new answer: never the reused one
-    this.answer(question, { owner: isOwner, history, fresh: from !== null, mode: MODES.includes(mode) ? mode : null, model, effort: EFFORTS.includes(effort) ? effort : null, onStep: (s) => job.steps.push({ at: Date.now(), text: s }), onRoute: (r) => (job.route = r) })
+    this.answer(question, { owner: isOwner, history, files, fresh: from !== null || files.length > 0, mode: MODES.includes(mode) ? mode : null, model, effort: EFFORTS.includes(effort) ? effort : null, onStep: (s) => job.steps.push({ at: Date.now(), text: s }), onRoute: (r) => (job.route = r) })
       .then(async (reply) => {
         if (job.cancelled) return;
         reply.meta = { ...reply.meta, sec: Math.round((Date.now() - t0) / 100) / 10, steps: job.steps.map((x) => x.text) };
@@ -1063,4 +1090,4 @@ class TradeAI {
 
 require("./brains").register("tradeai", SYSTEM, "TradeAI chat");
 
-module.exports = { TradeAI, SYSTEM, SCHEMA, short, EFFORTS };
+module.exports = { TradeAI, SYSTEM, SCHEMA, short, EFFORTS, MAX_Q };

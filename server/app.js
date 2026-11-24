@@ -2050,9 +2050,20 @@ ${e.text}
   app.post("/api/admin/tradeai/ask", requireAdmin, limiter(30, 10 * 60 * 1000), taWrap(async (req) => {
     const b = req.body || {};
     const text = String(b.text || "").trim();
-    if (!text) throw Object.assign(new Error("Ask a question."), { status: 400 });
+    const attachments = Array.isArray(b.attachments) ? b.attachments.map((x) => String(x).slice(0, 40)).slice(0, 8) : []; // files read by /tradeai/attach
+    if (!text && !attachments.length) throw Object.assign(new Error("Ask a question."), { status: 400 });
     const from = Number.isInteger(b.from) ? b.from : null; // edit / retry: go back to this question first
-    return ai.tradeai.start({ conv: b.conv ? String(b.conv) : null, text, owner: who(req), isOwner: req.user.role === "superadmin", from, mode: ["auto", "fast", "deep"].includes(b.mode) ? b.mode : null, ...(req.user.role === "superadmin" ? { model: b.model && typeof b.model === "object" ? { provider: String(b.model.provider || "").slice(0, 40), model: String(b.model.model || "").slice(0, 80) } : null, effort: ["auto", "low", "medium", "high"].includes(b.effort) ? b.effort : null } : {}) }); // the model and the thinking level are the owner's to choose: their key, their tokens
+    return ai.tradeai.start({ conv: b.conv ? String(b.conv) : null, text, attachments, owner: who(req), isOwner: req.user.role === "superadmin", from, mode: ["auto", "fast", "deep"].includes(b.mode) ? b.mode : null, ...(req.user.role === "superadmin" ? { model: b.model && typeof b.model === "object" ? { provider: String(b.model.provider || "").slice(0, 40), model: String(b.model.model || "").slice(0, 80) } : null, effort: ["auto", "low", "medium", "high"].includes(b.effort) ? b.effort : null } : {}) }); // the model and the thinking level are the owner's to choose: their key, their tokens
+  }));
+  // a file attached to a question (an image, Word, Excel, PowerPoint, CSV or text): its bytes in, its description out; the file is read
+  // on the server (ai/attach.js), kept for a few hours for the owner's questions, and never run or opened
+  app.post("/api/admin/tradeai/attach", requireAdmin, limiter(60, 10 * 60 * 1000), express.raw({ type: () => true, limit: "8mb" }), taWrap(async (req) => {
+    const name = String(req.query.name || "file").slice(0, 120);
+    return { file: ai.tradeai.attach.put(who(req), name, Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0)) };
+  }));
+  app.delete("/api/admin/tradeai/attach/:id", requireAdmin, limiter(120, 10 * 60 * 1000), taWrap(async (req) => {
+    ai.tradeai.attach.forget(who(req), String(req.params.id || "").slice(0, 40));
+    return { ok: true };
   }));
   // how TradeAI answers: the default mode, and whether (and how often a day) the paid model may be used
   app.get("/api/admin/tradeai/activity", requireSuper, limiter(60, 60 * 1000), taWrap(async () => ai.tradeai.activity({ limit: 60 })));

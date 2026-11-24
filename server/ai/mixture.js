@@ -10,7 +10,7 @@
 // (engine.js), so it carries the owner's AI brains for its feature and shares its company's lane with
 // every other feature. No timers, no broker.
 
-const { makeClient } = require("./providers");
+const { makeClient, canSee } = require("./providers");
 
 /** The models to ask, in order: the default model first, then the fallbacks (ai.modelChain()). */
 function team(ai) {
@@ -35,7 +35,7 @@ function clientFor(ai, a, timeoutMs) {
  * @returns { data, by, mergedBy: null, answers, tried, fallback, usage }
  */
 async function askOne(ai, candidates, opts) {
-  const { system, user, schema, maxTokens = 2500, effort = "low", onStep = () => {} } = opts;
+  const { system, user, schema, maxTokens = 2500, effort = "low", onStep = () => {}, images = null } = opts;
   const sec = opts.timeoutSec || 60;
   const tried = [];
   const usage = { input: 0, output: 0 };
@@ -44,7 +44,7 @@ async function askOne(ai, candidates, opts) {
     onStep(i === 0 ? `${a.name} is answering` : `Falling back to ${a.name}…`);
     const t0 = Date.now();
     try {
-      const r = await clientFor(ai, a, sec * 1000).ask({ system, user, schema, maxTokens, effort, fresh: Boolean(opts.fresh), ...(opts.subject ? { subject: { ...opts.subject, by: a.name } } : {}) });
+      const r = await clientFor(ai, a, sec * 1000).ask({ system, user, schema, maxTokens, effort, fresh: Boolean(opts.fresh), ...(images && images.length && canSee(a.provider, a.model) ? { images } : {}), ...(opts.subject ? { subject: { ...opts.subject, by: a.name } } : {}) });
       const u = r.usage || {};
       usage.input += u.input_tokens || u.inputTokens || u.prompt_tokens || 0;
       usage.output += u.output_tokens || u.outputTokens || u.completion_tokens || 0;

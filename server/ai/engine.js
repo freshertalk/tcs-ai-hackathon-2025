@@ -152,7 +152,7 @@ class Engine {
       const { fresh = false, subject = null, ...a } = args || {};
       // the owner's brains and the desk's knowledge base for this feature go with every request
       const sent = compose && this.ai.brains ? { ...a, system: this.ai.brains.compose(a.system || "") + (typeof this.ai.brains.knowledgeFor === "function" ? this.ai.brains.knowledgeFor(a.system || "") : "") } : a;
-      const key = this._key([pid, model || client.model || "", sent.system || "", sent.user || "", sent.schema || null]);
+      const key = this._key([pid, model || client.model || "", sent.system || "", sent.user || "", sent.schema || null, (sent.images || []).map((i) => crypto.createHash("sha256").update(String(i.data || "")).digest("hex"))]);
       const now = Date.now();
       const hit = this.cache.get(key);
       if (!fresh && hit && now - hit.at < CACHE_MS) {
