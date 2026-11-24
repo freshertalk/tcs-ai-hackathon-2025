@@ -1270,7 +1270,7 @@ test("every AI company gets the same instructions, the same brief and the same c
     seen.push({ system: body.messages[0].content, user: body.messages[1].content });
     return ok({ model: body.model, choices: [{ message: { role: "assistant", content: answer }, finish_reason: "stop" }], usage: { prompt_tokens: 1, completion_tokens: 1 } });
   };
-  const keys = { anthropic: KEY, openai: "sk-proj-TESTONLYtestonlyTESTONLY1234567890", gemini: "AIzaTESTONLYtestonlyTESTONLY12345678", deepseek: "sk-TESTONLYtestonlyTESTONLY1234567890ab", moonshot: "sk-TESTONLYmoonshotTESTONLY1234567890ab" };
+  const keys = { anthropic: KEY, openai: "sk-proj-TESTONLYtestonlyTESTONLY1234567890", gemini: "AIzaTESTONLYtestonlyTESTONLY12345678", deepseek: "sk-TESTONLYtestonlyTESTONLY1234567890ab", moonshot: "sk-TESTONLYmoonshotTESTONLY1234567890ab", nvidia: "nvapi-TESTONLYtestonlyTESTONLY1234567890" };
   const results = [];
   for (const p of PROVIDERS) {
     const put = await s.request("PUT", "/api/admin/ai/settings", { cookie: s.admin, body: { provider: p.id, ...(keys[p.id] ? { apiKey: keys[p.id] } : {}) } });

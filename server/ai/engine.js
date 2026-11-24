@@ -20,11 +20,11 @@
 // No timers and no broker here (a test checks the whole AI folder).
 
 const crypto = require("node:crypto");
-const { makeClient, providerOf } = require("./providers");
+const { makeClient, providerOf, isFree } = require("./providers");
 const { featureOf, FEATURES } = require("./brains");
 
 const NAME = "ai/engine.json";
-const LANES = { anthropic: 6 }; // calls in flight per key; every other key: DEFAULT_LANE
+const LANES = { anthropic: 6, nvidia: 3 }; // calls in flight per key; the free NVIDIA models have a low rate limit; every other key: DEFAULT_LANE
 const DEFAULT_LANE = 6;
 const RECENT = 40;
 const CACHE_MS = 15 * 60000; // an identical request within this reuses the answer already paid for
@@ -128,7 +128,7 @@ class Engine {
       const extra = EXTRA.get(system);
       const feat = featureOf(system) || (extra && extra.id) || feature || "other";
       // AI credit protection: a request nobody asked for goes no further (the answer already held, above, is still served)
-      if (this.ai.guard) this.ai.guard.check(nameOf(feat));
+      if (this.ai.guard) this.ai.guard.check(nameOf(feat), { free: isFree(pid) });
       const id = ++this.seq;
       const entry = { id, feature: feat, model: model || client.model || "", provider: pid, kind, queuedAt: Date.now(), startedAt: null };
       this.running.set(id, entry);

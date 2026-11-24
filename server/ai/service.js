@@ -22,7 +22,7 @@ const { exitHmFor } = require("../market/session");
 const crypto = require("crypto");
 
 const { AiError, MODELS: ANTHROPIC_MODELS, DEFAULT_MODEL } = require("./client");
-const { PROVIDERS, providerOf, DEFAULT_PROVIDER, SEARCH_ORDER, checkKey, makeClient } = require("./providers");
+const { PROVIDERS, FREE_PREFERENCE, isFree, providerOf, DEFAULT_PROVIDER, SEARCH_ORDER, checkKey, makeClient } = require("./providers");
 const { Playbook } = require("./playbook");
 const { Brains } = require("./brains");
 const { Engine, tag } = require("./engine");
@@ -295,6 +295,8 @@ function checkPlan(raw, ctx) {
 
 /* --------------------------------------------------------------- service */
 
+const FREE_TIMEOUT_MS = 90000; // a free model that has not answered in 90 s hands the request to the next one
+
 class AiService {
   /**
    * @param store    the app's Store (the encrypted key and the model choice live in settings)
@@ -314,6 +316,10 @@ class AiService {
     // built with this guarded fetch, so no feature can reach a model around it. (Not enforced until the app turns it on.)
     this.guard = new SpendGuard({ docs: this.docs, now, log });
     this.fetch = this.guard.wrapFetch(fetchImpl);
+    // FREE MODELS: they cost no credit, so the guard lets the default model run on its own while it is a free one (and the owner's switch is on)
+    this.guard.freeOk = () => this.freeAutoOn();
+    this.guard.leadFree = () => isFree(this._provider()) && Boolean(this._key(this._provider()));
+    this._cool = new Map(); // "company|model" → until (ms): a model that was rate-limited or timed out steps back for a few minutes
     this.playbook = new Playbook({ docs: this.docs });
     this.journal = new Journal({ docs: this.docs });
     this._recent = new Map(); // symbol|horizon → { at, result }: a double click does not pay twice
@@ -446,11 +452,11 @@ class AiService {
   }
 
   /** One company's chosen model, as the AI features use it. */
-  _modelSpec(pid) {
+  _modelSpec(pid, only) {
     const p = providerOf(pid);
-    const model = this._modelOf(pid);
+    const model = only || this._modelOf(pid);
     const m = this.modelsFor(pid).find((x) => x.id === model);
-    return { id: `${pid}|${model}`, provider: pid, model, name: (m && m.name) || model, company: p.name, lead: true, search: Boolean(p.search) };
+    return { id: `${pid}|${model}`, provider: pid, model, name: (m && m.name) || model, company: p.name, lead: true, search: Boolean(p.search), free: Boolean(p.free) };
   }
 
   /**
@@ -467,16 +473,69 @@ class AiService {
     return this._settings().aiFallback !== false;
   }
 
+  /** May the free models run on their own (no click)? On by default: they cost no credit. */
+  freeAutoOn() {
+    return this._settings().aiFreeAuto !== false;
+  }
+
+  /** The second free model, asked when the first fails (another publisher's, so one outage does not take both). */
+  _freeBackupSpec() {
+    const pid = this._provider();
+    if (!isFree(pid) || !this._key(pid)) return null;
+    const m = this._settings().aiFreeBackup;
+    if (!m || m === this._modelOf(pid) || !this.validModel(pid, m)) return null;
+    return this._modelSpec(pid, m);
+  }
+
+  /** The paid company that stands in for what the free models cannot do (searches, a failed or unusable answer). */
+  paidFallbackId() {
+    const chosen = this._settings().aiFallbackProvider;
+    if (chosen && providerOf(chosen) && !isFree(chosen)) return chosen;
+    return [...SEARCH_ORDER, ...PROVIDERS.map((p) => p.id)].find((id) => !isFree(id) && this._key(id)) || DEFAULT_PROVIDER;
+  }
+
+  /** A model that failed for a reason that passes (rate limit, timeout, outage) steps back for a few minutes; one that answered is back at once. */
+  noteFailure(spec, err) {
+    if (!spec || !err || !["rate_limited", "timeout", "upstream", "unreachable"].includes(err.code)) return;
+    this._cool.set(`${spec.provider}|${spec.model}`, this.now() + 3 * 60000);
+  }
+  noteOk(spec) {
+    if (spec) this._cool.delete(`${spec.provider}|${spec.model}`);
+  }
+  _cooling(spec) {
+    const until = this._cool.get(`${spec.provider}|${spec.model}`);
+    return Boolean(until && until > this.now());
+  }
+
   /**
-   * The models to ask, in order: the default model (when its key is saved), then — with the fallback
-   * switch on — each other company with a saved key, on its chosen model. Empty when no key is saved.
+   * The models to ask, in order. With the default model free (NVIDIA): the best free model, a second free model (another
+   * publisher), then the paid company chosen as the fallback, then any other saved company. With a paid default: it, then the
+   * chosen fallback, then the other saved companies. A model that is cooling off (rate-limited a moment ago) goes to the back
+   * while others can answer. Empty when no key is saved; only the first entry when the fallback switch is off.
    */
   modelChain() {
     const pid = this._provider();
-    const out = this._key(pid) ? [this._modelSpec(pid)] : [];
+    const out = [];
+    const seen = new Set();
+    const add = (spec) => {
+      if (spec && !seen.has(spec.id)) {
+        seen.add(spec.id);
+        out.push(spec);
+      }
+    };
+    if (this._key(pid)) add(this._modelSpec(pid));
     if (!this.fallbackOn()) return out;
+    add(this._freeBackupSpec());
+    const fb = this.paidFallbackId();
+    if (fb !== pid && this._key(fb)) add(this._modelSpec(fb));
     const order = [...SEARCH_ORDER, ...PROVIDERS.map((p) => p.id)];
-    for (const id of [...new Set(order)]) if (id !== pid && this._key(id)) out.push(this._modelSpec(id));
+    for (const id of [...new Set(order)]) if (id !== pid && this._key(id)) add(this._modelSpec(id));
+    // a model that is cooling off waits at the back (it is still tried if nothing else answers)
+    if (out.length > 1) {
+      const warm = out.filter((m) => !this._cooling(m));
+      const cold = out.filter((m) => this._cooling(m));
+      if (warm.length && cold.length) return [...warm, ...cold];
+    }
     return out;
   }
 
@@ -506,6 +565,7 @@ class AiService {
         listedAt: lists[x.id] ? lists[x.id].at : null,
         lastTest: this._testOf(x.id),
         search: x.search,
+        free: Boolean(x.free),
         keyExample: x.keyExample,
         console: x.console,
         consoleUrl: x.consoleUrl,
@@ -533,7 +593,8 @@ class AiService {
       defaultModel: this.defaultModel(),
       recommended: { provider: DEFAULT_PROVIDER, model: DEFAULT_MODEL, name: (ANTHROPIC_MODELS.find((m) => m.id === DEFAULT_MODEL) || {}).name || DEFAULT_MODEL },
       fallback: this.fallbackOn(),
-      chain: this.modelChain().map((m) => ({ provider: m.provider, model: m.model, name: m.name, company: m.company })),
+      chain: this.modelChain().map((m) => ({ provider: m.provider, model: m.model, name: m.name, company: m.company, free: Boolean(m.free), cooling: this._cooling(m) })),
+      setup: this.setupState(),
       lastTest: this._testOf(pid),
       stats: summarize(this.journal.all().filter((e) => e.source === "kite")),
       byModel: summarizeByModel(this.journal.all().filter((e) => e.source === "kite")),
@@ -550,12 +611,14 @@ class AiService {
    * @param model     a model of that company
    * @param clear     remove that company's key
    */
-  setSettings({ provider, apiKey, model, clear, live, use, fallback } = {}) {
+  setSettings({ provider, apiKey, model, clear, live, use, fallback, freeBackup, fallbackProvider, freeAuto } = {}) {
     const pid = provider ? String(provider) : this._provider();
     if (!providerOf(pid)) throw new AiError("Unknown AI company.", "invalid", 400);
     const key = String(apiKey || "").trim();
     if (key) checkKey(pid, key);
     if (model !== undefined && model !== null && model !== "" && !this.validModel(pid, model)) throw new AiError("Unknown model for this company. Press “Refresh models” to read its current list.", "invalid", 400);
+    if (fallbackProvider !== undefined && fallbackProvider !== null && fallbackProvider !== "" && (!providerOf(String(fallbackProvider)) || isFree(String(fallbackProvider)))) throw new AiError("Pick a paid company as the fallback; the free models are the first choice already.", "invalid", 400);
+    if (freeBackup !== undefined && freeBackup !== null && freeBackup !== "" && !this.validModel("nvidia", freeBackup)) throw new AiError("Unknown NVIDIA model. Press “Refresh models” to read the current list.", "invalid", 400);
     this.store.update((d) => {
       const s = d.settings;
       // move an older single-key record into the per-company fields
@@ -579,6 +642,9 @@ class AiService {
       if (model) s.aiModels[pid] = model;
       if (provider && use !== false) s.aiProvider = pid;
       if (typeof fallback === "boolean") s.aiFallback = fallback;
+      if (typeof freeAuto === "boolean") s.aiFreeAuto = freeAuto;
+      if (fallbackProvider) s.aiFallbackProvider = String(fallbackProvider);
+      if (freeBackup !== undefined && freeBackup !== null) s.aiFreeBackup = String(freeBackup);
       s.aiVersion = (s.aiVersion || 0) + 1; // pages compare this to know the choice changed
     });
     if (live && typeof live === "object") this.copilot.setSettings(live);
@@ -602,14 +668,49 @@ class AiService {
   }
 
   /**
-   * A client for the company in use.
+   * A client for the company in use — with the fallback built in: when the default model fails (a rate limit, a timeout, an outage,
+   * a key problem, an answer that breaks the schema), the same request goes on, by itself, to the next model in modelChain() — the
+   * second free model, then the paid company chosen for the purpose. Nothing has to be picked by hand while it works.
    * @param model  a model other than the strategist's (the co-pilot can be given a faster one)
    */
   _client(model) {
     const pid = this._provider();
     const key = this._key(pid);
     if (!key) throw new AiError(`The AI strategist is not set up. Add ${providerOf(pid).name}'s API key in the AI settings.`, "not_configured", 409);
-    return this.engine.client({ providerId: pid, apiKey: key, model: model && this.validModel(pid, model) ? model : this._modelOf(pid) });
+    const leadModel = model && this.validModel(pid, model) ? model : this._modelOf(pid);
+    const lead = this.engine.client({ providerId: pid, apiKey: key, model: leadModel, ...(isFree(pid) ? { timeoutMs: FREE_TIMEOUT_MS } : {}) });
+    if (!this.fallbackOn()) return lead;
+    const rest = this.modelChain().filter((m) => !(m.provider === pid && m.model === leadModel));
+    if (!rest.length) return lead;
+    return this._withFallback(lead, { provider: pid, model: leadModel, name: leadModel }, rest);
+  }
+
+  /** `lead`, then each of `rest` in turn, for one request (see _client). Answers carry `fallbackFrom` when a later model gave them. */
+  _withFallback(lead, leadSpec, rest) {
+    const self = this;
+    const w = Object.create(lead);
+    const tryAll = async (args) => {
+      const errors = [];
+      const order = self._cooling(leadSpec) && rest.some((m) => !self._cooling(m)) ? [...rest.filter((m) => !self._cooling(m)), leadSpec, ...rest.filter((m) => self._cooling(m))] : [leadSpec, ...rest];
+      for (const spec of order) {
+        const client = spec === leadSpec ? lead : self.engine.client({ providerId: spec.provider, apiKey: self._key(spec.provider), model: spec.model, ...(isFree(spec.provider) ? { timeoutMs: FREE_TIMEOUT_MS } : {}) });
+        try {
+          const r = await client.ask(args);
+          self.noteOk(spec);
+          return spec === leadSpec ? r : { ...r, fallbackFrom: leadSpec.model, servedBy: r.servedBy || spec.model };
+        } catch (err) {
+          self.noteFailure(spec, err);
+          errors.push(err);
+          if (err && err.code === "not_asked") break; // the credit guard: no other model may be asked either
+          if (self.log && self.log.log && spec === leadSpec) self.log.log(`[ai] ${spec.model} could not answer (${err && err.code ? err.code : "error"}); trying the fallback`);
+        }
+      }
+      throw errors.find((e) => e && e.code !== "not_asked") || errors[0];
+    };
+    w.ask = (args = {}) => tryAll(args);
+    // a search the default model cannot do (NVIDIA's free models have none) goes to the paid company that can
+    w.search = async (args = {}) => self._searchEngineClient().search(args);
+    return w;
   }
 
   /** A client that can search the web: the company in use when it can, else one with a saved key that can. */
@@ -618,7 +719,117 @@ class AiService {
     const by = this._searchProvider();
     if (!this._key(pid)) return this._client(); // the usual "not set up" message
     if (!by) throw new AiError(`${providerOf(pid).name} has no web search in its API. The world brief and the news check need Anthropic, OpenAI or Gemini — save a key for one of them in the AI settings (the strategist can stay on ${providerOf(pid).name}).`, "no_search", 409);
-    return by === pid ? this._client() : this.engine.client({ providerId: by, apiKey: this._key(by), model: this._modelOf(by) });
+    return by === pid ? this._client() : this._searchEngineClient();
+  }
+
+  /** The engine client of the company that answers web searches (never the default model's wrapper: no loop). */
+  _searchEngineClient() {
+    const by = this._searchProvider();
+    if (!by) throw new AiError("A web search needs a company with search in its API (Anthropic, OpenAI or Gemini): save its key in the AI settings. The free NVIDIA models have no search.", "no_search", 409);
+    return this.engine.client({ providerId: by, apiKey: this._key(by), model: this._modelOf(by) });
+  }
+
+  /* ------------------------------------------------------ the one-time setup: free models first, paid for the rest */
+
+  /** What the one-time setup holds now, for the AI page. */
+  setupState() {
+    const s = this._settings();
+    const free = this._key("nvidia") ? true : false;
+    const names = (pid, id) => {
+      const m = this.modelsFor(pid).find((x) => x.id === id);
+      return m ? m.name : id;
+    };
+    const primary = this._modelOf("nvidia");
+    const backup = s.aiFreeBackup && this.validModel("nvidia", s.aiFreeBackup) ? s.aiFreeBackup : "";
+    const fb = this.paidFallbackId();
+    return {
+      done: Boolean(s.aiSetup),
+      at: s.aiSetup ? s.aiSetup.at : null,
+      freeConfigured: free,
+      freeLead: isFree(this._provider()) && free,
+      primary: { model: primary, name: names("nvidia", primary) },
+      backup: backup ? { model: backup, name: names("nvidia", backup) } : null,
+      fallbackProvider: fb,
+      fallbackName: providerOf(fb).name,
+      fallbackModel: this._modelOf(fb),
+      fallbackModelName: names(fb, this._modelOf(fb)),
+      fallbackReady: Boolean(this._key(fb)),
+      freeAuto: this.freeAutoOn(),
+    };
+  }
+
+  /**
+   * The one-time setup (26 Nov 2026): one NVIDIA key; the best free models it can really use become the default (the strongest from
+   * FREE_PREFERENCE that answers a test, and a second from another publisher as its stand-in); a paid company is set as the fallback
+   * for what the free models cannot do. After that no model is picked by hand during work: every request goes to the free model
+   * first and moves on by itself (see _client). Reads the live model list and spends no credit (NVIDIA's models are free).
+   * @param apiKey  the NVIDIA key (omit to redo the choice with the key already saved)
+   * @param fallbackProvider  the paid company for the fallback (default: the first with a saved key, else Anthropic)
+   */
+  async setupFree({ apiKey, fallbackProvider } = {}) {
+    const p = providerOf("nvidia");
+    const key = String(apiKey || "").trim();
+    if (key) checkKey("nvidia", key);
+    if (fallbackProvider && (!providerOf(String(fallbackProvider)) || isFree(String(fallbackProvider)))) throw new AiError("Pick a paid company as the fallback.", "invalid", 400);
+    if (key) this.setSettings({ provider: "nvidia", apiKey: key, use: false });
+    const k = this._key("nvidia");
+    if (!k) throw new AiError("Paste your NVIDIA API key first (build.nvidia.com → Get API Key).", "not_configured", 409);
+    // the models this key can really use (a failure to read the list is not fatal: the preference list is tried as it is)
+    let live = [];
+    try {
+      live = await makeClient({ providerId: "nvidia", apiKey: k, model: p.models[0].id, fetchImpl: this.fetch }).listModels();
+    } catch (err) {
+      if (err && err.code === "bad_key") {
+        if (key) this.setSettings({ provider: "nvidia", clear: true, use: false }); // a key NVIDIA rejects is not kept
+        throw err;
+      }
+    }
+    if (live.length) {
+      this.store.update((d) => {
+        d.settings.aiModelLists = { ...(d.settings.aiModelLists || {}), nvidia: { at: new Date(this.now()).toISOString(), models: live.slice(0, 300) } };
+      });
+    }
+    const have = new Set(live.map((m) => m.id));
+    const order = FREE_PREFERENCE.filter((id) => !live.length || have.has(id));
+    const publisher = (id) => String(id).split("/")[0];
+    const works = [];
+    let spare = null;
+    let lastErr = null;
+    for (const id of order) {
+      if (works.length >= 2) break;
+      try {
+        await makeClient({ providerId: "nvidia", apiKey: k, model: id, fetchImpl: this.fetch, timeoutMs: 45000 }).ping();
+      } catch (err) {
+        lastErr = err;
+        if (err && err.code === "bad_key") {
+          if (key) this.setSettings({ provider: "nvidia", clear: true, use: false });
+          throw err;
+        }
+        if (err && err.code === "not_asked") throw err;
+        continue;
+      }
+      if (works.length === 1 && publisher(id) === publisher(works[0])) {
+        spare = spare || id; // the same publisher: kept only if no other publisher answers
+        continue;
+      }
+      works.push(id);
+    }
+    if (works.length === 1 && spare) works.push(spare);
+    if (!works.length) throw new AiError(`None of NVIDIA's free models answered the test${lastErr ? ` (${lastErr.message})` : ""}. The key may be new — wait a minute and try again.`, "upstream", 502);
+    const fb = fallbackProvider ? String(fallbackProvider) : this.paidFallbackId();
+    const at = new Date(this.now()).toISOString();
+    this.store.update((d) => {
+      const s = d.settings;
+      s.aiProvider = "nvidia";
+      s.aiModels = { ...(s.aiModels || {}), nvidia: works[0] };
+      s.aiFreeBackup = works[1] || "";
+      s.aiFallbackProvider = fb;
+      s.aiFallback = true;
+      s.aiTests = { ...(s.aiTests || {}), nvidia: { ok: true, at, model: works[0], message: "The key works." } };
+      s.aiSetup = { at, primary: works[0], backup: works[1] || "", fallbackProvider: fb };
+      s.aiVersion = (s.aiVersion || 0) + 1;
+    });
+    return this.status();
   }
 
   async test(provider) {

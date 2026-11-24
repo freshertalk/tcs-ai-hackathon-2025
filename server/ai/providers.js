@@ -4,6 +4,9 @@
 //   • Anthropic          — the official SDK (client.js)
 //   • OpenAI, DeepSeek, Moonshot (Kimi) — the OpenAI-style chat API, over plain HTTPS
 //   • Google Gemini      — Gemini's own generateContent API, over plain HTTPS
+//   • NVIDIA             — the models hosted free at build.nvidia.com, one API key (nvapi-…), the same OpenAI-style chat API.
+//                          FREE: no credit is spent, so the AI credit guard lets the lead model run on its own (ai/spend.js);
+//                          it has no web search, so searches and anything it cannot answer go to a paid company (service.js).
 //
 // Every client offers the same three calls — ask (one JSON answer), search (prose with the web
 // pages it drew on, where the company has web search) and ping — plus listModels, which reads the
@@ -16,7 +19,53 @@
 const { AiClient, AiError, MODELS: ANTHROPIC_MODELS } = require("./client");
 const { enforce } = require("./contract");
 
+/**
+ * The best free NVIDIA-hosted chat models, strongest first (26 Nov 2026, from build.nvidia.com / docs.api.nvidia.com). The one-time setup
+ * reads the models the key can really use and takes the first of these that is there and answers; the AI page shows the live list too.
+ * Thinking-only variants are left out (they spend the answer on reasoning and are slow).
+ */
+const FREE_PREFERENCE = [
+  "nvidia/nemotron-3-ultra-550b-a55b",
+  "deepseek-ai/deepseek-v4-pro",
+  "moonshotai/kimi-k3",
+  "nvidia/nemotron-3-super-120b-a12b",
+  "qwen/qwen3-next-80b-a3b-instruct",
+  "openai/gpt-oss-120b",
+  "mistralai/mistral-large-4-1t-a52b",
+  "meta/llama-3.3-70b-instruct",
+  "nvidia/llama-3.3-nemotron-super-49b-v1.5",
+  "deepseek-ai/deepseek-v4-flash",
+  "nvidia/nemotron-3-nano-30b-a3b",
+];
+
 const PROVIDERS = [
+  {
+    id: "nvidia",
+    name: "NVIDIA",
+    family: "Nemotron · DeepSeek · Kimi · Qwen · Llama",
+    kind: "compat",
+    free: true, // free hosted models: no credit is spent
+    base: "https://integrate.api.nvidia.com/v1",
+    json: "object",
+    tokensField: "max_tokens",
+    maxOut: 16384,
+    search: false,
+    keyPrefix: "nvapi-",
+    keyExample: "nvapi-…",
+    console: "build.nvidia.com",
+    consoleUrl: "https://build.nvidia.com/settings/api-keys",
+    steps: ["Sign in at build.nvidia.com with a free NVIDIA developer account.", "Open any model and choose Get API Key (or Settings → API Keys): one key works for every hosted model.", "Paste the key (it starts with nvapi-) here. The free models have a rate limit, so a busy moment falls back by itself."],
+    models: [
+      { id: "nvidia/nemotron-3-ultra-550b-a55b", name: "Nemotron 3 Ultra 550B", note: "NVIDIA's largest open model, 1M-token context — best free default" },
+      { id: "deepseek-ai/deepseek-v4-pro", name: "DeepSeek V4 Pro", note: "Deep reasoning; strong second choice" },
+      { id: "moonshotai/kimi-k3", name: "Kimi K3", note: "Moonshot's flagship, long context" },
+      { id: "nvidia/nemotron-3-super-120b-a12b", name: "Nemotron 3 Super 120B", note: "Fast and strong" },
+      { id: "qwen/qwen3-next-80b-a3b-instruct", name: "Qwen3 Next 80B", note: "Fast, good at structured answers" },
+      { id: "openai/gpt-oss-120b", name: "GPT-OSS 120B", note: "OpenAI's open model" },
+      { id: "mistralai/mistral-large-4-1t-a52b", name: "Mistral Large 4", note: "Reasoning, function calling and structured outputs" },
+      { id: "meta/llama-3.3-70b-instruct", name: "Llama 3.3 70B", note: "Reliable all-rounder" },
+    ],
+  },
   {
     id: "anthropic",
     name: "Anthropic",
@@ -111,6 +160,10 @@ const PROVIDERS = [
 
 const BY_ID = new Map(PROVIDERS.map((p) => [p.id, p]));
 const providerOf = (id) => BY_ID.get(id) || null;
+/** A company whose models cost nothing to use (NVIDIA's hosted ones). */
+const isFree = (id) => Boolean(providerOf(id) && providerOf(id).free);
+/** The hosts of the free companies: a request to one of them spends no credit. */
+const FREE_HOSTS = new Set(PROVIDERS.filter((p) => p.free).map((p) => new URL(p.base).host));
 const DEFAULT_PROVIDER = "anthropic";
 const SEARCH_ORDER = ["anthropic", "openai", "gemini"];
 
@@ -120,8 +173,7 @@ function checkKey(providerId, key) {
   if (!p) throw new AiError("Unknown AI company.", "invalid", 400);
   const an = (name) => `${/^[AEIO]/.test(name) ? "an" : "a"} ${name}`; // "an OpenAI", "an Anthropic"
   if (!/^[A-Za-z0-9_\-.]{20,400}$/.test(key)) throw new AiError(`That does not look like ${an(p.name)} API key.`, "invalid", 400);
-  if (key.startsWith("nvapi-")) throw new AiError("That is an NVIDIA key. The free NVIDIA-hosted models are no longer used; paste a key of the company you picked.", "invalid", 400);
-  const looks = key.startsWith("sk-ant-") ? "anthropic" : key.startsWith("AIza") ? "gemini" : null;
+  const looks = key.startsWith("sk-ant-") ? "anthropic" : key.startsWith("AIza") ? "gemini" : key.startsWith("nvapi-") ? "nvidia" : null;
   if (looks && looks !== p.id) throw new AiError(`That looks like ${an(providerOf(looks).name)} key, not ${an(p.name)} one. Pick ${providerOf(looks).name} as the company, or paste the ${p.name} key.`, "invalid", 400);
   if (p.id === "anthropic") {
     if (key.startsWith("sk-ant-admin")) throw new AiError("That is an Admin API key. Create a normal API key in the Anthropic Console (API keys) and use that.", "invalid", 400);
@@ -246,7 +298,13 @@ class CompatClient {
         r = await this._chat({ system: system + schemaNote(schema), user, maxTokens, effort, format: { type: "json_object" } });
       }
     } else {
-      r = await this._chat({ system: system + schemaNote(schema), user, maxTokens, effort, format: this.p.json === "object" ? { type: "json_object" } : undefined });
+      try {
+        r = await this._chat({ system: system + schemaNote(schema), user, maxTokens, effort, format: this.p.json === "object" ? { type: "json_object" } : undefined });
+      } catch (err) {
+        // a model that does not take JSON mode (some of the hosted ones): the schema is in the prompt, so ask again without it
+        if (this.p.json !== "object" || err.code !== "bad_request") throw err;
+        r = await this._chat({ system: system + schemaNote(schema), user, maxTokens, effort });
+      }
     }
     const choice = (r.choices || [])[0] || {};
     const msg = choice.message || {};
@@ -307,6 +365,8 @@ function pickChatModels(providerId, ids) {
   const drop =
     providerId === "openai"
       ? /(audio|realtime|tts|transcribe|whisper|dall-e|image|embedding|moderation|search-preview|davinci|babbage|instruct|sora|computer-use)/i
+      : providerId === "nvidia"
+      ? /(embed|vision|image|audio|tts|rerank|guard|safety|reward|retriev|parse|clip|riva|translate|pii|topic-control|-vl\b|vlm|video|speech|asr|diffusion|flux|stable|cosmos|bge|molmim|genmol|fuyu|neva|kosmos|paligemma|deplot|sdxl|thinking)/i
       : /(embed|vision|image|audio|tts)/i;
   const keep = providerId === "openai" ? /^(gpt|o\d|chatgpt)/i : /./;
   const out = [...new Set(ids)].filter((id) => keep.test(id) && !drop.test(id));
@@ -425,4 +485,4 @@ function makeClient({ providerId, apiKey, model, fetchImpl, timeoutMs, repair = 
   return enforce(c, { held: false, AiError, repair });
 }
 
-module.exports = { PROVIDERS, providerOf, DEFAULT_PROVIDER, SEARCH_ORDER, checkKey, makeClient, readJson, pickChatModels };
+module.exports = { PROVIDERS, FREE_PREFERENCE, FREE_HOSTS, isFree, providerOf, DEFAULT_PROVIDER, SEARCH_ORDER, checkKey, makeClient, readJson, pickChatModels };

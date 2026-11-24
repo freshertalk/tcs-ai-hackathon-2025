@@ -7,6 +7,8 @@ import { publishAiStatus, useAiStatus, loadAiStatus } from "./aiStatus";
 import AiSpend from "./AiSpend";
 import "./ai.css";
 
+const SETUP_ACTIONS = ["setup", "fbco", "fbmodel", "freeauto"];
+
 /**
  * The default model: the one AI company and model every AI feature uses (Claude Sonnet 5.5 unless
  * another is picked here), its API key, and the fallback switch (the other saved companies, tried in
@@ -25,7 +27,10 @@ export default function AiSettings() {
   const [askKey, setAskKey] = useState(false); // "Replace key" pressed, or the last test failed
   const [msg, setMsg] = useState({ kind: "", text: "" });
   const [busy, setBusy] = useState("");
+  const [msgFor, setMsgFor] = useState(""); // which action the message belongs to: the setup card or the default-model card
   const [live, setLive] = useState(null); // the co-pilot's limits, as typed
+  const [nvKey, setNvKey] = useState(""); // the NVIDIA key, as typed (the one-time setup)
+  const [nvOpen, setNvOpen] = useState(false); // "Replace key" / "Set up again" pressed
   const [liveMsg, setLiveMsg] = useState({ kind: "", text: "" });
 
   // follow the shared copy: a change made in another tab shows here too
@@ -51,6 +56,7 @@ export default function AiSettings() {
 
   const run = async (what, fn, okText) => {
     setBusy(what);
+    setMsgFor(what);
     setMsg({ kind: "", text: "" });
     try {
       const d = await fn();
@@ -127,6 +133,21 @@ export default function AiSettings() {
     setBusy("");
   };
   const liveSame = s && s.live && live && ["model", "minGapSec", "dailyCap", "refreshMin"].every((k) => String(live[k]) === String(s.live.settings[k]));
+  // the one-time setup: one NVIDIA key → the best free models chosen and tested → a paid company named for what they cannot do
+  const setup = s && s.setup;
+  const paid = s ? s.providers.filter((p) => !p.free) : [];
+  const nv = s ? s.providers.find((p) => p.id === "nvidia") : null;
+  const fbId = setup ? setup.fallbackProvider : "anthropic";
+  const runSetup = async (e) => {
+    if (e) e.preventDefault();
+    const k = nvKey.trim();
+    const d = await run("setup", () => api("/api/admin/ai/setup-free", { method: "POST", body: { ...(k ? { apiKey: k } : {}), fallbackProvider: fbId } }), (x) => `Done. ${x.setup.primary.name} is the default${x.setup.backup ? `, ${x.setup.backup.name} stands in for it` : ""}, and ${x.setup.fallbackName} is the fallback for what they cannot do.`);
+    if (d) {
+      setNvKey("");
+      setNvOpen(false);
+      setPick("nvidia");
+    }
+  };
   const activeModels = s ? s.models : [];
   const note = co ? (co.models.find((m) => m.id === co.model) || {}).note : "";
   const dm = s && s.defaultModel;
@@ -146,7 +167,7 @@ export default function AiSettings() {
         <header className="ais-head">
           <div>
             <h1 className="adm-h1">AI model</h1>
-            <p className="ais-lead">One default model runs every AI feature — TradeAI, AI Live and AI Research, Social Media, WhatsApp, the brains and the strategist. Claude Sonnet 5.5 is the default; pick any other model here. It can never place an order.</p>
+            <p className="ais-lead">One default model runs every AI feature — TradeAI, AI Live and AI Research, Social Media, WhatsApp, the brains and the strategist. The free NVIDIA models go first; a paid model is used only for what they cannot do (web search) or when they fail — by itself, never picked by hand while you work. It can never place an order.</p>
           </div>
           {s && (
             <p className={`ais-pill ${s.configured ? "is-on" : ""}`} role="status" aria-live="polite">
@@ -166,6 +187,120 @@ export default function AiSettings() {
         {!s && msg.text && <Alert>{msg.text}</Alert>}
         {s && co && (
           <div className="ais-grid">
+            <section className="ais-card ais-setup" aria-labelledby="ais-setup">
+              <h2 id="ais-setup">Free models first · paid only for the rest</h2>
+              {setup && setup.done && !nvOpen ? (
+                <>
+                  <ol className="ais-route" aria-label="The order every AI request follows">
+                    <li className="is-free">
+                      <b>{setup.primary.name}</b>
+                      <small>NVIDIA · free · answers first</small>
+                    </li>
+                    {setup.backup && (
+                      <li className="is-free">
+                        <b>{setup.backup.name}</b>
+                        <small>NVIDIA · free · if the first cannot</small>
+                      </li>
+                    )}
+                    <li className={`is-paid ${setup.fallbackReady ? "" : "is-missing"}`}>
+                      <b>{setup.fallbackModelName}</b>
+                      <small>{setup.fallbackName} · paid · web search, and when both free models fail{setup.fallbackReady ? "" : " — key not saved yet"}</small>
+                    </li>
+                  </ol>
+                  <p className="ais-note">
+                    Every request goes down this list by itself — a rate limit, a timeout, an outage or an answer that breaks the rules moves it to the next model, and a model that has just been rate-limited steps back for a few minutes. Paid tokens are used only at the last step.
+                  </p>
+                  <div className="ais-row2">
+                    <label className="ais-field">
+                      <span>Paid company for the fallback</span>
+                      <select id="ai-fallback-co" value={fbId} onChange={(e) => run("fbco", () => put({ fallbackProvider: e.target.value }), (d) => `${d.setup.fallbackName} is the paid fallback now.`)} disabled={Boolean(busy)}>
+                        {paid.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.name}
+                            {p.configured ? " — key saved" : " — no key yet"}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="ais-field">
+                      <span>Second free model</span>
+                      <select
+                        id="ai-free-backup"
+                        value={setup.backup ? setup.backup.model : ""}
+                        onChange={(e) => run("fbmodel", () => put({ freeBackup: e.target.value }), "Saved. It answers when the first free model cannot.")}
+                        disabled={Boolean(busy) || !nv}
+                      >
+                        <option value="">None</option>
+                        {(nv ? nv.models : []).filter((m) => m.id !== setup.primary.model).map((m) => (
+                          <option key={m.id} value={m.id}>
+                            {m.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                  {!setup.fallbackReady && (
+                    <p className="ais-note is-warn">
+                      The paid fallback has no key yet, so a failed free request has nowhere to go and web searches cannot run.{" "}
+                      <button type="button" className="ais-link" onClick={() => chooseCompany(fbId)}>
+                        Add the {setup.fallbackName} key
+                      </button>
+                    </p>
+                  )}
+                  <label className="ais-check">
+                    <input type="checkbox" checked={setup.freeAuto} disabled={Boolean(busy)} onChange={(e) => run("freeauto", () => put({ freeAuto: e.target.checked }), e.target.checked ? "The free models may now work on their own (morning research, digests, reviews). No credit is used; paid models still need a click." : "The free models now need a click too.")} />
+                    <span>
+                      <b>Let the free models work on their own</b> — automatic reviews and digests run without asking, because they cost no credit. A paid model is still used only when you press a button.
+                    </span>
+                  </label>
+                  <span className="ais-btns">
+                    <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm" disabled={Boolean(busy)} onClick={() => runSetup()}>
+                      {busy === "setup" ? "Choosing…" : "Choose the best again"}
+                    </button>
+                    <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm" disabled={Boolean(busy)} onClick={() => setNvOpen(true)}>
+                      Replace the NVIDIA key
+                    </button>
+                  </span>
+                </>
+              ) : (
+                <form className="ais-keyform" onSubmit={runSetup}>
+                  <p className="ais-note ais-span">
+                    One time only. Paste one NVIDIA key (free: build.nvidia.com → Get API Key). DrishtiAI reads the models your key can use, tests the strongest, and makes the best one the default with a second as its stand-in. A paid company you pick below answers only what the free models cannot do.
+                  </p>
+                  <label className="ais-field">
+                    <span>{nv && nv.configured ? "New NVIDIA API key (optional)" : "NVIDIA API key"}</span>
+                    <input id="nv-key" type="password" value={nvKey} onChange={(e) => setNvKey(e.target.value)} placeholder="nvapi-…" spellCheck="false" autoComplete="off" />
+                  </label>
+                  <label className="ais-field">
+                    <span>Paid fallback company</span>
+                    <select id="nv-fallback" value={fbId} onChange={(e) => run("fbco", () => put({ fallbackProvider: e.target.value }), (d) => `${d.setup.fallbackName} is the paid fallback.`)} disabled={Boolean(busy)}>
+                      {paid.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                          {p.configured ? " — key saved" : " — no key yet"}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <button className="adm-btn adm-btn--solid" disabled={Boolean(busy) || (!nvKey.trim() && !(nv && nv.configured))}>
+                    {busy === "setup" ? "Testing the free models…" : "Set up the free models"}
+                  </button>
+                  {setup && setup.done && (
+                    <button type="button" className="adm-btn adm-btn--ghost" onClick={() => setNvOpen(false)} disabled={Boolean(busy)}>
+                      Cancel
+                    </button>
+                  )}
+                  <p className="ais-note ais-span">
+                    Encrypted on the server, never shown again. Only the paid fallback needs its own key (add it under Default model below).{" "}
+                    <a href="https://build.nvidia.com/settings/api-keys" target="_blank" rel="noopener noreferrer">
+                      Get a free key at build.nvidia.com ↗
+                    </a>
+                  </p>
+                </form>
+              )}
+              {SETUP_ACTIONS.includes(msgFor) && <Alert kind={msg.kind === "ok" ? "ok" : "error"}>{msg.text}</Alert>}
+            </section>
+
             <section className="ais-card ais-main" aria-labelledby="ais-conn">
               <h2 id="ais-conn">Default model</h2>
               {dm && (
@@ -174,6 +309,7 @@ export default function AiSettings() {
                     <i aria-hidden="true" />
                     <span>
                       <b>{dm.name}</b> · {dm.company}
+                      {dm.free ? <em className="ais-free">free</em> : null}
                       <small>{dm.ready ? "used by every AI feature" : `no ${dm.company} key saved yet — the AI is off${chain.length ? `; ${chain[0].name} stands in` : ""}`}</small>
                     </span>
                   </span>
@@ -227,6 +363,7 @@ export default function AiSettings() {
                   <button key={p.id} type="button" role="listitem" className={`ais-chip ${p.id === co.id ? "is-picked" : ""} ${p.configured ? "has-key" : ""} ${s.provider === p.id && s.configured ? "is-used" : ""}`} onClick={() => chooseCompany(p.id)} disabled={Boolean(busy)} data-tip={p.configured ? `${p.name}: key saved${p.lastTest ? (p.lastTest.ok ? ", last test worked" : ", last test failed") : ""}.` : `${p.name}: no key saved yet.`}>
                     <i aria-hidden="true" />
                     {p.name}
+                    {p.free && <small>free</small>}
                     {s.provider === p.id && s.configured && <small>default</small>}
                   </button>
                 ))}
@@ -292,7 +429,7 @@ export default function AiSettings() {
                 </span>
               </label>
               <p className="ais-note">{chain.length ? `Order now: ${chain.map((c) => `${c.name} (${c.company})`).join(" → ")}.` : "No key is saved yet, so there is no model to ask: the desk's own arithmetic answers."}</p>
-              <Alert kind={msg.kind === "ok" ? "ok" : "error"}>{msg.text}</Alert>
+              {!SETUP_ACTIONS.includes(msgFor) && <Alert kind={msg.kind === "ok" ? "ok" : "error"}>{msg.text}</Alert>}
             </section>
 
             <aside className="ais-side">
@@ -303,7 +440,7 @@ export default function AiSettings() {
                   {s.searchBy ? (
                     <>
                       The world brief and the news check search the web with <b>{s.searchByName}</b>
-                      {s.searchBy !== s.provider && s.configured ? `, because ${s.providerName} has none in its API` : ""}.
+                      {s.searchBy !== s.provider && s.configured ? `, because ${s.providerName} has none in its API — this is the paid fallback at work` : ""}.
                     </>
                   ) : s.configured ? (
                     <>{s.providerName} has no web search in its API. Save an Anthropic, OpenAI or Gemini key too and the world brief and news check will use it; the strategist stays on {s.providerName}.</>

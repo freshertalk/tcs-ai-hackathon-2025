@@ -33,10 +33,19 @@ function mountAi(app, { ai, requireAdmin, requireSuper = requireAdmin, limiter }
 
   app.put("/api/admin/ai/settings", requireSuper, limiter(30, 15 * 60 * 1000), wrap(async (req) => {
     const b = req.body || {};
-    const out = ai.setSettings({ provider: b.provider ? String(b.provider) : undefined, apiKey: b.apiKey, model: b.model, clear: Boolean(b.clear), live: b.live, use: b.use, fallback: typeof b.fallback === "boolean" ? b.fallback : undefined });
+    const out = ai.setSettings({ provider: b.provider ? String(b.provider) : undefined, apiKey: b.apiKey, model: b.model, clear: Boolean(b.clear), live: b.live, use: b.use, fallback: typeof b.fallback === "boolean" ? b.fallback : undefined, freeBackup: b.freeBackup, fallbackProvider: b.fallbackProvider, freeAuto: typeof b.freeAuto === "boolean" ? b.freeAuto : undefined });
     // never the key itself; the company and model names only (safe characters, so no forged log lines)
     const safe = (x) => String(x || "").replace(/[^A-Za-z0-9._/-]/g, "").slice(0, 80);
     console.log(`[ai] settings changed: ${safe(out.provider)} / ${safe(out.model)}${b.apiKey ? " (new key)" : ""}${b.clear ? " (key removed)" : ""}`);
+    return out;
+  }));
+
+  // the one-time setup: one NVIDIA key → the best free models chosen and tested → a paid fallback named (spends no credit)
+  app.post("/api/admin/ai/setup-free", requireSuper, limiter(10, 10 * 60 * 1000), wrap(async (req) => {
+    const b = req.body || {};
+    const out = await ai.setupFree({ apiKey: b.apiKey, fallbackProvider: b.fallbackProvider ? String(b.fallbackProvider) : undefined });
+    const safe = (x) => String(x || "").replace(/[^A-Za-z0-9._/-]/g, "").slice(0, 80);
+    console.log(`[ai] free setup: ${safe(out.setup.primary.model)} then ${safe(out.setup.backup && out.setup.backup.model)} then ${safe(out.setup.fallbackProvider)}${b.apiKey ? " (new key)" : ""}`);
     return out;
   }));
 

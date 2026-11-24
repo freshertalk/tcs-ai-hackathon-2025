@@ -62,7 +62,9 @@ test("shared lanes: features using the same key at once queue instead of floodin
   await Promise.all(all);
   assert.equal(peak, 6);
   assert.equal(eng.status().lanes[0].busy, 0);
-  assert.equal(eng.laneOf("nvidia"), "anthropic", "a removed company has no lane of its own");
+  assert.equal(eng.laneOf("nv-mistral"), "anthropic", "a removed company has no lane of its own");
+  assert.equal(eng.laneOf("nvidia"), "nvidia", "the free NVIDIA models have their own, smaller lane (their rate limit is low)");
+  assert.equal(eng.limitOf("nvidia"), 3);
 });
 
 test("a failed request is counted and still frees its place in the lane", async () => {

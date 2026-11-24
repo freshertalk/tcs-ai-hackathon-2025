@@ -359,6 +359,28 @@ clamps), then set one standard over all of them by their existing class names:
     for links and codes sent.
   - The logic and the API are unchanged.
 
+**Free NVIDIA models first, paid for the rest (2026-11-26; `server/ai/providers.js`, `service.js`, `spend.js`, `mixture.js`,
+`src/admin/AiSettings.jsx`).**
+- *Provider*: `nvidia` (free: true) — `https://integrate.api.nvidia.com/v1`, one `nvapi-` key, the OpenAI-style chat API
+  (JSON mode, retried without it for a model that rejects it; the answer is checked against the schema like every non-Anthropic
+  model). No web search. `FREE_PREFERENCE` lists the best free models, strongest first (Nemotron 3 Ultra, DeepSeek V4 Pro, Kimi
+  K3, Nemotron 3 Super, Qwen3 Next, GPT-OSS, Mistral Large 4, Llama 3.3…); ids are from build.nvidia.com / docs.api.nvidia.com on
+  2026-11-26, and the live list from the key (`GET /v1/models`) decides which are really there.
+- *One-time setup* (`/me/ai` → "Free models first · paid only for the rest", `POST /api/admin/ai/setup-free`): paste one NVIDIA
+  key and name a paid fallback company. The server reads the key's models, pings the preference list in order, makes the first that
+  answers the default (`aiProvider = nvidia`) and the next from another publisher `aiFreeBackup`, and sets `aiFallbackProvider`.
+  A key NVIDIA rejects is not kept. "Choose the best again" repeats it with the saved key.
+- *Automatic fallback* (`AiService._client` / `_withFallback`, and `modelChain()` for the features that walk the chain
+  themselves): best free model → second free model → the chosen paid company → any other saved company. A rate limit, timeout,
+  outage, key problem or schema-breaking answer moves the same request on; a model that was rate-limited or timed out steps back
+  for 3 minutes. Free attempts time out after 90 s; the NVIDIA lane allows 3 calls in flight.
+- *What free cannot do goes to paid*: web search (`_searchEngineClient`) uses the paid fallback company first, then
+  Anthropic / OpenAI / Gemini; with no paid key it says what is needed.
+- *Credit guard*: a request to a free host runs on its own while `aiFreeAuto` is on (default) and the default model is free
+  (`guard.check(label, { free })`, `autoAllowed()`, `wants()`); every paid request is refused without a click exactly as before, so an
+  automatic job whose free models fail never spends credit. The owner's own "let the AI run on its own" lift is unchanged.
+- Tests: `server/test/ai-free.test.js` (fake NVIDIA and OpenAI), `AiSettings.test.js`. Not run against the real NVIDIA API.
+
 **Other credits & debits in the Journal (2026-11-24; `server/trading/otherbook.js`, `journal.js`, `routes.js`,
 `src/admin/stock/trade/OtherLedger.jsx`, `PnlReport.jsx`).**
 - Zerodha Console's P&L report has an "Other credits & debits" line (DP charges billed separately, AMC, interest,

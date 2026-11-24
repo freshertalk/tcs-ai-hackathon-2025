@@ -48,9 +48,11 @@ async function askOne(ai, candidates, opts) {
       const u = r.usage || {};
       usage.input += u.input_tokens || u.inputTokens || u.prompt_tokens || 0;
       usage.output += u.output_tokens || u.outputTokens || u.completion_tokens || 0;
+      if (typeof ai.noteOk === "function") ai.noteOk(a);
       tried.push({ id: a.id, name: a.name, ok: true, ms: Date.now() - t0, ...(r.cached ? { cached: true } : {}) });
       return { data: r.data, by: [a.name], mergedBy: null, answers: tried, tried, fallback: i > 0, usage };
     } catch (err) {
+      if (typeof ai.noteFailure === "function") ai.noteFailure(a, err);
       tried.push({ id: a.id, name: a.name, ok: false, ms: Date.now() - t0, error: err && err.message ? err.message.slice(0, 160) : "failed" });
     }
   }

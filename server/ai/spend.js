@@ -29,12 +29,18 @@
 // now"). Allow runs it as a click (the owner's own press, so it spends credit only then); Not now snoozes that ask for two hours.
 // Asks are deduplicated by key, at most twelve are kept, and each expires after three hours.
 //
+// FREE MODELS (26 Nov 2026, the owner chose NVIDIA's free hosted models as the lead): a request to a FREE company costs no credit, so
+// it is not held by the rule while the owner's "free models may run on their own" switch is on (it is, by default). The rule is
+// unchanged for every PAID request: an automatic job whose free model fails and falls back to a paid company is refused at that
+// step, exactly as before, and only a click (or the owner's own lift below) lets paid credit be used.
+//
 // The owner can lift the rule (AI page → AI credit protection → "Let the AI run on its own"): off by default, and when it is on
 // each automatic feature still obeys its own switch and daily limit. Tests and tools that call the AI service directly are not
 // guarded (enforce is false until the app turns it on).
 
 const { AsyncLocalStorage } = require("node:async_hooks");
 const { AiError } = require("./client");
+const { FREE_HOSTS } = require("./providers");
 
 const NAME = "ai/spend.json";
 const KEEP = 60; // refusals listed
@@ -51,6 +57,8 @@ class SpendGuard {
     this._asks = new Map(); // key → { key, feature, why, page, first, last, n, run }
     this._snooze = new Map(); // key → until (ms)
     this.onAsk = null; // () => void: a new or changed ask (the app tells every open page)
+    this.freeOk = () => false; // () => boolean: may free-model requests run on their own? (set by AiService from the owner's switch)
+    this.leadFree = () => false; // () => boolean: is the default model a free one, with its key saved? (set by AiService)
   }
 
   /* ------------------------------------------------------------------------------------- asking */
@@ -59,7 +67,7 @@ class SpendGuard {
    * `later` — by default `run` — is called as a click). @returns run()'s result, or null when it became an ask
    */
   async wants({ key, feature, why = "", page = "" }, run, later = run) {
-    if (this.allowed().ok) return run();
+    if (this.allowed().ok || this.freeLead()) return run();
     this.ask({ key, feature, why, page, run: later });
     return null;
   }
@@ -128,6 +136,18 @@ class SpendGuard {
   }
   /** The owner's choice: may the AI run without a click? Off unless they turned it on. */
   autoAllowed() {
+    return !this.enforce || Boolean(this._load().auto) || this.freeLead();
+  }
+  /** The default model is free and may run on its own: automatic work may start (a paid fallback step inside it still needs a click). */
+  freeLead() {
+    try {
+      return Boolean(this.freeOk() && this.leadFree());
+    } catch (_) {
+      return false;
+    }
+  }
+  /** The owner's own lift of the rule (paid requests too), apart from the free models' allowance. */
+  ownerAuto() {
     return !this.enforce || Boolean(this._load().auto);
   }
   setAuto(on, by = "") {
@@ -151,7 +171,16 @@ class SpendGuard {
   }
 
   /** Throws unless a paid request may go out now; remembers the refusal. @param label what was trying (a feature, a host) */
-  check(label = "a model request") {
+  check(label = "a model request", { free = false } = {}) {
+    if (free && this.enforce) {
+      let ok = false;
+      try {
+        ok = Boolean(this.freeOk());
+      } catch (_) {
+        ok = false;
+      }
+      if (ok) return; // a free model: no credit to protect
+    }
     const a = this.allowed();
     if (a.ok) return;
     this._note(label);
@@ -186,7 +215,7 @@ class SpendGuard {
         } catch (_) {
           host = "an AI company";
         }
-        self.check(`a request to ${host}`);
+        self.check(`a request to ${host}`, { free: FREE_HOSTS.has(host) });
       }
       return (inner || globalThis.fetch)(url, init);
     };
@@ -196,7 +225,7 @@ class SpendGuard {
     const r = this._load();
     const day = new Date(this.now() + 5.5 * 3600000).toISOString().slice(0, 10);
     const b = r.blocked.date === day ? r.blocked : { date: day, count: 0, items: [] };
-    return { enforced: this.enforce, auto: Boolean(r.auto), by: r.by || "", at: r.at || null, blockedToday: b.count, blocked: b.items.slice(0, 12) };
+    return { enforced: this.enforce, auto: Boolean(r.auto), freeAuto: this.freeLead(), by: r.by || "", at: r.at || null, blockedToday: b.count, blocked: b.items.slice(0, 12) };
   }
 }
 

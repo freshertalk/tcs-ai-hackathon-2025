@@ -381,3 +381,89 @@
 .ais-spend .ais-check {
   margin-top: 6px;
 }
+
+/* the one-time setup: free models first, paid for the rest */
+.ais-setup {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 12px;
+}
+.ais-route {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: route;
+}
+.ais-route li {
+  position: relative;
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  flex: 1 1 14rem;
+  padding: 10px 12px 10px 40px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  counter-increment: route;
+}
+.ais-route li::before {
+  content: counter(route);
+  position: absolute;
+  top: 10px;
+  left: 12px;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--ink-2);
+  font-size: var(--t-small);
+  font-weight: 700;
+}
+.ais-route li b {
+  color: var(--ink);
+  font-size: var(--t-base);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.ais-route li small {
+  color: var(--ink-3);
+  font-size: var(--t-small);
+  line-height: 1.4;
+}
+.ais-route li.is-free {
+  border-color: color-mix(in srgb, var(--up) 40%, var(--line));
+  background: color-mix(in srgb, var(--up) 7%, var(--surface));
+}
+.ais-route li.is-free::before {
+  background: color-mix(in srgb, var(--up) 20%, var(--surface));
+  color: var(--ink);
+}
+.ais-route li.is-paid {
+  border-style: dashed;
+}
+.ais-route li.is-missing {
+  border-color: var(--warn-line, #ffd699);
+}
+.ais-free {
+  margin-left: 6px;
+  padding: 0 8px;
+  border: 1px solid color-mix(in srgb, var(--up) 45%, var(--line));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--up) 10%, var(--surface));
+  color: var(--ink);
+  font-size: var(--t-tag);
+  font-style: normal;
+  font-weight: 600;
+}
+.ais-note.is-warn {
+  padding: 8px 10px;
+  border: 1px solid var(--warn-line, #ffd699);
+  border-radius: 6px;
+  background: var(--warn-bg, #fff4e0);
+  color: var(--warn-ink, #7a4f00);
+}
