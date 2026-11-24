@@ -361,7 +361,11 @@ clamps), then set one standard over all of them by their existing class names:
 
 **TradeAI's free composer and attachments (2026-11-26; `src/admin/tradeai/TradeAI.jsx` `Composer`, `attach.js`, `tradeai.css`;
 `server/ai/attach.js`, `tradeai.js`, `app.js`).**
-- *The box*: no bordered input and no focus rectangle — the text sits on the soft card (which glows while you type) and grows with the
+- *Claude-style layout* (26 Nov 2026, second pass): one calm card holds the file chips, the words, a "+" (attach) at the bottom left and
+  the microphone and send at the bottom right; how to answer (Auto / Fast / Deep), the model and the thinking level are plain words
+  under the card, on the right, with no boxes (`.tai-cw`, `.tai-meta`; `!important` where the app's general button and select looks
+  would otherwise draw borders). The hint is a small "i".
+- *The box*: no bordered input and no focus rectangle — the text sits on the soft card and grows with the
   text, eased (`fit()` measures, then transitions the height), up to 40% of the screen, then scrolls inside. It re-fits when its
   width changes. A question may be 4,000 characters (was 1,500). The crowded hint became a small "i".
 - *Attach*: the paperclip, drag and drop on the card, or paste (a screenshot or copied file; a text longer than 3,500 characters

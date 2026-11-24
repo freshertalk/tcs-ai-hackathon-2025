@@ -72,7 +72,7 @@ const IcNew = () => <I d={<path d="M12 5v14M5 12h14" />} />;
 const IcSide = () => <I d={<><rect x="3" y="4" width="18" height="16" rx="3" /><path d="M9 4v16" /></>} />;
 const IcSearch = () => <I size={16} d={<><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></>} />;
 const IcSend = () => <I d={<path d="M12 19V5M5 12l7-7 7 7" />} />;
-const IcClip = () => <I d={<path d="m21 11.5-8.6 8.6a5.5 5.5 0 0 1-7.8-7.8l8.6-8.6a3.7 3.7 0 0 1 5.2 5.2l-8.6 8.6a1.8 1.8 0 0 1-2.6-2.6l7.9-7.9" />} />;
+const IcPlus = () => <I size={22} d={<path d="M12 5v14M5 12h14" />} />;
 const IcFile = () => <I size={16} d={<><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5Z" /><path d="M14 3v5h5" /></>} />;
 const IcX = () => <I size={14} d={<path d="M6 6l12 12M18 6 6 18" />} />;
 const IcStop = () => <I fill="currentColor" d={<rect x="7" y="7" width="10" height="10" rx="2" />} />;
@@ -276,6 +276,7 @@ function Composer({ value, onChange, onSend, onStop, busy, disabled, big, inputR
     r.start();
   };
   return (
+    <div className={`tai-cw ${big ? "tai-cw--big" : ""}`}>
     <form
       className={`tai-comp ${big ? "tai-comp--big" : ""} ${drag ? "is-drag" : ""}`}
       onSubmit={(e) => {
@@ -347,10 +348,30 @@ function Composer({ value, onChange, onSend, onStop, busy, disabled, big, inputR
           <>
             <input ref={picker} type="file" multiple accept={ACCEPT} hidden onChange={(e) => { take(e.target.files); e.target.value = ""; }} />
             <button type="button" className="tai-icon tai-attach" onClick={() => picker.current && picker.current.click()} disabled={busy || files.length >= MAX_FILES} aria-label="Attach files" data-tip={`Attach pictures, PDF, Word, Excel, PowerPoint, CSV or text files (up to ${MAX_FILES}, ${Math.round(MAX_BYTES / 1048576)} MB each) — or drop or paste them here. A picture is read by a paid model that can see; the free ones read text.`}>
-              <IcClip />
+              <IcPlus />
             </button>
           </>
         )}
+        <span className="tai-comp__spacer" />
+        {value.length > 3400 && <span className="tai-comp__count">{value.length}/4000</span>}
+        {SR && !busy && (
+          <button type="button" className={`tai-icon tai-mic ${listening ? "is-on" : ""}`} onClick={listen} aria-label={listening ? "Stop listening" : "Speak your question"} aria-pressed={listening} data-tip={listening ? "Listening… press to stop" : "Speak your question"}>
+            <IcMic />
+          </button>
+        )}
+        {busy ? (
+          <button type="button" className="tai-send is-stop" onClick={onStop} aria-label="Stop the answer" data-tip="Stop (Esc)">
+            <IcStop />
+          </button>
+        ) : (
+          <button type="submit" className="tai-send" disabled={!canSend} aria-label="Send" data-tip={uploading ? "Reading your files…" : "Send (Enter)"}>
+            <IcSend />
+          </button>
+        )}
+      </div>
+    </form>
+    {(onMode || (choices && onModel && onEffort) || hint) && (
+      <div className="tai-meta">
         {onMode && (
           <div className="tai-modes" role="group" aria-label="How to answer">
             {MODES.map((x) => (
@@ -380,29 +401,14 @@ function Composer({ value, onChange, onSend, onStop, busy, disabled, big, inputR
             </select>
           </div>
         )}
-        <span className="tai-comp__spacer" />
         {hint && (
           <span className="tai-info" tabIndex={0} role="img" aria-label={hint} data-tip={hint}>
             i
           </span>
         )}
-        {value.length > 3400 && <span className="tai-comp__count">{value.length}/4000</span>}
-        {SR && !busy && (
-          <button type="button" className={`tai-icon tai-mic ${listening ? "is-on" : ""}`} onClick={listen} aria-label={listening ? "Stop listening" : "Speak your question"} aria-pressed={listening} data-tip={listening ? "Listening… press to stop" : "Speak your question"}>
-            <IcMic />
-          </button>
-        )}
-        {busy ? (
-          <button type="button" className="tai-send is-stop" onClick={onStop} aria-label="Stop the answer" data-tip="Stop (Esc)">
-            <IcStop />
-          </button>
-        ) : (
-          <button type="submit" className="tai-send" disabled={!canSend} aria-label="Send" data-tip={uploading ? "Reading your files…" : "Send (Enter)"}>
-            <IcSend />
-          </button>
-        )}
       </div>
-    </form>
+    )}
+    </div>
   );
 }
 

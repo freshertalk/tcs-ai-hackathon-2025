@@ -1782,3 +1782,149 @@ h5.md-h {
   border-color: var(--accent);
   color: var(--ink);
 }
+
+/* ==========================================================================================================
+   Claude-style composer (26 Nov 2026, the owner: "free from box … keep like this Claude setup"): one soft card holding only
+   the files, the words and a "+" (attach) beside the microphone and send; the choices — how to answer, the model, the thinking
+   level — are plain words under the card on the right, with no boxes of their own.
+   ========================================================================================================== */
+.tai-cw {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+}
+.adm .tai-comp {
+  padding: 14px 12px 10px 18px;
+  border: 1px solid var(--line-2);
+  border-radius: 24px;
+  background: var(--surface);
+  box-shadow: 0 2px 14px rgba(0, 0, 0, 0.07);
+}
+.adm .tai-comp::before {
+  display: none; /* no animated ring: the card stays calm */
+}
+.adm .tai-comp:focus-within {
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--line-2));
+  box-shadow: 0 4px 22px rgba(0, 0, 0, 0.1);
+}
+.adm .tai-comp textarea,
+.adm .tai-comp textarea:hover,
+.adm .tai-comp textarea:focus,
+.adm .tai-comp textarea:focus-visible,
+.adm .tai-comp textarea:active {
+  appearance: none;
+  -webkit-appearance: none;
+  border: 0 !important;
+  border-radius: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+.tai-comp__row {
+  min-height: 40px;
+}
+.tai-comp .tai-attach {
+  width: 36px;
+  height: 36px;
+  margin-left: -6px;
+  color: var(--ink-2);
+}
+.tai-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px 6px;
+  padding: 0 10px;
+  min-width: 0;
+}
+.tai-meta .tai-modes {
+  gap: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.tai-meta .tai-modes button {
+  min-height: 28px;
+  padding: 2px 8px;
+  border-radius: 8px;
+  color: var(--ink-3);
+  box-shadow: none;
+}
+.tai-meta .tai-modes button:hover {
+  color: var(--ink);
+}
+.tai-meta .tai-modes button[aria-pressed="true"] {
+  background: transparent;
+  color: var(--ink);
+  box-shadow: none;
+  text-decoration: underline;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 5px;
+  text-decoration-color: var(--accent);
+}
+.tai-meta .tai-ctl {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+.tai-meta .tai-ctl__sel,
+.tai-meta .tai-ctl__sel:hover {
+  max-width: 13rem;
+  min-height: 28px;
+  padding: 2px 4px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink-3);
+  font-size: var(--t-small);
+}
+.tai-meta .tai-ctl__sel:hover {
+  color: var(--ink);
+  background: var(--surface-2);
+}
+@media (max-width: 720px) {
+  .tai-meta {
+    justify-content: flex-start;
+    padding: 0 4px;
+  }
+  .tai-meta .tai-ctl {
+    order: 0;
+    flex: 0 1 auto;
+  }
+  .tai-meta .tai-ctl__sel {
+    flex: 0 1 auto;
+    min-height: 32px;
+    max-width: 11rem;
+  }
+}
+
+/* the plain-words controls win over the app's general button and select looks */
+.adm .tai-meta .tai-modes button,
+.adm .tai-meta .tai-modes button:hover,
+.adm .tai-meta .tai-modes button[aria-pressed="true"] {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+.adm .tai-meta .tai-modes button[aria-pressed="true"] {
+  color: var(--ink) !important;
+  font-weight: 600;
+}
+.adm .tai-meta .tai-ctl__sel {
+  border: 0 !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+  color: var(--ink-3);
+}
+.adm .tai-meta .tai-ctl__sel:hover,
+.adm .tai-meta .tai-ctl__sel:focus-visible {
+  background-color: var(--surface-2) !important;
+  color: var(--ink);
+}
+.adm .tai-meta .tai-ctl__sel:focus-visible,
+.adm .tai-meta .tai-modes button:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 60%, transparent);
+  outline-offset: 1px;
+}
