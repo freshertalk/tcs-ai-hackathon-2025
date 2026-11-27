@@ -101,3 +101,14 @@ test("Personal holds the Kundali tile, in Hindi, and the Expenses tile, each ope
   expect(document.querySelector('a[href="/me/kundali"]')).toBeNull();
   expect(document.querySelector('a[href="/me/expenses"]')).toBeNull();
 });
+
+test("the page's sections are tabs under the header, and the owner's Personal things come last", async () => {
+  render(page("superadmin"));
+  await settle();
+  const tabs = [...screen.getByRole("navigation", { name: "The sections of this page" }).querySelectorAll("button")].map((b) => b.textContent);
+  expect(tabs).toEqual(expect.arrayContaining(["Overview", "Today", "Workspaces", "Settings & system", "Personal"]));
+  expect(tabs[0]).toBe("Overview");
+  expect(tabs[tabs.length - 1]).toBe("Personal");
+  const main = document.querySelector(".hm.hm--kite .hm-main");
+  expect(main.lastElementChild.getAttribute("aria-labelledby")).toBe("hm-about-h");
+});

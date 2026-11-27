@@ -1,15 +1,15 @@
-// The home of the private area, laid out as a control panel (third design, 2026-11-19):
-//   AT THE SIDE  who you are, the one big way in (the trading terminal, on the workspace you chose), the next most
-//                useful ones, and the list of this page's sections — it stays on screen and marks where you are
-//   BESIDE IT    a live status row (market session, Zerodha, the trading switch, today's P&L, the Advisor, the
-//                forecaster, AI credit), then the sections:
-//                  Today · Workspaces · Tools (TradeAI, paper trading, Social Media) · Zerodha accounts (yours, or —
-//                  for the owner — who may use their own) · Customize (the look, the workspaces, the Desk's start,
-//                  this page) · Settings & system
-// What you hid under Customize is not drawn; a workspace you may not open never is. On a phone the side column is the
-// top of the page and the sections follow. Every link into the terminal opens it in its own tab.
+// The home of the private area, laid out as Zerodha Kite lays out its dashboard (fourth design, 27 Nov 2026, the owner: "more
+// elegant, more breathing space, enterprise grade as per Zerodha Kite"; look in home-kite.css):
+//   AT THE TOP   an open header — who you are and the date, the hide-amounts switch, and the three ways in (the trading terminal,
+//                on the workspace you chose, first) — then the page's sections as a row of underline tabs that stays on screen
+//   THE PAGE     one wide column of open sections divided by hairlines: the next trading day, the live status row, today at a
+//                glance, the workspaces, the tools, learning, Zerodha accounts, Customize, Settings & system, and the owner's
+//                Personal things last
+// What you hid under Customize is not drawn; a workspace you may not open never is. Every link into the terminal opens it in its
+// own tab.
 
 import "./home.css";
+import "./home-kite.css";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "./api";
@@ -538,10 +538,10 @@ export default function Dashboard() {
 
   return (
     <Shell wide>
-      <div className="hm hm--panel">
-        <aside className="hm-side" aria-label="You, the way in, and this page's sections">
-          <section className="hm-me" aria-labelledby="hm-hero-h">
-            <DrishtiLogo className="hm-me__art" size={72} />
+      <div className="hm hm--kite">
+        <header className="hm-me hm-top" aria-labelledby="hm-hero-h">
+          <DrishtiLogo className="hm-me__art" size={56} />
+          <div className="hm-top__who">
             <p className="hm-hero__k">
               {greetingIst(dayNow.getTime())} · {today}
             </p>
@@ -549,104 +549,68 @@ export default function Dashboard() {
             <p className="hm-me__role">
               {isSuper ? (user.owner === false ? "Superadmin" : "Owner") : user.trader ? "Member · own Zerodha account" : "Member"}
             </p>
-            {/* hide every amount with ***** on every page (privacy.jsx) — also in the account menu */}
-            <PrivacyToggle />
-            {/* the three ways in (24 Nov 2026): one framed action each — its icon in a soft disc, its name, a line on what is
-                there, and the arrow that says it opens in a new tab. The terminal is the filled one. */}
-            <div className="hm-me__cta">
-              <a className="hm-btn hm-btn--go hm-cta" href={terminal(startView)} target="_blank" rel="noopener noreferrer" data-tip={`Open the trading terminal in a new tab${start && startView ? `, on ${start.label}` : ""}. Choose where it opens under Customize.`}>
-                <span className="hm-cta__ico" aria-hidden="true">
-                  <svg viewBox="0 0 24 24">
-                    <rect x="3" y="4" width="18" height="13" rx="2" />
-                    <path d="M7 13l3-3 2.5 2L17 8M8 21h8M12 17v4" />
-                  </svg>
-                </span>
-                <span className="hm-cta__txt">
-                  <b>Open the terminal</b>
-                  <small>Desk, live calls, positions</small>
-                </span>
-                <IconArrow />
-              </a>
-              <a className="hm-btn hm-cta" href={terminal("research")} target="_blank" rel="noopener noreferrer" data-tip="Research, the autopilot and the 15-minute forecaster.">
-                <span className="hm-cta__ico" aria-hidden="true">
-                  <svg viewBox="0 0 24 24">
-                    <circle cx="10.5" cy="10.5" r="6.5" />
-                    <path d="M20 20l-4.6-4.6M7.5 12l2-2 1.6 1.4L13.5 9" />
-                  </svg>
-                </span>
-                <span className="hm-cta__txt">
-                  <b>Research &amp; forecasts</b>
-                  <small>Top 10, autopilot, 15-min forecast</small>
-                </span>
-                <IconArrow />
-              </a>
-              <a className="hm-btn hm-cta" href={adminPath("/tradeai")} target="_blank" rel="noopener noreferrer" data-tip="Ask TradeAI about the market, a stock or your positions.">
-                <span className="hm-cta__ico" aria-hidden="true">
-                  <svg viewBox="0 0 24 24">
-                    <path d="M4 5h16v11H9l-5 4z" />
-                    <path d="M12 8.2l.8 1.8 1.8.8-1.8.8-.8 1.8-.8-1.8-1.8-.8 1.8-.8z" />
-                  </svg>
-                </span>
-                <span className="hm-cta__txt">
-                  <b>Ask TradeAI</b>
-                  <small>Your AI market assistant</small>
-                </span>
-                <IconArrow />
-              </a>
-            </div>
-          </section>
-          {/* the next trading day, under the greeting — shown on narrow screens, where this column is the top of the page */}
-          <NextSession ns={ns} place="side" />
-          {/* Personal: what is the owner's own — his Kundali and his expenses. For superadmins only; the server refuses
-              everyone else as well. */}
-          {isSuper && (
-            <section className="hm-about" aria-labelledby="hm-about-h">
-              <h2 id="hm-about-h">Personal</h2>
-              <a
-                className="hm-kundali"
-                href={adminPath("/kundali")}
-                target="_blank"
-                rel="noopener noreferrer"
-                lang="hi"
-                data-tip="The birth chart, in Hindi: the charts, the dasha running today, the reading, the colours and remedies, and the stored horoscope to read or download. Superadmins only. Opens in a new tab."
-              >
-                <span className="hm-kundali__mark" aria-hidden="true">
-                  ॐ
-                </span>
-                <span className="hm-kundali__text">
-                  <b>जन्म कुंडली</b>
-                  <small>लग्न, ग्रह, दशा, योग, शुभ रंग और उपाय · पत्रिका की प्रति</small>
-                </span>
-                <IconArrow />
-              </a>
-              <a
-                className="hm-kundali hm-kundali--expenses"
-                href={adminPath("/expenses")}
-                target="_blank"
-                rel="noopener noreferrer"
-                data-tip="Your expense tracker: add what you spend with its date, then see it by day, month, year, group and category, search and sort it, and save it as a file. Superadmins only. Opens in a new tab."
-              >
-                <span className="hm-kundali__mark" aria-hidden="true">
-                  ₹
-                </span>
-                <span className="hm-kundali__text">
-                  <b>Expenses</b>
-                  <small>Track what you spend: by day, month, year and category</small>
-                </span>
-                <IconArrow />
-              </a>
-              {/* the switch for the person icon in the public website's navbar (it hides the icon only; /me always opens) */}
-              <LoginIconTile />
-            </section>
-          )}
-          <PageJumps side within=".hm" select="[data-jump]" min={2} label="The sections of this page" />
-        </aside>
+          </div>
+          {/* hide every amount with ***** on every page (privacy.jsx) — also in the account menu */}
+          <PrivacyToggle />
+          {/* the three ways in (24 Nov 2026): one framed action each — its icon in a soft disc, its name, a line on what is
+              there, and the arrow that says it opens in a new tab. The terminal is the filled one. */}
+          <div className="hm-me__cta">
+            <a className="hm-btn hm-btn--go hm-cta" href={terminal(startView)} target="_blank" rel="noopener noreferrer" data-tip={`Open the trading terminal in a new tab${start && startView ? `, on ${start.label}` : ""}. Choose where it opens under Customize.`}>
+              <span className="hm-cta__ico" aria-hidden="true">
+                <svg viewBox="0 0 24 24">
+                  <rect x="3" y="4" width="18" height="13" rx="2" />
+                  <path d="M7 13l3-3 2.5 2L17 8M8 21h8M12 17v4" />
+                </svg>
+              </span>
+              <span className="hm-cta__txt">
+                <b>Open the terminal</b>
+                <small>Desk, live calls, positions</small>
+              </span>
+              <IconArrow />
+            </a>
+            <a className="hm-btn hm-cta" href={terminal("research")} target="_blank" rel="noopener noreferrer" data-tip="Research, the autopilot and the 15-minute forecaster.">
+              <span className="hm-cta__ico" aria-hidden="true">
+                <svg viewBox="0 0 24 24">
+                  <circle cx="10.5" cy="10.5" r="6.5" />
+                  <path d="M20 20l-4.6-4.6M7.5 12l2-2 1.6 1.4L13.5 9" />
+                </svg>
+              </span>
+              <span className="hm-cta__txt">
+                <b>Research &amp; forecasts</b>
+                <small>Top 10, autopilot, 15-min forecast</small>
+              </span>
+              <IconArrow />
+            </a>
+            <a className="hm-btn hm-cta" href={adminPath("/tradeai")} target="_blank" rel="noopener noreferrer" data-tip="Ask TradeAI about the market, a stock or your positions.">
+              <span className="hm-cta__ico" aria-hidden="true">
+                <svg viewBox="0 0 24 24">
+                  <path d="M4 5h16v11H9l-5 4z" />
+                  <path d="M12 8.2l.8 1.8 1.8.8-1.8.8-.8 1.8-.8-1.8-1.8-.8 1.8-.8z" />
+                </svg>
+              </span>
+              <span className="hm-cta__txt">
+                <b>Ask TradeAI</b>
+                <small>Your AI market assistant</small>
+              </span>
+              <IconArrow />
+            </a>
+          </div>
+        </header>
+        {/* the sections as Kite's underline tabs, staying on screen as the page scrolls */}
+        <PageJumps stuck within=".hm" select="[data-jump]" min={2} label="The sections of this page" />
 
         <div className="hm-main">
         {/* the next trading day by NSE's calendar, at the top of the page on wide screens */}
         <NextSession ns={ns} place="main" />
 
-        {prefs.home.status && <Pulse isSuper={isSuper} ns={ns} />}
+        {prefs.home.status && (
+          <section className="hm-now" aria-labelledby="hm-now-h" data-jump="Overview">
+            <h2 id="hm-now-h" className="hm-h">
+              Market &amp; desk
+            </h2>
+            <Pulse isSuper={isSuper} ns={ns} />
+          </section>
+        )}
 
         {prefs.home.today && <TodayCard isSuper={isSuper} />}
 
@@ -695,6 +659,53 @@ export default function Dashboard() {
           </div>
           <SystemRow isSuper={isSuper} />
         </section>
+
+        {/* Personal: what is the owner's own — his Kundali and his expenses — last on the page. For superadmins only; the server
+            refuses everyone else as well. */}
+        {isSuper && (
+          <section className="hm-about" aria-labelledby="hm-about-h" data-jump="Personal">
+            <h2 id="hm-about-h" className="hm-h">
+              Personal
+            </h2>
+            <div className="hm-about__grid">
+              <a
+                className="hm-kundali"
+                href={adminPath("/kundali")}
+                target="_blank"
+                rel="noopener noreferrer"
+                lang="hi"
+                data-tip="The birth chart, in Hindi: the charts, the dasha running today, the reading, the colours and remedies, and the stored horoscope to read or download. Superadmins only. Opens in a new tab."
+              >
+                <span className="hm-kundali__mark" aria-hidden="true">
+                  ॐ
+                </span>
+                <span className="hm-kundali__text">
+                  <b>जन्म कुंडली</b>
+                  <small>लग्न, ग्रह, दशा, योग, शुभ रंग और उपाय · पत्रिका की प्रति</small>
+                </span>
+                <IconArrow />
+              </a>
+              <a
+                className="hm-kundali hm-kundali--expenses"
+                href={adminPath("/expenses")}
+                target="_blank"
+                rel="noopener noreferrer"
+                data-tip="Your expense tracker: add what you spend with its date, then see it by day, month, year, group and category, search and sort it, and save it as a file. Superadmins only. Opens in a new tab."
+              >
+                <span className="hm-kundali__mark" aria-hidden="true">
+                  ₹
+                </span>
+                <span className="hm-kundali__text">
+                  <b>Expenses</b>
+                  <small>Track what you spend: by day, month, year and category</small>
+                </span>
+                <IconArrow />
+              </a>
+              {/* the switch for the person icon in the public website's navbar (it hides the icon only; /me always opens) */}
+              <LoginIconTile />
+            </div>
+          </section>
+        )}
         </div>
       </div>
     </Shell>

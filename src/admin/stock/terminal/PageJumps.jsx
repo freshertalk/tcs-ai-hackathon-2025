@@ -57,9 +57,15 @@ function scrollBox(el, stop) {
  * A page says how much room that takes with the section's scroll-margin-top (terminal/pages.css); the row's own bottom
  * is the least it can be.
  */
-function landingLine(el, nav, side = false) {
-  // a row across the top: sections land under it; a list at the side (the /me page): only the page's own margin counts
-  const under = side ? 0 : nav.getBoundingClientRect().bottom + 8;
+function landingLine(el, nav, side = false, stuck = false) {
+  // a row across the top: sections land under it; a list at the side: only the page's own margin counts. `stuck`: the row
+  // starts well down the page (under a tall header, as on /me), so what counts is where it will stand once it sticks — not
+  // where it is now — and nothing at all where it does not follow you down
+  let under = 0;
+  if (!side && stuck) {
+    const cs = window.getComputedStyle(nav);
+    under = cs.position === "sticky" ? (parseFloat(cs.top) || 0) + nav.offsetHeight + 8 : 0;
+  } else if (!side) under = nav.getBoundingClientRect().bottom + 8;
   const margin = parseFloat(window.getComputedStyle(el).scrollMarginTop);
   return Number.isFinite(margin) ? Math.max(under, margin) : under;
 }
@@ -82,8 +88,10 @@ const jumpTo = (top) => {
  * @param within the sections are read from the nearest ancestor matching this selector (default: the row's own parent) —
  *               for a list that sits in a side column of the page it describes
  * @param side   the list stands at the side of the page, not across its top
+ * @param stuck  the row sits under a tall header: land by where it stands once stuck, and at the foot of the page mark the
+ *               last section (it can never reach the top)
  */
-export default function PageJumps({ names = [], select = SECTIONS, skip = "", min = 3, label = "Jump to a section of this page", within = "", side = false, className = "" }) {
+export default function PageJumps({ names = [], select = SECTIONS, skip = "", min = 3, label = "Jump to a section of this page", within = "", side = false, stuck = false, className = "" }) {
   const rootOf = useCallback((nav) => (nav ? (within ? nav.closest(within) : nav.parentElement) : null), [within]);
   const ref = useRef(null);
   const items = useRef([]);
@@ -119,10 +127,13 @@ export default function PageJumps({ names = [], select = SECTIONS, skip = "", mi
     let cur = "";
     for (const it of items.current) {
       if (scrollBox(it.el, rootOf(nav))) continue;
-      if (it.el.getBoundingClientRect().top <= landingLine(it.el, nav, side) + 16) cur = it.name;
+      if (it.el.getBoundingClientRect().top <= landingLine(it.el, nav, side, stuck) + 16) cur = it.name;
     }
+    const doc = document.documentElement;
+    const last = items.current[items.current.length - 1];
+    if (stuck && last && window.scrollY > 0 && window.scrollY + window.innerHeight >= doc.scrollHeight - 4) cur = last.name;
     setActive(cur);
-  }, [rootOf, side]);
+  }, [rootOf, side, stuck]);
 
   useEffect(() => {
     const nav = ref.current;
@@ -170,7 +181,7 @@ export default function PageJumps({ names = [], select = SECTIONS, skip = "", mi
     const it = items.current.find((x) => x.name === name);
     if (!nav || !it) return;
     if (it.el.tagName === "DETAILS") it.el.open = true;
-    const line = landingLine(it.el, nav, side);
+    const line = landingLine(it.el, nav, side, stuck);
     const box = scrollBox(it.el, rootOf(nav));
     if (box) {
       // the section is in a rail that scrolls on its own: scroll the rail, and bring the rail on screen if it is not

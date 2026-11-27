@@ -1,0 +1,610 @@
+/* ==========================================================================
+   /me — the home page, laid out as Zerodha Kite lays out its dashboard (27 Nov 2026, the owner: "more best, elegant, more
+   breathing space, enterprise grade as per Zerodha Kite screens clear view and UI/UX").
+     · one white page, one centred column            · an open header: the greeting large and light, no box
+     · the sections as underline tabs that stay       · sections divided by hairlines, with room around them — no boxes in boxes
+     · figures large and light, divided by lines      · tiles with a hairline, a small corner and nothing else
+   This page only: every rule starts at .hm.hm--kite (Dashboard.jsx), which also lifts it over the older layers (home.css,
+   polish.css, kite.css, soft-buttons.css). Colours are the private area's tokens, so both themes follow.
+   ========================================================================== */
+
+/* the page itself is white, as Kite's dashboard is */
+.adm:has(.hm.hm--kite) {
+  background: var(--surface);
+}
+
+.adm .hm.hm--kite {
+  --hk-top: 65px; /* under the page's own sticky header */
+  --hk-gap: clamp(32px, 4vw, 48px); /* the room above and under a section */
+  --hk-r: 6px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 clamp(0px, 1.2vw, 16px) 72px;
+}
+
+/* ------------------------------------------------------------------ the header: who you are, and the ways in */
+.adm .hm.hm--kite .hm-top {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr) auto; /* the logo's own width: the wide rows under it must not stretch it */
+  grid-template-areas:
+    "art who pv"
+    "cta cta cta";
+  align-items: center;
+  gap: 28px 18px;
+  padding: clamp(20px, 3.4vw, 40px) 0 clamp(24px, 3vw, 32px);
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+.adm .hm.hm--kite .hm-top .hm-me__art {
+  grid-area: art;
+  width: 56px;
+  height: 56px;
+  margin: 0;
+}
+.adm .hm.hm--kite .hm-top__who {
+  grid-area: who;
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.adm .hm.hm--kite .hm-top .hm-hero__k {
+  margin: 0;
+  color: var(--ink-3);
+  font-size: var(--t-mid);
+  font-weight: 400;
+  line-height: 1.4;
+}
+.adm .hm.hm--kite .hm-top h1 {
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--f-ui);
+  font-size: clamp(1.625rem, 1.2rem + 1.5vw, 2.25rem);
+  font-weight: 300;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  overflow-wrap: break-word;
+}
+.adm .hm.hm--kite .hm-top .hm-me__role {
+  justify-self: start;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  color: var(--ink-3);
+  font-size: var(--t-small);
+  font-weight: 600;
+}
+.adm .hm.hm--kite .hm-me .pv-toggle {
+  grid-area: pv; /* (also takes the older layers' grid-column back) */
+  justify-self: end;
+  align-self: center;
+  margin: 0;
+}
+
+/* the three ways in */
+.adm .hm.hm--kite .hm-me__cta {
+  grid-area: cta;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin: 0;
+}
+.adm .hm.hm--kite .hm-cta {
+  gap: 14px;
+  min-height: 72px;
+  padding: 14px 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--hk-r);
+  background: var(--surface);
+  box-shadow: none;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+.adm .hm.hm--kite .hm-cta:hover {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 4%, var(--surface));
+}
+.adm .hm.hm--kite .hm-cta__ico {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--hk-r);
+  background: color-mix(in srgb, var(--accent) 9%, var(--surface));
+}
+.adm .hm.hm--kite .hm-cta__txt {
+  gap: 3px;
+}
+.adm .hm.hm--kite .hm-cta__txt b {
+  font-size: var(--t-base);
+  font-weight: 600;
+}
+.adm .hm.hm--kite .hm-cta.hm-btn--go {
+  border-color: var(--accent);
+  background: var(--accent);
+  box-shadow: none;
+}
+.adm .hm.hm--kite .hm-cta.hm-btn--go:hover {
+  background: color-mix(in srgb, var(--accent) 90%, #000);
+}
+.adm .hm.hm--kite .hm-cta.hm-btn--go .hm-cta__ico {
+  background: color-mix(in srgb, var(--on-accent) 16%, transparent);
+  color: var(--on-accent);
+}
+.adm .hm.hm--kite .hm-cta.hm-btn--go .hm-cta__txt b,
+.adm .hm.hm--kite .hm-cta.hm-btn--go .hm-cta__txt small,
+.adm .hm.hm--kite .hm-cta.hm-btn--go > svg {
+  color: var(--on-accent);
+}
+
+/* ------------------------------------------------------------------ the sections, as Kite's tabs */
+.adm .hm.hm--kite > .pj {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 4px;
+  min-width: 0;
+  padding: 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+}
+.adm .hm.hm--kite > .pj[hidden] {
+  display: none;
+}
+.adm .hm.hm--kite > .pj button {
+  min-height: 46px;
+  padding: 0 12px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: none;
+  color: var(--ink-2);
+  font: inherit;
+  font-size: var(--t-mid);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.adm .hm.hm--kite > .pj button:hover {
+  color: var(--accent);
+}
+.adm .hm.hm--kite > .pj button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.adm .hm.hm--kite > .pj button.is-on {
+  border-bottom-color: var(--kite-orange, var(--accent-2));
+  color: var(--accent-2);
+  font-weight: 600;
+}
+/* they follow you down the page where they fit on one or two lines; on a phone they stay under the header */
+@media (min-width: 760px) {
+  .adm .hm.hm--kite > .pj {
+    position: sticky;
+    top: var(--hk-top);
+    z-index: 15;
+  }
+}
+
+/* ------------------------------------------------------------------ the page: open sections, divided by hairlines */
+.adm .hm.hm--kite .hm-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+  min-width: 0;
+}
+.adm .hm.hm--kite .hm-main > * {
+  min-width: 0;
+  scroll-margin-top: calc(var(--hk-top) + 12px);
+}
+.adm .hm.hm--kite .hm-main > :where(section, nav, div):not(.ns) {
+  padding: var(--hk-gap) 0;
+  border-bottom: 1px solid var(--line);
+}
+.adm .hm.hm--kite .hm-main > :last-child {
+  border-bottom: 0;
+}
+.adm .hm.hm--kite .hm-main > .hm-card {
+  padding: var(--hk-gap) 0;
+  border-width: 0 0 1px;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+.adm .hm.hm--kite .hm-h {
+  margin: 0;
+  color: var(--ink);
+  font-size: 1.125rem;
+  font-weight: 400;
+  line-height: 1.35;
+}
+
+/* the next trading day: one strip, at every width (the page has no side column now) */
+.adm .hm.hm--kite .ns--main {
+  display: grid;
+  margin: var(--hk-gap) 0 0;
+  padding: 18px 22px;
+  border-radius: var(--hk-r);
+  box-shadow: none;
+}
+.adm .hm.hm--kite .ns--main.is-loading {
+  display: grid;
+}
+@media (max-width: 639.98px) {
+  .adm .hm.hm--kite .ns--main {
+    padding: 14px;
+  }
+}
+@media (min-width: 640px) and (max-width: 999.98px) {
+  .adm .hm.hm--kite .ns--main.is-loading {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ------------------------------------------------------------------ figures: large, light, divided by lines (Kite's "Equity") */
+.adm .hm.hm--kite .hm-now {
+  display: grid;
+  gap: 24px;
+  overflow: hidden; /* the first column's line sits just outside */
+}
+.adm .hm.hm--kite .hm-today {
+  gap: 24px;
+  overflow: hidden;
+}
+.adm .hm.hm--kite .hm-pulse,
+.adm .hm.hm--kite .hm-today ul {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 1fr));
+  gap: 28px 0;
+  margin: 0 0 0 -25px;
+}
+/* the status figures stand three to a row (six make two even rows) */
+@media (min-width: 960px) {
+  .adm .hm.hm--kite .hm-pulse {
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  }
+}
+.adm .hm.hm--kite .hm-pc,
+.adm .hm.hm--kite .hm-today li {
+  min-width: 0;
+  border: 0;
+  border-left: 1px solid var(--line);
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+.adm .hm.hm--kite .hm-pc > a,
+.adm .hm.hm--kite .hm-pc > div,
+.adm .hm.hm--kite .hm-today li a {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  height: 100%;
+  padding: 2px 20px 2px 24px;
+  border: 0;
+  border-radius: 0;
+  background: none;
+}
+.adm .hm.hm--kite .hm-pc > a:hover .hm-pc__k,
+.adm .hm.hm--kite .hm-today li a:hover .hm-row__k {
+  color: var(--accent);
+}
+.adm .hm.hm--kite .hm-pc__k,
+.adm .hm.hm--kite .hm-row__k {
+  color: var(--ink-3);
+  font-size: var(--t-small);
+  font-weight: 400;
+}
+.adm .hm.hm--kite .hm-pc__v,
+.adm .hm.hm--kite .hm-today li a > b {
+  font-size: 1.5rem;
+  font-weight: 300;
+  line-height: 1.3;
+  overflow-wrap: break-word;
+}
+.adm .hm.hm--kite .hm-pc small,
+.adm .hm.hm--kite .hm-today small {
+  line-height: 1.5;
+}
+
+/* ------------------------------------------------------------------ workspaces */
+.adm .hm.hm--kite .hm-ws {
+  gap: 32px;
+}
+.adm .hm.hm--kite .hm-find {
+  max-width: 360px;
+}
+.adm .hm.hm--kite .hm-find input {
+  height: 40px;
+  border-radius: var(--hk-r);
+  background: var(--surface);
+}
+.adm .hm.hm--kite .hm-grp {
+  gap: 14px;
+}
+.adm .hm.hm--kite .hm-grp h3 {
+  font-size: var(--t-base);
+  font-weight: 600;
+}
+.adm .hm.hm--kite .hm-grp h3 i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.adm .hm.hm--kite .hm-grp__tiles {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 255px), 1fr));
+  gap: 14px;
+}
+.adm .hm.hm--kite .hm-tile {
+  align-items: flex-start;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--hk-r);
+  background: var(--surface);
+  box-shadow: none;
+  transition: border-color 0.15s ease;
+}
+.adm .hm.hm--kite .hm-tile:hover {
+  border-color: var(--accent);
+  background: var(--surface);
+}
+.adm .hm.hm--kite .hm-tile:hover .hm-tile__txt b {
+  color: var(--accent);
+}
+.adm .hm.hm--kite .hm-tile__ico {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--hk-r);
+  background: var(--surface-2);
+  color: var(--accent);
+}
+.adm .hm.hm--kite .hm-tile__txt {
+  gap: 4px;
+}
+.adm .hm.hm--kite .hm-tile__txt b {
+  font-weight: 600;
+}
+.adm .hm.hm--kite .hm-tile__txt small {
+  line-height: 1.5;
+}
+
+/* ------------------------------------------------------------------ the three tools */
+.adm .hm.hm--kite .hm-feats {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  gap: 16px;
+}
+.adm .hm.hm--kite .hm-feat {
+  display: grid;
+  border: 1px solid var(--line);
+  border-radius: var(--hk-r);
+  background: var(--surface);
+  box-shadow: none;
+  transition: border-color 0.15s ease;
+}
+.adm .hm.hm--kite .hm-feat:hover {
+  border-color: var(--line-2);
+}
+.adm .hm.hm--kite .hm-feat > a {
+  grid-template-rows: auto 1fr;
+  align-content: start;
+  gap: 18px 14px;
+  padding: 24px;
+  border-top: 0;
+}
+.adm .hm.hm--kite .hm-feat > a:hover {
+  background: color-mix(in srgb, var(--accent) 3%, var(--surface));
+}
+.adm .hm.hm--kite .hm-feat__ico {
+  border-radius: var(--hk-r);
+}
+.adm .hm.hm--kite .hm-feat__body {
+  align-content: start;
+  gap: 8px;
+}
+.adm .hm.hm--kite .hm-feat__t {
+  font-size: 1.125rem;
+  font-weight: 400;
+}
+.adm .hm.hm--kite .hm-feat__d {
+  line-height: 1.65;
+}
+.adm .hm.hm--kite .hm-feat__go {
+  align-self: end;
+  margin: 0;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* ------------------------------------------------------------------ learning, accounts, customize: the same air */
+.adm .hm.hm--kite .hm-learn,
+.adm .hm.hm--kite .cz,
+.adm .hm.hm--kite .za {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 24px;
+}
+.adm .hm.hm--kite .hm-learn__grid {
+  gap: 14px;
+}
+.adm .hm.hm--kite .hm-learn__card,
+.adm .hm.hm--kite .hm-learn__own,
+.adm .hm.hm--kite .cz-box {
+  border-radius: var(--hk-r);
+  box-shadow: none;
+}
+.adm .hm.hm--kite .hm-learn__card {
+  padding: 16px;
+}
+.adm .hm.hm--kite .hm-learn__own {
+  padding: 18px 20px;
+}
+.adm .hm.hm--kite .cz-grid {
+  gap: 16px;
+}
+.adm .hm.hm--kite .cz-box {
+  padding: 20px;
+  background: var(--surface);
+}
+
+/* ------------------------------------------------------------------ settings and system */
+.adm .hm.hm--kite .hm-sets {
+  gap: 24px;
+}
+.adm .hm.hm--kite .hm-sets__grid {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
+  gap: 14px;
+}
+.adm .hm.hm--kite .hm-set {
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--hk-r);
+  background: var(--surface);
+  box-shadow: none;
+}
+.adm .hm.hm--kite .hm-set:hover {
+  border-color: var(--accent);
+}
+.adm .hm.hm--kite .hm-sys__tile {
+  border-radius: var(--hk-r);
+  background-color: var(--surface);
+  box-shadow: none;
+}
+
+/* ------------------------------------------------------------------ Personal: the owner's own things, last */
+.adm .hm.hm--kite .hm-about {
+  display: grid;
+  gap: 24px;
+  border-width: 0;
+  border-radius: 0;
+  background: none;
+}
+.adm .hm.hm--kite .hm-about h2 {
+  color: var(--ink);
+  font-size: 1.125rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.adm .hm.hm--kite .hm-about__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  gap: 16px;
+  align-items: stretch;
+}
+.adm .hm.hm--kite .hm-about__grid > * {
+  min-width: 0;
+}
+.adm .hm.hm--kite .hm-kundali {
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--hk-r);
+  background: var(--surface);
+  box-shadow: none;
+  transform: none;
+}
+.adm .hm.hm--kite .hm-kundali:hover {
+  border-color: var(--accent);
+}
+
+/* ------------------------------------------------------------------ narrower screens */
+@media (max-width: 899.98px) {
+  .adm .hm.hm--kite .hm-top {
+    grid-template-columns: 56px minmax(0, 1fr);
+    grid-template-areas:
+      "art who"
+      "pv pv"
+      "cta cta";
+    gap: 18px 14px;
+  }
+  .adm .hm.hm--kite .hm-me .pv-toggle {
+    justify-self: start;
+  }
+  .adm .hm.hm--kite > .pj {
+    gap: 0;
+  }
+  .adm .hm.hm--kite > .pj button {
+    padding: 0 6px;
+  }
+}
+/* a tablet: three ways in side by side are narrow — the icon and the arrow sit above the words */
+@media (min-width: 640px) and (max-width: 899.98px) {
+  .adm .hm.hm--kite .hm-cta {
+    grid-template-columns: auto auto;
+    justify-content: space-between;
+    align-content: start;
+    gap: 12px;
+    padding: 16px;
+  }
+  .adm .hm.hm--kite .hm-cta > svg {
+    grid-column: 2;
+    grid-row: 1;
+    align-self: start;
+    justify-self: end;
+  }
+  .adm .hm.hm--kite .hm-cta__txt {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+}
+@media (max-width: 639.98px) {
+  .adm .hm.hm--kite .hm-me__cta {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+}
+@media (max-width: 759.98px) {
+  .adm .hm.hm--kite {
+    padding-bottom: 40px;
+  }
+  .adm .hm.hm--kite .hm-cta {
+    min-height: 62px;
+    padding: 11px 14px;
+  }
+  .adm .hm.hm--kite > .pj button {
+    min-height: 40px;
+    padding: 0 8px;
+  }
+}
+@media (max-width: 559.98px) {
+  .adm .hm.hm--kite .hm-top {
+    grid-template-columns: 44px minmax(0, 1fr);
+  }
+  .adm .hm.hm--kite .hm-top .hm-me__art {
+    width: 44px;
+    height: 44px;
+  }
+  .adm .hm.hm--kite .hm-pulse,
+  .adm .hm.hm--kite .hm-today ul {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 22px 0;
+    margin-left: -15px;
+  }
+  .adm .hm.hm--kite .hm-pc > a,
+  .adm .hm.hm--kite .hm-pc > div,
+  .adm .hm.hm--kite .hm-today li a {
+    padding: 2px 8px 2px 14px;
+  }
+  .adm .hm.hm--kite .hm-pc__v,
+  .adm .hm.hm--kite .hm-today li a > b {
+    font-size: 1.25rem;
+  }
+  .adm .hm.hm--kite .hm-feat > a {
+    padding: 18px;
+  }
+  .adm .hm.hm--kite .cz-box {
+    padding: 14px;
+  }
+}
+@media (max-width: 359.98px) {
+  .adm .hm.hm--kite .hm-pulse,
+  .adm .hm.hm--kite .hm-today ul {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .adm .hm.hm--kite * {
+    transition: none;
+  }
+}

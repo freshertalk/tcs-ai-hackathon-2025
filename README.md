@@ -494,8 +494,8 @@ reset-password page wears the same look.
   - Tests: `privacy.test.js` and `prefs-live.test.js`.
 - */me redesign*:
   - The three ways in are framed actions: icon disc, name, one-line hint and arrow. "Open the terminal" is the filled one.
-  - On phones and tablets the side column dissolves into the page, so Personal (Kundali, Expenses, Login icon) comes
-    last.
+  - Personal (Kundali, Expenses, Login icon) comes last (since 27 Nov 2026 at every width: see *Kite's dashboard
+    layout*).
   - "AI Trading Advisor" shows under DrishtiAI on every width. On a phone the terminal bar is two rows: brand, status
     and photo on the first; search, the trading switch and the Mandir on the second (`--tm-top: 96px`).
 - *Buttons*:
@@ -824,7 +824,7 @@ price scale sit under **View**; on a phone the intervals become one drop-down.
 
 **Per-person Zerodha accounts (`server/accounts.js`, `src/admin/ZerodhaAccounts.jsx`; /me → Zerodha accounts).** The owner switches on, per admin, trading on that person's **own** Kite ID. Zerodha ties a Kite Connect app to one client ID, so each person brings their own app (key + secret, redirect URL `<origin>/api/admin/accounts/kite/callback`) and logs in daily on Zerodha's page. Each allowed person gets their own `TradingService` (the same class) over a facade market (their Kite session, the site's prices), their own settings and a namespaced record store (`accounts/<slug>/…`): own funds, positions, orders, trading switch (off by default), limits, risk guard and audit. The account is chosen from the session only (`requireTrader` sets `req.trading`); the owner sees connected/not, never keys or positions, and cannot trade another's account; revoke or admin removal cuts access at once. Journal, Trade Analysis, the AI coach and the streamed live book stay owner-only. Secrets are encrypted with the settings key (`accounts/secrets.json`, excluded from downloads). The site's own Kite credentials and disconnect are owner-only. `GET /api/admin/accounts`, `PUT /api/admin/accounts/people/:email`, `GET|PUT|DELETE /api/admin/accounts/me[/kite]`, `GET /api/admin/accounts/kite/login|callback`.
 
-**Preferences and the /me control panel (`server/prefs.js`, `src/admin/prefs.js`, `src/admin/CustomizeCard.jsx`, `src/admin/Dashboard.jsx`).** /me is a control panel: a sticky side column (logo, greeting and role, the way in, the list of sections via `PageJumps side`) and the sections Today · Workspaces · Tools · Zerodha accounts · Customize · Settings & system. **Customize** keeps each person's own choices on the server (`prefs/<slug>.json`, validated by `clean`): theme, accent, text size, density, motion, which workspaces show and in what order, where the terminal opens, the Desk's start (day board, dock, chart) and which blocks /me shows. `PrefsProvider` applies them (`data-accent`, `data-density`, `data-motion` on `.adm`; root font size); `arrangeViews` orders and hides the terminal's tabs **after** the role filter, so a preference can never widen what a role allows. `GET|PUT|DELETE /api/admin/prefs`.
+**Preferences and the /me control panel (`server/prefs.js`, `src/admin/prefs.js`, `src/admin/CustomizeCard.jsx`, `src/admin/Dashboard.jsx`).** /me is a control panel: an open header (greeting, the hide-amounts switch, the three ways in), a row of section tabs (`PageJumps stuck`) and the sections Overview · Today · Workspaces · Tools · Learning · Zerodha accounts · Customize · Settings & system · Personal (layout under *Sign-in page and dashboard*). **Customize** keeps each person's own choices on the server (`prefs/<slug>.json`, validated by `clean`): theme, accent, text size, density, motion, which workspaces show and in what order, where the terminal opens, the Desk's start (day board, dock, chart) and which blocks /me shows. `PrefsProvider` applies them (`data-accent`, `data-density`, `data-motion` on `.adm`; root font size); `arrangeViews` orders and hides the terminal's tabs **after** the role filter, so a preference can never widen what a role allows. `GET|PUT|DELETE /api/admin/prefs`.
 
 **The file store on Windows (`server/docs.js`).** `FileDocs.write` retries the final rename for about 1.5 s when Windows refuses it with EPERM / EBUSY / EACCES (a virus scanner or the indexer holding the file): a refused write used to leave the request that made it unanswered.
 
@@ -845,6 +845,18 @@ switch, today's P&L, Advisor A/B, the 15-minute forecaster's tested hit rate, AI
 seconds and the moment the tab is shown again); the owner's *Today* cards (paper robot, month, autopilot proposals
 waiting, likely trenders); the workspaces in three groups with a finder (press `/`); TradeAI, paper trading and Social
 Media side by side; and settings and system health below. Every part wraps: nothing scrolls sideways.
+
+**/me in Kite's dashboard layout (2026-11-27; `Dashboard.jsx`, `home-kite.css`, `stock/terminal/PageJumps.jsx`).** The
+home page is one white, centred column (1200 px at most) with room around every part; this page only (every rule starts at
+`.hm.hm--kite`).
+- *Header*: the greeting large and light, the date above it and the role under it, the hide-amounts switch, and the three
+  ways in (the terminal filled blue). Side by side from 900 px; stacked cards on a tablet; one row each on a phone.
+- *Tabs*: the sections as underline tabs (orange on the one you are on). They stay under the top bar from 760 px up. The
+  `stuck` option of `PageJumps` lands a jump by where the row stands once stuck; the other pages keep the old behaviour.
+- *Sections*: divided by hairlines instead of boxed. The status row (now headed *Market & desk*) and *Today* show large
+  light figures divided by lines; tiles have a hairline and a 6 px corner.
+- The side column is gone: Personal is the last section at every width. Nothing was removed.
+- Checked at 390, 768, 1024 and 1440 px (light; dark at 390 and 1440): no sideways scroll, clipped text or text under 4.5:1.
 
 **Research direction and automatic runs (`server/market/direction.js`, `server/research-auto.js`).**
 Every research report now gives each stock a **direction** — Buy / Watch for entry / No trade /
