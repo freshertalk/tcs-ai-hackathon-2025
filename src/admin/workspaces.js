@@ -5,21 +5,22 @@
 
 export const WORKSPACE_LIST = [
   { id: "analyzer", label: "Desk" },
-  { id: "now", label: "Now" },
-  { id: "setup", label: "Trade setup" },
-  { id: "research", label: "Research" },
-  { id: "advisor", label: "Advisor" },
-  { id: "screener", label: "Screener" },
   { id: "account", label: "Positions", superOnly: true, traderOk: true },
+  { id: "screener", label: "Screener" },
+  { id: "setup", label: "Trade setup" },
+  { id: "advisor", label: "Advisor" },
+  { id: "research", label: "Research" },
   { id: "indices", label: "Indices" },
   { id: "analysis", label: "Trade Analysis", superOnly: true },
-  { id: "calendar", label: "Calendar" },
   { id: "journal", label: "Journal", superOnly: true },
+  { id: "calendar", label: "Calendar" },
   { id: "paper", label: "Paper" },
   { id: "debrief", label: "Debrief" },
-  { id: "learning", label: "Vinaypedia" },
-  { id: "engine", label: "AI Engine" },
-  { id: "document", label: "Document" },
+  { id: "now", label: "Now" },
+  // opened from /me in their own tab (27 Nov 2026), not in the terminal's row of workspaces
+  { id: "learning", label: "Vinaypedia", offNav: true },
+  { id: "engine", label: "AI Engine", offNav: true },
+  { id: "document", label: "Document", offNav: true },
 ];
 
 /** May this person open this workspace? (What they have HIDDEN is their preference; this is their right.) */

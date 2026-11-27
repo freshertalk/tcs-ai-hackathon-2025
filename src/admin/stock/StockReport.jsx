@@ -48,23 +48,24 @@ import "./terminal/compact.css";
 import "./terminal/pages.css";
 
 const VIEWS = [
+  // the owner's order (27 Nov 2026). "offNav": opened from /me in its own tab, not shown in the row of workspaces
   { id: "analyzer", label: "Desk", tip: "Watchlist, chart, the live call, order book and co-pilot for one stock, with your positions docked below." },
-  { id: "now", label: "Now", tip: "The command screen: every followed stock with its price as it ticks and its calls for 5 and 15 minutes, your positions with the evidence for or against them, the market, the checks so far and what every automatic system is doing — all live, on one page." },
-  { id: "setup", label: "Trade setup", tip: "The morning's fifteen readings, kept current by the desk itself: NIFTY and BANKNIFTY key levels, their call and put writing, FII/DII flows, PCR, India VIX, every F&O stock's futures build-up (long build-up, short build-up, short covering, long unwinding), high delivery and the F&O ban — with the setup lean and its record. No AI, no refresh." },
-  { id: "research", label: "Research", tip: "Pre-market and post-market research for your watchlist." },
-  { id: "advisor", label: "Advisor", tip: "Your watchlist read by measured odds: what followed the days most like today, whether such calls held up when tested forward, and a plan sized for your risk." },
-  { id: "screener", label: "Screener", tip: "Any NSE index — NIFTY 50, BANK, NEXT 50, broad and sector indices: top gainers and losers, RSI, VWAP, volume and the 52-week range, live; RSI search over the Nifty 500." },
   // the owner's — and, for a person with their own Zerodha account here (server/accounts.js), THEIR account
   { id: "account", label: "Positions", superOnly: true, traderOk: true, tip: "Positions, holdings, orders, funds, the trading switch and the AI coach." },
+  { id: "screener", label: "Screener", tip: "Any NSE index — NIFTY 50, BANK, NEXT 50, broad and sector indices: top gainers and losers, RSI, VWAP, volume and the 52-week range, live; RSI search over the Nifty 500." },
+  { id: "setup", label: "Trade setup", tip: "The morning's fifteen readings, kept current by the desk itself: NIFTY and BANKNIFTY key levels, their call and put writing, FII/DII flows, PCR, India VIX, every F&O stock's futures build-up (long build-up, short build-up, short covering, long unwinding), high delivery and the F&O ban — with the setup lean and its record. No AI, no refresh." },
+  { id: "advisor", label: "Advisor", tip: "Your watchlist read by measured odds: what followed the days most like today, whether such calls held up when tested forward, and a plan sized for your risk." },
+  { id: "research", label: "Research", tip: "Pre-market and post-market research for your watchlist." },
   { id: "indices", label: "Indices", tip: "NIFTY 50 and SENSEX year by year and month by month: points and percent, how each calendar month behaves, the patterns traders watch, and projections for this month and year kept beside what happened — the desk's and the AI's, backtested." },
   { id: "analysis", label: "Trade Analysis", superOnly: true, tip: "The Execution Lab: every intraday trade replayed on 1-minute bars — the share of the move you kept, where you came in, what other exits would have made, and the habits that cost money. (Daily P&L reports are in the Journal's Day book.)" },
-  { id: "calendar", label: "Calendar", tip: "World clock, every weekly and monthly derivatives expiry on NSE and BSE, and the upcoming exchange holidays." },
   { id: "journal", label: "Journal", superOnly: true, tip: "Every round trip you made: win rate, profit factor, expectancy, drawdown, P&L calendar, MAE/MFE, tags and an AI review." },
+  { id: "calendar", label: "Calendar", tip: "World clock, every weekly and monthly derivatives expiry on NSE and BSE, and the upcoming exchange holidays." },
   { id: "paper", label: "Paper", tip: "Paper trading: the desk’s live call followed with play money — in today’s market, on past sessions, and in an auto mode. No real orders; separate from real trading." },
   { id: "debrief", label: "Debrief", tip: "After the close: if you had followed every live call by fixed rules, what would today have made or lost? A report card for the desk’s signals — no real trades." },
-  { id: "learning", label: "Vinaypedia", tip: "Vinay’s own learning: every intraday topic in one place — the desk’s library by area, the newest NSE, SEBI, Zerodha and RBI updates read by the desk itself, lessons the AI writes when you ask, and your own learnings." },
-  { id: "engine", label: "AI Engine", tip: "Everything about the AI: every feature, rule and condition — and, for the superadmin, the AI brains (standing instructions every AI feature follows), the real instructions and the skills file. Word download." },
-  { id: "document", label: "Document", tip: "The complete guide to this advisor in plain English: every feature, who does what, and every rule — what it does, how and when." },
+  { id: "now", label: "Now", tip: "The command screen: every followed stock with its price as it ticks and its calls for 5 and 15 minutes, your positions with the evidence for or against them, the market, the checks so far and what every automatic system is doing — all live, on one page." },
+  { id: "learning", offNav: true, label: "Vinaypedia", tip: "Vinay’s own learning: every intraday topic in one place — the desk’s library by area, the newest NSE, SEBI, Zerodha and RBI updates read by the desk itself, lessons the AI writes when you ask, and your own learnings." },
+  { id: "engine", offNav: true, label: "AI Engine", tip: "Everything about the AI: every feature, rule and condition — and, for the superadmin, the AI brains (standing instructions every AI feature follows), the real instructions and the skills file. Word download." },
+  { id: "document", offNav: true, label: "Document", tip: "The complete guide to this advisor in plain English: every feature, who does what, and every rule — what it does, how and when." },
 ];
 // The long workspaces get a row of jumps under the top bar (terminal/PageJumps.jsx). The sections are read from the
 // page; this only gives a short name to the titles whose own first words are not one ("" = no jump for that section).
@@ -166,6 +167,8 @@ function Terminal() {
   // first what this person MAY open (their role), then THEIR arrangement of it: order, and what they hid (/me → Customize)
   const allowedViews = VIEWS.filter((v) => !v.superOnly || isSuper || (v.traderOk && isTrader));
   const views = arrangeViews(allowedViews, prefs);
+  // the row of workspaces (top bar, bottom bar, keys 1–9): Vinaypedia, the AI Engine and the Document open from /me instead
+  const navViews = views.filter((v) => !v.offNav);
   const asked = params.get("view");
   const view = views.some((v) => v.id === asked) ? asked : "analyzer";
   const [theme, toggleTheme] = useDeskTheme();
@@ -220,7 +223,7 @@ function Terminal() {
       else if (a.action === "help") setHelp(true);
       else if (a.action === "theme") toggleTheme();
       else if (a.action === "dock") showDock && toggleDock();
-      else if (a.action === "view") views[a.view - 1] && go(views[a.view - 1].id);
+      else if (a.action === "view") navViews[a.view - 1] && go(navViews[a.view - 1].id);
       else if (a.action === "search") {
         if (view !== "analyzer") go("analyzer");
         setTimeout(() => {
@@ -240,7 +243,7 @@ function Terminal() {
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [views, view, go, params, trade, toggleTheme, toggleDock, showDock]);
+  }, [navViews, view, go, params, trade, toggleTheme, toggleDock, showDock]);
 
   // what the command palette can do besides opening a stock or a workspace
   const tradeOn = Boolean(trade && trade.enabled);
@@ -286,7 +289,7 @@ function Terminal() {
 
   return (
     <div className={`tm tm--${view} ${bottomNav ? "tm--bnav" : ""} ${showDock ? `has-dock ${dock ? "dock-open" : ""}` : ""}`} onClick={onFold}>
-      <TopBar views={views} view={view} onView={go} theme={theme} onTheme={toggleTheme} onHelp={() => setHelp(true)} onPalette={() => setPalette(true)} symbol={params.get("s") || ""} alertsOpen={alertsOpen} onAlerts={setAlertsOpen} />
+      <TopBar views={navViews} view={view} onView={go} theme={theme} onTheme={toggleTheme} onHelp={() => setHelp(true)} onPalette={() => setPalette(true)} symbol={params.get("s") || ""} alertsOpen={alertsOpen} onAlerts={setAlertsOpen} />
       {trade && trade.goal && <GoalBanner goal={trade.goal} onOpen={view === "account" ? null : () => go("account")} />}
       <main className="tm-work" id="tm-main">
         {/* one failing workspace never blanks the terminal: the top bar and the others stay usable */}
@@ -333,7 +336,7 @@ function Terminal() {
         </ErrorBoundary>
       </main>
       {showDock && <Dock open={dock} onToggle={toggleDock} />}
-      {bottomNav && <BottomNav views={views} view={view} onView={go} theme={theme} onTheme={toggleTheme} onAlerts={() => setAlertsOpen(true)} />}
+      {bottomNav && <BottomNav views={navViews} view={view} onView={go} theme={theme} onTheme={toggleTheme} onAlerts={() => setAlertsOpen(true)} />}
       {help && <ShortcutsDialog onClose={() => setHelp(false)} />}
       {palette && <Palette views={views} actions={actions} onView={go} onOpenStock={openStock} onClose={() => setPalette(false)} />}
     </div>
