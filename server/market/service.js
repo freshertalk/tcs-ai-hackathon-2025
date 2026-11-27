@@ -1210,6 +1210,17 @@ class MarketService {
     } catch (_) {
       flow = null;
     }
+    // the first twenty minutes after the open, with fewer than four 5-minute bars: the morning call stands in (server/morning.js),
+    // so the pulse — and the AI live read on top of it — works from 9:15
+    if (bars5.length < 4 && typeof this.openingPulse === "function") {
+      let early = null;
+      try {
+        early = await this.openingPulse(symbol, day);
+      } catch (_) {
+        early = null;
+      }
+      if (early && early.available) return { ...early, symbol, source: v.source, circuit: v.circuit || null, session: day.session || null, at: new Date(this.now()).toISOString(), lastBar: day.movement ? day.movement.lastBarAt : null };
+    }
     const p = buildPulse({ day, bars5, fast, flow, account, riskPct });
     return { ...p, symbol, source: v.source, circuit: v.circuit || null, session: day.session || null, at: new Date(this.now()).toISOString(), lastBar: day.movement ? day.movement.lastBarAt : null };
   }

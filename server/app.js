@@ -71,6 +71,7 @@ const { SocialWatch } = require("./social-watch");
 const { FlightDeck, FlightError } = require("./flight");
 const { LearnWatch } = require("./learn");
 const { OpenForecast } = require("./open-forecast");
+const { Morning } = require("./morning");
 const { Horizon } = require("./horizon");
 const { Ahead } = require("./ahead");
 const { Evidence } = require("./evidence");
@@ -1745,6 +1746,26 @@ ${e.text}
   ai.deskSetup = () => setup.brief();
   ai.deskSetupFor = (symbol) => setup.forStock(symbol);
   live.watch("setup", () => setup.fingerprint());
+  // the morning call (server/morning.js): for the stock on the Desk, the open, 9:45 and the day's high and low — before the
+  // open, at the auction's price (9:08) and at every 5-minute mark to 9:40; scored, and learned again every evening from the
+  // stored NIFTY 100 history. Before 9:35 the Live Pulse (and so the AI live read) stands on it. No AI, no orders.
+  const morning =
+    opts.morning ||
+    new Morning({ market, docs: store.docs, history: () => robot.history, universe: () => robot.universe(), openForecast, setup, guard: trainGuard, playbook: ai.playbook, now: opts.now, log: opts.log || console, isTradingDay: (d) => nseCalendar.isTradingDay(d) });
+  market.openingPulse = (symbol, day) => morning.pulseLike(symbol, day);
+  if (opts.morningWatch !== false && opts.alertWatch !== false) morning.start();
+  live.watch("morning", () => morning.fingerprint());
+  const mWrap = (fn) => async (req, res) => {
+    try {
+      res.json(await fn(req));
+    } catch (err) {
+      if (!err.status) console.error("[morning]", err && err.message ? err.message : err);
+      res.status(err.status || 500).json({ error: err.code || "morning_failed", message: err.message || "The morning call failed." });
+    }
+  };
+  app.get("/api/admin/market/morning", requireAdmin, mWrap(async () => morning.board()));
+  app.get("/api/admin/market/morning/:symbol", requireAdmin, limiter(240, 60 * 1000), mWrap(async (req) => morning.view(String(req.params.symbol || "").trim().toUpperCase().slice(0, 25))));
+  app.post("/api/admin/market/morning/learn", requireSuper, mWrap(async () => morning.train({ trigger: "you asked" })));
   // The memory governor (server/memory.js): drops these caches when memory is tight, holds heavy jobs back, and outside market
   // hours restarts the server cleanly before pm2's hard limit would kill it mid-work. Every cache here refills from its source.
   const memory =
@@ -2327,6 +2348,10 @@ ${e.text}
         return v.settings.auto ? { state: "on", detail: v.last ? `newest: ${v.last.at.slice(0, 10)} · ${v.backups.length} kept` : "the first one is made after the close" } : { state: "off", detail: "switched off under /me → Data & backups" };
       }),
       sys("open", "Opening-price forecast", "Forecasts from 8:30 AM, final at 9:00, scored from 9:16, learns after every scoring", () => needs("on", `${openForecast.learned().n || 0} opens learned from`)),
+      sys("morning", "Morning call", "Calls from 8:30 AM, at the auction's price (9:08) and every 5 minutes to 9:40; scored at 9:46 and after the close; learns again every evening", () => {
+        const st = morning.status();
+        return needs(st.trained ? "on" : "learning", st.trained ? `learned from ${st.sessions} sessions (to ${st.trainedTo}) · ${st.calls} calls kept` : "learns from the stored NIFTY 100 history in the evening; fixed rules until then");
+      }),
       sys("autopilot", "Autopilot", "Playbooks before the open, triggers watched all session, proposals checked against your limits and graded afterwards — it never sends an order", () => (autopilot.settings().on ? needs("on") : { state: "off", detail: "switched off under Research → Autopilot → Limits" })),
       sys("robot", "Paper robot", "Trades the live scanner's calls with play money all session; compares, corrects itself and studies the NIFTY 100's levels each evening", () => (robot.settings().on ? needs("on") : { state: "off", detail: "switched off under Trade Analysis → Robot" })),
       sys("scanner", "Live scanner", "Reads the NIFTY 100 from the live stream every two seconds while the market is open", () => needs(scanner.state === "live" ? "on" : "standing-by", scanner.state === "live" ? "streaming" : "starts with the session")),

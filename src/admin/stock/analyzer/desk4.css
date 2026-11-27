@@ -273,6 +273,7 @@
 }
 .adm .tm .an.dk4 .sv__head .sv__tk-call {
   display: grid;
+  grid-auto-flow: row; /* an older phone rule laid these out in columns, which let the caption run under the MIS notice */
   justify-items: end;
   gap: 3px;
   order: 3;
@@ -872,9 +873,21 @@
     border-left: 0;
   }
   .adm .tm .an.dk4 .sv__head .sv__tk-call {
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 4px 8px;
     justify-items: start;
     margin: 0;
     text-align: left;
+  }
+  .adm .tm .an.dk4 .sv__head .sv__tk-call small {
+    min-width: 0;
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+  }
+  .adm .tm .an.dk4 .sv__head .sv__tk-call .mc-mis {
+    grid-column: 1 / -1;
   }
 }
 
@@ -903,5 +916,229 @@
   }
   .adm .tm .an.dk4 .dg-fig {
     padding: 0 11px;
+  }
+}
+
+/* ================================================================ the morning call (MorningCall.jsx) */
+.adm .tm .an.dk4 .mc {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding: 10px var(--dk4-pad);
+  border-bottom: 1px solid var(--line);
+  border-left: 4px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 4%, var(--surface));
+}
+.adm .tm .an.dk4 .mc.is-up {
+  border-left-color: var(--up);
+}
+.adm .tm .an.dk4 .mc.is-down {
+  border-left-color: var(--down);
+}
+.adm .tm .an.dk4 .mc-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  margin: 0;
+  color: var(--ink);
+  font-size: var(--t-base);
+  line-height: 1.45;
+}
+.adm .tm .an.dk4 .mc-head > .mc-lean {
+  flex: 1 1 260px;
+  min-width: 0;
+}
+.adm .tm .an.dk4 .mc-head b {
+  font-weight: 600;
+}
+.adm .tm .an.dk4 .mc.is-up .mc-head b {
+  color: var(--up-ink, var(--up));
+}
+.adm .tm .an.dk4 .mc.is-down .mc-head b {
+  color: var(--down-ink, var(--down));
+}
+.adm .tm .an.dk4 .mc-badge {
+  flex: none;
+  padding: 1px 8px;
+  border: 1px solid var(--accent);
+  border-radius: var(--dk-r-sm);
+  background: var(--surface);
+  color: var(--accent);
+  font-size: var(--t-small);
+  font-weight: 600;
+}
+.adm .tm .an.dk4 .mc-figs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 0;
+  margin: 0;
+}
+.adm .tm .an.dk4 .mc-fig {
+  min-width: 0;
+  padding: 0 16px;
+  border-left: 1px solid var(--line-2);
+}
+.adm .tm .an.dk4 .mc-fig:first-child {
+  padding-left: 0;
+  border-left: 0;
+}
+.adm .tm .an.dk4 .mc-fig dt {
+  margin: 0;
+  color: var(--ink-3);
+  font-size: var(--t-small);
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  line-height: 1.35;
+}
+.adm .tm .an.dk4 .mc-fig dd {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 6px;
+  margin: 0;
+}
+.adm .tm .an.dk4 .mc-fig dd b {
+  color: var(--ink);
+  font-size: var(--t-base);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.adm .tm .an.dk4 .mc-fig dd b.is-up {
+  color: var(--up-ink, var(--up));
+}
+.adm .tm .an.dk4 .mc-fig dd b.is-down {
+  color: var(--down-ink, var(--down));
+}
+.adm .tm .an.dk4 .mc-fig dd small {
+  color: var(--ink-3);
+  font-size: var(--t-small);
+}
+.adm .tm .an.dk4 .mc-plan {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: var(--t-mid);
+  line-height: 1.5;
+}
+.adm .tm .an.dk4 .mc-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 14px;
+  margin: 0;
+  color: var(--ink-3);
+  font-size: var(--t-small);
+  line-height: 1.45;
+}
+.adm .tm .an.dk4 .mc-foot:empty {
+  display: none;
+}
+.adm .tm .an.dk4 .mc-more {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  gap: 10px 24px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+  color: var(--ink-2);
+  font-size: var(--t-small);
+  line-height: 1.5;
+}
+.adm .tm .an.dk4 .mc-more h4 {
+  margin: 0 0 4px;
+  color: var(--ink);
+  font-family: var(--f-ui);
+  font-size: var(--t-mid);
+  font-weight: 600;
+}
+.adm .tm .an.dk4 .mc-more ul {
+  margin: 0 0 8px;
+  padding-left: 0;
+  list-style: none;
+}
+.adm .tm .an.dk4 .mc-more li {
+  margin: 2px 0;
+}
+.adm .tm .an.dk4 .mc-more small {
+  color: var(--ink-3);
+}
+.adm .tm .an.dk4 .mc-more p {
+  margin: 0 0 6px;
+}
+.adm .tm .an.dk4 .mc-rule {
+  grid-column: 1 / -1;
+  color: var(--ink-3);
+}
+.adm .tm .an.dk4 .mc-push.is-up {
+  color: var(--up-ink, var(--up));
+}
+.adm .tm .an.dk4 .mc-push.is-down {
+  color: var(--down-ink, var(--down));
+}
+.adm .tm .an.dk4 .mc-recap {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 6px var(--dk4-pad);
+  border-bottom: 1px solid var(--line);
+  color: var(--ink-2);
+  font-size: var(--t-small);
+  line-height: 1.5;
+}
+.adm .tm .an.dk4 .mc-recap b {
+  color: var(--ink);
+  font-weight: 600;
+}
+/* the MIS square-off notice: in the head and in the morning call */
+.adm .tm .an.dk4 .mc-mis {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 4px;
+  padding: 1px 8px;
+  border: 1px solid color-mix(in srgb, var(--warn-ink, #b7791f) 55%, var(--line));
+  border-radius: var(--dk-r-sm);
+  background: color-mix(in srgb, var(--warn-ink, #b7791f) 7%, var(--surface));
+  color: var(--ink-2);
+  font-size: var(--t-small);
+  line-height: 1.5;
+  white-space: nowrap;
+}
+.adm .tm .an.dk4 .mc-mis b {
+  color: var(--ink);
+  font-weight: 600;
+}
+.adm .tm .an.dk4 .mc-mis em {
+  font-style: normal;
+  font-weight: 600;
+}
+.adm .tm .an.dk4 .mc-mis.is-soon {
+  border-color: var(--down);
+  background: color-mix(in srgb, var(--down) 8%, var(--surface));
+}
+.adm .tm .an.dk4 .mc-mis.is-soon em {
+  color: var(--down-ink, var(--down));
+}
+.adm .tm .an.dk4 .sv__head .sv__tk-call .mc-mis {
+  justify-self: end;
+}
+@media (max-width: 760px) {
+  .adm .tm .an.dk4 .mc-figs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px 0;
+  }
+  .adm .tm .an.dk4 .mc-fig {
+    padding: 0 10px;
+  }
+  .adm .tm .an.dk4 .mc-fig:nth-child(odd) {
+    padding-left: 0;
+    border-left: 0;
+  }
+  .adm .tm .an.dk4 .sv__head .sv__tk-call .mc-mis {
+    justify-self: start;
+  }
+  .adm .tm .an.dk4 .mc-mis {
+    white-space: normal;
   }
 }

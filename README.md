@@ -809,6 +809,39 @@ replaces the layout above where they differ; every part is still there.
 - **Watchlist:** flat rows in Kite's market-watch style; the list's name has its own line.
 - Checked with a made-up market (market open and closed) at 390, 768, 1024, 1280, 1440 and 1920 px, light and dark.
 
+**The morning call (2026-11-27: `server/market/morning.js`, `server/morning.js`, `stock/analyzer/MorningCall.jsx`).** The
+owner asked for predictions before and during the first half-hour, which the Desk did not give: the live call takes no
+entries before 9:30, the pulse and AI Live needed four 5-minute bars (9:35), and the 15-minute forecaster starts at 9:20.
+- **What it predicts** for the stock on the Desk: the open, the price 15 minutes on and at 9:45 (with a band that held 70%
+  in the test), the high and low of 9:15–9:45, and the day's high, low and close.
+- **When:**
+  - the evening before and from 8:30, it uses the opening-price forecast's expected open (or the GIFT Nifty's expected
+    gap);
+  - 9:00–9:08, it uses the auction's indicative price and its buy/sell imbalance;
+  - 9:08–9:15, it is made again from the price the auction set;
+  - from 9:15 to 9:40 it is made again at every 5-minute mark from the session so far;
+  - from 9:45 the live call leads, and a line says how the morning call did.
+- **How:** one ridge regression per 5-minute mark and target, in units of the stock's daily range. It is fitted on the
+  robot's stored year of NIFTY 100 5-minute bars and tested on the newest fifth of the sessions, which the fit never sees;
+  that test is the record shown.
+  - Inputs: the previous days, the gap and the market's gap, and from 9:15 the move, range, volume against the usual first
+    minutes, VWAP and the Nifty's move.
+  - Readings with no stored history (futures OI build-up, the auction's imbalance, the setup and world leans, the order
+    book) enter through a correction fitted on the desk's own scored calls. It is used only once both halves of the
+    sessions say it helps.
+  - Until the model has learned, fixed votes and the stock's own recent sessions are used, and no chance is claimed.
+- **Learning:** calls are kept in `morning_calls` (backed up), scored at 9:46 and after the close, and the model is fitted
+  again every evening once the history has the new session (training guard id `morning-train`). It can also be started by
+  hand with `POST /api/admin/market/morning/learn` (superadmin). Findings go into the skills file. No AI is called.
+- **AI Live from 9:15:** before 9:35 the Live Pulse (`market.pulse`) stands on the morning call
+  (`market.openingPulse`), so AI Live works from the open. It still calls "wait" until 9:30.
+- **MIS:** the Desk head always shows the stock's automatic square-off time from `market/session.js`: 3:12 PM in F&O
+  stocks, 3:25 PM in the rest. A countdown appears in the last hour.
+- Routes: `GET /api/admin/market/morning/:symbol`, `GET /api/admin/market/morning`. Live topic `morning`. Automation roster
+  entry "Morning call". Tests: `server/test/morning.test.js`, `MorningCall.test.js`.
+- Checked only with made-up prices. Their accuracy figures mean nothing; the real record appears on the VPS after it learns
+  from the stored history.
+
 **Research, the Advisor, the Screener and Trade Analysis as cockpits (2026-11-19: `stock/terminal/PageJumps.jsx`, `stock/terminal/pages.css`, `StockReport.jsx`, `Research.jsx`, `TradeAnalysis.jsx`).** The same four rules as the Desk. **(1) A row of jumps under the top bar** on each of the four pages: `PageJumps` reads the page's own top-level titled sections from the DOM (every `section.an-card`, `details.an-card`, `section.ta-card`, `details.rs-ai` and anything with `data-jump`; a card inside a card belongs to its parent), follows the page as it fills in (a MutationObserver with a timer), marks the section at the top of the screen, opens a folded section it jumps to, scrolls a side rail instead of the page when the section lives in one, and goes there at once (no glide). It shows only when a page has three sections or more, stays at the top on a phone instead of following you, and writes its height to `--pj-h` so everything else that is sticky sits exactly under it. `PAGE_JUMPS` in `StockReport.jsx` only gives short names to titles whose first words are not one. A section lands where the page's `scroll-margin-top` says (under a page head and its bar too). **(2) What you work with stays in view:** on Research the rail (plan intraday, research run) now starts at the top of the page instead of 411 px down, and fills the height; on the Advisor the head (risk per trade, the filter) is sticky; on Trade Analysis the head with its eight parts is sticky and the open part's own bar (the day, the filters) is sticky right under it (`--ta-head-h`). **(3) What you act on comes first, what explains folds:** on Research the Autopilot leads the results column with its description on one line (press it for the rest), then the live scanner — both above the fold at 1440 × 900 — and the forecaster's record moved below the RSI watch; the Trade Analysis head went from 114 px to 63 px by folding its description the same way. **(4) Nothing scrolls sideways** (checked at 1440, 768 and 375 px). Nothing was removed.
 
 **Design, second pass (2026-11-19: `src/admin/polish.css`, `stock/analyzer/desk2.css`).** `polish.css` is loaded last and gives every private page one finish: a quiet glow behind the page, glass headers like the public navbar, one family of cards (edge, radius, lift), display-face section titles with an accent mark, quiet table heads with rows that answer the pointer, focus rings on fields, thin themed scrollbars. It moves and hides nothing and uses tokens only, so dark and light both follow. **The Desk** was re-ordered so the chart is its centre: search row → day board (foldable with the *Day board* button; remembered per device) → price bar → key figures → **the chart, always in view** (it used to sit inside the Overview tab, about 1,600 px down) → the next-15-minutes forecast → the AI strip → the detail tabs (the first is now *Reading*); the verdict stays in its rail.

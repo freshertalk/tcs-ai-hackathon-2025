@@ -8,6 +8,7 @@
 
 import React, { useState } from "react";
 import { compact, inr, isNum, num, pct, tone } from "./format";
+import MorningStrip, { MorningRecap } from "./MorningCall";
 
 const ARROW = { up: "▲", down: "▼", sideways: "◆", mixed: "◆" };
 const FRAME_NAMES = { Weekly: "Weekly", Daily: "Daily", "Intraday (5 min)": "5-min" };
@@ -147,8 +148,9 @@ function CallStrip({ day, next, ready, onVerdict }) {
  * @param setupsOn the setups that have triggered
  * @param onTab    (tabId) => open one of the analysis tabs
  * @param onVerdict () => show the whole desk verdict
+ * @param morning  the morning call (MorningCall.jsx useMorning): it leads from the evening before to 9:45 AM, then says how it did
  */
-export default function DeskGlance({ a, v, intraday, quote, price, prevClose, high, low, setupsOn = [], onTab, onVerdict }) {
+export default function DeskGlance({ a, v, intraday, quote, price, prevClose, high, low, setupsOn = [], onTab, onVerdict, morning = null }) {
   const [seg, setSeg] = useState("today");
   const ok = Boolean(v && v.available);
   const day = ok ? v.day : null;
@@ -190,7 +192,10 @@ export default function DeskGlance({ a, v, intraday, quote, price, prevClose, hi
 
   return (
     <div className="dg" aria-label="At a glance" role="group">
-      <CallStrip day={day} next={ok ? v.intraday : null} ready={ok} onVerdict={onVerdict} />
+      {/* before 9:45 the morning call leads (the live call takes no entries before 9:30); its triggers for the session stay under it */}
+      {morning && morning.show && <MorningStrip m={morning} day={day} />}
+      {!(morning && morning.show && morning.stage === "opening") && <CallStrip day={day} next={ok ? v.intraday : null} ready={ok} onVerdict={onVerdict} />}
+      {morning && morning.handover && <MorningRecap m={morning} />}
 
       <div className="dg-segs" role="group" aria-label="Which figures to show">
         {groups.map(([id, label]) => (

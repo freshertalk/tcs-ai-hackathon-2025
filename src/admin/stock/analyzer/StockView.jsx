@@ -5,6 +5,7 @@ import { day, inr, isNum, num, pct, signed, tone, when } from "./format";
 import { useTick } from "./liveTicks";
 import PriceChart from "./PriceChart";
 import DeskGlance from "./DeskGlance";
+import { MisChip, useMorning } from "./MorningCall";
 import { History, Indicators, Levels, ScoreCard, Setups } from "./Panels";
 import PositionSizer from "./PositionSizer";
 import BacktestPanel from "./BacktestPanel";
@@ -202,7 +203,7 @@ function OddsChip({ symbol, onOpen }) {
   );
 }
 
-function Ticker({ symbol, meta, px: polledPx, chg: polledChg, chgPct: polledPct, sub: polledSub, call, odds = null, forecast = null }) {
+function Ticker({ symbol, meta, px: polledPx, chg: polledChg, chgPct: polledPct, sub: polledSub, call, odds = null, forecast = null, mis = null }) {
   // the price reads the live stream directly: each tick lands here at once, without redrawing the page
   const tick = useTick(symbol);
   const streamed = Boolean(tick && isNum(tick.last));
@@ -236,6 +237,8 @@ function Ticker({ symbol, meta, px: polledPx, chg: polledChg, chgPct: polledPct,
             ? `${call.weakening ? "⚠ weakening · " : ""}${call.session.label} · score ${call.score > 0 ? "+" : ""}${call.score}`
             : "live call off"}
         </small>
+        {/* when Zerodha squares off intraday positions in this stock (3:12 PM in the F&O list), always in view */}
+        <MisChip sq={mis} />
       </div>
       {forecast}
       <div
@@ -270,6 +273,8 @@ export default function StockView({ symbol, quote, status, streaming = false, in
   const horizon = useHorizon(symbol, true);
   // the early calls (reversal, carry-on, momentum — 5 and 15 minutes ahead): read once here too, for the head's chip and the card
   const ahead = useAhead(symbol, true);
+  // the morning call (MorningCall.jsx): the evening before to 9:45, then how it did; and the MIS square-off time
+  const morning = useMorning(symbol, true);
   const fcRef = useRef(null);
   const cockpit = useCockpit(useWide(FIT));
   // every tick is checked against the call's levels the instant it arrives; a break re-reads the call at once
@@ -428,6 +433,7 @@ export default function StockView({ symbol, quote, status, streaming = false, in
         chg={pxChg}
         chgPct={pxChgPct}
         call={dayCall}
+        mis={morning && morning.squareOff}
         odds={
           <OddsChip
             symbol={symbol}
@@ -484,6 +490,7 @@ export default function StockView({ symbol, quote, status, streaming = false, in
         setupsOn={on}
         onTab={openTab}
         onVerdict={showVerdict}
+        morning={morning}
       />
 
       {wide && panel}
