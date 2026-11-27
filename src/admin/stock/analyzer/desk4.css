@@ -1,0 +1,907 @@
+/* ==========================================================================
+   The Desk, laid out as Zerodha Kite lays out its screens (fourth design, 27 Nov 2026, the owner: "more best, elegant,
+   more breathing space, enterprise grade … all details required for stock analysis on the front"). Loaded after desk3.css;
+   every rule starts at .an.dk.dk4, so only the Desk changes. Colours are the private area's tokens: both themes follow.
+
+   THE FIRST SCREEN (1280px and wider)
+     one toolbar   the search, and the market's indices as one quiet line
+     the head      the stock · its price, large and light · the call · the forecasts · Buy and Sell — stays on screen
+     at a glance   Price today · Trend · Momentum and range · Key levels (DeskGlance.jsx)
+     chart | rail  the chart fitted to what is left, the desk verdict beside it
+   Then, as you read down: the AI strip, the analysis tabs, the forecast cards, the last 30 sessions.
+   Narrower, one column in the same order, with the live call's plan inside "at a glance".
+   ========================================================================== */
+
+/* the Desk's page is white, as Kite's is */
+.adm:has(.an.dk4) {
+  background: var(--surface);
+}
+
+.adm .tm .an.dk4 {
+  --dk-r: 6px;
+  --dk-r-sm: 4px;
+  --dk-shadow: none;
+  --dk-shadow-hi: none;
+  --dk4-pad: 20px;
+}
+
+/* ---- one family of surfaces: a hairline, a small corner, no lift */
+.adm .tm .an.dk4 :is(.wl, .sv__rail, .sv__chart, .ab, .an-card, .dkb-card, .dg) {
+  border: 1px solid var(--line);
+  border-radius: var(--dk-r);
+  background-color: var(--surface);
+  background-image: none;
+  box-shadow: none;
+}
+
+/* ================================================================ the toolbar: the search row, then the market's line */
+.adm .tm .an.dk4 > .an__desk {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  min-width: 0;
+}
+@media (min-width: 761px) {
+  .adm .tm .an.dk4 > .an__desk > .wl__search {
+    flex: 0 1 440px;
+    min-width: 260px;
+    margin: 0;
+  }
+  .adm .tm .an.dk4 > .an__desk > .an__live {
+    flex: 1 1 260px;
+    min-width: 0;
+    margin: 0;
+    line-height: 1.45;
+  }
+  .adm .tm .an.dk4 > .an__desk > .dk-fold {
+    margin-left: auto;
+  }
+}
+.adm .tm .an.dk4 > .an__desk .wl__search input {
+  min-height: 38px;
+  border-radius: var(--dk-r-sm);
+}
+.adm .tm .an.dk4 > .mk:has(.mk__panel) {
+  grid-column: 1 / -1;
+}
+.adm .tm .an.dk4 > :is(.an__desk, .mk, .an__grid, .an-empty, .an__disc, .mk__err) {
+  grid-column: 1 / -1;
+}
+.adm .tm .an.dk4 > .mk {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+}
+.adm .tm .an.dk4 .mk__panel {
+  padding-top: 14px;
+}
+.adm .tm .an.dk4 .mk__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 0;
+  margin: 0;
+  padding: 3px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+.adm .tm .an.dk4 .mk__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 0;
+  margin: 0;
+  padding: 0;
+}
+.adm .tm .an.dk4 :is(.mk__chip, .mk__tide) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 6px;
+  margin: 0;
+  padding: 2px 14px;
+  border: 0;
+  border-right: 1px solid var(--line);
+  border-radius: 0;
+  background: none;
+}
+.adm .tm .an.dk4 .mk__chip > span,
+.adm .tm .an.dk4 .mk__tide > small {
+  color: var(--ink-3);
+  font-size: var(--t-small);
+}
+.adm .tm .an.dk4 .mk__chip > b,
+.adm .tm .an.dk4 .mk__tide > b {
+  font-size: var(--t-mid);
+  font-weight: 600;
+}
+.adm .tm .an.dk4 .mk__chip > em {
+  font-size: var(--t-small);
+  font-style: normal;
+}
+.adm .tm .an.dk4 .mk__row > button {
+  margin-left: 10px;
+}
+.adm .tm .an.dk4 .mk__row > button:last-child {
+  margin-left: auto;
+}
+.adm .tm .an.dk4 .mk__row > .gm-chip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 6px;
+}
+
+/* ================================================================ the watchlist, as Kite's market watch */
+.adm .tm .an.dk4 .wl {
+  padding: 0;
+}
+.adm .tm .an.dk4 .wl > :is(.wl__head, .wl__lists, .wl__search, .wl__order, .wl__empty) {
+  margin: 0;
+  padding: 10px 12px 0;
+}
+.adm .tm .an.dk4 .wl > .wl__head {
+  padding-top: 12px;
+}
+.adm .tm .an.dk4 .wl > .wl__order {
+  padding-bottom: 2px;
+}
+/* the list's name has the whole line; its new, rename and delete buttons sit under it */
+.adm .tm .an.dk4 .wl .wl__lists-row {
+  flex-wrap: wrap;
+}
+.adm .tm .an.dk4 .wl .wl__lists-row > select {
+  flex: 1 1 100%;
+  min-width: 0;
+  width: 100%;
+}
+.adm .tm .an.dk4 .wl__list {
+  margin: 10px 0 0;
+  padding: 0;
+  gap: 0;
+}
+.adm .tm .an.dk4 .wl__list > li {
+  margin: 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+.adm .tm .an.dk4 .wl__list > li:hover {
+  background: var(--surface-2);
+}
+.adm .tm .an.dk4 .wl__list > li.is-sel {
+  background: color-mix(in srgb, var(--accent) 6%, var(--surface));
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+.adm .tm .an.dk4 .wl__row {
+  padding-top: 11px;
+  padding-bottom: 9px;
+}
+
+/* ================================================================ the head: the stock, large and calm */
+.adm .tm .an.dk4 .sv__head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--dk-r);
+  background: var(--surface);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  box-shadow: none;
+}
+.adm .tm .an.dk4 .sv__head > .sv__ticker {
+  position: static;
+  container-type: normal; /* an older rule sized it as a container, which collapses it to its padding in a grid */
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 24px;
+  width: 100%;
+  margin: 0;
+  padding: 10px var(--dk4-pad);
+  border: 0;
+  border-radius: var(--dk-r);
+  background: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  box-shadow: none;
+}
+.adm .tm .an.dk4 .sv__head .sv__tk-id {
+  display: flex;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  order: 1;
+  min-width: 0;
+  max-width: 360px;
+}
+.adm .tm .an.dk4 .sv__head .sv__sym {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+.adm .tm .an.dk4 .sv__head .sv__meta {
+  flex: 1 1 100%;
+  margin: 0;
+  color: var(--ink-3);
+  font-size: var(--t-small);
+  line-height: 1.45;
+}
+.adm .tm .an.dk4 .sv__head .sv__px {
+  display: grid;
+  grid-column: auto;
+  grid-template-columns: auto auto;
+  align-items: baseline;
+  justify-content: start;
+  gap: 0 10px;
+  order: 2;
+  margin: 0;
+  padding: 0 0 0 24px;
+  border-left: 1px solid var(--line);
+  text-align: left;
+}
+.adm .tm .an.dk4 .sv__head .sv__px b {
+  font-family: var(--f-ui);
+  font-size: 1.875rem;
+  font-weight: 300;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+.adm .tm .an.dk4 .sv__head .sv__px.is-up b {
+  color: var(--up-ink, var(--up));
+}
+.adm .tm .an.dk4 .sv__head .sv__px.is-down b {
+  color: var(--down-ink, var(--down));
+}
+.adm .tm .an.dk4 .sv__head .sv__px span {
+  font-size: var(--t-base);
+}
+.adm .tm .an.dk4 .sv__head .sv__px small {
+  grid-column: 1 / -1;
+  max-width: 44ch;
+  color: var(--ink-3);
+  font-size: var(--t-small);
+  line-height: 1.4;
+}
+.adm .tm .an.dk4 .sv__head .sv__tk-call {
+  display: grid;
+  justify-items: end;
+  gap: 3px;
+  order: 3;
+  margin: 0 0 0 auto;
+  text-align: right;
+}
+.adm .tm .an.dk4 .sv__head .sv__tk-call small {
+  color: var(--ink-3);
+  font-size: var(--t-small);
+}
+.adm .tm .an.dk4 .sv__head .sv__fc {
+  order: 4;
+}
+.adm .tm .an.dk4 .sv__head .sv__trade {
+  order: 5;
+  margin: 0;
+}
+.adm .tm .an.dk4 .sv__head .sv__trade .tr-btn {
+  min-width: 84px;
+  min-height: 38px;
+}
+.adm .tm .an.dk4 .fc-chip {
+  border-radius: var(--dk-r-sm);
+  background: var(--surface);
+}
+.adm .tm .an.dk4 .sv__notes {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.adm .tm .an.dk4 .sv__notes > * {
+  margin: 0;
+}
+
+/* the head stays on screen where there is height to spare */
+@media (min-width: 1101px) and (min-height: 701px) {
+  .adm .tm .an.dk4 .sv__head {
+    position: sticky;
+    top: var(--tm-top); /* flush under the top bar: nothing shows through between them */
+    z-index: 15;
+  }
+}
+@media (max-width: 1100px) {
+  .adm .tm .an.dk4 .sv__head {
+    position: static;
+  }
+}
+
+/* ================================================================ at a glance */
+.adm .tm .an.dk4 .dg {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  min-width: 0;
+  overflow: hidden;
+}
+.adm .tm .an.dk4 .dg-segs {
+  display: none;
+}
+.adm .tm .an.dk4 .dg-group {
+  min-width: 0;
+  margin: -1px 0 0 -1px; /* the dividers are each group's own top and left lines; the outer ones fall off the edge */
+  padding: 10px var(--dk4-pad) 10px;
+  border-top: 1px solid var(--line);
+  border-left: 1px solid var(--line);
+}
+/* the live call across the top: badge and words, the prices to act on, the way to the whole verdict */
+.adm .tm .an.dk4 .dg-strip {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 22px;
+  min-width: 0;
+  margin: 0;
+  padding: 9px var(--dk4-pad);
+  border-bottom: 1px solid var(--line);
+  border-left: 4px solid var(--line-2);
+  background: color-mix(in srgb, var(--ink) 2%, var(--surface));
+}
+.adm .tm .an.dk4 .dg-strip.is-up {
+  border-left-color: var(--up);
+  background: color-mix(in srgb, var(--up) 5%, var(--surface));
+}
+.adm .tm .an.dk4 .dg-strip.is-down {
+  border-left-color: var(--down);
+  background: color-mix(in srgb, var(--down) 5%, var(--surface));
+}
+.adm .tm .an.dk4 .dg-strip > .dg-call {
+  flex: 1 1 250px;
+  min-width: 0;
+}
+.adm .tm .an.dk4 .dg-figs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 0;
+  margin: 0;
+}
+.adm .tm .an.dk4 .dg-fig {
+  padding: 0 16px;
+  border-left: 1px solid var(--line-2);
+}
+.adm .tm .an.dk4 .dg-fig:first-child {
+  padding-left: 0;
+  border-left: 0;
+}
+.adm .tm .an.dk4 .dg-fig dt {
+  margin: 0;
+  color: var(--ink-3);
+  font-size: var(--t-small);
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 1.35;
+  text-transform: none;
+}
+.adm .tm .an.dk4 .dg-fig dd {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 6px;
+  margin: 0;
+}
+.adm .tm .an.dk4 .dg-fig dd b {
+  color: var(--ink);
+  font-size: var(--t-base);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.adm .tm .an.dk4 .dg-fig dd b.is-up {
+  color: var(--up-ink, var(--up));
+}
+.adm .tm .an.dk4 .dg-fig dd b.is-down {
+  color: var(--down-ink, var(--down));
+}
+.adm .tm .an.dk4 .dg-fig dd small {
+  color: var(--ink-3);
+  font-size: var(--t-small);
+}
+.adm .tm .an.dk4 .dg-strip > button.dg-link {
+  margin-left: auto;
+}
+.adm .tm .an.dk4 .dg-group__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 10px;
+  margin: 0 0 4px;
+}
+.adm .tm .an.dk4 .dg-group__head h3 {
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--f-ui);
+  font-size: var(--t-base);
+  font-weight: 600;
+  letter-spacing: 0;
+}
+.adm .tm .an.dk4 button.dg-link {
+  min-height: 0;
+  margin: 0;
+  padding: 2px 0;
+  border: 0;
+  border-radius: 2px;
+  background: none;
+  box-shadow: none;
+  color: var(--accent);
+  font: inherit;
+  font-size: var(--t-small);
+  font-weight: 600;
+  text-align: right;
+  cursor: pointer;
+}
+.adm .tm .an.dk4 button.dg-link:hover {
+  text-decoration: underline;
+}
+.adm .tm .an.dk4 button.dg-link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.adm .tm .an.dk4 button.dg-link--value {
+  padding: 0;
+  font-size: var(--t-mid);
+  line-height: 1.4;
+}
+.adm .tm .an.dk4 .dg dl {
+  margin: 0;
+}
+.adm .tm .an.dk4 .dg-line {
+  display: grid;
+  grid-template-columns: minmax(0, max-content) minmax(0, 1fr);
+  align-items: baseline;
+  gap: 2px 10px;
+  min-height: 26px;
+  padding: 3px 0;
+  border-top: 1px solid color-mix(in srgb, var(--line) 62%, transparent);
+}
+.adm .tm .an.dk4 .dg-line:first-child {
+  border-top: 0;
+}
+.adm .tm .an.dk4 .dg-line dt {
+  margin: 0;
+  color: var(--ink-3);
+  font-size: var(--t-small);
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 1.4;
+  text-transform: none;
+}
+.adm .tm .an.dk4 .dg-line dd {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 0 6px;
+  min-width: 0;
+  margin: 0;
+  text-align: right;
+}
+.adm .tm .an.dk4 .dg-line dd > b {
+  color: var(--ink);
+  font-size: var(--t-mid);
+  font-weight: 600;
+  line-height: 1.4;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: break-word;
+}
+.adm .tm .an.dk4 .dg-line dd > small {
+  color: var(--ink-3);
+  font-size: var(--t-small);
+  line-height: 1.4;
+}
+.adm .tm .an.dk4 .dg :is(b, .dg-frame).is-up {
+  color: var(--up-ink, var(--up));
+}
+.adm .tm .an.dk4 .dg :is(b, .dg-frame).is-down {
+  color: var(--down-ink, var(--down));
+}
+.adm .tm .an.dk4 .dg-line--range dd {
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 8px;
+}
+.adm .tm .an.dk4 .dg-range__end {
+  color: var(--ink-2);
+  font-size: var(--t-small);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.adm .tm .an.dk4 .dg-range__bar {
+  position: relative;
+  flex: 1 1 20px;
+  min-width: 20px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--line-2);
+}
+.adm .tm .an.dk4 .dg-range__bar i {
+  position: absolute;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  background: var(--accent);
+  transform: translate(-50%, -50%);
+}
+.adm .tm .an.dk4 .dg-frame {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--ink-2);
+  font-size: var(--t-small);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.adm .tm .an.dk4 .dg-frame i {
+  font-style: normal;
+  font-size: 0.6875rem;
+}
+.adm .tm .an.dk4 .dg-call {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 0;
+  color: var(--ink);
+  font-size: var(--t-base);
+  font-weight: 600;
+  line-height: 1.45;
+}
+.adm .tm .an.dk4 .dg-call__badge {
+  flex: none;
+  padding: 1px 8px;
+  background: var(--surface);
+  border: 1px solid var(--line-2);
+  border-radius: var(--dk-r-sm);
+  color: var(--ink-2);
+  font-size: var(--t-small);
+}
+.adm .tm .an.dk4 .dg-strip.is-up .dg-call__badge {
+  border-color: var(--up);
+  color: var(--up-ink, var(--up));
+}
+.adm .tm .an.dk4 .dg-strip.is-down .dg-call__badge {
+  border-color: var(--down);
+  color: var(--down-ink, var(--down));
+}
+
+/* four across beside the watchlist */
+@media (min-width: 1280px) {
+  .adm .tm .an.dk4 .dg {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+@media (min-width: 1280px) and (max-width: 1599.98px) {
+  .adm .tm .an.dk4 .dg {
+    --dk4-pad: 13px;
+  }
+}
+/* a phone: one group at a time, chosen from a row of buttons, so the chart stays close */
+@media (max-width: 759.98px) {
+  .adm .tm .an.dk4 {
+    --dk4-pad: 14px;
+  }
+  .adm .tm .an.dk4 .dg {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .adm .tm .an.dk4 .dg-figs {
+    display: grid;
+    flex: 1 1 100%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px 0;
+  }
+  .adm .tm .an.dk4 .dg-fig {
+    padding: 0 10px;
+  }
+  .adm .tm .an.dk4 .dg-fig:nth-child(odd) {
+    padding-left: 0;
+    border-left: 0;
+  }
+  .adm .tm .an.dk4 .dg-segs {
+    display: flex;
+    flex-wrap: wrap;
+    border-bottom: 1px solid var(--line);
+  }
+  .adm .tm .an.dk4 .dg-segs button {
+    flex: 1 1 auto;
+    min-height: 40px;
+    margin: 0;
+    padding: 0 8px;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+    color: var(--ink-2);
+    font: inherit;
+    font-size: var(--t-mid);
+    cursor: pointer;
+  }
+  .adm .tm .an.dk4 .dg-segs button[aria-pressed="true"] {
+    border-bottom-color: var(--kite-orange, var(--accent-2));
+    color: var(--accent-2);
+    font-weight: 600;
+  }
+  .adm .tm .an.dk4 .dg-group {
+    display: none;
+    border-top: 0;
+  }
+  .adm .tm .an.dk4 .dg-group.is-seg {
+    display: block;
+  }
+}
+
+/* ================================================================ the cockpit's places (1280px and wider) */
+@media (min-width: 1280px) {
+  .adm .tm .an.dk4 .sv--cockpit {
+    grid-template-areas:
+      "head head"
+      "notes notes"
+      "glance glance"
+      "low rail"
+      "top rail"
+      "body rail"
+      "fc rail";
+    grid-template-rows: auto auto auto auto auto auto 1fr;
+    gap: 0 14px;
+  }
+  .adm .tm .an.dk4 .sv--cockpit > .sv__head {
+    grid-area: head;
+  }
+  .adm .tm .an.dk4 .sv--cockpit > .sv__notes {
+    grid-area: notes;
+    margin-top: 12px;
+  }
+  .adm .tm .an.dk4 .sv--cockpit > .dg {
+    grid-area: glance;
+    margin-top: 12px;
+  }
+  .adm .tm .an.dk4 .sv--cockpit > .sv__low {
+    grid-area: low;
+    margin-top: 12px;
+  }
+  .adm .tm .an.dk4 .sv--cockpit > .sv__top {
+    grid-area: top;
+    margin-top: 16px;
+  }
+  .adm .tm .an.dk4 .sv--cockpit > .sv__body {
+    grid-area: body;
+    margin-top: 16px;
+  }
+  .adm .tm .an.dk4 .sv--cockpit > .sv__fcwrap {
+    grid-area: fc;
+    align-content: start;
+    margin-top: 16px;
+  }
+  .adm .tm .an.dk4 .sv--cockpit > .sv__rail {
+    grid-area: rail;
+    align-self: start;
+    margin-top: 12px;
+    top: calc(var(--tm-top) + var(--dk-head) + 10px);
+    scroll-margin-top: calc(var(--tm-top) + var(--dk-head) + 10px); /* "Full verdict" lands it under the head */
+    max-height: max(420px, calc(100vh - var(--tm-top) - var(--tm-dock) - var(--dk-head) - 24px));
+  }
+}
+@media (min-width: 1280px) and (max-height: 700px) {
+  .adm .tm .an.dk4 .sv--cockpit > .sv__rail {
+    top: calc(var(--tm-top) + 8px);
+    max-height: max(300px, calc(100vh - var(--tm-top) - var(--tm-dock) - 14px));
+  }
+}
+/* narrower: one column, in the order a reading goes */
+@media (max-width: 1279.98px) {
+  .adm .tm .an.dk4 .sv--cockpit {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: none;
+    gap: 12px;
+  }
+}
+
+/* ================================================================ the cards under the first screen: room to read */
+.adm .tm .an.dk4 .sv__chart {
+  padding: 12px 14px 14px;
+}
+.adm .tm .an.dk4 .sv__fcwrap {
+  gap: 14px;
+}
+.adm .tm .an.dk4 .an__disc {
+  margin-top: 20px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+  color: var(--ink-3);
+}
+
+/* the chart's two toolbars, slim: the chart type on one line, the intervals and tools on one line */
+.adm .tm .an.dk4 .sv__chart .sv__chartbar {
+  min-height: 0;
+  margin: 0 0 4px;
+}
+@media (min-width: 1280px) {
+  .adm .tm .an.dk4 .sv__chart {
+    padding: 8px 12px 12px;
+  }
+  .adm .tm .an.dk4 .sv__chart .sv__chartbar .sv__ranges button {
+    min-height: 28px;
+  }
+  .adm .tm .an.dk4 .sv__chart .kc__bar {
+    gap: 3px;
+    padding-top: 0;
+    padding-bottom: 4px;
+  }
+  .adm .tm .an.dk4 .sv__chart .kc__bar .kc__ivbtns button {
+    min-width: 0;
+    padding-left: 5px;
+    padding-right: 5px;
+  }
+  .adm .tm .an.dk4 .sv__chart .kc__bar > select.kc__sel {
+    max-width: 96px;
+  }
+  .adm .tm .an.dk4 .sv__chart .kc__bar .kc__menuwrap > button {
+    padding-left: 7px;
+    padding-right: 7px;
+  }
+  .adm .tm .an.dk4 .sv__chart .kc__bar > .kc__icon {
+    width: 24px;
+    min-width: 24px;
+    padding: 0;
+  }
+  .adm .tm .an.dk4 .sv__chart .kc__bar > .kc__sep {
+    display: none;
+  }
+  .adm .tm .an.dk4 .sv__chart .kc__bar > .kc__grow {
+    min-width: 0;
+    flex-basis: 0;
+  }
+  .adm .tm .an.dk4 .sv__chart .kc__bar .kc__ivbtns button {
+    padding-left: 4px;
+    padding-right: 4px;
+  }
+}
+
+/* a laptop screen: a little tighter, so more of the chart is on the first screen */
+@media (min-width: 1280px) and (max-height: 960px) {
+  .adm .tm .an.dk4 .sv__head > .sv__ticker {
+    padding-top: 7px;
+    padding-bottom: 7px;
+  }
+  .adm .tm .an.dk4 .dg-strip {
+    padding-top: 6px;
+    padding-bottom: 6px;
+  }
+  .adm .tm .an.dk4 .dg-group {
+    padding-top: 8px;
+    padding-bottom: 6px;
+  }
+  .adm .tm .an.dk4 .dg-line {
+    min-height: 23px;
+    padding-top: 2px;
+    padding-bottom: 1px;
+  }
+  .adm .tm .an.dk4 > .an__grid {
+    margin-top: -2px;
+  }
+}
+
+@media (max-width: 1279.98px) {
+  .adm .tm .an.dk4 :is(.mk__chip, .mk__tide) {
+    padding: 2px 9px;
+  }
+}
+
+/* ================================================================ one column (tablets and phones): the stock first, the
+   watchlist under it, one press away */
+.adm .tm .an.dk4 > .an__desk > .dk-towl {
+  display: none;
+}
+@media (max-width: 1000px) {
+  .adm .tm .an.dk4 > .an__desk > .dk-towl {
+    display: inline-flex;
+  }
+  .adm .tm .an.dk4 > .an__desk > .an__live {
+    order: 9;
+    flex: 1 1 100%;
+    margin: 0;
+    line-height: 1.45;
+  }
+  .adm .tm .an.dk4 > .an__desk > .dk-fold {
+    margin: 0;
+  }
+  .adm .tm .an.dk4 > .an__desk > .dk-towl {
+    margin-left: auto;
+  }
+  .adm .tm .an.dk4 .an__grid > .an__main {
+    order: 1;
+    scroll-margin-top: calc(var(--tm-top) + 8px);
+  }
+  .adm .tm .an.dk4 .an__grid .wl {
+    order: 2;
+    scroll-margin-top: calc(var(--tm-top) + 8px);
+  }
+  .adm .tm .an.dk4 .dk-side > .adm-alert {
+    order: 2;
+  }
+  .adm .tm .an.dk4 .an__grid #dk-board {
+    order: 3;
+  }
+}
+/* a tablet's watch list: three to a row at most, so a price always fits its box */
+@media (min-width: 761px) and (max-width: 1000px) {
+  .adm .tm .an.dk4 .wl .wl__list {
+    grid-template-columns: repeat(auto-fill, minmax(232px, 1fr));
+  }
+}
+@media (max-width: 760px) {
+  /* the market's line: two to a row */
+  .adm .tm .an.dk4 .mk__row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 4px 0;
+  }
+  .adm .tm .an.dk4 .mk__chips {
+    display: contents;
+  }
+  .adm .tm .an.dk4 :is(.mk__chip, .mk__tide) {
+    padding: 2px 8px 2px 0;
+    border-right: 0;
+  }
+  .adm .tm .an.dk4 .mk__row > button:last-child {
+    margin: 0;
+    justify-self: end;
+  }
+}
+/* on its own line (a phone) the price needs no dividing line */
+@media (max-width: 760px) {
+  .adm .tm .an.dk4 .sv__head .sv__px {
+    flex: 1 1 100%;
+    padding-left: 0;
+    border-left: 0;
+  }
+  .adm .tm .an.dk4 .sv__head .sv__tk-call {
+    justify-items: start;
+    margin: 0;
+    text-align: left;
+  }
+}
+
+/* the narrowest cockpit: the price bar stays on two short lines at most */
+@media (min-width: 1280px) and (max-width: 1439.98px) {
+  .adm .tm .an.dk4 .sv__head > .sv__ticker {
+    gap: 8px 14px;
+  }
+  .adm .tm .an.dk4 .sv__head .sv__tk-id {
+    max-width: 250px;
+  }
+  .adm .tm .an.dk4 .sv__head .sv__px {
+    padding-left: 14px;
+  }
+  .adm .tm .an.dk4 .sv__head .sv__px b {
+    font-size: 1.625rem;
+  }
+  .adm .tm .an.dk4 .sv__head .sv__px small {
+    max-width: 30ch;
+  }
+  .adm .tm .an.dk4 .sv__head .sv__trade .tr-btn {
+    min-width: 60px;
+  }
+  .adm .tm .an.dk4 .dg-line {
+    gap: 2px 6px;
+  }
+  .adm .tm .an.dk4 .dg-fig {
+    padding: 0 11px;
+  }
+}

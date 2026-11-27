@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { api, peek } from "../../api";
 import { Alert, Loading } from "../../ui";
-import { compact, day, inr, isNum, num, pct, signed, tone, when } from "./format";
+import { day, inr, isNum, num, pct, signed, tone, when } from "./format";
 import { useTick } from "./liveTicks";
 import PriceChart from "./PriceChart";
+import DeskGlance from "./DeskGlance";
 import { History, Indicators, Levels, ScoreCard, Setups } from "./Panels";
 import PositionSizer from "./PositionSizer";
 import BacktestPanel from "./BacktestPanel";
@@ -105,11 +106,13 @@ function useCockpit(enabled) {
     }
     const plot = frame.querySelector(".sv__chart .kc__plot");
     if (!plot) return;
-    // the chart sits under the analysis tabs now (21 Nov 2026), so it is not fitted to the room under the price: it takes most
-    // of a screen, above the positions dock
+    // the chart stands right under the first-sight panel (27 Nov 2026): it takes what the screen has left from its own top
+    // edge down to the positions dock, so the price, the key figures and the chart are seen together — never less than a
+    // readable 380px, never more than 640px
     const dock = document.querySelector(".tm-dock");
-    const room = window.innerHeight - (dock ? dock.offsetHeight : 0) - (head ? head.offsetHeight : 0) - 90;
-    const next = Math.max(420, Math.min(600, Math.round(room)));
+    const top = plot.getBoundingClientRect().top + window.scrollY;
+    const room = window.innerHeight - (dock ? dock.offsetHeight : 0) - top - 14;
+    const next = Math.max(380, Math.min(640, Math.round(room)));
     setChartHeight((cur) => (cur !== null && Math.abs(cur - next) < 6 ? cur : next));
   }, [enabled]);
   // a short timer, not an animation frame: a frame never comes while the tab is in the background, and the layout
@@ -124,7 +127,7 @@ function useCockpit(enabled) {
     e.ro = null;
     if (typeof ResizeObserver === "undefined" || !e.frame) return;
     e.ro = new ResizeObserver(later);
-    for (const el of [e.head, document.querySelector(".tm-dock"), document.querySelector(".an__desk"), document.querySelector(".mk")]) if (el) e.ro.observe(el);
+    for (const el of [e.head, document.querySelector(".tm-dock"), document.querySelector(".an__desk"), document.querySelector(".mk"), e.frame.querySelector(".dg")]) if (el) e.ro.observe(el);
     later();
   }, [later]);
   const frame = useCallback(
@@ -151,7 +154,8 @@ function useCockpit(enabled) {
       if (e.ro) e.ro.disconnect();
     };
   }, [later]);
-  return { frame, head, chartHeight, measure: later };
+  const element = useCallback(() => els.current.frame, []);
+  return { frame, head, chartHeight, measure: later, element };
 }
 
 /** The bar that stays on screen: symbol, the live call, and the price — flashing on each tick. */
@@ -333,7 +337,19 @@ export default function StockView({ symbol, quote, status, streaming = false, in
   const remeasure = cockpit.measure;
   useEffect(() => {
     remeasure();
-  }, [remeasure, chartMode, state.loading, wide, Boolean(a && a.stale)]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [remeasure, chartMode, state.loading, wide, Boolean(a && a.stale), Boolean(verdict.state.data)]); // eslint-disable-line react-hooks/exhaustive-deps
+  // a link in the first-sight panel opens its analysis tab and brings the tabs into view
+  const openTab = (id) => {
+    setTab(id);
+    if (top.current && top.current.scrollIntoView) top.current.scrollIntoView({ block: "start", behavior: "smooth" });
+  };
+  // the whole verdict: beside the chart on a wide screen, else its own tab
+  const showVerdict = () => {
+    if (!wide) return openTab("verdict");
+    const rail = cockpit.element() && cockpit.element().querySelector(".sv__rail");
+    if (rail && rail.scrollIntoView) rail.scrollIntoView({ block: "start", behavior: "smooth" });
+    return undefined;
+  };
   const sizeThis = (entry, stop) => {
     setSeed({ entry, stop, at: Date.now() });
     setTab("size");
@@ -378,11 +394,9 @@ export default function StockView({ symbol, quote, status, streaming = false, in
   const wanted = chartMode || "pro";
   const mode = (wanted === "m1" && !live) || (wanted === "m5" && !tape) ? "daily" : wanted;
   const m1 = minute.data && minute.data.available ? minute.data : null;
-  // today's range, and where the price sits in it (0 = at the low, 100 = at the high)
+  // today's range
   const dayHigh = quote && isNum(quote.high) ? quote.high : a.price.high;
   const dayLow = quote && isNum(quote.low) ? quote.low : a.price.low;
-  const rangeAt =
-    isNum(dayHigh) && isNum(dayLow) && isNum(px) && dayHigh > dayLow ? Math.min(100, Math.max(0, ((px - dayLow) / (dayHigh - dayLow)) * 100)) : null;
 
   const panel = (
     <VerdictPanel
@@ -405,7 +419,7 @@ export default function StockView({ symbol, quote, status, streaming = false, in
   return (
     <>
     <div className="sv sv--desk sv--cockpit" ref={cockpit.frame}>
-      {/* the head: the price bar and the day's figures in one block that stays on screen */}
+      {/* the head: the stock, its live price, the call, the forecasts and the order buttons — it stays on screen */}
       <div className="sv__head" ref={cockpit.head}>
       <Ticker
         forecast={<ForecastChips state={horizon} ahead={ahead} onOpen={() => fcRef.current && fcRef.current.scrollIntoView && fcRef.current.scrollIntoView({ block: "center", behavior: "smooth" })} />}
@@ -440,99 +454,42 @@ export default function StockView({ symbol, quote, status, streaming = false, in
           </>
         }
       />
-        <dl className="sv__stats">
-          {[
-            ["Open", inr(quote && isNum(quote.open) ? quote.open : a.price.open)],
-            ["High", inr(dayHigh)],
-            ["Low", inr(dayLow)],
-            ["Prev close", inr(pc)],
-            ["Volume", compact(quote && isNum(quote.volume) ? quote.volume : a.price.volume)],
-            ["Daily reading", `${a.score.value > 0 ? "+" : ""}${a.score.value} · ${a.score.label}`, "is-wide"],
-            ["Setups on", on.length ? on.map((s) => s.name).join(", ") : "None", "is-wide"],
-            ...(quote && isNum(quote.upperCircuit) ? [["Circuit limits", `${inr(quote.lowerCircuit)} – ${inr(quote.upperCircuit)}`, "is-wide"]] : []),
-          ].map(([k, v, cls]) => (
-            <div key={k} className={cls || undefined}>
-              <dt>{k}</dt>
-              <dd title={typeof v === "string" ? v : undefined}>{v}</dd>
-            </div>
-          ))}
-          {rangeAt !== null && (
-            <div className="dk-range" data-tip="Where the price sits in today’s range: low on the left, high on the right.">
-              <dt>Day range</dt>
-              <dd>
-                <span className="dk-range__bar" role="img" aria-label={`The price is ${Math.round(rangeAt)}% of the way from today’s low to today’s high`}>
-                  <i style={{ left: `${rangeAt}%` }} />
-                </span>
-                <small>{Math.round(rangeAt)}%</small>
-              </dd>
-            </div>
+      </div>
+
+      {(a.stale || state.refreshError) && (
+        <div className="sv__notes">
+          {a.stale && (
+            <p className="adm-alert adm-alert--error" role="status">
+              <b>Not live.</b> {a.staleReason}
+            </p>
           )}
-        </dl>
-      </div>
+          {state.refreshError && (
+            <p className="adm-alert adm-alert--info">
+              Could not refresh just now ({state.refreshError}); showing the reading from {when(a.fetchedAt)}.
+            </p>
+          )}
+        </div>
+      )}
 
-      <div className="sv__top">
-        {a.stale && (
-          <p className="adm-alert adm-alert--error" role="status">
-            <b>Not live.</b> {a.staleReason}
-          </p>
-        )}
-        {state.refreshError && (
-          <p className="adm-alert adm-alert--info">
-            Could not refresh just now ({state.refreshError}); showing the reading from {when(a.fetchedAt)}.
-          </p>
-        )}
-
-        {/* the AI strip first (AI Live, AI Research, the next session, the plan, the predicted open…), then the analysis tabs
-            below, and the chart and the forecast cards under them (the owner's order, 21 Nov 2026) */}
-        <AiBrain symbol={symbol} live={live} marketHours={Boolean(status.marketHours)} foldable />
-      </div>
+      {/* first sight (27 Nov 2026): everything a reading of the stock needs, in plain groups, right under the price */}
+      <DeskGlance
+        a={a}
+        v={vd}
+        intraday={intraday}
+        quote={quote}
+        price={px}
+        prevClose={pc}
+        high={dayHigh}
+        low={dayLow}
+        setupsOn={on}
+        onTab={openTab}
+        onVerdict={showVerdict}
+      />
 
       {wide && panel}
 
-      <div className="sv__body" ref={top}>
-        <div className="sv__tabs" role="tablist" aria-label="Analysis sections">
-          {tabs.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              role="tab"
-              id={`tab-${t.id}`}
-              aria-selected={tab === t.id}
-              aria-controls={`panel-${t.id}`}
-              onClick={() => setTab(t.id)}
-            >
-              {t.label}
-              {t.id === "setups" && on.length > 0 && <i>{on.length}</i>}
-            </button>
-          ))}
-        </div>
-
-        <div role="tabpanel" key={tab} id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
-          {tab === "verdict" && !wide && panel}
-          {tab === "overview" && <ScoreCard score={a.score} cautions={a.cautions} />}
-          {tab === "setups" && <Setups setups={a.setups} bearish={a.bearish} patterns={a.patterns} fullHistory={a.fullHistory} onSize={sizeThis} />}
-          {tab === "levels" && <Levels levels={a.levels} last={px} intraday={intraday} />}
-          {tab === "indicators" && <Indicators ind={a.indicators} liquidity={a.liquidity} volatilityPct={a.volatilityPct} />}
-          {tab === "size" && (
-            <PositionSizer
-              seed={
-                seed || {
-                  entry: px,
-                  stop: a.levels.atr ? Math.round((px - 1.5 * a.levels.atr.value) * 100) / 100 : null,
-                  at: symbol,
-                }
-              }
-            />
-          )}
-          {tab === "ai" && <AiPanel symbol={symbol} onSize={sizeThis} />}
-          {tab === "backtest" && <BacktestPanel symbol={symbol} />}
-          {tab === "history" && <History a={a} symbol={symbol} />}
-          {tab === "behaviour" && <Behaviour symbol={symbol} />}
-        </div>
-      </div>
-
+      {/* the chart comes next, fitted to what the screen has left, so it is seen with the price and the figures */}
       <div className="sv__low">
-        {/* the chart is the centre of the Desk: it takes the height the screen has left, right under the price */}
         <section className="an-card sv__chart" aria-label="Chart">
           <div className="sv__chartbar">
             <div className="sv__ranges" role="group" aria-label="Chart type">
@@ -597,15 +554,63 @@ export default function StockView({ symbol, quote, status, streaming = false, in
             <p className="adm-small">Today’s daily bar is unfinished: setups are judged on the close and can appear or disappear until 3:30 PM.</p>
           )}
         </section>
-        <div ref={fcRef} className="sv__fcwrap">
-          {/* the consensus: ONE level forecast for 5 and 15 minutes from the three forecasters and the order book, with who leads */}
-          <ConsensusCard symbol={symbol} />
-          <HorizonCard symbol={symbol} state={horizon} />
-          <AheadCard symbol={symbol} state={ahead} />
-          {/* everything weighed: the techniques, the order book, open interest, the market and the world; opening the stock tells the
-              server, which may ask the AI once about it when its own test says the AI is needed */}
-          <EvidenceCard symbol={symbol} announce />
+      </div>
+
+      {/* the AI strip (AI Live, AI Research, the next session, the plan, the predicted open…) */}
+      <div className="sv__top">
+        <AiBrain symbol={symbol} live={live} marketHours={Boolean(status.marketHours)} foldable />
+      </div>
+
+      <div className="sv__body" ref={top}>
+        <div className="sv__tabs" role="tablist" aria-label="Analysis sections">
+          {tabs.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              role="tab"
+              id={`tab-${t.id}`}
+              aria-selected={tab === t.id}
+              aria-controls={`panel-${t.id}`}
+              onClick={() => setTab(t.id)}
+            >
+              {t.label}
+              {t.id === "setups" && on.length > 0 && <i>{on.length}</i>}
+            </button>
+          ))}
         </div>
+
+        <div role="tabpanel" key={tab} id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
+          {tab === "verdict" && !wide && panel}
+          {tab === "overview" && <ScoreCard score={a.score} cautions={a.cautions} />}
+          {tab === "setups" && <Setups setups={a.setups} bearish={a.bearish} patterns={a.patterns} fullHistory={a.fullHistory} onSize={sizeThis} />}
+          {tab === "levels" && <Levels levels={a.levels} last={px} intraday={intraday} />}
+          {tab === "indicators" && <Indicators ind={a.indicators} liquidity={a.liquidity} volatilityPct={a.volatilityPct} />}
+          {tab === "size" && (
+            <PositionSizer
+              seed={
+                seed || {
+                  entry: px,
+                  stop: a.levels.atr ? Math.round((px - 1.5 * a.levels.atr.value) * 100) / 100 : null,
+                  at: symbol,
+                }
+              }
+            />
+          )}
+          {tab === "ai" && <AiPanel symbol={symbol} onSize={sizeThis} />}
+          {tab === "backtest" && <BacktestPanel symbol={symbol} />}
+          {tab === "history" && <History a={a} symbol={symbol} />}
+          {tab === "behaviour" && <Behaviour symbol={symbol} />}
+        </div>
+      </div>
+
+      <div ref={fcRef} className="sv__fcwrap">
+        {/* the consensus: ONE level forecast for 5 and 15 minutes from the three forecasters and the order book, with who leads */}
+        <ConsensusCard symbol={symbol} />
+        <HorizonCard symbol={symbol} state={horizon} />
+        <AheadCard symbol={symbol} state={ahead} />
+        {/* everything weighed: the techniques, the order book, open interest, the market and the world; opening the stock tells the
+            server, which may ask the AI once about it when its own test says the AI is needed */}
+        <EvidenceCard symbol={symbol} announce />
       </div>
     </div>
       {/* the bottom of the Desk, outside the grid so the sticky verdict panel can never slide over it:

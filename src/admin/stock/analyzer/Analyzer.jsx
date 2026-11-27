@@ -23,9 +23,15 @@ import "./analyzer.css";
 import "./desk.css";
 import "./desk2.css";
 import "./desk3.css";
+import "./desk4.css"; // the Kite desk (27 Nov 2026): loaded last, it settles the layout
 import { everyVisible } from "../../visible";
 
 const SYMBOL_RE = /^[A-Z0-9][A-Z0-9&._ -]{0,24}$/;
+const onPhone = () => typeof window.matchMedia === "function" && window.matchMedia("(max-width: 760px)").matches;
+const showPart = (selector) => {
+  const el = document.querySelector(`.an.dk ${selector}`);
+  if (el && el.scrollIntoView) el.scrollIntoView({ block: "start" });
+};
 export default function Analyzer() {
   const [params, setParams] = useSearchParams();
   // ?s=SYMBOL keeps the stock across a refresh and makes the page linkable
@@ -142,6 +148,8 @@ export default function Analyzer() {
   const pick = (symbol) => {
     if (!symbols.includes(symbol)) setAdhoc(symbol);
     setSelected(symbol);
+    // on a phone the watchlist stands under the stock: picking one brings the stock into view
+    if (onPhone()) setTimeout(() => showPart(".an__main"), 60);
   };
   // a stock opened from outside the Desk while it is on screen — the command palette, the
   // Advisor, a link — arrives through the address bar
@@ -253,7 +261,7 @@ export default function Analyzer() {
 
   return (
     <TickContext.Provider value={live.store}>
-    <div className={`an dk ${mode === "demo" ? "an--demo" : ""}`}>
+    <div className={`an dk dk4 ${mode === "demo" ? "an--demo" : ""}`}>
       <div className="an__desk">
         {/* the connection: one very small button; its words, buttons and setup are in the dialog it opens */}
         <ConnectPanel status={status} flash={flash.current || null} onStatus={applyStatus} startOpen={mode === "none" && !status.kite.configured} />
@@ -279,6 +287,10 @@ export default function Analyzer() {
               </>
             )}
           </p>
+          {/* a phone only (desk4.css): the watchlist is under the stock, one press away */}
+          <button type="button" className="dk-fold dk-towl" onClick={() => showPart(".wl")}>
+            <span aria-hidden="true">↓</span> Watchlist
+          </button>
           <button type="button" className="dk-fold" onClick={toggleBoard} aria-expanded={board} aria-controls="dk-board" data-tip="Show or hide the day board (session, market, radar, checklist) under the watchlist. The Desk remembers your choice on this device.">
             <span aria-hidden="true">{board ? "▴" : "▾"}</span> Day board
           </button>
