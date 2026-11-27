@@ -412,21 +412,31 @@ html:has(.adm) {
 .adm:has(.tm--bnav) .aiask {
   bottom: auto;
 }
+/* On a phone it spans the screen with an 8 px gutter on each side. It is placed by left and right, never by a transform: the
+   popup's entry animation ends on "transform: none", which used to wipe out the old translate-to-centre and leave the box's right
+   edge at the middle of the screen — half of every request hung off the left (27 Nov 2026, the owner's phone). */
 @media (max-width: 640px) {
   .adm .aiask {
-    right: 50%;
-    transform: translateX(50%);
-    animation-name: ux-drop;
+    left: 8px;
+    right: 8px;
+    width: auto;
+    max-width: 480px;
+    margin-inline: auto;
+  }
+  .adm .aiask__acts > button {
+    flex: 1 1 8rem;
+    justify-content: center;
+    min-height: 40px;
+  }
+  .adm .aiask__fold {
+    min-width: 36px;
+    min-height: 36px;
   }
 }
-@keyframes ux-drop {
-  from {
-    opacity: 0;
-    transform: translate(50%, -10px);
-  }
-  to {
-    opacity: 1;
-    transform: translate(50%, 0);
+/* the trading terminal's phone bar is two rows tall: the request sits under both */
+@media (max-width: 599px) {
+  .adm:has(.tm) .aiask {
+    top: 100px;
   }
 }
 

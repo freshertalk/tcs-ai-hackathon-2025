@@ -265,6 +265,12 @@
     letter-spacing: 0.08em;
   }
 }
+/* the narrowest phones (375 px and under): the subtitle's letters sit closer so its last letter is not cut (27 Nov 2026) */
+@media (max-width: 400px) {
+  .adm .adm-head .adm-brand .vk-brand__name small {
+    letter-spacing: 0.02em;
+  }
+}
 /* a phone's terminal bar becomes two rows so the full brand fits: the brand with your status and photo on the first, the
    search with the trading switch and today's P&L on the second (Kite's phone app keeps its search on a row of its own) */
 @media (max-width: 599px) {

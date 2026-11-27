@@ -78,22 +78,14 @@
   transform-origin: top right;
 }
 
-/* ------------------------------------------------------------------ the AI ask: above the Positions bar, accent-washed */
+/* ------------------------------------------------------------------ the AI ask: accent-washed. It sits at the top (ux.css section 8); the
+   bottom offsets it once had here pinned it to both edges on terminal pages and stretched it. */
 .adm .aiask {
   border-radius: 16px;
   border-color: color-mix(in srgb, var(--accent) 38%, var(--line));
   background: linear-gradient(160deg, color-mix(in srgb, var(--accent) 10%, var(--surface)), var(--surface) 70%);
   box-shadow: 0 22px 50px -22px color-mix(in srgb, var(--accent) 45%, rgba(0, 0, 0, 0.55)), 0 4px 12px -6px rgba(0, 0, 0, 0.25);
   animation: soft-rise 380ms var(--soft-spring) both;
-}
-.adm:has(.tm-dock) .aiask {
-  bottom: calc(40px + 12px);
-}
-.adm:has(.tm-dock.is-open) .aiask {
-  bottom: calc(min(290px, 34vh) + 12px);
-}
-.adm:has(.tm--bnav) .aiask {
-  bottom: calc(70px + 10px + env(safe-area-inset-bottom, 0px));
 }
 .adm .aiask__mark {
   background: color-mix(in srgb, var(--accent) 16%, var(--surface));

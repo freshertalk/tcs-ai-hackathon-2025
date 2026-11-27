@@ -117,8 +117,7 @@
     animation: none;
   }
 }
-/* the terminal's bottom navigation on a phone (54 px): the popup sits above it, never over it */
+/* on a phone the terminal has a bottom bar: the popup (at the top, see ux.css) keeps clear of it */
 .adm:has(.tm--bnav) .aiask {
-  bottom: 70px;
   max-height: min(60vh, 480px);
 }
