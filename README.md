@@ -809,6 +809,26 @@ replaces the layout above where they differ; every part is still there.
 - **Watchlist:** flat rows in Kite's market-watch style; the list's name has its own line.
 - Checked with a made-up market (market open and closed) at 390, 768, 1024, 1280, 1440 and 1920 px, light and dark.
 
+**The Advisor in Kite's layout (2026-11-27: `stock/advisor/Advisor.jsx`, `advisor-kite.css`).** The owner asked for the
+Advisor to be clearer and roomier in the Kite style, with what a reading needs on the first screen. Every part is kept.
+- **Best readings today (new):** up to three grade A or B calls that can be traded at the price now, best first. Each
+  shows:
+  - the similar days' win share, the average R and the forward test;
+  - what followed similar days (10 sessions on for a swing, the next day for a day call);
+  - the plan: entry, stop, target, reward to risk, the quantity for your risk, and the rupees at risk and to target;
+  - Desk and Ticket buttons.
+  With none, it says so. On a phone only the best one is shown.
+- **Board:** two new columns. *Day · Swing* gives, for both horizons, the side whose similar days won more often, with
+  its grade. *After similar days* gives the close-to-close move and how often the stock closed up. The quantity cell
+  also shows the rupees at risk. Each cell reads figure on top, caption under it.
+- **Shapes:** from 1280 px the table; below it the stock cards (two to a row on a tablet, one on a phone). The table
+  needs ten columns, so it no longer scrolls sideways. From 1600 px the board takes more width beside the selected stock.
+- **Fixed:** on wide screens the long and short boxes of the selected stock were drawn on top of each other (the
+  panel's own placement rule caught them, as they share its class).
+- The Kite look (white page, hairlines, 6 px corners, roomier rows, records side by side) is in `advisor-kite.css`;
+  every rule starts at `.tm-page[data-view="advisor"]`. Test: `Advisor.test.js`. Checked with made-up prices at 390,
+  768, 1024, 1440 and 1920 px, light and dark.
+
 **The morning call (2026-11-27: `server/market/morning.js`, `server/morning.js`, `stock/analyzer/MorningCall.jsx`).** The
 owner asked for predictions before and during the first half-hour, which the Desk did not give: the live call takes no
 entries before 9:30, the pulse and AI Live needed four 5-minute bars (9:35), and the 15-minute forecaster starts at 9:20.

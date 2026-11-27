@@ -1,0 +1,496 @@
+/* ==========================================================================
+   The Advisor in Zerodha Kite's layout (27 Nov 2026, the owner: "more best, elegant, more breathing space, enterprise grade …
+   all details required for stock analysis on the front"). Loaded after advisor.css; every rule starts at
+   .tm-page[data-view="advisor"], so only this page changes. Colours are the private area's tokens: both themes follow.
+
+     · one white page; panels with a hairline and a 6px corner, no shadows
+     · the head open (title, what the page is, your risk and the filter), the figures strip under it
+     · BEST READINGS TODAY: the top grade A or B calls laid out whole — evidence, plan, rupees, buttons
+     · the board as Kite's market watch: roomy rows, quiet headings, both horizons and what followed similar days
+     · the two records side by side, the method under them
+   ========================================================================== */
+
+.adm:has(.tm-page[data-view="advisor"]) {
+  background: var(--surface);
+}
+
+.adm .tm-page[data-view="advisor"] {
+  --avk-r: 6px;
+  --avk-pad: 20px;
+}
+.adm .tm-page[data-view="advisor"] :is(.an-card, .av-board, .av-pick2, .av-cd, .av-card) {
+  border-color: var(--line);
+  border-radius: var(--avk-r);
+  background-image: none;
+  box-shadow: none;
+}
+
+/* ---------------------------------------------------------------- the head and the figures strip */
+.adm .tm-page[data-view="advisor"] > .av-pagehead {
+  margin-bottom: 4px;
+  padding: 18px var(--avk-pad);
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  background: none;
+}
+.adm .tm-page[data-view="advisor"] > .av-pagehead .wk-head__titles h3 {
+  font-size: 1.25rem;
+  font-weight: 400;
+}
+.adm .tm-page[data-view="advisor"] > .av-pagehead .wk-head__titles p {
+  max-width: 78ch;
+  margin-top: 4px;
+  line-height: 1.55;
+}
+.adm .tm-page[data-view="advisor"] .av-risk__in {
+  border-radius: var(--avk-r);
+}
+.adm .tm-page[data-view="advisor"] .av-seg {
+  border-radius: var(--avk-r);
+}
+.adm .tm-page[data-view="advisor"] > .wk-bar {
+  border-radius: 0;
+  border-width: 0 0 1px;
+  box-shadow: none;
+}
+
+.adm .tm-page[data-view="advisor"] .av {
+  gap: 20px;
+  margin-top: 16px;
+}
+.adm .tm-page[data-view="advisor"] .av-main {
+  gap: 16px;
+}
+
+/* ---------------------------------------------------------------- best readings today */
+.adm .tm-page[data-view="advisor"] .av-top {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.adm .tm-page[data-view="advisor"] .av-top__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+}
+.adm .tm-page[data-view="advisor"] .av-top__head h3 {
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--f-ui);
+  font-size: 1.0625rem;
+  font-weight: 600;
+}
+.adm .tm-page[data-view="advisor"] .av-top__head small {
+  color: var(--ink-3);
+  font-size: var(--t-small);
+}
+.adm .tm-page[data-view="advisor"] .av-top__none {
+  margin: 0;
+  padding: 14px var(--avk-pad);
+  border: 1px dashed var(--line-2);
+  border-radius: var(--avk-r);
+  font-size: var(--t-mid);
+}
+.adm .tm-page[data-view="advisor"] .av-top__row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+  gap: 16px;
+}
+.adm .tm-page[data-view="advisor"] .av-pick2 {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  min-width: 0;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-top: 3px solid var(--line-2);
+  background: var(--surface);
+}
+.adm .tm-page[data-view="advisor"] .av-pick2--A {
+  border-top-color: var(--up);
+}
+.adm .tm-page[data-view="advisor"] .av-pick2--B {
+  border-top-color: color-mix(in srgb, var(--up) 55%, var(--line));
+}
+.adm .tm-page[data-view="advisor"] .av-pick2__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+}
+.adm .tm-page[data-view="advisor"] .av-pick2__sym {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-size: 1.0625rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.adm .tm-page[data-view="advisor"] .av-pick2__sym:hover {
+  color: var(--accent);
+}
+.adm .tm-page[data-view="advisor"] .av-pick2__sym:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+.adm .tm-page[data-view="advisor"] .av-pick2__head .av-px {
+  color: var(--ink-2);
+  font-size: var(--t-mid);
+}
+.adm .tm-page[data-view="advisor"] .av-pick2__call {
+  margin-left: auto;
+  font-size: var(--t-mid);
+}
+.adm .tm-page[data-view="advisor"] .av-pick2 dl {
+  margin: 0;
+}
+.adm .tm-page[data-view="advisor"] .av-pick2__figs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 0;
+}
+.adm .tm-page[data-view="advisor"] .av-pick2__figs > div {
+  min-width: 0;
+  padding: 0 14px;
+  border-left: 1px solid var(--line);
+}
+.adm .tm-page[data-view="advisor"] .av-pick2__figs > div:nth-child(odd) {
+  padding-left: 0;
+  border-left: 0;
+}
+.adm .tm-page[data-view="advisor"] .av-pick2 dt {
+  margin: 0;
+  color: var(--ink-3);
+  font-size: var(--t-small);
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 1.4;
+  text-transform: none;
+}
+.adm .tm-page[data-view="advisor"] .av-pick2__figs dd {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 6px;
+  margin: 2px 0 0;
+}
+.adm .tm-page[data-view="advisor"] .av-pick2__figs dd b {
+  color: var(--ink);
+  font-size: 1.25rem;
+  font-weight: 300;
+  line-height: 1.3;
+  font-variant-numeric: tabular-nums;
+}
+.adm .tm-page[data-view="advisor"] .av-pick2 :is(b, dd).is-up {
+  color: var(--up-ink, var(--up));
+}
+.adm .tm-page[data-view="advisor"] .av-pick2 :is(b, dd).is-down {
+  color: var(--down-ink, var(--down));
+}
+.adm .tm-page[data-view="advisor"] .av-pick2__figs dd small {
+  color: var(--ink-3);
+  font-size: var(--t-small);
+  line-height: 1.4;
+}
+.adm .tm-page[data-view="advisor"] .av-pick2__plan {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px 14px;
+  padding: 12px 14px;
+  border-radius: var(--avk-r);
+  background: var(--surface-2);
+}
+.adm .tm-page[data-view="advisor"] .av-pick2__plan > div {
+  min-width: 0;
+}
+.adm .tm-page[data-view="advisor"] .av-pick2__plan dd {
+  margin: 2px 0 0;
+  color: var(--ink);
+  font-size: var(--t-base);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: break-word;
+}
+.adm .tm-page[data-view="advisor"] .av-pick2__plan dd small {
+  font-size: var(--t-small);
+  font-weight: 600;
+}
+.adm .tm-page[data-view="advisor"] .av-pick2__plan dd small.is-up {
+  color: var(--up-ink, var(--up));
+}
+.adm .tm-page[data-view="advisor"] .av-pick2__foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+}
+.adm .tm-page[data-view="advisor"] .av-pick2__foot > small {
+  flex: 1 1 200px;
+  min-width: 0;
+  color: var(--ink-3);
+  font-size: var(--t-small);
+  line-height: 1.45;
+}
+.adm .tm-page[data-view="advisor"] .av-pick2__foot > span {
+  display: inline-flex;
+  gap: 8px;
+}
+
+/* ---------------------------------------------------------------- the tally, as one quiet line */
+.adm .tm-page[data-view="advisor"] .av-tally {
+  gap: 4px 0;
+  margin: 0;
+  padding: 0;
+}
+.adm .tm-page[data-view="advisor"] .av-tally__n {
+  padding: 0 14px;
+  border: 0;
+  border-left: 1px solid var(--line);
+  border-radius: 0;
+  background: none;
+  color: var(--ink-2);
+  font-size: var(--t-mid);
+}
+.adm .tm-page[data-view="advisor"] .av-tally__n:first-child {
+  padding-left: 0;
+  border-left: 0;
+}
+
+/* ---------------------------------------------------------------- the board, as Kite's market watch */
+.adm .tm-page[data-view="advisor"] .av-board {
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+.adm .tm-page[data-view="advisor"] .av-table {
+  min-width: 1080px;
+}
+.adm .tm-page[data-view="advisor"] .av-table thead th {
+  padding: 11px 14px;
+  background: var(--surface);
+  color: var(--ink-3);
+  font-size: var(--t-small);
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.adm .tm-page[data-view="advisor"] .av-row > th,
+.adm .tm-page[data-view="advisor"] .av-row > td {
+  padding: 13px 14px;
+  vertical-align: top;
+}
+.adm .tm-page[data-view="advisor"] .av-row > th {
+  min-width: 132px;
+}
+/* every cell reads the same way: the figure on top, what it means under it — never broken mid-figure */
+.adm .tm-page[data-view="advisor"] .av-row > td > b,
+.adm .tm-page[data-view="advisor"] .av-row > td > small,
+.adm .tm-page[data-view="advisor"] .av-row .av-levels {
+  white-space: nowrap;
+}
+.adm .tm-page[data-view="advisor"] .av-row td > b + small:not(.av-warn):not(.av-mute) {
+  display: block;
+  margin: 2px 0 0;
+}
+.adm .tm-page[data-view="advisor"] .av-row > td:first-of-type {
+  white-space: nowrap;
+}
+.adm .tm-page[data-view="advisor"] .av-row > td:first-of-type > small {
+  white-space: normal;
+}
+.adm .tm-page[data-view="advisor"] .av-row td > span[data-tip] > b {
+  display: block;
+}
+.adm .tm-page[data-view="advisor"] .av-row td > span[data-tip] > small {
+  white-space: nowrap;
+}
+.adm .tm-page[data-view="advisor"] .av-row:hover {
+  background: color-mix(in srgb, var(--accent) 3%, var(--surface));
+}
+.adm .tm-page[data-view="advisor"] .av-row.is-open {
+  background: color-mix(in srgb, var(--accent) 5%, var(--surface));
+}
+.adm .tm-page[data-view="advisor"] .av-sym {
+  font-size: var(--t-base);
+  font-weight: 600;
+}
+.adm .tm-page[data-view="advisor"] .av-row .av-px {
+  display: block;
+  margin-top: 3px;
+  color: var(--ink-2);
+}
+.adm .tm-page[data-view="advisor"] .av-act {
+  white-space: nowrap;
+}
+.adm .tm-page[data-view="advisor"] .av-act > * + * {
+  margin-left: 6px;
+}
+.adm .tm-page[data-view="advisor"] .av-detail > td {
+  padding: 4px 14px 18px;
+  background: color-mix(in srgb, var(--accent) 5%, var(--surface));
+}
+
+/* both horizons: two short lines */
+.adm .tm-page[data-view="advisor"] .av-hz {
+  display: grid;
+  gap: 3px;
+}
+.adm .tm-page[data-view="advisor"] .av-hz__line {
+  display: grid;
+  grid-template-columns: 44px auto auto;
+  justify-content: start;
+  align-items: baseline;
+  gap: 6px;
+  white-space: nowrap;
+}
+.adm .tm-page[data-view="advisor"] .av-hz__line > small {
+  display: inline;
+  margin: 0;
+  color: var(--ink-3);
+  font-size: var(--t-small);
+}
+.adm .tm-page[data-view="advisor"] .av-hz__line > b {
+  font-size: var(--t-mid);
+  font-weight: 600;
+}
+.adm .tm-page[data-view="advisor"] .av-hz .av-grade {
+  margin: 0;
+}
+
+/* ---------------------------------------------------------------- one stock's reading (under its row, or beside the board) */
+.adm .tm-page[data-view="advisor"] .av-sides > .av-side {
+  border: 1px solid var(--line);
+  border-radius: var(--avk-r);
+  background: var(--surface);
+  box-shadow: none;
+}
+/* the wide screen's rule for the panel beside the board (.av--split .av-side) also caught the long and short boxes inside it,
+   which share its class: they were placed in the panel's grid area and drawn on top of each other. They lie in their own
+   grid, one under the other. */
+.adm .tm-page[data-view="advisor"] .av--split .av-sides > .av-side {
+  grid-area: auto;
+  position: static;
+  top: auto;
+  max-height: none;
+  overflow: visible;
+}
+.adm .tm-page[data-view="advisor"] .av-kind h4 {
+  font-size: var(--t-base);
+  font-weight: 600;
+}
+.adm .tm-page[data-view="advisor"] .av-plan {
+  border-radius: var(--avk-r);
+}
+.adm .tm-page[data-view="advisor"] .av-pick {
+  padding: 16px 18px;
+}
+
+/* ---------------------------------------------------------------- the records */
+.adm .tm-page[data-view="advisor"] .av-recs {
+  gap: 16px;
+}
+.adm .tm-page[data-view="advisor"] .av-recs > .an-card {
+  padding: 16px 18px;
+}
+@media (min-width: 1100px) and (max-width: 1599.98px) {
+  .adm .tm-page[data-view="advisor"] .av-recs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
+  .adm .tm-page[data-view="advisor"] .av-recs > .av-method {
+    grid-column: 1 / -1;
+  }
+}
+
+/* ---------------------------------------------------------------- narrower screens */
+@media (max-width: 760px) {
+  .adm .tm-page[data-view="advisor"] {
+    --avk-pad: 14px;
+  }
+  .adm .tm-page[data-view="advisor"] .av {
+    gap: 14px;
+    margin-top: 12px;
+  }
+  .adm .tm-page[data-view="advisor"] .av-pick2 {
+    padding: 14px;
+  }
+  .adm .tm-page[data-view="advisor"] .av-pick2__plan {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .adm .tm-page[data-view="advisor"] .av-pick2__call {
+    margin-left: 0;
+    flex-basis: 100%;
+  }
+  .adm .tm-page[data-view="advisor"] .av-tally {
+    flex-wrap: wrap;
+  }
+  .adm .tm-page[data-view="advisor"] .av-cd {
+    padding: 14px;
+  }
+}
+/* the forward test: its average and its count on one line, the win share and t under them */
+.adm .tm-page[data-view="advisor"] .av-row td:has(> small + small) > b + small:not(.av-warn):not(.av-mute) {
+  display: inline;
+  margin-left: 4px;
+}
+
+/* beside the selected stock (1600px and wider) the board is narrower: it takes a little more of the width, and its captions
+   wrap rather than scroll sideways */
+@media (min-width: 1600px) and (max-width: 2299.98px) {
+  .adm .tm-page[data-view="advisor"] .av--split {
+    grid-template-columns: minmax(0, 1.9fr) minmax(0, 1fr);
+  }
+}
+@media (min-width: 1600px) {
+  .adm .tm-page[data-view="advisor"] .av--split .av-table {
+    min-width: 0;
+  }
+  .adm .tm-page[data-view="advisor"] .av--split .av-row > th,
+  .adm .tm-page[data-view="advisor"] .av--split .av-row > td {
+    padding: 12px 10px;
+  }
+  .adm .tm-page[data-view="advisor"] .av--split .av-row > td > small,
+  .adm .tm-page[data-view="advisor"] .av--split .av-row td > span[data-tip] > small {
+    white-space: normal;
+  }
+  .adm .tm-page[data-view="advisor"] .av--split .av-pick2__plan {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* tablets and small laptops: the stock cards, two to a row; an opened card spans the row */
+.adm .tm-page[data-view="advisor"] .av-cards--two {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  align-items: start;
+}
+.adm .tm-page[data-view="advisor"] .av-cards--two > .av-cd {
+  margin: 0;
+  padding: 14px 16px;
+}
+.adm .tm-page[data-view="advisor"] .av-cards--two > .av-cd.is-open,
+.adm .tm-page[data-view="advisor"] .av-cards--two > .av-empty {
+  grid-column: 1 / -1;
+}
+.adm .tm-page[data-view="advisor"] .av-cd__nums {
+  gap: 10px 14px;
+}
+.adm .tm-page[data-view="advisor"] .av-cd__nums .av-hz__line > small,
+.adm .tm-page[data-view="advisor"] .av-cd__nums dd span[data-tip] > small {
+  display: inline;
+}
+.adm .tm-page[data-view="advisor"] .av-cd__nums dd span[data-tip] > b {
+  margin-right: 6px;
+}
+/* a phone: the single best reading leads; the rest are the board's first cards just under it */
+@media (max-width: 760px) {
+  .adm .tm-page[data-view="advisor"] .av-top__row > .av-pick2:nth-child(n + 2) {
+    display: none;
+  }
+}

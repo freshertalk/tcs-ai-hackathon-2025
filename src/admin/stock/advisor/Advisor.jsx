@@ -6,7 +6,7 @@
 // that keep the engine honest: the method pooled across your watchlist, and the forward
 // record — every favourable call written down the day it was made and scored afterwards.
 //
-// One screen, three shapes. A phone gets a card per stock; a laptop gets the table, with a
+// First, the best graded calls laid out whole (27 Nov 2026). Then one board in three shapes. A phone gets a card per stock; a laptop gets the table, with a
 // stock's full reading opening under its row; a wide monitor keeps the table on the left and
 // the selected stock's reading open beside it.
 //
@@ -23,6 +23,7 @@ import EdgeCard, { Grade, OddsBar } from "./EdgeCard";
 import { callLabel, dayStillOpen, headline, planAt, qtyForRisk, rankRows, signedR, tally, ticketFor, verdictOf } from "./advisorMath";
 import { useRisk } from "./useRisk";
 import "./advisor.css";
+import "./advisor-kite.css"; // the Kite layout (27 Nov 2026): this page only, loaded after advisor.css
 import { useTopics } from "../../live";
 import { PageBar, PageHead, SectionHead } from "../../ux/PageKit";
 
@@ -43,6 +44,7 @@ const VERDICT_TIP = {
   none: "No trades yet.",
 };
 const tone = (x) => (x > 0 ? "is-up" : x < 0 ? "is-down" : "");
+const NARROW = "(max-width: 1279px)";
 
 function Price({ symbol, fallback, prev }) {
   const tick = useTick(symbol);
@@ -128,6 +130,186 @@ function Levels({ plan }) {
   );
 }
 
+/** Both horizons in one glance: for day and swing, the side whose similar days won more often, and its grade. */
+function bestSideOf(k) {
+  if (!k) return null;
+  const pick = ["long", "short"].map((side) => ({ side, x: k[side] })).filter((o) => o.x && o.x.live);
+  if (!pick.length) return null;
+  pick.sort((a, b) => (GRADE_ORDER[b.x.grade] || 0) - (GRADE_ORDER[a.x.grade] || 0) || b.x.live.winPct - a.x.live.winPct);
+  return { side: pick[0].side, win: pick[0].x.live.winPct, n: pick[0].x.live.n, grade: pick[0].x.grade };
+}
+const GRADE_ORDER = { A: 3, B: 2, C: 1 };
+function Horizons({ row }) {
+  return (
+    <span className="av-hz">
+      {["day", "swing"].map((kind) => {
+        const b = bestSideOf(row.kinds[kind]);
+        return (
+          <span key={kind} className="av-hz__line" data-tip={b ? `${kind === "day" ? "Day" : "Swing"} ${b.side}: ${num(b.win, 0)}% of ${b.n} similar days made money${b.grade ? `, grade ${b.grade}` : ", not graded"}.` : undefined}>
+            <small>{kind === "day" ? "Day" : "Swing"}</small>
+            {b ? (
+              <>
+                <b className={b.side === "long" ? "av-long" : "av-short"}>
+                  {b.side === "long" ? "▲" : "▼"} {num(b.win, 0)}%
+                </b>
+                {b.grade ? <Grade g={b.grade} short /> : <span className="av-mute">–</span>}
+              </>
+            ) : (
+              <span className="av-mute">—</span>
+            )}
+          </span>
+        );
+      })}
+    </span>
+  );
+}
+
+/** What the stock did after its similar days, close to close (no stop, no target): 10 sessions on for a swing, the next day for a day call. */
+function afterOf(row, h) {
+  const f = row.kinds && row.kinds.swing ? row.kinds.swing.forward : null;
+  if (!f) return null;
+  const k = h && h.kind === "day" ? "d1" : "d10";
+  const x = f[k];
+  return x ? { sessions: k === "d1" ? 1 : 10, avg: x.avgPct, up: x.upPct } : null;
+}
+function After({ row, h }) {
+  const a = afterOf(row, h);
+  if (!a) return <span className="av-mute">—</span>;
+  return (
+    <span data-tip={`After the days most like today the stock moved ${pct(a.avg)} on average over the next ${a.sessions === 1 ? "session" : "10 sessions"}, closing higher ${num(a.up, 0)}% of the time. Close to close: no stop, no target, no costs.`}>
+      <b className={tone(a.avg)}>{pct(a.avg)}</b>
+      <small>
+        {num(a.up, 0)}% closed up · {a.sessions === 1 ? "next day" : "10 days"}
+      </small>
+    </span>
+  );
+}
+
+/** The rupees: at risk to the stop, and to the target, for the quantity your risk buys. */
+function moneyOf(plan, qty) {
+  if (!plan || !(qty > 0)) return null;
+  const risk = qty * plan.riskPerShare;
+  const reward = plan.target !== null && plan.target !== undefined ? qty * Math.abs(plan.target - plan.entryRef) : null;
+  return { risk, reward, rr: plan.rr };
+}
+
+/** One of the best readings today, laid out whole: the call, its evidence, the plan in rupees, and the two buttons. */
+function TopPick({ row, risk, onOpen, onShow }) {
+  const v = useReading(row, risk);
+  const { h, plan, still, shown, o } = v;
+  if (!h || !plan) return null;
+  const money = moneyOf(plan, v.qty);
+  const a = afterOf(row, h);
+  const live = shown.live;
+  return (
+    <article className={`av-pick2 av-pick2--${h.grade}`} aria-label={`${row.symbol}: ${callLabel(h.kind, h.side)}, grade ${h.grade}`}>
+      <header className="av-pick2__head">
+        <button type="button" className="av-pick2__sym" onClick={() => onShow(row.symbol)} data-tip="Show every reading for this stock on the board.">
+          {row.symbol}
+        </button>
+        <Price symbol={row.symbol} fallback={v.last} prev={row.close} />
+        <span className="av-pick2__call">
+          <b className={h.side === "long" ? "av-long" : "av-short"}>{callLabel(h.kind, h.side)}</b> <Grade g={h.grade} />
+        </span>
+      </header>
+      <dl className="av-pick2__figs">
+        <div data-tip={HEAD[2][1]}>
+          <dt>Similar days won</dt>
+          <dd>
+            <b>{live ? `${num(live.winPct, 0)}%` : "—"}</b>
+            <small>{live ? `of ${live.n} · at least ${num(live.winLoPct, 0)}%` : ""}</small>
+          </dd>
+        </div>
+        <div data-tip={HEAD[3][1]}>
+          <dt>Average</dt>
+          <dd>
+            <b className={live ? tone(live.expR) : ""}>{live ? signedR(live.expR) : "—"}</b>
+            <small>{live ? `at least ${signedR(live.expRLo)}` : ""}</small>
+          </dd>
+        </div>
+        <div data-tip={HEAD[4][1]}>
+          <dt>Forward test</dt>
+          <dd>
+            <b className={tone(o.expR)}>{o.trades ? signedR(o.expR) : "—"}</b>
+            <small>{o.trades ? `× ${o.trades} · ${num(o.winPct, 0)}% won · t ${isNum(o.t) ? o.t.toFixed(1) : "—"}` : "no calls"}</small>
+          </dd>
+        </div>
+        <div>
+          <dt>{a ? (a.sessions === 1 ? "Next day after similar days" : "10 sessions after similar days") : "After similar days"}</dt>
+          <dd>
+            <b className={a ? tone(a.avg) : ""}>{a ? pct(a.avg) : "—"}</b>
+            <small>{a ? `closed higher ${num(a.up, 0)}%` : ""}</small>
+          </dd>
+        </div>
+      </dl>
+      <dl className="av-pick2__plan">
+        <div>
+          <dt>{h.kind === "swing" ? "Entry (price now)" : "Entry (the open)"}</dt>
+          <dd>{inr(plan.entryRef)}</dd>
+        </div>
+        <div>
+          <dt>Stop-loss</dt>
+          <dd className="is-down">{inr(plan.stop)}</dd>
+        </div>
+        <div>
+          <dt>Target</dt>
+          <dd className="is-up">{plan.target !== null ? inr(plan.target) : "out at the close"}</dd>
+        </div>
+        <div>
+          <dt>Reward : risk</dt>
+          <dd>{isNum(plan.rr) ? `${plan.rr.toFixed(2)} : 1` : "—"}</dd>
+        </div>
+        <div data-tip="Shares for your risk per trade: the risk divided by the distance to the stop.">
+          <dt>Quantity</dt>
+          <dd>{num(v.qty, 0)}</dd>
+        </div>
+        <div>
+          <dt>At risk · to target</dt>
+          <dd>
+            {money ? inr(money.risk, 0) : "—"}
+            {money && isNum(money.reward) ? <small className="is-up"> · {inr(money.reward, 0)}</small> : null}
+          </dd>
+        </div>
+      </dl>
+      <footer className="av-pick2__foot">
+        <small className={still.ok ? "" : "av-warn"}>{still.ok ? (h.kind === "day" ? "From the open, out at the close. " : "Out after 10 sessions if neither level is touched. ") : `${still.why} `}{row.warning ? "A downside warning stands on this stock." : ""}</small>
+        <span>
+          <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm" onClick={() => onOpen(row.symbol)} data-tip={`Open ${row.symbol} on the Desk: chart, live call, order book.`}>
+            Desk
+          </button>
+          <TicketButton v={v} />
+        </span>
+      </footer>
+    </article>
+  );
+}
+
+/** The best readings today, first: up to three grade A or B calls that can be traded at this price. */
+function TopPicks({ rows, risk, onOpen, onShow }) {
+  const picks = rows.filter((r) => {
+    if (!r.available || !r.best || r.best.grade === "C") return false;
+    const h = headline(r);
+    return Boolean(h && !(h.kind === "swing" && h.side === "short"));
+  }).slice(0, 3);
+  return (
+    <section className="av-top" aria-labelledby="av-top-h" data-jump="Best today">
+      <header className="av-top__head">
+        <h3 id="av-top-h">Best readings today</h3>
+        <small>Grade A or B only, best first. A grade is a measured frequency, not a promise.</small>
+      </header>
+      {picks.length ? (
+        <div className="av-top__row">
+          {picks.map((r) => (
+            <TopPick key={r.symbol} row={r} risk={risk} onOpen={onOpen} onShow={onShow} />
+          ))}
+        </div>
+      ) : (
+        <p className="av-mute av-top__none">No grade A or B reading today. That is a result too: no trade is a position.</p>
+      )}
+    </section>
+  );
+}
+
 /** One stock as a table row (laptops and wider). */
 function BoardRow({ row, risk, open, split, onToggle, onOpen }) {
   const v = useReading(row, risk);
@@ -139,7 +321,7 @@ function BoardRow({ row, risk, open, split, onToggle, onOpen }) {
             {row.symbol}
           </button>
         </th>
-        <td colSpan={7} className={row.pending ? "av-pending" : ""}>
+        <td colSpan={9} className={row.pending ? "av-pending" : ""}>
           {row.error ? row.error : row.pending ? "Measuring: finding similar days and testing the method forward…" : row.reason}
         </td>
       </tr>
@@ -193,6 +375,12 @@ function BoardRow({ row, risk, open, split, onToggle, onOpen }) {
           )}
         </td>
         <td>
+          <Horizons row={row} />
+        </td>
+        <td>
+          <After row={row} h={h} />
+        </td>
+        <td>
           {h && plan && tradeable ? (
             <>
               <Levels plan={plan} />
@@ -204,7 +392,16 @@ function BoardRow({ row, risk, open, split, onToggle, onOpen }) {
             <span className="av-mute">—</span>
           )}
         </td>
-        <td className="is-num">{h && plan && tradeable ? <b>{num(v.qty, 0)}</b> : "—"}</td>
+        <td className="is-num">
+          {h && plan && tradeable ? (
+            <>
+              <b>{num(v.qty, 0)}</b>
+              {moneyOf(plan, v.qty) && <small data-tip="The rupees at risk to the stop for this quantity.">{inr(moneyOf(plan, v.qty).risk, 0)} risk</small>}
+            </>
+          ) : (
+            "—"
+          )}
+        </td>
         <td className="av-act">
           <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm" onClick={() => onOpen(row.symbol)} data-tip={`Open ${row.symbol} on the Desk: chart, live call, order book.`}>
             Desk
@@ -214,7 +411,7 @@ function BoardRow({ row, risk, open, split, onToggle, onOpen }) {
       </tr>
       {open && !split && (
         <tr className="av-detail">
-          <td colSpan={8}>
+          <td colSpan={10}>
             <EdgeCard symbol={row.symbol} report={row} embedded />
           </td>
         </tr>
@@ -274,6 +471,18 @@ function BoardCard({ row, risk, open, onToggle, onOpen }) {
             ) : (
               "—"
             )}
+          </dd>
+        </div>
+        <div>
+          <dt>Day · Swing</dt>
+          <dd>
+            <Horizons row={row} />
+          </dd>
+        </div>
+        <div>
+          <dt>After similar days</dt>
+          <dd>
+            <After row={row} h={h} />
           </dd>
         </div>
         <div>
@@ -470,6 +679,8 @@ const HEAD = [
   ["Similar days won", "Of the past days most like today, the share where the fixed-rule trade made money after costs. The tick on the bar is a cautious lower reading; the line is 50%."],
   ["Average", "The average result of the trade on those days, in R (multiples of the risk), after costs."],
   ["Forward test", "How favourable calls of this kind did on this stock when each was made from earlier data only: the average per trade, the number of trades, the win share and the t statistic."],
+  ["Day · Swing", "Both horizons at a glance: for a day trade and a swing, the side whose similar days won more often, and its grade (– = not graded)."],
+  ["After similar days", "Where the stock went, close to close, after the days most like today: over 10 sessions for a swing call, the next session for a day call, and how often it closed higher. No stop, no target, no costs."],
   ["Plan", "Entry reference → stop / target, by the engine’s rules. A swing plan follows the latest price; a day plan is measured from today’s open."],
 ];
 const EMPTY = "Nothing on the board meets that filter today. That is a result too: no trade is a position.";
@@ -483,6 +694,9 @@ export default function Advisor({ onOpen }) {
   const [openRow, setOpenRow] = useState("");
   const [show, setShow] = useState("all");
   const phone = useMedia(PHONE);
+  // narrower than the board's ten columns (tablets, small laptops): the stock cards, two to a row, rather than a table that
+  // scrolls sideways (27 Nov 2026)
+  const narrow = useMedia(NARROW);
   const split = useMedia(SPLIT);
 
   const load = useCallback(
@@ -538,6 +752,15 @@ export default function Advisor({ onOpen }) {
   const picked = split ? visible.find((r) => r.symbol === openRow && r.available) || visible.find((r) => r.available) || null : null;
   const isOpen = (r) => (split ? Boolean(picked) && picked.symbol === r.symbol : openRow === r.symbol);
   const toggle = (r) => setOpenRow((x) => (split ? r.symbol : x === r.symbol ? "" : r.symbol));
+  // a pick's name opens that stock's full reading on the board (beside it on a wide screen, under its row otherwise)
+  const showRow = (symbol) => {
+    setShow("all");
+    setOpenRow(symbol);
+    setTimeout(() => {
+      const el = document.querySelector(split ? ".av-pick" : `.av-row.is-open, .av-cd.is-open`);
+      if (el && el.scrollIntoView) el.scrollIntoView({ block: "start", behavior: "smooth" });
+    }, 60);
+  };
   // the bar's figures, from what the page already holds: the board's tally, your risk, the forward record's total
   const fwdAll = ((log && log.summary) || []).find((g) => g.key === "all") || null;
 
@@ -584,6 +807,9 @@ export default function Advisor({ onOpen }) {
         <div className="av-main">
           <Alert>{error}</Alert>
 
+          {/* first sight (27 Nov 2026): the best graded calls, laid out whole, before the board */}
+          {board && rows.length > 0 && <TopPicks rows={rows} risk={risk} onOpen={onOpen} onShow={showRow} />}
+
           {board && (
             <p className="av-tally" role="status">
               <span className="av-tally__n is-a" data-tip={TALLY_TIP.A}>
@@ -613,8 +839,8 @@ export default function Advisor({ onOpen }) {
             </section>
           ) : !rows.length ? (
             <p className="adm-alert adm-alert--info">Your watchlist is empty. Add stocks on the Desk and they are measured here.</p>
-          ) : phone ? (
-            <ul className="av-cards" data-jump="Board">
+          ) : phone || narrow ? (
+            <ul className={`av-cards ${phone ? "" : "av-cards--two"}`.trim()} data-jump="Board">
               {visible.map((r) => (
                 <BoardCard key={r.symbol} row={r} risk={risk} open={isOpen(r)} onToggle={() => toggle(r)} onOpen={onOpen} />
               ))}
@@ -645,7 +871,7 @@ export default function Advisor({ onOpen }) {
                     ))}
                     {!visible.length && (
                       <tr>
-                        <td colSpan={8} className="av-mute av-empty">
+                        <td colSpan={10} className="av-mute av-empty">
                           {EMPTY}
                         </td>
                       </tr>
