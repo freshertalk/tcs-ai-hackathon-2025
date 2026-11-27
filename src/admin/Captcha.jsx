@@ -135,7 +135,7 @@ export default function Captcha({ gate, id = "sg-cap" }) {
       </div>
       <div className="sg-field">
         <label htmlFor={id}>{sum ? "Solve the sum shown" : "Type the characters shown"}</label>
-        <input id={id} value={gate.answer} onChange={(e) => gate.setAnswer(e.target.value.slice(0, 8))} autoComplete="off" autoCapitalize="characters" spellCheck="false" inputMode={sum ? "numeric" : "text"} maxLength={8} />
+        <input id={id} placeholder=" " value={gate.answer} onChange={(e) => gate.setAnswer(e.target.value.slice(0, 8))} autoComplete="off" autoCapitalize="characters" spellCheck="false" inputMode={sum ? "numeric" : "text"} maxLength={8} />
       </div>
       <p className={`sg-cap__state sg-cap__state--${gate.status}`} role="status">
         {gate.status === "working" && "Securing this sign-in…"}

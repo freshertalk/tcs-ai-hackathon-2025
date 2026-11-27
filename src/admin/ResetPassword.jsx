@@ -4,10 +4,11 @@
 import React, { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { api } from "./api";
-import { PasswordInput } from "./Login";
-import { IconShield } from "./icons";
+import { GateFoot, PasswordInput } from "./Login";
+import DrishtiLogo from "./DrishtiLogo";
 import { adminPath } from "./paths";
 import "./signin.css";
+import "./gate-kite.css";
 
 /** The same rules the server enforces, shown as they are met (the server has the last word). */
 export function passwordRules(pw) {
@@ -86,7 +87,7 @@ export default function ResetPassword() {
     <main className="gate">
       <section className="gate__panel" aria-labelledby="rp-title">
         <span className="gate__badge" aria-hidden="true">
-          <IconShield />
+          <DrishtiLogo size={56} />
         </span>
         <p className="gate__kicker">Private area</p>
         <h1 id="rp-title">{first ? "Complete your setup" : "Reset your password"}</h1>
@@ -145,6 +146,9 @@ export default function ResetPassword() {
           </>
         )}
       </section>
+      <div className="gate__below">
+        <GateFoot />
+      </div>
     </main>
   );
 }

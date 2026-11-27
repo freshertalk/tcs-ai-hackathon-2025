@@ -12,7 +12,10 @@ import { api } from "./api";
 import { useAuth } from "./auth";
 import Captcha, { useGate } from "./Captcha";
 import { IconGoogle, IconMail, IconShield } from "./icons";
+import DrishtiLogo from "./DrishtiLogo";
+import { BRAND } from "./brand";
 import "./signin.css";
+import "./gate-kite.css";
 
 // said when an address is not on the owner's list — by the server on every email route, and here for a Google account that is not
 const NOT_AUTHORIZED = "You are not authorized to enter this space. Please do not try to sign in: this is the personal space of Vinay Kumar Tiwari, open only to the email addresses he has allowed.";
@@ -47,7 +50,7 @@ export function PasswordInput({ id, value, onChange, label = "Password", autoCom
     <div className="sg-field">
       <label htmlFor={id}>{label}</label>
       <div className="sg-pass">
-        <input id={id} type={shown ? "text" : "password"} value={value} onChange={(e) => onChange(e.target.value)} onKeyUp={(e) => typeof e.getModifierState === "function" && setCaps(e.getModifierState("CapsLock"))} onBlur={() => setCaps(false)} autoComplete={autoComplete} required={required} spellCheck="false" aria-describedby={describedBy} autoFocus={autoFocus} />
+        <input id={id} type={shown ? "text" : "password"} placeholder=" " value={value} onChange={(e) => onChange(e.target.value)} onKeyUp={(e) => typeof e.getModifierState === "function" && setCaps(e.getModifierState("CapsLock"))} onBlur={() => setCaps(false)} autoComplete={autoComplete} required={required} spellCheck="false" aria-describedby={describedBy} autoFocus={autoFocus} />
         <button type="button" className={`sg-pass__eye ${shown ? "is-open" : "is-shut"}`} onClick={() => setShown(!shown)} aria-pressed={shown} aria-label={shown ? "Hide password" : "Show password"} data-tip={shown ? "Hide the password" : "Show the password"}>
           <Eye key={shown ? "open" : "shut"} open={shown} />
         </button>
@@ -58,6 +61,19 @@ export function PasswordInput({ id, value, onChange, label = "Password", autoCom
         </p>
       )}
     </div>
+  );
+}
+
+/** The quiet line at the foot of the door: whose it is (the owner's wording, 27 Nov 2026). */
+export function GateFoot() {
+  return (
+    <p className="gate__brand">
+      <DrishtiLogo size={18} />
+      <b>{BRAND.name}</b>
+      <span>
+        <i>Privately owned by Vinay Kumar Tiwari.</i> <i>For personal use only.</i>
+      </span>
+    </p>
   );
 }
 
@@ -212,7 +228,7 @@ export default function Login() {
   const emailField = (
     <div className="sg-field">
       <label htmlFor="sg-email">Email address</label>
-      <input id="sg-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="username" inputMode="email" required spellCheck="false" autoCapitalize="none" autoFocus />
+      <input id="sg-email" type="email" placeholder=" " value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="username" inputMode="email" required spellCheck="false" autoCapitalize="none" autoFocus />
     </div>
   );
   // once the address is known to be on the list it is shown, not asked again
@@ -239,7 +255,7 @@ export default function Login() {
           <span aria-hidden="true">←</span> Home
         </a>
         <span className="gate__badge" aria-hidden="true">
-          <IconShield />
+          <DrishtiLogo size={56} />
         </span>
         <p className="gate__kicker">Private area</p>
         <h1 id="gate-title">
@@ -250,7 +266,7 @@ export default function Login() {
         <div className="gate__notice" role="note">
           <p>
             Namaste, and thank you for visiting. This is a personal workspace of <b>Vinay Kumar Tiwari</b>, not a public service.
-            If you have reached it by chance, please do not try to enter — you are most welcome on the public website instead.
+            If you have reached it by chance, please do not try to enter&nbsp;— you are most welcome on the public website instead.
           </p>
         </div>
 
@@ -391,7 +407,7 @@ export default function Login() {
             {step === "enter" && (
               <div className="sg-field">
                 <label htmlFor="sg-code">6-digit code</label>
-                <input id="sg-code" className="sg-code" value={code} onChange={(e) => setCode(e.target.value.replace(/[^\d ]/g, "").slice(0, 7))} inputMode="numeric" autoComplete="one-time-code" pattern="[0-9 ]{6,7}" required autoFocus />
+                <input id="sg-code" className="sg-code" placeholder=" " value={code} onChange={(e) => setCode(e.target.value.replace(/[^\d ]/g, "").slice(0, 7))} inputMode="numeric" autoComplete="one-time-code" pattern="[0-9 ]{6,7}" required autoFocus />
               </div>
             )}
             {step === "enter" && remembered}
@@ -447,12 +463,12 @@ export default function Login() {
                 <p className="sg-help">Tell us who you are. If this address already has access, we email you a link to finish setting up. Otherwise your request goes to the owner, who replies by email — nobody gets in by asking alone.</p>
                 <div className="sg-field">
                   <label htmlFor="sg-name">Your name</label>
-                  <input id="sg-name" value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" maxLength={80} required />
+                  <input id="sg-name" placeholder=" " value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" maxLength={80} required />
                 </div>
                 {emailField}
                 <div className="sg-field">
                   <label htmlFor="sg-why">Why do you need access? (optional)</label>
-                  <textarea id="sg-why" value={why} onChange={(e) => setWhy(e.target.value)} maxLength={240} rows={2} />
+                  <textarea id="sg-why" placeholder=" " value={why} onChange={(e) => setWhy(e.target.value)} maxLength={240} rows={2} />
                 </div>
               </>
             ) : (
@@ -475,12 +491,15 @@ export default function Login() {
           </div>
         )}
 
-        <p className="gate__fine">Only accounts authorised by the owner can sign in, however they arrive. Every attempt is checked by the server.</p>
+      </section>
 
+      <div className="gate__below">
+        <p className="gate__fine">Authorised accounts only.</p>
         <a className="gate__home" href="/">
           ← Go to the public website
         </a>
-      </section>
+        <GateFoot />
+      </div>
     </main>
   );
 }

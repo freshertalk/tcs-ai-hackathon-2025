@@ -64,7 +64,7 @@ test("the door is Vinay's Private Room, not for public use, with one button for 
   expect(screen.queryByText(/Forgot your password/)).toBeNull();
   expect(screen.queryByText(/sign-in code instead/)).toBeNull();
   expect(screen.getByRole("tab", { name: "Create account" })).toBeTruthy();
-  expect(screen.getByText(/however they arrive/)).toBeTruthy();
+  expect(screen.getByText(/^Authorised accounts only\.$/)).toBeTruthy();
   await userEvent.click(toggle);
   expect(screen.queryByLabelText("Email address")).toBeNull();
 });
@@ -361,4 +361,18 @@ test("Create account is not offered when no mail server is set up", async () => 
   render(door({ emailReady: false }).ui);
   await openEmail();
   expect(screen.queryByRole("tab", { name: "Create account" })).toBeNull();
+});
+
+test("the Kite-style door keeps DrishtiAI's own mark, says it is not Zerodha, and gives every field a floating label", async () => {
+  const { container } = render(door().ui);
+  expect(container.querySelector(".gate__badge img").getAttribute("src")).toBe("/drishti-logo.svg");
+  expect(container.querySelector(".gate__brand span").textContent).toBe("Privately owned by Vinay Kumar Tiwari. For personal use only.");
+  expect(container.querySelector(".gate__notice p").textContent.replace(/ /g, " ")).toBe("Namaste, and thank you for visiting. This is a personal workspace of Vinay Kumar Tiwari, not a public service. If you have reached it by chance, please do not try to enter — you are most welcome on the public website instead.");
+  expect(container.innerHTML).not.toMatch(/zerodha[^"]*\.(svg|png)|kite[^"]*\.(svg|png)/i); // none of Zerodha's artwork
+  // the small print and the way out sit under the card
+  expect(container.querySelector(".gate__below .gate__fine").textContent).toMatch(/^Authorised accounts only\.$/);
+  expect(container.querySelector(".gate__below .gate__home").getAttribute("href")).toBe("/");
+  await openEmail();
+  const email = screen.getByLabelText("Email address");
+  expect(email.getAttribute("placeholder")).toBe(" "); // what lets the label rest inside and float up
 });

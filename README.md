@@ -359,6 +359,19 @@ clamps), then set one standard over all of them by their existing class names:
     for links and codes sent.
   - The logic and the API are unchanged.
 
+**The sign-in door in the Kite layout (2026-11-27; `src/admin/gate-kite.css`, `Login.jsx`, `ResetPassword.jsx`, `Captcha.jsx`).**
+The owner asked for the door in the alignment of Zerodha Kite's sign-in page: a pale page, one flat white card with the DrishtiAI
+logo, a light heading, a flat orange button (deep enough for white words at 4.5:1), floating-label fields (placeholder " " +
+`:has`), underline tabs, quiet grey links, and the small print and public-site link under the card; on a phone the card is the
+whole page. Every way of signing in is unchanged. It is DrishtiAI's own page: no Zerodha logo or name in the design. The
+reset-password page wears the same look.
+- The owner's wording (27 Nov 2026): under the card "Authorised accounts only."; at the foot "Privately owned by Vinay Kumar
+  Tiwari. For personal use only." (each sentence stays whole on its line).
+- The welcome note is justified on every width with no hyphens and no word ever cut in two (the dash keeps with the word
+  before it).
+- Phones (≤ 480 px): the whole door fits one screen from 320 × 568 up (tighter again under 700 px tall), 48 px buttons, 40–44 px
+  links, tabs and the password eye, 16 px fields (no iPhone zoom), safe-area padding.
+
 **TradeAI's free composer and attachments (2026-11-26; `src/admin/tradeai/TradeAI.jsx` `Composer`, `attach.js`, `tradeai.css`;
 `server/ai/attach.js`, `tradeai.js`, `app.js`).**
 - *Claude-style layout* (26 Nov 2026, second pass): one calm card holds the file chips, the words, a "+" (attach) at the bottom left and
