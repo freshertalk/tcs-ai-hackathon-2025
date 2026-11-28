@@ -24,8 +24,49 @@ const PATTERNS = {
   processingFee: money("processing (?:fee|charges?)"),
   outstanding: money("principal outstanding|outstanding principal|outstanding loan (?:amount|balance)|total outstanding|outstanding balance"),
 };
-const RATE = /(?:rate of interest|interest rate|\broi\b|applicable rate|annual percentage rate|\bapr\b|lending rate)[^\d%]{0,50}?(\d{1,2}(?:\.\d{1,3})?)\s*(?:%|percent|per cent)/i;
-const TENURE = /(?:tenure|tenor|repayment period|loan (?:period|term)|term of (?:the )?loan|(?:no\.?|number) of (?:emis?|instal?l?ments?))[^\d]{0,30}?(\d{1,3})\s*(months?|mths?|years?|yrs?)?/i;
+const RATE = /(?:rate of interest|interest rate|\broi\b|applicable rate|lending rate)[^\d%]{0,50}?(\d{1,2}(?:\.\d{1,3})?)\s*(?:%|percent|per cent)/i;
+const APR = /(?:annual percentage rate|\bapr\b)[^\d%]{0,50}?(\d{1,2}(?:\.\d{1,3})?)\s*(?:%|percent|per cent)/i;
+const TENURE = /(?:tenure|tenor|repayment period|loan (?:period|term)|term of (?:the )?loan|(?:no\.?|number) of (?:emis?|instal?l?ments?)\b(?!\s*(?:paid|received|cleared|collected|balance|remaining|pending|outstanding|overdue|due|bounced)))[^\d]{0,30}?(\d{1,3})\s*(months?|mths?|years?|yrs?)?/i;
+// what is left of a tenure, or already paid of it, is not the loan's tenure
+const NOT_TENURE = /(?:balance|remaining|residual|pending|elapsed|completed)\s+(?:loan\s+)?(?:tenure|tenor|term)/i;
+
+/* ------------------------------------------------------------ the other details (loan-details.js) */
+const MORE_MONEY = {
+  sanctionAmount: money("sanctioned (?:loan )?amount|amount sanctioned|loan amount sanctioned|loan sanctioned|sanction amount"),
+  disbursedAmount: money("(?:total |net )?disbursed amount|disbursement amount|amount disbursed|loan amount disbursed"),
+  insurancePremium: money("insurance premium(?: amount)?"),
+  totalInterest: money("total interest (?:amount |charge[sd]? )?(?:payable|chargeable)(?: during the (?:entire )?(?:tenure|term)(?: of the loan)?)?|total interest charge[sd]?(?: during the (?:entire )?(?:tenure|term)(?: of the loan)?)?"),
+  totalPayable: money("total (?:amount )?(?:to be (?:re)?paid|payable|repayable)(?: by the borrower)?(?: amount)?"),
+  principalPaid: money("(?:total )?principal (?:amount )?(?:paid|repaid|received|collected)(?: till date| so far)?"),
+  interestPaid: money("(?:total )?interest (?:amount )?(?:paid|received|collected)(?: till date| so far)?"),
+  overdueAmount: money("(?:total )?overdue amount|amount overdue"),
+};
+const MORE_DATES = {
+  sanctionDate: /(?:sanction(?:ed)? date|date of sanction|sanctioned on)\s*[:\-–=|]?\s*(.{0,28})/i,
+  disbursementDate: /(?:disbursement date|disbursal date|date of (?:first )?disbursement|disbursed on)\s*[:\-–=|]?\s*(.{0,28})/i,
+  maturityDate: /(?:maturity date|loan end date|last emi(?: due)? date|last instal?l?ment(?: due)? date|date of (?:the )?(?:last|final) (?:emi|instal?l?ment))\s*[:\-–=|]?\s*(.{0,28})/i,
+  asOnDate: /(?:statement (?:date|as on)|position as on|outstanding as on|balance as on|as on date|as on|as at|as of)\s*[:\-–=|]?\s*(.{0,28})/i,
+};
+const MORE_COUNTS = {
+  emisPaid: /(?:(?:no\.?|number) of (?:emis?|instal?l?ments?) (?:paid|received|cleared|collected)|\bemis? paid|instal?l?ments? paid|paid emis?)\s*(?:till date|so far)?\s*[:\-–=|]?\s*(\d{1,3})\b(?![\/.,\-]\d)/i,
+  emisLeft: /(?:(?:balance|remaining|pending|future|residual) (?:tenure|emis?|instal?l?ments?)|(?:no\.?|number) of (?:emis?|instal?l?ments?) (?:balance|remaining|pending|left))\s*(?:\(months\))?\s*[:\-–=|]?\s*(\d{1,3})\b(?![\/.,\-]\d)/i,
+};
+/** "Label : what the paper says" — the words after the label, on a line that has a clear gap or a mark between them. */
+const says = (labels) => new RegExp(`(?:^|[\\s|(])(?:${labels})(?:\\s*\\([^)]{0,40}\\))?(?:\\s+(?:charges?|fees?))?(?:\\s*\\([^)]{0,40}\\))?(?:\\s*[:|]|\\s+[\\-–]\\s|\\s{2,})\\s*(\\S.{1,200})`, "i");
+const MORE_WORDS = {
+  benchmark: says("benchmark(?: rate)?(?: and spread)?|reference (?:benchmark )?rate|rate linked to"),
+  moratorium: says("moratorium(?: period)?"),
+  repaymentMode: says("repayment mode|mode of (?:re)?payment"),
+  foreclosureCharge: says("fore[\\s-]?closure|pre[\\s-]?closure|full pre[\\s-]?payment|pre[\\s-]?payment"),
+  partPaymentCharge: says("part[\\s-]?(?:pre[\\s-]?)?payment"),
+  penalCharge: says("penal (?:interest|charges?)|late payment (?:interest|fee|charges?)|overdue (?:interest|charges?)|default interest"),
+  // "return" and "dishonour" name a charge only when the words say charge or fee: "NACH return" alone is something that happened
+  bounceCharge: says("(?:(?:cheque|check|ecs|nach|emi|mandate)(?:\\s*\\/\\s*(?:ecs|nach|cheque))?\\s+)?bounce|(?:cheque|check|ecs|nach|emi|mandate)(?:\\s*\\/\\s*(?:ecs|nach|cheque))?\\s+(?:return|dishonou?r)(?=\\s+(?:charges?|fees?))"),
+  lockIn: says("lock[\\s-]?in(?: period)?"),
+  otherCharges: says("documentation|stamp duty|conversion|statement|switching|legal and technical"),
+  security: says("(?:primary |collateral )?security(?: offered| details)?|collateral|hypothecation(?: of)?"),
+  insurance: says("insurance(?: cover(?:age)?| policy| requirement)?"),
+};
 const DATES = {
   openingDate: /(?:disbursement date|date of (?:first )?disbursement|disbursal date|disbursed on|loan date|date of (?:the )?loan|loan start date|agreement date|date of agreement|sanction date|date of sanction|account open(?:ing)? date)\s*[:\-–=|]?\s*(.{0,28})/i,
   firstEmiDate: /(?:first emi(?: due)? date|emi start(?:ing)? date|first instal?l?ment(?: due)? date|date of (?:the )?first (?:emi|instal?l?ment)|repayment (?:start|commencement) date|first emi on)\s*[:\-–=|]?\s*(.{0,28})/i,
@@ -77,7 +118,7 @@ function docTypeOf(text, hasSchedule = false) {
  * @returns { fields: { name: { value, line } }, terms: [{ title, quote }], accountLast4 }
  */
 function fieldsOf(text) {
-  const lines = String(text || "").split(/\r?\n/).map(clean).filter(Boolean).slice(0, 4000);
+  const lines = String(text || "").split(/\r?\n/).map(clean).filter(Boolean).slice(0, 8000);
   const fields = {};
   const put = (k, value, line) => {
     if (value !== null && value !== undefined && value !== "" && !fields[k]) fields[k] = { value, line: redact(line).text.slice(0, 220) };
@@ -88,6 +129,19 @@ function fieldsOf(text) {
   else {
     const named = lines.slice(0, 12).find((l) => /\b(bank|finance|financial|capital|housing|finserv|credit)\b/i.test(l) && l.length < 90);
     if (named) put("lender", named.replace(/\s*[-–|(].*$/, "").slice(0, 60), named);
+  }
+  // the details written as words: from the lines as they are, where a wide gap still shows between a label and its value
+  for (const rawLine of String(text || "").split(/\r?\n/).slice(0, 8000)) {
+    // a line that begins with a date is a transaction in a statement, not a statement of terms
+    const dated = findDate(rawLine);
+    if (rawLine.length > 400 || (dated && dated.at < 8)) continue;
+    for (const [k, re] of Object.entries(MORE_WORDS)) {
+      if (fields[k]) continue;
+      const m = re.exec(rawLine);
+      if (!m) continue;
+      const value = redact(clean(m[1]).replace(/^[:\-–|\s]+/, "").replace(/[|\s]+$/, "")).text.slice(0, 200);
+      if (value.length >= 2 && /[A-Za-z0-9]/.test(value)) put(k, value, clean(rawLine));
+    }
   }
   // a label at the end of a line takes its value from the next one (a two-column page read row by row)
   const joined = lines.map((l, i) => (/[:\-–]\s*$/.test(l) && lines[i + 1] ? `${l} ${lines[i + 1]}` : l));
@@ -105,7 +159,23 @@ function fieldsOf(text) {
       const t = /floating|variable|repo|rllr|mclr|eblr/i.test(line) ? "floating" : /fixed/i.test(line) ? "fixed" : "";
       if (t) put("rateType", t, line);
     }
-    const tm = TENURE.exec(line);
+    for (const [k, re] of Object.entries(MORE_MONEY)) {
+      const m = re.exec(line);
+      const v = m && toNumber(m[1], m[2]);
+      if (typeof v === "number" && v >= (k === "overdueAmount" ? 0 : 1) && v <= 1e10) put(k, v, line);
+    }
+    for (const [k, re] of Object.entries(MORE_DATES)) {
+      const m = re.exec(line);
+      const d = m && findDate(m[1]);
+      if (d && d.at <= 6) put(k, d.date, line);
+    }
+    for (const [k, re] of Object.entries(MORE_COUNTS)) {
+      const m = re.exec(line);
+      if (m && Number(m[1]) <= 600) put(k, Number(m[1]), line);
+    }
+    const am = APR.exec(line);
+    if (am && Number(am[1]) > 0 && Number(am[1]) <= 60) put("apr", Number(am[1]), line);
+    const tm = NOT_TENURE.test(line) ? null : TENURE.exec(line);
     if (tm) {
       const n = Number(tm[1]) * (/^y/i.test(tm[2] || "") ? 12 : 1);
       if (n >= 1 && n <= 600) put("tenureMonths", n, line);
@@ -118,6 +188,7 @@ function fieldsOf(text) {
     const dm = EMI_DAY.exec(line);
     if (dm && Number(dm[1]) >= 1 && Number(dm[1]) <= 31) put("emiDay", Number(dm[1]), line);
   }
+  if (!fields.rate && fields.apr) fields.rate = fields.apr; // only an APR is written: it stands in, as before
   const acct = joined.map((l) => ACCOUNT.exec(l)).find(Boolean);
   const accountLast4 = acct ? acct[1].replace(/[^A-Z0-9]/gi, "").slice(-4) : "";
   const kind = KINDS.find(([, re]) => re.test(top)) || KINDS.find(([, re]) => re.test(String(text).slice(0, 8000)));
@@ -135,6 +206,31 @@ function fieldsOf(text) {
     if (terms.length >= 14) break;
   }
   return { fields, terms, accountLast4 };
+}
+
+/* ------------------------------------------------------------ the payments a statement shows */
+const PAID_WORDS = /received|receipt|re-?paid|repayment|payment|\bpaid\b|cleared|realis|realiz|credit(?!\s*card)|\bcr\b|auto[\s-]?debit/i;
+const UNDONE_WORDS = /bounce|returned|\breturn\b|dishono|revers|reject|\bunpaid\b|not (?:paid|received|cleared)/i;
+const NOT_AN_EMI = /\bdue\b|charge|penal|\bfee|disburs|part[\s-]?(?:pre[\s-]?)?pay|pre[\s-]?pay|pre[\s-]?clos|foreclos|insurance|processing|opening balance|closing balance/i;
+
+/**
+ * Lines of a loan statement that record money received (or a receipt undone): their date and the amounts on them. Which of
+ * them is an EMI is decided against the EMI amount, when the documents are joined.
+ */
+function receiptsOf(text) {
+  const out = [];
+  for (const line of String(text || "").split(/\r?\n/).slice(0, 8000)) {
+    if (line.length > 300) continue;
+    const undone = UNDONE_WORDS.test(line);
+    if (!undone && (!PAID_WORDS.test(line) || NOT_AN_EMI.test(line))) continue;
+    const d = findDate(line);
+    if (!d) continue;
+    const rest = `${line.slice(0, d.at)} ${line.slice(d.at + d.length)}`;
+    const amounts = (rest.match(/(?<![\w.\/\-])(?:\d{1,3}(?:,\d{2,3})+|\d{3,9})(?:\.\d{1,2})?(?![\w\/\-]|\.\d)/g) || []).map((x) => Number(x.replace(/,/g, ""))).filter((x) => x >= 100);
+    if (amounts.length) out.push({ date: d.date, amounts: amounts.slice(0, 6), undone });
+    if (out.length >= 700) break;
+  }
+  return out;
 }
 
 /* ---------------------------------------------------------------- blanking who it is about */
@@ -186,4 +282,4 @@ function redact(text) {
   return { text: out, count };
 }
 
-module.exports = { fieldsOf, docTypeOf, redact, LENDERS };
+module.exports = { fieldsOf, docTypeOf, redact, receiptsOf, LENDERS };

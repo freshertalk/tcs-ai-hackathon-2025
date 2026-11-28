@@ -24,6 +24,7 @@ import { PageBar, PageHead, PagePart, SectionHead, usePageTab } from "../ux/Page
 import { attentionOf, bankLoans, cashLoans, dayName, exportSet, firstMonth, interestLeftAfter, monthName, previewOf, rateText, registerFor, rupees, shiftMonth, shortMonth, stampLines, stateText } from "./loanData";
 import { Bar, RemarksBox, SplitBar, URL_, useHidden, when } from "./shared";
 import Upload from "./Upload";
+import LoanDetails from "./DetailsPanel";
 import CashLoans from "./CashLoans";
 import Analysis from "./Analysis";
 import DocViewer from "./DocViewer";
@@ -551,10 +552,10 @@ function Documents({ loan, onUpload, onRemoveDoc }) {
     <section className="lo-card" aria-label={`Documents of ${loan.name}`}>
       <SectionHead
         title="Documents"
-        sub={docs.length ? "Kept in the database with this loan: view or download any time" : "Upload the repayment schedule once, and any other paper of this loan"}
+        sub={docs.length ? "Kept in the database with this loan: view or download any time" : "Upload this loan’s agreement, sanction letter, statements and repayment schedule, several at once"}
         actions={
           <button type="button" className="adm-btn adm-btn--ghost adm-btn--sm" onClick={() => onUpload(loan.id)}>
-            Upload a document
+            Upload documents
           </button>
         }
       />
@@ -568,12 +569,13 @@ function Documents({ loan, onUpload, onRemoveDoc }) {
                   {when(d.uploadedAt)}
                   {d.usedSchedule ? " · its schedule is in use" : ""}
                   {d.unread ? " · kept as it is (not read)" : ""}
+                  {d.pagesPictured ? ` · ${d.pagesRead} of ${d.pagesPictured} scanned page${d.pagesPictured === 1 ? "" : "s"} read` : ""}
                   {d.aiModel ? " · read with the free AI too" : ""}
                 </small>
                 {d.summary ? <p>{h(d.summary)}</p> : null}
                 {d.terms && d.terms.length > 0 && (
                   <details className="lo-terms">
-                    <summary>{d.terms.length} clauses and charges</summary>
+                    <summary>{d.terms.length === 1 ? "1 clause or charge" : `${d.terms.length} clauses and charges`}</summary>
                     <ul>
                       {d.terms.map((t, i) => (
                         <li key={i}>
@@ -660,7 +662,7 @@ function ComingMonths({ loan }) {
   );
 }
 
-function Schedule({ loan, data, busy, onPaid, onSave, onEdit, onUpTo, onUpload, onRemoveDoc }) {
+function Schedule({ loan, data, busy, onPaid, onSave, onEdit, onUpTo, onUpload, onRemoveDoc, onData }) {
   const [all, setAll] = useState(false);
   const h = useHidden();
   const unpaid = loan.rows.filter((r) => !r.paid);
@@ -726,6 +728,7 @@ function Schedule({ loan, data, busy, onPaid, onSave, onEdit, onUpTo, onUpload, 
         )}
         <ComingMonths key={loan.id} loan={loan} />
       </section>
+      <LoanDetails key={`details-${loan.id}`} loan={loan} data={data} onSaved={onData} />
       <Documents loan={loan} onUpload={onUpload} onRemoveDoc={onRemoveDoc} />
     </>
   );
@@ -931,7 +934,8 @@ export default function Loans() {
     setLoanId(done.id);
     setScope("loan");
     setTab("schedule");
-    snack(`Saved to the loan book${done.marked ? ` · ${done.marked} EMIs ticked paid` : ""}${done.dropped && done.dropped.length ? ` · ${done.dropped.length} ticked month(s) outside the schedule were replaced by it` : ""}.`, { tone: "ok", key: "loan-upload", ms: 7000 });
+    const files = (done.docIds || []).length;
+    snack(`Saved to the loan book${files > 1 ? ` · ${files} documents kept` : ""}${done.marked ? ` · ${done.marked} EMIs ticked paid` : ""}${done.dropped && done.dropped.length ? ` · ${done.dropped.length} ticked month(s) outside the schedule were replaced by it` : ""}.`, { tone: "ok", key: "loan-upload", ms: 7000 });
   };
 
   const openSchedule = (id) => {
@@ -961,11 +965,11 @@ export default function Loans() {
     <div className="lo">
       <PageHead
         title="Loans"
-        text="Upload each loan’s repayment schedule once. Every month then shows its principal and interest, and a tick on “Is paid?” takes them off what remains. Cash from people is kept simply, by hand."
+        text="Upload each loan’s documents together: they are read and filled in for you. Every month then shows its principal and interest, and a tick on “Is paid?” takes them off what remains. Cash from people is kept simply, by hand."
         actions={
           <>
             <button type="button" className="adm-btn adm-btn--solid adm-btn--sm" onClick={() => openUpload()}>
-              Upload a schedule or document
+              Upload loan documents
             </button>
             <button
               type="button"
@@ -1008,10 +1012,10 @@ export default function Loans() {
       {data.loans.length === 0 && !form && !upload ? (
         <section className="lo-card lo-start">
           <h3>No loan in the book yet</h3>
-          <p>Upload a loan’s repayment schedule (or sanction letter): the details are read for you, and each month shows its principal and interest. A loan without papers, or cash from a person, can be typed in.</p>
+          <p>Upload a loan’s documents together (agreement, sanction letter, account statement, repayment schedule): the details are read and filled in for you, and each month shows its principal and interest. A loan without papers, or cash from a person, can be typed in.</p>
           <span className="lo-acts">
             <button type="button" className="adm-btn adm-btn--solid" onClick={() => openUpload()}>
-              Upload a repayment schedule
+              Upload your loan documents
             </button>
             <button type="button" className="adm-btn adm-btn--ghost" onClick={() => setForm({ ...BLANK })}>
               Add your first loan
@@ -1080,7 +1084,7 @@ export default function Loans() {
             {picked.type === "cash" ? (
               tab === "schedule" && <CashLoans key={picked.id} data={data} only={picked.id} send={send} busy={busy} onPaid={settle} onEdit={editLoan} onRemove={removeLoan} onError={(e) => snack(e.message, { tone: "error" })} />
             ) : (
-              <Schedule key={picked.id} loan={picked} data={data} busy={busy} onPaid={setPaid} onSave={saveRow} onEdit={onEdit} onUpTo={markUpTo} onUpload={openUpload} onRemoveDoc={removeDocument} />
+              <Schedule key={picked.id} loan={picked} data={data} busy={busy} onPaid={setPaid} onSave={saveRow} onEdit={onEdit} onUpTo={markUpTo} onUpload={openUpload} onRemoveDoc={removeDocument} onData={(d) => setState({ data: d, error: "" })} />
             )}
           </>
         ) : null}

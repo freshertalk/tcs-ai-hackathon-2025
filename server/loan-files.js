@@ -10,6 +10,8 @@ const { fromSheet } = require("./loan-schedule");
 
 const MAX_BYTES = 7 * 1024 * 1024; // the web server in front allows 8 MB a request
 const MAX_IMAGE = 4 * 1024 * 1024;
+const PDF_PAGES = 120; // a loan agreement can be long
+const SCAN_PAGES = 40; // scanned pages of one file that are offered for reading
 
 class LoanFileError extends Error {
   constructor(message, code = "unreadable", status = 422) {
@@ -84,13 +86,19 @@ function readLoanFile(nameIn, buf, { password = "" } = {}) {
   if (what === "pdf") {
     let r;
     try {
-      r = pdfRows(buf, { password });
+      r = pdfRows(buf, { password, maxPages: PDF_PAGES, pictures: SCAN_PAGES });
     } catch (err) {
       if (err && err.code === "password") throw new LoanFileError(err.message, "password", 422);
       throw new LoanFileError(`${name}: ${err && err.message ? err.message : "could not be read"}`);
     }
-    if (!r.text) throw new LoanFileError(`${name} has no text in it: it looks scanned (pictures of pages). Upload a screenshot or photo of the page, which the free AI can read, or download the PDF from the lender’s website instead.`, "scanned");
-    return { ...base, kind: "pdf", mime: MIME.pdf, rows: r.rows, text: r.text, pages: r.pages, note: r.note, locked: r.locked };
+    if (!r.text) {
+      const err = new LoanFileError(`${name} has no text in it: it looks scanned (pictures of pages). Upload a screenshot or photo of the page, which the free AI can read, or download the PDF from the lender’s website instead.`, "scanned");
+      err.scans = r.scans;
+      err.pages = r.pages;
+      err.locked = r.locked;
+      throw err;
+    }
+    return { ...base, kind: "pdf", mime: MIME.pdf, rows: r.rows, text: r.text, pages: r.pages, note: r.note, locked: r.locked, scans: r.scans };
   }
   if (what === "ole") throw new LoanFileError(`${name} is an old Office file (.xls or .doc), or a locked Excel file. Save it as .xlsx, .csv or PDF and upload that.`, "unsupported", 415);
   if (what === "zip") {
@@ -113,7 +121,8 @@ function readLoanFile(nameIn, buf, { password = "" } = {}) {
   }
   let read;
   try {
-    read = readAttachment(name, buf);
+    // a loan paper is read whole: a long agreement matters to its last page
+    read = readAttachment(name, buf, { maxText: 400000, maxRows: 5000 });
   } catch (err) {
     throw new LoanFileError(err.message, err.code || "unreadable", err.status || 422);
   }
@@ -139,7 +148,7 @@ function readOrKeep(nameIn, buf, { password = "", keep = false } = {}) {
     const as = keepable(name, buf);
     if (!as) throw err;
     const unread = err.code === "password" ? "It is kept locked, as it came: its details were not read. Open it with its password when you view it." : err.message;
-    return { name, size: buf.length, pages: 0, note: "", locked: err.code === "password", rows: [], text: "", unread, ...as };
+    return { name, size: buf.length, pages: err.pages || 0, note: "", locked: err.code === "password" || Boolean(err.locked), rows: [], text: "", unread, scans: err.scans || [], ...as };
   }
 }
 

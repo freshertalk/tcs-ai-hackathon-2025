@@ -79,3 +79,68 @@ test("a time field gives HH:MM from two selects", () => {
   fireEvent.change(screen.getByLabelText("Minute"), { target: { value: "40" } });
   expect(out).toBe("09:40");
 });
+
+test("the arrows turn the month and it stays turned, back and forward, and after picking a year", () => {
+  render(<One start="2023-11-30" />);
+  fireEvent.click(screen.getByRole("button", { name: /Day/ }));
+  const prev = () => screen.getByRole("button", { name: "Previous month" });
+  const next = () => screen.getByRole("button", { name: "Next month" });
+  fireEvent.click(prev());
+  expect(screen.getByText("October 2023")).toBeTruthy();
+  fireEvent.click(prev());
+  expect(screen.getByText("September 2023")).toBeTruthy();
+  fireEvent.click(next());
+  fireEvent.click(next());
+  fireEvent.click(next());
+  fireEvent.click(next());
+  expect(screen.getByText("January 2024")).toBeTruthy();
+  // turning the page picks nothing: the chosen day is still the old one
+  fireEvent.click(screen.getByRole("button", { name: "OK" }));
+  expect(screen.getByTestId("v").textContent).toBe("2023-11-30");
+  fireEvent.click(screen.getByRole("button", { name: /Day/ }));
+  fireEvent.click(screen.getByText("November 2023"));
+  fireEvent.click(screen.getByRole("option", { name: "2025" }));
+  fireEvent.click(next());
+  expect(screen.getByText("December 2025")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: /Wednesday, 3 Dec 2025/ }));
+  fireEvent.click(screen.getByRole("button", { name: "OK" }));
+  expect(screen.getByTestId("v").textContent).toBe("2025-12-03");
+});
+
+test("an arrow keeps the keyboard on itself; a keyboard move into another month takes the focus with it", () => {
+  render(<One start="2026-03-31" />);
+  fireEvent.click(screen.getByRole("button", { name: /Day/ }));
+  const next = screen.getByRole("button", { name: "Next month" });
+  act(() => next.focus());
+  fireEvent.click(next);
+  expect(screen.getByText("April 2026")).toBeTruthy();
+  expect(document.activeElement).toBe(screen.getByRole("button", { name: "Next month" }));
+  act(() => document.querySelector('[data-day="2026-04-30"]').focus());
+  act(() => {
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "ArrowRight" });
+  });
+  expect(screen.getByText("May 2026")).toBeTruthy();
+  expect(document.activeElement.getAttribute("data-day")).toBe("2026-05-01");
+});
+
+test("a calendar that opens before its first allowed day starts at that day, and the arrows still work", () => {
+  render(<DateField value="2026-01-10" min="2026-05-15" onChange={() => {}} label="Later" />);
+  fireEvent.click(screen.getByRole("button", { name: /Later/ }));
+  expect(screen.getByText("May 2026")).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Previous month" }).disabled).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: "Next month" }));
+  expect(screen.getByText("June 2026")).toBeTruthy();
+});
+
+test("inside a form label, a click on the calendar's blank parts does not close it", () => {
+  render(
+    <label>
+      <One start="2026-03-10" />
+    </label>
+  );
+  fireEvent.click(document.querySelector(".dp-input"));
+  fireEvent.click(screen.getByText("Tue, 10 Mar"));
+  expect(screen.queryByRole("dialog")).toBeTruthy();
+  fireEvent.click(screen.getByRole("dialog"));
+  expect(screen.queryByRole("dialog")).toBeTruthy();
+});

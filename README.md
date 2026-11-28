@@ -2019,24 +2019,40 @@ person**.
 - **Downloads** (in the browser): PDF (jsPDF; its fonts have no ₹ or Indian scripts, so "Rs", and others show "?"), CSV
   (formula-safe) and a real .xlsx: the month's register, one loan's every month, or everything.
 
-**Upload** (`server/loan-intake.js`; page `src/admin/loans/Upload.jsx`): a repayment schedule (once per loan) or any other
-loan paper: PDF (also password-protected: RC4, AES-128, AES-256, `server/pdf-crypt.js`; the password is used once and not
-kept), Excel, CSV, Word or a photo, up to 7 MB. Read → review → **Save**; nothing is stored before Save, and no month is
-ticked as paid unless you choose "paid up to".
+**Upload** (`server/loan-intake.js`; page `src/admin/loans/Upload.jsx`): **several documents together** (up to 12 files,
+7 MB each, 40 MB in all): loan agreement, sanction letter, account statement, repayment schedule, certificates and any
+other loan paper, as PDF (also password-protected: RC4, AES-128, AES-256, `server/pdf-crypt.js`; the password is used
+once and not kept), Excel, CSV, Word or a photo. They are read one at a time into **one review**; nothing is stored before
+Save, and one Save keeps the loan, its details and every file.
 
+- **Joined** (`server/loan-merge.js`): for each figure the best source wins (the schedule's arithmetic, then a document's
+  own words, then the AI where the words are there, then a scan, then the rest), then the kind of paper that is the
+  authority on it; what another paper says instead is shown beside the box, with "Use this". A bare schedule takes the
+  amount or rate another paper states. Papers with another loan number or a very different amount are pointed out and
+  can be left out.
+- **Details** (`server/loan-details.js`, `loan-fields.js`): rate type, benchmark, APR, tenure, sanction and disbursement,
+  fees, foreclosure, part-payment, penal and bounce charges, lock-in, security, insurance, and a statement's own latest
+  figures. Every box is editable in the review and later on the loan ("Loan details"), shows its source, and goes into the
+  downloads. A later upload does not overwrite what the loan has, except the lender's latest figures, unless you pick it.
+- **Paid months:** the EMIs a statement lists as received are offered ticked (a bounced one is left out); else the count
+  it states. They are yours to change before Save, and the principal left is compared with the statement's own figure.
 - **Schedules** (`server/loan-schedule.js`): columns are recognised by their sums (EMI = principal + interest; the balance
   falling by the principal), not by headings; table cells are placed by their position on the page. Not split by the
   lender → worked out from its balance, or from the loan amount and rate (a missing rate is found from the instalments).
-  The line-by-line checks are shown before saving.
-- **Details** (`server/loan-fields.js`) come from the document's own words, each with its source; the form fills itself.
+  The line-by-line checks are shown before saving. A statement's payment list is never taken as a schedule.
+- **Scans** (`server/pdf-pictures.js`): the picture of each scanned page (up to 40 a file, also in a locked or partly
+  typed PDF) is taken out; the browser makes it small and the free vision AI reads it. JPEG and packed-bitmap scans work;
+  fax-style (CCITT), JBIG2 and JPEG 2000 pages are named as not read (upload screenshots of them). What is read from a
+  scan is marked "check it".
 - **Documents** are kept in the database (collection `loan_docs`, in the daily backup; not encrypted separately), per loan:
-  View (PDF and pictures as they are, sheets as rows, Word/text as words), Download, Remove. A scan, an old Office file or
-  a PDF left locked can be kept without being read.
+  View (PDF and pictures as they are, sheets as rows, Word/text as words), Download, Remove. An old Office file or a PDF
+  left locked can be kept without being read.
 - **Free AI only** (`server/ai/loandesk.js`): NVIDIA's free models (needs the NVIDIA key on the AI model page), with no
-  paid fallback and none of the trading rules. Identity numbers, PAN, Aadhaar, phone, email and labelled names/addresses
-  are blanked before text is sent (a name in running text can remain). Document text goes after it is read unless the
-  free-AI box is unticked; a picture cannot be blanked, so it is sent whole, only on a press. Figures read from a
-  document's text are checked against that text. The analysis and answers to questions are made on a press only.
+  paid fallback and none of the trading rules. Long documents go in parts (up to six). In words, identity numbers, PAN,
+  Aadhaar, phone, email and labelled names/addresses are blanked first (a name in running text can remain). **A scanned
+  page or photo cannot be blanked and goes whole**: both kinds of reading start by themselves after upload, each with its
+  own tick box to switch it off. Figures read from a document's text are checked against that text. The analysis and
+  answers to questions are made on a press only.
 - **Analysis tab:** principal against interest, April–March years, where prepaying ₹1 lakh saves most, a what-if
   calculator, and the free AI's reading. Estimates, not advice.
 

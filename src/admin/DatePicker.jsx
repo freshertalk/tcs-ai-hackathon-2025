@@ -141,7 +141,8 @@ function Month({ view, sel, range, hover, setHover, min, max, focus, setFocus, o
 
 /* ------------------------------------------------------------------- the calendar card */
 function Calendar({ mode, value, range, min, max, onDone, onCancel, title }) {
-  const start = mode === "range" ? range.from || range.to || todayIso() : value || todayIso();
+  const asked = mode === "range" ? range.from || range.to || todayIso() : value || todayIso();
+  const start = min && asked < min ? min : max && asked > max ? max : asked; // open on a day that can be picked
   const [view, setView] = useState(`${start.slice(0, 7)}-01`);
   const [focus, setFocus] = useState(start);
   const [sel, setSel] = useState(value || "");
@@ -160,10 +161,16 @@ function Calendar({ mode, value, range, min, max, onDone, onCancel, title }) {
     if (focus.slice(0, 7) < view.slice(0, 7)) setView(`${focus.slice(0, 7)}-01`);
     else if (focus.slice(0, 7) > last.slice(0, 7)) setView(two ? addMonths(`${focus.slice(0, 7)}-01`, -1) : `${focus.slice(0, 7)}-01`);
   }, [focus, view, two]);
+  // real focus follows a keyboard move (also into another month, whose days are drawn a moment later);
+  // it is never pulled off the arrows or the other buttons
+  const byKey = useRef(false);
   useEffect(() => {
     if (years || !box.current) return;
     const b = box.current.querySelector(`[data-day="${focus}"]`);
-    if (b && document.activeElement !== b && box.current.contains(document.activeElement)) b.focus();
+    if (!b) return;
+    const a = document.activeElement;
+    if (a !== b && (byKey.current || (box.current.contains(a) && a.hasAttribute("data-day")))) b.focus();
+    byKey.current = false;
   }, [focus, view, years]);
   useEffect(() => {
     const b = box.current && box.current.querySelector(`[data-day="${focus}"]`);
@@ -191,8 +198,16 @@ function Calendar({ mode, value, range, min, max, onDone, onCancel, title }) {
     else if (e.key === "End") next = addDays(focus, 6 - weekday(focus));
     if (next) {
       e.preventDefault();
-      setFocus(clampDay(next));
+      const to = clampDay(next);
+      byKey.current = to !== focus;
+      setFocus(to);
     }
+  };
+  // The arrows turn the page and take the keyboard's day with it. Left behind in the old month, that
+  // day made the "keep it visible" rule above turn the page straight back.
+  const turn = (n) => {
+    setView(addMonths(view, n));
+    setFocus(clampDay(addMonths(focus, n)));
   };
   const [vy, vm] = parts(view);
   const thisYear = Number(todayIso().slice(0, 4));
@@ -218,10 +233,10 @@ function Calendar({ mode, value, range, min, max, onDone, onCancel, title }) {
         </button>
         {!years && (
           <span className="dp-arrows">
-            <button type="button" className="dp-icon" onClick={() => setView(addMonths(view, -1))} disabled={!canPrev} aria-label="Previous month">
+            <button type="button" className="dp-icon" onClick={() => turn(-1)} disabled={!canPrev} aria-label="Previous month">
               <Chevron dir="left" />
             </button>
-            <button type="button" className="dp-icon" onClick={() => setView(addMonths(view, 1))} disabled={!canNext} aria-label="Next month">
+            <button type="button" className="dp-icon" onClick={() => turn(1)} disabled={!canNext} aria-label="Next month">
               <Chevron dir="right" />
             </button>
           </span>
@@ -302,7 +317,9 @@ function Field({ label, text, placeholder, open, setOpen, children, className = 
     setSheet(phone ? wrap.current.closest(".adm") || document.body : null);
   }, [open, className]);
   const body = (
-    <div className={`dp-pop ${right ? "is-right" : ""} ${sheet ? "is-sheet" : ""}`} ref={pop}>
+    // preventDefault: a form's <label> around the field would otherwise pass a click on the calendar's
+    // blank parts on to the field's button, which closes it
+    <div className={`dp-pop ${right ? "is-right" : ""} ${sheet ? "is-sheet" : ""}`} ref={pop} onClick={(e) => e.preventDefault()}>
       <div className="dp-scrim" aria-hidden="true" onClick={close} />
       {children(close)}
     </div>

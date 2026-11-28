@@ -204,6 +204,20 @@ export function repaymentTable(loans) {
   return { name: "Cash repayments", title: "Cash repayments", columns: REPAY_COLUMNS, rows, totals: { loan: "Total", amount: r2(rows.reduce((a, x) => a + x.amount, 0)) } };
 }
 
+const DETAIL_COLUMNS = [
+  COL.sr,
+  { key: "loan", label: "Loan", type: "text", w: 10 },
+  { key: "what", label: "Detail", type: "text", w: 12 },
+  { key: "value", label: "Value", type: "text", w: 24 },
+  { key: "source", label: "From", type: "text", w: 12 },
+];
+/** The loans' other details (charges, dates, the lender's latest figures), one line each; null when there are none. */
+export function detailTable(data, loans) {
+  let sr = 0;
+  const rows = loans.flatMap((l) => (data.detailDefs || []).filter((d) => l.details && l.details[d.key]).map((d) => ({ sr: (sr += 1), loan: l.name, what: d.label, value: String(l.details[d.key].value), source: l.details[d.key].file || (l.details[d.key].from === "typed" ? "typed by you" : "") })));
+  return rows.length ? { name: "Loan details", title: "Loan details", columns: DETAIL_COLUMNS, rows, totals: null } : null;
+}
+
 const slug = (name) => name.replace(/[^A-Za-z0-9]+/g, "-").replace(/^-+|-+$/g, "").toLowerCase() || "loan";
 /**
  * The tables for one download.
@@ -227,7 +241,8 @@ export function exportSet(data, scope, { month, loanId } = {}) {
     });
     const hidden = (c) => ({ ...c, pdf: false }); // the same on every line of one loan: left off the page, kept in the sheet
     const table = { name: "Schedule", title: `${loan.name}: every month`, columns: [COL.sr, COL.month, hidden(COL.opening), hidden(COL.total), COL.rate, COL.emiDate, COL.emi, COL.principal, COL.interest, COL.outstanding, COL.interestLeft, COL.totalLeft, COL.paid, COL.paidOn, COL.extra, COL.remarks, COL.updated], rows: [...made, ...coming], totals: { month: "Now owed", outstanding: loan.summary.outstanding, interestLeft: blank(loan.summary.interestRemaining), totalLeft: blank(loan.summary.totalToPay) } };
-    return { file: `loan-${slug(loan.name)}-${data.today}`, title: table.title, tables: [table], detail: table };
+    const about = detailTable(data, [loan]);
+    return { file: `loan-${slug(loan.name)}-${data.today}`, title: table.title, tables: about ? [table, about] : [table], detail: table };
   }
   const people = cashLoans(data);
   if (scope === "month") {
@@ -240,7 +255,8 @@ export function exportSet(data, scope, { month, loanId } = {}) {
   const every = bankLoans(data).flatMap((l) => l.rows.map((row) => ({ l, row })));
   every.sort((a, b) => (a.row.month !== b.row.month ? (a.row.month < b.row.month ? -1 : 1) : a.row.date < b.row.date ? -1 : a.row.date > b.row.date ? 1 : a.l.name.localeCompare(b.l.name)));
   const detail = { name: "All EMIs", title: "Every month of every loan", columns: [COL.sr, COL.month, COL.loan, { ...COL.opening, pdf: false }, { ...COL.total, pdf: false }, COL.rate, COL.emiDate, COL.emi, COL.principal, COL.interest, COL.outstanding, COL.interestLeft, COL.totalLeft, COL.paid, COL.paidOn, { ...COL.extra, pdf: false }, COL.remarks, COL.updated], rows: every.map((x) => rowOf(x.l, x.row, (sr += 1))), totals: null };
-  return { file: `loans-all-${data.today}`, title: "Loan book", tables: [summaryTable(data), detail, ...(people.length ? [cashTable(data), repaymentTable(people)] : [])], detail };
+  const about = detailTable(data, bankLoans(data));
+  return { file: `loans-all-${data.today}`, title: "Loan book", tables: [summaryTable(data), detail, ...(people.length ? [cashTable(data), repaymentTable(people)] : []), ...(about ? [about] : [])], detail };
 }
 
 /** The line every download carries: when it was made and when the book was last saved. */

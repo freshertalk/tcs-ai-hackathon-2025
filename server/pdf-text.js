@@ -11,6 +11,7 @@
 
 const zlib = require("node:zlib");
 const { decryptorFor } = require("./pdf-crypt");
+const { describe } = require("./pdf-pictures");
 
 const MAX_PAGES = 60;
 const MAX_CHARS = 120000;
@@ -533,6 +534,29 @@ function resourcesOf(objs, dictText, cache) {
   };
 }
 
+/** The biggest picture a page draws (also one wrapped in a form), as its object — a scanned page is one such picture. */
+function pagePicture(objs, dictText, depth = 0) {
+  let r = entry(dictText, "Resources");
+  const ref = refOf(r);
+  if (ref && objs.get(ref)) r = objs.get(ref).dict;
+  let list = r ? entry(r, "XObject") : null;
+  const at = refOf(list);
+  if (at && objs.get(at)) list = objs.get(at).dict;
+  let best = null;
+  for (const n of refsIn(list).slice(0, 200)) {
+    const o = objs.get(n);
+    if (!o) continue;
+    let hit = null;
+    if (/\/Subtype\s*\/Image/.test(o.dict)) {
+      const area = Number(entry(o.dict, "Width")) * Number(entry(o.dict, "Height"));
+      const width = Number(entry(o.dict, "Width"));
+      if (width >= 500 && area >= 350000) hit = { o, area }; // not a logo, a stamp or a signature
+    } else if (depth < 2 && /\/Subtype\s*\/Form/.test(o.dict)) hit = pagePicture(objs, o.dict, depth + 1);
+    if (hit && (!best || hit.area > best.area)) best = hit;
+  }
+  return best;
+}
+
 function pageList(objs) {
   const cat = [...objs.values()].find((o) => /\/Type\s*\/Catalog/.test(o.dict));
   const out = [];
@@ -693,7 +717,7 @@ function rowsOf(runs) {
  * @returns { rows: [[cell, …], …], text, pages, note, locked }
  * @throws PdfError (code "password" when a password is needed or wrong)
  */
-function pdfRows(buf, { password = "", maxPages = MAX_PAGES } = {}) {
+function pdfRows(buf, { password = "", maxPages = MAX_PAGES, pictures = 0 } = {}) {
   if (!Buffer.isBuffer(buf) || buf.length < 8 || latin(buf.subarray(0, 5)) !== "%PDF-") throw new PdfError("This is not a PDF file.");
   let locked = false;
   let objs;
@@ -715,7 +739,8 @@ function pdfRows(buf, { password = "", maxPages = MAX_PAGES } = {}) {
   const pages = pageList(objs);
   const cache = new Map();
   const rows = [];
-  for (const p of pages.slice(0, maxPages)) {
+  const scans = []; // pages with (next to) no words but a page-sized picture: { page, picture }
+  for (const [index, p] of pages.slice(0, maxPages).entries()) {
     const res = resourcesOf(objs, /\/Resources/.test(p.dict) ? p.dict : p.inherited || p.dict, cache);
     const contents = entry(p.dict, "Contents");
     const single = refOf(contents);
@@ -723,12 +748,17 @@ function pdfRows(buf, { password = "", maxPages = MAX_PAGES } = {}) {
     // the page's streams are one program: joined before they are run, so a transform set in one holds in the next
     const bits = (single ? [single] : refsIn(contents)).map((r) => decoded(objs.get(r))).filter(Boolean);
     if (bits.length) streamRuns(Buffer.concat(bits.flatMap((b) => [b, Buffer.from("\n")])), res, 0, IDENTITY, runs);
-    rows.push(...rowsOf(runs));
-    if (rows.length > 6000) break;
+    const onPage = rowsOf(runs);
+    rows.push(...onPage);
+    if (pictures > scans.length && onPage.reduce((a, r) => a + r.join("").length, 0) < 60) {
+      const found = pagePicture(objs, /\/Resources/.test(p.dict) ? p.dict : p.inherited || p.dict);
+      if (found) scans.push({ page: index + 1, picture: describe(objs, found.o, { entry, refOf, decoded }) });
+    }
+    if (rows.length > 12000) break;
   }
   const text = rows.map((r) => r.join("  ")).join("\n").replace(/\u0000/g, "").trim();
   const note = pages.length > maxPages ? `only the first ${maxPages} of ${pages.length} pages were read` : "";
-  return { rows, text, pages: pages.length, note, locked };
+  return { rows, text, pages: pages.length, note, locked, scans };
 }
 
 module.exports = { pdfText, pdfRows, PdfError, readCMap, readObjects, operations };

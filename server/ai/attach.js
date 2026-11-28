@@ -112,14 +112,14 @@ function xlsxText(buf) {
 }
 
 /** CSV / TSV / plain text: as it is, the first rows of a table only. */
-function plainText(buf, name) {
+function plainText(buf, name, maxRows = MAX_ROWS) {
   const t = utf8(buf);
   // a binary file in disguise: NUL bytes
   const nul = (t.slice(0, 4000).match(/\u0000/g) || []).length;
   if (nul > 8) throw new AttachError("This does not look like a text file. Attach a .csv, .txt, .docx, .xlsx or an image.");
   if (/\.(csv|tsv)$/i.test(name)) {
     const lines = t.split(/\r?\n/);
-    if (lines.length > MAX_ROWS + 1) return { text: `${lines.slice(0, MAX_ROWS + 1).join("\n")}\n…(${lines.length - MAX_ROWS - 1} more rows are not included)`, truncated: true };
+    if (lines.length > maxRows + 1) return { text: `${lines.slice(0, maxRows + 1).join("\n")}\n…(${lines.length - maxRows - 1} more rows are not included)`, truncated: true };
   }
   return { text: t, truncated: false };
 }
@@ -129,7 +129,7 @@ function plainText(buf, name) {
  * @returns { kind: "text", name, text, chars, truncated } or { kind: "image", name, mediaType, data (base64), bytes }
  * @throws AttachError with a sentence the trader can act on
  */
-function readAttachment(nameIn, buf) {
+function readAttachment(nameIn, buf, { maxText = MAX_TEXT, maxRows = MAX_ROWS } = {}) {
   const name = String(nameIn || "file").replace(/[\\/\r\n\t]/g, " ").trim().slice(0, 120) || "file";
   if (!Buffer.isBuffer(buf) || !buf.length) throw new AttachError(`${name} is empty.`);
   if (buf.length > MAX_BYTES) throw new AttachError(`${name} is larger than ${Math.round(MAX_BYTES / 1048576)} MB. Attach a smaller file or only the part that matters.`, "too_large", 413);
@@ -167,7 +167,7 @@ function readAttachment(nameIn, buf) {
         else throw new AttachError(`${name} is an archive. Attach the file inside it.`, "unsupported", 415);
       }
     } else if (TEXT_EXT.test(name) || !ext) {
-      ({ text, truncated } = plainText(buf, name));
+      ({ text, truncated } = plainText(buf, name, maxRows));
     } else {
       throw new AttachError(`${name}: this kind of file is not read. Attach an image, .docx, .xlsx, .pptx, .csv, .txt or .json.`, "unsupported", 415);
     }
@@ -177,7 +177,7 @@ function readAttachment(nameIn, buf) {
   }
   text = text.replace(/\u0000/g, "").trim();
   if (!text) throw new AttachError(`${name} has no text in it that could be read.`, "empty", 422);
-  const c = clip(text);
+  const c = clip(text, maxText);
   return { kind: "text", name, text: c.text, chars: text.length, truncated: truncated || c.truncated };
 }
 

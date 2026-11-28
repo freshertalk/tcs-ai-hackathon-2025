@@ -1467,3 +1467,200 @@
 .lo-docs > li > div {
   justify-items: start;
 }
+
+/* ------------------------------------------------------------------ several documents, reviewed as one */
+.lo-field > label {
+  color: var(--ink-2);
+  font-size: var(--t-small);
+}
+.lo-field > .lo-grow {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 40px;
+  padding: 9px 10px;
+  border: 1px solid var(--line-2);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  line-height: 1.4;
+  resize: none;
+  overflow: hidden;
+}
+.lo-upload .lo-fields .lo-field:has(> .dp-field),
+.lo-detailform .lo-fields .lo-field:has(> .dp-field) {
+  padding-top: 17px;
+}
+.lo-upload .lo-fields .dp-input,
+.lo-detailform .lo-fields .dp-input {
+  min-height: 40px;
+}
+.lo-drop.is-more {
+  padding: 12px 14px;
+}
+.lo-aiopts {
+  display: grid;
+  gap: 10px;
+}
+.lo-files {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  list-style: none;
+}
+.lo-files > li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-top: 1px solid var(--line);
+}
+.lo-files > li:first-child {
+  border-top: 0;
+}
+.lo-files > li.is-out .lo-files__main {
+  color: var(--ink-3);
+}
+.lo-files > li.is-out .lo-files__main b {
+  font-weight: 400;
+  text-decoration: line-through;
+}
+.lo-files__main {
+  display: grid;
+  flex: 1 1 280px;
+  gap: 3px;
+  justify-items: start;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.lo-files__main p {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  align-items: center;
+  margin: 0;
+}
+.lo-files__main p small {
+  color: var(--ink-3);
+  font-size: var(--t-small);
+}
+.lo-files__main .lo-need {
+  justify-self: stretch;
+  margin-top: 6px;
+}
+.lo-files__acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  align-items: center;
+}
+.lo-files__acts .lo-check {
+  align-items: center;
+}
+.lo-other {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+  align-items: baseline;
+  padding-left: 8px;
+  border-left: 2px solid #d98c00;
+  overflow-wrap: anywhere;
+}
+.lo-other small {
+  color: var(--ink-2);
+  font-size: var(--t-small);
+}
+.lo-other .lo-link {
+  font-size: var(--t-small);
+}
+.lo-otherloan {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--warn-line, var(--line-2));
+  border-radius: 6px;
+}
+.lo-summaries {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  color: var(--ink-2);
+  list-style: none;
+  overflow-wrap: anywhere;
+}
+.lo-summaries b {
+  color: var(--ink);
+  font-weight: 600;
+}
+.lo-group {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.lo-group legend,
+.lo-detailgroup h4 {
+  margin: 0 0 8px;
+  padding: 0;
+  color: var(--ink);
+  font-size: var(--t-body);
+  font-weight: 600;
+}
+.lo-paid {
+  display: grid;
+  gap: 8px;
+}
+.lo-pick {
+  display: grid;
+  gap: 8px;
+}
+.lo-paid p {
+  margin: 0;
+}
+.lo-detailform {
+  display: grid;
+  gap: 16px;
+}
+.lo-detailgroup {
+  display: grid;
+}
+.lo-details {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 1fr));
+  gap: 10px 20px;
+  margin: 0;
+}
+.lo-details > div {
+  min-width: 0;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+.lo-details dt {
+  color: var(--ink-3);
+  font-size: var(--t-small);
+}
+.lo-details dd {
+  display: grid;
+  gap: 1px;
+  margin: 2px 0 0;
+  overflow-wrap: anywhere;
+}
+.lo-details dd b {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.lo-details dd small {
+  color: var(--ink-3);
+  font-size: var(--t-small);
+}
+@media (max-width: 560px) {
+  .lo-files__acts {
+    justify-content: space-between;
+    width: 100%;
+  }
+}

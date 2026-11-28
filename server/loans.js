@@ -24,6 +24,8 @@
 
 const crypto = require("crypto");
 
+const { DETAILS, GROUPS, BY_KEY, cleanValue } = require("./loan-details");
+
 const NAME = "loans";
 const INSIGHT = "loans/insight.json"; // the AI's last analysis and the questions asked of it
 const IST = 5.5 * 3600 * 1000;
@@ -545,6 +547,8 @@ class Loans {
       saved: { last: changes[0] || null, byPerson: changes.find((c) => c.by !== AUTO) || null, autoAt, store: this.docs.kind || "files" },
       history: changes.slice(0, 100),
       kinds: KINDS,
+      detailDefs: DETAILS,
+      detailGroups: GROUPS,
       methods: METHODS,
     };
   }
@@ -607,6 +611,74 @@ class Loans {
     this._fill(loan);
     this._save(loan, `Repayment schedule applied: ${checked.rows.length} instalments${dropped.length ? `; ${dropped.length} ticked month(s) outside it replaced` : ""}`, by);
     return { dropped };
+  }
+
+  /**
+   * The loan's other details as its documents give them. @param entries { key: { value, from, file, docId } | null to remove }
+   * Keys not named stay as they are.
+   */
+  setDetails(id, entries, by = "", what = "Details saved from its documents") {
+    const loan = this._find(id);
+    if (isCash(loan)) throw new LoanError("A cash loan keeps no extra details.");
+    const next = { ...(loan.details || {}) };
+    let n = 0;
+    for (const [key, entry] of Object.entries(entries || {})) {
+      if (!BY_KEY.has(key)) continue;
+      if (entry === null) {
+        if (next[key]) {
+          delete next[key];
+          n += 1;
+        }
+        continue;
+      }
+      const value = cleanValue(key, entry.value);
+      if (value === null) continue;
+      if (next[key] && next[key].value === value) continue;
+      next[key] = { value, from: String(entry.from || "typed").slice(0, 20), file: String(entry.file || "").slice(0, 120), docId: String(entry.docId || "").slice(0, 40) };
+      n += 1;
+    }
+    if (!n) return 0;
+    loan.details = next;
+    this._save(loan, `${what}: ${n} detail${n === 1 ? "" : "s"}`, by);
+    return n;
+  }
+
+  /** The owner's own corrections: { key: value, or "" to take it out }. What is changed is marked as typed. */
+  editDetails(id, input, by = "") {
+    const loan = this._find(id);
+    if (isCash(loan)) throw new LoanError("A cash loan keeps no extra details.");
+    const had = loan.details || {};
+    const entries = {};
+    for (const [key, raw] of Object.entries(input && typeof input === "object" ? input : {})) {
+      const def = BY_KEY.get(key);
+      if (!def) continue;
+      if (String(raw === null || raw === undefined ? "" : raw).trim() === "") {
+        entries[key] = null;
+        continue;
+      }
+      const value = cleanValue(key, raw);
+      if (value === null) throw new LoanError(`Check “${def.label}”: ${def.type === "date" ? "choose a date" : def.type === "text" ? "type some words" : "type a number"}.`);
+      if (!had[key] || had[key].value !== value) entries[key] = { value, from: "typed" };
+    }
+    this.setDetails(id, entries, by, "Details changed by hand");
+    return loan.id;
+  }
+
+  /** Exactly these months ticked paid (the ones a statement shows as received): others are left as they are. */
+  markPaid(id, months, by = "") {
+    const loan = this._find(id);
+    if (isCash(loan)) throw new LoanError("A cash loan has no monthly EMIs.");
+    this._fill(loan);
+    const want = new Set((Array.isArray(months) ? months : []).filter((m) => /^\d{4}-(0[1-9]|1[0-2])$/.test(String(m))));
+    const at = new Date(this.now()).toISOString();
+    let n = 0;
+    for (const row of loan.months) {
+      if (!want.has(row.month) || row.paid) continue;
+      Object.assign(row, { paid: true, paidAt: at, paidBy: by, updatedAt: at });
+      n += 1;
+    }
+    if (n) this._save(loan, `${n} EMI${n === 1 ? "" : "s"} marked paid, as reviewed from the statement`, by);
+    return n;
   }
 
   attachDocument(id, meta, by = "") {
@@ -857,6 +929,7 @@ function mountLoans(app, { loans, requireSuper, limiter }) {
   app.put("/api/admin/loans/:id", requireSuper, writes, wrap(async (req) => after({ id: loans.update(String(req.params.id), req.body, by(req)) })));
   app.put("/api/admin/loans/:id/months/:month", requireSuper, writes, wrap(async (req) => after({ id: loans.setMonth(String(req.params.id), String(req.params.month), req.body, by(req)) })));
   app.post("/api/admin/loans/:id/paid-upto", requireSuper, writes, wrap(async (req) => after({ marked: loans.paidUpTo(String(req.params.id), String((req.body || {}).month || ""), by(req)) })));
+  app.put("/api/admin/loans/:id/details", requireSuper, writes, wrap(async (req) => after({ id: loans.editDetails(String(req.params.id), (req.body || {}).details, by(req)) })));
   app.delete("/api/admin/loans/:id", requireSuper, writes, wrap(async (req) => after({ id: loans.remove(String(req.params.id), by(req)) })));
   app.post("/api/admin/loans/:id/restore", requireSuper, writes, wrap(async (req) => after({ id: loans.restore(String(req.params.id), by(req)) })));
   // cash loans: repayments by hand

@@ -10,19 +10,31 @@
 //   REVIEW   the page shows what was found, where each figure came from, and the schedule's own checks.
 //   SAVE     only when the owner presses Save: a new loan, or an existing one; the schedule if they keep it; the file
 //            itself kept in the database (collection "loan_docs", read only when asked for, part of the backup).
+//   TOGETHER several papers of one loan are read as one (loan-merge.js): the best source of each figure, every other
+//            detail (loan-details.js), the months a statement shows as paid. One Save keeps them all.
+//   SCANS    a scanned page is a picture (pdf-pictures.js): the page shrinks it and the free AI reads it, one at a time.
 // A password typed for a protected file is used for that reading only, and is not kept.
 
 const crypto = require("node:crypto");
 const { readLoanFile, readOrKeep, cleanName, LoanFileError } = require("./loan-files");
 const { parseSchedule, findDate } = require("./loan-schedule");
-const { fieldsOf, docTypeOf, redact } = require("./loan-fields");
+const { fieldsOf, docTypeOf, redact, receiptsOf } = require("./loan-fields");
 const { LoanError, INSIGHT, simulate, usualEmi } = require("./loans");
+const { DETAILS, BY_KEY, cleanValue } = require("./loan-details");
+const { combine, chooseSchedule, paidMonths, instalmentsOf } = require("./loan-merge");
+const { pictureOf } = require("./pdf-pictures");
+const { sniff } = require("./ai/attach");
 
 const STORE = "loan_docs";
 const TTL = 60 * 60 * 1000;
-const MAX_PENDING = 8;
+const MAX_PENDING = 24;
+const MAX_PENDING_BYTES = 80 * 1024 * 1024; // files wait in memory for their Save: the oldest go first
+const MAX_BATCH = 12; // documents reviewed and saved together
 const MAX_DOCS = 40; // a loan
-const TEXT_KEPT = 40000;
+const TEXT_KEPT = 200000;
+const AI_PART = 22000; // characters of a long document sent at a time
+const AI_PARTS = 6;
+const PAGE_PICTURE_MAX = 220 * 1024; // a page as the page shrinks it for the free vision models
 
 const r2 = (x) => Math.round(x * 100) / 100;
 const num = (v) => {
@@ -52,11 +64,54 @@ function inText(key, value, text) {
   return squash(text).includes(squash(value));
 }
 
-const LABELS = { lender: "Lender", kind: "Type", name: "Loan name", openingDate: "Opening date", totalAmount: "Total amount", rate: "Interest rate (% a year)", emiAmount: "EMI amount", firstEmiDate: "First EMI date", tenureMonths: "Tenure (months)", processingFee: "Processing fee", outstanding: "Outstanding stated" };
+const LABELS = { ...Object.fromEntries(DETAILS.map((d) => [d.key, d.label])), lender: "Lender", kind: "Type", name: "Loan name", openingDate: "Opening date", totalAmount: "Total amount", rate: "Interest rate (% a year)", emiAmount: "EMI amount", firstEmiDate: "First EMI date", tenureMonths: "Tenure (months)", processingFee: "Processing fee", outstanding: "Outstanding stated" };
 const KIND_WORDS = { home: "home loan", car: "car loan", personal: "personal loan", education: "education loan", gold: "gold loan", business: "business loan", card: "card EMI", other: "loan" };
-const AI_KEYS = { lender: "lender", loanType: "kind", openingDate: "openingDate", loanAmount: "totalAmount", interestRate: "rate", tenureMonths: "tenureMonths", emiAmount: "emiAmount", firstEmiDate: "firstEmiDate", processingFee: "processingFee", outstanding: "outstanding" };
+const AI_KEYS = { ...Object.fromEntries(DETAILS.map((d) => [d.key, d.key])), lender: "lender", loanType: "kind", openingDate: "openingDate", loanAmount: "totalAmount", interestRate: "rate", tenureMonths: "tenureMonths", emiAmount: "emiAmount", firstEmiDate: "firstEmiDate", processingFee: "processingFee", outstanding: "outstanding" };
 
 const SHORT_FORMS = /^(SBI|HDFC|ICICI|PNB|LIC|IDFC|IDBI|RBL|HSBC|DBS|AU|UCO|TVS|SMFG|L&T)$/;
+/** The text of a long document in pieces the free models take, cut at line ends. */
+function partsOf(text, size = AI_PART, most = AI_PARTS) {
+  const parts = [];
+  let part = "";
+  for (const line of String(text).split("\n")) {
+    if (part && part.length + line.length + 1 > size) {
+      parts.push(part);
+      part = "";
+      if (parts.length === most) return parts;
+    }
+    part += `${part ? "\n" : ""}${line.slice(0, size)}`;
+  }
+  if (part.trim()) parts.push(part);
+  return parts;
+}
+
+/** The model's answer as the desk's own fields: only what is in the shape each field asks for. */
+function aiFields(d) {
+  const values = {};
+  for (const [from, to] of Object.entries(AI_KEYS)) {
+    const text = String(d[from] === undefined || d[from] === null ? "" : d[from]).trim();
+    if (!text || values[to] !== undefined) continue;
+    const def = BY_KEY.get(to);
+    if (to === "openingDate" || to === "firstEmiDate" || (def && def.type === "date")) {
+      const day = /^\d{4}-\d{2}-\d{2}$/.test(text) ? text : (findDate(text) || {}).date;
+      if (day) values[to] = day;
+    } else if (to === "lender") values[to] = text.slice(0, 60);
+    else if (to === "kind") {
+      if (KIND_WORDS[text.toLowerCase()]) values[to] = text.toLowerCase();
+    } else if (def && def.type === "text") {
+      if (!/^(n\/?a|nil stated|not (stated|mentioned|specified|applicable|available)|none stated|unknown|-+)$/i.test(text)) values[to] = redact(text).text.slice(0, 300);
+    } else {
+      const n = num(text);
+      if (n !== null && n > 0 && n <= 1e10 && !((to === "rate" || to === "apr") && n > 60) && !(def && cleanValue(to, n) === null)) values[to] = n;
+    }
+  }
+  const terms = (Array.isArray(d.terms) ? d.terms : []).slice(0, 12);
+  return { values, terms, summary: String(d.summary || "").slice(0, 700), watch: (Array.isArray(d.watch) ? d.watch : []).slice(0, 5).map((x) => String(x).slice(0, 240)) };
+}
+
+/** Everything a file has given as words: its own, then those read from its scanned pages. */
+const textOf = (p) => [p.file.kind === "image" ? "" : p.file.text, p.pictureText || ""].filter(Boolean).join("\n");
+
 function shortName(lender) {
   const s = String(lender || "").replace(/\b(private|pvt\.?|limited|ltd\.?)(?=\s|$|\.)/gi, "").replace(/[.,]+$/g, "").replace(/\s+/g, " ").trim();
   if (s !== s.toUpperCase()) return s;
@@ -76,7 +131,8 @@ class LoanIntake {
 
   _sweep() {
     for (const [k, p] of this.pending) if (this.now() - p.at > TTL) this.pending.delete(k);
-    while (this.pending.size > MAX_PENDING) this.pending.delete(this.pending.keys().next().value);
+    const held = () => [...this.pending.values()].reduce((a, p) => a + p.buf.length, 0);
+    while (this.pending.size > MAX_PENDING || (this.pending.size > 1 && held() > MAX_PENDING_BYTES)) this.pending.delete(this.pending.keys().next().value);
   }
 
   _get(token, owner) {
@@ -91,7 +147,8 @@ class LoanIntake {
     const loan = loanId ? this.loans.get(loanId) : null;
     if (loan && loan.type === "cash") throw new LoanError("A cash loan from a person has no documents to read: enter its repayments by hand.");
     const file = readOrKeep(name, buf, { password, keep });
-    const p = { owner, at: this.now(), loanId: loan ? loan.id : "", file, buf, ai: { done: false, model: "", error: "" }, hint: {}, aiValues: {}, aiTerms: [], aiSummary: "", aiWatch: [], forced: null, pictureRows: null };
+    const scans = file.kind === "image" ? [{ page: 1, picture: { ok: true } }] : file.scans || [];
+    const p = { owner, at: this.now(), loanId: loan ? loan.id : "", file, buf, ai: { done: false, model: "", error: "" }, hint: {}, crossHint: {}, aiValues: {}, aiTerms: [], aiSummary: "", aiWatch: [], forced: null, pictureRows: null, pictureText: "", textAi: null, scans, pageReads: new Map(), receipts: [] };
     this._parse(p);
     const token = crypto.randomBytes(12).toString("hex");
     this.pending.set(token, p);
@@ -99,18 +156,20 @@ class LoanIntake {
     return this.view(token, p);
   }
 
-  /** What the words and the table give, again (after a hint from the owner or a reading from the AI). */
+  /** What the words and the table give, again (after a hint from the owner, another paper or a reading from the AI). */
   _parse(p) {
     const loan = p.loanId ? this.loans.get(p.loanId) : null;
-    const text = p.file.kind === "image" ? p.pictureText || "" : p.file.text;
+    const text = textOf(p);
     p.found = fieldsOf(text);
     const f = p.found.fields;
+    // what the schedule is told: your own figures first, then this paper's, then the papers uploaded with it, then the book's
+    const first = (...all) => all.find((v) => v !== undefined && v !== null);
     const hint = {
-      amount: p.hint.amount !== undefined && p.hint.amount !== null ? p.hint.amount : f.loanAmount ? f.loanAmount.value : loan ? loan.totalAmount : undefined,
-      rate: p.hint.rate !== undefined && p.hint.rate !== null ? p.hint.rate : f.rate ? f.rate.value : loan ? loan.rate : undefined,
+      amount: first(p.hint.amount, f.loanAmount && f.loanAmount.value, p.crossHint.amount, loan ? loan.totalAmount : undefined),
+      rate: first(p.hint.rate, f.rate && f.rate.value, p.crossHint.rate, loan ? loan.rate : undefined),
     };
-    const rows = p.pictureRows || p.file.rows;
-    p.schedule = rows && rows.length ? parseSchedule(rows, { hint }) : { found: false, reason: "No table was read." };
+    const rows = [...(p.file.kind === "image" ? [] : p.file.rows || []), ...(p.pictureRows || [])];
+    p.schedule = rows.length ? parseSchedule(rows, { hint }) : { found: false, reason: "No table was read." };
     if (p.forced) {
       const again = parseSchedule(rows, { hint, roles: p.forced });
       const good = again.found && again.checks.split > 0 && again.checks.addUp >= again.checks.split * 0.9 && again.checks.carry >= again.checks.carryOf * 0.9;
@@ -119,11 +178,13 @@ class LoanIntake {
     p.docType = docTypeOf(text, p.schedule.found && p.schedule.checks.lines >= 6);
     // a document that is not a schedule may still hold a few dated amounts (a statement): not offered as one
     if (p.schedule.found && ["sanction", "certificate", "noc", "insurance", "kfs"].includes(p.docType.id) && p.schedule.checks.lines < 6) p.schedule = { found: false, reason: "A few dated amounts, not a repayment schedule." };
+    // a statement lists what has happened: its lines are not the months to come, so they must not replace them
+    if (p.schedule.found && p.docType.id === "statement" && (p.schedule.how === "computed" || p.schedule.rows[p.schedule.rows.length - 1].date <= new Date(this.now() + 5.5 * 3600000).toISOString().slice(0, 10))) p.schedule = { found: false, reason: "The payments a statement lists, not a repayment schedule." };
+    p.receipts = p.docType.id === "statement" ? receiptsOf(text) : [];
   }
 
   /** The values the loan form would be filled with, each with where it came from. */
   _values(p) {
-    const text = p.file.kind === "image" ? p.pictureText || "" : p.file.text;
     const s = p.schedule.found ? p.schedule : null;
     const out = {};
     const put = (k, value, from, extra = {}) => {
@@ -131,34 +192,41 @@ class LoanIntake {
       if (!out[k]) out[k] = { label: LABELS[k], value, from, ...extra };
     };
     const f = p.found.fields;
+    const own = p.file.kind === "image" ? "" : p.file.text; // the file's own words (a scan has none)
+    // words read off a scanned page by the free AI are not the file's own: they are said to be from the scan
+    const doc = (k, as = k) => {
+      if (!f[k]) return;
+      const scanned = Boolean(p.pictureText) && !(own && inText(as, f[k].value, own));
+      put(as, f[k].value, scanned ? "scan" : "document", { line: f[k].line });
+    };
     // the document's words first, then the schedule's arithmetic, then the AI
-    put("lender", f.lender && f.lender.value, "document", { line: f.lender && f.lender.line });
-    put("kind", f.kind && f.kind.value, "document", { line: f.kind && f.kind.line });
-    put("openingDate", f.openingDate && f.openingDate.value, "document", { line: f.openingDate && f.openingDate.line });
-    put("totalAmount", f.loanAmount && f.loanAmount.value, "document", { line: f.loanAmount && f.loanAmount.line });
-    put("rate", f.rate && f.rate.value, "document", { line: f.rate && f.rate.line });
+    for (const [k, as] of [["lender"], ["kind"], ["openingDate"], ["loanAmount", "totalAmount"], ["rate"]]) doc(k, as || k);
     if (s) {
-      put("emiAmount", usualEmi(s.rows), "schedule", { line: "The instalment that repeats in the schedule" });
-      put("firstEmiDate", s.rows[0].date, "schedule", { line: "The schedule’s first instalment" });
-      put("totalAmount", s.amount, "schedule", { line: "What was owed before the schedule’s first instalment" });
-      put("rate", s.rate, "schedule", { line: "From the schedule’s interest and balance" });
-      put("tenureMonths", s.rows.length, "schedule", { line: "Instalments in the schedule" });
+      const how = p.pictureRows ? " (read from a scan; the sums are checked)" : "";
+      put("emiAmount", usualEmi(s.rows), "schedule", { line: `The instalment that repeats in the schedule${how}` });
+      put("firstEmiDate", s.rows[0].date, "schedule", { line: `The schedule’s first instalment${how}` });
+      put("totalAmount", s.amount, "schedule", { line: `What was owed before the schedule’s first instalment${how}` });
+      put("rate", s.rate, "schedule", { line: `From the schedule’s interest and balance${how}` });
+      put("tenureMonths", s.rows.length, "schedule", { line: `Instalments in the schedule${how}` });
     }
-    put("emiAmount", f.emiAmount && f.emiAmount.value, "document", { line: f.emiAmount && f.emiAmount.line });
-    put("firstEmiDate", f.firstEmiDate && f.firstEmiDate.value, "document", { line: f.firstEmiDate && f.firstEmiDate.line });
-    put("tenureMonths", f.tenureMonths && f.tenureMonths.value, "document", { line: f.tenureMonths && f.tenureMonths.line });
-    put("processingFee", f.processingFee && f.processingFee.value, "document", { line: f.processingFee && f.processingFee.line });
-    put("outstanding", f.outstanding && f.outstanding.value, "document", { line: f.outstanding && f.outstanding.line });
+    doc("emiAmount");
+    doc("firstEmiDate");
+    for (const d of DETAILS) doc(d.key);
     for (const [k, v] of Object.entries(p.aiValues)) {
-      const checked = p.file.kind === "image" ? null : inText(k, v, text);
+      // checked against the file's own words; what only a picture showed cannot be checked against anything
+      const found = own ? inText(k, v, own) : false;
+      const checked = found ? true : p.pictureText ? null : false;
       if (!out[k]) put(k, v, "ai", { checked });
-      else if (String(out[k].value).toLowerCase() !== String(v).toLowerCase() && k !== "lender" && k !== "kind") out[k] = { ...out[k], aiSays: { value: v, checked } };
+      else if (String(out[k].value).toLowerCase() !== String(v).toLowerCase() && k !== "lender" && k !== "kind" && !(BY_KEY.get(k) && BY_KEY.get(k).type === "text")) out[k] = { ...out[k], aiSays: { value: v, checked } };
     }
-    // a short, readable name: a lender written in capitals is set in ordinary case, "Limited" left off
-    const lender = out.lender ? shortName(out.lender.value) : "";
-    const kind = out.kind ? out.kind.value : "other";
-    put("name", `${lender || cleanName(p.file.name).replace(/\.[a-z0-9]+$/i, "")}${lender ? ` ${KIND_WORDS[kind] || "loan"}` : ""}${p.found.accountLast4 ? ` ··${p.found.accountLast4}` : ""}`.slice(0, 80), "suggested");
+    put("name", this._name(out.lender && out.lender.value, out.kind && out.kind.value, p.found.accountLast4, p.file.name), "suggested");
     return out;
+  }
+
+  /** A short, readable name: a lender written in capitals is set in ordinary case, "Limited" left off. */
+  _name(lenderIn, kind, last4, fileName) {
+    const lender = lenderIn ? shortName(lenderIn) : "";
+    return `${lender || cleanName(fileName).replace(/\.[a-z0-9]+$/i, "")}${lender ? ` ${KIND_WORDS[kind || "other"] || "loan"}` : ""}${last4 ? ` ··${last4}` : ""}`.slice(0, 80);
   }
 
   /** A loan already in the book that this file looks like it belongs to. */
@@ -179,7 +247,7 @@ class LoanIntake {
   view(token, p) {
     const values = this._values(p);
     const s = p.schedule;
-    const text = p.file.kind === "image" ? p.pictureText || "" : p.file.text;
+    const text = textOf(p);
     const terms = [...p.found.terms.map((t) => ({ ...t, from: "document" }))];
     for (const t of p.aiTerms) if (!terms.some((x) => x.quote === t.quote)) terms.push(t);
     const status = this.desk ? this.desk.status() : { ready: false };
@@ -210,8 +278,11 @@ class LoanIntake {
       terms: terms.slice(0, 18),
       summary: p.aiSummary,
       watch: p.aiWatch,
-      // nothing to give the AI from a file that could not be opened (a picture it can still look at, when asked)
-      ai: { ...p.ai, ready: Boolean(status.ready) && (!p.file.unread || Boolean(p.file.image)), name: status.model || "", picture: p.file.kind === "image", blanked: p.file.kind === "image" ? 0 : redact(text).count },
+      // nothing to give the AI from a file that could not be opened (a picture or a scanned page it can still look at)
+      ai: { ...p.ai, ready: Boolean(status.ready) && (!p.file.unread || Boolean(p.file.image) || p.scans.some((x) => x.picture.ok)), name: status.model || "", picture: p.file.kind === "image", blanked: p.file.kind === "image" ? 0 : redact(text).count },
+      // the pages that are pictures: which can be read, which have been
+      scan: { pages: p.scans.map((x) => ({ page: x.page, ok: Boolean(x.picture.ok), why: x.picture.why || "" })), read: [...p.pageReads.keys()].sort((a, b) => a - b) },
+      words: p.file.kind === "image" ? false : Boolean(p.file.text),
     };
   }
 
@@ -229,46 +300,74 @@ class LoanIntake {
   }
 
   /* ------------------------------------------------------------------ the free AI */
+  _ready() {
+    if (!this.desk || !this.desk.status().ready) throw new LoanError(this.desk ? this.desk.status().setup : "The free AI is not set up.", "no_free_ai", 409);
+  }
+
+  /** What the AI has read of the words and of the pages, together: the first to state a figure keeps it. */
+  _joinAi(p) {
+    const pages = [...p.pageReads.keys()].sort((a, b) => a - b).map((n) => p.pageReads.get(n));
+    p.pictureText = pages.map((x) => x.text).filter(Boolean).join("\n");
+    const lines = pages.flatMap((x) => x.lines);
+    p.pictureRows = lines.length >= 2 ? lines : null;
+    const parts = [...(p.textAi ? [p.textAi] : []), ...pages];
+    p.aiValues = {};
+    for (const part of parts) for (const [k, v] of Object.entries(part.values)) if (p.aiValues[k] === undefined) p.aiValues[k] = v;
+    const squash = (x) => String(x).toLowerCase().replace(/\s+/g, " ").trim();
+    const own = squash(textOf(p));
+    const seen = new Set();
+    p.aiTerms = [];
+    for (const t of parts.flatMap((x) => x.terms)) {
+      const quote = String(t.quote || "").replace(/\s+/g, " ").trim().slice(0, 260);
+      const key = quote || String(t.detail || "");
+      if (!key || seen.has(key) || p.aiTerms.length >= 18) continue;
+      seen.add(key);
+      p.aiTerms.push({ title: String(t.title || "Term").slice(0, 80), detail: String(t.detail || "").slice(0, 300), quote, from: "ai", checked: Boolean(quote) && own.includes(squash(quote)) });
+    }
+    p.aiSummary = (parts.find((x) => x.summary) || {}).summary || "";
+    p.aiWatch = [...new Set(parts.flatMap((x) => x.watch))].slice(0, 6);
+    // a scan whose pages have now been read is no longer unread
+    if (p.pictureText && p.file.unread) {
+      p.file = { ...p.file, unread: "" };
+    }
+  }
+
   async readWithAi(owner, token) {
     const p = this._get(token, owner);
-    if (!this.desk || !this.desk.status().ready) throw new LoanError(this.desk ? this.desk.status().setup : "The free AI is not set up.", "no_free_ai", 409);
+    this._ready();
     const picture = p.file.kind === "image";
     try {
-      const r = picture ? await this.desk.readPicture(p.file.image) : await this.desk.readDocument(redact(p.file.text).text);
-      const d = r.data || {};
       if (picture) {
-        p.pictureText = String(d.text || "");
-        const lines = (Array.isArray(d.lines) ? d.lines : []).slice(0, 80).map((l) => String(l).split(/\s{1,}|\t|\|/).filter(Boolean));
-        p.pictureRows = lines.length >= 2 ? lines : null;
-      }
-      const values = {};
-      for (const [from, to] of Object.entries(AI_KEYS)) {
-        const raw = String(d[from] === undefined || d[from] === null ? "" : d[from]).trim();
-        if (!raw) continue;
-        if (to === "openingDate" || to === "firstEmiDate") {
-          const day = /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : (findDate(raw) || {}).date;
-          if (day) values[to] = day;
-        } else if (to === "lender") values[to] = raw.slice(0, 60);
-        else if (to === "kind") {
-          if (KIND_WORDS[raw.toLowerCase()]) values[to] = raw.toLowerCase();
-        } else {
-          const n = num(raw);
-          if (n !== null && n > 0 && n <= 1e10 && !(to === "rate" && n > 60)) values[to] = n;
+        await this._lookAt(p, 1, p.file.image);
+      } else {
+        if (!p.file.text) throw new LoanError(p.scans.some((x) => x.picture.ok) ? "This is a scan: its pages are read as pictures." : "There are no words in this file for the AI to read.");
+        const parts = partsOf(redact(p.file.text).text);
+        const read = [];
+        let failed = null;
+        for (const part of parts) {
+          try {
+            const r = await this.desk.readDocument(part);
+            read.push({ ...aiFields(r.data || {}), model: r.model });
+          } catch (err) {
+            failed = err;
+            break;
+          }
         }
+        if (!read.length) throw failed || new Error("The free AI could not answer.");
+        const gather = { values: {}, terms: [], summary: "", watch: [] };
+        for (const x of read) {
+          for (const [k, v] of Object.entries(x.values)) if (gather.values[k] === undefined) gather.values[k] = v;
+          gather.terms.push(...x.terms);
+          gather.watch.push(...x.watch);
+          gather.summary = gather.summary || x.summary;
+        }
+        p.textAi = gather;
+        this._joinAi(p);
+        p.ai = { done: true, model: read[0].model, error: failed ? `Only ${read.length} of ${parts.length} parts of this long document were read by the free AI; try again for the rest. The desk read all of it itself.` : "" };
       }
-      p.aiValues = values;
-      const source = picture ? p.pictureText : p.file.text;
-      const squash = (x) => String(x).toLowerCase().replace(/\s+/g, " ").trim();
-      p.aiTerms = (Array.isArray(d.terms) ? d.terms : []).slice(0, 12).map((t) => {
-        const quote = String(t.quote || "").replace(/\s+/g, " ").trim().slice(0, 260);
-        return { title: String(t.title || "Term").slice(0, 80), detail: String(t.detail || "").slice(0, 300), quote, from: "ai", checked: Boolean(quote) && squash(source).includes(squash(quote)) };
-      });
-      p.aiSummary = String(d.summary || "").slice(0, 700);
-      p.aiWatch = (Array.isArray(d.watch) ? d.watch : []).slice(0, 5).map((x) => String(x).slice(0, 240));
-      p.ai = { done: true, model: r.model, error: "" };
       this._parse(p);
       // the table could not be made out by its sums: ask which column is which, and check the sums again
-      if (!picture && (!p.schedule.found || p.schedule.checks.split === 0) && !(p.schedule.needs || []).length) {
+      if (!picture && p.file.text && (!p.schedule.found || p.schedule.checks.split === 0) && !(p.schedule.needs || []).length && p.docType.id !== "statement") {
         const loose = parseSchedule(p.file.rows, { roles: { emi: 0, principal: -1, interest: -1, balance: -1, balanceType: "none", how: "computed" } });
         if (loose.found && loose.sample && loose.sample[0].values.length > 1 && loose.checks.lines >= 6) {
           const headings = p.file.rows.filter((row) => row.some((c) => /princip|interest|balance|emi|instal/i.test(c))).slice(0, 6).map((row) => row.join(" | ")).join("\n");
@@ -285,33 +384,198 @@ class LoanIntake {
     return this.view(String(token), p);
   }
 
+  /** One page picture, read by a free model that can see. */
+  async _lookAt(p, page, image) {
+    const r = await this.desk.readPicture(image);
+    const d = r.data || {};
+    const lines = (Array.isArray(d.lines) ? d.lines : []).slice(0, 80).map((l) => String(l).split(/\s{1,}|\t|\|/).filter(Boolean));
+    p.pageReads.set(page, { ...aiFields(d), text: String(d.text || "").slice(0, 12000), lines });
+    this._joinAi(p);
+    p.ai = { done: true, model: r.model, error: "" };
+  }
+
+  /** The picture of one scanned page, for the browser to make small enough for the free AI. */
+  pageImage(owner, token, page) {
+    const p = this._get(token, owner);
+    const found = p.scans.find((x) => x.page === Number(page));
+    if (p.file.kind === "image" && found) return { mime: p.file.mime, data: p.buf };
+    const picture = found && pictureOf(found.picture);
+    if (!picture) throw new LoanError((found && found.picture.why) || "That page has no picture to read.", "no_picture", 404);
+    return picture;
+  }
+
+  /** A scanned page (or a photo), made small by the page, is read by the free AI and joins what the file has given. */
+  async readPage(owner, token, page, buf) {
+    const p = this._get(token, owner);
+    this._ready();
+    const n = Number(page);
+    if (!p.scans.some((x) => x.page === n && x.picture.ok)) throw new LoanError("That page is not a picture that can be read.");
+    const mime = Buffer.isBuffer(buf) && buf.length ? sniff(buf) : "";
+    if (!/^image\/(jpeg|png|webp)$/.test(mime)) throw new LoanError("Send the page as a JPEG, PNG or WebP picture.");
+    if (buf.length > PAGE_PICTURE_MAX) throw new LoanError("That page picture is too large for the free AI.", "too_large", 413);
+    try {
+      await this._lookAt(p, n, { mediaType: mime, data: buf.toString("base64") });
+      this._parse(p);
+    } catch (err) {
+      if (err instanceof LoanError) throw err;
+      p.ai = { done: p.pageReads.size > 0 || Boolean(p.textAi), model: p.ai.model, error: `Page ${n}: ${String((err && err.message) || "the free AI could not answer.")}`.slice(0, 300) };
+    }
+    return this.view(String(token), p);
+  }
+
   discard(owner, token) {
     this._get(token, owner);
     this.pending.delete(String(token));
   }
 
+  /* ------------------------------------------------------------------ several documents as one */
+  _batch(owner, tokens) {
+    const list = [...new Set((Array.isArray(tokens) ? tokens : []).map(String))];
+    if (!list.length) throw new LoanError("Choose at least one document.");
+    if (list.length > MAX_BATCH) throw new LoanError(`At most ${MAX_BATCH} documents are reviewed together: save these, then add the rest.`);
+    return list.map((t) => ({ token: t, p: this._get(t, owner) }));
+  }
+
+  /**
+   * Everything the documents give, as one review. @param input { tokens, loanId, scheduleToken }
+   * Nothing is saved.
+   */
+  combine(owner, input) {
+    const b = input && typeof input === "object" ? input : {};
+    const batch = this._batch(owner, b.tokens);
+    const loanId = String(b.loanId || "");
+    const loan = loanId ? this.loans.get(loanId) : null;
+    if (loan && loan.type === "cash") throw new LoanError("A cash loan from a person takes no documents.");
+    let views = batch.map(({ token, p }) => this.view(token, p));
+    const pick = () => {
+      const all = chooseSchedule(views);
+      return { all, chosen: all.find((v) => v.token === String(b.scheduleToken || "")) || all[0] || null };
+    };
+    let { all, chosen } = pick();
+    // a bare schedule needs the amount or the rate: the other papers may well say them
+    if (chosen) {
+      const rest = combine(views.filter((v) => v.token !== chosen.token));
+      const target = batch.find((x) => x.token === chosen.token);
+      const cross = {};
+      if (rest.values.totalAmount && !["ai", "scan"].includes(rest.values.totalAmount.from)) cross.amount = rest.values.totalAmount.value;
+      if (rest.values.rate && !["ai", "scan"].includes(rest.values.rate.from)) cross.rate = rest.values.rate.value;
+      if (JSON.stringify(cross) !== JSON.stringify(target.p.crossHint)) {
+        target.p.crossHint = cross;
+        this._parse(target.p);
+        views = batch.map(({ token, p }) => this.view(token, p));
+        ({ all, chosen } = pick());
+      }
+    }
+    const merged = combine(views);
+    const last4 = (views.find((v) => v.accountLast4) || {}).accountLast4 || "";
+    const matchId = loanId || (views.find((v) => v.matchId) || {}).matchId || "";
+    const nameValue = this._name(merged.values.lender && merged.values.lender.value, merged.values.kind && merged.values.kind.value, last4, views[0].file.name);
+    merged.values.name = { label: LABELS.name, value: nameValue, from: "suggested", others: [] };
+    // the months the statements show as paid, matched against the schedule in hand, else the loan's own months
+    const book = matchId ? this.loans.view().loans.find((l) => l.id === matchId) : null;
+    const rows = chosen && !chosen.schedule.needs.length ? chosen.schedule.rows : book ? [...(book.rows || []), ...(book.upcoming || [])] : null;
+    const today = this.loans.view().today;
+    const emi = merged.values.emiAmount ? merged.values.emiAmount.value : book ? book.emiAmount : 0;
+    const firstEmiDate = merged.values.firstEmiDate ? merged.values.firstEmiDate.value : book ? book.firstEmiDate : "";
+    const count = merged.details.emisPaid;
+    const paid = paidMonths({
+      receipts: batch.flatMap(({ p }) => p.receipts.map((r) => ({ ...r, file: p.file.name }))),
+      count: count ? { value: count.value, file: count.file, asOn: merged.details.asOnDate ? merged.details.asOnDate.value : "" } : null,
+      instalments: instalmentsOf({ rows, emi, firstEmiDate, today }),
+      today,
+    });
+    return {
+      loanId,
+      matchId,
+      today,
+      files: views.map((v) => ({
+        token: v.token,
+        file: v.file,
+        docType: v.docType,
+        accountLast4: v.accountLast4,
+        found: Object.keys(v.values).filter((k) => k !== "name").length,
+        schedule: v.schedule.found ? { found: true, count: v.schedule.count, how: v.schedule.how, needs: v.schedule.needs } : { found: false, reason: v.schedule.reason },
+        ai: v.ai,
+        scan: v.scan,
+        words: v.words,
+      })),
+      values: merged.values,
+      details: merged.details,
+      schedule: chosen ? { ...chosen.schedule, token: chosen.token, file: chosen.file.name } : { found: false, reason: (views.find((v) => v.schedule.reason) || { schedule: {} }).schedule.reason || "" },
+      schedules: all.map((v) => ({ token: v.token, file: v.file.name, count: v.schedule.count, how: v.schedule.how, first: v.schedule.first, last: v.schedule.last })),
+      paid,
+      warnings: merged.warnings,
+      terms: merged.terms,
+      watch: merged.watch,
+      summaries: merged.summaries,
+      accountLast4: last4,
+    };
+  }
+
   /* ------------------------------------------------------------------ saving */
   /**
-   * The owner pressed Save. @param input { loanId, loan: the form's fields, useSchedule, paidUpTo: "YYYY-MM" | "" }
+   * The owner pressed Save on one document. @param input { loanId, loan, details, useSchedule, paidUpTo, paidMonths }
    * @returns { id, docId, dropped, marked }
    */
   async apply(owner, token, input, by = "") {
-    const p = this._get(token, owner);
+    const done = await this.applyAll(owner, { ...(input && typeof input === "object" ? input : {}), tokens: [String(token || "")], scheduleToken: String(token || "") }, by);
+    return { id: done.id, docId: done.docIds[0], dropped: done.dropped, marked: done.marked };
+  }
+
+  /** What each reviewed detail is saved as: the value, and the paper it came from — or "typed", if it is the owner's. */
+  _reviewed(merged, given, had, tokenDocs) {
+    const entries = {};
+    const stamp = (d, hit) => ({ value: hit.value, from: hit.from, file: hit.file || d.file, docId: tokenDocs.get(hit.token) || "" });
+    if (!given || typeof given !== "object") {
+      // nothing was reviewed field by field: what the papers say fills what the loan does not yet have
+      for (const [key, d] of Object.entries(merged)) if (!had[key] || BY_KEY.get(key).group === "latest") entries[key] = stamp(d, d);
+      return entries;
+    }
+    for (const [key, raw] of Object.entries(given)) {
+      const def = BY_KEY.get(key);
+      if (!def) continue;
+      if (String(raw === null || raw === undefined ? "" : raw).trim() === "") {
+        if (had[key]) entries[key] = null;
+        continue;
+      }
+      const value = cleanValue(key, raw);
+      if (value === null) throw new LoanError(`Check “${def.label}”: ${def.type === "date" ? "choose a date" : def.type === "text" ? "type some words" : "type a number"}.`);
+      if (had[key] && had[key].value === value) continue;
+      const d = merged[key];
+      const hit = d && (d.value === value ? d : d.others.find((o) => o.value === value));
+      entries[key] = hit ? stamp(d, hit) : { value, from: "typed" };
+    }
+    return entries;
+  }
+
+  /**
+   * The owner pressed Save on the review of one or more documents.
+   * @param input { tokens, loanId, scheduleToken, useSchedule, loan: the form's fields, details: { key: value | "" },
+   *                paidMonths: ["YYYY-MM"], paidUpTo: "YYYY-MM" | "" }
+   * @returns { id, docIds, dropped, marked, details }
+   */
+  async applyAll(owner, input, by = "") {
     const b = input && typeof input === "object" ? input : {};
+    const batch = this._batch(owner, b.tokens);
     const loanId = String(b.loanId || "");
-    const s = p.schedule.found ? p.schedule : null;
+    const reviewed = this.combine(owner, { tokens: b.tokens, loanId, scheduleToken: b.scheduleToken });
+    const source = reviewed.schedule.found ? batch.find((x) => x.token === reviewed.schedule.token) : null;
+    const s = source ? source.p.schedule : null;
     const use = Boolean(b.useSchedule) && Boolean(s);
     if (use && s.rows.some((x) => x.principal === null)) throw new LoanError("This schedule does not say the principal: give the loan amount or the rate first, so it can be worked out.");
     const plan = use ? { rows: s.rows, how: s.how, amount: s.amount, rate: s.rate } : null;
-    const values = this._values(p);
-    const docId = `d${crypto.randomBytes(8).toString("hex")}`;
-    if (plan) plan.docId = docId;
+    const tokenDocs = new Map(batch.map((x) => [x.token, `d${crypto.randomBytes(8).toString("hex")}`]));
+    if (plan) plan.docId = tokenDocs.get(source.token);
+    // everything is checked before anything is written
+    const before = loanId ? this.loans.get(loanId) : null;
+    if (before) {
+      if (before.type === "cash") throw new LoanError("A cash loan from a person takes no documents.");
+      if ((before.documents || []).length + batch.length > MAX_DOCS) throw new LoanError(`A loan keeps at most ${MAX_DOCS} documents. Remove some first.`);
+    }
+    const entries = this._reviewed(reviewed.details, b.details, (before && before.details) || {}, tokenDocs);
     let id = loanId;
     let dropped = [];
     if (loanId) {
-      const loan = this.loans.get(loanId);
-      if (loan.type === "cash") throw new LoanError("A cash loan from a person takes no documents.");
-      if ((loan.documents || []).length >= MAX_DOCS) throw new LoanError(`A loan keeps at most ${MAX_DOCS} documents. Remove one first.`);
       if (plan) ({ dropped } = this.loans.applyPlan(loanId, plan, by));
     } else {
       const form = { ...(b.loan || {}) };
@@ -324,40 +588,47 @@ class LoanIntake {
       }
       id = this.loans.add(form, by, { plan });
     }
-    const text = p.file.kind === "image" ? p.pictureText || "" : p.file.text;
-    const meta = {
-      id: docId,
-      name: p.file.name,
-      kind: p.file.kind,
-      mime: p.file.mime,
-      size: p.file.size,
-      docType: p.docType.id,
-      docLabel: p.docType.label,
-      locked: p.file.locked,
-      unread: p.file.unread || "",
-      accountLast4: p.found.accountLast4,
-      usedSchedule: use,
-      values: Object.fromEntries(Object.entries(values).filter(([k]) => k !== "name").map(([k, v]) => [k, { label: v.label, value: v.value, from: v.from }])),
-      terms: this.view(String(token), p).terms,
-      summary: p.aiSummary,
-      watch: p.aiWatch,
-      aiModel: p.ai.done ? p.ai.model : "",
-      uploadedAt: new Date(this.now()).toISOString(),
-      by,
-    };
-    await this.docs.coldPut(STORE, docId, { loanId: id, name: p.file.name, mime: p.file.mime, data: p.buf.toString("base64"), text: redact(text).text.slice(0, TEXT_KEPT) });
-    this.loans.attachDocument(id, meta, by);
+    for (const { token, p } of batch) {
+      const docId = tokenDocs.get(token);
+      const view = this.view(token, p);
+      const meta = {
+        id: docId,
+        name: p.file.name,
+        kind: p.file.kind,
+        mime: p.file.mime,
+        size: p.file.size,
+        docType: p.docType.id,
+        docLabel: p.docType.label,
+        locked: p.file.locked,
+        unread: p.file.unread || "",
+        accountLast4: p.found.accountLast4,
+        usedSchedule: use && source.token === token,
+        pagesRead: p.pageReads.size,
+        pagesPictured: p.file.kind === "image" ? 0 : p.scans.length,
+        values: Object.fromEntries(Object.entries(view.values).filter(([k]) => k !== "name").map(([k, v]) => [k, { label: v.label, value: v.value, from: v.from }])),
+        terms: view.terms,
+        summary: p.aiSummary,
+        watch: p.aiWatch,
+        aiModel: p.ai.done ? p.ai.model : "",
+        uploadedAt: new Date(this.now()).toISOString(),
+        by,
+      };
+      await this.docs.coldPut(STORE, docId, { loanId: id, name: p.file.name, mime: p.file.mime, data: p.buf.toString("base64"), text: redact(textOf(p)).text.slice(0, TEXT_KEPT) });
+      this.loans.attachDocument(id, meta, by);
+      this.pending.delete(token);
+    }
+    const saved = this.loans.setDetails(id, entries, by);
     let marked = 0;
     const upto = String(b.paidUpTo || "");
-    if (upto) {
+    if (Array.isArray(b.paidMonths) && b.paidMonths.length) marked = this.loans.markPaid(id, b.paidMonths.slice(0, 600), by);
+    else if (upto) {
       try {
         marked = this.loans.paidUpTo(id, upto, by);
       } catch (err) {
         if (!(err instanceof LoanError) || !/already marked paid/.test(err.message)) throw err;
       }
     }
-    this.pending.delete(String(token));
-    return { id, docId, dropped, marked };
+    return { id, docIds: batch.map((x) => tokenDocs.get(x.token)), dropped, marked, details: saved };
   }
 
   /* ------------------------------------------------------------------ the kept files */
@@ -424,6 +695,7 @@ class LoanIntake {
         if (plain && with1) base.ifPrepaidNow = { amount: lump, interestSavedAbout: r2(plain.interest - with1.interest), monthsSooner: plain.months - with1.months, note: "estimate on a reducing balance, before any prepayment charge" };
       }
       if (loanId) {
+        base.details = Object.fromEntries(Object.entries(l.details || {}).filter(([k]) => BY_KEY.has(k)).map(([k, d]) => [BY_KEY.get(k).label, typeof d.value === "string" ? redact(d.value).text : d.value]));
         base.clauses = (l.documents || []).flatMap((d) => (d.terms || []).map((t) => t.quote)).slice(0, 14);
         base.nextMonths = [...l.rows.filter((x) => !x.paid), ...l.upcoming].slice(0, 12).map((x) => ({ month: x.month, emi: x.emi, principal: x.principal, interest: x.interest }));
       }
@@ -500,9 +772,11 @@ function mountLoanIntake(app, { intake, loans, requireSuper, limiter }) {
   };
   const by = (req) => (req.user && req.user.email) || "";
   const writes = limiter(300, 15 * 60 * 1000);
-  const uploads = limiter(60, 15 * 60 * 1000);
+  const uploads = limiter(150, 15 * 60 * 1000);
+  const pages = limiter(400, 15 * 60 * 1000); // a long scan is read page by page
   const after = (result) => ({ ...loans.view(), ...result });
   const raw = express.raw({ type: () => true, limit: "8mb" });
+  const smallRaw = express.raw({ type: () => true, limit: "300kb" });
 
   app.post("/api/admin/loans/documents/read", requireSuper, uploads, raw, wrap(async (req) => {
     // the password travels in a header, never in the address (addresses are written to logs)
@@ -514,6 +788,18 @@ function mountLoanIntake(app, { intake, loans, requireSuper, limiter }) {
     }
     return intake.read(by(req), String(req.query.name || "document"), Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0), { password, loanId: String(req.query.loanId || ""), keep: req.query.keep === "1" });
   }));
+  app.post("/api/admin/loans/documents/combine", requireSuper, writes, wrap(async (req) => intake.combine(by(req), req.body)));
+  app.post("/api/admin/loans/documents/apply-all", requireSuper, writes, wrap(async (req) => after({ applied: await intake.applyAll(by(req), req.body, by(req)) }), 201));
+  app.get("/api/admin/loans/documents/:token/page/:page", requireSuper, pages, wrap(async (req, res) => {
+    const picture = intake.pageImage(by(req), req.params.token, req.params.page);
+    res.setHeader("Content-Type", picture.mime);
+    res.setHeader("Content-Disposition", "attachment");
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("Cache-Control", "no-store");
+    res.end(picture.data);
+    return undefined;
+  }));
+  app.post("/api/admin/loans/documents/:token/page/:page", requireSuper, pages, smallRaw, wrap(async (req) => intake.readPage(by(req), req.params.token, req.params.page, req.body)));
   app.post("/api/admin/loans/documents/:token/hint", requireSuper, writes, wrap(async (req) => intake.hint(by(req), req.params.token, req.body)));
   app.post("/api/admin/loans/documents/:token/ai", requireSuper, uploads, wrap(async (req) => intake.readWithAi(by(req), req.params.token)));
   app.post("/api/admin/loans/documents/:token/apply", requireSuper, writes, wrap(async (req) => after({ applied: await intake.apply(by(req), req.params.token, req.body, by(req)) }), 201));
@@ -548,4 +834,4 @@ function mountLoanIntake(app, { intake, loans, requireSuper, limiter }) {
   }));
 }
 
-module.exports = { LoanIntake, mountLoanIntake, inText, STORE };
+module.exports = { LoanIntake, mountLoanIntake, inText, partsOf, STORE, MAX_BATCH };

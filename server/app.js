@@ -593,6 +593,9 @@ function createApp(opts = {}) {
     whatsappRef.receive(body).catch((err) => console.warn(`[whatsapp] ${logSafe(err && err.message)}`));
   });
 
+  // the review of several loan documents, and a loan's details, are longer than an ordinary request
+  app.use(["/api/admin/loans/documents/apply-all", /^\/api\/admin\/loans\/[^/]+\/details$/], express.json({ limit: "96kb" }));
+
   app.use(express.json({ limit: "10kb" }));
 
   // a slow API answer is logged with its path, so a sluggish page can be traced to its cause
