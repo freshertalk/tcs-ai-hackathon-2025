@@ -127,7 +127,7 @@ const STATUS_TONE = { open: "ok", "pre-open": "warn", "before-open": "idle", "cl
  * The strip. `place` is "main" (the top of the page beside the side column, wide screens) or "side" (under the greeting,
  * narrow screens) — the page draws both and CSS shows the one that is on top for the screen.
  */
-export default function NextSession({ ns, place = "main", calendarHref }) {
+export default function NextSession({ ns, place = "main", calendarHref, children = null }) {
   const d = ns && ns.data;
   const now = useNow();
   const id = `ns-h-${place}`;
@@ -224,6 +224,9 @@ export default function NextSession({ ns, place = "main", calendarHref }) {
           )}
         </ul>
       )}
+
+      {/* what the page adds under the dates (/me: your trading days) */}
+      {children ? <div className="ns__days">{children}</div> : null}
 
       <p className={`ns__verify is-${vTone}`}>
         <i aria-hidden="true">{vTone === "ok" ? "✓" : vTone === "warn" ? "!" : "·"}</i>

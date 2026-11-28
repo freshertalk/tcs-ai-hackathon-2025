@@ -31,6 +31,7 @@ export const MONEY_ZONES = [
   // /me's first screen: your funds, positions and holdings (the market's own prices beside them stay readable)
   ".fs-acct",
   ".fs-pos",
+  ".td",
   ".ex",
 ].join(", ");
 

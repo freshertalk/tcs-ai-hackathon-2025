@@ -1,0 +1,256 @@
+/* The trading days inside /me's "Next trading day" strip (TradingDays.jsx). Kite's own green #4caf50 and red #df514c,
+   in four depths mixed into the page's surface; the date's number stays readable on every depth (dark ink on the light
+   theme, white on the dark one). Colour is never the only cue: every date names its figures on hover, focus and to a
+   screen reader. */
+.td {
+  --td-up: #4caf50;
+  --td-down: #df514c;
+  --td-on: #222;
+  position: relative;
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding-top: 12px;
+  border-top: 1px dashed var(--line);
+}
+.adm[data-desk="dark"] .td {
+  --td-on: #fff;
+}
+.td p,
+.td dl,
+.td dd,
+.td h3 {
+  margin: 0;
+}
+.td__dim {
+  color: var(--ink-3);
+  font-size: var(--t-small);
+}
+.td__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+.td__title {
+  color: var(--ink);
+  font-family: var(--f-ui);
+  font-size: var(--t-base);
+  font-weight: 600;
+}
+.td__ranges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.td__ranges button {
+  min-height: 30px;
+  padding: 3px 10px;
+  border: 1px solid var(--line-2);
+  border-radius: 3px;
+  background: var(--surface);
+  color: var(--ink-2);
+  font: inherit;
+  font-size: var(--t-small);
+  cursor: pointer;
+}
+.td__ranges button:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.td__ranges button[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+/* the counts: Kite's grey labels over figures */
+.td__counts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 128px), 1fr));
+  gap: 8px 16px;
+}
+.td__counts div {
+  display: grid;
+  gap: 1px;
+}
+.td__counts dt {
+  color: var(--ink-3);
+  font-size: var(--t-tag);
+}
+.td__counts dd {
+  color: var(--ink);
+  font-size: 1.125rem;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+.td .is-up {
+  color: var(--up);
+}
+.td .is-down {
+  color: var(--down);
+}
+
+/* the months, newest first, as many to a row as fit */
+.td__months {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 212px), 1fr));
+  gap: 14px 22px;
+}
+.td__month {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+}
+.td__mname {
+  color: var(--ink-2);
+  font-size: var(--t-small);
+  font-weight: 600;
+}
+.td__grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 3px;
+}
+.td__wd {
+  color: var(--ink-3);
+  font-size: var(--t-tag);
+  text-align: center;
+}
+.td__day {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  min-width: 0;
+  min-height: 26px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: var(--surface-2);
+  color: var(--ink-2);
+  font: inherit;
+  font-size: var(--t-tag);
+  font-variant-numeric: tabular-nums;
+  cursor: default;
+}
+.td__day.is-off,
+.td__day.is-later {
+  background: transparent;
+  color: var(--ink-3);
+}
+.td__day.is-hol {
+  border: 1px dashed var(--line-2);
+  background: transparent;
+  color: var(--ink-3);
+}
+.td__day.is-flat {
+  border-color: var(--line-2);
+  color: var(--ink);
+}
+/* (stronger than the page-wide .is-up / .is-down text colours, which would put red text on a red square) */
+.adm .td .td__day.is-up,
+.adm .td .td__day.is-down,
+.adm .td .td__key {
+  color: var(--td-on);
+  font-weight: 600;
+}
+.td__day.is-up.l1,
+.td__key.is-up.l1 {
+  background: color-mix(in srgb, var(--td-up) 22%, var(--surface));
+}
+.td__day.is-up.l2,
+.td__key.is-up.l2 {
+  background: color-mix(in srgb, var(--td-up) 36%, var(--surface));
+}
+.td__day.is-up.l3,
+.td__key.is-up.l3 {
+  background: color-mix(in srgb, var(--td-up) 50%, var(--surface));
+}
+.td__day.is-up.l4,
+.td__key.is-up.l4 {
+  background: color-mix(in srgb, var(--td-up) 64%, var(--surface));
+}
+.td__day.is-down.l1,
+.td__key.is-down.l1 {
+  background: color-mix(in srgb, var(--td-down) 22%, var(--surface));
+}
+.td__day.is-down.l2,
+.td__key.is-down.l2 {
+  background: color-mix(in srgb, var(--td-down) 36%, var(--surface));
+}
+.td__day.is-down.l3,
+.td__key.is-down.l3 {
+  background: color-mix(in srgb, var(--td-down) 50%, var(--surface));
+}
+.td__day.is-down.l4,
+.td__key.is-down.l4 {
+  background: color-mix(in srgb, var(--td-down) 64%, var(--surface));
+}
+.td__day.is-today {
+  box-shadow: inset 0 0 0 1.5px var(--accent);
+}
+.td__day:hover,
+.td__day:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 1px;
+}
+button.td__day.is-up,
+button.td__day.is-down,
+button.td__day.is-flat {
+  cursor: pointer;
+}
+
+.td__legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  color: var(--ink-3);
+  font-size: var(--t-tag);
+}
+.td__key {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+}
+.td__legend-note {
+  margin-left: 10px;
+}
+
+/* the day's figures: a small card over the date (under it near the top) */
+.td__tip {
+  position: absolute;
+  z-index: 30;
+  display: grid;
+  gap: 2px;
+  min-width: 200px;
+  max-width: 240px;
+  padding: 8px 10px;
+  border: 1px solid var(--line-2);
+  border-radius: 4px;
+  background: var(--surface);
+  box-shadow: 0 8px 22px -10px rgba(0, 0, 0, 0.45);
+  color: var(--ink-2);
+  font-size: var(--t-small);
+  line-height: 1.45;
+  transform: translate(-50%, -100%);
+  pointer-events: none;
+}
+.td__tip.is-below {
+  transform: translate(-50%, 0);
+}
+.td__tip b {
+  color: var(--ink);
+}
+.td__tip em {
+  font-style: normal;
+  font-weight: 600;
+}
+
+/* inside the strip: a row of its own under the dates, across the strip */
+.ns__days {
+  grid-area: days;
+  min-width: 0;
+}

@@ -35,6 +35,7 @@ import DrishtiLogo from "./DrishtiLogo";
 import NextSession, { sessionCard, useNextSession } from "./NextSession";
 import { exchangeNow, useExchangeNow } from "./clock/exchangeClock";
 import FirstSight from "./home/FirstSight";
+import TradingDays from "./home/TradingDays";
 
 const WORKSPACES = [
   { view: "", label: "Desk", text: "Chart, live call, order book, 5- and 15-minute forecast" },
@@ -616,7 +617,10 @@ export default function Dashboard() {
 
         <div className="hm-main">
         {/* the next trading day by NSE's calendar, first under the header and its tabs */}
-        <NextSession ns={ns} place="main" />
+        <NextSession ns={ns} place="main">
+          {/* the days you traded, green and red, with the sessions NSE held (superadmins: the Journal is theirs) */}
+          {isSuper && <TradingDays />}
+        </NextSession>
 
         {/* what you need before and while you trade: the indices first, then the status line, then the rest. The account is
             yours only (the server refuses anyone else) */}
