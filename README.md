@@ -1970,3 +1970,25 @@ To swap the photo, replace these files keeping the same names and dimensions.
 - Grain, heavy shadows and the hero portrait are dropped on small screens and
   under `prefers-reduced-data`.
 - Safe-area insets are respected for notched devices.
+
+## Positions & orders: everything about an open trade up front (2026-11-28)
+
+The Positions page (`src/admin/stock/trade/PositionDesk.jsx`, arithmetic in `positionMath.js`, look in `positions-kite.css`)
+now opens with, under the trading switch:
+
+- **At a glance** — today's P&L split into booked and open (before charges), open positions and their long and short value,
+  how many have a stop-loss order for their full quantity (and what is given back if those stops fill), margin used and free,
+  the room left under the risk guard, and the MIS square-off time with its countdown.
+- **Needs attention** — the exit coach's EXIT NOW / BOOK PART, a missing or part stop, the square-off inside 30 minutes, a
+  locked day or 75% of the loss limit used, 80% of the margin in use, rejected orders.
+- **One panel per open position** — P&L, the stop, entry, price and target on one line (orders in today's book lead; the exit
+  coach's levels are shown, and named, where there is no order), the coach's word and exit pressure (owner only), the stock's
+  day (range, VWAP, open, volume, waiting buyers and sellers, circuit limits) and the next 15 minutes.
+  "Draft a stop order…" opens the ordinary order ticket, filled in; nothing is sent until it is confirmed, and the button is
+  greyed out while trading is OFF. **GTT triggers are not in the order book, so they are not counted as stops.**
+- Orders: today in numbers, and each waiting order's distance from the last price. Holdings: best, worst and the largest
+  holding. Funds: the share of margin in use.
+
+The account tables, the forms, the switch and its confirmations are unchanged; the daily goal and the risk guard moved below
+the account. The summary now carries `squareOff` for open MIS stock positions (read only, from `server/market/session.js`).
+The Desk's bottom dock is as it was.

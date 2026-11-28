@@ -19,8 +19,11 @@ import { DailyGoalCard } from "./DailyGoal";
 import { CASH, LIVE_STATUSES, holdingNumbers, newRef, positionDayChange, positionPnl, totals } from "./tradeMath";
 import { useLiveBook } from "./liveBook";
 import { everyVisible } from "../../visible";
+import { useExchangeNow } from "../../clock/exchangeClock";
 import { PositionEvidence, usePositionEvidence } from "../analyzer/EvidenceCard";
 import { FigureBand, PageBar, PageHead, SectionHead } from "../../ux/PageKit";
+import { Attention, HoldingGlance, MarginBar, OrderStats, PositionGlance, PositionMonitor, useDayQuotes, useExitCoach } from "./PositionDesk";
+import { attention, bookNumbers, holdingInsights, marginUse, minutesTo, orderAway, orderStats, posKey, roomToday } from "./positionMath";
 import "./trade.css";
 import "./account-page.css";
 
@@ -441,7 +444,7 @@ function CoachPanel({ canExit, onExit, positions }) {
 /**
  * @param compact  the Desk's dock: the tables only — no switch bar, tiles, coach or activity log
  */
-export default function Account({ compact = false }) {
+export default function Account({ compact = false, onOpen }) {
   const trade = useTrade();
   const [tab, setTabState] = useState(storedTab);
   const [state, setState] = useState({ loading: true, data: null, error: "" });
@@ -487,8 +490,9 @@ export default function Account({ compact = false }) {
   const openOrders = orders.filter((o) => LIVE_STATUSES.has(o.status));
   const doneOrders = orders.filter((o) => !LIVE_STATUSES.has(o.status));
 
-  // live prices for NSE stocks held or open
-  const symbols = useMemo(() => [...new Set([...positions.filter((p) => p.exchange === "NSE").map((p) => p.symbol), ...holdings.map((h) => h.symbol)])].sort().slice(0, 60), [positions, holdings]);
+  // live prices for NSE stocks held or open (and, on the full page, those with an order waiting: how far it is from the market)
+  const watched = !compact ? openOrders.filter((o) => o.exchange === "NSE").map((o) => o.symbol).join(",") : "";
+  const symbols = useMemo(() => [...new Set([...positions.filter((p) => p.exchange === "NSE").map((p) => p.symbol), ...holdings.map((h) => h.symbol), ...(watched ? watched.split(",") : [])])].sort().slice(0, 60), [positions, holdings, watched]);
   const live = useLiveTicks(symbols, Boolean(status && status.connected));
   const liveOf = useCallback(
     (x) => (bookOn && x.key ? x.last : x.exchange === "NSE" || CASH.has(x.exchange) ? (live.slow[x.symbol] && isNum(live.slow[x.symbol].last) ? live.slow[x.symbol].last : null) : null),
@@ -501,6 +505,23 @@ export default function Account({ compact = false }) {
   // today's figure, the same one the top bar and the dock show (Zerodha's day M2M, live)
   const dayPnl = bookOn ? book.day : tot.posPnl;
   const canTrade = Boolean(status && status.enabled && status.connected);
+
+  // what the first-sight panels read besides the account (28 Nov 2026; the full page only, never the Desk's dock):
+  // the day's quote of each stock with an open position or a waiting order, and the owner's exit coach
+  const quoteList = useMemo(() => (compact ? [] : [...new Set([...positions.filter((p) => p.exchange === "NSE" && p.quantity !== 0).map((p) => p.symbol), ...(watched ? watched.split(",") : [])])].sort().slice(0, 40)), [compact, positions, watched]);
+  const quotes = useDayQuotes(quoteList, Boolean(status && status.connected));
+  const coachRows = useExitCoach(Boolean(!compact && trade && trade.owner && status && status.connected));
+  const nseNow = useExchangeNow(15000); // the square-off countdown runs on NSE’s clock
+  const quoteOf = (symbol) => (quotes[symbol] || live.slow[symbol] ? { ...quotes[symbol], ...live.slow[symbol] } : null);
+  const priceOf = (p) => liveOf(p) ?? p.last;
+  const orderLtp = (o) => {
+    if (o.exchange !== "NSE") {
+      const p = positions.find((x) => x.symbol === o.symbol && x.exchange === o.exchange);
+      return p ? priceOf(p) : null;
+    }
+    const q = quoteOf(o.symbol);
+    return q && isNum(q.last) ? q.last : null;
+  };
   const done = (msg) => {
     setDialog(null);
     if (msg && trade) trade.say(msg, "ok");
@@ -527,6 +548,18 @@ export default function Account({ compact = false }) {
 
   const tradingOn = Boolean(status && status.enabled);
   const equity = d && d.funds && d.funds.equity ? d.funds.equity : null;
+  // the first-sight figures, from what is already on the page
+  const numbers = bookNumbers(positions, orders, priceOf);
+  const margin = marginUse(equity);
+  const room = roomToday({ rules: status && status.risk, lock: status && status.riskLock, dayPnl, orders, positions });
+  const stats = orderStats(orders, trades);
+  const squareOff = (d && d.squareOff) || {};
+  const mis = positions
+    .filter((p) => p.product === "MIS" && p.quantity !== 0 && squareOff[p.symbol])
+    .map((p) => ({ symbol: p.symbol, ...squareOff[p.symbol], left: minutesTo(squareOff[p.symbol].min, nseNow) }))
+    .sort((a, b) => a.min - b.min);
+  const coachNow = positions.filter((p) => p.quantity !== 0 && coachRows[posKey(p)] && coachRows[posKey(p)].advice).map((p) => ({ symbol: p.symbol, state: coachRows[posKey(p)].advice.state, price: coachRows[posKey(p)].advice.exit ? coachRows[posKey(p)].advice.exit.price : null }));
+  const needs = d && !compact ? attention({ numbers, room, margin, stats, mis, coach: coachNow }) : [];
   // how the P&L is kept current (the note the tab row carried; the dock's tab row still does)
   const liveNote = d ? (bookOn ? (book.live && book.streaming ? "P&L live with every price" : `P&L as Zerodha reported at ${clock(book.baseAt)}`) : live.state === "live" ? "prices streaming" : "prices every 10 s") : "";
 
@@ -564,8 +597,6 @@ export default function Account({ compact = false }) {
       )}
       <div className={`tr ${compact ? "tr--compact" : ""}`}>
         {!compact && <SwitchBar trade={trade} status={status} onExitAll={() => setDialog({ kind: "exit-all" })} />}
-        {!compact && trade.goal && <DailyGoalCard goal={trade.goal} onSaved={trade.reloadGoal} />}
-        {!compact && <RiskGuard trade={trade} version={version} />}
 
         {state.loading && !d && <Loading label="Reading your account from Zerodha…" />}
         {state.error && (
@@ -578,21 +609,10 @@ export default function Account({ compact = false }) {
         {d && (
           <>
             {!compact && (
-              <FigureBand
-                label="Positions, holdings and margin"
-                items={[
-                  {
-                    label: "Positions · Total P&L",
-                    value: signedMoney(dayPnl),
-                    tone: tone(dayPnl),
-                    tip: "Today’s profit or loss on all positions, open and closed (the day’s M2M, by Zerodha’s own formula) — the same figure as the top bar and the dock, live with every streamed price.",
-                    sub: `${tot.open} open · ${positions.length - tot.open} closed today${bookOn && Math.abs(book.pnl - book.day) >= 1 ? ` · ${signedMoney(book.pnl)} since entry` : ""}`,
-                  },
-                  { label: "Holdings · Total P&L", value: signedMoney(tot.holdPnl), tone: tone(tot.holdPnl), tip: "Profit or loss on your delivery holdings against what you paid for them.", sub: `${pct(tot.holdPnlPct)} on ${money(tot.invested)}` },
-                  { label: "Holdings · Day’s P&L", value: signedMoney(tot.holdDay), tone: tone(tot.holdDay), tip: "How much your holdings have moved since yesterday’s close.", sub: `current value ${money(tot.current)}` },
-                  { label: "Margin available", value: equity ? money(equity.net) : "—", tip: "Equity margin available for new trades, as Zerodha reports it.", sub: equity ? `Margins used ${money(equity.used.debits)}` : d.errors.funds || "" },
-                ]}
-              />
+              <>
+                <PositionGlance numbers={numbers} dayPnl={dayPnl} margin={margin} room={room} goal={trade.goal} mis={mis} />
+                <Attention items={needs} open={numbers.open > 0} />
+              </>
             )}
 
             {/* the page's sections are the bar's tabs (above); the Desk's dock has no bar, so it keeps this row */}
@@ -616,7 +636,23 @@ export default function Account({ compact = false }) {
 
             {tab === "positions" && (
               <>
+                {!compact && (
+                  <PositionMonitor
+                    positions={positions}
+                    orders={orders}
+                    priceOf={priceOf}
+                    quoteOf={quoteOf}
+                    coach={coachRows}
+                    evidence={evRows}
+                    squareOff={squareOff}
+                    canTrade={canTrade}
+                    trade={trade}
+                    onExit={(p, ltp) => setDialog({ kind: "exit", item: p, last: ltp })}
+                    onOpen={onOpen}
+                  />
+                )}
                 <section className="an-card tr-card">
+                  {!compact && positions.length > 0 && <SectionHead title="All positions today" sub="Open and closed, in Kite’s columns" />}
                   {positions.length === 0 ? (
                     <p className="tr-empty">No positions today.</p>
                   ) : (
@@ -650,7 +686,7 @@ export default function Account({ compact = false }) {
                                   {p.symbol} <small>{p.exchange}</small>
                                   {/* on a phone the product column is dropped and its tag rides here */}
                                   <small className={`tr-prod tr-prod--${p.product} tr-prod--in`}>{p.product}</small>
-                                  {!closed && p.exchange === "NSE" && evRows[`${p.symbol}|${p.quantity > 0 ? "long" : "short"}`] && (
+                                  {compact && !closed && p.exchange === "NSE" && evRows[`${p.symbol}|${p.quantity > 0 ? "long" : "short"}`] && (
                                     <div className="tr-ev">
                                       <PositionEvidence reading={evRows[`${p.symbol}|${p.quantity > 0 ? "long" : "short"}`]} />
                                     </div>
@@ -689,6 +725,7 @@ export default function Account({ compact = false }) {
               </>
             )}
 
+            {tab === "holdings" && !compact && <HoldingGlance x={holdingInsights(holdings, (h) => liveOf(h) ?? h.last)} />}
             {tab === "holdings" && (
               <section className="an-card tr-card">
                 <p className="tr-note">
@@ -754,6 +791,7 @@ export default function Account({ compact = false }) {
 
             {tab === "orders" && (
               <>
+                {!compact && <OrderStats stats={stats} />}
                 <section className="an-card tr-card">
                   <SectionHead title={`Open orders (${openOrders.length})`} actions={<TradeButtons symbol="" exchange="NSE" />} />
                   {openOrders.length === 0 ? (
@@ -769,6 +807,11 @@ export default function Account({ compact = false }) {
                             <th scope="col">Product</th>
                             <th scope="col" className="is-num">Qty.</th>
                             <th scope="col" className="is-num">Price</th>
+                            {!compact && (
+                              <th scope="col" className="is-num" data-tip="How far the order’s trigger (or limit price) is from the last price now">
+                                From LTP
+                              </th>
+                            )}
                             <th scope="col">Status</th>
                             <th scope="col">
                               <span className="adm-sr">Actions</span>
@@ -793,6 +836,17 @@ export default function Account({ compact = false }) {
                                 {o.price ? num(o.price) : "Market"}
                                 {o.trigger ? <small> trg {num(o.trigger)}</small> : null}
                               </td>
+                              {!compact && (
+                                <td className="is-num">
+                                  {isNum(orderAway(o, orderLtp(o))) ? (
+                                    <>
+                                      {pct(orderAway(o, orderLtp(o)))} <small>LTP {num(orderLtp(o))}</small>
+                                    </>
+                                  ) : (
+                                    "—"
+                                  )}
+                                </td>
+                              )}
                               <td>
                                 <span className="tr-status">{o.status}</span>
                               </td>
@@ -897,6 +951,7 @@ export default function Account({ compact = false }) {
               </>
             )}
 
+            {tab === "funds" && !compact && <MarginBar margin={margin} equity={equity} />}
             {tab === "funds" && (
               <section className="tr-funds">
                 {["equity", "commodity"].map((seg) => {
@@ -935,6 +990,24 @@ export default function Account({ compact = false }) {
             )}
 
             {!compact && (
+              <FigureBand
+                label="Positions, holdings and margin"
+                items={[
+                  {
+                    label: "Positions · Total P&L",
+                    value: signedMoney(dayPnl),
+                    tone: tone(dayPnl),
+                    tip: "Today’s profit or loss on all positions, open and closed (the day’s M2M, by Zerodha’s own formula) — the same figure as the top bar and the dock, live with every streamed price.",
+                    sub: `${tot.open} open · ${positions.length - tot.open} closed today${bookOn && Math.abs(book.pnl - book.day) >= 1 ? ` · ${signedMoney(book.pnl)} since entry` : ""}`,
+                  },
+                  { label: "Holdings · Total P&L", value: signedMoney(tot.holdPnl), tone: tone(tot.holdPnl), tip: "Profit or loss on your delivery holdings against what you paid for them.", sub: `${pct(tot.holdPnlPct)} on ${money(tot.invested)}` },
+                  { label: "Holdings · Day’s P&L", value: signedMoney(tot.holdDay), tone: tone(tot.holdDay), tip: "How much your holdings have moved since yesterday’s close.", sub: `current value ${money(tot.current)}` },
+                  { label: "Margin available", value: equity ? money(equity.net) : "—", tip: "Equity margin available for new trades, as Zerodha reports it.", sub: equity ? `Margins used ${money(equity.used.debits)}` : d.errors.funds || "" },
+                ]}
+              />
+            )}
+
+            {!compact && (
             <details className="tr-audit" onToggle={(e) => e.currentTarget.open && api("/api/admin/trading/audit").then((x) => setAudit(x.audit)).catch(() => setAudit([]))}>
               <summary>
                 <b>Activity on this site</b> — every switch change and every order sent from here
@@ -956,6 +1029,9 @@ export default function Account({ compact = false }) {
             )}
           </>
         )}
+
+        {!compact && trade.goal && <DailyGoalCard goal={trade.goal} onSaved={trade.reloadGoal} />}
+        {!compact && <RiskGuard trade={trade} version={version} />}
 
         {!compact && (
         <p className="vd-note tr-foot">

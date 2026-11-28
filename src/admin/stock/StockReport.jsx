@@ -306,7 +306,7 @@ function Terminal() {
             ) : view === "setup" ? (
               <TradeSetup onOpen={openStock} />
             ) : view === "account" ? (
-              <Account />
+              <Account onOpen={openStock} />
             ) : view === "journal" ? (
               <Journal />
             ) : view === "research" ? (

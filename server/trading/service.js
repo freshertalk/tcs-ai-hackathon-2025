@@ -397,6 +397,7 @@ class TradingService {
       })
     );
     out.status = this.status();
+    out.squareOff = this._squareOffs((out.positions && out.positions.net) || []);
     // Zerodha only ever returns today's trades: keep each one in the journal as it is seen
     if (Array.isArray(out.trades)) {
       try {
@@ -406,6 +407,38 @@ class TradingService {
       }
     }
     return out;
+  }
+
+  /**
+   * When Zerodha squares off each open intraday (MIS) stock position today (market/session.js: a stock in the F&O list has
+   * a closing auction and goes earlier). The F&O list is read in the background and never holds the account up; until it
+   * is known, a stock counts as being in it — the earlier time: early is safe, late is the broker's market order.
+   * @returns { SYMBOL: { clock, min, cas, note } } — empty with no open MIS position on NSE or BSE
+   */
+  _squareOffs(net) {
+    const mis = net.filter((p) => p.product === "MIS" && p.quantity !== 0 && CASH.has(p.exchange));
+    if (!mis.length) return {};
+    const today = risk.istDay(this.now());
+    if (this._fnoDay !== today && this.market && typeof this.market.derivatives === "function") {
+      this._fnoDay = today;
+      Promise.resolve()
+        .then(() => this.market.derivatives())
+        .then((list) => {
+          const set = new Set((list || []).filter((x) => x.y === "FUT").map((x) => x.n));
+          if (set.size) this._fno = set;
+          else this._fnoDay = "";
+        })
+        .catch(() => {
+          this._fnoDay = ""; // asked again at the next read
+        });
+    }
+    return Object.fromEntries(
+      mis.map((p) => {
+        const cas = this._fno ? this._fno.has(p.symbol) : true;
+        const s = sessionFor(today, { cas });
+        return [p.symbol, { clock: s.squareOffClock, min: s.squareOffMin, cas, note: `Zerodha squares off intraday (MIS) positions in ${p.symbol} automatically at ${s.squareOffClock}, and charges for each order it has to close itself. Be flat before that.${s.unconfirmed ? ` ${s.unconfirmed}` : ""}` }];
+      })
+    );
   }
 
   /* --------------------------------------------------------------- journal */
