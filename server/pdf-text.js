@@ -10,6 +10,7 @@
 // a filter other than Flate. The caller gets the text, the number of pages and a note about anything left out.
 
 const zlib = require("node:zlib");
+const { decryptorFor } = require("./pdf-crypt");
 
 const MAX_PAGES = 60;
 const MAX_CHARS = 120000;
@@ -79,8 +80,17 @@ const refOf = (v) => {
 };
 const refsIn = (v) => [...String(v || "").matchAll(/(\d+)\s+\d+\s+R/g)].map((m) => Number(m[1]));
 
+/** A stream's declared /Length: the number itself, or the number in the object it points to; null when not found. */
+function lengthOf(text, dict) {
+  const m = /\/Length(?![A-Za-z0-9])\s+(\d+)(\s+(\d+)\s+R)?/.exec(dict);
+  if (!m) return null;
+  if (!m[2]) return Number(m[1]);
+  const at = new RegExp(`(?:^|[\\r\\n\\s])${m[1]}\\s+${m[3]}\\s+obj\\s+(\\d+)\\s+endobj`).exec(text);
+  return at ? Number(at[1]) : null;
+}
+
 /** Every object of the file: number → { dict (text), stream (Buffer | null) }. Objects inside object streams are added. */
-function readObjects(buf) {
+function readObjects(buf, unlock = null) {
   const text = latin(buf);
   const objs = new Map();
   const re = /(?:^|[\r\n\s])(\d+)\s+(\d+)\s+obj\b/g;
@@ -98,14 +108,23 @@ function readObjects(buf) {
       const from = start + si + (/^stream\r\n/.test(body.slice(si)) ? 8 : 7);
       let to = text.indexOf("endstream", from);
       if (to < 0) to = end < 0 ? text.length : end;
-      // the stream ends before the end-of-line that precedes "endstream"
-      if (buf[to - 1] === 0x0a) to -= 1;
-      if (buf[to - 1] === 0x0d) to -= 1;
+      // the file says how long the stream is: that is used whenever "endstream" really follows it. Trimming line ends off
+      // instead can cut a byte of the data itself (a locked or packed stream may end in one) — and lose what it holds.
+      const said = lengthOf(text, dict);
+      if (said !== null && from + said <= buf.length && /^[\s]{0,3}endstream/.test(text.substr(from + said, 12))) to = from + said;
+      else {
+        // the stream ends before the end-of-line that precedes "endstream"
+        if (buf[to - 1] === 0x0a) to -= 1;
+        if (buf[to - 1] === 0x0d) to -= 1;
+      }
       stream = buf.subarray(from, to);
     }
-    objs.set(num, { dict: dict.trim(), stream });
+    objs.set(num, { dict: dict.trim(), stream, gen: Number(m[2]) });
     if (end > 0) re.lastIndex = end;
   }
+  // a password-protected file: every stream is opened first (the objects packed in streams come out readable)
+  const open = unlock ? unlock(text, objs) : null;
+  if (open) for (const [n, o] of objs) if (o.stream && !/\/Type\s*\/XRef/.test(o.dict)) o.stream = open(n, o.gen || 0, o.stream);
   // objects packed in object streams
   for (const o of [...objs.values()]) {
     if (!o.stream || !/\/Type\s*\/ObjStm/.test(o.dict)) continue;
@@ -508,7 +527,8 @@ function resourcesOf(objs, dictText, cache) {
       const data = decoded(o);
       if (!data) return null;
       const own = /\/Resources/.test(o.dict) ? resourcesOf(objs, o.dict, cache) : null;
-      return { data, res: own || resourcesOf(objs, dictText, cache) };
+      const mx = String(entry(o.dict, "Matrix") || "").match(/[-+]?\d*\.?\d+/g);
+      return { data, res: own || resourcesOf(objs, dictText, cache), matrix: mx && mx.length === 6 ? mx.map(Number) : null };
     },
   };
 }
@@ -574,4 +594,141 @@ function pdfText(buf) {
   return { text, pages: pages.length, shown: read, note };
 }
 
-module.exports = { pdfText, PdfError, readCMap, readObjects, operations };
+/* ------------------------------------------------------------------------------------------------ where the words are */
+// (28 Nov 2026, for the loan book's repayment schedules) A table's columns are told apart by where each piece of text sits on
+// the page, not by the order the file happens to write it: every piece is placed (through the page's transforms), pieces on one
+// baseline make a row, and a gap wider than a space starts a new cell.
+const mul = (a, b) => [a[0] * b[0] + a[1] * b[2], a[0] * b[1] + a[1] * b[3], a[2] * b[0] + a[3] * b[2], a[2] * b[1] + a[3] * b[3], a[4] * b[0] + a[5] * b[2] + b[4], a[4] * b[1] + a[5] * b[3] + b[5]];
+const IDENTITY = [1, 0, 0, 1, 0, 0];
+
+function streamRuns(data, res, depth, base, runs) {
+  let ctm = base;
+  const saved = [];
+  let tm = IDENTITY;
+  let lm = IDENTITY;
+  let font = null;
+  let size = 10;
+  let leading = 0;
+  const move = (x, y) => {
+    lm = mul([1, 0, 0, 1, x, y], lm);
+    tm = lm;
+  };
+  const show = (bytes) => {
+    const s = decodeString(bytes, font);
+    const known = advanceOf(bytes, font, size);
+    const adv = known === null ? s.length * size * 0.5 : known;
+    const m = mul(tm, ctm);
+    // the direction the text runs in: a page written sideways is turned upright before the rows are made
+    const len = Math.hypot(m[0], m[1]) || 1;
+    const dx = m[0] / len;
+    const dy = m[1] / len;
+    const h = size * (Math.hypot(m[2], m[3]) || 1);
+    if (s.trim()) runs.push({ x: m[4] * dx + m[5] * dy, y: -m[4] * dy + m[5] * dx, w: adv * len, h, s });
+    tm = mul([1, 0, 0, 1, adv, 0], tm);
+  };
+  for (const { op, args } of operations(latin(data))) {
+    if (runs.length > 60000) break;
+    const n = (i) => Number(args[i]) || 0;
+    if (op === "q") saved.push(ctm);
+    else if (op === "Q") ctm = saved.pop() || base;
+    else if (op === "cm") ctm = mul([n(0), n(1), n(2), n(3), n(4), n(5)], ctm);
+    else if (op === "BT") {
+      tm = IDENTITY;
+      lm = IDENTITY;
+    } else if (op === "Tf") {
+      font = (res.fonts && res.fonts(args[0] && args[0].name)) || null;
+      if (Number.isFinite(args[1])) size = Math.abs(args[1]) || size;
+    } else if (op === "TL") leading = n(0);
+    else if (op === "Td") move(n(0), n(1));
+    else if (op === "TD") {
+      leading = -n(1);
+      move(n(0), n(1));
+    } else if (op === "Tm") {
+      tm = [n(0), n(1), n(2), n(3), n(4), n(5)];
+      lm = tm;
+    } else if (op === "T*") move(0, -(leading || size * 1.2));
+    else if (op === "Tj") {
+      if (Buffer.isBuffer(args[0])) show(args[0]);
+    } else if (op === "'" || op === '"') {
+      move(0, -(leading || size * 1.2));
+      const s = args[args.length - 1];
+      if (Buffer.isBuffer(s)) show(s);
+    } else if (op === "TJ") {
+      for (const it of args[0] || []) {
+        if (Buffer.isBuffer(it)) show(it);
+        else if (typeof it === "number") tm = mul([1, 0, 0, 1, (-it / 1000) * size, 0], tm);
+      }
+    } else if (op === "Do" && depth < 2) {
+      const x = res.xobjects && res.xobjects(args[0] && args[0].name);
+      if (x) streamRuns(x.data, x.res, depth + 1, x.matrix ? mul(x.matrix, ctm) : ctm, runs);
+    }
+  }
+  return runs;
+}
+
+/** One page's placed pieces → its rows, top to bottom, each a list of cells left to right. */
+function rowsOf(runs) {
+  const sorted = [...runs].sort((a, b) => b.y - a.y || a.x - b.x);
+  const rows = [];
+  for (const r of sorted) {
+    const row = rows[rows.length - 1];
+    if (row && Math.abs(row.y - r.y) <= Math.max(2, Math.min(row.h, r.h) * 0.45)) row.parts.push(r);
+    else rows.push({ y: r.y, h: r.h, parts: [r] });
+  }
+  return rows.map((row) => {
+    const cells = [];
+    let end = null;
+    for (const p of row.parts.sort((a, b) => a.x - b.x)) {
+      const gap = end === null ? Infinity : p.x - end;
+      if (cells.length && gap < p.h * 0.85) cells[cells.length - 1] += `${gap > p.h * 0.16 ? " " : ""}${p.s}`;
+      else cells.push(p.s);
+      end = p.x + p.w;
+    }
+    return cells.map((c) => c.replace(/\s+/g, " ").trim()).filter(Boolean);
+  });
+}
+
+/**
+ * A PDF as rows of cells, page by page; a password-protected one is opened with its password.
+ * @returns { rows: [[cell, …], …], text, pages, note, locked }
+ * @throws PdfError (code "password" when a password is needed or wrong)
+ */
+function pdfRows(buf, { password = "", maxPages = MAX_PAGES } = {}) {
+  if (!Buffer.isBuffer(buf) || buf.length < 8 || latin(buf.subarray(0, 5)) !== "%PDF-") throw new PdfError("This is not a PDF file.");
+  let locked = false;
+  let objs;
+  try {
+    objs = readObjects(buf, (text, found) => {
+      const open = decryptorFor(text, found, entry, password);
+      locked = Boolean(open);
+      return open;
+    });
+  } catch (err) {
+    if (err && (err.code === "password" || err.code === "unsupported")) {
+      const e = new PdfError(err.message);
+      e.code = err.code;
+      throw e;
+    }
+    throw err;
+  }
+  if (!objs.size) throw new PdfError("This PDF could not be read (no objects found).");
+  const pages = pageList(objs);
+  const cache = new Map();
+  const rows = [];
+  for (const p of pages.slice(0, maxPages)) {
+    const res = resourcesOf(objs, /\/Resources/.test(p.dict) ? p.dict : p.inherited || p.dict, cache);
+    const contents = entry(p.dict, "Contents");
+    const single = refOf(contents);
+    const runs = [];
+    // the page's streams are one program: joined before they are run, so a transform set in one holds in the next
+    const bits = (single ? [single] : refsIn(contents)).map((r) => decoded(objs.get(r))).filter(Boolean);
+    if (bits.length) streamRuns(Buffer.concat(bits.flatMap((b) => [b, Buffer.from("\n")])), res, 0, IDENTITY, runs);
+    rows.push(...rowsOf(runs));
+    if (rows.length > 6000) break;
+  }
+  const text = rows.map((r) => r.join("  ")).join("\n").replace(/\u0000/g, "").trim();
+  const note = pages.length > maxPages ? `only the first ${maxPages} of ${pages.length} pages were read` : "";
+  return { rows, text, pages: pages.length, note, locked };
+}
+
+module.exports = { pdfText, pdfRows, PdfError, readCMap, readObjects, operations };

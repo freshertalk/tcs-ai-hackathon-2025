@@ -22,6 +22,7 @@ export const MONEY_ZONES = [
   '.tm-page[data-view="journal"]',
   '.tm-page[data-view="analysis"]',
   '.tm-page[data-view="paper"]',
+  '.tm-page[data-view="loans"]',
   ".tm-dock",
   ".tm-pnl",
   ".dg-pill",

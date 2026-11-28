@@ -37,6 +37,7 @@ const MAX_CLIENTS = 300;
 /** Which topics a state-changing request belongs to, by the start of its path. The first match wins; "misc" otherwise. */
 const ROUTE_TOPICS = [
   ["/api/admin/stock/holidays", ["holidays"]],
+  ["/api/admin/loans", ["loans"]],
   ["/api/admin/market/horizon", ["horizon"]],
   ["/api/admin/market/ahead", ["ahead", "horizon"]],
   ["/api/admin/market/evidence", ["evidence"]],
@@ -263,6 +264,7 @@ const DOC_TOPICS = [
   [/^social\//, ["social"]],
   [/^(notify|whatsapp|temple)\//, ["system"]],
   [/^accounts\//, ["accounts"]],
+  [/^loans(\/|$)/, ["loans"]],
   [/^automation\//, ["automation"]],
   [/^tradeai\/|^ai\/tradeai(?!-activity)/, ["tradeai"]],
   [/^ai\/(brains|decisions|reviews|ensemble\.json|trading-skills)/, ["ai"]],

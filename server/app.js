@@ -53,6 +53,9 @@ const { mountAnalysis } = require("./analysis/routes");
 const { Temple, mountTemple } = require("./temple");
 const { Kundali, mountKundali } = require("./kundali");
 const { Expenses, mountExpenses } = require("./expenses");
+const { Loans, mountLoans } = require("./loans");
+const { LoanIntake, mountLoanIntake } = require("./loan-intake");
+const { LoanDesk } = require("./ai/loandesk");
 const { Notifier, mountNotify } = require("./notify");
 const { AlertWatch } = require("./alert-watch");
 const { DisciplineWatch } = require("./discipline-watch");
@@ -1161,6 +1164,13 @@ function createApp(opts = {}) {
   // the owner's expense ledger, beside it under "Personal" on /me — superadmins only (server/expenses.js)
   const expenses = opts.expenses || new Expenses({ docs, now: opts.now });
   mountExpenses(app, { expenses, requireSuper, limiter });
+  // the loan book: loans, their monthly EMIs (made by itself) and what is still owed — superadmins only (server/loans.js)
+  const loans = opts.loans || new Loans({ docs, now: opts.now, log: opts.log || console });
+  mountLoans(app, { loans, requireSuper, limiter });
+  // …and its documents: repayment schedules and other papers read by the desk, with NVIDIA's free AI only (server/loan-intake.js)
+  const loanIntake = opts.loanIntake || new LoanIntake({ loans, desk: opts.loanDesk || new LoanDesk({ ai }), docs, now: opts.now, log: opts.log || console });
+  mountLoanIntake(app, { intake: loanIntake, loans, requireSuper, limiter });
+  if (opts.loanWatch !== false && opts.alertWatch !== false) loans.start();
 
   /* ------------------------------------------------ messages to the owner's phone (Telegram) */
   const notifier = opts.notifier || new Notifier({ docs, secrets: { encrypt: (t) => encrypt(t, settingsKey), decrypt: (b) => decrypt(b, settingsKey) }, fetchImpl: opts.notifyFetch || globalThis.fetch, now: opts.now, log: opts.log || console });
@@ -2560,6 +2570,8 @@ ${e.text}
     expiryCal,
     kundali,
     expenses,
+    loans,
+    loanIntake,
     live,
     supervisor,
     recorder,

@@ -50,7 +50,7 @@ test("the workspaces: yours to order and to hide — the Desk always stays, and 
   render(<CustomizeCard />);
   // the owner's order since 27 Nov 2026 for the ones nobody has ranked; Vinaypedia, AI Engine and Document live on /me
   expect(names().slice(0, 5)).toEqual(["Research", "Desk", "Positions", "Screener", "Trade setup"]);
-  expect(screen.getByText(/12 of 13 shown/)).toBeTruthy();
+  expect(screen.getByText(/13 of 14 shown/)).toBeTruthy();
   expect(screen.getByRole("checkbox", { name: "Desk" }).disabled).toBe(true);
   expect(screen.getByRole("checkbox", { name: "Paper" }).checked).toBe(false);
   // hiding the workspace the terminal opens on sends it back to the Desk

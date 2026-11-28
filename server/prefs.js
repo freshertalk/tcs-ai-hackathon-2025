@@ -14,7 +14,7 @@ const crypto = require("crypto");
 
 // every workspace a person may show, hide, order or open on (Trade setup and Vinaypedia were missing until 24 Nov 2026:
 // hiding or moving them was not kept)
-const VIEWS = ["analyzer", "now", "setup", "research", "advisor", "screener", "account", "indices", "analysis", "calendar", "journal", "paper", "debrief", "learning", "engine", "document"];
+const VIEWS = ["analyzer", "now", "setup", "research", "advisor", "screener", "account", "indices", "analysis", "calendar", "journal", "paper", "debrief", "loans", "learning", "engine", "document"];
 const OPTIONS = {
   theme: ["dark", "light"],
   accent: ["blue", "teal", "green", "amber", "rose", "violet"],

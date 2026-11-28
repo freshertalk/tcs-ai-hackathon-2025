@@ -26,6 +26,7 @@ import ErrorBoundary from "./analyzer/ErrorBoundary";
 import Account from "./trade/Account";
 import Research from "./trade/Research";
 import Journal from "./trade/Journal";
+import Loans from "../loans/Loans";
 import Advisor from "./advisor/Advisor";
 import NowView from "./now/NowView";
 import TradeSetup from "./setup/TradeSetup";
@@ -63,6 +64,8 @@ const VIEWS = [
   { id: "paper", label: "Paper", tip: "Paper trading: the desk’s live call followed with play money — in today’s market, on past sessions, and in an auto mode. No real orders; separate from real trading." },
   { id: "debrief", label: "Debrief", tip: "After the close: if you had followed every live call by fixed rules, what would today have made or lost? A report card for the desk’s signals — no real trades." },
   { id: "now", label: "Now", tip: "The command screen: every followed stock with its price as it ticks and its calls for 5 and 15 minutes, your positions with the evidence for or against them, the market, the checks so far and what every automatic system is doing — all live, on one page." },
+  // beside Now (28 Nov 2026): the owner's loan book — superadmins only, never the AI's or a trader's
+  { id: "loans", label: "Loans", superOnly: true, tip: "Your loans month by month: opening date, amount, rate, EMI date and amount, what is still owed, “Is paid?” and remarks. Each month's rows are made by themselves; a tick takes the EMI off the outstanding. PDF, CSV and Excel downloads." },
   { id: "learning", offNav: true, label: "Vinaypedia", tip: "Vinay’s own learning: every intraday topic in one place — the desk’s library by area, the newest NSE, SEBI, Zerodha and RBI updates read by the desk itself, lessons the AI writes when you ask, and your own learnings." },
   { id: "engine", offNav: true, label: "AI Engine", tip: "Everything about the AI: every feature, rule and condition — and, for the superadmin, the AI brains (standing instructions every AI feature follows), the real instructions and the skills file. Word download." },
   { id: "document", offNav: true, label: "Document", tip: "The complete guide to this advisor in plain English: every feature, who does what, and every rule — what it does, how and when." },
@@ -307,6 +310,8 @@ function Terminal() {
               <TradeSetup onOpen={openStock} />
             ) : view === "account" ? (
               <Account onOpen={openStock} />
+            ) : view === "loans" ? (
+              <Loans />
             ) : view === "journal" ? (
               <Journal />
             ) : view === "research" ? (

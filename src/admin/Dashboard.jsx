@@ -35,6 +35,7 @@ import { exchangeNow, useExchangeNow } from "./clock/exchangeClock";
 const WORKSPACES = [
   { view: "", label: "Desk", text: "Chart, live call, order book, 5- and 15-minute forecast" },
   { view: "now", label: "Now", text: "Every followed stock, your positions, the market and the systems, live" },
+  { view: "loans", label: "Loans", text: "EMIs month by month, what is still owed", superOnly: true },
   { view: "research", label: "Research", text: "Pre- and post-market, autopilot" },
   { view: "advisor", label: "Advisor", text: "Measured odds for the watchlist" },
   { view: "screener", label: "Screener", text: "Top gainers, losers, RSI" },
@@ -68,12 +69,13 @@ const ICONS = {
   Document: "M6 3h9l4 4v14H6zM9 12h7M9 16h7M9 8h3",
   Vinaypedia: "M4 5a2 2 0 0 1 2-2h12v16H6a2 2 0 0 0-2 2zM4 19V5M8 7h6M8 11h6",
   "Trade setup": "M4 4h16v16H4zM4 9h16M9 9v11",
+  Loans: "M3 10l9-6 9 6M5 10v8M10 10v8M14 10v8M19 10v8M3 21h18",
   TradeAI: "M4 5h16v11H9l-5 4zM8 9h8M8 12h5",
   Social: "M4 11a8 8 0 0 1 16 0M4 11v6M20 11v6M8 21h8M12 3v2",
 };
 const GROUPS = [
   { id: "trade", name: "Trade", note: "while the market is open", labels: ["Desk", "Positions", "Screener", "Trade setup", "Advisor", "Research", "Paper trading"] },
-  { id: "analyse", name: "Analyse", note: "before and after", labels: ["Indices", "Trade Analysis", "Calendar", "Journal", "Debrief"] },
+  { id: "analyse", name: "Analyse", note: "before and after", labels: ["Indices", "Trade Analysis", "Calendar", "Journal", "Debrief", "Loans"] },
   { id: "learn", name: "Learn", note: "how it thinks", labels: ["Vinaypedia", "AI Engine", "Document"] },
 ];
 const WsIcon = ({ label }) => (

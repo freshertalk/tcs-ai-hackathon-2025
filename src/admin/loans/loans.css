@@ -1,0 +1,1469 @@
+/* Loans (Loans.jsx, 28 Nov 2026) in Zerodha Kite's manner like the other workspaces: one white page, hairlines, 6px corners,
+   no shadows, large light figures. Every class starts lo-. Colours are the theme's tokens, so both themes follow. */
+.lo {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+  min-width: 0;
+}
+.lo > .wk-head,
+.lo > .wk-bar {
+  margin: 0;
+}
+.lo .wk-part {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+  min-width: 0;
+}
+.lo .wk-part[hidden] {
+  display: none;
+}
+.lo .is-up {
+  color: var(--up-ink, var(--up));
+}
+.lo .is-down {
+  color: var(--down-ink, var(--down));
+}
+.lo .is-warn {
+  color: var(--warn-ink, var(--ink));
+}
+.lo-note {
+  color: var(--ink-3);
+  font-size: var(--t-small);
+  overflow-wrap: break-word;
+}
+.lo-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  text-align: left;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+.lo-link:hover,
+.lo-link:focus-visible {
+  text-decoration: underline;
+}
+.lo-empty {
+  margin: 0;
+  color: var(--ink-2);
+}
+
+/* ------------------------------------------------------------------ first sight: one hairline row of six */
+.lo-glance {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) repeat(5, minmax(0, 1fr));
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+.lo-glance.is-late {
+  box-shadow: inset 3px 0 0 var(--down);
+}
+.lo-g {
+  display: grid;
+  align-content: start;
+  gap: 5px;
+  min-width: 0;
+  padding: 16px 18px;
+  border-left: 1px solid var(--line);
+}
+.lo-g:first-child {
+  border-left: 0;
+}
+.lo-g > small {
+  color: var(--ink-3);
+  font-size: var(--t-small);
+}
+.lo-g > b {
+  color: var(--ink);
+  font-size: 1.25rem;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+.lo-g--main > b {
+  font-size: 1.6rem;
+  font-weight: 300;
+}
+.lo-g > span {
+  color: var(--ink-2);
+  font-size: var(--t-small);
+  line-height: 1.45;
+  overflow-wrap: break-word;
+}
+.lo-g > .lo-note {
+  color: var(--ink-3);
+}
+.lo .lo-g > b.is-down,
+.lo .lo-g > span.is-down {
+  color: var(--down-ink, var(--down));
+}
+.lo .lo-g > b.is-up {
+  color: var(--up-ink, var(--up));
+}
+.lo .lo-g > span.is-warn {
+  color: var(--warn-ink, var(--ink));
+}
+@media (max-width: 1360px) {
+  .lo-glance {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .lo-g:nth-child(4) {
+    border-left: 0;
+  }
+  .lo-g:nth-child(n + 4) {
+    border-top: 1px solid var(--line);
+  }
+}
+@media (max-width: 640px) {
+  .lo-glance {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .lo-g {
+    padding: 12px 13px;
+  }
+  /* what is owed takes a row of its own (a long figure never breaks mid-number); then two by two, the last full */
+  .lo-g--main,
+  .lo-g:last-child {
+    grid-column: 1 / -1;
+  }
+  .lo-g:nth-child(even) {
+    border-left: 0;
+  }
+  .lo-g:nth-child(odd) {
+    border-left: 1px solid var(--line);
+  }
+  .lo-g--main,
+  .lo-g:last-child {
+    border-left: 0;
+  }
+  .lo-g:nth-child(n + 2) {
+    border-top: 1px solid var(--line);
+  }
+}
+.lo-bar {
+  position: relative;
+  display: block;
+  height: 5px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+.lo-bar i {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  border-radius: 3px;
+  background: var(--accent);
+}
+.lo-bar.is-good i {
+  background: var(--up);
+}
+
+/* ------------------------------------------------------------------ what needs a look */
+.lo-attn {
+  padding: 12px 18px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--down);
+  border-radius: 6px;
+  background: var(--surface);
+}
+.lo-attn h3 {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin: 0 0 4px;
+  font-size: var(--t-body);
+  font-weight: 600;
+}
+.lo-attn h3 span {
+  min-width: 20px;
+  padding: 0 6px;
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  color: var(--ink-2);
+  font-size: var(--t-small);
+  font-weight: 400;
+  text-align: center;
+}
+.lo-attn ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.lo-attn li {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 0;
+  border-top: 1px solid var(--line);
+  overflow-wrap: break-word;
+}
+.lo-attn li:first-child {
+  border-top: 0;
+}
+.lo-attn li i {
+  font-style: normal;
+  font-weight: 700;
+  text-align: center;
+}
+.lo .lo-attn li.is-danger i {
+  color: var(--down-ink, var(--down));
+}
+.lo .lo-attn li.is-warn i {
+  color: var(--warn-ink, var(--ink));
+}
+@media (max-width: 560px) {
+  .lo-attn {
+    padding: 10px 12px;
+  }
+  .lo-attn li {
+    grid-template-columns: 14px minmax(0, 1fr);
+  }
+  .lo-attn li .adm-btn {
+    grid-column: 2;
+    justify-self: start;
+  }
+}
+
+/* ------------------------------------------------------------------ downloads */
+.lo-dl {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+}
+.lo-dl label {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+  color: var(--ink-3);
+  font-size: var(--t-small);
+}
+.lo select,
+.lo-modal select {
+  max-width: 100%;
+  min-height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--line-2);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+}
+
+/* ------------------------------------------------------------------ cards */
+.lo-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  min-width: 0;
+  margin: 0;
+  padding: 16px 20px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+}
+.lo-card .wk-sec {
+  margin: 0;
+  align-items: center;
+}
+.lo-card h3 {
+  margin: 0;
+}
+@media (max-width: 760px) {
+  .lo-card {
+    padding: 12px;
+  }
+}
+.lo-start {
+  justify-items: start;
+  padding-block: 28px;
+}
+.lo-start p {
+  max-width: 70ch;
+  margin: 0;
+  color: var(--ink-2);
+}
+.lo-months,
+.lo-upto,
+.lo-acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+/* ------------------------------------------------------------------ the sheet of rows */
+.lo-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+}
+.lo-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--t-small);
+  font-variant-numeric: tabular-nums;
+}
+.lo-table th,
+.lo-table td {
+  padding: 11px 8px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+.lo-table thead th {
+  color: var(--ink-3);
+  font-weight: 400;
+  vertical-align: bottom;
+}
+.lo-table .is-num {
+  text-align: right;
+}
+.lo-table tbody th {
+  font-weight: 600;
+}
+.lo-table tbody tr:hover {
+  background: color-mix(in srgb, var(--accent) 3%, var(--surface));
+}
+.lo-table tbody tr.is-now {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+.lo-table tbody tr.is-overdue {
+  box-shadow: inset 3px 0 0 var(--down);
+}
+.lo-table td small {
+  display: block;
+  margin-top: 2px;
+  color: var(--ink-3);
+  font-size: var(--t-small);
+}
+.lo .lo-table td small.is-up {
+  color: var(--up-ink, var(--up));
+}
+.lo .lo-table td small.lo-state.is-overdue {
+  color: var(--down-ink, var(--down));
+  font-weight: 600;
+}
+.lo .lo-table td small.lo-state.is-due-today {
+  color: var(--warn-ink, var(--ink));
+  font-weight: 600;
+}
+.lo .lo-table td small.lo-state.is-paid {
+  color: var(--up-ink, var(--up));
+}
+.lo-edit {
+  display: block;
+  margin: 3px 0 0 auto;
+}
+.lo-out b {
+  font-size: var(--t-body);
+  font-weight: 600;
+}
+.lo-tick {
+  display: inline-flex;
+  gap: 7px;
+  align-items: center;
+  min-height: 28px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.lo-tick input {
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  accent-color: var(--up);
+  cursor: pointer;
+}
+.lo-rem {
+  width: 20%;
+  min-width: 160px;
+}
+.lo .lo-remarks {
+  width: 100%;
+  min-width: 0;
+  min-height: 32px;
+  padding: 4px 8px;
+  border: 1px solid transparent;
+  border-bottom-color: var(--line-2);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  line-height: 1.4;
+  resize: none;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+.lo .lo-remarks:focus {
+  border-color: var(--accent);
+  background: var(--surface);
+}
+.lo-table tfoot td {
+  border-bottom: 0;
+  border-top: 2px solid var(--line-2);
+  font-weight: 600;
+}
+
+/* below a wide screen each row is a card: every column keeps its heading, nothing scrolls sideways */
+@media (max-width: 1200px) {
+  .lo-table,
+  .lo-table tbody,
+  .lo-table tfoot {
+    display: block;
+  }
+  .lo-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+  .lo-table tr {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px 14px;
+    margin: 0 0 10px;
+    padding: 12px 14px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+  }
+  .lo-table th,
+  .lo-table td,
+  .lo-table .is-num {
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    text-align: left;
+    overflow-wrap: anywhere;
+  }
+  .lo-table th::before,
+  .lo-table td::before {
+    content: attr(data-label);
+    display: block;
+    color: var(--ink-3);
+    font-size: var(--t-small);
+    font-weight: 400;
+  }
+  .lo-table .lo-rem {
+    grid-column: span 3;
+    width: auto;
+    min-width: 0;
+  }
+  .lo-edit {
+    margin-left: 0;
+  }
+  .lo-table tfoot td {
+    border: 0;
+  }
+  .lo-table tfoot td[data-label=""]:empty {
+    display: none;
+  }
+}
+@media (max-width: 640px) {
+  .lo-table tr {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: 10px 12px;
+  }
+  .lo-table .lo-rem {
+    grid-column: 1 / -1;
+  }
+}
+
+/* ------------------------------------------------------------------ one loan's figures */
+.lo-pick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.lo-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr));
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+}
+.lo-strip > div {
+  display: grid;
+  align-content: start;
+  gap: 3px;
+  min-width: 0;
+  margin: -1px 0 0 -1px;
+  padding: 13px 16px;
+  border-top: 1px solid var(--line);
+  border-left: 1px solid var(--line);
+}
+.lo-strip small {
+  color: var(--ink-3);
+  font-size: var(--t-small);
+}
+.lo-strip b {
+  font-size: 1.15rem;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.lo-strip span {
+  color: var(--ink-2);
+  font-size: var(--t-small);
+  overflow-wrap: break-word;
+}
+@media (max-width: 480px) {
+  .lo-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* ------------------------------------------------------------------ the loans */
+.lo-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 460px), 1fr));
+  gap: 14px;
+  align-items: start;
+}
+.lo-loan header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+.lo-loan header > div {
+  display: grid;
+  min-width: 0;
+}
+.lo-loan h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.lo-loan header small {
+  color: var(--ink-3);
+  font-size: var(--t-small);
+}
+.lo-loan dl {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px 16px;
+  margin: 0;
+}
+.lo-loan dt {
+  color: var(--ink-3);
+  font-size: var(--t-small);
+}
+.lo-loan dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.lo-loan dd small {
+  color: var(--ink-3);
+  font-size: var(--t-small);
+}
+.lo-loan p {
+  margin: 0;
+}
+@media (max-width: 560px) {
+  .lo-loan dl {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.lo-removed,
+.lo-history {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.lo-removed li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-top: 1px solid var(--line);
+}
+.lo-removed small {
+  color: var(--ink-3);
+  font-size: var(--t-small);
+}
+.lo-history li {
+  display: grid;
+  grid-template-columns: 230px minmax(0, 1fr) minmax(0, auto);
+  gap: 4px 16px;
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+  font-size: var(--t-small);
+  overflow-wrap: anywhere;
+}
+.lo-history li:first-child {
+  border-top: 0;
+}
+.lo-history time,
+.lo-history small {
+  color: var(--ink-3);
+  font-size: var(--t-small);
+}
+@media (max-width: 760px) {
+  .lo-history li {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ------------------------------------------------------------------ the forms */
+.lo-fields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px 16px;
+}
+.lo-field {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  min-width: 0;
+}
+.lo-field > span {
+  color: var(--ink-2);
+  font-size: var(--t-small);
+}
+.lo-field em {
+  color: var(--down-ink, var(--down));
+  font-style: normal;
+}
+.lo-field > input,
+.lo-field > select {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 40px;
+  padding: 0 10px;
+  border: 1px solid var(--line-2);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+}
+.lo-field > input::placeholder {
+  color: var(--ink-3);
+}
+.lo-field small {
+  color: var(--ink-3);
+  font-size: var(--t-small);
+  line-height: 1.45;
+}
+.lo-field--wide {
+  grid-column: 1 / -1;
+}
+@media (max-width: 900px) {
+  .lo-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 560px) {
+  .lo-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.lo-preview {
+  margin: 0;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent);
+  border-radius: 6px;
+  color: var(--ink-2);
+  font-size: var(--t-small);
+}
+.lo-preview.is-short {
+  border-left-color: var(--down);
+}
+.lo-dialog {
+  width: min(560px, 100%);
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+}
+.lo-dialog .lo-fields {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+@media (max-width: 560px) {
+  .lo-dialog .lo-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ------------------------------------------------------------------ when it was last saved */
+.lo-saved {
+  display: grid;
+  gap: 8px;
+  padding: 14px 20px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.lo-saved dl {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+}
+.lo-saved dl > div {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: 2px 16px;
+  font-size: var(--t-small);
+}
+.lo-saved dt {
+  color: var(--ink-3);
+}
+.lo-saved dd {
+  margin: 0;
+  color: var(--ink-2);
+  overflow-wrap: anywhere;
+}
+.lo-saved dd b {
+  color: var(--ink);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.lo-saved p {
+  margin: 0;
+  color: var(--ink-3);
+  font-size: var(--t-small);
+}
+@media (max-width: 700px) {
+  .lo-saved {
+    padding: 12px;
+  }
+  .lo-saved dl > div {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* the date boxes as wide and as tall as the other inputs; their own floating name stands for the heading */
+.lo-fields .dp-field,
+.lo-fields .dp-input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+}
+.lo-form .lo-fields .lo-field:has(> .dp-field) {
+  padding-top: 17px;
+}
+.lo-form .lo-fields .dp-input,
+.lo-dialog .lo-fields .dp-input {
+  min-height: 40px;
+}
+.lo-dialog .lo-fields .lo-field:has(> .dp-field) {
+  padding-top: 17px;
+}
+
+/* the cards of a narrow screen: the shared page's table rules (right-aligned figures, ruled and padded cells) do not apply */
+@media (max-width: 1200px) {
+  .adm .tm-page .lo table.lo-table tbody tr > :is(th, td),
+  .adm .tm-page .lo table.lo-table tfoot tr > :is(th, td) {
+    padding: 0;
+    border: 0;
+    text-align: left;
+  }
+  .adm .tm-page .lo table.lo-table tfoot tr {
+    background: var(--surface-2);
+  }
+}
+
+.lo-dl > .lo-note {
+  flex-basis: 100%;
+  text-align: right;
+}
+
+/* ================================================================== 28 Nov 2026: schedules, documents, cash, analysis */
+/* principal and interest under a figure: two short lines, each named (never colour alone) */
+.lo-table td small.lo-parts {
+  display: grid;
+  gap: 1px;
+}
+.lo-parts span {
+  display: block;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+.lo-table td small.lo-out__k {
+  margin: 0;
+}
+@media (max-width: 480px) {
+  .lo-parts span {
+    white-space: normal;
+  }
+}
+.lo-split {
+  display: grid;
+  gap: 6px;
+}
+.lo-split__bar {
+  display: flex;
+  gap: 2px;
+  height: 8px;
+  overflow: hidden;
+  border-radius: 4px;
+}
+.lo-split__bar i {
+  flex-basis: 0;
+  min-width: 3px;
+}
+.lo-split__bar i.is-p {
+  background: var(--accent);
+}
+.lo-split__bar i.is-i {
+  background: #d98c00;
+}
+.lo-split__keys {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 18px;
+  font-size: var(--t-small);
+}
+.lo-split__keys em {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  background: none;
+  color: var(--ink-2);
+  font-style: normal;
+  font-variant-numeric: tabular-nums;
+}
+.lo-split__keys em::before {
+  content: "";
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+.lo-split__keys em.is-i::before {
+  background: #d98c00;
+}
+
+.lo-chip {
+  display: inline-block;
+  max-width: 100%;
+  padding: 2px 9px;
+  border: 1px solid var(--line-2);
+  border-radius: 4px;
+  color: var(--ink-2);
+  font-size: var(--t-small);
+  overflow-wrap: break-word;
+}
+.lo .lo-chip.is-good {
+  border-color: color-mix(in srgb, var(--up) 45%, var(--line));
+  color: var(--up-ink, var(--up));
+}
+.lo .lo-chip.is-note {
+  border-color: var(--warn-line, var(--line-2));
+  color: var(--warn-ink, var(--ink));
+}
+
+/* ------------------------------------------------------------------ upload and review */
+.lo-upload__head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+.lo-upload__head p {
+  margin: 4px 0 0;
+}
+.lo-drop {
+  position: relative;
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+  padding: 26px 14px;
+  border: 1.5px dashed var(--line-2);
+  border-radius: 6px;
+  text-align: center;
+  cursor: pointer;
+}
+.lo-drop:hover,
+.lo-drop:focus-within,
+.lo-drop.is-over {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 4%, var(--surface));
+}
+.lo-drop input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+.lo-drop b {
+  font-weight: 600;
+}
+.lo-drop span {
+  color: var(--ink-3);
+  font-size: var(--t-small);
+}
+.lo-check {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  color: var(--ink-2);
+  font-size: var(--t-small);
+  line-height: 1.5;
+}
+.lo-check input {
+  width: 18px;
+  height: 18px;
+  margin: 1px 0 0;
+}
+.lo-need {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  align-items: flex-end;
+  padding: 12px 14px;
+  border: 1px solid var(--warn-line, var(--line-2));
+  border-radius: 6px;
+}
+.lo-need p {
+  flex-basis: 100%;
+  margin: 0;
+}
+.lo-need .lo-field {
+  flex: 1 1 200px;
+}
+.lo-filebar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  align-items: center;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.lo-ai {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  align-items: center;
+  padding: 9px 14px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent);
+  border-radius: 6px;
+  color: var(--ink-2);
+  font-size: var(--t-small);
+}
+.lo-ai > span {
+  flex: 1 1 260px;
+}
+.lo-summary {
+  margin: 0;
+  color: var(--ink-2);
+}
+.lo-found {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.lo-found header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: center;
+  justify-content: space-between;
+}
+.lo-found h4,
+.lo-card h4 {
+  margin: 0;
+  font-size: var(--t-body);
+  font-weight: 600;
+}
+.lo-found__totals {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+.lo-checks,
+.lo-warns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.lo-checks li {
+  padding: 3px 10px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  font-size: var(--t-small);
+}
+.lo .lo-checks li.is-ok {
+  color: var(--up-ink, var(--up));
+}
+.lo .lo-checks li.is-ok::before {
+  content: "✓ ";
+}
+.lo .lo-checks li.is-warn {
+  color: var(--warn-ink, var(--ink));
+}
+.lo .lo-checks li.is-warn::before {
+  content: "! ";
+  font-weight: 700;
+}
+.lo-warns {
+  display: grid;
+}
+.lo-warns li {
+  padding-left: 12px;
+  border-left: 2px solid #d98c00;
+  color: var(--ink-2);
+  font-size: var(--t-small);
+  overflow-wrap: break-word;
+}
+.lo-preview-table,
+.lo-plain {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--t-small);
+  font-variant-numeric: tabular-nums;
+}
+.lo-preview-table th,
+.lo-preview-table td,
+.lo-plain th,
+.lo-plain td {
+  padding: 8px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+.lo-preview-table thead th,
+.lo-plain thead th {
+  color: var(--ink-3);
+  font-weight: 400;
+}
+.lo-preview-table .is-num,
+.lo-plain .is-num {
+  text-align: right;
+}
+.lo-plain td small {
+  display: block;
+  color: var(--ink-3);
+  font-size: var(--t-small);
+}
+.lo-plain tbody th small {
+  color: var(--ink-3);
+  font-weight: 400;
+  font-size: var(--t-small);
+}
+.lo-plain tr.is-now {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+.lo-src {
+  color: var(--ink-3);
+  font-size: var(--t-small);
+  overflow-wrap: break-word;
+}
+.lo .lo-src.is-warn {
+  color: var(--warn-ink, var(--ink));
+  font-weight: 600;
+}
+.lo-terms summary {
+  cursor: pointer;
+}
+.lo-terms ul {
+  display: grid;
+  gap: 8px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.lo-terms li {
+  display: grid;
+  gap: 2px;
+  overflow-wrap: anywhere;
+}
+.lo-terms q,
+.lo-answers q {
+  display: block;
+  padding-left: 10px;
+  border-left: 2px solid var(--line-2);
+  color: var(--ink-2);
+  font-size: var(--t-small);
+  overflow-wrap: anywhere;
+}
+.lo-existing p {
+  margin: 0 0 8px;
+}
+
+/* ------------------------------------------------------------------ what kind of loan */
+.lo-types {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.lo-types button {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--line-2);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.lo-types button.is-on {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.lo-types small {
+  color: var(--ink-3);
+  font-size: var(--t-small);
+}
+@media (max-width: 520px) {
+  .lo-types {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ------------------------------------------------------------------ cash from people */
+.lo-rowacts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+  margin-top: 3px;
+  font-size: var(--t-small);
+  font-weight: 400;
+}
+.lo-payments {
+  display: grid;
+  margin: 0 0 8px;
+  padding: 0;
+  list-style: none;
+}
+.lo-payments li {
+  display: grid;
+  grid-template-columns: 110px 130px minmax(0, 1fr) auto auto;
+  gap: 4px 14px;
+  align-items: baseline;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--line);
+  overflow-wrap: anywhere;
+}
+@media (max-width: 760px) {
+  .lo-payments li {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}
+.lo-pay {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
+  gap: 10px 14px;
+  align-items: end;
+  padding-block: 8px;
+}
+.lo-pay .dp-field,
+.lo-pay .dp-input {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+@media (max-width: 1200px) {
+  .adm .tm-page .lo table.lo-table tbody tr.lo-payrow {
+    display: block;
+  }
+  .lo-table tr.lo-payrow td::before {
+    content: none;
+  }
+}
+
+/* ------------------------------------------------------------------ documents */
+.lo-docs {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.lo-docs > li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+}
+.lo-docs > li:first-child {
+  border-top: 0;
+}
+.lo-docs > li > div {
+  display: grid;
+  flex: 1 1 320px;
+  gap: 4px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.lo-docs p {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: var(--t-small);
+}
+.lo-docs a.adm-btn {
+  text-decoration: none;
+}
+.lo-values {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
+  gap: 8px 16px;
+  margin: 8px 0 0;
+}
+.lo-values dt {
+  color: var(--ink-3);
+  font-size: var(--t-small);
+}
+.lo-values dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/* ------------------------------------------------------------------ analysis */
+.lo-two {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  gap: 16px 28px;
+}
+.lo-two > div {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+}
+.lo-strip--dl {
+  margin: 0;
+}
+.lo-strip--dl dt {
+  color: var(--ink-3);
+  font-size: var(--t-small);
+}
+.lo-strip--dl dd {
+  margin: 0;
+  font-size: 1.15rem;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.lo-airow,
+.lo-ask {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  align-items: flex-end;
+}
+.lo-airow .lo-field {
+  flex: 0 1 280px;
+}
+.lo-ask .lo-field {
+  flex: 1 1 320px;
+}
+.lo-ask .lo-field input,
+.lo-airow .lo-field select {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 40px;
+}
+.lo-insight {
+  display: grid;
+  gap: 10px;
+}
+.lo-insight p {
+  margin: 0;
+  max-width: 90ch;
+}
+.lo-insight ul,
+.lo-answers {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.lo-insight li {
+  display: grid;
+  gap: 2px;
+  padding-left: 12px;
+  border-left: 2px solid var(--accent);
+  overflow-wrap: break-word;
+}
+.lo-insight li span {
+  color: var(--ink-2);
+}
+.lo-insight ul.lo-questions li {
+  border-left-color: var(--line-2);
+}
+.lo-answers li {
+  display: grid;
+  gap: 4px;
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+  overflow-wrap: break-word;
+}
+.lo-answers p {
+  margin: 0;
+  white-space: pre-line;
+}
+
+/* ------------------------------------------------------------------ the new tables on a phone: labelled cards */
+@media (max-width: 760px) {
+  .lo-preview-table,
+  .lo-preview-table tbody,
+  .lo-plain,
+  .lo-plain tbody {
+    display: block;
+  }
+  .lo-preview-table thead,
+  .lo-plain thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+  .adm .tm-page .lo table:is(.lo-preview-table, .lo-plain) tbody tr {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .adm .tm-page .lo table:is(.lo-preview-table, .lo-plain) tbody tr > :is(th, td) {
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    text-align: left;
+    overflow-wrap: anywhere;
+  }
+  .lo-plain tbody th {
+    grid-column: 1 / -1;
+  }
+  .lo-plain td::before {
+    content: attr(data-label);
+    display: block;
+    color: var(--ink-3);
+    font-size: var(--t-small);
+  }
+  .lo-preview-table:not(.lo-coming) td:nth-child(1)::before { content: "No. "; color: var(--ink-3); }
+  .lo-preview-table:not(.lo-coming) td:nth-child(3)::before { content: "EMI "; color: var(--ink-3); }
+  .lo-preview-table:not(.lo-coming) td:nth-child(4)::before { content: "Principal "; color: var(--ink-3); }
+  .lo-preview-table:not(.lo-coming) td:nth-child(5)::before { content: "Interest "; color: var(--ink-3); }
+  .lo-preview-table:not(.lo-coming) td:nth-child(6)::before { content: "Balance "; color: var(--ink-3); }
+  .lo-coming td:nth-child(1) { grid-column: 1 / -1; font-weight: 600; }
+  .lo-coming td:nth-child(2)::before { content: "EMI "; color: var(--ink-3); }
+  .lo-coming td:nth-child(3)::before { content: "Principal "; color: var(--ink-3); }
+  .lo-coming td:nth-child(4)::before { content: "Interest "; color: var(--ink-3); }
+  .lo-coming td:nth-child(5)::before { content: "Left after "; color: var(--ink-3); }
+  .lo-preview-table .lo-gap td {
+    grid-column: 1 / -1;
+  }
+  .lo-preview-table .lo-gap td::before {
+    content: none !important;
+  }
+}
+
+/* a date stays on one line in the wide register; the narrow-screen cards wrap as they need */
+@media (min-width: 1201px) {
+  .lo-table tbody td:nth-child(3),
+  .lo-table tbody td:nth-child(6) {
+    white-space: nowrap;
+  }
+  .lo-table tbody td:nth-child(6) small {
+    white-space: normal;
+  }
+  .lo-table th,
+  .lo-table td {
+    padding-right: 6px;
+    padding-left: 6px;
+  }
+}
+
+/* a Documents section jumped to from a loan's card stays clear of the bar that sticks at the top */
+.lo-card[aria-label^="Documents of"] {
+  scroll-margin-top: 190px;
+}
+/* ------------------------------------------------------------------ viewing a kept document */
+.lo-view {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(1100px, 100%);
+  max-height: calc(100vh - 40px);
+  overflow: auto;
+}
+.lo-view > header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+.lo-view > header > div {
+  flex: 1 1 260px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.lo-view h3 {
+  margin: 0;
+}
+.lo-view header p {
+  margin: 4px 0 0;
+}
+.lo-view a.adm-btn {
+  text-decoration: none;
+}
+.lo-view__frame {
+  width: 100%;
+  height: calc(100vh - 190px);
+  min-height: 320px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.lo-view__img {
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto;
+}
+/* a sheet is the one thing here that may be wider than the screen: it scrolls inside its own box */
+.lo-view__scroll {
+  max-width: 100%;
+  overflow: auto;
+}
+.lo-view__table {
+  border-collapse: collapse;
+  font-size: var(--t-small);
+  font-variant-numeric: tabular-nums;
+}
+.lo-view__table td {
+  padding: 5px 10px;
+  border: 1px solid var(--line);
+  white-space: nowrap;
+}
+.lo-view__text {
+  margin: 0;
+  font: inherit;
+  font-size: var(--t-small);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.lo-docs > li > div {
+  justify-items: start;
+}

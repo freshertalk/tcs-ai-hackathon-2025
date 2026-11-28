@@ -39,6 +39,11 @@ const iso = (ms) => new Date(ms).toISOString();
 
 /** What each list is, in plain words, and where it belongs on the screen. */
 const LISTS = {
+  loans: {
+    group: "Other records",
+    title: "Loan book",
+    what: "Every loan, its monthly EMIs (paid or not), part-payments, remarks and the history of changes.",
+  },
   robot_history: {
     group: "Recorded market data",
     title: "NIFTY 100 price history",

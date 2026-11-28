@@ -17,6 +17,7 @@ export const WORKSPACE_LIST = [
   { id: "paper", label: "Paper" },
   { id: "debrief", label: "Debrief" },
   { id: "now", label: "Now" },
+  { id: "loans", label: "Loans", superOnly: true },
   // opened from /me in their own tab (27 Nov 2026), not in the terminal's row of workspaces
   { id: "learning", label: "Vinaypedia", offNav: true },
   { id: "engine", label: "AI Engine", offNav: true },

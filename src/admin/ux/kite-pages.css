@@ -12,31 +12,31 @@
    ========================================================================== */
 
 /* the pages this covers — one list, so a page added later is one word here */
-.adm:has(.tm-page:is([data-view="account"], [data-view="screener"], [data-view="setup"], [data-view="research"], [data-view="indices"], [data-view="analysis"], [data-view="journal"], [data-view="calendar"], [data-view="paper"], [data-view="debrief"], [data-view="now"], [data-view="learning"], [data-view="engine"], [data-view="document"])) {
+.adm:has(.tm-page:is([data-view="account"], [data-view="screener"], [data-view="setup"], [data-view="research"], [data-view="indices"], [data-view="analysis"], [data-view="journal"], [data-view="calendar"], [data-view="paper"], [data-view="debrief"], [data-view="loans"], [data-view="now"], [data-view="learning"], [data-view="engine"], [data-view="document"])) {
   background: var(--surface);
 }
-.adm .tm-page:is([data-view="account"], [data-view="screener"], [data-view="setup"], [data-view="research"], [data-view="indices"], [data-view="analysis"], [data-view="journal"], [data-view="calendar"], [data-view="paper"], [data-view="debrief"], [data-view="now"], [data-view="learning"], [data-view="engine"], [data-view="document"]) {
+.adm .tm-page:is([data-view="account"], [data-view="screener"], [data-view="setup"], [data-view="research"], [data-view="indices"], [data-view="analysis"], [data-view="journal"], [data-view="calendar"], [data-view="paper"], [data-view="debrief"], [data-view="loans"], [data-view="now"], [data-view="learning"], [data-view="engine"], [data-view="document"]) {
   --kp-r: 6px;
   --kp-pad: 20px;
   --kp-gap: 16px;
 }
 
 /* ---------------------------------------------------------------- panels: a hairline and a small corner */
-.adm .tm-page:is([data-view="account"], [data-view="screener"], [data-view="setup"], [data-view="research"], [data-view="indices"], [data-view="analysis"], [data-view="journal"], [data-view="calendar"], [data-view="paper"], [data-view="debrief"], [data-view="now"], [data-view="learning"], [data-view="engine"], [data-view="document"]) :is(.an-card, .ta-card, .zp-card, .wk-card, .sr-card, .eng-card, .apx-card, .rs-card, .ix-card, .jr-card, .pp-card, .db-card, .st-card, .tzc, .exp-card) {
+.adm .tm-page:is([data-view="account"], [data-view="screener"], [data-view="setup"], [data-view="research"], [data-view="indices"], [data-view="analysis"], [data-view="journal"], [data-view="calendar"], [data-view="paper"], [data-view="debrief"], [data-view="loans"], [data-view="now"], [data-view="learning"], [data-view="engine"], [data-view="document"]) :is(.an-card, .ta-card, .zp-card, .wk-card, .sr-card, .eng-card, .apx-card, .rs-card, .ix-card, .jr-card, .pp-card, .db-card, .st-card, .tzc, .exp-card) {
   border-color: var(--line);
   border-radius: var(--kp-r);
   background-image: none;
   box-shadow: none;
 }
-.adm .tm-page:is([data-view="account"], [data-view="screener"], [data-view="setup"], [data-view="research"], [data-view="indices"], [data-view="analysis"], [data-view="journal"], [data-view="calendar"], [data-view="paper"], [data-view="debrief"], [data-view="now"], [data-view="learning"], [data-view="engine"], [data-view="document"]) .an-card:not(.wk-head) {
+.adm .tm-page:is([data-view="account"], [data-view="screener"], [data-view="setup"], [data-view="research"], [data-view="indices"], [data-view="analysis"], [data-view="journal"], [data-view="calendar"], [data-view="paper"], [data-view="debrief"], [data-view="loans"], [data-view="now"], [data-view="learning"], [data-view="engine"], [data-view="document"]) .an-card:not(.wk-head) {
   padding: 18px var(--kp-pad);
 }
-.adm:not([data-density="comfortable"]) .tm-page:is([data-view="account"], [data-view="screener"], [data-view="setup"], [data-view="research"], [data-view="indices"], [data-view="analysis"], [data-view="journal"], [data-view="calendar"], [data-view="paper"], [data-view="debrief"], [data-view="now"]) .an-card + .an-card {
+.adm:not([data-density="comfortable"]) .tm-page:is([data-view="account"], [data-view="screener"], [data-view="setup"], [data-view="research"], [data-view="indices"], [data-view="analysis"], [data-view="journal"], [data-view="calendar"], [data-view="paper"], [data-view="debrief"], [data-view="loans"], [data-view="now"]) .an-card + .an-card {
   margin-top: var(--kp-gap);
 }
 
 /* ---------------------------------------------------------------- the head: open, Kite's large light title */
-.adm .tm-page:is([data-view="account"], [data-view="screener"], [data-view="setup"], [data-view="research"], [data-view="indices"], [data-view="analysis"], [data-view="journal"], [data-view="calendar"], [data-view="paper"], [data-view="debrief"], [data-view="now"], [data-view="learning"], [data-view="engine"], [data-view="document"]) .wk-head {
+.adm .tm-page:is([data-view="account"], [data-view="screener"], [data-view="setup"], [data-view="research"], [data-view="indices"], [data-view="analysis"], [data-view="journal"], [data-view="calendar"], [data-view="paper"], [data-view="debrief"], [data-view="loans"], [data-view="now"], [data-view="learning"], [data-view="engine"], [data-view="document"]) .wk-head {
   margin-bottom: 4px;
   padding: 18px var(--kp-pad);
   border: 0;
@@ -45,12 +45,12 @@
   background: none;
   box-shadow: none;
 }
-.adm .tm-page:is([data-view="account"], [data-view="screener"], [data-view="setup"], [data-view="research"], [data-view="indices"], [data-view="analysis"], [data-view="journal"], [data-view="calendar"], [data-view="paper"], [data-view="debrief"], [data-view="now"], [data-view="learning"], [data-view="engine"], [data-view="document"]) .wk-head .wk-head__titles :is(h1, h3) {
+.adm .tm-page:is([data-view="account"], [data-view="screener"], [data-view="setup"], [data-view="research"], [data-view="indices"], [data-view="analysis"], [data-view="journal"], [data-view="calendar"], [data-view="paper"], [data-view="debrief"], [data-view="loans"], [data-view="now"], [data-view="learning"], [data-view="engine"], [data-view="document"]) .wk-head .wk-head__titles :is(h1, h3) {
   font-size: 1.25rem;
   font-weight: 400;
   line-height: 1.3;
 }
-.adm .tm-page:is([data-view="account"], [data-view="screener"], [data-view="setup"], [data-view="research"], [data-view="indices"], [data-view="analysis"], [data-view="journal"], [data-view="calendar"], [data-view="paper"], [data-view="debrief"], [data-view="now"], [data-view="learning"], [data-view="engine"], [data-view="document"]) .wk-head .wk-head__titles p {
+.adm .tm-page:is([data-view="account"], [data-view="screener"], [data-view="setup"], [data-view="research"], [data-view="indices"], [data-view="analysis"], [data-view="journal"], [data-view="calendar"], [data-view="paper"], [data-view="debrief"], [data-view="loans"], [data-view="now"], [data-view="learning"], [data-view="engine"], [data-view="document"]) .wk-head .wk-head__titles p {
   max-width: 82ch;
   margin-top: 4px;
   line-height: 1.55;
@@ -116,7 +116,7 @@
 }
 
 /* ---------------------------------------------------------------- tables: roomy rows, quiet headings */
-.adm .tm-page:is([data-view="account"], [data-view="screener"], [data-view="setup"], [data-view="research"], [data-view="indices"], [data-view="analysis"], [data-view="journal"], [data-view="calendar"], [data-view="paper"], [data-view="debrief"], [data-view="now"]) table:not(.vd-ladder, .ix-mini, .t10-mini, .ev-led, .ssn__t, .sx-readings, .kc-cal, .jr-cal) thead th {
+.adm .tm-page:is([data-view="account"], [data-view="screener"], [data-view="setup"], [data-view="research"], [data-view="indices"], [data-view="analysis"], [data-view="journal"], [data-view="calendar"], [data-view="paper"], [data-view="debrief"], [data-view="loans"], [data-view="now"]) table:not(.vd-ladder, .ix-mini, .t10-mini, .ev-led, .ssn__t, .sx-readings, .kc-cal, .jr-cal) thead th {
   padding-top: 10px;
   padding-bottom: 10px;
   color: var(--ink-3);
@@ -125,12 +125,12 @@
   letter-spacing: 0;
   text-transform: none;
 }
-.adm .tm-page:is([data-view="account"], [data-view="screener"], [data-view="setup"], [data-view="research"], [data-view="indices"], [data-view="analysis"], [data-view="journal"], [data-view="calendar"], [data-view="paper"], [data-view="debrief"], [data-view="now"]) table:not(.vd-ladder, .ix-mini, .t10-mini, .ev-led, .ssn__t, .sx-readings, .kc-cal, .jr-cal) tbody :is(td, th) {
+.adm .tm-page:is([data-view="account"], [data-view="screener"], [data-view="setup"], [data-view="research"], [data-view="indices"], [data-view="analysis"], [data-view="journal"], [data-view="calendar"], [data-view="paper"], [data-view="debrief"], [data-view="loans"], [data-view="now"]) table:not(.vd-ladder, .ix-mini, .t10-mini, .ev-led, .ssn__t, .sx-readings, .kc-cal, .jr-cal) tbody :is(td, th) {
   padding-top: 10px;
   padding-bottom: 10px;
   border-bottom: 1px solid var(--line);
 }
-.adm .tm-page:is([data-view="account"], [data-view="screener"], [data-view="setup"], [data-view="research"], [data-view="indices"], [data-view="analysis"], [data-view="journal"], [data-view="calendar"], [data-view="paper"], [data-view="debrief"], [data-view="now"]) table tbody tr:hover {
+.adm .tm-page:is([data-view="account"], [data-view="screener"], [data-view="setup"], [data-view="research"], [data-view="indices"], [data-view="analysis"], [data-view="journal"], [data-view="calendar"], [data-view="paper"], [data-view="debrief"], [data-view="loans"], [data-view="now"]) table tbody tr:hover {
   background: color-mix(in srgb, var(--accent) 3%, var(--surface));
 }
 
@@ -145,7 +145,7 @@
 
 /* ---------------------------------------------------------------- phones */
 @media (max-width: 760px) {
-  .adm .tm-page:is([data-view="account"], [data-view="screener"], [data-view="setup"], [data-view="research"], [data-view="indices"], [data-view="analysis"], [data-view="journal"], [data-view="calendar"], [data-view="paper"], [data-view="debrief"], [data-view="now"], [data-view="learning"], [data-view="engine"], [data-view="document"]) {
+  .adm .tm-page:is([data-view="account"], [data-view="screener"], [data-view="setup"], [data-view="research"], [data-view="indices"], [data-view="analysis"], [data-view="journal"], [data-view="calendar"], [data-view="paper"], [data-view="debrief"], [data-view="loans"], [data-view="now"], [data-view="learning"], [data-view="engine"], [data-view="document"]) {
     --kp-pad: 14px;
     --kp-gap: 12px;
   }

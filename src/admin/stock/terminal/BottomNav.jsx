@@ -13,6 +13,7 @@ import { useMedia } from "./useMedia";
 const P = { fill: "none", stroke: "currentColor", strokeWidth: 1.7, strokeLinecap: "round", strokeLinejoin: "round" };
 const ICONS = {
   analyzer: <path {...P} d="M3 20h18M4 16l5-6 4 3 7-9" />,
+  loans: <path {...P} d="M3 10l9-6 9 6M5 10v8M10 10v8M14 10v8M19 10v8M3 21h18" />,
   advisor: (
     <>
       <circle {...P} cx="12" cy="12" r="9" />

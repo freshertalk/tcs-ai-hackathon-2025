@@ -1992,3 +1992,58 @@ now opens with, under the trading switch:
 The account tables, the forms, the switch and its confirmations are unchanged; the daily goal and the risk guard moved below
 the account. The summary now carries `squareOff` for open MIS stock positions (read only, from `server/market/session.js`).
 The Desk's bottom dock is as it was.
+
+## Loans: the loan book beside "Now" (2026-11-28)
+
+A **Loans** workspace after Now, for superadmins only (`src/admin/loans/`, `server/loans.js`), one record per loan in the
+`loans` collection (in the daily backup and on /me → Data & backups). Two kinds: a loan from a lender, and **cash from a
+person**.
+
+- **A lender's loan:** name, type, opening date, total amount, yearly interest rate, EMI amount, the first EMI to keep in
+  the book, the EMI day, what was owed before that first EMI (for a running loan), remarks. Typed in, or filled from an
+  uploaded document.
+- **Cash from a person** has only: from whom, date taken, amount, remarks, repayments entered by hand, and "Is paid?".
+- **Monthly rows are made by themselves** from the first EMI to the running month (IST), by an hourly timer and whenever the
+  page is read, each with the loan's latest rate, EMI and day. Columns: Sr. No., Opening Date, Total Amount, Interest Rate,
+  EMI Date, EMI Amount, Outstanding Loan Amount, Is Paid?, Remarks. No rows once nothing is owed.
+- **Each month** shows the EMI's principal and interest, and what remains: principal, interest and total. A tick on
+  "Is paid?" takes both parts off (unticking puts them back, with Undo). The split comes from the uploaded schedule;
+  without one it is worked out on a reducing balance (an estimate, and the default). "Whole EMI comes off", the rule of the
+  first version, can still be chosen per loan. A month can also carry a part-payment or the bank's own outstanding, which
+  then replaces the worked-out figure.
+- New terms reach unpaid months from this month on; paid and earlier months keep theirs. "Paid up to…" ticks many at once.
+  Removing a loan hides it but keeps it in the database, with "Bring back".
+- First sight: principal remaining, interest remaining, this month's EMIs with their split, overdue, the next EMI and when
+  the last loan ends (an estimate). Then "Needs attention". At the foot: the last save (time, who, what), when rows were
+  last added by the desk and when the figures were read.
+- **Downloads** (in the browser): PDF (jsPDF; its fonts have no ₹ or Indian scripts, so "Rs", and others show "?"), CSV
+  (formula-safe) and a real .xlsx: the month's register, one loan's every month, or everything.
+
+**Upload** (`server/loan-intake.js`; page `src/admin/loans/Upload.jsx`): a repayment schedule (once per loan) or any other
+loan paper: PDF (also password-protected: RC4, AES-128, AES-256, `server/pdf-crypt.js`; the password is used once and not
+kept), Excel, CSV, Word or a photo, up to 7 MB. Read → review → **Save**; nothing is stored before Save, and no month is
+ticked as paid unless you choose "paid up to".
+
+- **Schedules** (`server/loan-schedule.js`): columns are recognised by their sums (EMI = principal + interest; the balance
+  falling by the principal), not by headings; table cells are placed by their position on the page. Not split by the
+  lender → worked out from its balance, or from the loan amount and rate (a missing rate is found from the instalments).
+  The line-by-line checks are shown before saving.
+- **Details** (`server/loan-fields.js`) come from the document's own words, each with its source; the form fills itself.
+- **Documents** are kept in the database (collection `loan_docs`, in the daily backup; not encrypted separately), per loan:
+  View (PDF and pictures as they are, sheets as rows, Word/text as words), Download, Remove. A scan, an old Office file or
+  a PDF left locked can be kept without being read.
+- **Free AI only** (`server/ai/loandesk.js`): NVIDIA's free models (needs the NVIDIA key on the AI model page), with no
+  paid fallback and none of the trading rules. Identity numbers, PAN, Aadhaar, phone, email and labelled names/addresses
+  are blanked before text is sent (a name in running text can remain). Document text goes after it is read unless the
+  free-AI box is unticked; a picture cannot be blanked, so it is sent whole, only on a press. Figures read from a
+  document's text are checked against that text. The analysis and answers to questions are made on a press only.
+- **Analysis tab:** principal against interest, April–March years, where prepaying ₹1 lakh saves most, a what-if
+  calculator, and the free AI's reading. Estimates, not advice.
+
+Nothing here talks to a bank or moves money.
+
+Not yet tried with the real NVIDIA service or a real lender's files: the tests and the preview use made-up documents and a
+stand-in for the AI. The free vision models' names (for photos) have not been checked against the live service.
+
+Also fixed in `server/pdf-text.js` (TradeAI attachments use it too): a packed or locked block whose last byte looked like a
+line end was cut short, losing its text; the file's declared length is now used.
