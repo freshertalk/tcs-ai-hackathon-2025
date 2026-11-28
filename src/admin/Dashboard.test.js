@@ -110,5 +110,7 @@ test("the page's sections are tabs under the header, and the owner's Personal th
   expect(tabs[0]).toBe("Overview");
   expect(tabs[tabs.length - 1]).toBe("Personal");
   const main = document.querySelector(".hm.hm--kite .hm-main");
+  // the greeting, the ways in and the tabs are the top of the page; nothing is drawn above them
+  expect(main.parentElement.firstElementChild.classList.contains("hm-top")).toBe(true);
   expect(main.lastElementChild.getAttribute("aria-labelledby")).toBe("hm-about-h");
 });

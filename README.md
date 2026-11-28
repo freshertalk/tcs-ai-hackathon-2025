@@ -942,7 +942,7 @@ seconds and the moment the tab is shown again); the owner's *Today* cards (paper
 waiting, likely trenders); the workspaces in three groups with a finder (press `/`); TradeAI, paper trading and Social
 Media side by side; and settings and system health below. Every part wraps: nothing scrolls sideways.
 
-**/me's first screen (2026-11-28; `src/admin/home/`, wired in `Dashboard.jsx`).** The figures needed before and during a
+**/me's first screen (2026-11-28; the header and its tabs stay on top, with the next trading day strip first under them; `src/admin/home/`, wired in `Dashboard.jsx`).** The figures needed before and during a
 trade come first; the older page (below) follows.
 
 - **Indices:** NIFTY 50, BANK NIFTY and India VIX with the day's range, the market tide, and the watchlist's up/down split,
@@ -955,12 +955,9 @@ trade come first; the older page (below) follows.
   with its stop and target from today's order book (not GTT).
 - **Before you trade:** the morning lean and its record, tide, NIFTY and BANK NIFTY pivot levels, PCR, max pain, FII/DII,
   next expiries, F&O ban, your price alerts.
-- **Watchlist analysis:** one row per stock: price, day's range, VWAP, volume, share of waiting orders that are buys,
-  daily RSI and reading, distance from the 52-week high, ATR, Advisor odds, F&O-ban and high-delivery tags. Chips, headings
-  and a list sort and narrow it; where the table does not fit, each stock is a card (`@container`).
 - **Reads only**, from existing routes (`useHomeData.js`): quotes every 10 s in market hours (60 s otherwise), context and
-  alerts 60 s, account 30 s, daily scan/odds/setup/expiries 180 s; hidden tabs do not poll. No AI is asked, no order can be sent.
-- **Customize → This page** has "Market now", "Your account" and "Watchlist analysis" switches (`prefs.home`); a block that
+  alerts 60 s, account 30 s, morning setup/expiries 180 s; hidden tabs do not poll. No AI is asked, no order can be sent.
+- **Customize → This page** has "Market now" and "Your account" switches (`prefs.home`); a block that
   is off reads nothing. Hide amounts stars `.fs-acct` and `.fs-pos` only: market prices stay readable. A column heading in
   those two must not use a money word unless the column is your money ("Stop order", not "Stop-loss order").
 - Tests: `home/FirstSight.test.js`. Checked in the preview (made-up market; the morning setup's figures stood in) at 390,

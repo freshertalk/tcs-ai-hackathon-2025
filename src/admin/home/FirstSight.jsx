@@ -1,17 +1,16 @@
 // /me's first screen (28 Nov 2026, the owner: "all details required for stock analysis must be displayed on front … keep all
-// first sight information on upfront"): the indices, the status line, your account beside what to know before a trade, your open positions,
-// and an analysis row for every stock on your watchlist. Each block can be switched off under Customize; a block that is
+// first sight information on upfront"): the indices, the status line, your account beside what to know before a trade, and your open
+// positions. Each block can be switched off under Customize; a block that is
 // off reads nothing. Reads only: no AI is asked and no order can be sent from here.
 
 import React, { useMemo } from "react";
 import "./first-sight.css";
 import { adminPath } from "../paths";
 import { useExchangeNow } from "../clock/exchangeClock";
-import { accountNumbers, indexCells, watchRows, watchSummary } from "./homeData";
+import { accountNumbers, indexCells, watchSummary } from "./homeData";
 import { useAccountData, useMarketData } from "./useHomeData";
 import { IndexStrip, MarketRead, priceStamp } from "./MarketPanels";
 import { AccountPanel, PositionsNow } from "./AccountPanels";
-import WatchBoard from "./WatchBoard";
 
 const terminal = (view, symbol) => {
   const q = [view ? `view=${view}` : "", symbol ? `s=${encodeURIComponent(symbol)}` : ""].filter(Boolean).join("&");
@@ -25,17 +24,15 @@ const deskOf = (symbol) => terminal("", symbol);
  */
 export default function FirstSight({ own, show, statusLine = null }) {
   const market = show.market !== false;
-  const watching = show.watchlist !== false;
   const mine = own && show.account !== false;
-  const data = useMarketData(market || watching);
+  const data = useMarketData(market);
   const acct = useAccountData(mine);
   const now = useExchangeNow(60000);
-  const { quotes, context, scan, edge, setup, expiries, alerts, status } = data;
-  const rows = useMemo(() => watchRows({ quotes, scan, edge, setup, symbols: status && status.watchlist }), [quotes, scan, edge, setup, status]);
-  const summary = useMemo(() => watchSummary(rows), [rows]);
+  const { quotes, context, setup, expiries, alerts, status } = data;
+  const summary = useMemo(() => watchSummary(quotes, status && status.watchlist), [quotes, status]);
   const cells = useMemo(() => indexCells(quotes), [quotes]);
   const account = useMemo(() => accountNumbers(acct.summary, quotes, now), [acct.summary, quotes, now]);
-  if (!market && !watching && !mine && !statusLine) return null;
+  if (!market && !mine && !statusLine) return null;
   return (
     <div className="fs">
       {market && <IndexStrip cells={cells} context={context} watch={summary} stamp={priceStamp(status, quotes, context)} deskHref={terminal("")} />}
@@ -47,7 +44,6 @@ export default function FirstSight({ own, show, statusLine = null }) {
         </div>
       )}
       {mine && <PositionsNow account={account} deskOf={deskOf} positionsHref={terminal("account")} />}
-      {watching && <WatchBoard rows={rows} summary={summary} loading={!scan && !data.errors.scan} error={data.errors.scan} deskOf={deskOf} advisorHref={terminal("advisor")} screenerHref={terminal("screener")} />}
     </div>
   );
 }

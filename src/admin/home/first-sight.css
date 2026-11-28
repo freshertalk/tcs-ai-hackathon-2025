@@ -5,7 +5,7 @@
    .adm .hm.hm--kite. Colours are the private area's tokens, so both themes follow.
    ========================================================================== */
 
-/* a little wider than before, for the analysis table; the header is tighter so the figures start high on the screen */
+/* a little wider than before, for the positions table; the header is tighter so the figures start high on the screen */
 .adm:has(.hm.hm--kite) .adm-main {
   padding-top: 4px;
 }
@@ -331,11 +331,6 @@
   grid-area: hi;
   text-align: right;
 }
-.adm .hm.hm--kite .fs-range--small {
-  max-width: 150px;
-  margin: 0 0 0 auto;
-}
-
 .adm .hm.hm--kite .fs-stamp {
   display: flex;
   flex-wrap: wrap;
@@ -467,16 +462,14 @@
   font-size: var(--t-small);
   line-height: 1.5;
 }
-.adm .hm.hm--kite .fs-meter,
-.adm .hm.hm--kite .fs-book {
+.adm .hm.hm--kite .fs-meter {
   display: block;
   height: 4px;
   overflow: hidden;
   border-radius: 2px;
   background: var(--line-2);
 }
-.adm .hm.hm--kite .fs-meter i,
-.adm .hm.hm--kite .fs-book i {
+.adm .hm.hm--kite .fs-meter i {
   display: block;
   height: 100%;
   background: var(--accent);
@@ -722,78 +715,6 @@
   overflow-wrap: anywhere;
 }
 
-/* ---- the watchlist's line and its chips */
-.adm .hm.hm--kite .fs-watch__sum {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 22px;
-  color: var(--ink-2);
-  font-size: var(--t-mid);
-}
-.adm .hm.hm--kite .fs-watch__sum b {
-  color: var(--ink);
-}
-.adm .hm.hm--kite .fs-watch__sum em {
-  font-style: normal;
-}
-.adm .hm.hm--kite .fs-watch__bar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px 16px;
-}
-.adm .hm.hm--kite .fs-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-.adm .hm.hm--kite .fs-chips button {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 32px;
-  padding: 4px 12px;
-  border: 1px solid var(--line-2);
-  border-radius: 3px;
-  background: var(--surface);
-  color: var(--ink-2);
-  font: inherit;
-  font-size: var(--t-small);
-  cursor: pointer;
-}
-.adm .hm.hm--kite .fs-chips button:hover {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-.adm .hm.hm--kite .fs-chips button[aria-pressed="true"] {
-  border-color: var(--accent);
-  background: var(--accent);
-  color: var(--on-accent);
-}
-.adm .hm.hm--kite .fs-chips small {
-  font-size: var(--t-tag);
-}
-.adm .hm.hm--kite .fs-sortpick {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--ink-3);
-  font-size: var(--t-small);
-}
-.adm .hm.hm--kite .fs-sortpick select {
-  width: auto;
-  min-width: 164px;
-  min-height: 32px;
-  padding: 4px 28px 4px 10px;
-  border: 1px solid var(--line-2);
-  border-radius: 3px;
-  background-color: var(--surface);
-  color: var(--ink);
-  font: inherit;
-  font-size: var(--t-small);
-}
-
 /* ---- the tables: right-aligned figures, a hairline between rows */
 .adm .hm.hm--kite .fs-table {
   width: 100%;
@@ -817,11 +738,6 @@
 .adm .hm.hm--kite .fs-table :is(th, td):last-child {
   padding-right: 0;
 }
-/* the odds are words, so their column reads from the left */
-.adm .hm.hm--kite .fs-table--watch :is(th, td):last-child {
-  padding-left: 20px;
-  text-align: left;
-}
 .adm .hm.hm--kite .fs-table thead th {
   position: static;
   background: transparent;
@@ -830,25 +746,6 @@
   letter-spacing: 0;
   text-transform: none;
   vertical-align: bottom;
-}
-.adm .hm.hm--kite .fs-table thead button {
-  padding: 0;
-  border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
-  text-align: inherit;
-  cursor: pointer;
-}
-.adm .hm.hm--kite .fs-table thead button:hover {
-  color: var(--accent);
-}
-.adm .hm.hm--kite .fs-table thead th[aria-sort] {
-  color: var(--ink);
-  font-weight: 600;
-}
-.adm .hm.hm--kite .fs-table thead i {
-  font-style: normal;
 }
 .adm .hm.hm--kite .fs-table tbody tr:hover > * {
   background: var(--surface-2);
@@ -885,61 +782,17 @@
 .adm .hm.hm--kite .fs-table td.fs-strong {
   font-weight: 600;
 }
-.adm .hm.hm--kite .fs-tag {
-  display: inline-block;
-  margin-left: 6px;
-  padding: 0 6px;
-  border: 1px solid var(--line-2);
-  border-radius: 3px;
-  color: var(--ink-2);
-  font-style: normal;
-}
-.adm .hm.hm--kite .fs-tag.is-warn,
 .adm .hm.hm--kite .fs-flag {
+  display: inline-block;
+  padding: 1px 6px;
   border: 1px solid var(--warn-line);
   border-radius: 3px;
   background: var(--warn-bg);
   color: var(--warn-ink);
-}
-.adm .hm.hm--kite .fs-flag {
-  display: inline-block;
-  padding: 1px 6px;
   font-size: var(--t-tag);
-}
-.adm .hm.hm--kite .fs-book {
-  width: 64px;
-  margin: 5px 0 0 auto;
-  background: color-mix(in srgb, var(--down) 55%, var(--surface));
-}
-.adm .hm.hm--kite .fs-book i {
-  background: var(--up);
-}
-.adm .hm.hm--kite .fs-odds {
-  display: inline-grid;
-  grid-template-columns: 22px minmax(0, auto);
-  align-items: start;
-  gap: 8px;
-  text-align: left;
-}
-.adm .hm.hm--kite .fs-odds > i {
-  display: grid;
-  place-items: center;
-  width: 22px;
-  height: 22px;
-  border: 1px solid var(--line-2);
-  border-radius: 3px;
-  color: var(--ink-2);
-  font-size: var(--t-tag);
-  font-style: normal;
-  font-weight: 700;
-}
-.adm .hm.hm--kite .fs-odds > i.is-A,
-.adm .hm.hm--kite .fs-odds > i.is-B {
-  border-color: var(--up);
-  color: var(--up);
 }
 
-/* where the table has no room, each stock is a card: its name across the top, the figures in a grid under it */
+/* where the table has no room, each position is a card: its name across the top, the figures in a grid under it */
 @container (max-width: 1080px) {
   .adm .hm.hm--kite .fs-table,
   .adm .hm.hm--kite .fs-table tbody {
@@ -982,12 +835,8 @@
     color: var(--ink-3);
     font-size: var(--t-tag);
   }
-  .adm .hm.hm--kite .fs-range--small,
-  .adm .hm.hm--kite .fs-book {
-    margin-left: 0;
-  }
 }
-/* the sort list is for the cards; the wide table sorts by its headings, and keeps the list too */
+/* a phone */
 @media (max-width: 559.98px) {
   .adm .hm.hm--kite .fs-box {
     padding: 14px 12px 16px;

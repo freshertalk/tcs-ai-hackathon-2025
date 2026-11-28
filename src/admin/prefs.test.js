@@ -13,7 +13,7 @@ test("whatever is at hand becomes a complete set; a change is laid over it part 
   const next = mergePrefs(cur, { nav: { hidden: [] }, desk: { board: false }, home: { today: false } });
   expect(next.nav).toEqual({ order: ["paper"], hidden: [] });
   expect(next.desk).toEqual({ board: false, dock: "auto", chart: "m5" });
-  expect(next.home).toEqual({ status: true, today: false, workspaces: true, market: true, account: true, watchlist: true });
+  expect(next.home).toEqual({ status: true, today: false, workspaces: true, market: true, account: true });
 });
 
 test("the workspaces come in your order, without the ones you hid — and a preference can only arrange what your role already allows", () => {

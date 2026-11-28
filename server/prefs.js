@@ -34,7 +34,7 @@ const DEFAULTS = Object.freeze({
   nav: { order: [], hidden: [] }, // [] = the built-in order, nothing hidden
   start: "analyzer", // the workspace the terminal opens on
   desk: { board: true, dock: "auto", chart: "pro" },
-  home: { status: true, today: true, workspaces: true, market: true, account: true, watchlist: true }, // the blocks of /me
+  home: { status: true, today: true, workspaces: true, market: true, account: true }, // the blocks of /me
 });
 
 const DENSITY_V = 2; // records from before compact became the default have no "v" (see Prefs.get)

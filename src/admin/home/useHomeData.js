@@ -40,7 +40,7 @@ export function useMarketData(on) {
   const fast = useReads(on ? { quotes: QUOTES_URL } : {}, status.status && status.status.marketHours ? 10000 : 60000, ["market"]);
   const mid = useReads(on ? { context: "/api/admin/market/context", alerts: "/api/admin/market/alerts" } : {}, 60000, ["market", "alerts"]);
   const slow = useReads(
-    on ? { scan: "/api/admin/market/scan", edge: "/api/admin/market/edge", setup: "/api/admin/market/setup", expiries: "/api/admin/market/expiries" } : {},
+    on ? { setup: "/api/admin/market/setup", expiries: "/api/admin/market/expiries" } : {},
     180000,
     ["expiry"]
   );
@@ -49,8 +49,6 @@ export function useMarketData(on) {
     quotes: fast.quotes,
     context: mid.context,
     alerts: mid.alerts,
-    scan: slow.scan,
-    edge: slow.edge,
     setup: slow.setup,
     expiries: slow.expiries,
     errors: { ...status.errors, ...fast.errors, ...mid.errors, ...slow.errors },

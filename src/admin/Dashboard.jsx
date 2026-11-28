@@ -3,9 +3,10 @@
 //   AT THE TOP   an open header — who you are and the date, the hide-amounts switch, and the three ways in (the trading terminal,
 //                on the workspace you chose, first) — then the page's sections as a row of underline tabs that stays on screen
 //   FIRST SIGHT  (fifth design, 28 Nov 2026, "all details required for stock analysis must be displayed on front";
-//                home/FirstSight.jsx) the indices, the status line, your account beside what to know before a trade, your open
-//                positions, and an analysis row for every watchlist stock
-//   THE PAGE     then open sections divided by hairlines: the next trading day, today at a glance, the workspaces, the tools,
+//                home/FirstSight.jsx) the indices, the status line, your account beside what to know before a trade, and your
+//                open positions
+//   THE PAGE     the next trading day by NSE's calendar comes first under the tabs; further down, open sections divided by
+//                hairlines: today at a glance, the workspaces, the tools,
 //                learning, Zerodha accounts, Customize, Settings & system, and the owner's Personal things last
 // What you hid under Customize is not drawn; a workspace you may not open never is. Every link into the terminal opens it in its
 // own tab.
@@ -614,6 +615,9 @@ export default function Dashboard() {
         <PageJumps stuck within=".hm" select="[data-jump]" min={2} label="The sections of this page" />
 
         <div className="hm-main">
+        {/* the next trading day by NSE's calendar, first under the header and its tabs */}
+        <NextSession ns={ns} place="main" />
+
         {/* what you need before and while you trade: the indices first, then the status line, then the rest. The account is
             yours only (the server refuses anyone else) */}
         <FirstSight
@@ -630,9 +634,6 @@ export default function Dashboard() {
             )
           }
         />
-
-        {/* the next trading day by NSE's calendar */}
-        <NextSession ns={ns} place="main" />
 
         {prefs.home.today && <TodayCard isSuper={isSuper} />}
 

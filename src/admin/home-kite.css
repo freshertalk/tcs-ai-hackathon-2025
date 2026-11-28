@@ -220,10 +220,10 @@
   line-height: 1.35;
 }
 
-/* the next trading day: one strip, at every width (the page has no side column now) */
+/* the next trading day: one strip under the tabs, at every width (the page has no side column now) */
 .adm .hm.hm--kite .ns--main {
   display: grid;
-  margin: var(--hk-gap) 0 0;
+  margin: 16px 0 0;
   padding: 18px 22px;
   border-radius: var(--hk-r);
   box-shadow: none;

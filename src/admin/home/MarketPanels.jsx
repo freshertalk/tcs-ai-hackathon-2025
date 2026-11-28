@@ -17,10 +17,10 @@ const dayWords = (iso) => {
 const away = (n) => (n === 0 ? "today" : n === 1 ? "tomorrow" : num(n) ? `in ${n} days` : "");
 
 /** The day's low to high, with a mark where the price is now. */
-export function DayRange({ low, high, place, small }) {
+export function DayRange({ low, high, place }) {
   if (place == null) return <span className="fs-range is-none">—</span>;
   return (
-    <span className={`fs-range ${small ? "fs-range--small" : ""}`} role="img" aria-label={`Day’s range ${price(low)} to ${price(high)}; the price is ${Math.round(place)}% of the way up`}>
+    <span className="fs-range" role="img" aria-label={`Day’s range ${price(low)} to ${price(high)}; the price is ${Math.round(place)}% of the way up`}>
       <span className="fs-range__n">{price(low)}</span>
       <span className="fs-range__bar" aria-hidden="true">
         <i style={{ left: `${place}%` }} />

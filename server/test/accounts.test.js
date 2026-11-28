@@ -343,7 +343,7 @@ test("preferences: each person's own, checked on the way in, never able to widen
   // the rules
   assert.deepEqual(clean(null), JSON.parse(JSON.stringify(DEFAULTS)));
   const odd = clean({ theme: "neon", accent: "rose", text: "huge", density: "compact", motion: "yes", nav: { order: ["journal", "nope", "journal", "analyzer"], hidden: ["analyzer", "paper", 7] }, start: "paper", desk: { board: false, dock: "sideways", chart: "m5" }, home: { today: false }, extra: "<script>" });
-  assert.deepEqual(odd, { theme: "dark", accent: "rose", text: "normal", density: "compact", motion: true, privacy: false, nav: { order: ["journal", "analyzer"], hidden: ["paper"] }, start: "analyzer", desk: { board: false, dock: "auto", chart: "m5" }, home: { status: true, today: false, workspaces: true, market: true, account: true, watchlist: true } });
+  assert.deepEqual(odd, { theme: "dark", accent: "rose", text: "normal", density: "compact", motion: true, privacy: false, nav: { order: ["journal", "analyzer"], hidden: ["paper"] }, start: "analyzer", desk: { board: false, dock: "auto", chart: "m5" }, home: { status: true, today: false, workspaces: true, market: true, account: true } });
   assert.equal(merge(odd, { desk: { dock: "closed" } }).desk.board, false, "a change moves only what it names");
   assert.equal(merge(odd, { nav: { hidden: [] }, start: "paper" }).start, "paper");
 

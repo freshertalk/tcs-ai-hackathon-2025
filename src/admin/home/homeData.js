@@ -1,4 +1,4 @@
-// The arithmetic behind /me's first screen (28 Nov 2026): the index cells, one row of analysis for every watchlist stock,
+// The arithmetic behind /me's first screen (28 Nov 2026): the index cells, the watchlist's up and down count,
 // and the account's figures. Pure functions over what the server already answers — nothing here reads, places or changes
 // anything. A figure that is not known stays null: the page shows a dash, never a guess.
 
@@ -24,15 +24,6 @@ export const percent = (x, digits = 2) => (num(x) ? `${signed(x, digits)}%` : "�
 export const rupees = (x, digits = 2) => (num(x) ? `${x < 0 ? "−" : ""}₹${Math.abs(x).toLocaleString("en-IN", { minimumFractionDigits: digits, maximumFractionDigits: digits })}` : "—");
 export const pnlWords = (x) => (num(x) ? `${x > 0 ? "+" : x < 0 ? "−" : ""}₹${Math.abs(x).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—");
 export const tone = (x) => (num(x) ? (x > 0 ? "is-up" : x < 0 ? "is-down" : "") : "");
-/** Shares traded, the Indian way: 34.61 L, 1.20 Cr. */
-export function volumeWords(x) {
-  if (!num(x) || x < 0) return "—";
-  if (x >= 1e7) return `${(x / 1e7).toFixed(2)} Cr`;
-  if (x >= 1e5) return `${(x / 1e5).toFixed(2)} L`;
-  if (x >= 1e3) return `${(x / 1e3).toFixed(1)} K`;
-  return String(Math.round(x));
-}
-
 /** Where the last price sits between the day's low and high, 0…100; null without a range. */
 export function placeInRange(last, low, high) {
   if (![last, low, high].every(num) || high < low) return null;
@@ -50,117 +41,21 @@ export function indexCells(quotes) {
 }
 
 /* ------------------------------------------------------------------ the watchlist */
-const KIND = { day: "Day", swing: "Swing" };
-const SIDE = { long: "long", short: "short" };
-/** The Advisor's best reading for a stock, in words: only A and B are backed by the forward test. */
-export function oddsOf(edgeRow) {
-  const b = edgeRow && edgeRow.available && edgeRow.best;
-  if (!b || !b.grade) return null;
-  return { grade: b.grade, proven: b.grade === "A" || b.grade === "B", text: `${KIND[b.kind] || b.kind} ${SIDE[b.side] || b.side}`, winPct: num(b.winPct) ? b.winPct : null, expR: num(b.expR) ? b.expR : null, n: num(b.n) ? b.n : null, warning: edgeRow.warning || "" };
-}
-
-/**
- * One row for every watchlist stock: the price now (the live quote, else the last daily close), the day's range, VWAP, volume,
- * the waiting buy and sell quantity, the daily reading and RSI, the distance from the 52-week high, the average daily range,
- * the Advisor's odds and what the morning setup flags.
- * @param a { quotes, scan, edge, setup, symbols (the watchlist in its order) }
- */
-export function watchRows({ quotes, scan, edge, setup, symbols }) {
+/** The watchlist in a line, from the live quotes: how many are up and down, the average move, how many hold above VWAP. */
+export function watchSummary(quotes, symbols) {
   const q = (quotes && quotes.quotes) || {};
-  const daily = new Map(((scan && scan.rows) || []).map((r) => [r.symbol, r]));
-  const odds = new Map(((edge && edge.rows) || []).map((r) => [r.symbol, r]));
-  const banned = new Set((setup && setup.ban && setup.ban.symbols) || []);
-  const delivered = new Map(((setup && setup.delivery) || []).map((x) => [x.symbol, x]));
-  const order = symbols && symbols.length ? symbols : daily.size ? [...daily.keys()] : Object.keys(q);
-  return order
-    .filter((s) => !INDEX_SYMBOLS.has(s))
-    .map((symbol) => {
-      const x = q[symbol];
-      const d = daily.get(symbol);
-      const e = odds.get(symbol);
-      const live = Boolean(x && num(x.last));
-      const last = live ? x.last : d && num(d.last) ? d.last : null;
-      const total = live && num(x.buyQty) && num(x.sellQty) ? x.buyQty + x.sellQty : 0;
-      const atr = e && num(e.atr) ? e.atr : null;
-      return {
-        symbol,
-        live,
-        last,
-        change: live && num(x.change) ? x.change : null,
-        changePct: live ? (num(x.changePct) ? x.changePct : null) : d && num(d.changePct) ? d.changePct : null,
-        open: live ? x.open : null,
-        low: live ? x.low : null,
-        high: live ? x.high : null,
-        place: live ? placeInRange(x.last, x.low, x.high) : null,
-        vwap: live && num(x.avgPrice) && x.avgPrice > 0 ? x.avgPrice : null,
-        vsVwap: live && num(x.avgPrice) && x.avgPrice > 0 ? pct(x.last, x.avgPrice) : null,
-        volume: live && num(x.volume) ? x.volume : null,
-        bidShare: total > 0 ? (x.buyQty / total) * 100 : null,
-        rsi: d && num(d.rsi14) ? d.rsi14 : null,
-        reading: (d && d.enoughData !== false && d.label) || null,
-        score: d && num(d.score) ? d.score : null,
-        fromHigh: d && num(d.fromHighPct) ? d.fromHighPct : null,
-        atr,
-        atrPct: atr && last ? (atr / last) * 100 : null,
-        dailyAsOf: (d && d.asOf) || null,
-        odds: oddsOf(e),
-        banned: banned.has(symbol),
-        delivery: delivered.get(symbol) || null,
-      };
-    });
-}
-
-/** The watchlist in a line: how many are up and down, how many hold above VWAP, the average move, the best and the worst. */
-export function watchSummary(rows) {
-  const moved = rows.filter((r) => num(r.changePct));
-  const sorted = [...moved].sort((a, b) => b.changePct - a.changePct);
-  const vw = rows.filter((r) => num(r.vsVwap));
+  const order = (symbols && symbols.length ? symbols : Object.keys(q)).filter((s) => !INDEX_SYMBOLS.has(s));
+  const live = order.map((s) => q[s]).filter((x) => x && num(x.last));
+  const moved = live.filter((x) => num(x.changePct));
+  const vw = live.filter((x) => num(x.avgPrice) && x.avgPrice > 0);
   return {
-    count: rows.length,
-    up: moved.filter((r) => r.changePct > 0).length,
-    down: moved.filter((r) => r.changePct < 0).length,
-    flat: moved.filter((r) => r.changePct === 0).length,
-    aboveVwap: vw.filter((r) => r.vsVwap > 0).length,
+    count: order.length,
+    up: moved.filter((x) => x.changePct > 0).length,
+    down: moved.filter((x) => x.changePct < 0).length,
+    aboveVwap: vw.filter((x) => x.last > x.avgPrice).length,
     withVwap: vw.length,
-    average: moved.length ? moved.reduce((a, r) => a + r.changePct, 0) / moved.length : null,
-    best: sorted[0] || null,
-    worst: sorted.length > 1 ? sorted[sorted.length - 1] : null,
-    proven: rows.filter((r) => r.odds && r.odds.proven).length,
+    average: moved.length ? moved.reduce((a, x) => a + x.changePct, 0) / moved.length : null,
   };
-}
-
-export const FILTERS = [
-  { id: "all", label: "All", test: () => true },
-  { id: "up", label: "Gainers", test: (r) => num(r.changePct) && r.changePct > 0 },
-  { id: "down", label: "Losers", test: (r) => num(r.changePct) && r.changePct < 0 },
-  { id: "vwap", label: "Above VWAP", test: (r) => num(r.vsVwap) && r.vsVwap > 0 },
-  { id: "odds", label: "Odds A or B", test: (r) => Boolean(r.odds && r.odds.proven) },
-];
-
-const GRADE = { A: 3, B: 2, C: 1 };
-const SORT_VALUE = {
-  symbol: (r) => r.symbol,
-  change: (r) => r.changePct,
-  range: (r) => r.place,
-  vwap: (r) => r.vsVwap,
-  volume: (r) => r.volume,
-  book: (r) => r.bidShare,
-  rsi: (r) => r.rsi,
-  high: (r) => r.fromHigh,
-  atr: (r) => r.atrPct,
-  odds: (r) => (r.odds ? GRADE[r.odds.grade] * 1000 + (r.odds.winPct || 0) : null),
-};
-/** Rows in the asked order; a stock without the figure stays at the bottom whichever way it is sorted. */
-export function sortRows(rows, sort) {
-  if (!sort || !SORT_VALUE[sort.by]) return rows;
-  const get = SORT_VALUE[sort.by];
-  const way = sort.way === "asc" ? 1 : -1;
-  return [...rows].sort((a, b) => {
-    const x = get(a);
-    const y = get(b);
-    if (x == null || y == null) return x == null && y == null ? 0 : x == null ? 1 : -1;
-    return typeof x === "string" ? x.localeCompare(y) * way : (x - y) * way;
-  });
 }
 
 /* ------------------------------------------------------------------ the account */
