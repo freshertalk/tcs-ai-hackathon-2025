@@ -1,12 +1,15 @@
 // Date pickers in the style of Google's Material design, used everywhere in the private area in
 // place of the browser's own calendar: an outlined field that opens a rounded calendar card with
 // circular days, today ringed, the chosen day filled, a year grid, and Clear / Cancel / OK.
+// A click on a day puts it in the field at once and closes the calendar (a range does so on its
+// second day); OK is still there for keeping a cleared field or a one-day range.
 //   DateField       one date            value "YYYY-MM-DD"
 //   DateRangeField  a first and last day { from, to } — two months side by side on a wide screen,
 //                   the days between them shaded
 //   TimeField       hours and minutes   value "HH:MM"
 // Keyboard: arrows move a day / week, Page Up / Down a month, Home / End the week, Enter picks,
-// Escape closes. On a phone the calendar opens as a sheet from the bottom.
+// Escape closes. On a phone the calendar opens as a sheet from the bottom; on a wider screen with no
+// room for it under the field, in the middle of the screen.
 
 import React, { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -140,6 +143,8 @@ function Month({ view, sel, range, hover, setHover, min, max, focus, setFocus, o
 }
 
 /* ------------------------------------------------------------------- the calendar card */
+const isWide = () => Boolean(typeof window !== "undefined" && window.matchMedia && window.matchMedia("(min-width: 720px)").matches);
+
 function Calendar({ mode, value, range, min, max, onDone, onCancel, title }) {
   const asked = mode === "range" ? range.from || range.to || todayIso() : value || todayIso();
   const start = min && asked < min ? min : max && asked > max ? max : asked; // open on a day that can be picked
@@ -149,7 +154,13 @@ function Calendar({ mode, value, range, min, max, onDone, onCancel, title }) {
   const [r, setR] = useState({ from: range ? range.from || "" : "", to: range ? range.to || "" : "" });
   const [hover, setHover] = useState("");
   const [years, setYears] = useState(false);
-  const wide = typeof window !== "undefined" && window.matchMedia && window.matchMedia("(min-width: 720px)").matches;
+  const [wide, setWide] = useState(isWide);
+  // a screen turned or resized while the calendar is open: two months only where two fit
+  useEffect(() => {
+    const again = () => setWide(isWide());
+    window.addEventListener("resize", again);
+    return () => window.removeEventListener("resize", again);
+  }, []);
   const two = mode === "range" && wide;
   const box = useRef(null);
   const labelId = useId();
@@ -174,7 +185,8 @@ function Calendar({ mode, value, range, min, max, onDone, onCancel, title }) {
   }, [focus, view, years]);
   useEffect(() => {
     const b = box.current && box.current.querySelector(`[data-day="${focus}"]`);
-    if (b) b.focus();
+    // without moving the page: the calendar may be about to move to the middle of the screen
+    if (b) b.focus({ preventScroll: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -182,11 +194,16 @@ function Calendar({ mode, value, range, min, max, onDone, onCancel, title }) {
     setFocus(d);
     if (mode !== "range") {
       setSel(d);
+      onDone(d);
       return;
     }
-    if (!r.from || (r.from && r.to)) setR({ from: d, to: "" });
-    else if (d < r.from) setR({ from: d, to: r.from });
-    else setR({ from: r.from, to: d });
+    if (!r.from || (r.from && r.to)) {
+      setR({ from: d, to: "" });
+      return;
+    }
+    const both = d < r.from ? { from: d, to: r.from } : { from: r.from, to: d };
+    setR(both);
+    onDone(both);
   };
   const key = (e) => {
     const map = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 };
@@ -306,20 +323,48 @@ function Field({ label, text, placeholder, open, setOpen, children, className = 
   }, [setOpen]);
   usePopover(open, close, wrap, pop);
   // open towards the side with room; on a phone, as a sheet drawn in the app's root (a parent that
-  // moves or animates would otherwise hold a fixed sheet inside itself)
+  // moves or animates would otherwise hold a fixed sheet inside itself); on a wider screen where the
+  // whole calendar cannot sit under the field, in the middle of the screen, so no part is out of reach
   const [right, setRight] = useState(false);
   const [sheet, setSheet] = useState(null);
+  const [centre, setCentre] = useState(false);
+  const moved = useRef(false); // once moved to the root it stays: moving back would start the calendar afresh
   useLayoutEffect(() => {
-    if (!open || !wrap.current) return;
-    const r = wrap.current.getBoundingClientRect();
-    setRight(r.left + (className.includes("range") && window.innerWidth >= 720 ? 640 : 340) > window.innerWidth);
-    const phone = window.matchMedia && window.matchMedia("(max-width: 599px)").matches;
-    setSheet(phone ? wrap.current.closest(".adm") || document.body : null);
+    if (!open) {
+      moved.current = false;
+      setSheet(null);
+      setCentre(false);
+      return undefined;
+    }
+    const place = () => {
+      if (!wrap.current) return;
+      const r = wrap.current.getBoundingClientRect();
+      const range = className.includes("range") && window.innerWidth >= 720;
+      setRight(r.left + (range ? 640 : 340) > window.innerWidth);
+      const phone = Boolean(window.matchMedia && window.matchMedia("(max-width: 599px)").matches);
+      let middle = false;
+      if (!phone) {
+        const card = pop.current && pop.current.querySelector(".dp-card");
+        const width = (card && card.offsetWidth) || (range ? 620 : 328);
+        const height = (card && card.scrollHeight) || 0;
+        const bar = document.querySelector(".tm-bnav"); // the workspace bar along the bottom
+        const barTop = bar && bar.offsetHeight ? bar.getBoundingClientRect().top : 0;
+        const floor = barTop > 0 ? Math.min(barTop, window.innerHeight) : window.innerHeight;
+        const fitsAcross = r.left + width <= window.innerWidth - 8 || r.right - width >= 8;
+        middle = moved.current || (height > 0 && (r.bottom + 6 + height > floor - 4 || !fitsAcross));
+      }
+      if (phone || middle) moved.current = true;
+      setCentre(!phone && moved.current);
+      setSheet(moved.current ? wrap.current.closest(".adm") || document.body : null);
+    };
+    place();
+    window.addEventListener("resize", place);
+    return () => window.removeEventListener("resize", place);
   }, [open, className]);
   const body = (
     // preventDefault: a form's <label> around the field would otherwise pass a click on the calendar's
     // blank parts on to the field's button, which closes it
-    <div className={`dp-pop ${right ? "is-right" : ""} ${sheet ? "is-sheet" : ""}`} ref={pop} onClick={(e) => e.preventDefault()}>
+    <div className={`dp-pop ${centre ? "is-centre" : sheet ? "is-sheet" : right ? "is-right" : ""}`} ref={pop} onClick={(e) => e.preventDefault()}>
       <div className="dp-scrim" aria-hidden="true" onClick={close} />
       {children(close)}
     </div>

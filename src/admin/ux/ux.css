@@ -398,6 +398,10 @@ html:has(.adm) {
 .adm:has(.tm--bnav) .ux-top {
   bottom: calc(70px + env(safe-area-inset-bottom, 0px));
 }
+/* a calendar opened over the page covers this button too (it sat on top of the days) */
+.adm:has(.dp-pop:is(.is-sheet, .is-centre)) .ux-top {
+  display: none;
+}
 /* a toast from the trading desk takes the corner while it is up */
 .adm:has(.tr-toast) .ux-top {
   display: none;

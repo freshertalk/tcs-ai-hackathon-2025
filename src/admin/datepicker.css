@@ -246,6 +246,54 @@
   opacity: 0.4;
   cursor: default;
 }
+/* The calendar is laid out as a table, but it is not one of the page's data tables: their padding,
+   row lines and sticky heads made its weeks half as tall again and pushed its buttons off screen. */
+.dp-card table.dp-grid {
+  display: table !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+}
+.dp-card table.dp-grid > thead {
+  display: table-header-group !important;
+}
+.dp-card table.dp-grid > tbody {
+  display: table-row-group !important;
+}
+.dp-card table.dp-grid > * > tr {
+  display: table-row !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+}
+.dp-card table.dp-grid > * > tr > :is(th, td) {
+  display: table-cell !important;
+  position: static !important;
+  width: auto !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  text-align: center !important;
+  vertical-align: middle !important;
+}
+.dp-card table.dp-grid > thead > tr > th {
+  color: var(--ink-2) !important;
+  font-size: var(--t-small) !important;
+  font-weight: 400 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+.dp-card table.dp-grid > tbody > tr > td.is-band {
+  background: color-mix(in srgb, var(--accent) 18%, transparent) !important;
+}
+.dp-card table.dp-grid > tbody > tr > td.is-start {
+  background: linear-gradient(90deg, transparent 50%, color-mix(in srgb, var(--accent) 18%, transparent) 50%) !important;
+}
+.dp-card table.dp-grid > tbody > tr > td.is-end {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 18%, transparent) 50%, transparent 50%) !important;
+}
+
 .dp-years {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -326,6 +374,46 @@
   outline: none;
 }
 
+/* no room under the field: the calendar sits in the middle of the screen */
+.dp-pop.is-centre,
+.dp-pop.is-centre.is-right {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  place-items: center;
+  padding: 12px;
+}
+.dp-pop.is-centre .dp-scrim {
+  display: block;
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+}
+.dp-pop.is-centre .dp-card {
+  position: relative;
+  max-width: 100%;
+  max-height: calc(100vh - 24px);
+  max-height: calc(100dvh - 24px);
+  overflow-y: auto;
+}
+/* the full-screen holder is not itself a menu: no corners, shadow or drop movement of its own */
+.adm .dp-pop:is(.is-centre, .is-sheet) {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  animation: none;
+}
+/* if it still has to scroll, its buttons stay in reach */
+.dp-pop:is(.is-centre, .is-sheet) .dp-foot {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  padding-bottom: 4px;
+  background: color-mix(in srgb, var(--accent) 6%, var(--surface));
+}
+
 /* a phone: the calendar is a sheet from the bottom */
 @media (max-width: 599px) {
   .dp-pop,
@@ -346,6 +434,9 @@
   .dp-card.is-two {
     position: relative;
     width: 100%;
+    max-height: calc(100vh - 16px);
+    max-height: calc(100dvh - 16px);
+    overflow-y: auto;
     border-radius: 24px 24px 0 0;
     padding-bottom: max(12px, env(safe-area-inset-bottom));
     animation: dp-up 0.2s ease-out;
@@ -357,6 +448,46 @@
   }
   .dp-field {
     display: block;
+  }
+}
+/* a short screen (a phone on its side, a zoomed laptop): a tighter calendar, so all of it shows */
+@media (max-height: 640px) {
+  .dp-head {
+    gap: 0;
+    padding: 8px 20px 6px;
+  }
+  .dp-head b,
+  .dp-card.is-two .dp-head b {
+    font-size: 1.15rem;
+  }
+  .dp-nav {
+    padding-top: 2px;
+  }
+  .dp-icon {
+    width: 34px;
+    height: 34px;
+  }
+  .dp-grid th,
+  .dp-grid td {
+    height: 32px;
+  }
+  .dp-day {
+    width: 30px;
+    height: 30px;
+  }
+  .dp-years {
+    max-height: 210px;
+  }
+  .dp-foot {
+    padding-top: 2px;
+  }
+  .dp-text {
+    padding: 7px 12px;
+  }
+}
+@media (max-height: 460px) {
+  .dp-head {
+    display: none;
   }
 }
 @keyframes dp-up {

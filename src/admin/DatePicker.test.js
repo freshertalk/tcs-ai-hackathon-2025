@@ -21,20 +21,47 @@ function Range() {
   );
 }
 
-test("a date field opens a Google-style calendar, picks a day with OK, and Cancel keeps the old one", () => {
+test("a date field opens a Google-style calendar, a click on a day fills the field, and Cancel keeps the old one", () => {
   render(<One />);
   expect(screen.getByRole("button", { name: /Day 10 Mar 2026/ })).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: /Day/ }));
   expect(screen.getByRole("dialog")).toBeTruthy();
   expect(screen.getByText("March 2026")).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: /Tuesday, 17 Mar 2026/ }));
-  fireEvent.click(screen.getByRole("button", { name: "OK" }));
+  // no OK needed: the day is in the field and the calendar has gone
   expect(screen.getByTestId("v").textContent).toBe("2026-03-17");
   expect(screen.queryByRole("dialog")).toBeNull();
+  expect(screen.getByRole("button", { name: /Day 17 Mar 2026/ })).toBe(document.activeElement);
   fireEvent.click(screen.getByRole("button", { name: /Day/ }));
-  fireEvent.click(screen.getByRole("button", { name: /Wednesday, 25 Mar 2026/ }));
+  fireEvent.click(screen.getByRole("button", { name: "Next month" }));
   fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
   expect(screen.getByTestId("v").textContent).toBe("2026-03-17");
+  // Clear empties it once OK says so
+  fireEvent.click(screen.getByRole("button", { name: /Day/ }));
+  fireEvent.click(screen.getByRole("button", { name: "Clear" }));
+  fireEvent.click(screen.getByRole("button", { name: "OK" }));
+  expect(screen.getByTestId("v").textContent).toBe("");
+});
+
+test("with no room under the field, the calendar moves to the middle of the screen; with room, it stays below", () => {
+  const sizes = [
+    jest.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockReturnValue(460),
+    jest.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(328),
+  ];
+  let at = { top: 600, bottom: 644, left: 100, right: 400 };
+  const rect = jest.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(() => at);
+  render(<One />);
+  fireEvent.click(screen.getByRole("button", { name: /Day/ }));
+  expect(document.querySelector(".dp-pop").classList.contains("is-centre")).toBe(true);
+  expect(document.querySelector(".dp-pop").parentElement).toBe(document.body);
+  // a click on a day still fills the field from there
+  fireEvent.click(screen.getByRole("button", { name: /Tuesday, 17 Mar 2026/ }));
+  expect(screen.getByTestId("v").textContent).toBe("2026-03-17");
+  at = { top: 40, bottom: 84, left: 100, right: 400 };
+  fireEvent.click(screen.getByRole("button", { name: /Day/ }));
+  expect(document.querySelector(".dp-pop").classList.contains("is-centre")).toBe(false);
+  expect(document.querySelector(".dp-field .dp-pop")).toBeTruthy();
+  [...sizes, rect].forEach((s) => s.mockRestore());
 });
 
 test("the keyboard moves through the days and months; days past the limit cannot be picked; years open in a grid", () => {
@@ -56,19 +83,37 @@ test("the keyboard moves through the days and months; days past the limit cannot
   expect(screen.queryByRole("dialog")).toBeNull();
 });
 
-test("a range: the first click starts it, the second ends it (in either order), OK gives both days", () => {
+test("a range: the first click starts it, the second ends it (in either order) and fills the field", () => {
   render(<Range />);
   fireEvent.click(screen.getByRole("button", { name: /Dates/ }));
   const days = screen.getAllByRole("button").filter((b) => b.getAttribute("data-day"));
   const a = days[14];
   const b = days[4];
   fireEvent.click(a);
+  expect(screen.getByRole("dialog")).toBeTruthy(); // one day is only half a range
+  expect(screen.getByTestId("r").textContent).toBe("|");
   fireEvent.click(b); // before the first: they swap
-  fireEvent.click(screen.getByRole("button", { name: "OK" }));
+  expect(screen.queryByRole("dialog")).toBeNull();
   const [from, to] = screen.getByTestId("r").textContent.split("|");
   expect(from).toBe(b.getAttribute("data-day"));
   expect(to).toBe(a.getAttribute("data-day"));
   expect(screen.getByRole("button", { name: new RegExp(`${fmtDate(from)} – ${fmtDate(to)}`) })).toBeTruthy();
+});
+
+test("a range shows two months on a wide screen, and one as soon as the screen turns narrow", () => {
+  let width = 900;
+  const before = window.matchMedia;
+  window.matchMedia = (q) => ({ matches: q.includes("min-width") ? width >= 720 : width <= 599, addEventListener() {}, removeEventListener() {} });
+  render(<Range />);
+  fireEvent.click(screen.getByRole("button", { name: /Dates/ }));
+  expect(screen.getAllByRole("grid")).toHaveLength(2);
+  width = 390;
+  act(() => {
+    window.dispatchEvent(new Event("resize"));
+  });
+  expect(screen.getAllByRole("grid")).toHaveLength(1);
+  expect(document.querySelector(".dp-pop").classList.contains("is-sheet")).toBe(true);
+  window.matchMedia = before;
 });
 
 test("a time field gives HH:MM from two selects", () => {
@@ -103,7 +148,6 @@ test("the arrows turn the month and it stays turned, back and forward, and after
   fireEvent.click(next());
   expect(screen.getByText("December 2025")).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: /Wednesday, 3 Dec 2025/ }));
-  fireEvent.click(screen.getByRole("button", { name: "OK" }));
   expect(screen.getByTestId("v").textContent).toBe("2025-12-03");
 });
 

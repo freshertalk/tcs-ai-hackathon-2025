@@ -106,7 +106,7 @@ test("the period buttons, a past financial year, a row of the table and a custom
   await settle();
   expect(mockCalls.some(([u]) => u === "/api/admin/trading/journal?period=fy-2025&kind=intraday")).toBe(true);
   fireEvent.click(screen.getByRole("button", { name: "Custom…" }));
-  // the Material range picker: open it, click a first and a last day, OK
+  // the Material range picker: open it, click a first and a last day; the second one gives the range
   fireEvent.click(screen.getByRole("button", { name: /Your dates/ }));
   fireEvent.click(screen.getByRole("button", { name: "Previous month" }));
   const days = screen.getAllByRole("button").filter((b) => b.getAttribute("data-day"));
@@ -114,7 +114,6 @@ test("the period buttons, a past financial year, a row of the table and a custom
   const last = days[9].getAttribute("data-day");
   fireEvent.click(days[0]);
   fireEvent.click(days[9]);
-  fireEvent.click(screen.getByRole("button", { name: "OK" }));
   await settle();
   expect(mockCalls.some(([u]) => u === `/api/admin/trading/journal?period=custom&from=${first}&to=${last}&kind=intraday`)).toBe(true);
 });
