@@ -27,11 +27,24 @@ test("an old record moves to compact once; a choice made afterwards is kept", ()
   assert.equal(got.density, "compact");
   assert.equal(got.theme, "light", "nothing else changes");
   assert.equal(got.accent, "teal");
-  assert.equal(s.mem[name].v, 2, "marked, so it happens only once");
+  assert.ok(s.mem[name].v >= 2, "marked, so it happens only once");
   // the person asks for room again: it stands
   p.set("old@example.com", { density: "comfortable" });
   assert.equal(p.get("old@example.com").density, "comfortable");
   assert.equal(new Prefs({ docs: s.docs }).get("old@example.com").density, "comfortable", "after a restart too");
+});
+
+test("an order saved before the owner's order of 27 Nov 2026 gives way to it once; what is hidden stays hidden", () => {
+  const s = store();
+  const p = new Prefs({ docs: s.docs });
+  const name = p._name("me@example.com");
+  s.mem[name] = { v: 2, nav: { order: ["research", "analyzer", "now"], hidden: ["paper"] } };
+  const got = p.get("me@example.com");
+  assert.deepEqual(got.nav.order, []);
+  assert.deepEqual(got.nav.hidden, ["paper"]);
+  assert.equal(s.mem[name].v, 3);
+  p.set("me@example.com", { nav: { order: ["screener", "analyzer"] } });
+  assert.deepEqual(new Prefs({ docs: s.docs }).get("me@example.com").nav.order, ["screener", "analyzer"], "a new order stands");
 });
 
 test("Trade setup and Vinaypedia can be hidden and ordered", () => {

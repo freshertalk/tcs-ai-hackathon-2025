@@ -1928,3 +1928,64 @@ h5.md-h {
   outline: 2px solid color-mix(in srgb, var(--accent) 60%, transparent);
   outline-offset: 1px;
 }
+
+/* the market at first sight in the top bar (27 Nov 2026): one quiet line, Kite's way — name, price, change */
+.adm .tai-top .tai-title {
+  flex: none; /* the chat's name is never squeezed into "…" by the market line */
+}
+.adm .tai-mkt {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  align-items: baseline;
+  gap: 2px 0;
+  min-width: 0;
+  margin-right: 8px;
+  font-size: var(--t-small);
+}
+.adm .tai-mkt__i {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  padding: 0 12px;
+  border-right: 1px solid var(--line);
+  white-space: nowrap;
+}
+.adm .tai-mkt__i small {
+  color: var(--ink-3);
+  font-size: var(--t-small);
+}
+.adm .tai-mkt__i b {
+  color: var(--ink);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.adm .tai-mkt__i em {
+  font-style: normal;
+}
+.adm .tai-mkt__i.is-up em {
+  color: var(--up-ink, var(--up));
+}
+.adm .tai-mkt__i.is-down em {
+  color: var(--down-ink, var(--down));
+}
+.adm .tai-mkt .wk-live {
+  padding-left: 12px;
+}
+@media (max-width: 1499px) {
+  .adm .tai-mkt__i:nth-child(3) {
+    display: none;
+  }
+  .adm .tai-mkt .wk-live > small {
+    display: none;
+  }
+}
+@media (max-width: 1279px) {
+  .adm .tai-mkt__i:nth-child(n + 2) {
+    display: none;
+  }
+}
+@media (max-width: 640px) {
+  .adm .tai-mkt {
+    display: none;
+  }
+}

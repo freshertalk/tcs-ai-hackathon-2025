@@ -809,6 +809,27 @@ replaces the layout above where they differ; every part is still there.
 - **Watchlist:** flat rows in Kite's market-watch style; the list's name has its own line.
 - Checked with a made-up market (market open and closed) at 390, 768, 1024, 1280, 1440 and 1920 px, light and dark.
 
+**Every workspace in Kite's layout, the new tab order, and live clocks (2026-11-28: `ux/kite-pages.css`, `ux/PageKit.jsx`,
+`StockReport.jsx`, `workspaces.js`, `Dashboard.jsx`, `CustomizeCard.jsx`, `server/prefs.js`, `tradeai/TradeAI.jsx`).**
+- **Tab order (the owner's):** Desk, Positions, Screener, Trade setup, Advisor, Research, Indices, Trade Analysis, Journal,
+  Calendar, Paper, Debrief. Now stays at the end; it was not in the owner's list.
+- **Moved to /me:** Vinaypedia, AI Engine and Document are marked `offNav`. They are out of the tab row, the phone bar,
+  keys 1–9 and Customize, but still open from their links. On /me they sit in Workspaces → Learn and open in a new tab.
+  Trade setup also got a tile there.
+- **Saved orders:** an order saved before this gives way to the owner's order once (`NAV_V = 3` in `server/prefs.js`);
+  hidden workspaces stay hidden, and a new order saved afterwards stands.
+- **Look:** `ux/kite-pages.css` dresses Positions, Screener, Trade setup, Research, Indices, Trade Analysis, Journal,
+  Calendar, Paper, Debrief, Now and the three /me pages the Desk/Advisor way: white page, open head, hairline strip,
+  6 px corners, roomier cards and table rows. Every rule starts at the page's `data-view`.
+- **Live:**
+  - every page strip (`PageBar`) shows NSE's ticking time from the exchange clock and how long ago the data was read,
+    with a green dot while the live channel is connected;
+  - Trade setup re-reads every 15 s (was 60 s) as well as on its live topic;
+  - TradeAI's top bar shows NIFTY 50, Bank Nifty and India VIX with their change and NSE's time, read every 5 s and on
+    the `market` topic.
+- Checked with made-up prices at 1440 px on every page, 390 px on Positions and Indices, and dark on Trade setup. The
+  Indices tables still scroll sideways inside their box on a phone.
+
 **The Advisor in Kite's layout (2026-11-27: `stock/advisor/Advisor.jsx`, `advisor-kite.css`).** The owner asked for the
 Advisor to be clearer and roomier in the Kite style, with what a reading needs on the first screen. Every part is kept.
 - **Best readings today (new):** up to three grade A or B calls that can be traded at the price now, best first. Each

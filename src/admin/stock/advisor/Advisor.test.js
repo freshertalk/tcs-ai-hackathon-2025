@@ -40,7 +40,7 @@ jest.mock("../../api", () => ({
   peek: () => null,
 }));
 jest.mock("../trade/TradeContext", () => ({ useTrade: () => null }));
-jest.mock("../../live", () => ({ useTopics: () => {} }));
+jest.mock("../../live", () => ({ useTopics: () => {}, useLive: () => ({ status: "live" }) }));
 
 beforeEach(() => {
   global.__board = board;

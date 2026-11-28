@@ -129,7 +129,7 @@ export default function TradeSetup({ onOpen }) {
         .then((d) => alive && setS({ d, error: "" }))
         .catch((e) => alive && setS((p) => ({ d: p.d, error: e.message })));
     read();
-    const stop = everyVisible(read, 60000, { topics: ["setup"] });
+    const stop = everyVisible(read, 15000, { topics: ["setup"] }); // every 15 s (was a minute), and at once when the setup changes
     return () => {
       alive = false;
       if (stop) stop();

@@ -45,6 +45,9 @@ const WORKSPACES = [
   { view: "journal", label: "Journal", text: "Every trade, scored", superOnly: true },
   { view: "paper", label: "Paper trading", text: "Play money, live and history" },
   { view: "debrief", label: "Debrief", text: "Today’s calls, replayed" },
+  { view: "setup", label: "Trade setup", text: "The morning's fifteen readings, kept current" },
+  // opened from here in their own tab, not in the terminal's row of workspaces (27 Nov 2026)
+  { view: "learning", label: "Vinaypedia", text: "Vinay's own learning: library, NSE/SEBI updates, lessons" },
   { view: "engine", label: "AI Engine", text: "Every AI rule, and the AI brains" },
   { view: "document", label: "Document", text: "The complete guide, in plain English" },
 ];
@@ -63,13 +66,15 @@ const ICONS = {
   Indices: "M3 17l5-6 4 3 8-9M15 5h5v5",
   "AI Engine": "M7 7h10v10H7zM10 3v4M14 3v4M10 17v4M14 17v4M3 10h4M3 14h4M17 10h4M17 14h4",
   Document: "M6 3h9l4 4v14H6zM9 12h7M9 16h7M9 8h3",
+  Vinaypedia: "M4 5a2 2 0 0 1 2-2h12v16H6a2 2 0 0 0-2 2zM4 19V5M8 7h6M8 11h6",
+  "Trade setup": "M4 4h16v16H4zM4 9h16M9 9v11",
   TradeAI: "M4 5h16v11H9l-5 4zM8 9h8M8 12h5",
   Social: "M4 11a8 8 0 0 1 16 0M4 11v6M20 11v6M8 21h8M12 3v2",
 };
 const GROUPS = [
-  { id: "trade", name: "Trade", note: "while the market is open", labels: ["Desk", "Research", "Advisor", "Screener", "Positions", "Paper trading"] },
+  { id: "trade", name: "Trade", note: "while the market is open", labels: ["Desk", "Positions", "Screener", "Trade setup", "Advisor", "Research", "Paper trading"] },
   { id: "analyse", name: "Analyse", note: "before and after", labels: ["Indices", "Trade Analysis", "Calendar", "Journal", "Debrief"] },
-  { id: "learn", name: "Learn", note: "how it thinks", labels: ["AI Engine", "Document"] },
+  { id: "learn", name: "Learn", note: "how it thinks", labels: ["Vinaypedia", "AI Engine", "Document"] },
 ];
 const WsIcon = ({ label }) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

@@ -68,6 +68,7 @@ import "./ux/look.css";
 import "./ux/kite-standard.css"; // the trading-terminal standard: Kite's type ladder, one heading order, compact by default
 import "./ux/soft-popups.css"; // every dialog, menu, help bubble and the AI ask in one soft family (24 Nov 2026)
 import "./ux/soft-buttons.css"; // softer buttons, each with the icon its words call for (ux/ButtonIcons.jsx)
+import "./ux/kite-pages.css"; // every workspace in Kite's layout (27 Nov 2026): open heads, hairlines, room, NSE's live clock
 // The private area wears the DrishtiAI logo as its icon (public/drishti-logo.svg and its PNG copies). The public
 // site's own link tags are put aside while this area is open and put back when it is left. (A page loaded straight
 // from /me already carries these in its own head: see scripts/prerender.js.)

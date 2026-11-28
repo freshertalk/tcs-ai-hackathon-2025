@@ -74,7 +74,8 @@ export default function CustomizeCard() {
   const { user } = useAuth();
   const { prefs, save, reset, saving, error, ready } = usePrefs();
   const ask = useDialog();
-  const mine = workspacesFor(user);
+  // the terminal's row only: Vinaypedia, the AI Engine and the Document open from /me in their own tab
+  const mine = workspacesFor(user).filter((w) => !w.offNav);
   const hidden = new Set(prefs.nav.hidden);
   // the full list in your order (hidden ones keep their place, so showing one again puts it back where it was)
   const rank = new Map(prefs.nav.order.map((id, i) => [id, i]));

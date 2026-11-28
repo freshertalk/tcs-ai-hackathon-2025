@@ -19,6 +19,47 @@ import { GoalChip } from "../stock/trade/DailyGoal";
 import { ACCEPT, LONG_PASTE, MAX_BYTES, MAX_FILES, dropFile, isImage, nameOf, prepareImage, sizeText, uploadFile } from "./attach";
 import "./tradeai.css";
 import { snack } from "../ux/snack";
+import { everyVisible } from "../visible";
+import { LiveClock } from "../ux/PageKit";
+
+/**
+ * The market at first sight, in the top bar (27 Nov 2026): NIFTY 50, Bank Nifty and India VIX with their change, and NSE's
+ * ticking time. Read every 5 seconds while the market is open (once a minute after it), and at once when the market changes.
+ */
+function MarketLine() {
+  const [ctx, setCtx] = useState(null);
+  const [at, setAt] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    const read = () =>
+      api("/api/admin/market/context")
+        .then((d) => {
+          if (!alive) return;
+          setCtx(d);
+          setAt(new Date());
+        })
+        .catch(() => {});
+    read();
+    const stop = everyVisible(read, 5000, { topics: ["market"] });
+    return () => {
+      alive = false;
+      if (stop) stop();
+    };
+  }, []);
+  const items = ctx && ctx.available && Array.isArray(ctx.items) ? ctx.items.filter((x) => x.available && /nifty 50|nifty bank|bank nifty|india vix/i.test(x.name)).slice(0, 3) : [];
+  return (
+    <span className="tai-mkt" aria-label="The market now">
+      {items.map((x) => (
+        <span key={x.id || x.name} className={`tai-mkt__i ${x.changePct > 0 ? "is-up" : x.changePct < 0 ? "is-down" : ""}`}>
+          <small>{x.name}</small>
+          <b>{Number(x.last).toLocaleString("en-IN", { maximumFractionDigits: 2, minimumFractionDigits: 2 })}</b>
+          <em>{typeof x.changePct === "number" ? `${x.changePct > 0 ? "+" : ""}${x.changePct.toFixed(2)}%` : ""}</em>
+        </span>
+      ))}
+      <LiveClock at={at} />
+    </span>
+  );
+}
 
 const KIND = { corrective: "Fix now", proactive: "Prepare", watch: "Watch" };
 const SUGGEST_ICON = { position: "📈", order: "⏳", review: "📋", probable: "🎯", alert: "🔔", time: "🕘", market: "🌐" };
@@ -1204,6 +1245,7 @@ export default function TradeAI() {
               </button>
             )}
             <span className="tai-grow" />
+            <MarketLine />
             {isOwner && <GoalChip />}
             <span className="tai-badge" data-tip="Data questions are answered at once from the desk; everything else by the default AI model — brief for light questions, longer thinking for Deep. If it fails, the other saved companies are tried; if every model fails, the desk’s own arithmetic answers.">
               <i /> {badge}

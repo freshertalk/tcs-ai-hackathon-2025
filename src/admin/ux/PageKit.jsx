@@ -15,6 +15,28 @@
 
 import "./pagekit.css";
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useExchangeNow } from "../clock/exchangeClock";
+import { useLive } from "../live";
+
+/**
+ * NSE's time, ticking, and how long ago the page's data was read — on every workspace's strip (27 Nov 2026, the owner:
+ * "make all updates realtime … NSE sync time"). The dot is green while the live channel is connected (pages then refresh
+ * the moment their data changes on the server), grey while it reconnects.
+ */
+export function LiveClock({ at = null }) {
+  const now = useExchangeNow(1000);
+  const live = useLive();
+  const on = live && (live.status === "live" || live === "live");
+  const ago = at && !Number.isNaN(at.getTime()) ? Math.max(0, Math.round((now - at.getTime()) / 1000)) : null;
+  const agoText = ago === null ? "" : ago < 60 ? `${ago}s ago` : ago < 3600 ? `${Math.floor(ago / 60)}m ago` : `${Math.floor(ago / 3600)}h ago`;
+  return (
+    <span className={`wk-live ${on ? "is-on" : ""}`} data-tip={`NSE time, from the exchange clock. ${on ? "Live: this page updates the moment its data changes." : "Reconnecting to the live channel; the page still refreshes on its own timer."}${agoText ? ` Data read ${agoText}.` : ""}`}>
+      <i aria-hidden="true" />
+      <b>{new Date(now).toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata", hour: "numeric", minute: "2-digit", second: "2-digit" })}</b>
+      <small>NSE{agoText ? ` · synced ${agoText}` : ""}</small>
+    </span>
+  );
+}
 
 const toneClass = (t) => (t === "up" ? "is-up" : t === "down" ? "is-down" : t === "warn" ? "is-warn" : "");
 
@@ -49,8 +71,9 @@ export function PageHead({ title, text, actions, children, className = "", id, a
  *                   a page that re-reads every few seconds)
  * @param onRefresh  read again now (omit when the page refreshes only by itself)
  * @param tools      anything else for the right end (a chip, a link)
+ * @param clock      NSE's ticking time and how long ago the data was read (on unless false)
  */
-export function PageBar({ label, labelTitle = "View", kpis = [], tabs = null, tab, onTab, updatedAt, atSeconds = false, loading = false, onRefresh, refreshTip = "Read this page's data again now (it also keeps itself up to date).", tools, ariaLabel = "This page at a glance", tabsLabel = "Sections of this page", onLabel }) {
+export function PageBar({ label, labelTitle = "View", kpis = [], tabs = null, tab, onTab, updatedAt, atSeconds = false, loading = false, onRefresh, refreshTip = "Read this page's data again now (it also keeps itself up to date).", tools, ariaLabel = "This page at a glance", tabsLabel = "Sections of this page", onLabel, clock = true }) {
   const at = updatedAt ? new Date(typeof updatedAt === "number" ? updatedAt : Date.parse(updatedAt)) : null;
   const Label = onLabel ? "button" : "div";
   const ref = useRef(null);
@@ -88,7 +111,7 @@ export function PageBar({ label, labelTitle = "View", kpis = [], tabs = null, ta
             ))}
           </dl>
         )}
-        {(tools || onRefresh || at) && (
+        {(tools || onRefresh || at || clock) && (
           <div className="wk-bar__tools">
             {tools}
             {onRefresh && (
@@ -96,6 +119,7 @@ export function PageBar({ label, labelTitle = "View", kpis = [], tabs = null, ta
                 {loading ? "Reading…" : "↻"}
               </button>
             )}
+            {clock && <LiveClock at={at} />}
             {at && !Number.isNaN(at.getTime()) && (
               <small className="wk-bar__at" data-tip="When this page's data was last read (IST)">
                 {at.toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata", hour: "numeric", minute: "2-digit", ...(atSeconds ? { second: "2-digit" } : {}) })}

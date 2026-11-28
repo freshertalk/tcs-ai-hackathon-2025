@@ -38,6 +38,10 @@ const DEFAULTS = Object.freeze({
 });
 
 const DENSITY_V = 2; // records from before compact became the default have no "v" (see Prefs.get)
+// 27 Nov 2026: the owner set the terminal's order (Desk, Positions, Screener, Trade setup, Advisor, Research, Indices, Trade
+// Analysis, Journal, Calendar, Paper, Debrief); an order saved before it gives way to it once (what is hidden stays hidden)
+const NAV_V = 3;
+const PREFS_V = NAV_V;
 
 const slugOf = (email) => {
   const e = String(email || "").toLowerCase();
@@ -96,6 +100,12 @@ class Prefs {
     if (raw && typeof raw === "object" && !(raw.v >= DENSITY_V)) {
       const next = { ...clean({ ...raw, density: "compact" }), v: DENSITY_V };
       this.docs.write(this._name(email), next);
+      return this.get(email);
+    }
+    if (raw && typeof raw === "object" && !(raw.v >= NAV_V)) {
+      const c = clean(raw);
+      const next = { ...c, nav: { ...c.nav, order: [] }, v: NAV_V };
+      this.docs.write(this._name(email), next);
       return clean(next);
     }
     return clean(raw);
@@ -106,7 +116,7 @@ class Prefs {
   }
   set(email, patch) {
     const next = merge(this.get(email), patch);
-    this.docs.write(this._name(email), { ...next, v: DENSITY_V });
+    this.docs.write(this._name(email), { ...next, v: PREFS_V });
     this._rev += 1;
     return next;
   }
