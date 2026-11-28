@@ -34,7 +34,7 @@ const DEFAULTS = Object.freeze({
   nav: { order: [], hidden: [] }, // [] = the built-in order, nothing hidden
   start: "analyzer", // the workspace the terminal opens on
   desk: { board: true, dock: "auto", chart: "pro" },
-  home: { status: true, today: true, workspaces: true }, // the blocks of /me
+  home: { status: true, today: true, workspaces: true, market: true, account: true, watchlist: true }, // the blocks of /me
 });
 
 const DENSITY_V = 2; // records from before compact became the default have no "v" (see Prefs.get)
@@ -69,7 +69,7 @@ function clean(input) {
     nav: { order: uniqViews(nav.order), hidden },
     start: hidden.includes(start) ? DEFAULTS.start : start, // a hidden workspace cannot be where the terminal opens
     desk: { board: bool(desk.board, DEFAULTS.desk.board), dock: pick(desk.dock, OPTIONS.dock, DEFAULTS.desk.dock), chart: pick(desk.chart, OPTIONS.chart, DEFAULTS.desk.chart) },
-    home: { status: bool(home.status, DEFAULTS.home.status), today: bool(home.today, DEFAULTS.home.today), workspaces: bool(home.workspaces, DEFAULTS.home.workspaces) },
+    home: Object.fromEntries(Object.entries(DEFAULTS.home).map(([k, v]) => [k, bool(home[k], v)])),
   };
 }
 

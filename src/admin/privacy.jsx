@@ -28,6 +28,9 @@ export const MONEY_ZONES = [
   ".dg-pill",
   ".hm-today",
   ".hm-pulse",
+  // /me's first screen: your funds, positions and holdings (the market's own prices beside them stay readable)
+  ".fs-acct",
+  ".fs-pos",
   ".ex",
 ].join(", ");
 

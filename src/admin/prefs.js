@@ -27,7 +27,7 @@ export const DEFAULT_PREFS = Object.freeze({
   nav: { order: [], hidden: [] },
   start: "analyzer",
   desk: { board: true, dock: "auto", chart: "pro" },
-  home: { status: true, today: true, workspaces: true },
+  home: { status: true, today: true, workspaces: true, market: true, account: true, watchlist: true },
 });
 const KEY = "vpt.prefs";
 const TEXT_SIZE = { small: "93.75%", normal: "", large: "106.25%", larger: "112.5%" };

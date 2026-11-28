@@ -2,9 +2,11 @@
 // elegant, more breathing space, enterprise grade as per Zerodha Kite"; look in home-kite.css):
 //   AT THE TOP   an open header — who you are and the date, the hide-amounts switch, and the three ways in (the trading terminal,
 //                on the workspace you chose, first) — then the page's sections as a row of underline tabs that stays on screen
-//   THE PAGE     one wide column of open sections divided by hairlines: the next trading day, the live status row, today at a
-//                glance, the workspaces, the tools, learning, Zerodha accounts, Customize, Settings & system, and the owner's
-//                Personal things last
+//   FIRST SIGHT  (fifth design, 28 Nov 2026, "all details required for stock analysis must be displayed on front";
+//                home/FirstSight.jsx) the indices, the status line, your account beside what to know before a trade, your open
+//                positions, and an analysis row for every watchlist stock
+//   THE PAGE     then open sections divided by hairlines: the next trading day, today at a glance, the workspaces, the tools,
+//                learning, Zerodha accounts, Customize, Settings & system, and the owner's Personal things last
 // What you hid under Customize is not drawn; a workspace you may not open never is. Every link into the terminal opens it in its
 // own tab.
 
@@ -31,6 +33,7 @@ import ZerodhaAccounts from "./ZerodhaAccounts";
 import DrishtiLogo from "./DrishtiLogo";
 import NextSession, { sessionCard, useNextSession } from "./NextSession";
 import { exchangeNow, useExchangeNow } from "./clock/exchangeClock";
+import FirstSight from "./home/FirstSight";
 
 const WORKSPACES = [
   { view: "", label: "Desk", text: "Chart, live call, order book, 5- and 15-minute forecast" },
@@ -148,8 +151,12 @@ function Pc({ tone = "off", k, v, sub, tip, to, href, valueTone }) {
   );
 }
 
-/** The live status row. Re-read every 30 seconds while the tab is in front, and at once when you return to it. */
-function Pulse({ isSuper, ns }) {
+/**
+ * The live status row. Re-read every 30 seconds while the tab is in front, and at once when you return to it.
+ * `withPnl` false: the account panel below shows today's P&L (with its parts), so the row does not read or show it a second
+ * time — two readings a moment apart could show two different figures on one screen.
+ */
+function Pulse({ isSuper, ns, withPnl = true }) {
   const [d, setD] = useState({});
   const [, tick] = useState(0);
   useEffect(() => {
@@ -166,7 +173,7 @@ function Pulse({ isSuper, ns }) {
           .then((t) => {
             if (!alive) return;
             setD((x) => ({ ...x, trade: t }));
-            if (t && t.connected)
+            if (withPnl && t && t.connected)
               api("/api/admin/trading/positions")
                 .then((p) => alive && setD((x) => ({ ...x, pnl: (p.net || []).reduce((a, r) => a + (Number(r.pnl) || 0), 0) })))
                 .catch(() => {});
@@ -180,7 +187,7 @@ function Pulse({ isSuper, ns }) {
       alive = false;
       stop();
     };
-  }, [isSuper]);
+  }, [isSuper, withPnl]);
   const { market, board, horizon, spend, trade, pnl } = d;
   // by NSE's calendar (holidays included) when the server has answered; by the clock alone until then — NSE's clock
   // either way (clock/exchangeClock.js), turning over on the exchange's minute
@@ -204,7 +211,7 @@ function Pulse({ isSuper, ns }) {
       {isSuper && (
         <Pc tone={trade && trade.enabled ? "live" : "off"} k="Trading switch" v={trade ? (trade.enabled ? "ON" : "OFF") : "…"} sub={trade && trade.enabled ? "orders can be sent" : "no orders can be sent"} href={terminal("account")} tip="The master switch for orders from this site. It is changed on the Positions page." />
       )}
-      {isSuper && pnl !== undefined && <Pc tone="off" k="Positions · Total P&L" v={money(pnl)} valueTone={pnl > 0 ? "is-up" : pnl < 0 ? "is-down" : ""} sub="all positions, open and closed" href={terminal("account")} tip="Today’s P&L on all positions, as Zerodha reports it." />}
+      {isSuper && withPnl && pnl !== undefined && <Pc tone="off" k="Positions · Total P&L" v={money(pnl)} valueTone={pnl > 0 ? "is-up" : pnl < 0 ? "is-down" : ""} sub="all positions, open and closed" href={terminal("account")} tip="Today’s P&L on all positions, as Zerodha reports it." />}
       {board && <Pc tone="off" k="Advisor odds" v={`A ${counts.A} · B ${counts.B}`} sub="favourable today, forward-tested" href={terminal("advisor")} tip="Watchlist stocks whose measured odds are favourable today and backed by the forward test (grade A or B)." />}
       {horizon && (
         <Pc
@@ -607,17 +614,25 @@ export default function Dashboard() {
         <PageJumps stuck within=".hm" select="[data-jump]" min={2} label="The sections of this page" />
 
         <div className="hm-main">
-        {/* the next trading day by NSE's calendar, at the top of the page on wide screens */}
-        <NextSession ns={ns} place="main" />
+        {/* what you need before and while you trade: the indices first, then the status line, then the rest. The account is
+            yours only (the server refuses anyone else) */}
+        <FirstSight
+          own={isSuper || Boolean(user.trader)}
+          show={prefs.home}
+          statusLine={
+            prefs.home.status && (
+              <section className="hm-now" aria-labelledby="hm-now-h" data-jump="Overview">
+                <h2 id="hm-now-h" className="hm-h">
+                  Market &amp; desk
+                </h2>
+                <Pulse isSuper={isSuper} ns={ns} withPnl={prefs.home.account === false} />
+              </section>
+            )
+          }
+        />
 
-        {prefs.home.status && (
-          <section className="hm-now" aria-labelledby="hm-now-h" data-jump="Overview">
-            <h2 id="hm-now-h" className="hm-h">
-              Market &amp; desk
-            </h2>
-            <Pulse isSuper={isSuper} ns={ns} />
-          </section>
-        )}
+        {/* the next trading day by NSE's calendar */}
+        <NextSession ns={ns} place="main" />
 
         {prefs.home.today && <TodayCard isSuper={isSuper} />}
 

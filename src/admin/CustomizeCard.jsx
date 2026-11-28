@@ -204,6 +204,9 @@ export default function CustomizeCard() {
           <h3>This page</h3>
           <div className="cz-checks">
             <Check label="Status row" checked={prefs.home.status} onChange={(status) => save({ home: { status } })} />
+            <Check label="Market now" checked={prefs.home.market} onChange={(market) => save({ home: { market } })} tip="The indices, and what to know before a trade." />
+            <Check label="Your account" checked={prefs.home.account} onChange={(account) => save({ home: { account } })} tip="Funds, positions, holdings and open positions, where you have a Zerodha account here." />
+            <Check label="Watchlist analysis" checked={prefs.home.watchlist} onChange={(watchlist) => save({ home: { watchlist } })} tip="One row of figures for every stock on your watchlist." />
             <Check label="Today" checked={prefs.home.today} onChange={(today) => save({ home: { today } })} />
             <Check label="Workspaces" checked={prefs.home.workspaces} onChange={(workspaces) => save({ home: { workspaces } })} />
           </div>

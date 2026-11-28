@@ -1,0 +1,1024 @@
+/* ==========================================================================
+   /me — the first screen (28 Nov 2026, the owner: "all details required for stock analysis must be displayed on front …
+   keep all first sight information on upfront"). Zerodha Kite's dashboard: a white page, hairline boxes with a small
+   corner, large light figures, quiet grey labels, right-aligned tables. This page only: every rule starts at
+   .adm .hm.hm--kite. Colours are the private area's tokens, so both themes follow.
+   ========================================================================== */
+
+/* a little wider than before, for the analysis table; the header is tighter so the figures start high on the screen */
+.adm:has(.hm.hm--kite) .adm-main {
+  padding-top: 4px;
+}
+.adm .hm.hm--kite {
+  max-width: 1320px;
+}
+.adm .hm.hm--kite .hm-top {
+  gap: 16px 18px;
+  padding: clamp(16px, 2.2vw, 26px) 0 clamp(14px, 1.8vw, 22px);
+}
+.adm .hm.hm--kite .hm-top h1 {
+  font-size: clamp(1.4rem, 1.15rem + 0.9vw, 1.75rem);
+}
+.adm .hm.hm--kite .hm-cta {
+  min-height: 56px;
+  padding: 9px 14px;
+}
+.adm .hm.hm--kite .hm-cta__ico {
+  width: 36px;
+  height: 36px;
+}
+/* a wide screen: the greeting, the three ways in and the switch share one line */
+@media (min-width: 1180px) {
+  .adm .hm.hm--kite .hm-top {
+    grid-template-columns: 56px minmax(0, 1fr) auto auto;
+    grid-template-areas: "art who cta pv";
+  }
+  .adm .hm.hm--kite .hm-top .hm-me__cta {
+    grid-template-columns: repeat(3, auto);
+    gap: 10px;
+  }
+  .adm .hm.hm--kite .hm-cta {
+    gap: 10px;
+    min-height: 48px;
+    padding: 7px 14px 7px 8px;
+  }
+  .adm .hm.hm--kite .hm-cta__ico {
+    width: 32px;
+    height: 32px;
+  }
+  .adm .hm.hm--kite .hm-cta__txt small {
+    display: none;
+  }
+}
+
+/* narrower screens: the ways in are one line each (their descriptions stay on the wide screen's tooltips), so the
+   figures start near the top */
+@media (max-width: 1179.98px) {
+  .adm .hm.hm--kite .hm-top {
+    row-gap: 12px;
+  }
+  .adm .hm.hm--kite .hm-top .hm-me__cta {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .adm .hm.hm--kite .hm-me__cta .hm-cta {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 46px;
+    padding: 6px 10px;
+    text-align: center;
+  }
+  .adm .hm.hm--kite .hm-me__cta .hm-cta__txt {
+    flex: 0 1 auto;
+  }
+  .adm .hm.hm--kite .hm-me__cta .hm-cta__txt small,
+  .adm .hm.hm--kite .hm-me__cta .hm-cta > svg {
+    display: none;
+  }
+  .adm .hm.hm--kite .hm-me__cta .hm-cta__ico {
+    flex: none;
+    width: 30px;
+    height: 30px;
+  }
+  .adm .hm.hm--kite > .pj button {
+    min-height: 40px;
+  }
+}
+@media (max-width: 759.98px) {
+  .adm .hm.hm--kite > .pj button {
+    min-height: 32px;
+    padding: 0 5px;
+    font-size: var(--t-small);
+  }
+  .adm .hm.hm--kite .hm-now .hm-pc > a,
+  .adm .hm.hm--kite .hm-now .hm-pc > div {
+    padding: 7px 10px;
+  }
+}
+@media (min-width: 640px) and (max-width: 1179.98px) {
+  .adm .hm.hm--kite .hm-top {
+    grid-template-columns: 56px minmax(0, 1fr) auto;
+    grid-template-areas:
+      "art who pv"
+      "cta cta cta";
+  }
+  .adm .hm.hm--kite .hm-top .pv-toggle {
+    grid-area: pv;
+    justify-self: end;
+  }
+}
+@media (max-width: 639.98px) {
+  .adm .hm.hm--kite .hm-me__cta .hm-cta {
+    flex-direction: column;
+    gap: 5px;
+    min-height: 62px;
+    padding: 8px 4px;
+  }
+  .adm .hm.hm--kite .hm-me__cta .hm-cta__txt b {
+    font-size: var(--t-small);
+    line-height: 1.3;
+  }
+}
+
+/* ------------------------------------------------------------------ the status line: one slim row, not six big figures */
+.adm .hm.hm--kite .hm-now {
+  gap: 0;
+  padding: 0;
+  overflow: visible;
+  border: 0;
+  scroll-margin-top: calc(var(--hk-top) + 60px);
+}
+/* each cell of the row is one link as a whole: it is not underlined or coloured like a link in a sentence */
+.adm .hm.hm--kite .fs .hm-pc > a {
+  color: inherit;
+  text-decoration: none;
+}
+.adm .hm.hm--kite .hm-now > .hm-h {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.adm .hm.hm--kite .hm-now .hm-pulse {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1px;
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--hk-r);
+  background: var(--line);
+}
+.adm .hm.hm--kite .hm-now .hm-pc {
+  flex: 1 1 168px;
+  min-width: 0;
+  border: 0;
+  background: var(--surface-2);
+}
+.adm .hm.hm--kite .hm-now .hm-pc > a,
+.adm .hm.hm--kite .hm-now .hm-pc > div {
+  gap: 1px;
+  padding: 9px 12px;
+}
+.adm .hm.hm--kite .hm-now .hm-pc__k,
+.adm .hm.hm--kite .hm-now .hm-pc small {
+  font-size: var(--t-tag);
+  line-height: 1.4;
+}
+.adm .hm.hm--kite .hm-now .hm-pc__v {
+  font-size: var(--t-base);
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+/* ------------------------------------------------------------------ the first screen */
+.adm .hm.hm--kite .hm-main > .fs {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 20px;
+  padding: 16px 0 var(--hk-gap);
+}
+.adm .hm.hm--kite .fs * {
+  min-width: 0;
+}
+.adm .hm.hm--kite .fs :is(h2, h3, h4, p, ul, dl, dd) {
+  margin: 0;
+}
+.adm .hm.hm--kite .fs ul {
+  padding: 0;
+  list-style: none;
+}
+.adm .hm.hm--kite .fs a {
+  color: var(--accent);
+  text-decoration: none;
+}
+.adm .hm.hm--kite .fs a:hover {
+  text-decoration: underline;
+}
+.adm .hm.hm--kite .fs a:focus-visible,
+.adm .hm.hm--kite .fs button:focus-visible,
+.adm .hm.hm--kite .fs select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.adm .hm.hm--kite .fs [data-jump] {
+  scroll-margin-top: calc(var(--hk-top) + 60px);
+}
+.adm .hm.hm--kite .fs .is-up {
+  color: var(--up);
+}
+.adm .hm.hm--kite .fs .is-down {
+  color: var(--down);
+}
+.adm .hm.hm--kite .fs .fs-dim,
+.adm .hm.hm--kite .fs .fs-note {
+  color: var(--ink-3);
+  font-size: var(--t-small);
+  line-height: 1.55;
+}
+
+/* ---- the index strip */
+.adm .hm.hm--kite .fs-idx {
+  display: grid;
+  gap: 8px;
+}
+.adm .hm.hm--kite .fs-idx ul {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--hk-r);
+  background: var(--line);
+}
+.adm .hm.hm--kite .fs-cell {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  padding: 14px 16px;
+  background: var(--surface);
+}
+.adm .hm.hm--kite .fs-cell__k {
+  color: var(--ink-2);
+  font-size: var(--t-tag);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.adm .hm.hm--kite .fs-cell__v {
+  color: var(--ink);
+  font-size: 1.5rem;
+  font-weight: 300;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.adm .hm.hm--kite .fs-cell__v.is-up,
+.adm .hm.hm--kite .fs-cell__v .is-up {
+  color: var(--up);
+}
+.adm .hm.hm--kite .fs-cell__v.is-down,
+.adm .hm.hm--kite .fs-cell__v .is-down {
+  color: var(--down);
+}
+.adm .hm.hm--kite .fs-cell__c {
+  color: var(--ink-2);
+  font-size: var(--t-mid);
+  font-variant-numeric: tabular-nums;
+}
+.adm .hm.hm--kite .fs-cell__s {
+  color: var(--ink-3);
+  font-size: var(--t-tag);
+  line-height: 1.45;
+}
+.adm .hm.hm--kite .fs-split {
+  display: flex;
+  gap: 2px;
+  height: 4px;
+  margin: 8px 0 6px;
+  overflow: hidden;
+  border-radius: 2px;
+}
+.adm .hm.hm--kite .fs-split i.is-up {
+  background: var(--up);
+}
+.adm .hm.hm--kite .fs-split i.is-down {
+  background: var(--down);
+}
+
+/* the day's range: the line with a mark, the low and the high under its ends */
+.adm .hm.hm--kite .fs-range {
+  display: grid;
+  grid-template-columns: auto auto;
+  grid-template-areas: "bar bar" "lo hi";
+  justify-content: space-between;
+  gap: 3px 6px;
+  width: 100%;
+  margin-top: 4px;
+}
+.adm .hm.hm--kite .fs-range.is-none {
+  display: inline;
+}
+.adm .hm.hm--kite .fs-range__bar {
+  grid-area: bar;
+  position: relative;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--line-2);
+}
+.adm .hm.hm--kite .fs-range__bar i {
+  position: absolute;
+  top: -3px;
+  width: 4px;
+  height: 10px;
+  margin-left: -2px;
+  border-radius: 2px;
+  background: var(--ink);
+}
+.adm .hm.hm--kite .fs-range__n {
+  grid-area: lo;
+  color: var(--ink-3);
+  font-size: var(--t-tag);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.adm .hm.hm--kite .fs-range__n:last-child {
+  grid-area: hi;
+  text-align: right;
+}
+.adm .hm.hm--kite .fs-range--small {
+  max-width: 150px;
+  margin: 0 0 0 auto;
+}
+
+.adm .hm.hm--kite .fs-stamp {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  color: var(--ink-3);
+  font-size: var(--t-small);
+}
+.adm .hm.hm--kite .fs-stamp i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ink-3);
+}
+.adm .hm.hm--kite .fs-stamp.is-ok i {
+  background: var(--up);
+}
+.adm .hm.hm--kite .fs-stamp.is-warn i {
+  background: var(--warn);
+}
+.adm .hm.hm--kite .fs-stamp.is-warn span {
+  color: var(--warn-ink);
+}
+
+/* ---- the boxes */
+.adm .hm.hm--kite .fs-pair {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+@media (min-width: 1180px) {
+  .adm .hm.hm--kite .fs-pair:not(.is-single) {
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  }
+}
+.adm .hm.hm--kite .fs-box {
+  container-type: inline-size;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 18px;
+  padding: 18px 20px 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--hk-r);
+  background: var(--surface);
+}
+.adm .hm.hm--kite .fs-box__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 16px;
+}
+.adm .hm.hm--kite .fs-box__head h2 {
+  margin-right: auto;
+  color: var(--ink);
+  font-family: var(--f-ui);
+  font-size: 1.125rem;
+  font-weight: 400;
+  line-height: 1.35;
+}
+.adm .hm.hm--kite .fs-box__head a {
+  font-size: var(--t-mid);
+}
+.adm .hm.hm--kite .fs-pill {
+  padding: 2px 10px;
+  border: 1px solid var(--line-2);
+  border-radius: 99px;
+  color: var(--ink-2);
+  font-size: var(--t-tag);
+  font-weight: 600;
+}
+.adm .hm.hm--kite .fs-pill.is-live {
+  border-color: var(--warn-line);
+  background: var(--warn-bg);
+  color: var(--warn-ink);
+}
+.adm .hm.hm--kite .fs-empty {
+  padding: 18px;
+  border: 1px dashed var(--line-2);
+  border-radius: var(--hk-r);
+  color: var(--ink-2);
+  font-size: var(--t-mid);
+  line-height: 1.6;
+}
+
+/* ---- your account */
+.adm .hm.hm--kite .fs-figs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.adm .hm.hm--kite .fs-fig {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  padding: 0 18px;
+  border-left: 1px solid var(--line);
+}
+.adm .hm.hm--kite .fs-fig:first-child {
+  padding-left: 0;
+  border-left: 0;
+}
+.adm .hm.hm--kite .fs-fig:last-child {
+  padding-right: 0;
+}
+.adm .hm.hm--kite .fs-fig h3,
+.adm .hm.hm--kite .fs-attn h3,
+.adm .hm.hm--kite .fs-k {
+  color: var(--ink-3);
+  font-family: var(--f-ui);
+  font-size: var(--t-small);
+  font-weight: 400;
+}
+.adm .hm.hm--kite .fs-big {
+  color: var(--ink);
+  font-size: 1.625rem;
+  font-weight: 300;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.adm .hm.hm--kite .fs-big.is-up {
+  color: var(--up);
+}
+.adm .hm.hm--kite .fs-big.is-down {
+  color: var(--down);
+}
+.adm .hm.hm--kite .fs-sub {
+  color: var(--ink-2);
+  font-size: var(--t-small);
+  line-height: 1.5;
+}
+.adm .hm.hm--kite .fs-meter,
+.adm .hm.hm--kite .fs-book {
+  display: block;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--line-2);
+}
+.adm .hm.hm--kite .fs-meter i,
+.adm .hm.hm--kite .fs-book i {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+.adm .hm.hm--kite .fs-meter i.is-high {
+  background: var(--warn);
+}
+.adm .hm.hm--kite .fs-fig dl {
+  display: grid;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+.adm .hm.hm--kite .fs-line {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0 10px;
+  font-size: var(--t-small);
+}
+.adm .hm.hm--kite .fs-line dt {
+  color: var(--ink-3);
+}
+.adm .hm.hm--kite .fs-line dd {
+  margin-left: auto;
+  color: var(--ink);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.adm .hm.hm--kite .fs-line dd.is-up {
+  color: var(--up);
+}
+.adm .hm.hm--kite .fs-line dd.is-down {
+  color: var(--down);
+}
+@container (max-width: 620px) {
+  .adm .hm.hm--kite .fs-figs {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+  .adm .hm.hm--kite .fs-fig {
+    padding: 16px 0 0;
+    border-width: 1px 0 0;
+    border-style: solid;
+    border-color: var(--line);
+  }
+  .adm .hm.hm--kite .fs-fig:first-child {
+    padding-top: 0;
+    border-top: 0;
+  }
+}
+.adm .hm.hm--kite .fs-orders {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 18px;
+  padding: 10px 12px;
+  border-radius: var(--hk-r);
+  background: var(--surface-2);
+  color: var(--ink-2);
+  font-size: var(--t-small);
+}
+.adm .hm.hm--kite .fs-orders b {
+  color: var(--ink);
+}
+.adm .hm.hm--kite .fs-orders .is-down b {
+  color: var(--down);
+}
+.adm .hm.hm--kite .fs-attn {
+  display: grid;
+  gap: 8px;
+}
+.adm .hm.hm--kite .fs-attn p {
+  color: var(--ink-2);
+  font-size: var(--t-mid);
+}
+.adm .hm.hm--kite .fs-attn ul {
+  display: grid;
+  gap: 6px;
+}
+.adm .hm.hm--kite .fs-attn li {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  align-items: start;
+  gap: 8px;
+  padding: 9px 12px;
+  border: 1px solid var(--warn-line);
+  border-radius: var(--hk-r);
+  background: var(--warn-bg);
+  color: var(--ink);
+  font-size: var(--t-mid);
+  line-height: 1.45;
+}
+.adm .hm.hm--kite .fs-attn li i {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1px solid var(--warn-line);
+  color: var(--warn-ink);
+  font-size: var(--t-tag);
+  font-style: normal;
+  font-weight: 700;
+}
+.adm .hm.hm--kite .fs-attn li.is-danger {
+  border-color: color-mix(in srgb, var(--down) 45%, var(--line));
+  background: color-mix(in srgb, var(--down) 8%, var(--surface));
+}
+.adm .hm.hm--kite .fs-attn li.is-danger i {
+  border-color: var(--down);
+  color: var(--down);
+}
+
+/* ---- before you trade */
+.adm .hm.hm--kite .fs-lean {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.adm .hm.hm--kite .fs-lean > div {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+}
+.adm .hm.hm--kite .fs-lean b {
+  color: var(--ink);
+  font-size: 1.25rem;
+  font-weight: 300;
+  line-height: 1.25;
+}
+.adm .hm.hm--kite .fs-lean b.is-up {
+  color: var(--up);
+}
+.adm .hm.hm--kite .fs-lean b.is-down {
+  color: var(--down);
+}
+.adm .hm.hm--kite .fs-lean small {
+  color: var(--ink-3);
+  font-size: var(--t-tag);
+  line-height: 1.5;
+}
+.adm .hm.hm--kite .fs-levels {
+  display: grid;
+  gap: 14px;
+}
+.adm .hm.hm--kite .fs-lv {
+  display: grid;
+  gap: 6px;
+}
+.adm .hm.hm--kite .fs-lv h4 {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 10px;
+  color: var(--ink-2);
+  font-family: var(--f-ui);
+  font-size: var(--t-small);
+  font-weight: 600;
+}
+.adm .hm.hm--kite .fs-lv h4 small {
+  color: var(--ink-3);
+  font-size: var(--t-small);
+  font-weight: 400;
+}
+.adm .hm.hm--kite .fs-lv dl {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--hk-r);
+  background: var(--line);
+}
+.adm .hm.hm--kite .fs-lv dl div {
+  display: grid;
+  gap: 2px;
+  padding: 7px 2px;
+  background: var(--surface);
+  text-align: center;
+}
+.adm .hm.hm--kite .fs-lv dl div.is-pivot {
+  background: var(--surface-2);
+}
+.adm .hm.hm--kite .fs-lv dt {
+  color: var(--ink-3);
+  font-size: var(--t-tag);
+}
+.adm .hm.hm--kite .fs-lv dd {
+  color: var(--ink);
+  font-size: var(--t-small);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.adm .hm.hm--kite .fs-lv .is-s dt {
+  color: var(--up);
+}
+.adm .hm.hm--kite .fs-lv .is-r dt {
+  color: var(--down);
+}
+@container (max-width: 380px) {
+  .adm .hm.hm--kite .fs-lv dd {
+    font-size: var(--t-tag);
+  }
+  .adm .hm.hm--kite .fs-lean {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.adm .hm.hm--kite .fs-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 190px), 1fr));
+  gap: 14px 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+.adm .hm.hm--kite .fs-fact {
+  display: grid;
+  align-content: start;
+  gap: 2px;
+}
+.adm .hm.hm--kite .fs-fact dt {
+  color: var(--ink-3);
+  font-size: var(--t-small);
+}
+.adm .hm.hm--kite .fs-fact dd {
+  display: grid;
+  gap: 2px;
+}
+.adm .hm.hm--kite .fs-fact b {
+  color: var(--ink);
+  font-size: var(--t-base);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.adm .hm.hm--kite .fs-fact b.is-up {
+  color: var(--up);
+}
+.adm .hm.hm--kite .fs-fact b.is-down {
+  color: var(--down);
+}
+.adm .hm.hm--kite .fs-fact small {
+  color: var(--ink-3);
+  font-size: var(--t-tag);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+/* ---- the watchlist's line and its chips */
+.adm .hm.hm--kite .fs-watch__sum {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 22px;
+  color: var(--ink-2);
+  font-size: var(--t-mid);
+}
+.adm .hm.hm--kite .fs-watch__sum b {
+  color: var(--ink);
+}
+.adm .hm.hm--kite .fs-watch__sum em {
+  font-style: normal;
+}
+.adm .hm.hm--kite .fs-watch__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+}
+.adm .hm.hm--kite .fs-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.adm .hm.hm--kite .fs-chips button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 4px 12px;
+  border: 1px solid var(--line-2);
+  border-radius: 3px;
+  background: var(--surface);
+  color: var(--ink-2);
+  font: inherit;
+  font-size: var(--t-small);
+  cursor: pointer;
+}
+.adm .hm.hm--kite .fs-chips button:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.adm .hm.hm--kite .fs-chips button[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--on-accent);
+}
+.adm .hm.hm--kite .fs-chips small {
+  font-size: var(--t-tag);
+}
+.adm .hm.hm--kite .fs-sortpick {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink-3);
+  font-size: var(--t-small);
+}
+.adm .hm.hm--kite .fs-sortpick select {
+  width: auto;
+  min-width: 164px;
+  min-height: 32px;
+  padding: 4px 28px 4px 10px;
+  border: 1px solid var(--line-2);
+  border-radius: 3px;
+  background-color: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--t-small);
+}
+
+/* ---- the tables: right-aligned figures, a hairline between rows */
+.adm .hm.hm--kite .fs-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+.adm .hm.hm--kite .fs-table :is(th, td) {
+  padding: 10px 6px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  color: var(--ink);
+  font-size: var(--t-mid);
+  font-weight: 400;
+  text-align: right;
+  vertical-align: top;
+}
+.adm .hm.hm--kite .fs-table :is(th, td):first-child {
+  padding-left: 0;
+  text-align: left;
+}
+.adm .hm.hm--kite .fs-table :is(th, td):last-child {
+  padding-right: 0;
+}
+/* the odds are words, so their column reads from the left */
+.adm .hm.hm--kite .fs-table--watch :is(th, td):last-child {
+  padding-left: 20px;
+  text-align: left;
+}
+.adm .hm.hm--kite .fs-table thead th {
+  position: static;
+  background: transparent;
+  color: var(--ink-3);
+  font-size: var(--t-tag);
+  letter-spacing: 0;
+  text-transform: none;
+  vertical-align: bottom;
+}
+.adm .hm.hm--kite .fs-table thead button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: inherit;
+  cursor: pointer;
+}
+.adm .hm.hm--kite .fs-table thead button:hover {
+  color: var(--accent);
+}
+.adm .hm.hm--kite .fs-table thead th[aria-sort] {
+  color: var(--ink);
+  font-weight: 600;
+}
+.adm .hm.hm--kite .fs-table thead i {
+  font-style: normal;
+}
+.adm .hm.hm--kite .fs-table tbody tr:hover > * {
+  background: var(--surface-2);
+}
+.adm .hm.hm--kite .fs-table tbody tr:last-child > * {
+  border-bottom: 0;
+}
+.adm .hm.hm--kite .fs-table small {
+  display: block;
+  margin-top: 2px;
+  color: var(--ink-3);
+  font-size: var(--t-tag);
+  line-height: 1.4;
+}
+.adm .hm.hm--kite .fs-table small.is-up {
+  color: var(--up);
+}
+.adm .hm.hm--kite .fs-table small.is-down {
+  color: var(--down);
+}
+.adm .hm.hm--kite .fs-table td.is-up {
+  color: var(--up);
+}
+.adm .hm.hm--kite .fs-table td.is-down {
+  color: var(--down);
+}
+.adm .hm.hm--kite .fs-table td.is-long {
+  color: var(--accent);
+}
+.adm .hm.hm--kite .fs-table td.is-short {
+  color: var(--down);
+}
+.adm .hm.hm--kite .fs-table tbody th a,
+.adm .hm.hm--kite .fs-table td.fs-strong {
+  font-weight: 600;
+}
+.adm .hm.hm--kite .fs-tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 6px;
+  border: 1px solid var(--line-2);
+  border-radius: 3px;
+  color: var(--ink-2);
+  font-style: normal;
+}
+.adm .hm.hm--kite .fs-tag.is-warn,
+.adm .hm.hm--kite .fs-flag {
+  border: 1px solid var(--warn-line);
+  border-radius: 3px;
+  background: var(--warn-bg);
+  color: var(--warn-ink);
+}
+.adm .hm.hm--kite .fs-flag {
+  display: inline-block;
+  padding: 1px 6px;
+  font-size: var(--t-tag);
+}
+.adm .hm.hm--kite .fs-book {
+  width: 64px;
+  margin: 5px 0 0 auto;
+  background: color-mix(in srgb, var(--down) 55%, var(--surface));
+}
+.adm .hm.hm--kite .fs-book i {
+  background: var(--up);
+}
+.adm .hm.hm--kite .fs-odds {
+  display: inline-grid;
+  grid-template-columns: 22px minmax(0, auto);
+  align-items: start;
+  gap: 8px;
+  text-align: left;
+}
+.adm .hm.hm--kite .fs-odds > i {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--line-2);
+  border-radius: 3px;
+  color: var(--ink-2);
+  font-size: var(--t-tag);
+  font-style: normal;
+  font-weight: 700;
+}
+.adm .hm.hm--kite .fs-odds > i.is-A,
+.adm .hm.hm--kite .fs-odds > i.is-B {
+  border-color: var(--up);
+  color: var(--up);
+}
+
+/* where the table has no room, each stock is a card: its name across the top, the figures in a grid under it */
+@container (max-width: 1080px) {
+  .adm .hm.hm--kite .fs-table,
+  .adm .hm.hm--kite .fs-table tbody {
+    display: block;
+  }
+  .adm .hm.hm--kite .fs-table thead {
+    display: none;
+  }
+  .adm .hm.hm--kite .fs-table tbody tr {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+    gap: 12px 14px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .adm .hm.hm--kite .fs-table tbody tr:last-child {
+    border-bottom: 0;
+  }
+  .adm .hm.hm--kite .fs-table tbody tr > * {
+    display: block;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    text-align: left;
+  }
+  .adm .hm.hm--kite .fs-table tbody tr > th {
+    grid-column: 1 / -1;
+  }
+  .adm .hm.hm--kite .fs-table tbody tr > th > a {
+    font-size: var(--t-base);
+  }
+  .adm .hm.hm--kite .fs-table tbody tr > th small {
+    display: inline;
+    margin-left: 10px;
+  }
+  .adm .hm.hm--kite .fs-table td::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 2px;
+    color: var(--ink-3);
+    font-size: var(--t-tag);
+  }
+  .adm .hm.hm--kite .fs-range--small,
+  .adm .hm.hm--kite .fs-book {
+    margin-left: 0;
+  }
+}
+/* the sort list is for the cards; the wide table sorts by its headings, and keeps the list too */
+@media (max-width: 559.98px) {
+  .adm .hm.hm--kite .fs-box {
+    padding: 14px 12px 16px;
+  }
+  .adm .hm.hm--kite .fs-idx ul {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .adm .hm.hm--kite .fs-cell {
+    padding: 11px 10px;
+  }
+  .adm .hm.hm--kite .fs-cell__v {
+    font-size: 1.25rem;
+  }
+  .adm .hm.hm--kite .fs-cell:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+  .adm .hm.hm--kite .fs-table tbody tr {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .adm .hm.hm--kite .hm-now .hm-pc {
+    flex-basis: 140px;
+  }
+}
+@media (min-width: 560px) and (max-width: 999.98px) {
+  .adm .hm.hm--kite .fs-idx ul {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+  .adm .hm.hm--kite .fs-cell {
+    grid-column: span 2;
+  }
+  .adm .hm.hm--kite .fs-cell:nth-child(n + 4) {
+    grid-column: span 3;
+  }
+}
