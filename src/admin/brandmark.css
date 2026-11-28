@@ -80,3 +80,31 @@
     display: none;
   }
 }
+
+/* the logo is ruby and gold since 28 Nov 2026 (public/drishti-logo.svg): its circle takes a soft gold, not the accent blue */
+.vk-brand__mark {
+  background: color-mix(in srgb, #c8962e 22%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #c8962e 45%, var(--line-2, var(--line)));
+}
+
+/* The name and the line under it take the logo's colours (28 Nov 2026, the owner's wish, from his own chart's favourable
+   colours): ruby for the name, saffron for "AI", deep gold for the line. On the dark theme the same family, lifted to read:
+   sandal for the name, gold for "AI", saffron for the line. Every pair reads at 4.5:1 or more on its background. */
+.adm .vk-brand__word {
+  color: #7a1f2b;
+}
+.adm .vk-brand__word b {
+  color: #b45309;
+}
+.adm .vk-brand__name small {
+  color: #8a6414;
+}
+.adm[data-desk="dark"] .vk-brand__word {
+  color: #f3e7d2;
+}
+.adm[data-desk="dark"] .vk-brand__word b {
+  color: #f0c56a;
+}
+.adm[data-desk="dark"] .vk-brand__name small {
+  color: #e8935a;
+}

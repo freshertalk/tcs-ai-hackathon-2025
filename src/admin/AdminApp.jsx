@@ -73,10 +73,10 @@ import "./ux/kite-pages.css"; // every workspace in Kite's layout (27 Nov 2026):
 // site's own link tags are put aside while this area is open and put back when it is left. (A page loaded straight
 // from /me already carries these in its own head: see scripts/prerender.js.)
 const PRIVATE_ICONS = [
-  ["icon", "any", "/drishti-logo.svg", "image/svg+xml"],
-  ["icon", "192x192", "/drishti-192.png"],
-  ["icon", "512x512", "/drishti-512.png"],
-  ["apple-touch-icon", "180x180", "/drishti-apple-touch.png"],
+  ["icon", "any", "/drishti-logo.svg?v=2", "image/svg+xml"],
+  ["icon", "192x192", "/drishti-192.png?v=2"],
+  ["icon", "512x512", "/drishti-512.png?v=2"],
+  ["apple-touch-icon", "180x180", "/drishti-apple-touch.png?v=2"],
 ];
 function usePrivateFavicon() {
   useEffect(() => {

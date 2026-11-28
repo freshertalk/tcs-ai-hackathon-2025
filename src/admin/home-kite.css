@@ -608,3 +608,8 @@
     transition: none;
   }
 }
+
+/* the logo beside the greeting wears a soft gold halo, matching the ruby-and-gold logo (28 Nov 2026) */
+.adm .hm.hm--kite .hm-top .hm-me__art {
+  box-shadow: 0 0 0 1px color-mix(in srgb, #c8962e 45%, var(--line)), 0 0 0 5px color-mix(in srgb, #c8962e 16%, transparent);
+}

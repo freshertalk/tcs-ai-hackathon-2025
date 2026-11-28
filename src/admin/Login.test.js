@@ -365,7 +365,7 @@ test("Create account is not offered when no mail server is set up", async () => 
 
 test("the Kite-style door keeps DrishtiAI's own mark, says it is not Zerodha, and gives every field a floating label", async () => {
   const { container } = render(door().ui);
-  expect(container.querySelector(".gate__badge img").getAttribute("src")).toBe("/drishti-logo.svg");
+  expect(container.querySelector(".gate__badge img").getAttribute("src")).toBe("/drishti-logo.svg?v=2");
   expect(container.querySelector(".gate__brand span").textContent).toBe("Privately owned by Vinay Kumar Tiwari. For personal use only.");
   expect(container.querySelector(".gate__notice p").textContent.replace(/ /g, " ")).toBe("Namaste, and thank you for visiting. This is a personal workspace of Vinay Kumar Tiwari, not a public service. If you have reached it by chance, please do not try to enter — you are most welcome on the public website instead.");
   expect(container.innerHTML).not.toMatch(/zerodha[^"]*\.(svg|png)|kite[^"]*\.(svg|png)/i); // none of Zerodha's artwork

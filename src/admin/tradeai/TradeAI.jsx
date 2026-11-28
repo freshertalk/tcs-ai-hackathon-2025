@@ -10,6 +10,7 @@
 // likely to ask now (your open positions first); every answer ends with related questions.
 
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { LOGO_SRC } from "../DrishtiLogo";
 import { api } from "../api";
 import { useAuth } from "../auth";
 import { useDialog } from "../dialog/DialogProvider";
@@ -543,7 +544,7 @@ function Answer({ m, fresh, last, onAsk, onRetry, busy }) {
   const conf = { low: 1, medium: 2, high: 3 }[r.confidence] || 1;
   return (
     <article className={`tai-msg tai-msg--ai ${fresh ? "is-fresh" : ""}`}>
-      <img className="tai-avatar" src="/drishti-logo.svg" alt="" width="30" height="30" />
+      <img className="tai-avatar" src={LOGO_SRC} alt="" width="30" height="30" />
       <div className="tai-ans">
         <Process meta={meta} />
         <Markdown text={done ? text : text.slice(0, n)} className={done ? "" : "is-typing"} />
@@ -706,7 +707,7 @@ function Working({ job }) {
   const route = job.route;
   return (
     <article className="tai-msg tai-msg--ai is-working" aria-live="polite">
-      <img className="tai-avatar is-spin" src="/drishti-logo.svg" alt="" width="30" height="30" />
+      <img className="tai-avatar is-spin" src={LOGO_SRC} alt="" width="30" height="30" />
       <div className="tai-ans">
         <p className="tai-shimmer">
           {now}
@@ -1338,7 +1339,7 @@ export default function TradeAI() {
             {!conv ? (
               <div className="tai-welcome">
                 <div className="tai-mark" aria-hidden="true">
-                  <img src="/drishti-logo.svg" alt="" width="64" height="64" />
+                  <img src={LOGO_SRC} alt="" width="64" height="64" />
                 </div>
                 <h1>
                   {greeting()}, {firstName(user)}

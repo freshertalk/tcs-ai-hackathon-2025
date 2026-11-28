@@ -10,12 +10,12 @@ Trading, Telegram alerts, the Mandir, the Document — is called **DrishtiAI**.
 | With its line | **DrishtiAI — the AI Trading Advisor for NSE** (an em dash with a space on each side) |
 | Short header (narrow screens) | **DrishtiAI — AI Trading Advisor**, then **DrishtiAI** |
 | Meaning | Drishti (दृष्टि) means “sight” |
-| Logo | An eye (drishti = sight) whose pupil is a rising price line, on its own dark-blue round badge: `public/drishti-logo.svg` — ONE drawing, used everywhere in the trading area through `src/admin/DrishtiLogo.jsx`. Since 20 Nov 2026 it replaces the owner's photo there |
-| Brand in a header | the logo, **DrishtiAI** (the “AI” in the accent colour) and under it the small spaced line **AI Trading Advisor** (`src/admin/BrandMark.jsx`, the line is `BRAND.line`); on a phone the logo alone |
+| Logo | The sun's eye: an eye (drishti = sight) inside a sun of twelve rays, whose pupil is a rising price line, on its own ruby round badge with a gold rim (ruby #7a1f2b, copper #8a3c08, gold #e9b44c/#c8962e; since 28 Nov 2026, chosen by the owner's wish from his own chart's favourable colours; before it, a dark-blue badge): `public/drishti-logo.svg` — ONE drawing, used everywhere in the trading area through `src/admin/DrishtiLogo.jsx`. Since 20 Nov 2026 it replaces the owner's photo there |
+| Brand in a header | the logo, **DrishtiAI** (since 28 Nov 2026 in the logo's colours: light theme name ruby #7a1f2b, “AI” saffron #b45309, line gold #8a6414; dark theme name sandal #f3e7d2, “AI” gold #f0c56a, line saffron #e8935a; `brandmark.css`) and under it the small spaced line **AI Trading Advisor** (`src/admin/BrandMark.jsx`, the line is `BRAND.line`); on a phone the logo alone |
 | Where the logo appears | the header of every private page, the terminal's top bar, the dashboard's side column, TradeAI's mark and avatar, the tab icon, the link previews |
 | Favicon (private area) | `drishti-logo.svg` with PNG copies `drishti-192.png`, `drishti-512.png`, `drishti-apple-touch.png` (and `drishti-32.png`); set in `src/admin/AdminApp.jsx` and `scripts/prerender.js` |
 | Link previews (private area) | `public/img/og/<page>.png`, the logo beside the page name, drawn by `scripts/og-images.js` from `drishti-512.png` |
-| After changing the logo | redraw the PNG copies from the SVG (any browser or image tool; 32, 192, 512 px round, and 180 px on a square of `#0c1c3e` for Apple), then run `node scripts/og-images.js` |
+| After changing the logo | redraw the PNG copies from the SVG (any browser or image tool; 32, 192, 512 px round, and 180 px on a square of `#4c111b` for Apple), then run `node scripts/og-images.js` |
 | Browser tab | `DrishtiAI` |
 | Files it names | `DrishtiAI-complete-guide.docx`, `DrishtiAI-AI-Engine.docx` |
 
