@@ -1043,7 +1043,7 @@
   }
   /* a workspace arriving */
   .tm-work > * {
-    animation: tm-in 0.22s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+    animation: tm-in 0.22s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
   }
   /* dialogs, the ticket, the palette, menus */
   .tm ~ .tr-modal,
@@ -1085,7 +1085,7 @@
   }
   /* tabs inside a stock: the panel under them arrives the same way */
   .tm [role="tabpanel"] {
-    animation: tm-in 0.2s ease both;
+    animation: tm-in 0.2s ease backwards;
   }
 }
 .tm {

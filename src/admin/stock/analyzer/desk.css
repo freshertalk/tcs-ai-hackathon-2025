@@ -256,7 +256,7 @@
   outline-offset: 2px;
 }
 .an.dk .ab.is-open > :not(.ab-bar) {
-  animation: dk-in 0.24s var(--dk-ease) both;
+  animation: dk-in 0.24s var(--dk-ease) backwards;
 }
 /* the bar sizes itself by its own width, not the window's: it sits in columns of every width */
 @container (max-width: 760px) {
@@ -341,7 +341,7 @@
 /* a section fades in when its tab opens */
 .an.dk .sv__body > [role="tabpanel"] {
   min-width: 0;
-  animation: dk-in 0.22s var(--dk-ease) both;
+  animation: dk-in 0.22s var(--dk-ease) backwards;
 }
 .an.dk .sv__body > [role="tabpanel"] > .an-card:first-child {
   margin-top: 0;

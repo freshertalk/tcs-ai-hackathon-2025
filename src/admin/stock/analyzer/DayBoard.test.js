@@ -122,7 +122,10 @@ test("not connected: the button says what to do, and the dialog opens by itself 
   expect(screen.getByText("Get a Kite Connect API key")).toBeTruthy();
 });
 
-test("the result of a Kite login opens the dialog with its message", () => {
+test("a failed Kite login opens the dialog with its message; a successful one leaves the Desk clear (28 Nov 2026)", () => {
+  const first = render(panel(status(), { flash: { kind: "error", text: "The Kite login did not complete." } }));
+  expect(screen.getByRole("dialog").textContent).toMatch(/did not complete/);
+  first.unmount();
   render(panel(status(), { flash: { kind: "ok", text: "Zerodha connected. Live data is on until 6 AM tomorrow." } }));
-  expect(screen.getByRole("dialog").textContent).toMatch(/Zerodha connected/);
+  expect(screen.queryByRole("dialog")).toBeNull();
 });

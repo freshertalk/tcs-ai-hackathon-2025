@@ -1,8 +1,10 @@
 import React, { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import "./conn.css";
 import { api } from "../../api";
 import { Alert, CopyBox, Field } from "../../ui";
 import { when } from "./format";
+import { snack } from "../../ux/snack";
 
 /**
  * Where the prices come from — kept out of the way: a very small status button at the left of the desk's top row, and
@@ -12,12 +14,28 @@ import { when } from "./format";
  *   not set up     instructions + the form
  * Demo data can be switched on at any time before Zerodha is connected.
  */
+/* The dialog is drawn at the private area's root (the .adm element), not inside the Desk: a page that is still easing in
+   (or any card with a transform) would otherwise hold a "fixed" dialog inside itself — after a Kite login that left the
+   whole Desk dimmed with the dialog thousands of pixels down, out of sight (28 Nov 2026). */
+function lift(node, root) {
+  return root ? createPortal(node, root) : node;
+}
+
 export default function ConnectPanel({ status, flash, onStatus, startOpen }) {
   const k = status.kite;
   // the dialog opens by itself only when there is something to act on: nothing set up yet, or the result of a Kite login
-  const [dlg, setDlg] = useState(Boolean(startOpen) || Boolean(flash));
+  // since 28 Nov 2026 a SUCCESSFUL login leaves the Desk clear: the good news is a short note at the bottom, not a dialog
+  // over the page (the dialog still opens for a failed login, where the reason must be read, and on the button any time)
+  const [dlg, setDlg] = useState(Boolean(startOpen) || Boolean(flash && flash.kind !== "ok"));
+  useEffect(() => {
+    if (flash && flash.kind === "ok") snack(flash.text, { tone: "ok", key: "kite-login", ms: 6000 });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const [open, setOpen] = useState(Boolean(startOpen)); // the setup steps inside it
   const back = useRef(null);
+  const [root, setRoot] = useState(null); // where the dialog is drawn: the .adm root, found once the button is on the page
+  useEffect(() => {
+    setRoot((back.current && back.current.closest(".adm")) || null);
+  }, []);
   const [apiKey, setApiKey] = useState("");
   const [apiSecret, setApiSecret] = useState("");
   const [msg, setMsg] = useState({ kind: "", text: "" });
@@ -95,7 +113,8 @@ export default function ConnectPanel({ status, flash, onStatus, startOpen }) {
         {status.mode !== "kite" && <span>{label}</span>}
       </button>
 
-      {dlg && (
+      {dlg &&
+        lift(
         <div className="tr-modal conn-modal" onMouseDown={(e) => e.target === e.currentTarget && close()}>
           <section ref={box} tabIndex={-1} className={`tr-dialog conn-dlg ${dot ? `conn-dlg--${dot.slice(3)}` : ""}`} role="dialog" aria-modal="true" aria-labelledby="conn-dlg-h" aria-label="Market data connection">
             <header className="conn-dlg__head">
@@ -208,7 +227,8 @@ export default function ConnectPanel({ status, flash, onStatus, startOpen }) {
         </div>
       )}
           </section>
-        </div>
+        </div>,
+        root
       )}
     </>
   );

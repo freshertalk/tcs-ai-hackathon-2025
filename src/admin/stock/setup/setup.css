@@ -289,3 +289,346 @@
 .ts-chips .ts-sym {
   color: var(--warn-ink, var(--ink));
 }
+
+/* ==========================================================================
+   28 Nov 2026 — Trade setup in Kite's look (the owner: "while maintain kite theme redesign this Trade setup page with best
+   way"; "banned stocks representations should be in some other best way"). Added after the rules above; tokens only.
+   ========================================================================== */
+
+/* cards side by side keep their own height: a short card (the ban list) no longer stretches to its neighbour */
+.ts-two {
+  align-items: start;
+  gap: 16px;
+}
+
+/* ---- the first-sight panel: one hairline row of six readings */
+.ts-glance {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  margin: 0 0 16px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+}
+.ts-glance.is-up {
+  box-shadow: inset 3px 0 0 var(--up);
+}
+.ts-glance.is-down {
+  box-shadow: inset 3px 0 0 var(--down);
+}
+.ts-g {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  min-width: 0;
+  padding: 16px 18px;
+  border-left: 1px solid var(--line);
+}
+.ts-g:first-child {
+  border-left: 0;
+}
+.ts-g > small {
+  color: var(--ink-3);
+  font-size: var(--t-small);
+}
+.ts-g > b {
+  color: var(--ink);
+  font-size: 1.25rem;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+.ts-g > span {
+  color: var(--ink-2);
+  font-size: var(--t-small);
+  overflow-wrap: break-word;
+}
+.ts-g .is-up {
+  color: var(--up-ink, var(--up));
+}
+.ts-g .is-down {
+  color: var(--down-ink, var(--down));
+}
+.ts-g__lv {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 1px 8px;
+  font-variant-numeric: tabular-nums;
+}
+.ts-g__lv em,
+.ts-g__pairs em {
+  color: var(--ink-3);
+  font-style: normal;
+}
+.ts-g__pairs {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 2px 8px;
+  align-items: baseline;
+  font-variant-numeric: tabular-nums;
+}
+.ts-g__pairs b {
+  color: var(--ink);
+  font-weight: 600;
+}
+.ts-g__pairs--2 {
+  grid-template-columns: auto minmax(0, 1fr);
+}
+.ts-g--ban > b {
+  color: var(--down-ink, var(--down));
+}
+/* the lean as a needle on a bear–bull line */
+.ts-meter {
+  position: relative;
+  display: block;
+  height: 4px;
+  margin-top: 6px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--down) 55%, var(--surface)), var(--line) 50%, color-mix(in srgb, var(--up) 55%, var(--surface)));
+}
+.ts-meter i {
+  position: absolute;
+  top: -4px;
+  width: 3px;
+  height: 12px;
+  margin-left: -1.5px;
+  border-radius: 2px;
+  background: var(--ink);
+}
+/* the four build-ups as one split bar */
+.ts-breadth {
+  display: flex;
+  gap: 2px;
+  height: 6px;
+  margin: 4px 0 2px;
+  overflow: hidden;
+  border-radius: 3px;
+}
+.ts-breadth i {
+  flex-basis: 0;
+  min-width: 2px;
+}
+.ts-breadth i.is-up {
+  background: var(--up);
+}
+.ts-breadth i.is-down {
+  background: var(--down);
+}
+.ts-breadth i.is-soft {
+  opacity: 0.5;
+}
+@media (max-width: 1279px) {
+  .ts-glance {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .ts-g:nth-child(4) {
+    border-left: 0;
+  }
+  .ts-g:nth-child(n + 4) {
+    border-top: 1px solid var(--line);
+  }
+}
+@media (max-width: 640px) {
+  .ts-glance {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .ts-g {
+    padding: 12px 14px;
+  }
+  .ts-g:nth-child(odd) {
+    border-left: 0;
+  }
+  .ts-g:nth-child(4) {
+    border-left: 1px solid var(--line);
+  }
+  .ts-g:nth-child(n + 3) {
+    border-top: 1px solid var(--line);
+  }
+}
+
+/* ---- the price between S3 and R3 */
+.ts-bar {
+  margin: 6px 0 4px;
+}
+.ts-bar__track {
+  position: relative;
+  height: 6px;
+  margin: 0 8px;
+  border-radius: 3px;
+  background: var(--surface-2);
+}
+.ts-bar__fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--up) 45%, transparent);
+}
+.ts-bar__fill[data-side="down"] {
+  background: color-mix(in srgb, var(--down) 45%, transparent);
+}
+.ts-bar__tick {
+  position: absolute;
+  top: -2px;
+  width: 1px;
+  height: 10px;
+  background: var(--line-2, var(--ink-3));
+}
+.ts-bar__tick.is-p {
+  width: 2px;
+  margin-left: -0.5px;
+  background: var(--ink-2);
+}
+.ts-bar__dot {
+  position: absolute;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  margin: -6px 0 0 -6px;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  background: var(--up);
+  box-shadow: 0 0 0 1px var(--up);
+}
+.ts-bar__dot[data-side="down"] {
+  background: var(--down);
+  box-shadow: 0 0 0 1px var(--down);
+}
+.ts-bar__keys {
+  position: relative;
+  height: 16px;
+  margin: 4px 8px 0;
+  color: var(--ink-3);
+  font-size: var(--t-small);
+}
+.ts-bar__keys span {
+  position: absolute;
+  transform: translateX(-50%);
+  line-height: 16px;
+}
+
+/* ---- the F&O ban: one row a stock */
+.ts-chips.ts-ban {
+  display: grid;
+  gap: 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.ts-chips.ts-ban li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 4px 14px;
+  align-items: center;
+  padding: 12px 14px;
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+  background: none;
+}
+.ts-chips.ts-ban li:first-child {
+  border-top: 0;
+}
+.ts-ban__tag {
+  padding: 2px 7px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--down) 12%, var(--surface));
+  color: var(--down-ink, var(--down));
+  font-size: var(--t-small);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+.ts-ban__name {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.ts-chips.ts-ban .ts-sym {
+  color: var(--ink);
+  font-weight: 600;
+}
+.ts-chips.ts-ban .ts-sym:hover,
+.ts-chips.ts-ban .ts-sym:focus-visible {
+  color: var(--accent);
+}
+.ts-ban__name small {
+  color: var(--ink-2);
+  font-size: var(--t-small);
+  overflow-wrap: break-word;
+}
+.ts-ban__name small .is-up {
+  color: var(--up-ink, var(--up));
+}
+.ts-ban__name small .is-down {
+  color: var(--down-ink, var(--down));
+}
+.ts-ban__rule {
+  color: var(--ink-3);
+  font-size: var(--t-small);
+  text-align: right;
+}
+@media (max-width: 520px) {
+  .ts-chips.ts-ban li {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .ts-ban__rule {
+    grid-column: 2;
+    text-align: left;
+  }
+}
+.ts-ban__none {
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--ink-2);
+}
+.ts-ban__note {
+  margin: 12px 0 0;
+  line-height: 1.55;
+}
+
+/* ---- the rest in Kite's quiet manner: hairlines, no fills, light figures */
+.tm-page[data-view="setup"] :is(.ts-tile, .ts-opt, .ts-build, .ts-leanbox) {
+  border-radius: 6px;
+  background: var(--surface);
+}
+.tm-page[data-view="setup"] :is(.ts-tile, .ts-leanbox) small {
+  font-size: var(--t-small);
+  letter-spacing: 0;
+  text-transform: none;
+}
+.tm-page[data-view="setup"] :is(.ts-tile, .ts-leanbox) b {
+  font-weight: 400;
+}
+.tm-page[data-view="setup"] :is(.ts-tile, .ts-opt, .ts-build) {
+  padding: 14px 16px;
+}
+.tm-page[data-view="setup"] :is(.ts-four, .ts-tiles, .ts-builds) {
+  gap: 12px;
+}
+.tm-page[data-view="setup"] .ts-build.is-up,
+.tm-page[data-view="setup"] .ts-build.is-down {
+  border-top-width: 2px;
+}
+.tm-page[data-view="setup"] .ts-build li {
+  padding: 4px 0;
+  border-bottom: 1px solid var(--line);
+}
+.tm-page[data-view="setup"] .ts-build li:last-child {
+  border-bottom: 0;
+}
+.tm-page[data-view="setup"] .ts-ladder li {
+  padding: 5px 10px;
+  border-radius: 4px;
+}
+.tm-page[data-view="setup"] .ts-table th,
+.tm-page[data-view="setup"] .ts-table td {
+  padding: 10px 8px;
+}
+.tm-page[data-view="setup"] .ts-table th {
+  font-weight: 400;
+}
+.tm-page[data-view="setup"] .ts-votes li {
+  padding: 4px 0;
+}

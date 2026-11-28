@@ -56,7 +56,15 @@ test("the fifteen readings and the lean, each in its own section; a stock opens 
   expect(container.querySelector(".ts-builds").textContent).toMatch(/Long build-up 55/);
   expect(container.querySelector(".ts-builds").textContent).toMatch(/Short covering 73/);
   expect(container.textContent).toMatch(/HDFCBANK68\.2%1\.6×\+1\.10%/);
-  expect(container.querySelector(".ts-chips").textContent).toBe("MANAPPURAM");
+  // the ban as rows since 28 Nov 2026: a BAN tag, the stock (it opens on the Desk) and what the ban allows
+  const ban = screen.getByRole("list", { name: "Stocks in the F&O ban" });
+  expect(ban.textContent).toMatch(/BANMANAPPURAM/);
+  expect(ban.textContent).toMatch(/F&O: reduce only · Cash: open/);
+  // the first-sight panel: the lean, both indices against their levels, the flows, the breadth and the ban
+  const glance = screen.getByRole("region", { name: "At a glance" });
+  expect(glance.textContent).toMatch(/NIFTY 5026,300▲ above pivot 26,200/);
+  expect(glance.textContent).toMatch(/Support R1 26,300Resistance R2 26,400/);
+  expect(glance.textContent).toMatch(/F&O ban1 stockMANAPPURAM/);
   fireEvent.click(screen.getByRole("button", { name: "ABB" }));
   expect(opened).toHaveBeenCalledWith("ABB");
   fireEvent.click(screen.getByRole("button", { name: "Last session" }));

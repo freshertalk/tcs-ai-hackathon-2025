@@ -179,7 +179,7 @@
 
 /* ------------------------------------------------------------------ 3. the gentle rise when a workspace opens */
 .adm .tm-work :is(.an-card, .sr-card, .ta-card, .hz, .ir-world, .zp-card, .zp-sum) {
-  animation: lk-rise 0.42s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation: lk-rise 0.42s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
 }
 .adm .tm-work :is(.an-card, .sr-card, .ta-card, .hz):nth-of-type(2) {
   animation-delay: 0.04s;
